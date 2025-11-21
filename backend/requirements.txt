@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+yfinance
+python-dotenv
+httpx
+pytest
+google-genai

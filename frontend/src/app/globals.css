@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-inter);
+
+  --color-background: #0a0a0a;
+  --color-foreground: #ededed;
+
+  --color-card: #171717;
+  --color-card-foreground: #ededed;
+
+  --color-popover: #171717;
+  --color-popover-foreground: #ededed;
+
+  --color-primary: #ededed;
+  --color-primary-foreground: #171717;
+
+  --color-secondary: #262626;
+  --color-secondary-foreground: #ededed;
+
+  --color-muted: #262626;
+  --color-muted-foreground: #a3a3a3;
+
+  --color-accent: #262626;
+  --color-accent-foreground: #ededed;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ededed;
+
+  --color-border: #262626;
+  --color-input: #262626;
+  --color-ring: #d4d4d4;
+
+  --radius: 0.75rem;
+}
+
+:root {
+  --foreground-rgb: 15, 23, 42;
+  /* Dark Mode Financial Terminal Theme */
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl;
+  }
+
+  .bento-card {
+    @apply bg-card text-card-foreground rounded-xl border border-border shadow-sm transition-all hover:shadow-md;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
