@@ -1,46 +1,37 @@
+from dotenv import load_dotenv
+load_dotenv()  # Load .env before importing agents
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from app.services.agent_service import AgentService
-from app.services.stock_service import StockDataService
-from app.models.request_models import AnalyzeRequest, AnalyzeResponse
+from app.agents.macro_agent import MacroAgent
+from app.models.request_models import MacroData
 
-app = FastAPI(title="Stock Research Agent API")
+app = FastAPI(title="Macro Analysis API")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize services
-agent_service = AgentService()
+# Initialize macro agent
+macro_agent = MacroAgent()
 
 @app.get("/")
 async def root():
-    return {"message": "Stock Research Agent API is running"}
+    return {"message": "Macro Analysis API is running"}
 
-@app.get("/api/stock/{ticker}")
-async def get_stock_info(ticker: str):
-    info = StockDataService.get_stock_info(ticker)
-    if not info:
-        raise HTTPException(status_code=404, detail="Stock not found")
-    return info
-
-@app.post("/api/analyze", response_model=AnalyzeResponse)
-async def analyze_stock(request: AnalyzeRequest):
+@app.post("/api/macro", response_model=MacroData)
+async def analyze_macro():
     try:
-        # Extract ticker from request if needed, or use the explicit ticker field
-        result = await agent_service.analyze_multidimensional(request.ticker)
-        return AnalyzeResponse(**result)
+        result = await macro_agent.analyze()
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to generate macro analysis")
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/trending")
-async def get_trending():
-    try:
-        return StockDataService.get_trending_stocks()
-    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

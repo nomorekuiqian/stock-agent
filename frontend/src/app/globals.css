@@ -60,6 +60,14 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
 }
 
 @keyframes fade-in-up {
@@ -76,4 +84,13 @@ body {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.6s ease-out forwards;
+}
+
+/* Animation Delays for Loading Indicators */
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
 }
