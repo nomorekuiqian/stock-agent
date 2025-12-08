@@ -36,7 +36,8 @@
       "Bash(source ../venv/bin/activate)",
       "Bash(kill:*)",
       "Bash(pip freeze:*)",
-      "Bash(du:*)"
+      "Bash(du:*)",
+      "Bash(npm install)"
     ],
     "deny": [],
     "ask": []
