@@ -23,7 +23,18 @@
       "Bash(npm view:*)",
       "WebFetch(domain:medium.com)",
       "Bash(pgrep:*)",
-      "mcp__puppeteer__puppeteer_navigate"
+      "mcp__puppeteer__puppeteer_navigate",
+      "mcp__context7__get-library-docs",
+      "Bash(mkdir:*)",
+      "mcp__context7__resolve-library-id",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(gcloud services enable:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "Bash(source ../venv/bin/activate)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []
