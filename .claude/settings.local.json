@@ -34,7 +34,8 @@
       "Bash(brew install:*)",
       "WebFetch(domain:docs.cloud.google.com)",
       "Bash(source ../venv/bin/activate)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(pip freeze:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,33 @@
+name: Daily Market Report
+
+on:
+  schedule:
+    # Run at 6:00 AM UTC (adjust for your timezone)
+    # For US Eastern: 6 AM UTC = 1 AM EST / 2 AM EDT
+    # For China: 6 AM UTC = 2 PM CST
+    - cron: '0 6 * * 1-5'  # Monday to Friday only (market days)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Daily Market Report
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/report/send")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Failed to send report"
+            exit 1
+          fi
+
+          echo "Daily report sent successfully!"

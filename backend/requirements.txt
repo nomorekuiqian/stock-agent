@@ -1,7 +1,8 @@
 fastapi
-uvicorn
-yfinance
-python-dotenv
+google-genai
 httpx
 pytest
-google-genai
+python-dotenv
+resend==2.19.0
+uvicorn
+yfinance
