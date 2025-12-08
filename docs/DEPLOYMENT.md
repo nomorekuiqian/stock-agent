@@ -23,7 +23,7 @@
 
 1. Go to [railway.app](https://railway.app) and create an account
 2. Create a new project → Deploy from GitHub repo
-3. Select the `backend` folder as root directory
+3. Select your repo (Railway will auto-detect `railway.toml` config)
 4. Add environment variables:
 
    ```
