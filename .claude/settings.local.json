@@ -35,7 +35,8 @@
       "WebFetch(domain:docs.cloud.google.com)",
       "Bash(source ../venv/bin/activate)",
       "Bash(kill:*)",
-      "Bash(pip freeze:*)"
+      "Bash(pip freeze:*)",
+      "Bash(du:*)"
     ],
     "deny": [],
     "ask": []

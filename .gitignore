@@ -40,6 +40,7 @@ htmlcov/
 
 # Node (covered by frontend/.gitignore but listed for clarity)
 node_modules/
+.next/
 
 # Logs
 *.log
