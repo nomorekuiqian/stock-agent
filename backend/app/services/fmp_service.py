@@ -1,16 +1,15 @@
 """
 FMP (Financial Modeling Prep) API Service
-提供宏观经济数据接口
 """
 
 import os
 import httpx
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class FMPService:
-    """Financial Modeling Prep API 服务"""
+    """Financial Modeling Prep API"""
 
     BASE_URL = "https://financialmodelingprep.com"
 
@@ -20,7 +19,7 @@ class FMPService:
             raise ValueError("FMP_API_KEY environment variable is required")
 
     def _request(self, endpoint: str, params: dict = None) -> dict | list | None:
-        """发送同步 API 请求"""
+        """Send synchronous API request"""
         params = params or {}
         params["apikey"] = self.api_key
 
@@ -39,16 +38,12 @@ class FMPService:
             print(f"FMP API unexpected error: {e}")
             return None
 
-    # =========================================================================
-    # Treasury Rates
-    # =========================================================================
-
     def get_treasury_rates(self, date: Optional[str] = None) -> dict:
         """
-        获取完整国债收益率曲线 (12 个期限)
+        Get complete treasury yield curve (12 maturities)
 
         Args:
-            date: 可选，指定日期 (YYYY-MM-DD)，默认最新
+            date: Optional, specify date (YYYY-MM-DD), defaults to latest
 
         Returns:
             {
@@ -68,7 +63,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print("🔧 [FMP] get_treasury_rates()")
+        print("[FMP] get_treasury_rates()")
 
         params = {}
         if date:
@@ -77,12 +72,11 @@ class FMPService:
         data = self._request("/stable/treasury-rates", params)
 
         if not data or not isinstance(data, list) or len(data) == 0:
-            print("⚠️ FMP Treasury Rates API 返回空数据")
+            print("FMP Treasury Rates API returned empty data")
             return self._empty_treasury_response()
 
         raw = data[0]
 
-        # 标准化字段映射
         rates = {
             "1M": self._safe_float(raw.get("month1")),
             "2M": self._safe_float(raw.get("month2")),
@@ -98,10 +92,7 @@ class FMPService:
             "30Y": self._safe_float(raw.get("year30")),
         }
 
-        # 计算利差
         spreads = self._calculate_spreads(rates)
-
-        # 判断曲线形态
         yield_curve_shape = self._analyze_yield_curve_shape(rates)
 
         return {
@@ -113,22 +104,22 @@ class FMPService:
         }
 
     def _calculate_spreads(self, rates: dict) -> dict:
-        """计算关键利差"""
+        """Calculate key spreads"""
         spreads = {}
 
-        # 10Y - 3M (最重要的衰退指标)
+        # 10Y - 3M (most important recession indicator)
         if rates.get("10Y") and rates.get("3M"):
             spreads["10y_3m"] = round(rates["10Y"] - rates["3M"], 3)
 
-        # 10Y - 2Y (另一个重要衰退指标)
+        # 10Y - 2Y (another important recession indicator)
         if rates.get("10Y") and rates.get("2Y"):
             spreads["10y_2y"] = round(rates["10Y"] - rates["2Y"], 3)
 
-        # 30Y - 10Y (长端斜率)
+        # 30Y - 10Y (long-end slope)
         if rates.get("30Y") and rates.get("10Y"):
             spreads["30y_10y"] = round(rates["30Y"] - rates["10Y"], 3)
 
-        # 5Y - 3M (中短端)
+        # 5Y - 3M (mid-short end)
         if rates.get("5Y") and rates.get("3M"):
             spreads["5y_3m"] = round(rates["5Y"] - rates["3M"], 3)
 
@@ -136,15 +127,14 @@ class FMPService:
 
     def _analyze_yield_curve_shape(self, rates: dict) -> str:
         """
-        分析收益率曲线形态
+        Analyze yield curve shape
 
         Returns:
-            "normal": 正常 (短端 < 长端)
-            "flat": 平坦 (短端 ≈ 长端)
-            "inverted": 倒挂 (短端 > 长端)
+            "normal": Normal (short < long)
+            "flat": Flat (short ~ long)
+            "inverted": Inverted (short > long)
         """
         short = rates.get("3M", 0) or 0
-        medium = rates.get("2Y", 0) or 0
         long = rates.get("10Y", 0) or 0
 
         if short == 0 or long == 0:
@@ -152,15 +142,15 @@ class FMPService:
 
         diff = long - short
 
-        if diff < -0.1:  # 10Y 比 3M 低 10bp 以上
+        if diff < -0.1:  # 10Y more than 10bp below 3M
             return "inverted"
-        elif diff < 0.5:  # 差值小于 50bp
+        elif diff < 0.5:  # Spread less than 50bp
             return "flat"
         else:
             return "normal"
 
     def _safe_float(self, value, default=None) -> float | None:
-        """安全转换为 float"""
+        """Safely convert to float"""
         if value is None:
             return default
         try:
@@ -170,7 +160,7 @@ class FMPService:
             return default
 
     def _empty_treasury_response(self) -> dict:
-        """返回空的 treasury 响应结构"""
+        """Return empty treasury response structure"""
         return {
             "date": None,
             "rates": {},
@@ -180,100 +170,12 @@ class FMPService:
             "error": "No data available",
         }
 
-    # =========================================================================
-    # News
-    # =========================================================================
 
-    def get_general_news(self, limit: int = 10) -> list[dict]:
-        """
-        获取最新的综合财经新闻
-
-        Args:
-            limit: 返回新闻数量，默认 10 条
-
-        Returns:
-            [
-                {
-                    "title": "标题",
-                    "text": "摘要",
-                    "url": "链接",
-                    "site": "来源",
-                    "publishedDate": "发布时间",
-                    "image": "图片链接"
-                }
-            ]
-        """
-        print(f"🔧 [FMP] get_general_news(limit={limit})")
-
-        data = self._request("/stable/news/general-latest", {"limit": limit})
-
-        if not data or not isinstance(data, list):
-            print("⚠️ FMP General News API 返回空数据")
-            return []
-
-        return [
-            {
-                "title": item.get("title", ""),
-                "text": item.get("text", ""),
-                "url": item.get("url", ""),
-                "site": item.get("site", ""),
-                "publishedDate": item.get("publishedDate", ""),
-                "image": item.get("image", ""),
-            }
-            for item in data
-        ]
-
-    def get_stock_news(self, symbols: str = "SPY,QQQ,DIA", limit: int = 10) -> list[dict]:
-        """
-        获取特定股票/ETF 相关新闻
-
-        Args:
-            symbols: 股票代码，逗号分隔 (如 "AAPL,MSFT,GOOG")
-            limit: 返回新闻数量，默认 10 条
-
-        Returns:
-            [
-                {
-                    "symbol": "代码",
-                    "title": "标题",
-                    "text": "摘要",
-                    "url": "链接",
-                    "publisher": "发布者",
-                    "site": "来源网站",
-                    "publishedDate": "发布时间",
-                    "image": "图片链接"
-                }
-            ]
-        """
-        print(f"🔧 [FMP] get_stock_news(symbols={symbols}, limit={limit})")
-
-        data = self._request("/stable/news/stock", {"symbols": symbols, "limit": limit})
-
-        if not data or not isinstance(data, list):
-            print("⚠️ FMP Stock News API 返回空数据")
-            return []
-
-        return [
-            {
-                "symbol": item.get("symbol", ""),
-                "title": item.get("title", ""),
-                "text": item.get("text", ""),
-                "url": item.get("url", ""),
-                "publisher": item.get("publisher", ""),
-                "site": item.get("site", ""),
-                "publishedDate": item.get("publishedDate", ""),
-                "image": item.get("image", ""),
-            }
-            for item in data
-        ]
-
-
-# 创建单例实例
 _fmp_service_instance = None
 
 
 def get_fmp_service() -> FMPService:
-    """获取 FMP Service 单例"""
+    """Get FMP Service singleton"""
     global _fmp_service_instance
     if _fmp_service_instance is None:
         _fmp_service_instance = FMPService()

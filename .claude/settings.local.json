@@ -37,7 +37,8 @@
       "Bash(kill:*)",
       "Bash(pip freeze:*)",
       "Bash(du:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

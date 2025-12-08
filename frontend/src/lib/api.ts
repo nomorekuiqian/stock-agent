@@ -40,22 +40,6 @@ export interface MacroData {
   in_depth_analysis: string;
 }
 
-export interface StockInfo {
-  symbol: string;
-  longName: string;
-  currentPrice: number | null;
-  sector: string;
-  industry: string;
-  marketCap: number | null;
-}
-
-export interface AnalysisResponse {
-  fundamental_analysis: string;
-  technical_analysis: string;
-  news_analysis: string;
-  sentiment_analysis: string;
-}
-
 export const api = {
   getMacroAnalysis: async (): Promise<MacroData> => {
     const response = await fetch(`${API_BASE_URL}/macro`, {
@@ -63,28 +47,6 @@ export const api = {
     });
     if (!response.ok) {
       throw new Error('Failed to fetch macro analysis');
-    }
-    return response.json();
-  },
-
-  getStockInfo: async (ticker: string): Promise<StockInfo> => {
-    const response = await fetch(`${API_BASE_URL}/stock/${ticker}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch stock info');
-    }
-    return response.json();
-  },
-
-  analyzeStock: async (ticker: string): Promise<AnalysisResponse> => {
-    const response = await fetch(`${API_BASE_URL}/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ticker }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to analyze stock');
     }
     return response.json();
   },
