@@ -8,6 +8,21 @@ from typing import Optional
 from datetime import datetime
 
 
+# Core macro tickers for FMP news (10 tickers)
+FMP_NEWS_SYMBOLS = [
+    "SPY",   # S&P 500
+    "QQQ",   # Nasdaq 100
+    "TLT",   # Long-term Treasury
+    "GLD",   # Gold
+    "VIX",   # Volatility
+    "DXY",   # US Dollar Index
+    "HYG",   # High Yield Bond
+    "XLF",   # Financial Sector
+    "USO",   # Oil
+    "EEM",   # Emerging Markets
+]
+
+
 class FMPService:
     """Financial Modeling Prep API"""
 
@@ -168,6 +183,106 @@ class FMPService:
             "yield_curve_shape": "unknown",
             "source": "fmp",
             "error": "No data available",
+        }
+
+    def get_stock_news(self, symbols: list[str] = None, limit: int = 50) -> dict:
+        """
+        Get news for specific stock symbols from FMP API.
+
+        Args:
+            symbols: List of ticker symbols (defaults to FMP_NEWS_SYMBOLS)
+            limit: Maximum news items to return (default: 50)
+
+        Returns:
+            {
+                "status": "success|error",
+                "news_count": int,
+                "news": [...],
+                "source": "fmp",
+                "symbols_queried": [...]
+            }
+        """
+        symbols = symbols or FMP_NEWS_SYMBOLS
+        symbols_str = ",".join(symbols[:20])  # API limit
+
+        print(f"[FMP] get_stock_news(symbols={len(symbols)}, limit={limit})")
+
+        params = {"symbols": symbols_str, "limit": limit}
+        data = self._request("/stable/news/stock", params)
+
+        if not data or not isinstance(data, list):
+            return self._empty_news_response("No news data returned")
+
+        news = self._parse_fmp_news(data)
+
+        return {
+            "status": "success",
+            "news_count": len(news),
+            "news": news,
+            "source": "fmp",
+            "symbols_queried": symbols[:20],
+        }
+
+    def get_latest_news(self, limit: int = 50) -> dict:
+        """
+        Get latest general stock market news (no ticker required).
+
+        Args:
+            limit: Maximum news items to return (default: 50)
+
+        Returns:
+            Standardized news response dict
+        """
+        print(f"[FMP] get_latest_news(limit={limit})")
+
+        params = {"limit": limit}
+        data = self._request("/stable/news/stock-latest", params)
+
+        if not data or not isinstance(data, list):
+            return self._empty_news_response("No news data returned")
+
+        news = self._parse_fmp_news(data)
+
+        return {
+            "status": "success",
+            "news_count": len(news),
+            "news": news,
+            "source": "fmp",
+        }
+
+    def _parse_fmp_news(self, raw_news: list) -> list[dict]:
+        """
+        Parse FMP news items to standard format.
+
+        FMP format: symbol, publishedDate, publisher, title, image, site, text, url
+        Output format: title, text, source, publishedDate, url, image, symbol, type
+        """
+        parsed = []
+        for item in raw_news:
+            if not item.get("title"):
+                continue
+
+            parsed.append({
+                "title": item.get("title", ""),
+                "text": (item.get("text", "") or "")[:500],
+                "source": item.get("publisher", "") or item.get("site", "FMP"),
+                "publishedDate": item.get("publishedDate", ""),
+                "url": item.get("url", ""),
+                "image": item.get("image", ""),
+                "symbol": item.get("symbol", ""),
+                "type": "macro",
+            })
+
+        return parsed
+
+    def _empty_news_response(self, error: str = None) -> dict:
+        """Return empty news response structure"""
+        return {
+            "status": "error" if error else "success",
+            "news_count": 0,
+            "news": [],
+            "source": "fmp",
+            "error": error,
         }
 
 

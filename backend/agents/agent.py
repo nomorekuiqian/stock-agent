@@ -1,20 +1,17 @@
 """
-Macro Agent using Google ADK with ParallelAgent for Concurrent Fetching
+Macro Agent using Google ADK with SequentialAgent Pipeline
 
-Architecture (using native ADK ParallelAgent):
-    ┌─────────────────────────────────────────┐
-    │           ParallelAgent                 │
-    │  ┌─────────────┐  ┌─────────────────┐   │
-    │  │DataFetcher  │  │  NewsFetcher    │   │
-    │  │(market_data)│  │ (curated_news)  │   │
-    │  └─────────────┘  └─────────────────┘   │
-    └───────────────────┬─────────────────────┘
-                        │
-                        ▼
-              ┌─────────────────────┐
-              │      Analyst        │
-              │  (综合分析报告)      │
-              └─────────────────────┘
+Architecture:
+    ┌─────────────────────────┐
+    │   DataNewsFetcher       │
+    │  (market_data + news)   │
+    └───────────┬─────────────┘
+                │
+                ▼
+    ┌─────────────────────────┐
+    │      Analyst            │
+    │   (综合分析报告)         │
+    └─────────────────────────┘
 """
 
 import os
@@ -29,55 +26,40 @@ load_dotenv()
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-from google.adk.agents import Agent, SequentialAgent, ParallelAgent
+from google.adk.agents import Agent, SequentialAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
 # Import tools
 from agents.tools import get_all_market_data
-from agents.tools.news import get_market_news
+from agents.tools.news import get_combined_market_news
 
 
 # =============================================================================
 # Agent Definitions
 # =============================================================================
 
-# Data Fetcher Agent - fetches market data
-data_fetcher_agent = Agent(
-    name="data_fetcher",
+# Data + News Fetcher Agent - fetches both market data and news
+data_news_fetcher_agent = Agent(
+    name="data_news_fetcher",
     model="gemini-3-pro-preview",
-    description="Fetches comprehensive market data",
-    instruction="""You are a data fetcher agent. Your job is simple:
+    description="Fetches market data and news",
+    instruction="""Fetch and return market data in simplified format:
 
-1. Call get_all_market_data() to fetch all market data
-2. Return the data exactly as received
+1. Call get_all_market_data() - return the full result
+2. Call get_combined_market_news() - for each news item, only include:
+   - title
+   - text (summary)
+   - source
+   - symbol
 
-Do not modify the data. Just call the tool and return its output.""",
-    tools=[get_all_market_data],
-    output_key="market_data",
-)
-
-# News Fetcher Agent - fetches and curates news
-news_fetcher_agent = Agent(
-    name="news_fetcher",
-    model="gemini-3-pro-preview",
-    description="Fetches and curates macro market news",
-    instruction="""You are a news fetcher agent. Your job is:
-
-1. Call get_market_news() to fetch the latest macro-focused market news
-2. Return the news data exactly as received
-
-The news is already filtered for macro-relevance (Fed, rates, inflation, etc).
-Do not modify the data. Just call the tool and return its output.""",
-    tools=[get_market_news],
-    output_key="news_data",
-)
-
-# Parallel Agent - runs data and news fetchers concurrently
-parallel_fetch_agent = ParallelAgent(
-    name="parallel_fetcher",
-    description="Fetches market data and news concurrently",
-    sub_agents=[data_fetcher_agent, news_fetcher_agent],
+Output as JSON:
+{
+  "market_data": <full market data from tool>,
+  "news": [{"title": "...", "text": "...", "source": "...", "symbol": "..."}]
+}""",
+    tools=[get_all_market_data, get_combined_market_news],
+    output_key="fetched_data",
 )
 
 # Analyst Agent - analyzes combined data and news
@@ -85,26 +67,20 @@ ANALYST_INSTRUCTION = """你是一位资深的财经科普作者，擅长把复�
 你的目标是帮助读者**理解**市场正在发生什么，以及背后的逻辑，而不是告诉他们该买什么卖什么。
 
 ## 输入数据
-
-### 市场数据
-{market_data}
-
-### 今日宏观新闻
-{news_data}
+{fetched_data}
 
 ---
 
 请撰写一份市场解读报告，让没有金融背景的读者也能看懂。
 
-## 简要分析
+## 市场简报
 (用3-4句最简单的话概括今天的市场)
 
 **写作原则：**
 1. 分析必须完全基于提供的数据和新闻，不编造
 2. 每个专业术语第一次出现时用通俗语言解释
-3. 多用比喻帮助理解
-4. 不给任何买卖建议
-5. 语气专业但亲和
+3. 不给任何买卖建议
+4. 语气专业但亲和
 """
 
 analyst_agent = Agent(
@@ -115,11 +91,11 @@ analyst_agent = Agent(
     output_key="analysis",
 )
 
-# Sequential Pipeline: Parallel Fetch -> Analyst
+# Sequential Pipeline: DataNewsFetcher -> Analyst
 macro_pipeline_agent = SequentialAgent(
     name="macro_analysis_pipeline",
-    description="Fetches data and news in parallel, then analyzes",
-    sub_agents=[parallel_fetch_agent, analyst_agent],
+    description="Fetches data and news, then analyzes",
+    sub_agents=[data_news_fetcher_agent, analyst_agent],
 )
 
 # ADK web UI 需要 root_agent 变量
@@ -141,7 +117,7 @@ class MacroAgent:
         """Run macro analysis pipeline with parallel data and news fetching."""
         try:
             print(
-                "[MacroAgent] Starting parallel pipeline: DataFetcher + NewsFetcher -> Analyst"
+                "[MacroAgent] Starting pipeline: DataNewsFetcher -> Analyst"
             )
 
             # Create session
@@ -176,7 +152,7 @@ class MacroAgent:
             # Fetch fresh data directly for the response
             # (The agents already fetched this, but we want it in the response)
             market_data = get_all_market_data()
-            news_result = get_market_news(days=1, macro_only=True)
+            news_result = get_combined_market_news(days=1)
 
             # Parse the analysis response
             short_analysis, in_depth_analysis = self._parse_analysis(response_text)
@@ -190,8 +166,10 @@ class MacroAgent:
                 "market_data": market_data,
                 "news_data": {
                     "count": news_result.get("news_count", 0),
-                    "articles": news_result.get("news", [])[:5],
+                    "articles": news_result.get("news", [])[:10],
                     "filters": news_result.get("filters", {}),
+                    "sources": news_result.get("sources", ["yahoo_finance"]),
+                    "source_counts": news_result.get("source_counts", {}),
                 },
                 "timestamp": datetime.now().isoformat(),
                 "short_analysis": short_analysis,

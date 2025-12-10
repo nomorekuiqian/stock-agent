@@ -15,7 +15,7 @@ from agents.tools.market_data import (
     ALL_TICKERS,
 )
 
-from agents.tools.news import get_market_news
+from agents.tools.news import get_combined_market_news
 
 __all__ = [
     # Market data tools
@@ -30,5 +30,5 @@ __all__ = [
     "CURRENCY_TICKERS",
     "ALL_TICKERS",
     # News tools
-    "get_market_news",
+    "get_combined_market_news",
 ]
