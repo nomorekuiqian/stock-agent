@@ -8,18 +8,22 @@ from typing import Optional
 from datetime import datetime
 
 
-# Core macro tickers for FMP news (10 tickers)
+# Core macro + AI tickers for FMP news
 FMP_NEWS_SYMBOLS = [
+    # Macro market
     "SPY",   # S&P 500
     "QQQ",   # Nasdaq 100
-    "TLT",   # Long-term Treasury
-    "GLD",   # Gold
     "VIX",   # Volatility
-    "DXY",   # US Dollar Index
-    "HYG",   # High Yield Bond
-    "XLF",   # Financial Sector
-    "USO",   # Oil
-    "EEM",   # Emerging Markets
+    # AI core
+    "NVDA",  # NVIDIA - AI chips leader
+    "MSFT",  # Microsoft - Azure AI + OpenAI
+    "GOOGL", # Alphabet - Gemini, DeepMind
+    "META",  # Meta - LLaMA, AI infrastructure
+    "AMD",   # AMD - AI chip competitor
+    "AVGO",  # Broadcom - AI networking/custom chips
+    # AI infrastructure
+    "TSM",   # TSMC - AI chip foundry
+    "SMCI",  # Super Micro - AI servers
 ]
 
 

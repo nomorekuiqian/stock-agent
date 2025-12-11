@@ -4,6 +4,7 @@ Provides unified data fetching functions and ticker configurations.
 """
 
 import math
+from datetime import datetime
 import yfinance as yf
 import pandas as pd
 
@@ -18,6 +19,7 @@ EQUITY_TICKERS = {
     "S&P 500": "^GSPC",
     "Nasdaq": "^IXIC",
     "Dow Jones": "^DJI",
+    "Nasdaq 100 ETF": "QQQ",  # Tech-heavy ETF for sector analysis
 }
 
 VOLATILITY_TICKERS = {
@@ -253,6 +255,15 @@ def get_all_market_data() -> dict:
             asset_data = _extract_asset_data(data, name, symbol)
             if asset_data:
                 result["currencies"][name] = asset_data
+
+        # Add date/time context for the analyst
+        now = datetime.now()
+        result["report_date"] = {
+            "date": now.strftime("%Y-%m-%d"),
+            "weekday": now.strftime("%A"),
+            "time": now.strftime("%H:%M"),
+            "formatted": now.strftime("%Y年%m月%d日 %A"),
+        }
 
         result["status"] = "success"
         return result

@@ -1,12 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { api, MacroData } from '@/lib/api';
+
+const CACHE_KEY = 'macro_analysis_cache';
+
+interface CachedData {
+  data: MacroData;
+  cachedAt: string;
+}
+
+function loadFromCache(): CachedData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
+
+function saveToCache(data: MacroData): void {
+  if (typeof window === 'undefined') return;
+  const cacheData: CachedData = {
+    data,
+    cachedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+}
 
 export default function MacroPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<MacroData | null>(null);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Load cached data on mount
+  useEffect(() => {
+    const cached = loadFromCache();
+    if (cached) {
+      setData(cached.data);
+      setCachedAt(cached.cachedAt);
+    }
+  }, []);
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -14,7 +54,9 @@ export default function MacroPage() {
     try {
       const result = await api.getMacroAnalysis();
       setData(result);
-    } catch (err) {
+      saveToCache(result);
+      setCachedAt(new Date().toISOString());
+    } catch {
       setError('Failed to fetch macro analysis. Please try again.');
     } finally {
       setLoading(false);
@@ -37,14 +79,19 @@ export default function MacroPage() {
       </header>
 
       <div className="space-y-6">
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-2">
           <button
             onClick={handleAnalyze}
             disabled={loading}
             className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-full font-medium transition-all disabled:opacity-50"
           >
-            {loading ? 'Analyzing...' : 'Analyze Market'}
+            {loading ? 'Analyzing...' : data ? 'Regenerate Report' : 'Analyze Market'}
           </button>
+          {cachedAt && !loading && (
+            <p className="text-xs text-muted-foreground">
+              Cached: {new Date(cachedAt).toLocaleString()}
+            </p>
+          )}
         </div>
 
         {loading && (
@@ -172,8 +219,16 @@ export default function MacroPage() {
             {data.in_depth_analysis && (
               <div className="p-5 rounded-xl bg-card border border-border">
                 <h2 className="text-lg font-semibold mb-3">In-Depth Analysis</h2>
-                <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {data.in_depth_analysis}
+                <div className="prose prose-invert prose-sm max-w-none
+                  prose-headings:text-foreground prose-headings:font-semibold
+                  prose-h2:text-xl prose-h2:mt-6 prose-h2:mb-3
+                  prose-h3:text-lg prose-h3:mt-4 prose-h3:mb-2
+                  prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:my-2
+                  prose-strong:text-foreground prose-strong:font-semibold
+                  prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                  prose-ul:my-2 prose-li:text-muted-foreground prose-li:my-0.5
+                  prose-ol:my-2">
+                  <ReactMarkdown>{data.in_depth_analysis}</ReactMarkdown>
                 </div>
               </div>
             )}

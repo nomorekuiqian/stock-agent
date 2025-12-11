@@ -89,7 +89,7 @@ def get_fmp_news(days: int = 1) -> dict:
         from app.services.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        result = fmp.get_stock_news(limit=20)
+        result = fmp.get_stock_news(limit=50)
 
         if result.get("status") == "error":
             print(f"FMP news error: {result.get('error')}")
