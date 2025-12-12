@@ -38,6 +38,8 @@ export default function MacroPage() {
   const [data, setData] = useState<MacroData | null>(null);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Load cached data on mount
   useEffect(() => {
@@ -63,6 +65,25 @@ export default function MacroPage() {
     }
   };
 
+  const handleSendEmail = async () => {
+    setSendingEmail(true);
+    setEmailStatus(null);
+    try {
+      const result = await api.sendReportEmail();
+      setEmailStatus({
+        type: 'success',
+        message: `Report sent to ${result.sent_to}`,
+      });
+    } catch (err) {
+      setEmailStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to send email',
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const getTrendColor = (trend: string) => {
     if (trend.includes('Strongly Bullish')) return 'text-green-400';
     if (trend.includes('Bullish')) return 'text-green-500';
@@ -79,18 +100,45 @@ export default function MacroPage() {
       </header>
 
       <div className="space-y-6">
-        <div className="flex flex-col items-center gap-2">
-          <button
-            onClick={handleAnalyze}
-            disabled={loading}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-full font-medium transition-all disabled:opacity-50"
-          >
-            {loading ? 'Analyzing...' : data ? 'Regenerate Report' : 'Analyze Market'}
-          </button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex gap-3">
+            <button
+              onClick={handleAnalyze}
+              disabled={loading || sendingEmail}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-full font-medium transition-all disabled:opacity-50"
+            >
+              {loading ? 'Analyzing...' : data ? 'Regenerate Report' : 'Analyze Market'}
+            </button>
+            {data && (
+              <button
+                onClick={handleSendEmail}
+                disabled={loading || sendingEmail}
+                className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-6 py-2 rounded-full font-medium transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {sendingEmail ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  'Send to Email'
+                )}
+              </button>
+            )}
+          </div>
           {cachedAt && !loading && (
             <p className="text-xs text-muted-foreground">
               Cached: {new Date(cachedAt).toLocaleString()}
             </p>
+          )}
+          {emailStatus && (
+            <div className={`px-4 py-2 rounded-lg text-sm ${
+              emailStatus.type === 'success'
+                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                : 'bg-red-500/10 text-red-500 border border-red-500/20'
+            }`}>
+              {emailStatus.message}
+            </div>
           )}
         </div>
 

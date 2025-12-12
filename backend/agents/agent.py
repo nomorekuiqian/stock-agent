@@ -1,19 +1,14 @@
 """
-Macro Agent using Google ADK with SequentialAgent Pipeline
+Macro Agent - Simplified Architecture
 
 Architecture:
-    ┌─────────────────────────┐
-    │   DataNewsFetcher       │
-    │  (market_data + news)   │
-    └───────────┬─────────────┘
-                │
-                ▼
-    ┌─────────────────────────┐
-    │      Analyst            │
-    │   (综合分析报告)         │
-    └─────────────────────────┘
+    Python (fetch data) -> Analyst Agent (analyze)
+
+No more data_news_fetcher_agent - data is fetched directly in Python
+and passed to the analyst agent for analysis.
 """
 
+import json
 import os
 from datetime import datetime
 
@@ -26,173 +21,97 @@ load_dotenv()
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-from google.adk.agents import Agent, SequentialAgent
+from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
-# Import tools
+# Import data fetching tools
 from agents.tools import get_all_market_data
 from agents.tools.news import get_combined_market_news
+from agents.tools.calendar import get_economic_calendar
+from agents.tools.earnings import get_earnings_calendar
 
 
 # =============================================================================
-# Agent Definitions
+# Analyst Agent Definition
 # =============================================================================
 
-# Data + News Fetcher Agent - fetches both market data and news
-data_news_fetcher_agent = Agent(
-    name="data_news_fetcher",
-    model="gemini-3-pro-preview",
-    description="Fetches market data and news",
-    instruction="""Fetch and return market data in simplified format:
+ANALYST_INSTRUCTION = """
+角色
 
-1. Call get_all_market_data() - return the full result
-2. Call get_combined_market_news() - for each news item, include:
-   - title
-   - text (summary)
-   - source
-   - symbol
-   - url (important: include the news link)
+你是一位面向大众的财经内容创作者：把复杂市场讲得清楚、好读、可转发。
 
-Output as JSON:
-{
-  "market_data": <full market data from tool>,
-  "news": [{"title": "...", "text": "...", "source": "...", "symbol": "...", "url": "..."}]
-}""",
-    tools=[get_all_market_data, get_combined_market_news],
-    output_key="fetched_data",
-)
+语气：专业但不端着；直白有观点；不喊单。
 
-# Analyst Agent - analyzes combined data and news
-ANALYST_INSTRUCTION = """# 你的身份
-你是一位在社交媒体上拥有百万粉丝的财经博主，以"让金融小白秒懂市场"著称。
-你的内容风格：专业但不装、有趣但不浮夸、直白但有深度。
+方法：用“最少的信号解释最多的现象”，避免把每个数据都讲一遍。
 
-# 你的读者
-- 零基础的普通投资者
-- 刷手机时偶然看到你的内容
-- 注意力有限，需要清晰的结构和有趣的表达
+输入
 
-# 输入数据
-{fetched_data}
+你会收到一份 JSON（字段可能缺失），包含市场数据、新闻、经济日历、财报日历等（以实际给到为准）。
 
-**数据字段说明**：
-- `report_date`: 报告日期和星期几（用于"短期前瞻"板块）
-- `equities`: 股票指数数据（S&P 500, Nasdaq, Dow Jones, QQQ）
-- `volatility.VIX`: 恐惧指数
-- `rates.yield_curve`: 收益率曲线（各期限利率）
-- `rates.spreads.10y_3m`: 10年-3个月利差（负数=倒挂）
-- `credit.HYG/LQD`: 高收益债/投资级债 ETF
-- `credit.hyg_lqd_spread`: 信用利差
-- `financials.XLF/KRE`: 金融板块/区域银行 ETF
-- `commodities.Gold/Oil`: 黄金/原油
-- `currencies.US Dollar`: 美元指数
-- `news`: 市场新闻列表
+输出结构（唯一固定项）
 
----
+必须按以下 6 个一级标题输出（Markdown，##），除此之外写法完全自由：
 
-# 输出结构（严格按照以下5个板块输出）
+## 1. 市场一句话
 
-## 一、市场总览
+## 2. 今天市场在交易什么
 
-用一段吸引人的话概括今日市场全貌：
-- 开头必须是一句能当社交媒体标题的金句（反直觉洞察/生活化比喻/数字冲击）
-- 然后用2-3句话描述今日市场整体表现：股市、债市、商品、汇率的核心走势
-- 点出今天最值得关注的一件事
+## 3. 关键指标与信号
 
-**示例金句风格**：
-- "华尔街恐惧指数创新低，但聪明钱正在悄悄撤退"
-- "今天的市场像喝了两杯咖啡——表面亢奋，内心焦虑"
-- "美债收益率倒挂持续中，上次这么久还是2007年"
+## 4. 资产/板块：你认为最重要的几件事
 
-## 二、宏观流动性指标检测与解读
+## 5. 新闻：你认为最值得读的几条
 
-分析以下核心流动性指标，并用通俗语言解读：
+## 6. 未来 1–2 周：观察清单
 
-**必须覆盖的指标**：
-- **收益率曲线**：10Y-3M利差是正是负？意味着什么？用比喻解释
-- **VIX恐惧指数**：当前水平是高是低？与历史对比如何？
-- **美元指数**：强势还是弱势？对全球资金流动的影响
-- **信用利差**（如有数据）：HYG vs LQD，企业债市场健康度
+决策权交给你：选材规则（用来决定“写什么”）
 
-**解读原则**：
-- 每个指标先说"是什么"（用小学生能懂的话）
-- 再说"现在怎么样"（跟历史比）
-- 最后说"这意味着什么"（对普通人的影响）
+从所有可用输入里，优先挑选：
 
-## 三、自选板块数据+新闻解读
+冲击最大：当日变化显著、出现拐点、或对情绪/定价最敏感的项目
 
-根据数据中涉及的板块（科技、金融、能源、黄金等），分析：
+解释力最强：最能回答“为什么涨/跌、为什么轮动、为什么分歧”的少数信号
 
-**每个板块包含**：
-- 今日表现（涨跌幅）
-- 相关新闻解读（如有）
-- 板块走势背后的逻辑
+可验证：能给出接下来可观察的验证点（数据/事件/财报/政策表态等）
 
-**重点板块**：
-- 金融板块（XLF/KRE）：银行股表现，反映对经济和利率的预期
-- 商品（黄金GLD/原油USO）：避险情绪和通胀预期
-- 科技/成长股（如有数据）
+如果你发现跨资产互相矛盾（例如股市走强但信用走弱），必须点名“分歧”，并解释可能原因。
 
-## 四、重要新闻速递
+内容自由度（每节写法不限制）
 
-从提供的50条新闻中，精选**10条最重要的**，每条包含：
-- **新闻标题**（简洁有力，用中文翻译）
-- **一句话解读**：这条新闻在说什么（大白话翻译）
-- **市场影响**：可能如何影响市场/普通投资者
-- **原文链接**：提供新闻的 url 链接，格式为 [阅读原文](url)
+每个板块可用短段落、要点、对比、类比、叙事都可以。
 
-**筛选标准（按优先级排序）**：
-1. 美联储货币政策、利率决议相关
-2. 重大经济数据发布（CPI、就业、GDP等）
-3. AI 和科技巨头的重大动态（NVDA、MSFT、GOOGL、META等）
-4. 地缘政治和贸易政策影响
-5. 市场异常波动或重大交易
-6. 与普通投资者利益直接相关的新闻
-- 避免纯粹的公司八卦和营销软文
+不强制覆盖任何特定指标/资产/新闻类别；由你判断当日真正重要的点。
 
-**输出格式示例**：
-### 1. NVIDIA发布新一代AI芯片
-**解读**：老黄又放大招了，新芯片性能提升3倍，价格却没涨多少
-**影响**：AI算力成本有望下降，利好整个AI应用生态
-[阅读原文](https://example.com/news/123)
+条目数量不固定：信息密度高就多写，低就精简；但不要为了凑数硬写。
 
-## 五、短期未来前瞻
+硬约束（必须遵守）
 
-展望未来1-2周市场可能的走向：
+不编造任何数据、新闻事实或来源；缺失就写“未提供/暂无数据”。
 
-**包含内容**：
-- **即将发生的重要事件**：美联储会议、重要经济数据发布、财报季等
-- **需要关注的信号**：如果XX发生，可能意味着什么
-- **风险提示**：当前市场潜在的风险点
+不提供买卖指令：不写买入/卖出/加仓/减仓/仓位；只做解读与情景推演（“如果…那么…”）。
 
-**语气要求**：
-- 不预测涨跌，但可以指出"如果...那么..."的情景
-- 帮助读者知道接下来该关注什么
-- 降低焦虑，强调长期投资者大多数时候不需要做什么
+观点要可核对：重要判断必须引用输入里的证据（数字/事件/新闻点）。
 
----
+术语首次出现必须解释：用 1 句大白话或比喻。
 
-# 写作原则
+排版规范（保持可读性即可）
 
-1. **开头3秒定生死**：市场总览的金句必须能引发好奇心
-2. **比喻大于术语**：VIX不是"波动率指数"，是"市场的恐惧温度计"
-3. **数字要有参照**：不说"VIX是18"，说"VIX是18，正常范围是12-20，现在算'体温正常'"
-4. **讲故事优于罗列**：把数据串成有因果的叙事
-5. **敢于表达观点**：可以说"这个信号值得警惕"，但不说"你应该卖出"
-6. **结构清晰**：严格按照5个板块输出，每个板块用##标题
+全文 Markdown；适配手机阅读；段落短。
 
-# 格式要求
-- 使用 Markdown，标题用 ##
-- 段落短小，适合手机阅读
-- 可以适当使用 emoji 增加活泼感，但不要过度
-- 重要数字加粗
+关键数字加粗（例如 +1.2%）。
 
-# 禁止事项
-- 不给任何具体的买卖建议
-- 不编造数据
-- 不使用"投资有风险"等套话
-- 不使用未解释的专业术语
+emoji 可用可不用；若用，全篇不超过 3 个。
+
+输出前自检
+
+6 个标题是否齐全？
+
+是否每个板块至少提供了可核对信息（数字/新闻/事件）？
+
+是否点明了主线与分歧（如存在）？
+
+是否完全没有买卖指令与臆造数据？
 """
 
 analyst_agent = Agent(
@@ -203,15 +122,8 @@ analyst_agent = Agent(
     output_key="analysis",
 )
 
-# Sequential Pipeline: DataNewsFetcher -> Analyst
-macro_pipeline_agent = SequentialAgent(
-    name="macro_analysis_pipeline",
-    description="Fetches data and news, then analyzes",
-    sub_agents=[data_news_fetcher_agent, analyst_agent],
-)
-
-# ADK web UI 需要 root_agent 变量
-root_agent = macro_pipeline_agent
+# ADK web UI needs root_agent variable
+root_agent = analyst_agent
 
 
 # =============================================================================
@@ -220,28 +132,51 @@ root_agent = macro_pipeline_agent
 
 
 class MacroAgent:
-    """Wrapper class to run the ADK macro pipeline with parallel fetching."""
+    """Wrapper class to fetch data and run analyst agent."""
 
     def __init__(self, client=None):
-        self.runner = InMemoryRunner(agent=macro_pipeline_agent, app_name="stock_agent")
+        self.runner = InMemoryRunner(agent=analyst_agent, app_name="stock_agent")
 
     async def analyze(self) -> dict:
-        """Run macro analysis pipeline with parallel data and news fetching."""
+        """Fetch all data and run analyst agent for analysis."""
         try:
+            print("[MacroAgent] Fetching market data...")
+
+            # Step 1: Fetch all data directly (no LLM needed)
+            market_data = get_all_market_data()
+            news_result = get_combined_market_news(days=1)
+            calendar_result = get_economic_calendar(days=14)
+            earnings_result = get_earnings_calendar(days=7)
+
             print(
-                "[MacroAgent] Starting pipeline: DataNewsFetcher -> Analyst"
+                f"[MacroAgent] Data fetched. News: {news_result.get('news_count', 0)}, "
+                f"Calendar: {calendar_result.get('events_count', 0)}, "
+                f"Earnings: {earnings_result.get('earnings_count', 0)}"
             )
 
-            # Create session
+            # Step 2: Prepare data for analyst
+            report_date = datetime.now().strftime("%Y-%m-%d %A")
+
+            data_for_analyst = {
+                "report_date": report_date,
+                "market_data": market_data,
+                "news": news_result.get("news", [])[:50],  # Top 50 news
+                "economic_calendar": calendar_result.get("events", []),
+                "earnings_calendar": earnings_result.get("earnings", []),
+            }
+
+            # Step 3: Create session and run analyst
+            print("[MacroAgent] Running analyst agent...")
+
             session = await self.runner.session_service.create_session(
                 app_name="stock_agent", user_id="analyst"
             )
 
-            # Run the pipeline
+            # Send data to analyst agent
             message = Content(
                 parts=[
                     Part(
-                        text="Fetch market data and news, then provide comprehensive analysis."
+                        text=f"Please analyze the following market data and provide a comprehensive report:\n\n{json.dumps(data_for_analyst, ensure_ascii=False, indent=2, default=str)}"
                     )
                 ],
                 role="user",
@@ -252,7 +187,7 @@ class MacroAgent:
             async for event in self.runner.run_async(
                 user_id="analyst", session_id=session.id, new_message=message
             ):
-                # Collect outputs from agents
+                # Collect output from analyst agent
                 if hasattr(event, "content") and event.content:
                     if hasattr(event.content, "parts"):
                         for part in event.content.parts:
@@ -261,18 +196,10 @@ class MacroAgent:
                                 if text and len(text) > 50:
                                     response_text = text
 
-            # Fetch fresh data directly for the response
-            # (The agents already fetched this, but we want it in the response)
-            market_data = get_all_market_data()
-            news_result = get_combined_market_news(days=1)
-
             # Parse the analysis response
             short_analysis, in_depth_analysis = self._parse_analysis(response_text)
 
-            print(
-                "[MacroAgent] Pipeline complete. News count: "
-                + str(news_result.get("news_count", 0))
-            )
+            print("[MacroAgent] Analysis complete.")
 
             return {
                 "market_data": market_data,
@@ -280,8 +207,16 @@ class MacroAgent:
                     "count": news_result.get("news_count", 0),
                     "articles": news_result.get("news", [])[:10],
                     "filters": news_result.get("filters", {}),
-                    "sources": news_result.get("sources", ["yahoo_finance"]),
-                    "source_counts": news_result.get("source_counts", {}),
+                },
+                "economic_calendar": {
+                    "count": calendar_result.get("events_count", 0),
+                    "events": calendar_result.get("events", []),
+                    "date_range": calendar_result.get("date_range", {}),
+                },
+                "earnings_calendar": {
+                    "count": earnings_result.get("earnings_count", 0),
+                    "earnings": earnings_result.get("earnings", []),
+                    "date_range": earnings_result.get("date_range", {}),
                 },
                 "timestamp": datetime.now().isoformat(),
                 "short_analysis": short_analysis,
@@ -294,11 +229,13 @@ class MacroAgent:
 
             traceback.print_exc()
 
-            # Fallback
+            # Fallback - return data without analysis
             market_data = get_all_market_data()
             return {
                 "market_data": market_data,
                 "news_data": {"count": 0, "articles": [], "filters": {}},
+                "economic_calendar": {"count": 0, "events": [], "date_range": {}},
+                "earnings_calendar": {"count": 0, "earnings": [], "date_range": {}},
                 "timestamp": datetime.now().isoformat(),
                 "short_analysis": f"Data fetched (analysis error: {str(e)[:100]})",
                 "in_depth_analysis": "",
@@ -311,41 +248,33 @@ class MacroAgent:
 
         text = text.strip()
 
-        short_markers = ["简要分析", "**简要分析**", "## 简要分析"]
-        depth_markers = ["深度分析", "**深度分析**", "## 深度分析"]
+        # Try to find market overview section as short analysis
+        overview_markers = ["## 一、市场总览", "## 市场总览", "# 市场总览"]
+        section_two_markers = ["## 二、", "## 宏观流动性"]
 
-        short_start = -1
-        depth_start = -1
+        short_analysis = ""
+        in_depth_analysis = text
 
-        for marker in short_markers:
+        for marker in overview_markers:
             idx = text.find(marker)
             if idx != -1:
-                short_start = idx + len(marker)
+                # Find where section two starts
+                end_idx = len(text)
+                for end_marker in section_two_markers:
+                    section_two_idx = text.find(end_marker)
+                    if section_two_idx != -1 and section_two_idx > idx:
+                        end_idx = section_two_idx
+                        break
+
+                short_analysis = text[idx:end_idx].strip()
+                # Remove the header from short analysis
+                short_analysis = short_analysis.replace(marker, "").strip()
                 break
 
-        for marker in depth_markers:
-            idx = text.find(marker)
-            if idx != -1:
-                depth_start = idx + len(marker)
-                break
-
-        if short_start != -1 and depth_start != -1:
-            short_analysis = text[short_start : text.find(depth_markers[0])].strip()
-            in_depth_analysis = text[depth_start:].strip()
-        elif depth_start != -1:
-            short_analysis = text[: text.find(depth_markers[0])].strip()
-            in_depth_analysis = text[depth_start:].strip()
-        else:
+        # If no marker found, use first paragraph
+        if not short_analysis:
             paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-            if len(paragraphs) >= 2:
-                short_analysis = paragraphs[0]
-                in_depth_analysis = "\n\n".join(paragraphs[1:])
-            else:
-                short_analysis = text[:500] if len(text) > 500 else text
-                in_depth_analysis = text[500:] if len(text) > 500 else ""
+            if paragraphs:
+                short_analysis = paragraphs[0][:500]
 
-        for marker in short_markers + depth_markers:
-            short_analysis = short_analysis.replace(marker, "")
-            in_depth_analysis = in_depth_analysis.replace(marker, "")
-
-        return short_analysis.strip(": \n"), in_depth_analysis.strip(": \n")
+        return short_analysis, in_depth_analysis

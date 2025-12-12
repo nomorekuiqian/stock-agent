@@ -167,5 +167,3 @@ def get_combined_market_news(days: int = 1) -> dict:
     print(f"Market news: {result.get('news_count', 0)} articles from FMP")
 
     return result
-
-

@@ -5,7 +5,7 @@ FMP (Financial Modeling Prep) API Service
 import os
 import httpx
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 # Core macro + AI tickers for FMP news
@@ -285,6 +285,308 @@ class FMPService:
             "status": "error" if error else "success",
             "news_count": 0,
             "news": [],
+            "source": "fmp",
+            "error": error,
+        }
+
+    def get_economic_calendar(self, days: int = 14, country: str = None) -> dict:
+        """
+        Get upcoming economic events for the next N days.
+
+        Args:
+            days: Number of days to look ahead (default: 14, max: 90)
+            country: Filter by country code (e.g., "US", "CN", "EU")
+
+        Returns:
+            {
+                "status": "success|error",
+                "events_count": int,
+                "events": [
+                    {
+                        "date": "2024-03-01 08:30:00",
+                        "country": "US",
+                        "event": "Non-Farm Payrolls",
+                        "currency": "USD",
+                        "previous": 353000,
+                        "estimate": 200000,
+                        "actual": null,
+                        "impact": "High",
+                        "change": null,
+                        "changePercentage": null
+                    }
+                ],
+                "date_range": {"from": "...", "to": "..."},
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_economic_calendar(days={days}, country={country})")
+
+        today = datetime.now()
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = (today + timedelta(days=min(days, 90))).strftime("%Y-%m-%d")
+
+        params = {"from": from_date, "to": to_date}
+        data = self._request("/stable/economic-calendar", params)
+
+        if not data or not isinstance(data, list):
+            return self._empty_calendar_response("No calendar data returned")
+
+        events = self._parse_economic_events(data, country)
+
+        # Sort by date and impact
+        impact_order = {"High": 0, "Medium": 1, "Low": 2}
+        events.sort(key=lambda x: (x["date"], impact_order.get(x["impact"], 3)))
+
+        return {
+            "status": "success",
+            "events_count": len(events),
+            "events": events,
+            "date_range": {"from": from_date, "to": to_date},
+            "source": "fmp",
+        }
+
+    def _parse_economic_events(self, raw_events: list, country: str = None) -> list[dict]:
+        """
+        Parse FMP economic calendar events.
+
+        Args:
+            raw_events: Raw API response
+            country: Optional country filter (e.g., "US")
+
+        Returns:
+            List of parsed event dicts
+        """
+        parsed = []
+        for item in raw_events:
+            if not item.get("event"):
+                continue
+
+            event_country = item.get("country", "")
+
+            # Filter by country if specified
+            if country and event_country.upper() != country.upper():
+                continue
+
+            parsed.append({
+                "date": item.get("date", ""),
+                "country": event_country,
+                "event": item.get("event", ""),
+                "currency": item.get("currency", ""),
+                "previous": self._safe_float(item.get("previous")),
+                "estimate": self._safe_float(item.get("estimate")),
+                "actual": self._safe_float(item.get("actual")),
+                "impact": item.get("impact", "Low"),
+                "change": self._safe_float(item.get("change")),
+                "changePercentage": self._safe_float(item.get("changePercentage")),
+            })
+
+        return parsed
+
+    def get_high_impact_events(self, days: int = 14, countries: list[str] = None) -> dict:
+        """
+        Get only high-impact economic events for the next N days.
+        Focuses on US and major economies by default.
+
+        Args:
+            days: Number of days to look ahead (default: 14)
+            countries: List of country codes to include (default: ["US", "EU", "CN", "JP", "GB"])
+
+        Returns:
+            Filtered calendar with only High and Medium impact events
+        """
+        print(f"[FMP] get_high_impact_events(days={days})")
+
+        countries = countries or ["US", "EU", "CN", "JP", "GB"]
+        calendar = self.get_economic_calendar(days=days)
+
+        if calendar.get("status") != "success":
+            return calendar
+
+        # Filter for high/medium impact and specified countries
+        high_impact_events = [
+            event for event in calendar["events"]
+            if event["impact"] in ["High", "Medium"]
+            and event["country"].upper() in [c.upper() for c in countries]
+        ]
+
+        # Key events to always highlight
+        key_event_keywords = [
+            "Fed", "FOMC", "Interest Rate", "CPI", "Inflation",
+            "GDP", "Non-Farm", "Payroll", "Unemployment", "Retail Sales",
+            "PMI", "Consumer Confidence", "Housing", "Trade Balance",
+            "Central Bank", "ECB", "BOJ", "PBOC", "BOE"
+        ]
+
+        # Mark key events
+        for event in high_impact_events:
+            event["is_key_event"] = any(
+                keyword.lower() in event["event"].lower()
+                for keyword in key_event_keywords
+            )
+
+        return {
+            "status": "success",
+            "events_count": len(high_impact_events),
+            "events": high_impact_events,
+            "date_range": calendar["date_range"],
+            "countries_filtered": countries,
+            "source": "fmp",
+        }
+
+    def _empty_calendar_response(self, error: str = None) -> dict:
+        """Return empty calendar response structure"""
+        return {
+            "status": "error" if error else "success",
+            "events_count": 0,
+            "events": [],
+            "date_range": None,
+            "source": "fmp",
+            "error": error,
+        }
+
+    # =========================================================================
+    # Earnings Calendar
+    # =========================================================================
+
+    def get_earnings_calendar(self, days: int = 7) -> dict:
+        """
+        Get upcoming earnings announcements for the next N days.
+
+        Args:
+            days: Number of days to look ahead (default: 7, max: 90)
+
+        Returns:
+            {
+                "status": "success|error",
+                "earnings_count": int,
+                "earnings": [
+                    {
+                        "symbol": "AAPL",
+                        "date": "2024-07-25",
+                        "epsEstimated": 1.51,
+                        "epsActual": null,
+                        "revenueEstimated": 84000000000,
+                        "revenueActual": null,
+                        "time": "AMC"
+                    }
+                ],
+                "date_range": {"from": "...", "to": "..."},
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_earnings_calendar(days={days})")
+
+        today = datetime.now()
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = (today + timedelta(days=min(days, 90))).strftime("%Y-%m-%d")
+
+        params = {"from": from_date, "to": to_date}
+        data = self._request("/stable/earnings-calendar", params)
+
+        if not data or not isinstance(data, list):
+            return self._empty_earnings_response("No earnings data returned")
+
+        earnings = self._parse_earnings(data)
+
+        # Sort by date
+        earnings.sort(key=lambda x: x["date"])
+
+        return {
+            "status": "success",
+            "earnings_count": len(earnings),
+            "earnings": earnings,
+            "date_range": {"from": from_date, "to": to_date},
+            "source": "fmp",
+        }
+
+    def _parse_earnings(self, raw_earnings: list) -> list[dict]:
+        """Parse FMP earnings calendar data."""
+        parsed = []
+        for item in raw_earnings:
+            if not item.get("symbol"):
+                continue
+
+            parsed.append({
+                "symbol": item.get("symbol", ""),
+                "date": item.get("date", ""),
+                "epsEstimated": self._safe_float(item.get("epsEstimated")),
+                "epsActual": self._safe_float(item.get("epsActual")),
+                "revenueEstimated": self._safe_float(item.get("revenueEstimated")),
+                "revenueActual": self._safe_float(item.get("revenueActual")),
+                "lastUpdated": item.get("lastUpdated", ""),
+            })
+
+        return parsed
+
+    def get_major_earnings(self, days: int = 7, min_market_cap: float = 10e9) -> dict:
+        """
+        Get upcoming earnings for major companies (large cap).
+
+        Filters for well-known tickers and large market cap companies.
+
+        Args:
+            days: Number of days to look ahead (default: 7)
+            min_market_cap: Minimum market cap filter (not used directly, but filters known tickers)
+
+        Returns:
+            Filtered earnings with only major companies
+        """
+        print(f"[FMP] get_major_earnings(days={days})")
+
+        # Major tickers we care about
+        major_tickers = {
+            # Tech Giants
+            "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "NVDA", "TSLA",
+            # AI & Semiconductors
+            "AMD", "INTC", "AVGO", "QCOM", "TSM", "SMCI", "ARM", "MU",
+            # Software & Cloud
+            "CRM", "ORCL", "ADBE", "NOW", "SNOW", "PLTR", "NET", "DDOG",
+            # Financials
+            "JPM", "BAC", "WFC", "GS", "MS", "C", "BLK", "SCHW",
+            # Consumer
+            "WMT", "COST", "TGT", "HD", "LOW", "NKE", "SBUX", "MCD",
+            # Healthcare
+            "UNH", "JNJ", "PFE", "ABBV", "MRK", "LLY", "TMO", "ABT",
+            # Energy
+            "XOM", "CVX", "COP", "SLB", "EOG",
+            # Industrial
+            "CAT", "DE", "BA", "GE", "HON", "UPS", "FDX",
+            # ETFs
+            "SPY", "QQQ", "IWM", "DIA",
+        }
+
+        calendar = self.get_earnings_calendar(days=days)
+
+        if calendar.get("status") != "success":
+            return calendar
+
+        # Filter for major tickers only
+        major_earnings = [
+            earning for earning in calendar["earnings"]
+            if earning["symbol"] in major_tickers
+        ]
+
+        # Mark AI-related companies
+        ai_tickers = {"NVDA", "AMD", "MSFT", "GOOGL", "GOOG", "META", "AMZN", "TSM", "SMCI", "AVGO", "ARM", "PLTR", "SNOW"}
+        for earning in major_earnings:
+            earning["is_ai_related"] = earning["symbol"] in ai_tickers
+
+        return {
+            "status": "success",
+            "earnings_count": len(major_earnings),
+            "earnings": major_earnings,
+            "date_range": calendar["date_range"],
+            "filter": "Major companies only",
+            "source": "fmp",
+        }
+
+    def _empty_earnings_response(self, error: str = None) -> dict:
+        """Return empty earnings response structure"""
+        return {
+            "status": "error" if error else "success",
+            "earnings_count": 0,
+            "earnings": [],
+            "date_range": None,
             "source": "fmp",
             "error": error,
         }

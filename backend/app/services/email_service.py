@@ -143,13 +143,25 @@ class EmailService:
         """
         return html
 
-    async def send_daily_report(self, data: dict) -> dict:
-        """Send the daily market report email."""
+    async def send_daily_report(self, data: dict, to_email: str = None) -> dict:
+        """Send the daily market report email.
+
+        Args:
+            data: The macro analysis data to send
+            to_email: Optional recipient email, defaults to EMAIL_TO env var
+        """
+        print(f"[EmailService] send_daily_report called, to_email={to_email}")
+        print(f"[EmailService] api_key configured: {bool(self.api_key)}")
+
         if not self.api_key:
+            print("[EmailService] ERROR: RESEND_API_KEY not configured")
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
-        if not self.to_email:
-            return {"success": False, "error": "EMAIL_TO not configured"}
+        recipient = to_email or self.to_email
+        print(f"[EmailService] recipient: {recipient}")
+        if not recipient:
+            print("[EmailService] ERROR: No recipient email specified")
+            return {"success": False, "error": "No recipient email specified"}
 
         try:
             html_content = self._format_html_report(data)
@@ -157,15 +169,20 @@ class EmailService:
 
             params = {
                 "from": self.from_email,
-                "to": [self.to_email],
+                "to": [recipient],
                 "subject": f"Daily Market Report - {today}",
                 "html": html_content,
             }
 
+            print(f"[EmailService] Sending email from {self.from_email} to {recipient}")
             email = resend.Emails.send(params)
-            return {"success": True, "email_id": email.get("id")}
+            print(f"[EmailService] Email sent successfully, id: {email.get('id')}")
+            return {"success": True, "email_id": email.get("id"), "sent_to": recipient}
 
         except Exception as e:
+            print(f"[EmailService] ERROR sending email: {e}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "error": str(e)}
 
 
