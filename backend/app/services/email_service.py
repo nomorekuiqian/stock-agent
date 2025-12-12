@@ -37,44 +37,6 @@ class EmailService:
             </div>
             """
 
-        # Build trends table
-        trends_html = ""
-        for trend in data.get("trends", []):
-            week_color = "#22c55e" if trend.get("week_change", 0) >= 0 else "#ef4444"
-            month_color = "#22c55e" if trend.get("month_change", 0) >= 0 else "#ef4444"
-            trends_html += f"""
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px; font-weight: 500;">{trend.get('name', '')}</td>
-                <td style="padding: 12px; text-align: right; color: {week_color};">
-                    {'+' if trend.get('week_change', 0) >= 0 else ''}{trend.get('week_change', 0):.2f}%
-                </td>
-                <td style="padding: 12px; text-align: right; color: {month_color};">
-                    {'+' if trend.get('month_change', 0) >= 0 else ''}{trend.get('month_change', 0):.2f}%
-                </td>
-                <td style="padding: 12px; text-align: right;">{trend.get('trend', 'Neutral')}</td>
-            </tr>
-            """
-
-        # Build liquidity section
-        liquidity = data.get("liquidity", {})
-        yield_curve = liquidity.get("yield_curve", {})
-        spreads = liquidity.get("spreads", {})
-
-        yield_html = ""
-        for maturity, rate in yield_curve.get("rates", {}).items():
-            yield_html += f"""
-            <div style="display: inline-block; margin: 4px; padding: 12px; background: #f1f5f9; border-radius: 6px;">
-                <div style="font-size: 11px; color: #64748b;">{maturity}</div>
-                <div style="font-size: 16px; font-weight: bold;">{rate:.3f}%</div>
-            </div>
-            """
-
-        inversion_badge = ""
-        if spreads.get("inversion_warning"):
-            inversion_badge = '<span style="background: #fef2f2; color: #dc2626; padding: 4px 12px; border-radius: 16px; font-size: 12px;">Yield Curve Inverted</span>'
-        else:
-            inversion_badge = '<span style="background: #f0fdf4; color: #16a34a; padding: 4px 12px; border-radius: 16px; font-size: 12px;">Normal Yield Curve</span>'
-
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -97,34 +59,6 @@ class EmailService:
                 <h2 style="font-size: 18px; color: #1e293b; margin-bottom: 16px;">Market Indices</h2>
                 <div style="margin-bottom: 24px;">
                     {indices_html}
-                </div>
-
-                <!-- Trend Analysis -->
-                <h2 style="font-size: 18px; color: #1e293b; margin-bottom: 16px;">Trend Analysis</h2>
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-                    <thead>
-                        <tr style="background: #f8fafc;">
-                            <th style="padding: 12px; text-align: left; font-size: 12px; color: #64748b;">Index</th>
-                            <th style="padding: 12px; text-align: right; font-size: 12px; color: #64748b;">1 Week</th>
-                            <th style="padding: 12px; text-align: right; font-size: 12px; color: #64748b;">1 Month</th>
-                            <th style="padding: 12px; text-align: right; font-size: 12px; color: #64748b;">Trend</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {trends_html}
-                    </tbody>
-                </table>
-
-                <!-- Yield Curve -->
-                <h2 style="font-size: 18px; color: #1e293b; margin-bottom: 16px;">Yield Curve</h2>
-                <div style="margin-bottom: 16px;">
-                    {yield_html}
-                </div>
-                <div style="margin-bottom: 24px;">
-                    {inversion_badge}
-                    <span style="margin-left: 16px; color: #64748b; font-size: 13px;">
-                        10Y-3M: {spreads.get('10y_3m', 'N/A')}% | 10Y-5Y: {spreads.get('10y_5y', 'N/A')}%
-                    </span>
                 </div>
 
                 <!-- In-Depth Analysis -->

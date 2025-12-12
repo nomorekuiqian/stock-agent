@@ -7,34 +7,8 @@ export interface MarketIndex {
   change_percent?: number;
 }
 
-export interface MarketTrend {
-  name: string;
-  current: number;
-  week_change: number;
-  month_change: number;
-  trend: string;
-}
-
-export interface YieldCurveData {
-  rates: Record<string, number>;
-  changes: Record<string, number>;
-}
-
-export interface SpreadsData {
-  '10y_3m': number | null;
-  '10y_5y': number | null;
-  inversion_warning: boolean;
-}
-
-export interface LiquidityData {
-  yield_curve: YieldCurveData;
-  spreads: SpreadsData;
-}
-
 export interface MacroData {
   indices: MarketIndex[];
-  trends: MarketTrend[];
-  liquidity?: LiquidityData;
   timestamp: string;
   short_analysis: string;
   in_depth_analysis: string;

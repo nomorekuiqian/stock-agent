@@ -5,69 +5,88 @@
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-inter);
 
-  --color-background: #0a0a0a;
-  --color-foreground: #ededed;
+  /* Clean White Theme with Emerald accent */
+  --color-background: #ffffff;
+  --color-foreground: #1f2937;
 
-  --color-card: #171717;
-  --color-card-foreground: #ededed;
+  --color-card: #ffffff;
+  --color-card-foreground: #1f2937;
 
-  --color-popover: #171717;
-  --color-popover-foreground: #ededed;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1f2937;
 
-  --color-primary: #ededed;
-  --color-primary-foreground: #171717;
+  /* Emerald Green as primary accent color */
+  --color-primary: #059669;
+  --color-primary-foreground: #ffffff;
 
-  --color-secondary: #262626;
-  --color-secondary-foreground: #ededed;
+  --color-secondary: #f3f4f6;
+  --color-secondary-foreground: #1f2937;
 
-  --color-muted: #262626;
-  --color-muted-foreground: #a3a3a3;
+  --color-muted: #f3f4f6;
+  --color-muted-foreground: #6b7280;
 
-  --color-accent: #262626;
-  --color-accent-foreground: #ededed;
+  --color-accent: #059669;
+  --color-accent-foreground: #ffffff;
 
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ededed;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
 
-  --color-border: #262626;
-  --color-input: #262626;
-  --color-ring: #d4d4d4;
+  --color-success: #16a34a;
+  --color-success-foreground: #ffffff;
+
+  --color-border: #e5e7eb;
+  --color-input: #f3f4f6;
+  --color-ring: #059669;
 
   --radius: 0.75rem;
 }
 
 :root {
-  --foreground-rgb: 15, 23, 42;
-  /* Dark Mode Financial Terminal Theme */
+  --foreground-rgb: 29, 29, 31;
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: #ffffff !important;
+  color: #1d1d1f;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Override any dark mode preferences */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #ffffff !important;
+    color: #1d1d1f !important;
+  }
+}
+
+/* Apple-style utilities */
 @layer utilities {
-  .glass-panel {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl;
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-gray-200/50 shadow-lg shadow-gray-200/50;
   }
 
-  .bento-card {
-    @apply bg-card text-card-foreground rounded-xl border border-border shadow-sm transition-all hover:shadow-md;
+  .hover-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl;
   }
 
-  .text-balance {
-    text-wrap: balance;
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-400;
   }
 
-  .animation-delay-200 {
-    animation-delay: 200ms;
+  .section-padding {
+    @apply px-4 md:px-8 lg:px-16;
   }
+}
 
-  .animation-delay-400 {
-    animation-delay: 400ms;
+/* Smooth animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -76,22 +95,92 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 0.6s ease-out forwards;
 }
 
-/* Animation Delays for Loading Indicators */
-.animation-delay-200 {
-  animation-delay: 200ms;
+.animate-slide-in-right {
+  animation: slide-in-right 0.5s ease-out forwards;
 }
 
-.animation-delay-400 {
-  animation-delay: 400ms;
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Custom scrollbar - Apple style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d2d2d7;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #86868b;
+}
+
+/* Typography enhancements for Apple style */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+/* Prose customization for Apple reading experience */
+.prose-apple {
+  @apply prose prose-lg max-w-none;
+  @apply prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight;
+  @apply prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4;
+  @apply prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3;
+  @apply prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:my-4;
+  @apply prose-strong:text-foreground prose-strong:font-semibold;
+  @apply prose-a:text-primary prose-a:no-underline hover:prose-a:underline;
+  @apply prose-ul:my-4 prose-li:text-muted-foreground prose-li:my-1;
+  @apply prose-ol:my-4;
+  @apply prose-table:my-6;
+  @apply prose-th:text-left prose-th:font-semibold prose-th:text-foreground prose-th:pb-3 prose-th:border-b prose-th:border-border;
+  @apply prose-td:py-3 prose-td:text-muted-foreground prose-td:border-b prose-td:border-border/50;
 }

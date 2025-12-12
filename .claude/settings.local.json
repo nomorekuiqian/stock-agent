@@ -39,7 +39,10 @@
       "Bash(du:*)",
       "Bash(npm install)",
       "Bash(npm uninstall:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "mcp__puppeteer__puppeteer_screenshot",
+      "mcp__puppeteer__puppeteer_evaluate",
+      "mcp__puppeteer__puppeteer_click"
     ],
     "deny": [],
     "ask": []
