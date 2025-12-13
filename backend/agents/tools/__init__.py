@@ -1,5 +1,5 @@
 """
-Tools module for Macro Agent.
+Tools module for Market Agent.
 """
 
 from agents.tools.market_data import (

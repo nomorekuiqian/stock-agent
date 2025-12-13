@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { api, MacroData } from '@/lib/api';
+import { api, MarketData } from '@/lib/api';
+import { saveMarketReport } from '@/lib/insforge';
 
-const CACHE_KEY = 'macro_analysis_cache';
+const CACHE_KEY = 'market_analysis_cache';
 
 interface CachedData {
-  data: MacroData;
+  data: MarketData;
   cachedAt: string;
 }
 
@@ -24,7 +25,7 @@ function loadFromCache(): CachedData | null {
   return null;
 }
 
-function saveToCache(data: MacroData): void {
+function saveToCache(data: MarketData): void {
   if (typeof window === 'undefined') return;
   const cacheData: CachedData = {
     data,
@@ -33,9 +34,9 @@ function saveToCache(data: MacroData): void {
   localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
 }
 
-export default function MacroPage() {
+export default function MarketPage() {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<MacroData | null>(null);
+  const [data, setData] = useState<MarketData | null>(null);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -53,10 +54,30 @@ export default function MacroPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.getMacroAnalysis();
+      const result = await api.getMarketAnalysis();
       setData(result);
       saveToCache(result);
       setCachedAt(new Date().toISOString());
+
+      // Save to Insforge database
+      const reportDate = new Date(result.timestamp).toISOString().split('T')[0];
+      const saveResult = await saveMarketReport({
+        report_date: reportDate,
+        timestamp: result.timestamp,
+        short_analysis: result.short_analysis,
+        in_depth_analysis: result.in_depth_analysis,
+        indices: result.indices,
+        economic_calendar: result.economic_calendar,
+        earnings_calendar: result.earnings_calendar,
+        news_data: result.news_data,
+        market_data: result.market_data,
+      });
+
+      if (saveResult.success) {
+        console.log('Report saved to database:', reportDate);
+      } else {
+        console.error('Failed to save report:', saveResult.error);
+      }
     } catch {
       setError('Failed to fetch market analysis. Please try again.');
     } finally {

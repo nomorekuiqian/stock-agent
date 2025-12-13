@@ -1,5 +1,5 @@
 """
-News Tools for Macro Agent
+News Tools for Market Agent
 Provides news fetching functions using FMP API.
 """
 

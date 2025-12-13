@@ -42,7 +42,16 @@
       "Bash(npm install:*)",
       "mcp__puppeteer__puppeteer_screenshot",
       "mcp__puppeteer__puppeteer_evaluate",
-      "mcp__puppeteer__puppeteer_click"
+      "mcp__puppeteer__puppeteer_click",
+      "Bash(npx:*)",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --version)",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__fill_form",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__list_network_requests",
+      "mcp__chrome-devtools__list_console_messages"
     ],
     "deny": [],
     "ask": []

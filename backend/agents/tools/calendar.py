@@ -1,5 +1,5 @@
 """
-Economic Calendar Tools for Macro Agent
+Economic Calendar Tools for Market Agent
 Provides economic calendar fetching functions using FMP API.
 """
 

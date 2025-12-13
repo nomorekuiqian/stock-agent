@@ -4,7 +4,14 @@
       "Bash(source:*)",
       "Bash(uvicorn:*)",
       "Bash(curl:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "mcp__insforge__get-table-schema",
+      "Bash(python:*)",
+      "mcp__insforge__get-backend-metadata",
+      "mcp__insforge__fetch-docs"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "insforge"
+  ]
 }

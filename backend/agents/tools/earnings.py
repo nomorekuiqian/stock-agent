@@ -1,10 +1,10 @@
 """
-Earnings Calendar Tools for Macro Agent
+Earnings Calendar Tools for Market Agent
 Provides earnings calendar fetching functions using FMP API.
 """
 
 
-def get_earnings_calendar(days: int = 7) -> dict:
+def get_earnings_calendar(days: int = 14) -> dict:
     """
     Fetch upcoming earnings announcements for major companies in the next N days.
 
@@ -12,7 +12,7 @@ def get_earnings_calendar(days: int = 7) -> dict:
     Includes AI-related company markers.
 
     Args:
-        days: Number of days to look ahead (default: 7, max: 90)
+        days: Number of days to look ahead (default: 14, max: 90)
 
     Returns:
         Dictionary with earnings:

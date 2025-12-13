@@ -46,6 +46,7 @@ FMP_API_KEY=your_fmp_api_key        # Financial Modeling Prep API
 RESEND_API_KEY=your_resend_api_key  # 可选,用于邮件报告
 CRON_SECRET=your_secret             # 可选,用于定时任务认证
 FRONTEND_URL=https://your-domain    # 可选,生产环境 CORS
+INSFORGE_ANON_KEY=your_anon_key     # 可选,Insforge 匿名密钥 (有默认值)
 ```
 
 ## 架构设计
@@ -60,7 +61,8 @@ backend/
 │   ├── main.py                    # FastAPI 入口, API 路由
 │   └── services/
 │       ├── fmp_service.py         # Financial Modeling Prep API (国债利率)
-│       └── email_service.py       # Resend 邮件服务
+│       ├── email_service.py       # Resend 邮件服务
+│       └── insforge_service.py    # Insforge 数据库服务 (报告存储)
 ├── agents/
 │   ├── agent.py                   # ADK Agent 定义 + MacroAgent 封装类
 │   └── tools/
@@ -113,9 +115,12 @@ backend/
 
 | 端点 | 方法 | 描述 |
 |------|------|------|
-| `/api/macro` | POST | 执行完整宏观分析,返回市场数据+新闻+AI分析 |
+| `/api/macro` | POST | 执行完整宏观分析,返回市场数据+新闻+AI分析,同时保存到 Insforge |
 | `/api/report/send` | POST | 发送每日邮件报告 (需 X-Cron-Secret 头) |
 | `/api/report/send-test` | POST | 发送测试邮件 (默认发送到 hardcode 邮箱) |
+| `/api/reports` | GET | 获取历史报告列表 (支持分页和日期过滤) |
+| `/api/reports/latest` | GET | 获取最新报告 |
+| `/api/reports/{date}` | GET | 按日期获取报告 (YYYY-MM-DD 格式) |
 
 ### 前端架构
 
@@ -147,9 +152,31 @@ frontend/src/
       - get_economic_calendar() (FMP)
       - get_earnings_calendar() (FMP)
   → Analyst Agent 生成中文分析报告
+  → 保存报告到 Insforge (market_reports 表)
   → 返回 {indices, timestamp, short_analysis, in_depth_analysis, ...}
   → 前端缓存到 localStorage
 ```
+
+### Insforge 数据存储
+
+**数据库表**: `market_reports`
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| id | UUID | 主键 |
+| report_date | DATE | 报告日期 (唯一) |
+| timestamp | TEXT | 生成时间戳 |
+| short_analysis | TEXT | 简短分析 |
+| in_depth_analysis | TEXT | 深度分析 |
+| indices | JSONB | 市场指数数据 |
+| economic_calendar | JSONB | 经济日历 |
+| earnings_calendar | JSONB | 财报日历 |
+| news_data | JSONB | 新闻数据 |
+| market_data | JSONB | 原始市场数据 |
+
+**Insforge 配置**:
+- Base URL: `https://9wmhxyi4.us-east.insforge.app`
+- 认证: 匿名 JWT Token
 
 ## 开发注意事项
 

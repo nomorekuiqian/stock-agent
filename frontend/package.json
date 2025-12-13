@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@insforge/sdk": "^1.0.1",
     "@tailwindcss/typography": "^0.5.19",
     "clsx": "^2.1.1",
     "lucide-react": "^0.554.0",

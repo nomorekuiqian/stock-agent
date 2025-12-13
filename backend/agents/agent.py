@@ -1,11 +1,10 @@
 """
-Macro Agent - Simplified Architecture
+Market Agent - Simplified Architecture
 
 Architecture:
     Python (fetch data) -> Analyst Agent (analyze)
 
-No more data_news_fetcher_agent - data is fetched directly in Python
-and passed to the analyst agent for analysis.
+Data is fetched directly in Python and passed to the analyst agent for analysis.
 """
 
 import json
@@ -407,11 +406,111 @@ root_agent = market_report_agent
 
 
 # =============================================================================
-# MacroAgent Wrapper Class
+# Data Cleaning Functions for AI Input
 # =============================================================================
 
 
-class MacroAgent:
+def _clean_market_data(data: dict) -> dict:
+    """Remove month_change field from market_data to reduce token usage."""
+    result = {}
+    for category, assets in data.items():
+        if category in ["status", "report_date"]:
+            result[category] = assets
+            continue
+        if isinstance(assets, dict):
+            result[category] = {}
+            for name, values in assets.items():
+                if isinstance(values, dict):
+                    # Handle nested dicts (e.g., rates.yield_curve.10Y)
+                    cleaned = {}
+                    for k, v in values.items():
+                        if k == "month_change":
+                            continue  # Remove month_change
+                        if isinstance(v, dict):
+                            # Recursively clean nested dicts
+                            cleaned[k] = {
+                                kk: vv for kk, vv in v.items() if kk != "month_change"
+                            }
+                        else:
+                            cleaned[k] = v
+                    result[category][name] = cleaned
+                else:
+                    result[category][name] = values
+        else:
+            result[category] = assets
+    return result
+
+
+def _prepare_data_for_analyst(
+    market_data: dict,
+    news: list,
+    economic_calendar: list,
+    earnings_calendar: list,
+) -> dict:
+    """
+    Clean and minimize data for AI analyst.
+    Removes redundant fields to reduce token usage by ~45%.
+
+    Fields removed:
+    - news: image, symbol, type, _source
+    - economic_calendar: country, currency, impact, actual, change, changePercentage
+    - earnings_calendar: epsActual, revenueActual, lastUpdated
+    - market_data: month_change
+    """
+    # 1. Clean news - keep only: title, text, source, url, publishedDate
+    clean_news = [
+        {
+            "title": n.get("title", ""),
+            "text": n.get("text", ""),
+            "source": n.get("source", ""),
+            "url": n.get("url", ""),
+            "publishedDate": n.get("publishedDate", ""),
+        }
+        for n in news
+        if n.get("title") and n.get("url")  # Must have title and url
+    ]
+
+    # 2. Clean economic_calendar - keep only: date, event, previous, estimate, is_key_event
+    clean_calendar = [
+        {
+            "date": e.get("date", ""),
+            "event": e.get("event", ""),
+            "previous": e.get("previous"),
+            "estimate": e.get("estimate"),
+            "is_key_event": e.get("is_key_event", False),
+        }
+        for e in economic_calendar
+    ]
+
+    # 3. Clean earnings_calendar - keep only: symbol, date, epsEstimated, revenueEstimated, is_ai_related
+    clean_earnings = [
+        {
+            "symbol": e.get("symbol", ""),
+            "date": e.get("date", ""),
+            "epsEstimated": e.get("epsEstimated"),
+            "revenueEstimated": e.get("revenueEstimated"),
+            "is_ai_related": e.get("is_ai_related", False),
+        }
+        for e in earnings_calendar
+    ]
+
+    # 4. Clean market_data - remove month_change
+    clean_market = _clean_market_data(market_data)
+
+    return {
+        "market_data": clean_market,
+        "news": clean_news,
+        "economic_calendar": clean_calendar,
+        "earnings_calendar": clean_earnings,
+    }
+
+
+# =============================================================================
+# MarketAgent Wrapper Class
+# =============================================================================
+
+
+class MarketAgent:
     """Wrapper class to fetch data and run the sequential agent pipeline."""
 
     def __init__(self, client=None):
@@ -420,33 +519,33 @@ class MacroAgent:
     async def analyze(self) -> dict:
         """Fetch all data and run the sequential agent pipeline."""
         try:
-            print("[MacroAgent] Fetching market data...")
+            print("[MarketAgent] Fetching market data...")
 
             # Step 1: Fetch all data directly (no LLM needed)
             market_data = get_all_market_data()
             news_result = get_combined_market_news(days=1)
             calendar_result = get_economic_calendar(days=14)
-            earnings_result = get_earnings_calendar(days=7)
+            earnings_result = get_earnings_calendar(days=14)
 
             print(
-                f"[MacroAgent] Data fetched. News: {news_result.get('news_count', 0)}, "
+                f"[MarketAgent] Data fetched. News: {news_result.get('news_count', 0)}, "
                 f"Calendar: {calendar_result.get('events_count', 0)}, "
                 f"Earnings: {earnings_result.get('earnings_count', 0)}"
             )
 
-            # Step 2: Prepare data for the pipeline
+            # Step 2: Prepare and clean data for the pipeline (reduce token usage)
             report_date = datetime.now().strftime("%Y-%m-%d %A")
 
-            data_for_analyst = {
-                "report_date": report_date,
-                "market_data": market_data,
-                "news": news_result.get("news", [])[:50],  # Top 50 news
-                "economic_calendar": calendar_result.get("events", []),
-                "earnings_calendar": earnings_result.get("earnings", []),
-            }
+            data_for_analyst = _prepare_data_for_analyst(
+                market_data=market_data,
+                news=news_result.get("news", [])[:30],  # Top 30 most important news
+                economic_calendar=calendar_result.get("events", []),
+                earnings_calendar=earnings_result.get("earnings", []),
+            )
+            data_for_analyst["report_date"] = report_date
 
             # Step 3: Create session and run the sequential pipeline
-            print("[MacroAgent] Running sequential pipeline (analyst -> refiner)...")
+            print("[MarketAgent] Running sequential pipeline (analyst -> refiner)...")
 
             session = await self.runner.session_service.create_session(
                 app_name="stock_agent", user_id="pipeline"
@@ -482,7 +581,7 @@ class MacroAgent:
                                     ):
                                         refinement_text = text
                                         print(
-                                            f"[MacroAgent] Refinement output received. Length: {len(text)}"
+                                            f"[MarketAgent] Refinement output received. Length: {len(text)}"
                                         )
                                     elif (
                                         "## 1. 市场一句话" in text
@@ -490,17 +589,32 @@ class MacroAgent:
                                     ):
                                         draft_text = text
                                         print(
-                                            f"[MacroAgent] Analyst draft received. Length: {len(text)}"
+                                            f"[MarketAgent] Analyst draft received. Length: {len(text)}"
                                         )
 
-            # Step 4: Parse results
-            evaluation_report, final_analysis = self._parse_refinement(refinement_text)
+            # Step 4: Use outputs directly (no parsing needed)
+            # Prefer refined final analysis, fallback to draft
+            in_depth_analysis = ""
+            evaluation_report = ""
 
-            # Use final_analysis from refinement if available, otherwise use draft
-            analysis_to_parse = final_analysis if final_analysis else draft_text
-            short_analysis, in_depth_analysis = self._parse_analysis(analysis_to_parse)
+            if refinement_text:
+                # Extract final analysis from refinement output
+                final_marker = "## 优化后的终稿"
+                if final_marker in refinement_text:
+                    idx = refinement_text.find(final_marker)
+                    in_depth_analysis = refinement_text[idx + len(final_marker):].strip()
+                    evaluation_report = refinement_text[:idx].strip()
+                    # Clean up divider lines
+                    if in_depth_analysis.startswith("---"):
+                        in_depth_analysis = in_depth_analysis[3:].strip()
+                else:
+                    in_depth_analysis = refinement_text
 
-            print("[MacroAgent] Pipeline complete.")
+            # Fallback to draft if no refinement
+            if not in_depth_analysis and draft_text:
+                in_depth_analysis = draft_text
+
+            print("[MarketAgent] Pipeline complete.")
 
             return {
                 "market_data": market_data,
@@ -520,14 +634,14 @@ class MacroAgent:
                     "date_range": earnings_result.get("date_range", {}),
                 },
                 "timestamp": datetime.now().isoformat(),
-                "short_analysis": short_analysis,
+                "short_analysis": "",  # Deprecated, use in_depth_analysis
                 "in_depth_analysis": in_depth_analysis,
                 "evaluation_report": evaluation_report,
                 "draft_analysis": draft_text,
             }
 
         except Exception as e:
-            print(f"Error in macro analysis: {e}")
+            print(f"Error in market analysis: {e}")
             import traceback
 
             traceback.print_exc()
@@ -544,98 +658,3 @@ class MacroAgent:
                 "in_depth_analysis": "",
             }
 
-    def _parse_refinement(self, text: str) -> tuple[str, str]:
-        """Parse the refinement agent response into evaluation report and final analysis."""
-        if not text:
-            return "", ""
-
-        text = text.strip()
-
-        # Look for the "## 优化后的终稿" section
-        final_markers = ["## 优化后的终稿", "## 优化后终稿", "# 优化后的终稿"]
-        evaluation_markers = ["## 评估报告", "# 评估报告"]
-
-        evaluation_report = ""
-        final_analysis = ""
-
-        # Find evaluation report section
-        eval_start = -1
-        for marker in evaluation_markers:
-            idx = text.find(marker)
-            if idx != -1:
-                eval_start = idx
-                break
-
-        # Find final analysis section
-        final_start = -1
-        for marker in final_markers:
-            idx = text.find(marker)
-            if idx != -1:
-                final_start = idx
-                break
-
-        if eval_start != -1 and final_start != -1:
-            # Both sections found
-            if eval_start < final_start:
-                evaluation_report = text[eval_start:final_start].strip()
-                final_analysis = text[final_start:].strip()
-                # Remove the header from final analysis
-                for marker in final_markers:
-                    final_analysis = final_analysis.replace(marker, "").strip()
-            else:
-                evaluation_report = text[eval_start:].strip()
-                final_analysis = text[:eval_start].strip()
-        elif final_start != -1:
-            # Only final analysis found
-            final_analysis = text[final_start:].strip()
-            for marker in final_markers:
-                final_analysis = final_analysis.replace(marker, "").strip()
-        elif eval_start != -1:
-            # Only evaluation found, use the whole text
-            evaluation_report = text
-
-        # Clean up the divider lines
-        if final_analysis.startswith("---"):
-            final_analysis = final_analysis[3:].strip()
-        if evaluation_report.endswith("---"):
-            evaluation_report = evaluation_report[:-3].strip()
-
-        return evaluation_report, final_analysis
-
-    def _parse_analysis(self, text: str) -> tuple[str, str]:
-        """Parse the agent response into short and in-depth analysis"""
-        if not text:
-            return "No analysis available.", ""
-
-        text = text.strip()
-
-        # Try to find market overview section as short analysis
-        overview_markers = ["## 一、市场总览", "## 市场总览", "# 市场总览"]
-        section_two_markers = ["## 二、", "## 宏观流动性"]
-
-        short_analysis = ""
-        in_depth_analysis = text
-
-        for marker in overview_markers:
-            idx = text.find(marker)
-            if idx != -1:
-                # Find where section two starts
-                end_idx = len(text)
-                for end_marker in section_two_markers:
-                    section_two_idx = text.find(end_marker)
-                    if section_two_idx != -1 and section_two_idx > idx:
-                        end_idx = section_two_idx
-                        break
-
-                short_analysis = text[idx:end_idx].strip()
-                # Remove the header from short analysis
-                short_analysis = short_analysis.replace(marker, "").strip()
-                break
-
-        # If no marker found, use first paragraph
-        if not short_analysis:
-            paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-            if paragraphs:
-                short_analysis = paragraphs[0][:500]
-
-        return short_analysis, in_depth_analysis

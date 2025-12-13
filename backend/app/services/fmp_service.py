@@ -448,7 +448,7 @@ class FMPService:
     # Earnings Calendar
     # =========================================================================
 
-    def get_earnings_calendar(self, days: int = 7) -> dict:
+    def get_earnings_calendar(self, days: int = 14) -> dict:
         """
         Get upcoming earnings announcements for the next N days.
 
@@ -518,7 +518,7 @@ class FMPService:
 
         return parsed
 
-    def get_major_earnings(self, days: int = 7, min_market_cap: float = 10e9) -> dict:
+    def get_major_earnings(self, days: int = 14, min_market_cap: float = 10e9) -> dict:
         """
         Get upcoming earnings for major companies (large cap).
 

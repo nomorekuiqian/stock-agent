@@ -7,10 +7,10 @@ from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
-from agents.agent import MacroAgent
+from agents.agent import MarketAgent
 from app.services.email_service import get_email_service
 
-app = FastAPI(title="Macro Analysis API")
+app = FastAPI(title="Market Analysis API")
 
 # Configure CORS - allow localhost and production domains
 allowed_origins = [
@@ -29,19 +29,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize macro agent
-macro_agent = MacroAgent()
+# Initialize market agent
+market_agent = MarketAgent()
 
 @app.get("/")
 async def root():
-    return {"message": "Macro Analysis API is running"}
+    return {"message": "Market Analysis API is running"}
 
-@app.post("/api/macro")
-async def analyze_macro():
+@app.post("/api/market")
+async def analyze_market():
     try:
-        result = await macro_agent.analyze()
+        result = await market_agent.analyze()
         if not result:
-            raise HTTPException(status_code=500, detail="Failed to generate macro analysis")
+            raise HTTPException(status_code=500, detail="Failed to generate market analysis")
 
         # Transform market_data to frontend expected format
         market_data = result.get("market_data", {})
@@ -73,7 +73,7 @@ async def analyze_macro():
                 "change_percent": data.get("daily_change", 0)
             })
 
-        return {
+        response_data = {
             "indices": indices,
             "timestamp": result.get("timestamp", datetime.now().isoformat()),
             "short_analysis": result.get("short_analysis", ""),
@@ -83,7 +83,12 @@ async def analyze_macro():
             "news_data": result.get("news_data", {}),
             "evaluation_report": result.get("evaluation_report", ""),
             "draft_analysis": result.get("draft_analysis", ""),
+            "market_data": market_data,
         }
+
+        # Note: Report saving is handled by the frontend using Insforge SDK
+
+        return response_data
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -108,10 +113,10 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        # Generate the macro analysis
-        result = await macro_agent.analyze()
+        # Generate the market analysis
+        result = await market_agent.analyze()
         if not result:
-            raise HTTPException(status_code=500, detail="Failed to generate macro analysis")
+            raise HTTPException(status_code=500, detail="Failed to generate market analysis")
 
         # Transform to frontend format for consistent email
         market_data = result.get("market_data", {})
@@ -188,10 +193,10 @@ async def send_test_report(request: SendEmailRequest = None):
         # Use provided email or default test email
         to_email = (request.email if request else None) or DEFAULT_TEST_EMAIL
 
-        # Generate the macro analysis
-        result = await macro_agent.analyze()
+        # Generate the market analysis
+        result = await market_agent.analyze()
         if not result:
-            raise HTTPException(status_code=500, detail="Failed to generate macro analysis")
+            raise HTTPException(status_code=500, detail="Failed to generate market analysis")
 
         # Transform to frontend format for consistent email
         market_data = result.get("market_data", {})

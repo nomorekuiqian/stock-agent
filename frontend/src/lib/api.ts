@@ -7,11 +7,15 @@ export interface MarketIndex {
   change_percent?: number;
 }
 
-export interface MacroData {
+export interface MarketData {
   indices: MarketIndex[];
   timestamp: string;
   short_analysis: string;
   in_depth_analysis: string;
+  economic_calendar?: unknown;
+  earnings_calendar?: unknown;
+  news_data?: unknown;
+  market_data?: unknown;
 }
 
 export interface SendEmailResponse {
@@ -22,12 +26,12 @@ export interface SendEmailResponse {
 }
 
 export const api = {
-  getMacroAnalysis: async (): Promise<MacroData> => {
-    const response = await fetch(`${API_BASE_URL}/macro`, {
+  getMarketAnalysis: async (): Promise<MarketData> => {
+    const response = await fetch(`${API_BASE_URL}/market`, {
       method: 'POST',
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch macro analysis');
+      throw new Error('Failed to fetch market analysis');
     }
     return response.json();
   },

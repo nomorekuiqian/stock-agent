@@ -1,5 +1,5 @@
 """
-Market Data Tools for Macro Agent
+Market Data Tools for Market Agent
 Provides unified data fetching functions and ticker configurations.
 """
 

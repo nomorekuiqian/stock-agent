@@ -58,8 +58,8 @@ class MarketData(BaseModel):
     status: str = Field(default="success", description="Data fetch status")
 
 
-class MacroData(BaseModel):
-    """Macro data response with market data and analysis"""
+class MarketAnalysisData(BaseModel):
+    """Market analysis response with market data and analysis"""
     market_data: MarketData = Field(..., description="Complete market data")
     timestamp: datetime = Field(default_factory=datetime.now, description="Data timestamp")
     short_analysis: str = Field(default="", description="Short summary analysis")
