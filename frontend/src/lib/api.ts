@@ -25,6 +25,14 @@ export interface SendEmailResponse {
   sent_to?: string;
 }
 
+export interface DigestResponse {
+  user_id: string;
+  symbols_used: string[];
+  analysis: string;
+  news_data: unknown[];
+  timestamp: string;
+}
+
 export const api = {
   getMarketAnalysis: async (): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
@@ -47,6 +55,21 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to send email' }));
       throw new Error(error.detail || 'Failed to send email');
+    }
+    return response.json();
+  },
+
+  generateDigest: async (symbols: string[]): Promise<DigestResponse> => {
+    const response = await fetch(`${API_BASE_URL}/digest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ symbols }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to generate digest' }));
+      throw new Error(error.detail || 'Failed to generate digest');
     }
     return response.json();
   },

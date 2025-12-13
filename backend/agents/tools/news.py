@@ -73,23 +73,24 @@ def _get_effective_date_range() -> tuple:
 # =============================================================================
 
 
-def get_fmp_news(days: int = 1) -> dict:
+def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
     """
     Fetch market news from FMP API by ticker symbols.
 
     Args:
         days: Only include news from the last N days (default: 1)
+        symbols: Optional list of ticker symbols to query (defaults to FMP_NEWS_SYMBOLS)
 
     Returns:
         Dictionary with news articles from FMP (filtered by date only)
     """
-    print(f"[TOOL] get_fmp_news(days={days})")
+    print(f"[TOOL] get_fmp_news(days={days}, symbols={symbols})")
 
     try:
         from app.services.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        result = fmp.get_stock_news(limit=50)
+        result = fmp.get_stock_news(symbols=symbols, limit=50)
 
         if result.get("status") == "error":
             print(f"FMP news error: {result.get('error')}")
@@ -142,7 +143,7 @@ def get_fmp_news(days: int = 1) -> dict:
         }
 
 
-def get_combined_market_news(days: int = 1) -> dict:
+def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
     """
     Fetch market news from FMP API by ticker symbols.
 
@@ -151,14 +152,15 @@ def get_combined_market_news(days: int = 1) -> dict:
 
     Args:
         days: Only include news from the last N days (default: 1)
+        symbols: Optional list of ticker symbols to query (defaults to FMP_NEWS_SYMBOLS)
 
     Returns:
         Dictionary with news from FMP
     """
-    print(f"[TOOL] get_combined_market_news(days={days})")
+    print(f"[TOOL] get_combined_market_news(days={days}, symbols={symbols})")
 
     # Fetch from FMP only
-    result = get_fmp_news(days=days)
+    result = get_fmp_news(days=days, symbols=symbols)
 
     # Add source marker
     for news in result.get("news", []):

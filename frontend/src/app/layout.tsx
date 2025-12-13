@@ -42,6 +42,18 @@ export default function RootLayout({
                   >
                     Market Analysis
                   </a>
+                  <a
+                    href="/digest"
+                    className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                  >
+                    My Digest
+                  </a>
+                  <a
+                    href="/reports"
+                    className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                  >
+                    Reports
+                  </a>
                   <NavAuth />
                 </div>
               </div>

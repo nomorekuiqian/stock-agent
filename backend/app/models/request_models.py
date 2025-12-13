@@ -66,3 +66,48 @@ class MarketAnalysisData(BaseModel):
     in_depth_analysis: str = Field(default="", description="Detailed trend analysis")
 
 
+# =============================================================================
+# Personalized Digest Models
+# =============================================================================
+
+
+class WatchlistRequest(BaseModel):
+    """Request model for saving user watchlist"""
+    symbols: list[str] = Field(..., description="List of stock ticker symbols")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "symbols": ["AAPL", "MSFT", "NVDA", "TSLA"]
+            }
+        }
+
+
+class WatchlistResponse(BaseModel):
+    """Response model for watchlist operations"""
+    user_id: str = Field(..., description="User identifier")
+    symbols: list[str] = Field(default=[], description="List of stock ticker symbols")
+    updated_at: Optional[str] = Field(None, description="Last update timestamp")
+
+
+class DigestRequest(BaseModel):
+    """Request model for generating personalized digest"""
+    symbols: list[str] = Field(default=[], description="User watchlist symbols to analyze")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "symbols": ["AAPL", "MSFT", "NVDA", "TSLA"]
+            }
+        }
+
+
+class DigestResponse(BaseModel):
+    """Response model for personalized digest"""
+    user_id: str = Field(..., description="User identifier")
+    symbols_used: list[str] = Field(default=[], description="Symbols used for analysis")
+    analysis: str = Field(default="", description="AI-generated personalized digest")
+    news_data: list[dict] = Field(default=[], description="Relevant news articles")
+    timestamp: str = Field(..., description="Generation timestamp")
+
+

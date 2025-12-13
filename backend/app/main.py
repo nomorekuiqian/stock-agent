@@ -5,10 +5,12 @@ import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware
 from agents.agent import MarketAgent
+from agents.digest_agent import DigestAgent
 from app.services.email_service import get_email_service
+from app.models.request_models import DigestRequest, DigestResponse
 
 app = FastAPI(title="Market Analysis API")
 
@@ -29,8 +31,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize market agent
+# Initialize agents
 market_agent = MarketAgent()
+digest_agent = DigestAgent()
 
 @app.get("/")
 async def root():
@@ -250,6 +253,39 @@ async def send_test_report(request: SendEmailRequest = None):
 
     except HTTPException:
         raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Personalized Digest Endpoints
+# =============================================================================
+
+
+@app.post("/api/digest", response_model=DigestResponse)
+async def generate_digest(request: DigestRequest):
+    """
+    Generate a personalized daily digest based on user's stock watchlist.
+
+    The user's watchlist symbols are merged with default macro symbols (SPY, QQQ, VIX)
+    to fetch relevant news and generate a personalized analysis.
+    """
+    try:
+        result = await digest_agent.analyze(user_symbols=request.symbols)
+
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to generate digest")
+
+        return DigestResponse(
+            user_id="",  # Will be set by frontend
+            symbols_used=result.get("symbols_used", []),
+            analysis=result.get("analysis", ""),
+            news_data=result.get("news_data", []),
+            timestamp=result.get("timestamp", datetime.now().isoformat()),
+        )
+
     except Exception as e:
         import traceback
         traceback.print_exc()
