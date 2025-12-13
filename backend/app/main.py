@@ -80,7 +80,9 @@ async def analyze_macro():
             "in_depth_analysis": result.get("in_depth_analysis", ""),
             "economic_calendar": result.get("economic_calendar", {}),
             "earnings_calendar": result.get("earnings_calendar", {}),
-            "news_data": result.get("news_data", {})
+            "news_data": result.get("news_data", {}),
+            "evaluation_report": result.get("evaluation_report", ""),
+            "draft_analysis": result.get("draft_analysis", ""),
         }
     except Exception as e:
         import traceback
