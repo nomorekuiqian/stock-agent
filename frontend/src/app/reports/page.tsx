@@ -48,6 +48,14 @@ export default function ReportsPage() {
     });
   };
 
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const getPreviewText = (text: string, maxLength: number = 150) => {
     if (!text) return '';
     // Remove markdown formatting for preview
@@ -117,7 +125,7 @@ export default function ReportsPage() {
             {reports.map((report) => (
               <Link
                 key={report.id || report.report_date}
-                href={`/reports/${report.report_date}`}
+                href={`/reports/${report.id}`}
                 className="group bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 hover:shadow-md transition-all"
               >
                 {/* Date Badge */}
@@ -146,7 +154,7 @@ export default function ReportsPage() {
                 {/* Footer */}
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                   <span className="text-xs text-gray-400">
-                    View full report
+                    {report.timestamp ? formatTime(report.timestamp) : 'View report'}
                   </span>
                   <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
                     <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

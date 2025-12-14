@@ -26,50 +26,21 @@ export interface MarketReport {
 
 export async function saveMarketReport(report: Omit<MarketReport, 'id' | 'created_at'>): Promise<{ success: boolean; data?: MarketReport; error?: string }> {
   try {
-    console.log('[Insforge] Saving report for date:', report.report_date);
-    console.log('[Insforge] Report data keys:', Object.keys(report));
+    console.log('[Insforge] Saving new report for date:', report.report_date);
+    console.log('[Insforge] Report timestamp:', report.timestamp);
 
-    // Check if report for this date already exists
-    console.log('[Insforge] Checking if report exists...');
-    const { data: existing, error: selectError } = await insforge.database
+    // Always insert a new report (don't overwrite existing ones)
+    const result = await insforge.database
       .from('market_reports')
-      .select('id')
-      .eq('report_date', report.report_date)
-      .maybeSingle();
-
-    if (selectError) {
-      console.error('[Insforge] Select error:', selectError);
-      return { success: false, error: `Select failed: ${selectError.message}` };
-    }
-
-    console.log('[Insforge] Existing record:', existing);
-
-    let result;
-    if (existing) {
-      // Update existing report
-      console.log('[Insforge] Updating existing report...');
-      result = await insforge.database
-        .from('market_reports')
-        .update(report)
-        .eq('report_date', report.report_date)
-        .select();
-    } else {
-      // Insert new report
-      console.log('[Insforge] Inserting new report...');
-      result = await insforge.database
-        .from('market_reports')
-        .insert([report])
-        .select();
-    }
-
-    console.log('[Insforge] Result:', result);
+      .insert([report])
+      .select();
 
     if (result.error) {
       console.error('[Insforge] Save error:', result.error);
       return { success: false, error: result.error.message };
     }
 
-    console.log('[Insforge] Save successful:', result.data?.[0]?.id);
+    console.log('[Insforge] Save successful, new report ID:', result.data?.[0]?.id);
     return {
       success: true,
       data: result.data?.[0] as MarketReport
@@ -106,10 +77,13 @@ export async function getLatestReport(): Promise<MarketReport | null> {
 
 export async function getReportByDate(date: string): Promise<MarketReport | null> {
   try {
+    // Get the latest report for this date (in case there are multiple)
     const { data, error } = await insforge.database
       .from('market_reports')
       .select('*')
       .eq('report_date', date)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -124,12 +98,33 @@ export async function getReportByDate(date: string): Promise<MarketReport | null
   }
 }
 
+export async function getReportById(id: string): Promise<MarketReport | null> {
+  try {
+    const { data, error } = await insforge.database
+      .from('market_reports')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching report by ID:', error);
+      return null;
+    }
+
+    return data as MarketReport | null;
+  } catch (error) {
+    console.error('Error fetching report by ID:', error);
+    return null;
+  }
+}
+
 export async function getReportsList(limit = 10, offset = 0): Promise<{ data: MarketReport[]; total: number }> {
   try {
+    // Order by created_at to show all reports including multiple per day
     const { data, error, count } = await insforge.database
       .from('market_reports')
-      .select('id, report_date, timestamp, short_analysis, created_at', { count: 'exact' })
-      .order('report_date', { ascending: false })
+      .select('id, report_date, timestamp, short_analysis, in_depth_analysis, created_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {

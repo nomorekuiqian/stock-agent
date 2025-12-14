@@ -51,7 +51,12 @@
       "mcp__chrome-devtools__click",
       "mcp__chrome-devtools__wait_for",
       "mcp__chrome-devtools__list_network_requests",
-      "mcp__chrome-devtools__list_console_messages"
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__list_pages",
+      "Bash(npm run lint:*)",
+      "mcp__insforge__run-raw-sql",
+      "Bash(grep:*)",
+      "mcp__insforge__get-backend-metadata"
     ],
     "deny": [],
     "ask": []

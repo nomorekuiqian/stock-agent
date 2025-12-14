@@ -7,13 +7,37 @@ export interface MarketIndex {
   change_percent?: number;
 }
 
+export interface EconomicEvent {
+  date: string;
+  event: string;
+  previous?: string | number | null;
+  estimate?: string | number | null;
+  is_key_event?: boolean;
+}
+
+export interface EarningsEvent {
+  symbol: string;
+  date: string;
+  epsEstimated?: number | null;
+  revenueEstimated?: number | null;
+  is_ai_related?: boolean;
+}
+
 export interface MarketData {
   indices: MarketIndex[];
   timestamp: string;
   short_analysis: string;
   in_depth_analysis: string;
-  economic_calendar?: unknown;
-  earnings_calendar?: unknown;
+  economic_calendar?: {
+    count: number;
+    events: EconomicEvent[];
+    date_range?: { start: string; end: string };
+  };
+  earnings_calendar?: {
+    count: number;
+    earnings: EarningsEvent[];
+    date_range?: { start: string; end: string };
+  };
   news_data?: unknown;
   market_data?: unknown;
 }

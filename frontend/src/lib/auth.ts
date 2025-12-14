@@ -19,9 +19,7 @@ export async function signUp(email: string, password: string, name?: string): Pr
     const { data, error } = await insforge.auth.signUp({
       email,
       password,
-      options: {
-        data: { name },
-      },
+      name,
     });
 
     console.log('[Auth] Sign up response:', { data, error });
@@ -32,15 +30,14 @@ export async function signUp(email: string, password: string, name?: string): Pr
     }
 
     // Check if email verification is required
-    // When verification is needed, user exists but session might not
     if (data?.user) {
       return {
         success: true,
-        needsVerification: !data.session, // No session means verification needed
+        needsVerification: data.requireEmailVerification || !data.user.emailVerified,
         user: {
           id: data.user.id,
           email: data.user.email || email,
-          name: data.user.user_metadata?.name,
+          name: data.user.name,
         },
       };
     }
@@ -48,7 +45,7 @@ export async function signUp(email: string, password: string, name?: string): Pr
     // If we get here, check if it's because verification email was sent
     return {
       success: true,
-      needsVerification: true,
+      needsVerification: data?.requireEmailVerification ?? true,
       error: 'Please check your email to verify your account'
     };
   } catch (error) {
@@ -79,8 +76,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
         user: {
           id: data.user.id,
           email: data.user.email || email,
-          name: data.user.user_metadata?.name,
-          avatarUrl: data.user.user_metadata?.avatar_url,
+          name: data.user.name,
         },
       };
     }

@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
-import { getReportByDate, MarketReport } from '@/lib/insforge';
+import { getReportById, MarketReport } from '@/lib/insforge';
 
 interface IndexData {
   name: string;
@@ -14,9 +14,9 @@ interface IndexData {
 export default function ReportDetailPage({
   params,
 }: {
-  params: Promise<{ date: string }>;
+  params: Promise<{ id: string }>;
 }) {
-  const { date } = use(params);
+  const { id } = use(params);
   const [report, setReport] = useState<MarketReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export default function ReportDetailPage({
       setLoading(true);
       setError(null);
       try {
-        const data = await getReportByDate(date);
+        const data = await getReportById(id);
         if (data) {
           setReport(data);
         } else {
@@ -40,7 +40,7 @@ export default function ReportDetailPage({
     };
 
     fetchReport();
-  }, [date]);
+  }, [id]);
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
@@ -99,7 +99,7 @@ export default function ReportDetailPage({
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-1">{error}</h3>
               <p className="text-sm text-gray-500">
-                The report for {date} could not be found.
+                The requested report could not be found.
               </p>
             </div>
             <Link

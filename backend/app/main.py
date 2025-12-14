@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware
 from agents.agent import MarketAgent
-from agents.digest_agent import DigestAgent
 from app.services.email_service import get_email_service
 from app.models.request_models import DigestRequest, DigestResponse
 
@@ -31,9 +30,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize agents
+# Initialize agent
 market_agent = MarketAgent()
-digest_agent = DigestAgent()
 
 @app.get("/")
 async def root():
@@ -179,22 +177,19 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
 
 
 class SendEmailRequest(BaseModel):
-    email: Optional[str] = None
-
-
-# Default test email - hardcoded for testing
-DEFAULT_TEST_EMAIL = "kedengpan@gmail.com"
+    email: str  # Required: user's email address
 
 
 @app.post("/api/report/send-test")
-async def send_test_report(request: SendEmailRequest = None):
+async def send_test_report(request: SendEmailRequest):
     """
-    Generate and send market report to a test email.
-    No authentication required - for testing purposes only.
+    Generate and send market report to the user's email.
+    Email address is required and should come from the authenticated user.
     """
     try:
-        # Use provided email or default test email
-        to_email = (request.email if request else None) or DEFAULT_TEST_EMAIL
+        to_email = request.email
+        if not to_email:
+            raise HTTPException(status_code=400, detail="Email address is required")
 
         # Generate the market analysis
         result = await market_agent.analyze()
@@ -269,11 +264,11 @@ async def generate_digest(request: DigestRequest):
     """
     Generate a personalized daily digest based on user's stock watchlist.
 
-    The user's watchlist symbols are merged with default macro symbols (SPY, QQQ, VIX)
-    to fetch relevant news and generate a personalized analysis.
+    Uses the same MarketAgent as /api/market but with personalized news filtering
+    based on user's watchlist symbols + default macro symbols (SPY, QQQ, VIX).
     """
     try:
-        result = await digest_agent.analyze(user_symbols=request.symbols)
+        result = await market_agent.analyze(user_symbols=request.symbols)
 
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate digest")
@@ -281,8 +276,8 @@ async def generate_digest(request: DigestRequest):
         return DigestResponse(
             user_id="",  # Will be set by frontend
             symbols_used=result.get("symbols_used", []),
-            analysis=result.get("analysis", ""),
-            news_data=result.get("news_data", []),
+            analysis=result.get("in_depth_analysis", ""),
+            news_data=result.get("news_data", {}).get("articles", []),
             timestamp=result.get("timestamp", datetime.now().isoformat()),
         )
 

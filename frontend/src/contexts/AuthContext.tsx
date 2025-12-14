@@ -8,7 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean }>;
   signOut: () => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   refreshUser: () => Promise<void>;
@@ -56,10 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignUp = async (email: string, password: string, name?: string) => {
     const result = await signUp(email, password, name);
-    if (result.success && result.user) {
+    if (result.success && result.user && !result.needsVerification) {
       setUser(result.user);
     }
-    return { success: result.success, error: result.error };
+    return { success: result.success, error: result.error, needsVerification: result.needsVerification };
   };
 
   const handleSignOut = async () => {
