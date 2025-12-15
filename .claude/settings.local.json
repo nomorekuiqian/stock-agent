@@ -56,7 +56,16 @@
       "Bash(npm run lint:*)",
       "mcp__insforge__run-raw-sql",
       "Bash(grep:*)",
-      "mcp__insforge__get-backend-metadata"
+      "mcp__insforge__get-backend-metadata",
+      "mcp__insforge__get-table-schema",
+      "mcp__chrome-devtools__get_network_request",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__puppeteer__puppeteer_fill",
+      "WebFetch(domain:magicui.design)",
+      "mcp__insforge__fetch-docs",
+      "mcp__insforge__get-function",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__insforge__update-function"
     ],
     "deny": [],
     "ask": []

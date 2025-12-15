@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import SubscribeForm from '@/components/SubscribeForm';
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
@@ -39,26 +40,24 @@ export default function Home() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              <a
+                href="#subscribe"
+                className="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-200 flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Subscribe to Daily Reports
+              </a>
               <Link
                 href="/market"
-                className="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-200 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-white text-gray-700 rounded-xl font-medium text-sm border border-gray-200 transition-all hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
                 View Today's Analysis
               </Link>
-              {!isAuthenticated && (
-                <Link
-                  href="/login"
-                  className="w-full sm:w-auto px-6 py-3 bg-white text-gray-700 rounded-xl font-medium text-sm border border-gray-200 transition-all hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Create Free Account
-                </Link>
-              )}
             </div>
           </div>
         </div>
@@ -286,6 +285,44 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Newsletter Subscribe Section */}
+      <section id="subscribe" className="border-t border-gray-100 bg-gradient-to-b from-emerald-50/30 to-white scroll-mt-16">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-16 md:py-20">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+                Never Miss a Market Insight
+              </h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Subscribe to receive daily market analysis directly in your inbox.
+                Join investors who prefer insights over information overload.
+              </p>
+              <ul className="space-y-2 pt-2">
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Daily AI-generated market analysis
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Delivered before market open
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Unsubscribe anytime
+                </li>
+              </ul>
+            </div>
+            <SubscribeForm variant="card" />
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16 md:py-20">
@@ -294,7 +331,6 @@ export default function Home() {
               Ready to Understand Markets Better?
             </h2>
             <p className="text-sm text-gray-500 max-w-lg mx-auto">
-              Join investors who prefer insights over information overload.
               Start with today's analysis - it's free.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
