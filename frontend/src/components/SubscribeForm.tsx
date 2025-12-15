@@ -95,7 +95,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           <svg className="w-8 h-8 text-emerald-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">You're subscribed!</p>
+          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">You&apos;re subscribed!</p>
           <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">{message}</p>
           <button
             onClick={() => setStatus('idle')}

@@ -15,7 +15,6 @@ export default function DigestPage() {
   const [newSymbol, setNewSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [savingWatchlist, setSavingWatchlist] = useState(false);
   const [digest, setDigest] = useState<DigestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,22 +67,6 @@ export default function DigestPage() {
     // Auto-save watchlist
     if (user?.id) {
       saveUserWatchlist(user.id, newSymbols);
-    }
-  };
-
-  const handleSaveWatchlist = async () => {
-    if (!user?.id) return;
-
-    setSavingWatchlist(true);
-    try {
-      const result = await saveUserWatchlist(user.id, symbols);
-      if (!result.success) {
-        setError('Failed to save watchlist');
-      }
-    } catch {
-      setError('Failed to save watchlist');
-    } finally {
-      setSavingWatchlist(false);
     }
   };
 

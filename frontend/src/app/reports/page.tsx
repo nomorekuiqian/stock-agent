@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { getReportsList, MarketReport } from '@/lib/insforge';
 
@@ -12,11 +12,7 @@ export default function ReportsPage() {
   const [page, setPage] = useState(0);
   const pageSize = 12;
 
-  useEffect(() => {
-    fetchReports();
-  }, [page]);
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -28,7 +24,11 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

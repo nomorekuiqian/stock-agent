@@ -1,11 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
 import SubscribeForm from '@/components/SubscribeForm';
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
 
   return (
     <main className="min-h-screen bg-background">
@@ -35,7 +33,7 @@ export default function Home() {
 
             {/* Subtitle */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Daily AI-generated market analysis that explains the "why" behind market movements.
+              Daily AI-generated market analysis that explains the &quot;why&quot; behind market movements.
               Built for investors who want insights, not noise.
             </p>
 
@@ -55,9 +53,9 @@ export default function Home() {
                 className="w-full sm:w-auto px-8 py-4 bg-secondary hover:bg-secondary/80 text-foreground rounded-xl font-medium text-sm border border-border transition-all hover:border-emerald-500/50 flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-                View Today's Analysis
+                View Today&apos;s Analysis
               </Link>
             </div>
           </div>
@@ -99,7 +97,7 @@ export default function Home() {
               </div>
               <h3 className="font-semibold text-foreground mb-2 text-lg">Forward-Looking Calendar</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Know what's coming. Economic events and earnings with scenario analysis for different outcomes.
+                Know what&apos;s coming. Economic events and earnings with scenario analysis for different outcomes.
               </p>
             </div>
 
@@ -319,14 +317,14 @@ export default function Home() {
               Ready to Understand Markets Better?
             </h2>
             <p className="text-muted-foreground max-w-lg mx-auto">
-              Start with today's analysis - it's free.
+              Start with today&apos;s analysis - it&apos;s free.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
               <Link
                 href="/market"
                 className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all hover:shadow-lg hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/20 glow-emerald-sm"
               >
-                Read Today's Report
+                Read Today&apos;s Report
               </Link>
               <Link
                 href="/reports"

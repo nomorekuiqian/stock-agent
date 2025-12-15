@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { NavAuth } from "@/components/NavAuth";
@@ -26,29 +27,29 @@ export default function RootLayout({
             <div className="max-w-5xl mx-auto px-4 md:px-6">
               <div className="flex items-center justify-between h-12">
                 {/* Logo */}
-                <a href="/" className="flex items-center gap-2 group">
+                <Link href="/" className="flex items-center gap-2 group">
                   <div className="w-7 h-7 rounded-lg bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center group-hover:glow-emerald-sm transition-all">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </div>
                   <span className="font-semibold text-sm text-foreground">MarketPulse</span>
-                </a>
+                </Link>
 
                 {/* Navigation Links */}
                 <div className="flex items-center gap-6">
-                  <a
+                  <Link
                     href="/market"
                     className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
                   >
                     Market Analysis
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/reports"
                     className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
                   >
                     Reports
-                  </a>
+                  </Link>
                   <ThemeToggle />
                   <NavAuth />
                 </div>

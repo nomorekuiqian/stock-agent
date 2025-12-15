@@ -44,7 +44,7 @@ export default function UnsubscribePage() {
             Unsubscribe
           </h1>
           <p className="text-sm text-gray-500">
-            We're sorry to see you go. Enter your email to unsubscribe from daily reports.
+            We&apos;re sorry to see you go. Enter your email to unsubscribe from daily reports.
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export default function UnsubscribePage() {
               </svg>
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              You've been unsubscribed
+              You&apos;ve been unsubscribed
             </h2>
             <p className="text-sm text-gray-500 mb-6">
               {message}
