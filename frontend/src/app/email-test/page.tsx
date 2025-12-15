@@ -1,10 +1,18 @@
 'use client';
 
+<<<<<<< HEAD
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
 function EmailTestContent() {
+=======
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { api } from '@/lib/api';
+
+export default function EmailTestPage() {
+>>>>>>> 344f67f1beee66321b74c0f2c7f3a46e48e1e3b0
   const searchParams = useSearchParams();
   const reportIdParam = searchParams.get('report_id');
 
@@ -346,6 +354,7 @@ function EmailTestContent() {
     </main>
   );
 }
+<<<<<<< HEAD
 
 export default function EmailTestPage() {
   return (
@@ -360,3 +369,5 @@ export default function EmailTestPage() {
     </Suspense>
   );
 }
+=======
+>>>>>>> 344f67f1beee66321b74c0f2c7f3a46e48e1e3b0
