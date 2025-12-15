@@ -1,73 +1,168 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 @plugin "@tailwindcss/typography";
 
 @theme {
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-inter);
 
-  --color-background: #0a0a0a;
-  --color-foreground: #ededed;
+  /* Clean White Theme with Emerald accent */
+  --color-background: #ffffff;
+  --color-foreground: #1f2937;
 
-  --color-card: #171717;
-  --color-card-foreground: #ededed;
+  --color-card: #ffffff;
+  --color-card-foreground: #1f2937;
 
-  --color-popover: #171717;
-  --color-popover-foreground: #ededed;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1f2937;
 
-  --color-primary: #ededed;
-  --color-primary-foreground: #171717;
+  /* Emerald Green as primary accent color */
+  --color-primary: #059669;
+  --color-primary-foreground: #ffffff;
 
-  --color-secondary: #262626;
-  --color-secondary-foreground: #ededed;
+  --color-secondary: #f3f4f6;
+  --color-secondary-foreground: #1f2937;
 
-  --color-muted: #262626;
-  --color-muted-foreground: #a3a3a3;
+  --color-muted: #f3f4f6;
+  --color-muted-foreground: #6b7280;
 
-  --color-accent: #262626;
-  --color-accent-foreground: #ededed;
+  --color-accent: #059669;
+  --color-accent-foreground: #ffffff;
 
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ededed;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
 
-  --color-border: #262626;
-  --color-input: #262626;
-  --color-ring: #d4d4d4;
+  --color-success: #16a34a;
+  --color-success-foreground: #ffffff;
+
+  --color-border: #e5e7eb;
+  --color-input: #f3f4f6;
+  --color-ring: #059669;
 
   --radius: 0.75rem;
 }
 
 :root {
-  --foreground-rgb: 15, 23, 42;
-  /* Dark Mode Financial Terminal Theme */
+  --foreground-rgb: 29, 29, 31;
+  --radius: 0.625rem;
+  /* Emerald theme for shadcn components */
+  --background: #ffffff;
+  --foreground: #1f2937;
+  --card: #ffffff;
+  --card-foreground: #1f2937;
+  --popover: #ffffff;
+  --popover-foreground: #1f2937;
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1f2937;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #ecfdf5;
+  --accent-foreground: #059669;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #059669;
+  /* Chart colors */
+  --chart-1: #059669;
+  --chart-2: #10b981;
+  --chart-3: #34d399;
+  --chart-4: #6ee7b7;
+  --chart-5: #a7f3d0;
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1f2937;
+  --sidebar-primary: #059669;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ecfdf5;
+  --sidebar-accent-foreground: #059669;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #059669;
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Premium utilities */
 @layer utilities {
-  .glass-panel {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl;
+  /* Glass card - adapts to theme */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-gray-200/50 shadow-lg shadow-gray-200/50;
   }
 
-  .bento-card {
-    @apply bg-card text-card-foreground rounded-xl border border-border shadow-sm transition-all hover:shadow-md;
+  .dark .glass-card {
+    @apply bg-[#141414]/80 backdrop-blur-xl border border-white/10 shadow-lg shadow-black/50;
   }
 
-  .text-balance {
-    text-wrap: balance;
+  /* Dark glass card with glow */
+  .glass-card-dark {
+    background: rgba(20, 20, 20, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  .animation-delay-200 {
-    animation-delay: 200ms;
+  /* Emerald glow effect */
+  .glow-emerald {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
   }
 
-  .animation-delay-400 {
-    animation-delay: 400ms;
+  .glow-emerald-sm {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+  }
+
+  .glow-emerald-lg {
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.4);
+  }
+
+  /* Hover with glow */
+  .hover-glow {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    border-color: rgba(16, 185, 129, 0.5);
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-400;
+  }
+
+  .text-gradient-emerald {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-emerald-600;
+  }
+
+  .section-padding {
+    @apply px-4 md:px-8 lg:px-16;
+  }
+
+  /* Grid pattern background for hero sections */
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+}
+
+/* Smooth animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -76,22 +171,254 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 0.6s ease-out forwards;
 }
 
-/* Animation Delays for Loading Indicators */
-.animation-delay-200 {
-  animation-delay: 200ms;
+.animate-slide-in-right {
+  animation: slide-in-right 0.5s ease-out forwards;
 }
 
-.animation-delay-400 {
-  animation-delay: 400ms;
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* Staggered animations for card grids */
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-stagger-fade-in {
+  animation: stagger-fade-in 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* Scale animation for hover effects */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out forwards;
+}
+
+/* Card hover lift effect */
+.card-hover {
+  @apply transition-all duration-300 ease-out;
+}
+
+.card-hover:hover {
+  @apply -translate-y-1;
+  box-shadow: 0 10px 40px -10px rgba(16, 185, 129, 0.15);
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 10px 40px -10px rgba(16, 185, 129, 0.25);
+}
+
+/* Shimmer effect for loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Custom scrollbar - Apple style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d2d2d7;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #86868b;
+}
+
+/* Typography enhancements for Apple style */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+/* Prose customization for Apple reading experience */
+.prose-apple {
+  @apply prose prose-lg max-w-none;
+  @apply prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight;
+  @apply prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4;
+  @apply prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3;
+  @apply prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:my-4;
+  @apply prose-strong:text-foreground prose-strong:font-semibold;
+  @apply prose-a:text-primary prose-a:no-underline hover:prose-a:underline;
+  @apply prose-ul:my-4 prose-li:text-muted-foreground prose-li:my-1;
+  @apply prose-ol:my-4;
+  @apply prose-table:my-6;
+  @apply prose-th:text-left prose-th:font-semibold prose-th:text-foreground prose-th:pb-3 prose-th:border-b prose-th:border-border;
+  @apply prose-td:py-3 prose-td:text-muted-foreground prose-td:border-b prose-td:border-border/50;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Dark Premium Theme - Bloomberg/Linear Style */
+.dark {
+  /* Core backgrounds */
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #141414;
+  --card-foreground: #fafafa;
+  --popover: #141414;
+  --popover-foreground: #fafafa;
+
+  /* Emerald accent preserved */
+  --primary: #10b981;
+  --primary-foreground: #0a0a0a;
+
+  /* Secondary colors */
+  --secondary: #1f1f1f;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a1a1aa;
+  --accent: #1f1f1f;
+  --accent-foreground: #10b981;
+
+  /* Destructive */
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+
+  /* Borders and inputs */
+  --border: #262626;
+  --input: #1f1f1f;
+  --ring: #10b981;
+
+  /* Chart colors - Emerald gradient */
+  --chart-1: #10b981;
+  --chart-2: #34d399;
+  --chart-3: #6ee7b7;
+  --chart-4: #a7f3d0;
+  --chart-5: #d1fae5;
+
+  /* Sidebar */
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #10b981;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #10b981;
+  --sidebar-border: #262626;
+  --sidebar-ring: #10b981;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

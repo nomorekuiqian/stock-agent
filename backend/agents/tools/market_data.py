@@ -1,5 +1,5 @@
 """
-Market Data Tools for Macro Agent
+Market Data Tools for Market Agent
 Provides unified data fetching functions and ticker configurations.
 """
 
@@ -19,7 +19,8 @@ EQUITY_TICKERS = {
     "S&P 500": "^GSPC",
     "Nasdaq": "^IXIC",
     "Dow Jones": "^DJI",
-    "Nasdaq 100 ETF": "QQQ",  # Tech-heavy ETF for sector analysis
+    "Russell 2000": "^RUT",  # Small-cap index
+    "S&P 400": "^MID",  # Mid-cap index
 }
 
 VOLATILITY_TICKERS = {
