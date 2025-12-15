@@ -143,12 +143,12 @@ export default function ReportsPage() {
 
                 {/* Title */}
                 <h3 className="text-sm font-semibold text-gray-900 mb-2 group-hover:text-emerald-700 transition-colors">
-                  {formatDate(report.report_date)}
+                  {report.title || formatDate(report.report_date)}
                 </h3>
 
                 {/* Preview */}
                 <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">
-                  {getPreviewText(report.short_analysis)}
+                  {report.summary || getPreviewText(report.in_depth_analysis)}
                 </p>
 
                 {/* Footer */}

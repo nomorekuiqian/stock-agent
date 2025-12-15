@@ -14,6 +14,9 @@ export interface MarketReport {
   timestamp: string;
   short_analysis: string;
   in_depth_analysis: string;
+  title?: string;
+  summary?: string;
+  calendar?: unknown[];  // LLM-curated key events
   draft_analysis?: string;
   evaluation_report?: string;
   indices?: unknown[];
@@ -123,7 +126,7 @@ export async function getReportsList(limit = 10, offset = 0): Promise<{ data: Ma
     // Order by created_at to show all reports including multiple per day
     const { data, error, count } = await insforge.database
       .from('market_reports')
-      .select('id, report_date, timestamp, short_analysis, in_depth_analysis, created_at', { count: 'exact' })
+      .select('id, report_date, timestamp, title, summary, short_analysis, in_depth_analysis, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

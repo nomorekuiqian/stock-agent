@@ -23,11 +23,20 @@ export interface EarningsEvent {
   is_ai_related?: boolean;
 }
 
+export interface CalendarEvent {
+  date: string;
+  event: string;
+  analysis: string;
+}
+
 export interface MarketData {
   indices: MarketIndex[];
   timestamp: string;
   short_analysis: string;
   in_depth_analysis: string;
+  title?: string;
+  summary?: string;
+  calendar?: CalendarEvent[];  // LLM-curated key events
   economic_calendar?: {
     count: number;
     events: EconomicEvent[];
@@ -55,6 +64,26 @@ export interface DigestResponse {
   analysis: string;
   news_data: unknown[];
   timestamp: string;
+}
+
+export interface SubscribeResponse {
+  success: boolean;
+  message: string;
+  email: string;
+  contact_id?: string;
+}
+
+export interface UnsubscribeResponse {
+  success: boolean;
+  message: string;
+  email: string;
+}
+
+export interface EmailPreviewResponse {
+  success: boolean;
+  html: string;
+  report_id: string;
+  report_date: string;
 }
 
 export const api = {
@@ -94,6 +123,48 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to generate digest' }));
       throw new Error(error.detail || 'Failed to generate digest');
+    }
+    return response.json();
+  },
+
+  subscribe: async (email: string, firstName?: string): Promise<SubscribeResponse> => {
+    const response = await fetch(`${API_BASE_URL}/subscribe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, first_name: firstName }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to subscribe' }));
+      throw new Error(error.detail || 'Failed to subscribe');
+    }
+    return response.json();
+  },
+
+  unsubscribe: async (email: string): Promise<UnsubscribeResponse> => {
+    const response = await fetch(`${API_BASE_URL}/unsubscribe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to unsubscribe' }));
+      throw new Error(error.detail || 'Failed to unsubscribe');
+    }
+    return response.json();
+  },
+
+  getEmailPreview: async (reportId?: string): Promise<EmailPreviewResponse> => {
+    const url = reportId
+      ? `${API_BASE_URL}/report/preview?report_id=${reportId}`
+      : `${API_BASE_URL}/report/preview`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get email preview' }));
+      throw new Error(error.detail || 'Failed to get email preview');
     }
     return response.json();
   },

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
 import { getReportById, MarketReport } from '@/lib/insforge';
+import { ReportContent } from '@/components/ReportContent';
+import { CalendarEvent } from '@/lib/api';
 
 interface IndexData {
   name: string;
@@ -124,8 +125,13 @@ export default function ReportDetailPage({
               {formatDate(report.report_date)}
             </div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900">
-              Market Report
+              {report.title || 'Market Report'}
             </h1>
+            {report.summary && (
+              <p className="text-base text-gray-600 max-w-2xl mx-auto">
+                {report.summary}
+              </p>
+            )}
             {report.timestamp && (
               <p className="text-sm text-gray-500">
                 Generated at {formatTime(report.timestamp)}
@@ -133,92 +139,14 @@ export default function ReportDetailPage({
             )}
           </section>
 
-          {/* Market Indices */}
-          {report.indices && Array.isArray(report.indices) && report.indices.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Market Overview</h2>
-                <span className="text-xs text-gray-400">
-                  {report.indices.length} indices
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {(report.indices as IndexData[]).map((index: IndexData) => (
-                  <div
-                    key={index.name}
-                    className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
-                  >
-                    <p className="text-xs text-gray-500 font-medium mb-1 truncate">{index.name}</p>
-                    <p className="text-lg font-semibold text-gray-900 mb-1">
-                      {index.value?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </p>
-                    {index.change_percent !== undefined && (
-                      <div className={`inline-flex items-center gap-0.5 text-xs font-medium ${
-                        index.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        <svg
-                          className={`w-3 h-3 ${index.change_percent >= 0 ? '' : 'rotate-180'}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                        </svg>
-                        {Math.abs(index.change_percent).toFixed(2)}%
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* In-Depth Analysis */}
-          {report.in_depth_analysis && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">In-Depth Analysis</h2>
-                  <p className="text-xs text-gray-500">AI-generated market report</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6">
-                <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:text-base prose-p:text-gray-600 prose-p:text-sm prose-p:leading-relaxed prose-strong:text-gray-900 prose-a:text-emerald-600 prose-ul:text-gray-600 prose-ul:text-sm prose-li:text-gray-600 prose-li:text-sm prose-h2:mt-6 prose-h2:mb-3 prose-h3:mt-4 prose-h3:mb-2">
-                  <ReactMarkdown>{report.in_depth_analysis}</ReactMarkdown>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Short Analysis */}
-          {report.short_analysis && !report.in_depth_analysis && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h2 className="text-lg font-semibold text-gray-900">Summary</h2>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6">
-                <div className="prose prose-sm max-w-none prose-p:text-gray-600 prose-p:text-sm prose-p:leading-relaxed">
-                  <ReactMarkdown>{report.short_analysis}</ReactMarkdown>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Footer */}
-          <div className="text-center pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400">
-              Report for {formatDate(report.report_date)}
-            </p>
-          </div>
+          {/* Shared Report Content Component */}
+          <ReportContent
+            indices={report.indices as IndexData[] | undefined}
+            inDepthAnalysis={report.in_depth_analysis}
+            calendar={report.calendar as CalendarEvent[] | undefined}
+            timestamp={report.timestamp}
+            showTimestamp={true}
+          />
         </div>
       )}
     </main>

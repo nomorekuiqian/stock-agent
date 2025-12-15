@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { api, MarketData, EconomicEvent, EarningsEvent } from '@/lib/api';
+import { api, MarketData } from '@/lib/api';
 import { saveMarketReport } from '@/lib/insforge';
 import { getCurrentUser, User } from '@/lib/auth';
+import { ReportContent } from '@/components/ReportContent';
 
 const CACHE_KEY = 'market_analysis_cache';
 
@@ -71,6 +71,9 @@ export default function MarketPage() {
         timestamp: result.timestamp,
         short_analysis: result.short_analysis,
         in_depth_analysis: result.in_depth_analysis,
+        title: result.title,
+        summary: result.summary,
+        calendar: result.calendar,
         indices: result.indices,
         economic_calendar: result.economic_calendar,
         earnings_calendar: result.earnings_calendar,
@@ -258,177 +261,14 @@ export default function MarketPage() {
 
       {/* Content */}
       {data && !loading && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          {/* Market Indices */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Market Overview</h2>
-              <span className="text-xs text-gray-400">
-                {data.indices.length} indices
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {data.indices.map((index) => (
-                <div
-                  key={index.name}
-                  className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors"
-                >
-                  <p className="text-xs text-gray-500 font-medium mb-1 truncate">{index.name}</p>
-                  <p className="text-lg font-semibold text-gray-900 mb-1">
-                    {index.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </p>
-                  {index.change_percent !== undefined && (
-                    <div className={`inline-flex items-center gap-0.5 text-xs font-medium ${
-                      index.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      <svg
-                        className={`w-3 h-3 ${index.change_percent >= 0 ? '' : 'rotate-180'}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                      </svg>
-                      {Math.abs(index.change_percent).toFixed(2)}%
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* In-Depth Analysis */}
-          {data.in_depth_analysis && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">In-Depth Analysis</h2>
-                  <p className="text-xs text-gray-500">AI-generated market report</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6">
-                <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:text-base prose-p:text-gray-600 prose-p:text-sm prose-p:leading-relaxed prose-strong:text-gray-900 prose-a:text-emerald-600 prose-ul:text-gray-600 prose-ul:text-sm prose-li:text-gray-600 prose-li:text-sm prose-h2:mt-6 prose-h2:mb-3 prose-h3:mt-4 prose-h3:mb-2">
-                  <ReactMarkdown>{data.in_depth_analysis}</ReactMarkdown>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Economic Calendar */}
-          {data.economic_calendar && data.economic_calendar.events.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Economic Calendar</h2>
-                  <p className="text-xs text-gray-500">{data.economic_calendar.count} events in the next 2 weeks</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Event</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Previous</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Estimate</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {data.economic_calendar.events.slice(0, 15).map((event: EconomicEvent, idx: number) => (
-                        <tr key={idx} className={event.is_key_event ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </td>
-                          <td className="px-4 py-3 text-gray-900">
-                            <div className="flex items-center gap-2">
-                              {event.is_key_event && (
-                                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                              )}
-                              <span className={event.is_key_event ? 'font-medium' : ''}>{event.event}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-600">{event.previous ?? '-'}</td>
-                          <td className="px-4 py-3 text-right text-gray-600">{event.estimate ?? '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Earnings Calendar */}
-          {data.earnings_calendar && data.earnings_calendar.earnings.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Earnings Calendar</h2>
-                  <p className="text-xs text-gray-500">{data.earnings_calendar.count} companies reporting</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">EPS Est.</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Revenue Est.</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {data.earnings_calendar.earnings.slice(0, 15).map((earning: EarningsEvent, idx: number) => (
-                        <tr key={idx} className={earning.is_ai_related ? 'bg-purple-50' : 'hover:bg-gray-50'}>
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {new Date(earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {earning.is_ai_related && (
-                                <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">AI</span>
-                              )}
-                              <span className="font-medium text-gray-900">{earning.symbol}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-600">
-                            {earning.epsEstimated != null ? `$${earning.epsEstimated.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-600">
-                            {earning.revenueEstimated != null
-                              ? `$${(earning.revenueEstimated / 1e9).toFixed(2)}B`
-                              : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Timestamp */}
-          <div className="text-center pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400">
-              Report generated on {formatDate(data.timestamp)} at {formatTime(data.timestamp)}
-            </p>
-          </div>
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
+          <ReportContent
+            indices={data.indices}
+            inDepthAnalysis={data.in_depth_analysis}
+            calendar={data.calendar}
+            timestamp={data.timestamp}
+            showTimestamp={true}
+          />
         </div>
       )}
 

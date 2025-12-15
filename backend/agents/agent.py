@@ -20,9 +20,43 @@ load_dotenv()
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-from google.adk.agents import Agent, SequentialAgent
+from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
+from pydantic import BaseModel, Field
+
+
+# =============================================================================
+# Pydantic Output Schema for Market Report
+# =============================================================================
+
+
+class CalendarEvent(BaseModel):
+    """A key economic or earnings event with analysis."""
+
+    date: str = Field(description="Event date in YYYY-MM-DD format")
+    event: str = Field(description="Event name in Chinese, e.g. '美联储利率决议', 'NVIDIA财报', '非农就业数据'")
+    analysis: str = Field(
+        description="Why this event matters and potential market impact, 1-2 sentences in Chinese"
+    )
+
+
+class MarketReportOutput(BaseModel):
+    """Structured output schema for complete market report."""
+
+    title: str = Field(
+        description="Report title - one insightful, opinionated sentence summarizing today's market, 15-30 Chinese characters"
+    )
+    summary: str = Field(
+        description="Report summary - 2-3 sentences covering key market movements and insights for list preview, 50-100 Chinese characters"
+    )
+    analysis: str = Field(
+        description="Full market analysis report in markdown format, following the specified structure with all 6 sections"
+    )
+    calendar: list[CalendarEvent] = Field(
+        description="Top 5-10 most important upcoming economic and earnings events from the input data, sorted by date"
+    )
+
 
 # Import data fetching tools
 from agents.tools import get_all_market_data
@@ -44,42 +78,64 @@ ANALYST_INSTRUCTION = """
 - 提供思考框架，帮用户自己判断
 - 数据来自输入JSON，不编造，数据必须准确
 
-## 输出格式
+## 输出要求
+
+你需要输出四个字段：
+
+1. **title**: 用一句有观点的话作为标题，概括今日市场核心（15-30个中文字符）
+
+2. **summary**: 2-3句话概括市场主要动向和关键洞察，适合列表预览（50-100个中文字符）
+
+3. **analysis**: 完整的市场分析报告，markdown格式，包含以下6个章节（详见下方）
+
+4. **calendar**: 从输入的 economic_calendar 和 earnings_calendar 中筛选出最重要的5-10个事件，按日期排序，每个事件包含：
+   - date: 事件日期 (YYYY-MM-DD)
+   - event: 事件名称（必须使用中文，例如："美联储利率决议"、"NVIDIA财报"、"非农就业数据"、"CPI通胀数据"）
+   - analysis: 为什么这个事件重要，可能对市场产生什么影响（1-2句中文）
+
+### calendar 筛选标准
+- 优先选择：美联储利率决议、CPI/PPI通胀数据、非农就业、GDP、大型科技股财报（NVDA, AAPL, MSFT, GOOGL, META, AMZN）
+- 次要选择：零售销售、PMI、消费者信心、其他重要公司财报
+- 解读要点：说明市场预期、潜在影响方向、关注什么数据
+
+### analysis 字段的结构
 
 # 标题
-
 用一句有观点的话作为标题，概括今日市场核心。
 
 ## 主要市场叙事
-
 用2-3段话说明：
 - 当前市场的主导逻辑是什么
 - 这个逻辑成立的关键假设
 - 什么会验证/推翻这个逻辑
 
 ## 宏观环境
+分析当前宏观环境，严格按照以下格式输出：
 
-每个指标单独一行，格式：
-**指标名** 数值 (变化%) — 一句话解读以及数据代表的含义
-最后一段给出综合判断深度洞察当前的宏观环境和近期趋势
+每个指标必须单独一行，使用以下固定格式（不要添加额外换行）：
+- **指标名** 数值 (变化%) — 一句话解读
+
+示例：
+- **S&P 500** 6827.41 (-1.07%) — 科技股拖累大盘，但跌幅有限显示买盘承接
+- **VIX** 15.74 (+5.99%) — 恐慌指数反弹，市场避险情绪升温
+- **10Y国债** 4.19% — 维持高位，压制成长股估值
+
+列出所有关键指标后，最后用一段话（以"**综合判断**："开头）总结宏观环境
 
 ## 重要新闻
-
 严格筛选事件新闻，不超过10条。
-
 首选：公司重大动作、政策变化、经济数据
 次选：持仓变动、股票推荐
 不选：分析师观点，预测文章
 
 格式（每条新闻）：
-**新闻标题** 
+**新闻标题**
  - 新闻概括 - 简短概括文章内容
  - 新闻解读 - 深度解读新闻潜在影响，深度洞察
- -[阅读原文](完整URL)
+ - [阅读原文](完整URL)
 
 ## 未来1-2周
 按时间顺序列出关键事件：
-
 ### 时间
 **事件名称**
 - 重要性：为什么重要，市场会有什么反应
@@ -88,52 +144,20 @@ ANALYST_INSTRUCTION = """
 一份综合了以上所有信息后对目前市场状态的深度解读，帮助散户更清晰的看到市场脉络
 """
 
-analyst_agent = Agent(
+analyst_agent = LlmAgent(
     name="market_analyst",
     model="gemini-3-pro-preview",
-    description="Analyzes market data and news, provides insights in Chinese",
+    description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
-    output_key="analysis",
-)
-
-# =============================================================================
-# Refinement Agent Definition
-# =============================================================================
-
-REFINEMENT_INSTRUCTION = """
-你是金融编辑，审核并优化市场分析报告。
-
-## 检查清单
-1. 6个章节完整（标题、主要市场叙事、宏观环境、重要新闻、未来1-2周、总结与思考框架）
-2. 新闻格式：必须是 **[标题](url)** 的markdown超链接格式，不能单独列出"链接: xxx"
-3. 新闻筛选：只保留事件新闻，删除分析师观点、预测文章、持仓变动、股票推荐
-4. 新闻解读：必须包含"影响链条"分析，不能只是重述新闻内容
-5. 总结：必须提供情景分析（如果X→...；如果Y→...）
-
-## 输出
-
-### 问题清单
-列出发现的问题
-
----
-
-### 优化后的终稿
-修复所有问题后的完整报告
-"""
-
-refinement_agent = Agent(
-    name="report_refiner",
-    model="gemini-2.5-flash",
-    description="Evaluates and refines market analysis reports",
-    instruction=REFINEMENT_INSTRUCTION,
-    output_key="refinement",
+    output_schema=MarketReportOutput,
+    output_key="report",
 )
 
 # =============================================================================
 # Pipeline Configuration
 # =============================================================================
 
-# Direct analyst output (no refinement step)
+# Single agent with structured output (title, summary, analysis)
 market_report_agent = analyst_agent
 
 # ADK web UI needs root_agent variable
@@ -246,13 +270,13 @@ def _prepare_data_for_analyst(
 
 
 class MarketAgent:
-    """Wrapper class to fetch data and run the sequential agent pipeline."""
+    """Wrapper class to fetch data and run the analyst agent."""
 
     def __init__(self, client=None):
         self.runner = InMemoryRunner(agent=market_report_agent, app_name="stock_agent")
 
     async def analyze(self) -> dict:
-        """Fetch all data and run the sequential agent pipeline."""
+        """Fetch all data and run the analyst agent with structured output."""
         try:
             print("[MarketAgent] Fetching market data...")
 
@@ -268,7 +292,7 @@ class MarketAgent:
                 f"Earnings: {earnings_result.get('earnings_count', 0)}"
             )
 
-            # Step 2: Prepare and clean data for the pipeline (reduce token usage)
+            # Step 2: Prepare and clean data for the agent (reduce token usage)
             report_date = datetime.now().strftime("%Y-%m-%d %A")
 
             data_for_analyst = _prepare_data_for_analyst(
@@ -281,14 +305,14 @@ class MarketAgent:
             )
             data_for_analyst["report_date"] = report_date
 
-            # Step 3: Create session and run the sequential pipeline
-            print("[MarketAgent] Running sequential pipeline (analyst -> refiner)...")
+            # Step 3: Create session and run the analyst agent
+            print("[MarketAgent] Running analyst agent with structured output...")
 
             session = await self.runner.session_service.create_session(
-                app_name="stock_agent", user_id="pipeline"
+                app_name="stock_agent", user_id="analyst"
             )
 
-            # Send data to the pipeline
+            # Send data to the agent
             message = Content(
                 parts=[
                     Part(
@@ -298,26 +322,47 @@ class MarketAgent:
                 role="user",
             )
 
-            # Collect analyst output
-            analysis_text = ""
-
+            # Run agent and collect output
             async for event in self.runner.run_async(
-                user_id="pipeline", session_id=session.id, new_message=message
+                user_id="analyst", session_id=session.id, new_message=message
             ):
-                if hasattr(event, "content") and event.content:
-                    if hasattr(event.content, "parts"):
-                        for part in event.content.parts:
-                            if hasattr(part, "text") and part.text:
-                                text = part.text.strip()
-                                if text and len(text) > 50:
-                                    analysis_text = text
-                                    print(
-                                        f"[MarketAgent] Analysis received. Length: {len(text)}"
-                                    )
+                pass  # Events are processed, output stored in session state
 
-            in_depth_analysis = analysis_text
+            # Get structured output from session state
+            session_data = await self.runner.session_service.get_session(
+                app_name="stock_agent", user_id="analyst", session_id=session.id
+            )
 
-            print("[MarketAgent] Pipeline complete.")
+            # Extract report from state (output_key="report" from analyst_agent)
+            in_depth_analysis = ""
+            title = ""
+            summary = ""
+            calendar = []
+
+            if session_data and hasattr(session_data, "state"):
+                state = session_data.state or {}
+                report_data = state.get("report", {})
+
+                if isinstance(report_data, dict):
+                    title = report_data.get("title", "")
+                    summary = report_data.get("summary", "")
+                    in_depth_analysis = report_data.get("analysis", "")
+                    calendar = report_data.get("calendar", [])
+                elif isinstance(report_data, str):
+                    # Try to parse as JSON if it's a string
+                    try:
+                        parsed = json.loads(report_data)
+                        title = parsed.get("title", "")
+                        summary = parsed.get("summary", "")
+                        in_depth_analysis = parsed.get("analysis", "")
+                        calendar = parsed.get("calendar", [])
+                    except json.JSONDecodeError:
+                        # If not JSON, treat as raw analysis
+                        in_depth_analysis = report_data
+
+            print(
+                f"[MarketAgent] Analysis complete. Length: {len(in_depth_analysis)}, Title: {title[:30] if title else 'N/A'}, Calendar: {len(calendar)} events"
+            )
 
             return {
                 "market_data": market_data,
@@ -339,6 +384,9 @@ class MarketAgent:
                 "timestamp": datetime.now().isoformat(),
                 "short_analysis": "",
                 "in_depth_analysis": in_depth_analysis,
+                "title": title,
+                "summary": summary,
+                "calendar": calendar,
             }
 
         except Exception as e:
@@ -357,4 +405,7 @@ class MarketAgent:
                 "timestamp": datetime.now().isoformat(),
                 "short_analysis": f"Data fetched (analysis error: {str(e)[:100]})",
                 "in_depth_analysis": "",
+                "title": "",
+                "summary": "",
+                "calendar": [],
             }

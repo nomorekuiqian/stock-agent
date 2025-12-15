@@ -8,22 +8,24 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 
-# Core macro + AI tickers for FMP news
+# Core tickers for FMP news - Mag 7 + Semiconductors
 FMP_NEWS_SYMBOLS = [
-    # Macro market
-    "SPY",   # S&P 500
-    "QQQ",   # Nasdaq 100
-    "VIX",   # Volatility
-    # AI core
-    "NVDA",  # NVIDIA - AI chips leader
-    "MSFT",  # Microsoft - Azure AI + OpenAI
-    "GOOGL", # Alphabet - Gemini, DeepMind
-    "META",  # Meta - LLaMA, AI infrastructure
-    "AMD",   # AMD - AI chip competitor
-    "AVGO",  # Broadcom - AI networking/custom chips
-    # AI infrastructure
-    "TSM",   # TSMC - AI chip foundry
-    "SMCI",  # Super Micro - AI servers
+    # Market indices
+    "SPY",   # S&P 500 ETF
+    "QQQ",   # Nasdaq 100 ETF
+    # Mag 7
+    "AAPL",  # Apple
+    "MSFT",  # Microsoft
+    "NVDA",  # NVIDIA
+    "AMZN",  # Amazon
+    "GOOGL", # Alphabet
+    "META",  # Meta
+    "TSLA",  # Tesla
+    # Semiconductors
+    "AMD",   # AMD
+    "AVGO",  # Broadcom
+    "TSM",   # TSMC
+    "ASML",  # ASML
 ]
 
 
