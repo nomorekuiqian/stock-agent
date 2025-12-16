@@ -10,6 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from agents.agent import MarketAgent
 from app.services.email_service import get_email_service
 from app.services.insforge_service import get_insforge_service
+from app.services.fred_service import (
+    get_all_liquidity_metrics,
+    get_liquidity_history,
+    fetch_fred_series,
+)
+from app.services.liquidity_agent import get_liquidity_agent
 from app.models.request_models import DigestRequest, DigestResponse
 
 app = FastAPI(title="Market Analysis API")
@@ -23,13 +29,32 @@ app = FastAPI(title="Market Analysis API")
 def transform_market_data_to_indices(market_data: dict) -> list:
     """Transform market_data dict to frontend indices array format."""
     indices = []
-    for category in ["equities", "volatility", "commodities", "currencies"]:
+
+    # Standard categories with value/daily_change structure
+    for category in ["equities", "volatility", "commodities", "currencies", "credit", "financials"]:
         for name, data in market_data.get(category, {}).items():
+            if isinstance(data, dict) and "value" in data:
+                indices.append({
+                    "name": name,
+                    "value": data.get("value", 0),
+                    "change_percent": data.get("daily_change", 0)
+                })
+
+    # Treasury rates (special structure: rates.yield_curve)
+    # Only include 2Y and 10Y for simplicity
+    rates_data = market_data.get("rates", {})
+    yield_curve = rates_data.get("yield_curve", {})
+    key_tenors = ["2Y", "10Y"]
+    for tenor in key_tenors:
+        data = yield_curve.get(tenor, {})
+        if isinstance(data, dict) and "rate" in data:
+            display_name = f"{tenor} Treasury"
             indices.append({
-                "name": name,
-                "value": data.get("value", 0),
-                "change_percent": data.get("daily_change", 0)
+                "name": display_name,
+                "value": data.get("rate", 0),
+                "change_percent": data.get("daily_change", 0) or 0
             })
+
     return indices
 
 # Configure CORS - allow localhost and production domains
@@ -59,6 +84,40 @@ async def root():
 @app.post("/api/market")
 async def analyze_market():
     try:
+        # Check if today's report already exists in database
+        today = datetime.now().strftime("%Y-%m-%d")
+        insforge = get_insforge_service()
+        existing_report = await insforge.get_report_by_date(today)
+
+        # Validate that the cached report's timestamp is actually from today (local time)
+        # This handles timezone issues where report_date might be stored in UTC
+        if existing_report:
+            report_timestamp = existing_report.get("timestamp", "")
+            report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
+
+            if report_date_from_timestamp == today:
+                print(f"[API] Found existing report for {today}, returning cached data")
+                # Return existing report from database
+                return {
+                    "report_id": existing_report.get("id"),
+                    "indices": existing_report.get("indices", []),
+                    "timestamp": existing_report.get("timestamp", datetime.now().isoformat()),
+                    "short_analysis": existing_report.get("short_analysis", ""),
+                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
+                    "economic_calendar": existing_report.get("economic_calendar", {}),
+                    "earnings_calendar": existing_report.get("earnings_calendar", {}),
+                    "calendar": existing_report.get("calendar", []),
+                    "news_data": existing_report.get("news_data", {}),
+                    "market_data": existing_report.get("market_data", {}),
+                    "title": existing_report.get("title", ""),
+                    "summary": existing_report.get("summary", ""),
+                    "from_cache": True,
+                }
+            else:
+                print(f"[API] Found report but timestamp ({report_date_from_timestamp}) doesn't match today ({today}), regenerating...")
+
+        # No existing report, generate new one
+        print(f"[API] No report found for {today}, generating new analysis...")
         result = await market_agent.analyze()
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate market analysis")
@@ -81,9 +140,16 @@ async def analyze_market():
             "market_data": market_data,
             "title": result.get("title", ""),
             "summary": result.get("summary", ""),
+            "from_cache": False,
         }
 
-        # Note: Report saving is handled by the frontend using Insforge SDK
+        # Save new report to database
+        save_result = await insforge.save_market_report(response_data)
+        if save_result.get("success"):
+            print(f"[API] Report saved to database for {today}")
+            response_data["report_id"] = save_result.get("report_id")
+        else:
+            print(f"[API] Failed to save report: {save_result.get('error')}")
 
         return response_data
     except Exception as e:
@@ -459,6 +525,201 @@ async def generate_digest(request: DigestRequest):
             timestamp=result.get("timestamp", datetime.now().isoformat()),
         )
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Liquidity Monitor Endpoints
+# =============================================================================
+
+
+@app.get("/api/liquidity/metrics")
+async def get_liquidity_metrics():
+    """
+    Get all key liquidity metrics including calculated net liquidity.
+
+    Returns:
+        - fed_assets: Fed Total Assets (WALCL)
+        - tga: Treasury General Account (WDTGAL)
+        - rrp: Overnight Reverse Repo (RRPONTSYD)
+        - reserves: Bank Reserves (WRESBAL)
+        - sofr: SOFR Rate
+        - effr: Effective Fed Funds Rate
+        - nfci: Financial Conditions Index
+        - net_liquidity: Calculated (WALCL - TGA - RRP)
+    """
+    try:
+        metrics = await get_all_liquidity_metrics()
+        return {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "metrics": metrics
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/liquidity/history")
+async def get_liquidity_history_endpoint(
+    days: int = Query(default=365, ge=30, le=1825, description="Number of days of history")
+):
+    """
+    Get historical net liquidity data for charting.
+
+    Args:
+        days: Number of days of history (default: 365, max: 1825 = 5 years)
+
+    Returns:
+        Historical net liquidity with component breakdown
+    """
+    try:
+        history = await get_liquidity_history(days=days)
+        return {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "data": history
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/liquidity/series/{series_id}")
+async def get_fred_series(
+    series_id: str,
+    days: int = Query(default=365, ge=30, le=1825, description="Number of days of history")
+):
+    """
+    Get raw FRED series data.
+
+    Args:
+        series_id: FRED series ID (e.g., WALCL, WDTGAL, RRPONTSYD, NFCI)
+        days: Number of days of history
+
+    Returns:
+        Raw series data with observations
+    """
+    try:
+        from datetime import timedelta
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        end_date = datetime.now().strftime("%Y-%m-%d")
+
+        data = await fetch_fred_series(series_id, start_date, end_date, limit=500)
+        return {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "data": data
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/liquidity/analysis")
+async def generate_liquidity_analysis():
+    """
+    Generate AI-powered liquidity analysis using GPT.
+
+    The agent will:
+    1. Analyze current metrics and historical trends
+    2. Search for recent news for context
+    3. Generate structured analysis report
+    4. Save to Insforge for historical tracking
+
+    Returns:
+        Structured analysis with status assessment
+    """
+    try:
+        # Get current metrics
+        metrics = await get_all_liquidity_metrics()
+
+        # Get historical data for trend analysis
+        history_30d_raw = await get_liquidity_history(days=30)
+        history_90d_raw = await get_liquidity_history(days=90)
+
+        history_30d = history_30d_raw.get("observations", [])
+        history_90d = history_90d_raw.get("observations", [])
+
+        # Generate analysis using the agent
+        agent = get_liquidity_agent()
+        result = await agent.analyze(
+            current_metrics=metrics,
+            history_30d=history_30d,
+            history_90d=history_90d
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to generate analysis")
+            )
+
+        # Save to Insforge
+        try:
+            insforge_service = get_insforge_service()
+            save_result = await insforge_service.save_liquidity_analysis({
+                "analysis": result.get("analysis"),
+                "status": result.get("status"),
+                "metrics_snapshot": result.get("metrics_snapshot"),
+                "generated_at": result.get("generated_at"),
+                "model": result.get("model"),
+            })
+            result["saved"] = save_result.get("success", False)
+            result["analysis_id"] = save_result.get("analysis_id")
+        except Exception as save_error:
+            print(f"[Warning] Failed to save analysis: {save_error}")
+            result["saved"] = False
+
+        # Return in consistent format with GET endpoint
+        return {
+            "success": True,
+            "analysis": {
+                "id": result.get("analysis_id"),
+                "analysis": result.get("analysis"),
+                "status": result.get("status"),
+                "generated_at": result.get("generated_at"),
+                "model": result.get("model"),
+                "metrics_snapshot": result.get("metrics_snapshot"),
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/liquidity/analysis/latest")
+async def get_latest_liquidity_analysis():
+    """
+    Get the most recent liquidity analysis from database.
+    """
+    try:
+        insforge_service = get_insforge_service()
+        analysis = await insforge_service.get_latest_liquidity_analysis()
+
+        if not analysis:
+            # Return empty success instead of 404
+            return {
+                "success": True,
+                "analysis": None
+            }
+
+        return {
+            "success": True,
+            "analysis": analysis
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

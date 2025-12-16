@@ -42,7 +42,13 @@ export default function RootLayout({
                     href="/market"
                     className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
                   >
-                    Market Analysis
+                    Market
+                  </Link>
+                  <Link
+                    href="/liquidity"
+                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                  >
+                    Liquidity
                   </Link>
                   <Link
                     href="/reports"

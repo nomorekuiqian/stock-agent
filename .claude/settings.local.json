@@ -65,7 +65,11 @@
       "mcp__insforge__fetch-docs",
       "mcp__insforge__get-function",
       "mcp__chrome-devtools__take_screenshot",
-      "mcp__insforge__update-function"
+      "mcp__insforge__update-function",
+      "WebFetch(domain:www.npmjs.com)",
+      "mcp__chrome-devtools__new_page",
+      "mcp__insforge__create-function",
+      "mcp__puppeteer__puppeteer_hover"
     ],
     "deny": [],
     "ask": []

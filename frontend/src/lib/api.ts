@@ -30,6 +30,7 @@ export interface CalendarEvent {
 }
 
 export interface MarketData {
+  report_id?: string;  // Report ID for navigation
   indices: MarketIndex[];
   timestamp: string;
   short_analysis: string;
@@ -49,6 +50,7 @@ export interface MarketData {
   };
   news_data?: unknown;
   market_data?: unknown;
+  from_cache?: boolean;  // Whether report came from database cache
 }
 
 export interface SendEmailResponse {
@@ -84,6 +86,85 @@ export interface EmailPreviewResponse {
   html: string;
   report_id: string;
   report_date: string;
+}
+
+// Liquidity Monitor Types
+export interface LiquidityMetric {
+  series_id: string;
+  title: string;
+  value: number | null;
+  date: string | null;
+  units: string;
+  change: number | null;
+  previous_date?: string | null;
+  formula?: string;
+  error?: string;
+}
+
+export interface LiquidityMetrics {
+  fed_assets: LiquidityMetric;
+  tga: LiquidityMetric;
+  rrp: LiquidityMetric;
+  reserves: LiquidityMetric;
+  sofr: LiquidityMetric;
+  effr: LiquidityMetric;
+  nfci: LiquidityMetric;
+  net_liquidity: LiquidityMetric;
+}
+
+export interface LiquidityMetricsResponse {
+  success: boolean;
+  timestamp: string;
+  metrics: LiquidityMetrics;
+}
+
+export interface LiquidityHistoryObservation {
+  time: string;
+  value: number;
+  fed_assets: number;
+  tga: number;
+  rrp: number;
+  reserves?: number;
+  sofr?: number;
+  effr?: number;
+  nfci?: number;
+}
+
+export interface LiquidityHistoryData {
+  series_id: string;
+  title: string;
+  units: string;
+  formula: string;
+  observations: LiquidityHistoryObservation[];
+  metrics?: LiquidityMetrics;
+}
+
+export interface LiquidityHistoryResponse {
+  success: boolean;
+  timestamp: string;
+  data: LiquidityHistoryData;
+}
+
+// Liquidity Analysis Types
+export interface LiquidityAnalysis {
+  id?: string;
+  analysis: string;
+  status: string;
+  generated_at: string;
+  model?: string;
+  metrics_snapshot?: {
+    net_liquidity?: number | null;
+    fed_assets?: number | null;
+    tga?: number | null;
+    rrp?: number | null;
+    nfci?: number | null;
+  };
+}
+
+export interface LiquidityAnalysisResponse {
+  success: boolean;
+  analysis?: LiquidityAnalysis;
+  error?: string;
 }
 
 export const api = {
@@ -165,6 +246,46 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to get email preview' }));
       throw new Error(error.detail || 'Failed to get email preview');
+    }
+    return response.json();
+  },
+
+  // Liquidity Monitor APIs
+  getLiquidityMetrics: async (): Promise<LiquidityMetricsResponse> => {
+    const response = await fetch(`${API_BASE_URL}/liquidity/metrics`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch liquidity metrics' }));
+      throw new Error(error.detail || 'Failed to fetch liquidity metrics');
+    }
+    return response.json();
+  },
+
+  getLiquidityHistory: async (days: number = 365): Promise<LiquidityHistoryResponse> => {
+    const response = await fetch(`${API_BASE_URL}/liquidity/history?days=${days}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch liquidity history' }));
+      throw new Error(error.detail || 'Failed to fetch liquidity history');
+    }
+    return response.json();
+  },
+
+  // Liquidity Analysis APIs
+  generateLiquidityAnalysis: async (): Promise<LiquidityAnalysisResponse> => {
+    const response = await fetch(`${API_BASE_URL}/liquidity/analysis`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to generate analysis' }));
+      throw new Error(error.detail || 'Failed to generate analysis');
+    }
+    return response.json();
+  },
+
+  getLatestLiquidityAnalysis: async (): Promise<LiquidityAnalysisResponse> => {
+    const response = await fetch(`${API_BASE_URL}/liquidity/analysis/latest`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch analysis' }));
+      throw new Error(error.detail || 'Failed to fetch analysis');
     }
     return response.json();
   },

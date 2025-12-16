@@ -1,4 +1,5 @@
 fastapi
+fredapi
 google-adk
 google-genai
 httpx
