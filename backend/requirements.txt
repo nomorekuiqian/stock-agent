@@ -3,6 +3,7 @@ fredapi
 google-adk
 google-genai
 httpx
+openai
 pytest
 python-dotenv
 resend==2.19.0
