@@ -9,6 +9,8 @@ from typing import Optional, List
 
 import resend
 
+from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
+
 
 class EmailService:
     """Service for sending market analysis reports via email with subscriber management."""
@@ -194,13 +196,14 @@ class EmailService:
     # =========================================================================
 
     def _format_timestamp(self, timestamp: str) -> str:
-        """Format ISO timestamp to human-readable format."""
+        """Format ISO timestamp to human-readable format (Pacific timezone)."""
         try:
             dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            pacific_dt = to_pacific(dt)
             # Format: December 14, 2025
-            return dt.strftime("%B %d, %Y")
+            return pacific_dt.strftime("%B %d, %Y")
         except Exception:
-            return datetime.now().strftime("%B %d, %Y")
+            return now_pacific().strftime("%B %d, %Y")
 
     def _format_markdown_to_html(self, text: str) -> str:
         """Convert basic Markdown to HTML for email.
@@ -265,46 +268,185 @@ class EmailService:
         return text
 
     def _format_html_report(self, data: dict) -> str:
-        """Format the macro analysis data into an HTML email (website-style)."""
-        timestamp = data.get("timestamp", datetime.now().isoformat())
+        """Format the macro analysis data into an HTML email (website-style with structured sections)."""
+        timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
 
         # Use dynamic title or fallback to default
         report_title = data.get("title") or "每日市场简报"
         report_summary = data.get("summary", "")
+        quick_take = data.get("quick_take", "")
+        market_narrative = data.get("market_narrative", "")
+        macro = data.get("macro", {})
+        news = data.get("news", {})
+        conclusion = data.get("conclusion", "")
+        calendar = data.get("calendar", [])
 
-        # Build indices section - website style with border cards
+        # Check if we have new structured data
+        has_structured_data = bool(
+            quick_take or market_narrative or macro or news or conclusion
+        )
+
+        # Build compact indices section (2 per row for email)
         indices = data.get("indices", [])
-        indices_count = len(indices)
+        # Select key indices for email (keep it compact)
+        key_indices = [
+            idx for idx in indices
+            if idx.get("name") in ["S&P 500", "Nasdaq", "10Y Treasury", "VIX", "Gold", "US Dollar"]
+        ][:6]
         indices_html = ""
 
-        if indices:
-            indices_html = '<table style="width: 100%; border-collapse: separate; border-spacing: 8px;"><tr>'
-            for i, index in enumerate(indices):
+        if key_indices:
+            indices_html = '<table style="width: 100%; border-collapse: separate; border-spacing: 6px;"><tr>'
+            for i, index in enumerate(key_indices):
                 change = index.get("change_percent", 0)
                 color = "#059669" if change >= 0 else "#dc2626"
                 arrow = "+" if change >= 0 else ""
+                value = index.get("value", 0)
+                # Format value based on magnitude
+                if value > 1000:
+                    value_str = f"{value:,.0f}"
+                else:
+                    value_str = f"{value:,.2f}"
 
-                # Website style: white background, subtle gray border
                 indices_html += f'''
-                <td style="vertical-align: top; width: 25%;">
-                    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px;">
-                        <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">{index.get('name', '')}</div>
-                        <div style="font-size: 20px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">{index.get('value', 0):,.2f}</div>
-                        <div style="font-size: 14px; font-weight: 600; color: {color};">{arrow}{change:.2f}%</div>
+                <td style="vertical-align: top; width: 33.33%;">
+                    <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; text-align: center;">
+                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">{index.get('name', '')}</div>
+                        <div style="font-size: 16px; font-weight: 700; color: #1e293b;">{value_str}</div>
+                        <div style="font-size: 12px; font-weight: 600; color: {color};">{arrow}{change:.2f}%</div>
                     </div>
                 </td>
                 '''
-                # New row every 4 items
-                if (i + 1) % 4 == 0 and i < len(indices) - 1:
+                # New row every 3 items
+                if (i + 1) % 3 == 0 and i < len(key_indices) - 1:
                     indices_html += "</tr><tr>"
 
             indices_html += "</tr></table>"
 
-        # Format in-depth analysis with Markdown conversion
+        # Build Quick Take section
+        quick_take_html = ""
+        if quick_take:
+            quick_take_html = f'''
+            <div style="background: #ecfdf5; border-left: 4px solid #059669; padding: 16px; margin-bottom: 24px; border-radius: 0 8px 8px 0;">
+                <div style="font-size: 12px; font-weight: 600; color: #059669; margin-bottom: 8px; text-transform: uppercase;">Quick Take</div>
+                <div style="font-size: 15px; color: #1e293b; line-height: 1.6;">{quick_take}</div>
+            </div>
+            '''
+
+        # Build Market Narrative section
+        narrative_html = ""
+        if market_narrative:
+            narrative_html = f'''
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">市场在交易什么</div>
+                <div style="font-size: 14px; color: #4b5563; line-height: 1.7; white-space: pre-line;">{market_narrative}</div>
+            </div>
+            '''
+
+        # Build Macro Signals section
+        macro_html = ""
+        signals = macro.get("signals", []) if macro else []
+        macro_summary = macro.get("summary", "") if macro else ""
+        if signals:
+            signals_items = ""
+            for signal in signals[:4]:  # Limit to 4 signals for email
+                trend = signal.get("trend_direction", "flat")
+                trend_color = "#059669" if trend == "up" else "#dc2626" if trend == "down" else "#6b7280"
+                signals_items += f'''
+                <div style="padding: 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 13px; font-weight: 600; color: #1e293b;">{signal.get('name', '')}</span>
+                        <span style="font-size: 12px; color: {trend_color};">{signal.get('current_value', '')} ({signal.get('change', '')})</span>
+                    </div>
+                    <div style="font-size: 12px; color: #6b7280; line-height: 1.5;">{signal.get('analysis', '')}</div>
+                </div>
+                '''
+            macro_html = f'''
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">关键指标与信号</div>
+                {signals_items}
+                {f'<div style="font-size: 13px; color: #6b7280; margin-top: 12px; line-height: 1.6;">{macro_summary}</div>' if macro_summary else ''}
+            </div>
+            '''
+
+        # Build News section
+        news_html = ""
+        headlines = news.get("headlines", []) if news else []
+        briefs = news.get("briefs", []) if news else []
+        if headlines or briefs:
+            news_items = ""
+            # Headlines (major news)
+            for headline in headlines[:2]:  # Limit to 2 headlines
+                news_items += f'''
+                <div style="padding: 14px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 8px; margin-bottom: 10px;">
+                    <a href="{headline.get('url', '#')}" style="font-size: 14px; font-weight: 600; color: #1e293b; text-decoration: none; display: block; margin-bottom: 8px;">{headline.get('title', '')}</a>
+                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">{headline.get('fact_summary', '')}</div>
+                    <div style="font-size: 12px; color: #4b5563; border-left: 2px solid #059669; padding-left: 10px; line-height: 1.5;">{headline.get('deep_analysis', '')}</div>
+                </div>
+                '''
+            # Briefs (quick news)
+            for brief in briefs[:3]:  # Limit to 3 briefs
+                news_items += f'''
+                <div style="padding: 10px 14px; background: #f8fafc; border-radius: 6px; margin-bottom: 6px;">
+                    <a href="{brief.get('url', '#')}" style="font-size: 13px; font-weight: 500; color: #1e293b; text-decoration: none;">{brief.get('title', '')}</a>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">{brief.get('summary', '')}</div>
+                </div>
+                '''
+            news_html = f'''
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">重要新闻</div>
+                {news_items}
+            </div>
+            '''
+
+        # Build Calendar section
+        calendar_html = ""
+        if calendar and len(calendar) > 0:
+            calendar_items = ""
+            for event in calendar[:5]:  # Limit to 5 events
+                event_date = event.get("date", "")[:10]  # YYYY-MM-DD
+                calendar_items += f'''
+                <div style="padding: 10px 14px; background: #f8fafc; border-radius: 6px; margin-bottom: 6px; display: flex;">
+                    <div style="flex-shrink: 0; width: 60px; text-align: center; padding-right: 12px; border-right: 1px solid #e5e7eb;">
+                        <div style="font-size: 11px; color: #6b7280;">{event_date[5:7]}月</div>
+                        <div style="font-size: 18px; font-weight: 700; color: #1e293b;">{event_date[8:10]}</div>
+                    </div>
+                    <div style="flex: 1; padding-left: 12px;">
+                        <div style="font-size: 13px; font-weight: 500; color: #1e293b;">{event.get('event', '')}</div>
+                        <div style="font-size: 11px; color: #6b7280; margin-top: 4px; line-height: 1.4;">{event.get('analysis', '')}</div>
+                    </div>
+                </div>
+                '''
+            calendar_html = f'''
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">重要事件</div>
+                {calendar_items}
+            </div>
+            '''
+
+        # Build Conclusion section
+        conclusion_html = ""
+        if conclusion:
+            conclusion_md = self._format_markdown_to_html(conclusion)
+            conclusion_html = f'''
+            <div style="margin-bottom: 24px; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">总结与展望</div>
+                <div style="font-size: 13px; color: #4b5563; line-height: 1.7;">{conclusion_md}</div>
+            </div>
+            '''
+
+        # Legacy in-depth analysis fallback
         in_depth_html = ""
-        if data.get("in_depth_analysis"):
-            in_depth_html = self._format_markdown_to_html(data.get("in_depth_analysis", ""))
+        if not has_structured_data and data.get("in_depth_analysis"):
+            in_depth_html = f'''
+            <div style="margin-bottom: 24px;">
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">深度分析</div>
+                <div style="font-size: 14px; color: #4b5563; line-height: 1.7;">
+                    {self._format_markdown_to_html(data.get("in_depth_analysis", ""))}
+                </div>
+            </div>
+            '''
 
         html = f"""
         <!DOCTYPE html>
@@ -314,66 +456,64 @@ class EmailService:
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 0;">
-            <div style="max-width: 640px; margin: 0 auto; background: #ffffff;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
                 <!-- Header with brand -->
-                <div style="padding: 20px 24px; border-bottom: 1px solid #e5e7eb;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
                     <table style="width: 100%;" cellpadding="0" cellspacing="0">
                         <tr>
                             <td>
-                                <span style="color: #059669; font-size: 20px; font-weight: 700; letter-spacing: -0.5px;">MarketPulse</span>
+                                <span style="color: #059669; font-size: 18px; font-weight: 700; letter-spacing: -0.5px;">MarketPulse</span>
                             </td>
                             <td style="text-align: right;">
-                                <span style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 16px;">{formatted_date}</span>
+                                <span style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 12px;">{formatted_date}</span>
                             </td>
                         </tr>
                     </table>
                 </div>
 
                 <!-- Title Section -->
-                <div style="padding: 32px 24px 24px 24px; text-align: center;">
-                    <h1 style="color: #1e293b; font-size: 24px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.3;">{report_title}</h1>
-                    {f'<p style="color: #6b7280; font-size: 15px; margin: 0; line-height: 1.6; max-width: 520px; margin-left: auto; margin-right: auto;">{report_summary}</p>' if report_summary else ''}
+                <div style="padding: 24px 20px 16px 20px;">
+                    <h1 style="color: #1e293b; font-size: 20px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.3;">{report_title}</h1>
+                    {f'<p style="color: #6b7280; font-size: 13px; margin: 0; line-height: 1.5;">{report_summary}</p>' if report_summary else ''}
                 </div>
 
                 <!-- Content -->
-                <div style="padding: 0 24px 32px 24px;">
-                    <!-- Market Overview Section -->
-                    <div style="margin-bottom: 32px;">
-                        <table style="width: 100%; margin-bottom: 16px;" cellpadding="0" cellspacing="0">
-                            <tr>
-                                <td>
-                                    <span style="font-size: 16px; font-weight: 600; color: #1e293b;">Market Overview</span>
-                                </td>
-                                <td style="text-align: right;">
-                                    <span style="font-size: 13px; color: #9ca3af;">{indices_count} indices</span>
-                                </td>
-                            </tr>
-                        </table>
-                        {indices_html}
-                    </div>
+                <div style="padding: 0 20px 24px 20px;">
+                    <!-- Market Indices -->
+                    {f'<div style="margin-bottom: 20px;">{indices_html}</div>' if indices_html else ''}
 
-                    <!-- In-Depth Analysis Section -->
-                    {f'''<div>
-                        <div style="margin-bottom: 16px;">
-                            <span style="font-size: 16px; font-weight: 600; color: #1e293b;">In-Depth Analysis</span>
-                            <span style="font-size: 13px; color: #9ca3af; margin-left: 8px;">AI-generated market report</span>
-                        </div>
-                        <div style="color: #374151; font-size: 15px; line-height: 1.7;">
-                            {in_depth_html}
-                        </div>
-                    </div>''' if data.get("in_depth_analysis") else ""}
+                    <!-- Quick Take -->
+                    {quick_take_html}
+
+                    <!-- Market Narrative -->
+                    {narrative_html}
+
+                    <!-- Macro Signals -->
+                    {macro_html}
+
+                    <!-- News -->
+                    {news_html}
+
+                    <!-- Calendar -->
+                    {calendar_html}
+
+                    <!-- Conclusion -->
+                    {conclusion_html}
+
+                    <!-- Legacy In-Depth Analysis -->
+                    {in_depth_html}
                 </div>
 
                 <!-- Footer -->
-                <div style="background: #f8fafc; padding: 24px; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #9ca3af; font-size: 12px; text-align: center; line-height: 1.6; margin: 0 0 12px 0;">
+                <div style="background: #f8fafc; padding: 20px; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #9ca3af; font-size: 11px; text-align: center; line-height: 1.5; margin: 0 0 10px 0;">
                         This report is AI-generated for informational purposes only.<br>
                         Not financial advice. Please do your own research.
                     </p>
                     <p style="text-align: center; margin: 0;">
-                        <span style="color: #059669; font-size: 13px; font-weight: 600;">MarketPulse</span>
-                        <span style="color: #d1d5db; margin: 0 8px;">|</span>
-                        <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #9ca3af; font-size: 12px; text-decoration: none;">Unsubscribe</a>
+                        <span style="color: #059669; font-size: 12px; font-weight: 600;">MarketPulse</span>
+                        <span style="color: #d1d5db; margin: 0 6px;">|</span>
+                        <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #9ca3af; font-size: 11px; text-decoration: none;">Unsubscribe</a>
                     </p>
                 </div>
             </div>
@@ -408,7 +548,7 @@ class EmailService:
 
         try:
             html_content = self._format_html_report(data)
-            today = datetime.now().strftime("%Y-%m-%d")
+            today = today_str()  # Pacific timezone
 
             params = {
                 "from": self.from_email,
@@ -447,7 +587,7 @@ class EmailService:
         try:
             audience_id = self.ensure_audience()
             html_content = self._format_html_report(data)
-            today = datetime.now().strftime("%Y-%m-%d")
+            today = today_str()  # Pacific timezone
 
             # Create broadcast
             create_params: resend.Broadcasts.CreateParams = {
