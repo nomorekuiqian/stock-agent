@@ -6,6 +6,7 @@ import { LiquidityCard } from '@/components/LiquidityCard';
 import { NFCIGauge } from '@/components/NFCIGauge';
 import { NetLiquidityChart } from '@/components/NetLiquidityChart';
 import { api, LiquidityMetrics, LiquidityAnalysis, LiquidityHistoryObservation } from '@/lib/api';
+import { formatCompareDateLabel, formatDateTimePacific } from '@/lib/timezone';
 import ReactMarkdown from 'react-markdown';
 
 // FRED symbols for key liquidity indicators
@@ -51,19 +52,8 @@ const INDICATOR_INFO = {
   },
 };
 
-// Format relative time for comparison label (e.g., "较昨天", "较上周")
-function formatCompareDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays <= 1) return '较昨天';
-  if (diffDays <= 3) return '较3天前';
-  if (diffDays <= 7) return '较上周';
-  if (diffDays <= 14) return '较两周前';
-  return '较上月';
-}
+// Format relative time for comparison label - use Pacific timezone utility
+const formatCompareDate = formatCompareDateLabel;
 
 // Format large numbers
 function formatValue(value: number | null, units: string): string {
@@ -204,7 +194,7 @@ export default function LiquidityPage() {
               </p>
               {lastUpdated && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  最后更新: {new Date(lastUpdated).toLocaleString('zh-CN')}
+                  最后更新: {formatDateTimePacific(lastUpdated)}
                 </p>
               )}
             </div>
@@ -481,7 +471,7 @@ export default function LiquidityPage() {
                   由 GPT-4o-mini 提供支持
                   {analysis?.generated_at && (
                     <span className="ml-2">
-                      | 生成于 {new Date(analysis.generated_at).toLocaleString('zh-CN')}
+                      | 生成于 {formatDateTimePacific(analysis.generated_at)}
                     </span>
                   )}
                 </p>

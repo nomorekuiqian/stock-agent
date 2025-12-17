@@ -4,6 +4,7 @@ load_dotenv()  # Load .env before importing agents
 import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Header, Query
+from app.utils.timezone import today_str, now_iso, days_ago
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,17 +82,23 @@ market_agent = MarketAgent()
 async def root():
     return {"message": "Market Analysis API is running"}
 
+class MarketAnalysisRequest(BaseModel):
+    force: bool = False  # Force regenerate even if cached
+
+
 @app.post("/api/market")
-async def analyze_market():
+async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
     try:
-        # Check if today's report already exists in database
-        today = datetime.now().strftime("%Y-%m-%d")
+        force = request.force if request else False
+
+        # Check if today's report already exists in database (Pacific timezone)
+        today = today_str()
         insforge = get_insforge_service()
         existing_report = await insforge.get_report_by_date(today)
 
         # Validate that the cached report's timestamp is actually from today (local time)
         # This handles timezone issues where report_date might be stored in UTC
-        if existing_report:
+        if existing_report and not force:
             report_timestamp = existing_report.get("timestamp", "")
             report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
 
@@ -101,23 +108,36 @@ async def analyze_market():
                 return {
                     "report_id": existing_report.get("id"),
                     "indices": existing_report.get("indices", []),
-                    "timestamp": existing_report.get("timestamp", datetime.now().isoformat()),
-                    "short_analysis": existing_report.get("short_analysis", ""),
-                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
-                    "economic_calendar": existing_report.get("economic_calendar", {}),
-                    "earnings_calendar": existing_report.get("earnings_calendar", {}),
-                    "calendar": existing_report.get("calendar", []),
-                    "news_data": existing_report.get("news_data", {}),
-                    "market_data": existing_report.get("market_data", {}),
+                    "timestamp": existing_report.get("timestamp", now_iso()),
+                    # New structured fields
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
+                    "quick_take": existing_report.get("quick_take", ""),
+                    "market_narrative": existing_report.get("market_narrative", ""),
+                    "macro": existing_report.get("macro"),
+                    "news": existing_report.get("news"),
+                    "conclusion": existing_report.get("conclusion", ""),
+                    "calendar": existing_report.get("calendar", []),
+                    # Legacy fields for backward compatibility
+                    "short_analysis": existing_report.get("short_analysis", ""),
+                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
+                    # Raw data
+                    "economic_calendar": existing_report.get("economic_calendar", {}),
+                    "earnings_calendar": existing_report.get("earnings_calendar", {}),
+                    "news_data": existing_report.get("news_data", {}),
+                    "market_data": existing_report.get("market_data", {}),
                     "from_cache": True,
                 }
             else:
                 print(f"[API] Found report but timestamp ({report_date_from_timestamp}) doesn't match today ({today}), regenerating...")
 
+        # Force regeneration requested
+        if force:
+            print(f"[API] Force regeneration requested, generating new report...")
+
         # No existing report, generate new one
-        print(f"[API] No report found for {today}, generating new analysis...")
+        if not force:
+            print(f"[API] No report found for {today}, generating new analysis...")
         result = await market_agent.analyze()
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate market analysis")
@@ -128,18 +148,26 @@ async def analyze_market():
 
         response_data = {
             "indices": indices,
-            "timestamp": result.get("timestamp", datetime.now().isoformat()),
+            "timestamp": result.get("timestamp", now_iso()),
+            # New structured fields
+            "title": result.get("title", ""),
+            "summary": result.get("summary", ""),
+            "quick_take": result.get("quick_take", ""),
+            "market_narrative": result.get("market_narrative", ""),
+            "macro": result.get("macro"),
+            "news": result.get("news"),
+            "conclusion": result.get("conclusion", ""),
+            "calendar": result.get("calendar", []),  # LLM-curated key events
+            # Legacy fields for backward compatibility
             "short_analysis": result.get("short_analysis", ""),
             "in_depth_analysis": result.get("in_depth_analysis", ""),
+            # Raw data
             "economic_calendar": result.get("economic_calendar", {}),
             "earnings_calendar": result.get("earnings_calendar", {}),
-            "calendar": result.get("calendar", []),  # LLM-curated key events
             "news_data": result.get("news_data", {}),
             "evaluation_report": result.get("evaluation_report", ""),
             "draft_analysis": result.get("draft_analysis", ""),
             "market_data": market_data,
-            "title": result.get("title", ""),
-            "summary": result.get("summary", ""),
             "from_cache": False,
         }
 
@@ -188,12 +216,20 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
         # Build complete report data for email and database
         report_data = {
             "indices": indices,
-            "timestamp": result.get("timestamp", datetime.now().isoformat()),
-            "short_analysis": result.get("short_analysis", ""),
-            "in_depth_analysis": result.get("in_depth_analysis", ""),
+            "timestamp": result.get("timestamp", now_iso()),
+            # New structured fields
             "title": result.get("title", ""),
             "summary": result.get("summary", ""),
+            "quick_take": result.get("quick_take", ""),
+            "market_narrative": result.get("market_narrative", ""),
+            "macro": result.get("macro"),
+            "news": result.get("news"),
+            "conclusion": result.get("conclusion", ""),
             "calendar": result.get("calendar", []),
+            # Legacy fields for backward compatibility
+            "short_analysis": result.get("short_analysis", ""),
+            "in_depth_analysis": result.get("in_depth_analysis", ""),
+            # Raw data
             "economic_calendar": result.get("economic_calendar", {}),
             "earnings_calendar": result.get("earnings_calendar", {}),
             "news_data": result.get("news_data", {}),
@@ -259,14 +295,22 @@ async def get_email_preview(report_id: Optional[str] = Query(None)):
         if not report:
             raise HTTPException(status_code=404, detail="No report found")
 
-        # Build report data for email rendering
+        # Build report data for email rendering (include all structured fields)
         report_data = {
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
-            "short_analysis": report.get("short_analysis", ""),
-            "in_depth_analysis": report.get("in_depth_analysis", ""),
+            # New structured fields
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
+            "quick_take": report.get("quick_take", ""),
+            "market_narrative": report.get("market_narrative", ""),
+            "macro": report.get("macro"),
+            "news": report.get("news"),
+            "conclusion": report.get("conclusion", ""),
+            "calendar": report.get("calendar", []),
+            # Legacy fields
+            "short_analysis": report.get("short_analysis", ""),
+            "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
         # Render HTML using the real email template
@@ -360,7 +404,7 @@ async def send_test_report(request: SendEmailRequest):
         # Prepare report data for email
         report_data = {
             "indices": report.get("indices", []),
-            "timestamp": report.get("timestamp", datetime.now().isoformat()),
+            "timestamp": report.get("timestamp", now_iso()),
             "short_analysis": report.get("short_analysis", ""),
             "in_depth_analysis": report.get("in_depth_analysis", "")
         }
@@ -522,7 +566,7 @@ async def generate_digest(request: DigestRequest):
             symbols_used=result.get("symbols_used", []),
             analysis=result.get("in_depth_analysis", ""),
             news_data=result.get("news_data", {}).get("articles", []),
-            timestamp=result.get("timestamp", datetime.now().isoformat()),
+            timestamp=result.get("timestamp", now_iso()),
         )
 
     except Exception as e:
@@ -555,7 +599,7 @@ async def get_liquidity_metrics():
         metrics = await get_all_liquidity_metrics()
         return {
             "success": True,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_iso(),
             "metrics": metrics
         }
     except Exception as e:
@@ -581,7 +625,7 @@ async def get_liquidity_history_endpoint(
         history = await get_liquidity_history(days=days)
         return {
             "success": True,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_iso(),
             "data": history
         }
     except Exception as e:
@@ -606,14 +650,13 @@ async def get_fred_series(
         Raw series data with observations
     """
     try:
-        from datetime import timedelta
-        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = days_ago(days)
+        end_date = today_str()
 
         data = await fetch_fred_series(series_id, start_date, end_date, limit=500)
         return {
             "success": True,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_iso(),
             "data": data
         }
     except Exception as e:

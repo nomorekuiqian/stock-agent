@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getReportById, MarketReport } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
 import { CalendarEvent } from '@/lib/api';
+import { formatDateChinese, formatTimePacific } from '@/lib/timezone';
 
 interface IndexData {
   name: string;
@@ -43,23 +44,9 @@ export default function ReportDetailPage({
     fetchReport();
   }, [id]);
 
-  const formatDate = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Use Pacific timezone for date formatting
+  const formatDate = (dateString: string) => formatDateChinese(dateString);
+  const formatTime = (dateString: string) => formatTimePacific(dateString);
 
   return (
     <main className="min-h-screen bg-background">
@@ -142,8 +129,15 @@ export default function ReportDetailPage({
           {/* Shared Report Content Component */}
           <ReportContent
             indices={report.indices as IndexData[] | undefined}
-            inDepthAnalysis={report.in_depth_analysis}
+            // New structured fields
+            quickTake={report.quick_take}
+            marketNarrative={report.market_narrative}
+            macro={report.macro}
+            news={report.news}
+            conclusion={report.conclusion}
             calendar={report.calendar as CalendarEvent[] | undefined}
+            // Legacy field for backward compatibility
+            inDepthAnalysis={report.in_depth_analysis}
             timestamp={report.timestamp}
             showTimestamp={true}
           />

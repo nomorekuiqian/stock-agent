@@ -69,7 +69,10 @@
       "WebFetch(domain:www.npmjs.com)",
       "mcp__chrome-devtools__new_page",
       "mcp__insforge__create-function",
-      "mcp__puppeteer__puppeteer_hover"
+      "mcp__puppeteer__puppeteer_hover",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(railway variables:*)"
     ],
     "deny": [],
     "ask": []

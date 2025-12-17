@@ -5,9 +5,10 @@ Uses Insforge Edge Functions API to interact with the database.
 
 import os
 import json
-from datetime import datetime
 from typing import Optional, Dict, Any, List
 import httpx
+
+from app.utils.timezone import today_str, now_iso
 
 # Insforge configuration
 INSFORGE_BASE_URL = os.getenv(
@@ -36,17 +37,25 @@ class InsforgeService:
             dict with success status and saved report data or error
         """
         try:
-            report_date = datetime.now().strftime("%Y-%m-%d")
+            report_date = today_str()  # Pacific timezone
 
             # Prepare the report for database insertion
             db_report = {
                 "report_date": report_date,
-                "timestamp": report_data.get("timestamp", datetime.now().isoformat()),
-                "short_analysis": report_data.get("short_analysis", ""),
-                "in_depth_analysis": report_data.get("in_depth_analysis", ""),
+                "timestamp": report_data.get("timestamp", now_iso()),
+                # New structured fields
                 "title": report_data.get("title", ""),
                 "summary": report_data.get("summary", ""),
+                "quick_take": report_data.get("quick_take", ""),
+                "market_narrative": report_data.get("market_narrative", ""),
+                "macro": report_data.get("macro"),
+                "news": report_data.get("news"),
+                "conclusion": report_data.get("conclusion", ""),
                 "calendar": report_data.get("calendar", []),
+                # Legacy fields for backward compatibility
+                "short_analysis": report_data.get("short_analysis", ""),
+                "in_depth_analysis": report_data.get("in_depth_analysis", ""),
+                # Raw data
                 "indices": report_data.get("indices", []),
                 "economic_calendar": report_data.get("economic_calendar", {}),
                 "earnings_calendar": report_data.get("earnings_calendar", {}),
@@ -215,7 +224,7 @@ class InsforgeService:
                 "analysis": analysis_data.get("analysis", ""),
                 "status": analysis_data.get("status", ""),
                 "metrics_snapshot": analysis_data.get("metrics_snapshot", {}),
-                "generated_at": analysis_data.get("generated_at", datetime.now().isoformat()),
+                "generated_at": analysis_data.get("generated_at", now_iso()),
                 "model": analysis_data.get("model", ""),
             }
 

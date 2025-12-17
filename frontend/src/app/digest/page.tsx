@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, DigestResponse } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, saveUserDigest } from '@/lib/insforge';
+import { formatDateChinese, formatTimePacific } from '@/lib/timezone';
 
 export default function DigestPage() {
   const router = useRouter();
@@ -99,23 +100,9 @@ export default function DigestPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Use Pacific timezone utilities for date/time formatting
+  const formatDate = (dateString: string) => formatDateChinese(dateString);
+  const formatTime = (dateString: string) => formatTimePacific(dateString);
 
   // Show loading while checking auth
   if (authLoading) {

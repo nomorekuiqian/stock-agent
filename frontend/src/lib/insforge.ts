@@ -1,4 +1,5 @@
 import { createClient } from '@insforge/sdk';
+import { nowIso, todayStr } from './timezone';
 
 const INSFORGE_BASE_URL = 'https://9wmhxyi4.us-east.insforge.app';
 const INSFORGE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTAyNDF9.impMF8IELyFYgeBbgiOGJ3OWDqBpVMsyRXHhgaIyS4E';
@@ -8,17 +9,30 @@ export const insforge = createClient({
   anonKey: INSFORGE_ANON_KEY,
 });
 
+import { MacroSection, NewsSection, CalendarEvent } from './api';
+
 export interface MarketReport {
   id?: string;
   report_date: string;
   timestamp: string;
-  short_analysis: string;
-  in_depth_analysis: string;
+
+  // New structured fields
   title?: string;
   summary?: string;
-  calendar?: unknown[];  // LLM-curated key events
+  quick_take?: string;
+  market_narrative?: string;
+  macro?: MacroSection;
+  news?: NewsSection;
+  conclusion?: string;
+  calendar?: CalendarEvent[];
+
+  // Legacy fields (for backward compatibility)
+  short_analysis?: string;
+  in_depth_analysis?: string;
   draft_analysis?: string;
   evaluation_report?: string;
+
+  // Raw data
   indices?: unknown[];
   economic_calendar?: unknown;
   earnings_calendar?: unknown;
@@ -200,7 +214,7 @@ export async function saveUserWatchlist(
     const watchlistData = {
       user_id: userId,
       symbols: symbols,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso(),
     };
 
     let result;
@@ -261,7 +275,7 @@ export async function saveUserDigest(
   }
 ): Promise<{ success: boolean; data?: UserDigest; error?: string }> {
   try {
-    const digestDate = new Date().toISOString().split('T')[0];
+    const digestDate = todayStr();
 
     const digestData = {
       user_id: userId,

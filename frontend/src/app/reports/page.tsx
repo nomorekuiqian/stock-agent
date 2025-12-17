@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { getReportsList, MarketReport } from '@/lib/insforge';
+import { formatDateChinese, formatDateShort, formatTimePacific } from '@/lib/timezone';
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<MarketReport[]>([]);
@@ -30,31 +31,10 @@ export default function ReportsPage() {
     fetchReports();
   }, [fetchReports]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-    });
-  };
-
-  const formatShortDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Use Pacific timezone for date formatting
+  const formatDate = (dateString: string) => formatDateChinese(dateString);
+  const formatSDate = (dateString: string) => formatDateShort(dateString);
+  const formatTime = (dateString: string) => formatTimePacific(dateString);
 
   const getPreviewText = (text: string, maxLength: number = 150) => {
     if (!text) return '';
@@ -134,7 +114,7 @@ export default function ReportsPage() {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {formatShortDate(report.report_date)}
+                    {formatSDate(report.report_date)}
                   </div>
                   <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -148,7 +128,7 @@ export default function ReportsPage() {
 
                 {/* Preview */}
                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                  {report.summary || getPreviewText(report.in_depth_analysis)}
+                  {report.summary || getPreviewText(report.in_depth_analysis || '')}
                 </p>
 
                 {/* Footer */}

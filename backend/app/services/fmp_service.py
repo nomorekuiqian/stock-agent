@@ -5,7 +5,9 @@ FMP (Financial Modeling Prep) API Service
 import os
 import httpx
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from app.utils.timezone import now_pacific, today_str, days_from_now
 
 
 # Core tickers for FMP news - Mag 7 + Semiconductors
@@ -117,7 +119,7 @@ class FMPService:
         yield_curve_shape = self._analyze_yield_curve_shape(rates)
 
         return {
-            "date": raw.get("date", datetime.now().strftime("%Y-%m-%d")),
+            "date": raw.get("date", today_str()),
             "rates": rates,
             "spreads": spreads,
             "yield_curve_shape": yield_curve_shape,
@@ -256,6 +258,43 @@ class FMPService:
             "source": "fmp",
         }
 
+    def get_general_news(self, limit: int = 30) -> dict:
+        """
+        Get general market news (macro, policy, economy) without ticker requirement.
+
+        This endpoint provides broader market coverage including:
+        - Fed/central bank policy news
+        - Economic data releases
+        - Geopolitical events affecting markets
+        - Sector-wide trends
+
+        Args:
+            limit: Maximum news items to return (default: 30)
+
+        Returns:
+            Standardized news response dict
+        """
+        print(f"[FMP] get_general_news(limit={limit})")
+
+        params = {"limit": limit}
+        data = self._request("/stable/news/general-latest", params)
+
+        if not data or not isinstance(data, list):
+            return self._empty_news_response("No general news data returned")
+
+        news = self._parse_fmp_news(data)
+
+        # Mark as general/macro news
+        for item in news:
+            item["type"] = "general"
+
+        return {
+            "status": "success",
+            "news_count": len(news),
+            "news": news,
+            "source": "fmp_general",
+        }
+
     def _parse_fmp_news(self, raw_news: list) -> list[dict]:
         """
         Parse FMP news items to standard format.
@@ -323,9 +362,8 @@ class FMPService:
         """
         print(f"[FMP] get_economic_calendar(days={days}, country={country})")
 
-        today = datetime.now()
-        from_date = today.strftime("%Y-%m-%d")
-        to_date = (today + timedelta(days=min(days, 90))).strftime("%Y-%m-%d")
+        from_date = today_str()  # Pacific timezone
+        to_date = days_from_now(min(days, 90))
 
         params = {"from": from_date, "to": to_date}
         data = self._request("/stable/economic-calendar", params)
@@ -478,9 +516,8 @@ class FMPService:
         """
         print(f"[FMP] get_earnings_calendar(days={days})")
 
-        today = datetime.now()
-        from_date = today.strftime("%Y-%m-%d")
-        to_date = (today + timedelta(days=min(days, 90))).strftime("%Y-%m-%d")
+        from_date = today_str()  # Pacific timezone
+        to_date = days_from_now(min(days, 90))
 
         params = {"from": from_date, "to": to_date}
         data = self._request("/stable/earnings-calendar", params)

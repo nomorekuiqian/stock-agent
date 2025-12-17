@@ -4,11 +4,11 @@ Provides unified data fetching functions and ticker configurations.
 """
 
 import math
-from datetime import datetime
 import yfinance as yf
 import pandas as pd
 
 from app.services.fmp_service import get_fmp_service
+from app.utils.timezone import now_pacific, format_date, format_date_chinese
 
 
 # =============================================================================
@@ -82,7 +82,10 @@ def safe_float(value, default=0.0):
 
 
 def _extract_asset_data(data: pd.DataFrame, name: str, symbol: str) -> dict | None:
-    """Helper to extract price data for a single asset. Pure data, no interpretation."""
+    """
+    Helper to extract price data for a single asset with historical context.
+    Provides current value, historical values, changes, and trend indicators.
+    """
     try:
         if isinstance(data.columns, pd.MultiIndex):
             if symbol not in data["Close"].columns:
@@ -102,15 +105,46 @@ def _extract_asset_data(data: pd.DataFrame, name: str, symbol: str) -> dict | No
         if current <= 0:
             return None
 
+        # Calculate percentage changes
         daily_change = ((current - prev) / prev) * 100 if prev != 0 else 0
         week_change = ((current - week_ago) / week_ago) * 100 if week_ago != 0 else 0
         month_change = ((current - month_ago) / month_ago) * 100 if month_ago != 0 else 0
 
+        # Calculate 1-month high/low for context
+        high_1mo = safe_float(series.max())
+        low_1mo = safe_float(series.min())
+
+        # Determine trend based on recent price action
+        # Compare current vs week_ago and week_ago vs 2 weeks ago (if available)
+        two_weeks_ago = safe_float(series.iloc[-10]) if len(series) >= 10 else week_ago
+        recent_trend = current - week_ago
+        prior_trend = week_ago - two_weeks_ago
+
+        if week_change > 2:
+            trend = "up"
+        elif week_change < -2:
+            trend = "down"
+        else:
+            trend = "flat"
+
+        # Calculate position in 1-month range (0-100%)
+        range_size = high_1mo - low_1mo
+        if range_size > 0:
+            position_in_range = round(((current - low_1mo) / range_size) * 100, 1)
+        else:
+            position_in_range = 50.0
+
         return {
             "value": round(current, 2),
+            "previous_close": round(prev, 2),
+            "week_ago": round(week_ago, 2),
+            "high_1mo": round(high_1mo, 2),
+            "low_1mo": round(low_1mo, 2),
             "daily_change": round(daily_change, 2),
             "week_change": round(week_change, 2),
             "month_change": round(month_change, 2),
+            "trend": trend,
+            "position_in_range": position_in_range,
         }
     except Exception as e:
         print(f"Error extracting {name}: {e}")
@@ -257,13 +291,13 @@ def get_all_market_data() -> dict:
             if asset_data:
                 result["currencies"][name] = asset_data
 
-        # Add date/time context for the analyst
-        now = datetime.now()
+        # Add date/time context for the analyst (Pacific timezone)
+        now = now_pacific()
         result["report_date"] = {
-            "date": now.strftime("%Y-%m-%d"),
-            "weekday": now.strftime("%A"),
-            "time": now.strftime("%H:%M"),
-            "formatted": now.strftime("%Y年%m月%d日 %A"),
+            "date": format_date(now, "%Y-%m-%d"),
+            "weekday": format_date(now, "%A"),
+            "time": format_date(now, "%H:%M"),
+            "formatted": format_date_chinese(now),
         }
 
         result["status"] = "success"

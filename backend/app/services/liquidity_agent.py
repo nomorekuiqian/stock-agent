@@ -8,10 +8,11 @@ Features:
 """
 
 import os
-from datetime import datetime
 from typing import Optional
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+
+from app.utils.timezone import now_iso
 
 load_dotenv()
 
@@ -259,7 +260,7 @@ Then generate a comprehensive liquidity analysis report in Chinese following the
                 "success": True,
                 "analysis": analysis_text,
                 "status": status,
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": now_iso(),
                 "model": self.model,
                 "metrics_snapshot": {
                     "net_liquidity": current_metrics.get("net_liquidity", {}).get(
@@ -277,7 +278,7 @@ Then generate a comprehensive liquidity analysis report in Chinese following the
             return {
                 "success": False,
                 "error": str(e),
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": now_iso(),
             }
 
 

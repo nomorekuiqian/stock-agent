@@ -12,10 +12,11 @@ Provides access to Federal Reserve Economic Data (FRED) for:
 
 import os
 import asyncio
-from datetime import datetime, timedelta
 from typing import Optional
 import httpx
 from dotenv import load_dotenv
+
+from app.utils.timezone import today_str, days_ago
 
 load_dotenv()
 
@@ -55,11 +56,11 @@ async def fetch_fred_series(
     if not FRED_API_KEY:
         raise ValueError("FRED_API_KEY not configured")
 
-    # Default to last 2 years if no dates specified
+    # Default to last 2 years if no dates specified (Pacific timezone)
     if not end_date:
-        end_date = datetime.now().strftime("%Y-%m-%d")
+        end_date = today_str()
     if not start_date:
-        start_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
+        start_date = days_ago(730)
 
     params = {
         "series_id": series_id,
@@ -221,8 +222,8 @@ async def get_liquidity_history(days: int = 365) -> dict:
     Returns:
         Dict with historical net liquidity data including reserves, rates, and NFCI
     """
-    start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = days_ago(days)  # Pacific timezone
+    end_date = today_str()
 
     # Fetch all component series in parallel
     fed_data, tga_data, rrp_data, reserves_data, sofr_data, effr_data, nfci_data = await asyncio.gather(

@@ -29,15 +29,59 @@ export interface CalendarEvent {
   analysis: string;
 }
 
+// New structured types for market report
+export interface MacroSignal {
+  name: string;
+  current_value: string;
+  change: string;
+  trend_direction: 'up' | 'down' | 'flat';
+  analysis: string;
+}
+
+export interface MacroSection {
+  signals: MacroSignal[];
+  summary: string;
+}
+
+export interface HeadlineNews {
+  title: string;
+  fact_summary: string;
+  deep_analysis: string;
+  url: string;
+}
+
+export interface BriefNews {
+  title: string;
+  summary: string;
+  analysis: string;
+  url: string;
+}
+
+export interface NewsSection {
+  headlines: HeadlineNews[];
+  briefs: BriefNews[];
+}
+
 export interface MarketData {
   report_id?: string;  // Report ID for navigation
   indices: MarketIndex[];
   timestamp: string;
-  short_analysis: string;
-  in_depth_analysis: string;
+
+  // New structured fields
   title?: string;
   summary?: string;
-  calendar?: CalendarEvent[];  // LLM-curated key events
+  quick_take?: string;
+  market_narrative?: string;
+  macro?: MacroSection;
+  news?: NewsSection;
+  conclusion?: string;
+  calendar?: CalendarEvent[];
+
+  // Legacy fields (for backward compatibility)
+  short_analysis?: string;
+  in_depth_analysis?: string;
+
+  // Raw data
   economic_calendar?: {
     count: number;
     events: EconomicEvent[];
@@ -168,9 +212,13 @@ export interface LiquidityAnalysisResponse {
 }
 
 export const api = {
-  getMarketAnalysis: async (): Promise<MarketData> => {
+  getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ force }),
     });
     if (!response.ok) {
       throw new Error('Failed to fetch market analysis');
