@@ -21,7 +21,7 @@ class EmailService:
             resend.api_key = self.api_key
         self.from_email = os.getenv("EMAIL_FROM", "Market Report <reports@resend.dev>")
         self.audience_id = os.getenv("RESEND_AUDIENCE_ID", "")
-        self.audience_name = "MarketPulse Daily Subscribers"
+        self.audience_name = "MarketBrew Daily Subscribers"
 
     # =========================================================================
     # Subscriber Management (Resend Contacts + Audiences)
@@ -497,7 +497,7 @@ class EmailService:
                                             </svg>
                                         </td>
                                         <td style="vertical-align: middle;">
-                                            <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">MARKETPULSE</span>
+                                            <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">MARKETBREW</span>
                                         </td>
                                     </tr>
                                 </table>
@@ -540,17 +540,39 @@ class EmailService:
                     {in_depth_html}
                 </div>
 
-                <!-- Footer -->
-                <div style="background: #0a0a0a; padding: 24px; text-align: center;">
-                    <p style="color: #71717a; font-size: 11px; line-height: 1.6; margin: 0 0 14px 0;">
-                        AI-generated report for informational purposes only.<br>
-                        Not financial advice. Do your own research.
-                    </p>
-                    <p style="margin: 0;">
-                        <span style="color: #ffffff; font-size: 11px; font-weight: 500; letter-spacing: 0.08em;">MARKETPULSE</span>
-                        <span style="color: #52525b; margin: 0 10px;">|</span>
-                        <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #71717a; font-size: 11px; text-decoration: none;">Unsubscribe</a>
-                    </p>
+                <!-- Footer - Gradient matching header -->
+                <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 24px;">
+                    <table style="width: 100%;" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td style="text-align: center; padding-bottom: 16px;">
+                                <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                                    <tr>
+                                        <td style="vertical-align: middle; padding-right: 8px;">
+                                            <svg width="20" height="14" viewBox="0 0 28 18" style="display: block;">
+                                                <path d="M0 9h5l2-7 3 14 2-7h5l2 5 2-5h7" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                            </svg>
+                                        </td>
+                                        <td style="vertical-align: middle;">
+                                            <span style="color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.08em;">MARKETBREW</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; padding-bottom: 14px;">
+                                <p style="color: #71717a; font-size: 11px; line-height: 1.6; margin: 0;">
+                                    AI-generated report for informational purposes only.<br>
+                                    Not financial advice. Do your own research.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center;">
+                                <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #10b981; font-size: 11px; text-decoration: none; font-weight: 500;">Unsubscribe</a>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
             </div>
         </body>
@@ -589,7 +611,7 @@ class EmailService:
             params = {
                 "from": self.from_email,
                 "to": [recipient],
-                "subject": f"MarketPulse Daily Report - {today}",
+                "subject": f"MarketBrew Daily Report - {today}",
                 "html": html_content,
             }
 
@@ -629,7 +651,7 @@ class EmailService:
             create_params: resend.Broadcasts.CreateParams = {
                 "from": self.from_email,
                 "audience_id": audience_id,
-                "subject": f"MarketPulse Daily Report - {today}",
+                "subject": f"MarketBrew Daily Report - {today}",
                 "html": html_content,
                 "name": f"Daily Report {today}",
             }

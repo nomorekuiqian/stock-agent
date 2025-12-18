@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "MarketPulse - AI Market Intelligence",
+  title: "MarketBrew - AI Market Intelligence",
   description: "AI-powered market analysis for smart investors",
 };
 
@@ -33,7 +33,7 @@ export default function RootLayout({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </div>
-                  <span className="font-semibold text-sm text-foreground">MarketPulse</span>
+                  <span className="font-semibold text-sm text-foreground">MarketBrew</span>
                 </Link>
 
                 {/* Navigation Links */}
@@ -75,7 +75,7 @@ export default function RootLayout({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </div>
-                  <span className="text-xs font-medium">MarketPulse</span>
+                  <span className="text-xs font-medium">MarketBrew</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   AI-powered market intelligence

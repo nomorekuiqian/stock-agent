@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - 流动性分析: OpenAI GPT-5.2 (带 web search)
 - 邮件: Resend API (每日报告推送)
 - 数据库: Insforge (PostgreSQL 托管服务)
-- 品牌: MarketPulse (翠绿色主题 #059669)
+- 品牌: MarketBrew (翠绿色主题 #059669)
 
 ## 开发命令
 
@@ -163,7 +163,7 @@ backend/
 ```
 frontend/src/
 ├── app/
-│   ├── layout.tsx           # 根布局 (MarketPulse 品牌, 翠绿色导航)
+│   ├── layout.tsx           # 根布局 (MarketBrew 品牌, 翠绿色导航)
 │   ├── page.tsx             # 首页 (重定向到 /market)
 │   ├── globals.css          # Tailwind 主题配置
 │   ├── market/page.tsx      # 市场分析主页面

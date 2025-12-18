@@ -92,7 +92,7 @@ export default function LoginPage() {
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            MarketPulse
+            MarketBrew
           </div>
           <h2 className="text-2xl font-semibold text-gray-900">
             {isSignUp ? 'Create your account' : 'Sign in to your account'}
