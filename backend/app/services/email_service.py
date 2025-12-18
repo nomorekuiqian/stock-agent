@@ -608,10 +608,17 @@ class EmailService:
             html_content = self._format_html_report(data)
             today = today_str()  # Pacific timezone
 
+            # Use dynamic title from report, fallback to default
+            report_title = data.get("title", "")
+            if report_title:
+                subject = f"{report_title}"
+            else:
+                subject = f"MarketBrew Daily Report - {today}"
+
             params = {
                 "from": self.from_email,
                 "to": [recipient],
-                "subject": f"MarketBrew Daily Report - {today}",
+                "subject": subject,
                 "html": html_content,
             }
 
@@ -647,11 +654,18 @@ class EmailService:
             html_content = self._format_html_report(data)
             today = today_str()  # Pacific timezone
 
+            # Use dynamic title from report, fallback to default
+            report_title = data.get("title", "")
+            if report_title:
+                subject = f"{report_title}"
+            else:
+                subject = f"MarketBrew Daily Report - {today}"
+
             # Create broadcast
             create_params: resend.Broadcasts.CreateParams = {
                 "from": self.from_email,
                 "audience_id": audience_id,
-                "subject": f"MarketBrew Daily Report - {today}",
+                "subject": subject,
                 "html": html_content,
                 "name": f"Daily Report {today}",
             }
