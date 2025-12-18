@@ -198,50 +198,80 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
     """
     Generate and send daily market report via email.
     Protected by CRON_SECRET for scheduled job authentication.
+
+    If today's report already exists, use it instead of generating a new one.
     """
     # Verify cron secret if configured
     if CRON_SECRET and x_cron_secret != CRON_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        # Generate the market analysis
-        result = await market_agent.analyze()
-        if not result:
-            raise HTTPException(status_code=500, detail="Failed to generate market analysis")
-
-        # Transform to frontend format for consistent email
-        market_data = result.get("market_data", {})
-        indices = transform_market_data_to_indices(market_data)
-
-        # Build complete report data for email and database
-        report_data = {
-            "indices": indices,
-            "timestamp": result.get("timestamp", now_iso()),
-            # New structured fields
-            "title": result.get("title", ""),
-            "summary": result.get("summary", ""),
-            "quick_take": result.get("quick_take", ""),
-            "market_narrative": result.get("market_narrative", ""),
-            "macro": result.get("macro"),
-            "news": result.get("news"),
-            "conclusion": result.get("conclusion", ""),
-            "calendar": result.get("calendar", []),
-            # Legacy fields for backward compatibility
-            "short_analysis": result.get("short_analysis", ""),
-            "in_depth_analysis": result.get("in_depth_analysis", ""),
-            # Raw data
-            "economic_calendar": result.get("economic_calendar", {}),
-            "earnings_calendar": result.get("earnings_calendar", {}),
-            "news_data": result.get("news_data", {}),
-            "market_data": market_data,
-        }
-
-        # Save report to database
         insforge_service = get_insforge_service()
-        save_result = await insforge_service.save_market_report(report_data)
-        if not save_result.get("success"):
-            print(f"[Warning] Failed to save report to database: {save_result.get('error')}")
-            # Continue with email broadcast even if save fails
+        today = today_str()
+        from_cache = False
+        save_result = {"success": True}
+
+        # Check if today's report already exists
+        existing_report = await insforge_service.get_report_by_date(today)
+
+        if existing_report:
+            report_timestamp = existing_report.get("timestamp", "")
+            report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
+
+            if report_date_from_timestamp == today:
+                print(f"[API] Found existing report for {today}, using cached data for email")
+                from_cache = True
+                report_data = {
+                    "indices": existing_report.get("indices", []),
+                    "timestamp": existing_report.get("timestamp", now_iso()),
+                    "title": existing_report.get("title", ""),
+                    "summary": existing_report.get("summary", ""),
+                    "quick_take": existing_report.get("quick_take", ""),
+                    "market_narrative": existing_report.get("market_narrative", ""),
+                    "macro": existing_report.get("macro"),
+                    "news": existing_report.get("news"),
+                    "conclusion": existing_report.get("conclusion", ""),
+                    "calendar": existing_report.get("calendar", []),
+                    "short_analysis": existing_report.get("short_analysis", ""),
+                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
+                }
+                save_result["report_id"] = existing_report.get("id")
+
+        # Generate new report if no cache found
+        if not from_cache:
+            print(f"[API] No existing report for {today}, generating new analysis...")
+            result = await market_agent.analyze()
+            if not result:
+                raise HTTPException(status_code=500, detail="Failed to generate market analysis")
+
+            # Transform to frontend format for consistent email
+            market_data = result.get("market_data", {})
+            indices = transform_market_data_to_indices(market_data)
+
+            # Build complete report data for email and database
+            report_data = {
+                "indices": indices,
+                "timestamp": result.get("timestamp", now_iso()),
+                "title": result.get("title", ""),
+                "summary": result.get("summary", ""),
+                "quick_take": result.get("quick_take", ""),
+                "market_narrative": result.get("market_narrative", ""),
+                "macro": result.get("macro"),
+                "news": result.get("news"),
+                "conclusion": result.get("conclusion", ""),
+                "calendar": result.get("calendar", []),
+                "short_analysis": result.get("short_analysis", ""),
+                "in_depth_analysis": result.get("in_depth_analysis", ""),
+                "economic_calendar": result.get("economic_calendar", {}),
+                "earnings_calendar": result.get("earnings_calendar", {}),
+                "news_data": result.get("news_data", {}),
+                "market_data": market_data,
+            }
+
+            # Save report to database
+            save_result = await insforge_service.save_market_report(report_data)
+            if not save_result.get("success"):
+                print(f"[Warning] Failed to save report to database: {save_result.get('error')}")
 
         # Broadcast to all subscribers
         email_service = get_email_service()
@@ -257,6 +287,7 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
             "audience_id": email_result.get("audience_id"),
             "report_saved": save_result.get("success", False),
             "report_id": save_result.get("report_id"),
+            "from_cache": from_cache,
         }
 
     except HTTPException:
