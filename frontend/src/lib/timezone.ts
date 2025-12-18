@@ -1,149 +1,163 @@
 /**
- * Timezone utilities for consistent Pacific Time handling across the application.
+ * Timezone utilities for the application.
  *
- * All dates and times in this application should use US Pacific timezone (America/Los_Angeles).
- * This ensures consistency for US stock market analysis targeting West Coast users.
+ * Strategy:
+ * - Backend returns all timestamps as UTC (ISO 8601 with Z suffix)
+ * - Frontend automatically converts to user's local timezone for display
+ * - Business dates (report_date) are based on US market timezone (New York)
+ * - No hardcoded timezone - uses browser's Intl API for automatic localization
  */
 
-// Pacific timezone identifier
-export const PACIFIC_TZ = 'America/Los_Angeles';
+// US stock market timezone (for business date logic only)
+const MARKET_TZ = 'America/New_York';
+
+// User's local timezone (auto-detected by browser)
+const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /**
- * Get current datetime in Pacific timezone
+ * Get current date string (YYYY-MM-DD) in market timezone.
+ * Used to determine "today's report" based on US market day.
  */
-export function nowPacific(): Date {
-  return new Date(
-    new Date().toLocaleString('en-US', { timeZone: PACIFIC_TZ })
-  );
+export function marketTodayStr(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: MARKET_TZ });
 }
 
 /**
- * Get current date string (YYYY-MM-DD) in Pacific timezone
+ * Check if a report date is today in market timezone.
  */
-export function todayStr(): string {
-  const now = new Date();
-  return now.toLocaleDateString('en-CA', { timeZone: PACIFIC_TZ }); // en-CA gives YYYY-MM-DD format
+export function isMarketToday(reportDate: string): boolean {
+  return reportDate === marketTodayStr();
 }
 
 /**
- * Get current ISO timestamp in Pacific timezone
+ * Format a UTC timestamp to user's local time.
+ * Automatically uses browser's timezone.
  */
-export function nowIso(): string {
-  return new Date().toLocaleString('sv-SE', { timeZone: PACIFIC_TZ }).replace(' ', 'T');
+export function formatTimestamp(utcString: string | null | undefined): string {
+  if (!utcString) return '';
+  try {
+    const date = new Date(utcString);
+    return date.toLocaleString('zh-CN', {
+      timeZone: USER_TZ,
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return utcString;
+  }
 }
 
 /**
- * Format a date string or Date object to display format in Pacific timezone
- * @param dateInput - Date string or Date object
- * @param options - Intl.DateTimeFormat options
+ * Format just the time portion in user's local timezone.
  */
-export function formatDatePacific(
-  dateInput: string | Date,
-  options: Intl.DateTimeFormatOptions = {}
-): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return date.toLocaleDateString('zh-CN', {
-    timeZone: PACIFIC_TZ,
-    ...options,
-  });
+export function formatTime(utcString: string | null | undefined): string {
+  if (!utcString) return '';
+  try {
+    const date = new Date(utcString);
+    return date.toLocaleTimeString('zh-CN', {
+      timeZone: USER_TZ,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
 }
 
 /**
- * Format a date to Chinese display format: "2024年12月16日 星期一"
+ * Format a business date (YYYY-MM-DD) for display.
+ * Does NOT convert timezone - business dates are market-based.
  */
-export function formatDateChinese(dateInput: string | Date): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return date.toLocaleDateString('zh-CN', {
-    timeZone: PACIFIC_TZ,
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  });
+export function formatReportDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  try {
+    // Parse as local date to avoid timezone shift
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 /**
- * Format a date to short display format: "12月16日"
+ * Format date in short form: "12月17日"
  */
-export function formatDateShort(dateInput: string | Date): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return date.toLocaleDateString('zh-CN', {
-    timeZone: PACIFIC_TZ,
-    month: 'long',
-    day: 'numeric',
-  });
+export function formatDateShort(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('zh-CN', {
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 /**
- * Format time to HH:MM format in Pacific timezone
+ * Format relative time (e.g., "3分钟前", "2小时前")
  */
-export function formatTimePacific(dateInput: string | Date): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return date.toLocaleTimeString('zh-CN', {
-    timeZone: PACIFIC_TZ,
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+export function formatRelativeTime(utcString: string | null | undefined): string {
+  if (!utcString) return '';
+  try {
+    const date = new Date(utcString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    return formatDateShort(utcString.slice(0, 10));
+  } catch {
+    return '';
+  }
 }
 
 /**
- * Format datetime to full display in Pacific timezone
+ * Format comparison date label (e.g., "较昨天", "较上周")
+ * Based on market timezone for consistency with data.
  */
-export function formatDateTimePacific(dateInput: string | Date): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return date.toLocaleString('zh-CN', {
-    timeZone: PACIFIC_TZ,
-  });
+export function formatCompareDateLabel(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return '';
+  try {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    const now = new Date();
+
+    // Compare in market timezone for consistency
+    const dateStr = date.toLocaleDateString('en-CA', { timeZone: MARKET_TZ });
+    const nowStr = now.toLocaleDateString('en-CA', { timeZone: MARKET_TZ });
+    const dateOnly = new Date(dateStr);
+    const nowOnly = new Date(nowStr);
+    const diffDays = Math.floor((nowOnly.getTime() - dateOnly.getTime()) / 86400000);
+
+    if (diffDays <= 1) return '较昨天';
+    if (diffDays <= 3) return '较3天前';
+    if (diffDays <= 7) return '较上周';
+    if (diffDays <= 14) return '较两周前';
+    return '较上月';
+  } catch {
+    return '';
+  }
 }
 
 /**
- * Format datetime with full date and time in Pacific timezone
- */
-export function formatFullDateTimePacific(dateInput: string | Date): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return date.toLocaleString('zh-CN', {
-    timeZone: PACIFIC_TZ,
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-/**
- * Get relative time description (e.g., "3 minutes ago")
- * Uses Pacific timezone for comparison
- */
-export function formatRelativeTime(dateInput: string | Date): string {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return '刚刚';
-  if (diffMins < 60) return `${diffMins}分钟前`;
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffDays < 7) return `${diffDays}天前`;
-  return formatDateShort(date);
-}
-
-/**
- * Check if a date is today in Pacific timezone
- */
-export function isTodayPacific(dateInput: string | Date): boolean {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  const dateStr = date.toLocaleDateString('en-CA', { timeZone: PACIFIC_TZ });
-  const todayStrValue = todayStr();
-  return dateStr === todayStrValue;
-}
-
-/**
- * Format date for calendar display (month and weekday)
- * For date-only strings (YYYY-MM-DD), parse as local date to avoid timezone shift
+ * Format calendar date for event display.
+ * Returns month, day, weekday for calendar UI.
  */
 export function formatCalendarDate(dateInput: string | Date): {
   month: string;
@@ -153,9 +167,9 @@ export function formatCalendarDate(dateInput: string | Date): {
   let date: Date;
   if (typeof dateInput === 'string') {
     // For date-only strings (YYYY-MM-DD), parse as local date
-    // Adding T12:00:00 ensures the date stays the same across timezones
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-      date = new Date(dateInput + 'T12:00:00');
+      const [year, month, day] = dateInput.split('-').map(Number);
+      date = new Date(year, month - 1, day);
     } else {
       date = new Date(dateInput);
     }
@@ -169,30 +183,76 @@ export function formatCalendarDate(dateInput: string | Date): {
   };
 }
 
-/**
- * Compare two dates in Pacific timezone (days difference)
- */
+// =============================================================================
+// Backward compatibility aliases (to be removed after migration)
+// =============================================================================
+
+/** @deprecated Use marketTodayStr() instead */
+export function todayStr(): string {
+  return marketTodayStr();
+}
+
+/** @deprecated Use formatReportDate() instead */
+export function formatDateChinese(dateInput: string | Date): string {
+  const dateStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString().slice(0, 10);
+  return formatReportDate(dateStr);
+}
+
+/** @deprecated Use formatTime() instead */
+export function formatTimePacific(dateInput: string | Date): string {
+  const utcStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
+  return formatTime(utcStr);
+}
+
+/** @deprecated Use formatTimestamp() instead */
+export function formatDateTimePacific(dateInput: string | Date): string {
+  const utcStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
+  return formatTimestamp(utcStr);
+}
+
+/** @deprecated Use formatTimestamp() instead */
+export function formatFullDateTimePacific(dateInput: string | Date): string {
+  return formatDateTimePacific(dateInput);
+}
+
+/** @deprecated Use isMarketToday() instead */
+export function isTodayPacific(dateInput: string | Date): boolean {
+  const dateStr = typeof dateInput === 'string' ? dateInput.slice(0, 10) : dateInput.toISOString().slice(0, 10);
+  return isMarketToday(dateStr);
+}
+
+/** @deprecated No longer needed - timezone is automatic */
+export const PACIFIC_TZ = MARKET_TZ;
+
+/** @deprecated Use new Date() with toLocaleString() instead */
+export function nowPacific(): Date {
+  return new Date();
+}
+
+/** @deprecated Use formatTimestamp() instead */
+export function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/** @deprecated Use formatReportDate() instead */
+export function formatDatePacific(
+  dateInput: string | Date,
+  options: Intl.DateTimeFormatOptions = {}
+): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  return date.toLocaleDateString('zh-CN', {
+    timeZone: USER_TZ,
+    ...options,
+  });
+}
+
+/** @deprecated Days difference calculation */
 export function daysDifferencePacific(dateInput: string | Date): number {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   const now = new Date();
-  // Convert both to Pacific timezone date strings for accurate day comparison
-  const dateStr = date.toLocaleDateString('en-CA', { timeZone: PACIFIC_TZ });
-  const nowStr = now.toLocaleDateString('en-CA', { timeZone: PACIFIC_TZ });
+  const dateStr = date.toLocaleDateString('en-CA', { timeZone: MARKET_TZ });
+  const nowStr = now.toLocaleDateString('en-CA', { timeZone: MARKET_TZ });
   const dateOnly = new Date(dateStr);
   const nowOnly = new Date(nowStr);
-  return Math.floor((nowOnly.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-/**
- * Format compare date label (e.g., "较昨天", "较上周")
- * Used for displaying change comparisons in liquidity metrics
- */
-export function formatCompareDateLabel(dateInput: string | Date | null | undefined): string {
-  if (!dateInput) return '';
-  const diffDays = daysDifferencePacific(dateInput);
-  if (diffDays <= 1) return '较昨天';
-  if (diffDays <= 3) return '较3天前';
-  if (diffDays <= 7) return '较上周';
-  if (diffDays <= 14) return '较两周前';
-  return '较上月';
+  return Math.floor((nowOnly.getTime() - dateOnly.getTime()) / 86400000);
 }

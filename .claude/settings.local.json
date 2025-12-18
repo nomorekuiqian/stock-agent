@@ -72,7 +72,8 @@
       "mcp__puppeteer__puppeteer_hover",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(railway variables:*)"
+      "Bash(railway variables:*)",
+      "mcp__chrome-devtools__fill"
     ],
     "deny": [],
     "ask": []

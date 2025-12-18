@@ -58,9 +58,7 @@ class MacroSignal(BaseModel):
     change: str = Field(
         description="Change description, e.g. '周跌12.3%', '周涨0.15%', '持平'"
     )
-    trend_direction: str = Field(
-        description="Trend direction: 'up', 'down', or 'flat'"
-    )
+    trend_direction: str = Field(description="Trend direction: 'up', 'down', or 'flat'")
     analysis: str = Field(
         description="Comprehensive analysis in 3-4 sentences covering: 1) trend vs last week, 2) position in recent range, 3) impact on market/sectors"
     )
@@ -96,9 +94,7 @@ class BriefNews(BaseModel):
 
     title: str = Field(description="News title in Chinese")
     summary: str = Field(description="One sentence summary of what happened")
-    analysis: str = Field(
-        description="2-3 sentence analysis of market impact"
-    )
+    analysis: str = Field(description="2-3 sentence analysis of market impact")
     url: str = Field(description="Original article URL")
 
 
@@ -259,7 +255,7 @@ ANALYST_INSTRUCTION = """
 
 analyst_agent = LlmAgent(
     name="market_analyst",
-    model="gemini-3-pro-preview",
+    model="gemini-3-flash-preview",
     description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,

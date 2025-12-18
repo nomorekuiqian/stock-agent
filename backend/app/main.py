@@ -350,14 +350,22 @@ async def broadcast_test_report(request: BroadcastTestRequest):
         if not report:
             raise HTTPException(status_code=404, detail=f"Report not found: {request.report_id}")
 
-        # Build report data for email
+        # Build report data for email (include all structured fields)
         report_data = {
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
-            "short_analysis": report.get("short_analysis", ""),
-            "in_depth_analysis": report.get("in_depth_analysis", ""),
+            # New structured fields
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
+            "quick_take": report.get("quick_take", ""),
+            "market_narrative": report.get("market_narrative", ""),
+            "macro": report.get("macro"),
+            "news": report.get("news"),
+            "conclusion": report.get("conclusion", ""),
+            "calendar": report.get("calendar", []),
+            # Legacy fields
+            "short_analysis": report.get("short_analysis", ""),
+            "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
         # Broadcast to all subscribers
@@ -401,12 +409,22 @@ async def send_test_report(request: SendEmailRequest):
         if not report:
             raise HTTPException(status_code=404, detail="No report found in database. Please generate a report first.")
 
-        # Prepare report data for email
+        # Prepare report data for email (include all structured fields)
         report_data = {
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", now_iso()),
+            # New structured fields
+            "title": report.get("title", ""),
+            "summary": report.get("summary", ""),
+            "quick_take": report.get("quick_take", ""),
+            "market_narrative": report.get("market_narrative", ""),
+            "macro": report.get("macro"),
+            "news": report.get("news"),
+            "conclusion": report.get("conclusion", ""),
+            "calendar": report.get("calendar", []),
+            # Legacy fields
             "short_analysis": report.get("short_analysis", ""),
-            "in_depth_analysis": report.get("in_depth_analysis", "")
+            "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
         # Send email to single recipient

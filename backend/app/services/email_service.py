@@ -208,11 +208,9 @@ class EmailService:
     def _format_markdown_to_html(self, text: str) -> str:
         """Convert basic Markdown to HTML for email.
 
-        Spacing system:
-        - Paragraphs: 6px vertical margin
-        - h4 (###): 14px top, 2px bottom - sub-sections
-        - h3 (##): 16px top, 2px bottom - major sections (18px font)
-        - h2 (#): 20px top, 4px bottom - top-level headers (20px font)
+        Design: Black + Silver premium style
+        - Clean, minimal spacing
+        - Sophisticated typography hierarchy
         """
         import re
 
@@ -222,25 +220,31 @@ class EmailService:
         # Escape HTML first
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-        # Remove empty lines after headers (AI sometimes adds unnecessary blank lines)
+        # Remove empty lines after headers
         text = re.sub(r"^(#{1,3} .+)\n\n+", r"\1\n", text, flags=re.MULTILINE)
 
-        # Convert headers - larger font sizes for section titles, minimal bottom margin
+        # Convert headers - black/silver theme
+        text = re.sub(
+            r"^#### (.+)$",
+            r'<h4 style="font-size: 14px; font-weight: 600; color: #18181b; margin: 16px 0 6px 0; letter-spacing: 0.02em;">\1</h4>',
+            text,
+            flags=re.MULTILINE,
+        )
         text = re.sub(
             r"^### (.+)$",
-            r'<h4 style="font-size: 15px; font-weight: 600; color: #059669; margin: 12px 0 0 0;">\1</h4>',
+            r'<h4 style="font-size: 14px; font-weight: 600; color: #18181b; margin: 16px 0 6px 0; letter-spacing: 0.02em;">\1</h4>',
             text,
             flags=re.MULTILINE,
         )
         text = re.sub(
             r"^## (.+)$",
-            r'<h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 14px 0 0 0;">\1</h3>',
+            r'<h3 style="font-size: 16px; font-weight: 600; color: #0a0a0a; margin: 20px 0 8px 0;">\1</h3>',
             text,
             flags=re.MULTILINE,
         )
         text = re.sub(
             r"^# (.+)$",
-            r'<h2 style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 16px 0 0 0;">\1</h2>',
+            r'<h2 style="font-size: 18px; font-weight: 600; color: #0a0a0a; margin: 24px 0 10px 0;">\1</h2>',
             text,
             flags=re.MULTILINE,
         )
@@ -248,32 +252,39 @@ class EmailService:
         # Convert bold **text**
         text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
 
-        # Convert links [text](url)
+        # Convert links [text](url) - subtle underline style
         text = re.sub(
             r"\[([^\]]+)\]\(([^)]+)\)",
-            r'<a href="\2" style="color: #059669; text-decoration: none;">\1</a>',
+            r'<a href="\2" style="color: #18181b; text-decoration: underline; text-decoration-color: #a1a1aa;">\1</a>',
             text,
         )
 
-        # Remove newlines immediately after header tags (prevents extra <br> spacing)
+        # Remove newlines immediately after header tags
         text = re.sub(r"(</h[234]>)\n+", r"\1", text)
 
-        # Convert line breaks with tighter paragraph spacing
-        text = text.replace("\n\n", "</p><p style=\"margin: 6px 0; line-height: 1.6;\">")
+        # Convert line breaks
+        text = text.replace("\n\n", "</p><p style=\"margin: 8px 0; line-height: 1.7; color: #3f3f46;\">")
         text = text.replace("\n", "<br>")
 
         # Wrap in paragraph
-        text = f'<p style="margin: 6px 0; line-height: 1.6;">{text}</p>'
+        text = f'<p style="margin: 8px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
 
         return text
 
     def _format_html_report(self, data: dict) -> str:
-        """Format the macro analysis data into an HTML email (website-style with structured sections)."""
+        """Format the macro analysis data into an HTML email.
+
+        Design v2: Card-based layout with clear section separation
+        - Each section wrapped in a card with background + border
+        - Section headers with left accent bar
+        - Increased spacing between sections
+        - Visual rhythm through alternating styles
+        """
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
 
         # Use dynamic title or fallback to default
-        report_title = data.get("title") or "每日市场简报"
+        report_title = data.get("title") or "Daily Market Brief"
         report_summary = data.get("summary", "")
         quick_take = data.get("quick_take", "")
         market_narrative = data.get("market_narrative", "")
@@ -287,9 +298,12 @@ class EmailService:
             quick_take or market_narrative or macro or news or conclusion
         )
 
-        # Build compact indices section (2 per row for email)
+        # Common styles
+        card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
+        section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #0a0a0a;"
+
+        # Build compact indices section
         indices = data.get("indices", [])
-        # Select key indices for email (keep it compact)
         key_indices = [
             idx for idx in indices
             if idx.get("name") in ["S&P 500", "Nasdaq", "10Y Treasury", "VIX", "Gold", "US Dollar"]
@@ -300,10 +314,9 @@ class EmailService:
             indices_html = '<table style="width: 100%; border-collapse: separate; border-spacing: 6px;"><tr>'
             for i, index in enumerate(key_indices):
                 change = index.get("change_percent", 0)
-                color = "#059669" if change >= 0 else "#dc2626"
+                color = "#16a34a" if change >= 0 else "#dc2626"
                 arrow = "+" if change >= 0 else ""
                 value = index.get("value", 0)
-                # Format value based on magnitude
                 if value > 1000:
                     value_str = f"{value:,.0f}"
                 else:
@@ -311,128 +324,142 @@ class EmailService:
 
                 indices_html += f'''
                 <td style="vertical-align: top; width: 33.33%;">
-                    <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; text-align: center;">
-                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">{index.get('name', '')}</div>
-                        <div style="font-size: 16px; font-weight: 700; color: #1e293b;">{value_str}</div>
-                        <div style="font-size: 12px; font-weight: 600; color: {color};">{arrow}{change:.2f}%</div>
+                    <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
+                        <div style="font-size: 10px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{index.get('name', '')}</div>
+                        <div style="font-size: 17px; font-weight: 600; color: #0a0a0a;">{value_str}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: {color}; margin-top: 2px;">{arrow}{change:.2f}%</div>
                     </div>
                 </td>
                 '''
-                # New row every 3 items
                 if (i + 1) % 3 == 0 and i < len(key_indices) - 1:
                     indices_html += "</tr><tr>"
 
             indices_html += "</tr></table>"
 
-        # Build Quick Take section
-        quick_take_html = ""
-        if quick_take:
-            quick_take_html = f'''
-            <div style="background: #ecfdf5; border-left: 4px solid #059669; padding: 16px; margin-bottom: 24px; border-radius: 0 8px 8px 0;">
-                <div style="font-size: 12px; font-weight: 600; color: #059669; margin-bottom: 8px; text-transform: uppercase;">Quick Take</div>
-                <div style="font-size: 15px; color: #1e293b; line-height: 1.6;">{quick_take}</div>
-            </div>
-            '''
+        # Quick Take section removed per user feedback
 
-        # Build Market Narrative section
+        # Build Market Narrative section - White card
         narrative_html = ""
         if market_narrative:
             narrative_html = f'''
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">市场在交易什么</div>
-                <div style="font-size: 14px; color: #4b5563; line-height: 1.7; white-space: pre-line;">{market_narrative}</div>
+            <div style="{card_style}">
+                <div style="{section_header_style}">Market Narrative</div>
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85; white-space: pre-line;">{market_narrative}</div>
             </div>
             '''
 
-        # Build Macro Signals section
+        # Build Macro Signals section - White card with items
         macro_html = ""
         signals = macro.get("signals", []) if macro else []
         macro_summary = macro.get("summary", "") if macro else ""
         if signals:
             signals_items = ""
-            for signal in signals[:4]:  # Limit to 4 signals for email
+            for signal in signals[:4]:
                 trend = signal.get("trend_direction", "flat")
-                trend_color = "#059669" if trend == "up" else "#dc2626" if trend == "down" else "#6b7280"
+                trend_color = "#16a34a" if trend == "up" else "#dc2626" if trend == "down" else "#71717a"
                 signals_items += f'''
-                <div style="padding: 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                        <span style="font-size: 13px; font-weight: 600; color: #1e293b;">{signal.get('name', '')}</span>
-                        <span style="font-size: 12px; color: {trend_color};">{signal.get('current_value', '')} ({signal.get('change', '')})</span>
+                <div style="padding: 14px 0; border-bottom: 1px solid #f0f0f0;">
+                    <div style="margin-bottom: 6px;">
+                        <span style="font-size: 13px; font-weight: 600; color: #0a0a0a;">{signal.get('name', '')}</span>
+                        <span style="font-size: 12px; font-weight: 600; color: {trend_color}; margin-left: 10px;">{signal.get('current_value', '')} ({signal.get('change', '')})</span>
                     </div>
-                    <div style="font-size: 12px; color: #6b7280; line-height: 1.5;">{signal.get('analysis', '')}</div>
+                    <div style="font-size: 13px; color: #52525b; line-height: 1.6;">{signal.get('analysis', '')}</div>
                 </div>
                 '''
             macro_html = f'''
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">关键指标与信号</div>
+            <div style="{card_style}">
+                <div style="{section_header_style}">Key Signals</div>
                 {signals_items}
-                {f'<div style="font-size: 13px; color: #6b7280; margin-top: 12px; line-height: 1.6;">{macro_summary}</div>' if macro_summary else ''}
+                {f'<div style="font-size: 13px; color: #52525b; margin-top: 14px; line-height: 1.7;">{macro_summary}</div>' if macro_summary else ''}
             </div>
             '''
 
-        # Build News section
+        # Build News section - Light gray card with Headlines and Briefs subsections
         news_html = ""
         headlines = news.get("headlines", []) if news else []
         briefs = news.get("briefs", []) if news else []
         if headlines or briefs:
-            news_items = ""
-            # Headlines (major news)
-            for headline in headlines[:2]:  # Limit to 2 headlines
-                news_items += f'''
-                <div style="padding: 14px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 8px; margin-bottom: 10px;">
-                    <a href="{headline.get('url', '#')}" style="font-size: 14px; font-weight: 600; color: #1e293b; text-decoration: none; display: block; margin-bottom: 8px;">{headline.get('title', '')}</a>
-                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">{headline.get('fact_summary', '')}</div>
-                    <div style="font-size: 12px; color: #4b5563; border-left: 2px solid #059669; padding-left: 10px; line-height: 1.5;">{headline.get('deep_analysis', '')}</div>
-                </div>
+            # Subsection header style
+            subsection_style = "font-size: 11px; font-weight: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; margin-top: 4px;"
+
+            # Headlines section
+            headlines_html = ""
+            if headlines:
+                headlines_items = ""
+                for headline in headlines[:2]:
+                    headlines_items += f'''
+                    <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
+                        <a href="{headline.get('url', '#')}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{headline.get('title', '')}</a>
+                        <div style="font-size: 12px; color: #71717a; margin-bottom: 8px;">{headline.get('fact_summary', '')}</div>
+                        <div style="font-size: 12px; color: #52525b; background: #f8f8f8; padding: 10px 12px; border-radius: 4px; line-height: 1.6;">{headline.get('deep_analysis', '')}</div>
+                    </div>
+                    '''
+                headlines_html = f'''
+                <div style="{subsection_style}">Headlines</div>
+                {headlines_items}
                 '''
-            # Briefs (quick news)
-            for brief in briefs[:3]:  # Limit to 3 briefs
-                news_items += f'''
-                <div style="padding: 10px 14px; background: #f8fafc; border-radius: 6px; margin-bottom: 6px;">
-                    <a href="{brief.get('url', '#')}" style="font-size: 13px; font-weight: 500; color: #1e293b; text-decoration: none;">{brief.get('title', '')}</a>
-                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">{brief.get('summary', '')}</div>
-                </div>
+
+            # Briefs section
+            briefs_html = ""
+            if briefs:
+                briefs_items = ""
+                for brief in briefs[:3]:
+                    briefs_items += f'''
+                    <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
+                        <a href="{brief.get('url', '#')}" style="font-size: 13px; font-weight: 500; color: #18181b; text-decoration: none;">{brief.get('title', '')}</a>
+                        <div style="font-size: 12px; color: #71717a; margin-top: 3px;">{brief.get('summary', '')}</div>
+                    </div>
+                    '''
+                briefs_html = f'''
+                <div style="{subsection_style} margin-top: 20px;">Briefs</div>
+                {briefs_items}
                 '''
+
             news_html = f'''
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">重要新闻</div>
-                {news_items}
+            <div style="background: #fafafa; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                <div style="{section_header_style}">News</div>
+                {headlines_html}
+                {briefs_html}
             </div>
             '''
 
-        # Build Calendar section
+        # Build Calendar section - White card with date blocks
         calendar_html = ""
         if calendar and len(calendar) > 0:
             calendar_items = ""
-            for event in calendar[:5]:  # Limit to 5 events
-                event_date = event.get("date", "")[:10]  # YYYY-MM-DD
+            for event in calendar[:5]:
+                event_date = event.get("date", "")[:10]
                 calendar_items += f'''
-                <div style="padding: 10px 14px; background: #f8fafc; border-radius: 6px; margin-bottom: 6px; display: flex;">
-                    <div style="flex-shrink: 0; width: 60px; text-align: center; padding-right: 12px; border-right: 1px solid #e5e7eb;">
-                        <div style="font-size: 11px; color: #6b7280;">{event_date[5:7]}月</div>
-                        <div style="font-size: 18px; font-weight: 700; color: #1e293b;">{event_date[8:10]}</div>
-                    </div>
-                    <div style="flex: 1; padding-left: 12px;">
-                        <div style="font-size: 13px; font-weight: 500; color: #1e293b;">{event.get('event', '')}</div>
-                        <div style="font-size: 11px; color: #6b7280; margin-top: 4px; line-height: 1.4;">{event.get('analysis', '')}</div>
-                    </div>
-                </div>
+                <table style="width: 100%; margin-bottom: 12px;" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="width: 52px; vertical-align: top;">
+                            <div style="background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 6px; padding: 8px 4px; text-align: center;">
+                                <div style="font-size: 9px; color: #71717a; text-transform: uppercase;">{event_date[5:7]}月</div>
+                                <div style="font-size: 18px; font-weight: 600; color: #0a0a0a;">{event_date[8:10]}</div>
+                            </div>
+                        </td>
+                        <td style="padding-left: 14px; vertical-align: top;">
+                            <div style="font-size: 13px; font-weight: 600; color: #0a0a0a; margin-bottom: 4px;">{event.get('event', '')}</div>
+                            <div style="font-size: 12px; color: #71717a; line-height: 1.5;">{event.get('analysis', '')}</div>
+                        </td>
+                    </tr>
+                </table>
                 '''
             calendar_html = f'''
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">重要事件</div>
+            <div style="{card_style}">
+                <div style="{section_header_style}">Upcoming Events</div>
                 {calendar_items}
             </div>
             '''
 
-        # Build Conclusion section
+        # Build Conclusion/Outlook section - White card (consistent style)
         conclusion_html = ""
         if conclusion:
             conclusion_md = self._format_markdown_to_html(conclusion)
             conclusion_html = f'''
-            <div style="margin-bottom: 24px; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">总结与展望</div>
-                <div style="font-size: 13px; color: #4b5563; line-height: 1.7;">{conclusion_md}</div>
+            <div style="{card_style}">
+                <div style="{section_header_style}">Outlook</div>
+                <div style="font-size: 13px; color: #3f3f46; line-height: 1.85;">{conclusion_md}</div>
             </div>
             '''
 
@@ -440,9 +467,9 @@ class EmailService:
         in_depth_html = ""
         if not has_structured_data and data.get("in_depth_analysis"):
             in_depth_html = f'''
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">深度分析</div>
-                <div style="font-size: 14px; color: #4b5563; line-height: 1.7;">
+            <div style="{card_style}">
+                <div style="{section_header_style}">Analysis</div>
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
                     {self._format_markdown_to_html(data.get("in_depth_analysis", ""))}
                 </div>
             </div>
@@ -455,35 +482,44 @@ class EmailService:
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 0;">
-            <div style="max-width: 600px; margin: 0 auto; background: #ffffff;">
-                <!-- Header with brand -->
-                <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                <!-- Header - Gradient with pulse icon -->
+                <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 20px 24px;">
                     <table style="width: 100%;" cellpadding="0" cellspacing="0">
                         <tr>
-                            <td>
-                                <span style="color: #059669; font-size: 18px; font-weight: 700; letter-spacing: -0.5px;">MarketPulse</span>
+                            <td style="vertical-align: middle;">
+                                <table cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="vertical-align: middle; padding-right: 10px;">
+                                            <svg width="28" height="18" viewBox="0 0 28 18" style="display: block;">
+                                                <path d="M0 9h5l2-7 3 14 2-7h5l2 5 2-5h7" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                            </svg>
+                                        </td>
+                                        <td style="vertical-align: middle;">
+                                            <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">MARKETPULSE</span>
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
-                            <td style="text-align: right;">
-                                <span style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 12px;">{formatted_date}</span>
+                            <td style="text-align: right; vertical-align: middle;">
+                                <div style="color: #71717a; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Daily Brief</div>
+                                <div style="color: #a1a1aa; font-size: 13px; font-weight: 500; margin-top: 2px;">{formatted_date}</div>
                             </td>
                         </tr>
                     </table>
                 </div>
 
-                <!-- Title Section -->
-                <div style="padding: 24px 20px 16px 20px;">
-                    <h1 style="color: #1e293b; font-size: 20px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.3;">{report_title}</h1>
-                    {f'<p style="color: #6b7280; font-size: 13px; margin: 0; line-height: 1.5;">{report_summary}</p>' if report_summary else ''}
+                <!-- Title Card -->
+                <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
+                    <h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{report_title}</h1>
+                    {f'<p style="color: #71717a; font-size: 14px; margin: 0; line-height: 1.6;">{report_summary}</p>' if report_summary else ''}
                 </div>
 
-                <!-- Content -->
-                <div style="padding: 0 20px 24px 20px;">
-                    <!-- Market Indices -->
-                    {f'<div style="margin-bottom: 20px;">{indices_html}</div>' if indices_html else ''}
-
-                    <!-- Quick Take -->
-                    {quick_take_html}
+                <!-- Content Area - Gray background -->
+                <div style="background: #f0f0f0; padding: 16px;">
+                    <!-- Market Indices Card -->
+                    {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">Market Overview</div>{indices_html}</div>' if indices_html else ''}
 
                     <!-- Market Narrative -->
                     {narrative_html}
@@ -505,15 +541,15 @@ class EmailService:
                 </div>
 
                 <!-- Footer -->
-                <div style="background: #f8fafc; padding: 20px; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #9ca3af; font-size: 11px; text-align: center; line-height: 1.5; margin: 0 0 10px 0;">
-                        This report is AI-generated for informational purposes only.<br>
-                        Not financial advice. Please do your own research.
+                <div style="background: #0a0a0a; padding: 24px; text-align: center;">
+                    <p style="color: #71717a; font-size: 11px; line-height: 1.6; margin: 0 0 14px 0;">
+                        AI-generated report for informational purposes only.<br>
+                        Not financial advice. Do your own research.
                     </p>
-                    <p style="text-align: center; margin: 0;">
-                        <span style="color: #059669; font-size: 12px; font-weight: 600;">MarketPulse</span>
-                        <span style="color: #d1d5db; margin: 0 6px;">|</span>
-                        <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #9ca3af; font-size: 11px; text-decoration: none;">Unsubscribe</a>
+                    <p style="margin: 0;">
+                        <span style="color: #ffffff; font-size: 11px; font-weight: 500; letter-spacing: 0.08em;">MARKETPULSE</span>
+                        <span style="color: #52525b; margin: 0 10px;">|</span>
+                        <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #71717a; font-size: 11px; text-decoration: none;">Unsubscribe</a>
                     </p>
                 </div>
             </div>
