@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 重要规则
+
+- **禁止自动 Git 操作**: 不要自动执行 `git commit` 或 `git push`，所有 Git 提交和推送操作需要用户手动确认后再执行
+
 ## 项目概述
 
 这是一个全栈宏观市场分析应用,使用 Google ADK (Agent Development Kit) 构建 AI Agent,提供市场数据获取、新闻分析和投资报告服务。
