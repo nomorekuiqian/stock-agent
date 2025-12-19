@@ -255,7 +255,7 @@ ANALYST_INSTRUCTION = """
 
 analyst_agent = LlmAgent(
     name="market_analyst",
-    model="gemini-3-flash-preview",
+    model="gemini-3-pro-preview",
     description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,

@@ -630,6 +630,115 @@ class FMPService:
             "error": error,
         }
 
+    # =========================================================================
+    # Commodities Quotes
+    # =========================================================================
+
+    def get_commodity_quotes(self, symbols: list[str] = None) -> dict:
+        """
+        Get real-time commodity quotes from FMP.
+
+        Args:
+            symbols: List of commodity symbols (default: ["GCUSD", "BZUSD"])
+                    GCUSD = Gold, BZUSD = Brent Crude Oil (CLUSD requires higher tier)
+
+        Returns:
+            {
+                "status": "success|error",
+                "commodities": {
+                    "Gold": {"price": 4330.5, "change": -7.2, "changePercent": -0.17, ...},
+                    "Oil": {"price": 72.5, "change": 0.8, "changePercent": 1.1, ...}
+                },
+                "source": "fmp"
+            }
+        """
+        # Use BZUSD (Brent Crude) instead of CLUSD (WTI) - CLUSD requires higher subscription
+        symbols = symbols or ["GCUSD", "BZUSD"]
+
+        print(f"[FMP] get_commodity_quotes(symbols={symbols})")
+
+        # Fetch each symbol individually (stable API may not support comma-separated)
+        all_data = []
+        for symbol in symbols:
+            data = self._request("/stable/quote", {"symbol": symbol})
+            if data and isinstance(data, list):
+                all_data.extend(data)
+
+        if not all_data:
+            return self._empty_commodity_response("No commodity data returned")
+
+        # Map FMP symbols to friendly names
+        symbol_names = {
+            "GCUSD": "Gold",
+            "BZUSD": "Oil",      # Brent Crude (CLUSD/WTI requires higher tier)
+            "CLUSD": "Oil",      # WTI Crude (fallback if available)
+            "SIUSD": "Silver",
+            "NGUSD": "Natural Gas",
+            "HGUSD": "Copper",
+        }
+
+        commodities = {}
+        for item in all_data:
+            symbol = item.get("symbol", "")
+            name = symbol_names.get(symbol, symbol)
+
+            commodities[name] = {
+                "price": self._safe_float(item.get("price")),
+                "change": self._safe_float(item.get("change")),
+                "changePercent": self._safe_float(item.get("changesPercentage")),
+                "dayLow": self._safe_float(item.get("dayLow")),
+                "dayHigh": self._safe_float(item.get("dayHigh")),
+                "previousClose": self._safe_float(item.get("previousClose")),
+                "open": self._safe_float(item.get("open")),
+                "volume": item.get("volume"),
+                "timestamp": item.get("timestamp"),
+                "symbol": symbol,
+            }
+
+        return {
+            "status": "success",
+            "commodities": commodities,
+            "source": "fmp",
+        }
+
+    def _empty_commodity_response(self, error: str = None) -> dict:
+        """Return empty commodity response structure"""
+        return {
+            "status": "error" if error else "success",
+            "commodities": {},
+            "source": "fmp",
+            "error": error,
+        }
+
+    def get_index_quote(self, symbol: str) -> dict:
+        """
+        Get real-time quote for an index (VIX, etc.)
+
+        Args:
+            symbol: Index symbol (e.g., "^VIX")
+
+        Returns:
+            Quote data or None
+        """
+        print(f"[FMP] get_index_quote(symbol={symbol})")
+
+        # Use stable API endpoint with symbol parameter
+        data = self._request("/stable/quote", {"symbol": symbol})
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return None
+
+        item = data[0]
+        return {
+            "price": self._safe_float(item.get("price")),
+            "change": self._safe_float(item.get("change")),
+            "changePercent": self._safe_float(item.get("changesPercentage")),
+            "dayLow": self._safe_float(item.get("dayLow")),
+            "dayHigh": self._safe_float(item.get("dayHigh")),
+            "previousClose": self._safe_float(item.get("previousClose")),
+            "symbol": item.get("symbol"),
+        }
+
 
 _fmp_service_instance = None
 

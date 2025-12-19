@@ -2,9 +2,9 @@ name: Daily Market Report
 
 on:
   schedule:
-    # Run at 12:00 PM US Eastern Time (noon)
-    # UTC 17:00 = 12:00 PM EST (winter) / 1:00 PM EDT (summer)
-    - cron: '0 17 * * 1-5'  # Monday to Friday only (market days)
+    # Run at 6:00 PM US Eastern Time (after market close)
+    # UTC 23:00 = 6:00 PM EST (winter) / 7:00 PM EDT (summer)
+    - cron: '0 23 * * 1-5'  # Monday to Friday only (market days)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:

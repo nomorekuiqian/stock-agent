@@ -331,7 +331,7 @@ POST /api/liquidity/analysis
 ### CI/CD
 
 - `.github/workflows/daily-report.yml`: GitHub Actions 定时任务
-  - 每工作日 6:00 UTC (美东时间 1:00 AM) 执行
+  - 每工作日 23:00 UTC (美东时间 6:00 PM) 执行
   - 调用 `POST /api/report/send` 生成报告并广播给所有订阅者
 - 需配置 GitHub Secrets: `CRON_SECRET`, `BACKEND_URL`
 - 支持手动触发 (`workflow_dispatch`)
