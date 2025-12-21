@@ -104,12 +104,65 @@ export interface SendEmailResponse {
   sent_to?: string;
 }
 
-export interface DigestResponse {
-  user_id: string;
-  symbols_used: string[];
+// PersonalBrewer Digest Types
+export interface StockAnalysis {
+  symbol: string;
+  name: string;
+  price: number;
+  daily_change: string;
+  week_change: string;
+  status: string;
+  quick_take: string;
+}
+
+export interface BrewNews {
+  title: string;
+  related_symbols: string[];
+  summary: string;
   analysis: string;
-  news_data: unknown[];
+  url: string;
+}
+
+export interface BrewEvent {
+  date: string;
+  event: string;
+  related_symbols: string[];
+  why_important: string;
+}
+
+export interface BrewMacroImpact {
+  overall_environment: string;
+  impact_on_portfolio: string;
+  risk_level: string;
+  risk_factors: string;
+}
+
+export interface DigestResponse {
+  success: boolean;
   timestamp: string;
+  symbols_used: string[];
+
+  // Header
+  greeting: string;
+  one_line_summary: string;
+
+  // Section 1: Portfolio Overview
+  stocks: StockAnalysis[];
+
+  // Section 2: Relevant News (8-10 items)
+  news: BrewNews[];
+
+  // Section 3: Upcoming Events
+  events: BrewEvent[];
+
+  // Section 4: Macro Impact
+  macro_impact: BrewMacroImpact | null;
+
+  // Section 5: Bottom Line
+  bottom_line: string;
+
+  // Error handling
+  error?: string;
 }
 
 export interface SubscribeResponse {

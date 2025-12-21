@@ -102,12 +102,68 @@ class DigestRequest(BaseModel):
         }
 
 
+class StockAnalysis(BaseModel):
+    """Individual stock summary in the digest"""
+    symbol: str = Field(..., description="Stock ticker symbol")
+    name: str = Field(..., description="Company name in Chinese")
+    price: float = Field(..., description="Current stock price")
+    daily_change: str = Field(..., description="Daily change with percentage")
+    week_change: str = Field(..., description="Weekly change with percentage")
+    status: str = Field(..., description="Brief status in Chinese")
+    quick_take: str = Field(..., description="1-2 sentence analysis in Chinese")
+
+
+class BrewNews(BaseModel):
+    """News item relevant to user's watchlist"""
+    title: str = Field(..., description="News title in Chinese")
+    related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
+    summary: str = Field(..., description="1 sentence summary")
+    analysis: str = Field(..., description="2-3 sentence analysis")
+    url: str = Field(default="", description="Original article URL")
+
+
+class BrewEvent(BaseModel):
+    """Upcoming event relevant to user's watchlist"""
+    date: str = Field(..., description="Event date in YYYY-MM-DD format")
+    event: str = Field(..., description="Event name in Chinese")
+    related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
+    why_important: str = Field(..., description="Why this matters for user's holdings")
+
+
+class BrewMacroImpact(BaseModel):
+    """How macro environment impacts user's portfolio"""
+    overall_environment: str = Field(..., description="Current macro environment summary")
+    impact_on_portfolio: str = Field(..., description="How conditions affect user's holdings")
+    risk_level: str = Field(..., description="Risk assessment level in Chinese")
+    risk_factors: str = Field(..., description="Key risk factors to watch")
+
+
 class DigestResponse(BaseModel):
-    """Response model for personalized digest"""
-    user_id: str = Field(..., description="User identifier")
-    symbols_used: list[str] = Field(default=[], description="Symbols used for analysis")
-    analysis: str = Field(default="", description="AI-generated personalized digest")
-    news_data: list[dict] = Field(default=[], description="Relevant news articles")
+    """Response model for personalized digest (PersonalBrewer output)"""
+    success: bool = Field(default=True, description="Whether generation was successful")
     timestamp: str = Field(..., description="Generation timestamp")
+    symbols_used: list[str] = Field(default=[], description="Symbols used for analysis")
+
+    # Header
+    greeting: str = Field(default="", description="Personalized greeting with date")
+    one_line_summary: str = Field(default="", description="One sentence portfolio summary")
+
+    # Section 1: Portfolio Overview
+    stocks: list[StockAnalysis] = Field(default=[], description="Summary for each stock")
+
+    # Section 2: Relevant News (8-10 items)
+    news: list[BrewNews] = Field(default=[], description="Most relevant news items")
+
+    # Section 3: Upcoming Events
+    events: list[BrewEvent] = Field(default=[], description="Upcoming events within 7 days")
+
+    # Section 4: Macro Impact
+    macro_impact: Optional[BrewMacroImpact] = Field(None, description="Macro environment impact")
+
+    # Section 5: Bottom Line
+    bottom_line: str = Field(default="", description="Paragraph summary with focus areas")
+
+    # Error handling
+    error: Optional[str] = Field(None, description="Error message if generation failed")
 
 

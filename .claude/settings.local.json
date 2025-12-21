@@ -73,7 +73,12 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(railway variables:*)",
-      "mcp__chrome-devtools__fill"
+      "mcp__chrome-devtools__fill",
+      "Bash(railway status:*)",
+      "Bash(cd /Users/kedeng/Desktop/projects/stock-agent/backend && railway whoami:*)",
+      "Bash(railway up:*)",
+      "Bash(railway logs:*)",
+      "WebFetch(domain:site.financialmodelingprep.com)"
     ],
     "deny": [],
     "ask": []

@@ -1,5 +1,15 @@
 import { createClient } from '@insforge/sdk';
 import { nowIso, todayStr } from './timezone';
+import {
+  MacroSection,
+  NewsSection,
+  CalendarEvent,
+  StockAnalysis,
+  BrewNews,
+  BrewEvent,
+  BrewMacroImpact,
+  DigestResponse,
+} from './api';
 
 const INSFORGE_BASE_URL = 'https://9wmhxyi4.us-east.insforge.app';
 const INSFORGE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTAyNDF9.impMF8IELyFYgeBbgiOGJ3OWDqBpVMsyRXHhgaIyS4E';
@@ -8,8 +18,6 @@ export const insforge = createClient({
   baseUrl: INSFORGE_BASE_URL,
   anonKey: INSFORGE_ANON_KEY,
 });
-
-import { MacroSection, NewsSection, CalendarEvent } from './api';
 
 export interface MarketReport {
   id?: string;
@@ -253,7 +261,7 @@ export async function saveUserWatchlist(
 
 
 // =============================================================================
-// User Digest Functions
+// User Digest Functions (PersonalBrew)
 // =============================================================================
 
 export interface UserDigest {
@@ -261,18 +269,25 @@ export interface UserDigest {
   user_id: string;
   digest_date: string;
   symbols: string[];
+  // Legacy fields
   analysis: string;
   news_data?: unknown[];
+  // New structured fields
+  greeting?: string;
+  one_line_summary?: string;
+  bottom_line?: string;
+  brew_data?: {
+    stocks?: StockAnalysis[];
+    news?: BrewNews[];
+    events?: BrewEvent[];
+    macro_impact?: BrewMacroImpact | null;
+  };
   created_at?: string;
 }
 
 export async function saveUserDigest(
   userId: string,
-  digest: {
-    symbols: string[];
-    analysis: string;
-    news_data?: unknown[];
-  }
+  digest: DigestResponse
 ): Promise<{ success: boolean; data?: UserDigest; error?: string }> {
   try {
     const digestDate = todayStr();
@@ -280,9 +295,20 @@ export async function saveUserDigest(
     const digestData = {
       user_id: userId,
       digest_date: digestDate,
-      symbols: digest.symbols,
-      analysis: digest.analysis,
-      news_data: digest.news_data || [],
+      symbols: digest.symbols_used,
+      // Legacy field for backward compatibility
+      analysis: digest.bottom_line || '',
+      news_data: digest.news || [],
+      // New structured fields
+      greeting: digest.greeting || '',
+      one_line_summary: digest.one_line_summary || '',
+      bottom_line: digest.bottom_line || '',
+      brew_data: {
+        stocks: digest.stocks || [],
+        news: digest.news || [],
+        events: digest.events || [],
+        macro_impact: digest.macro_impact || null,
+      },
     };
 
     // Check if digest exists for this user and date
@@ -320,6 +346,7 @@ export async function saveUserDigest(
       return { success: false, error: result.error.message };
     }
 
+    console.log('[Insforge] Digest saved successfully');
     return {
       success: true,
       data: result.data?.[0] as UserDigest
@@ -330,6 +357,30 @@ export async function saveUserDigest(
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
+  }
+}
+
+export async function getUserDigestByDate(
+  userId: string,
+  date: string
+): Promise<UserDigest | null> {
+  try {
+    const { data, error } = await insforge.database
+      .from('user_digests')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('digest_date', date)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching digest:', error);
+      return null;
+    }
+
+    return data as UserDigest | null;
+  } catch (error) {
+    console.error('Error fetching digest:', error);
+    return null;
   }
 }
 

@@ -56,6 +56,12 @@ export default function RootLayout({
                   >
                     Reports
                   </Link>
+                  <Link
+                    href="/digest"
+                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                  >
+                    My Brew
+                  </Link>
                   <ThemeToggle />
                   <NavAuth />
                 </div>

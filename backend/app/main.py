@@ -17,7 +17,15 @@ from app.services.fred_service import (
     fetch_fred_series,
 )
 from app.services.liquidity_agent import get_liquidity_agent
-from app.models.request_models import DigestRequest, DigestResponse
+from app.models.request_models import (
+    DigestRequest,
+    DigestResponse,
+    StockAnalysis,
+    BrewNews,
+    BrewEvent,
+    BrewMacroImpact,
+)
+from agents.personal_brewer import get_personal_brewer
 
 app = FastAPI(title="Market Analysis API")
 
@@ -601,23 +609,81 @@ async def generate_digest(request: DigestRequest):
     """
     Generate a personalized daily digest based on user's stock watchlist.
 
-    Uses the same MarketAgent as /api/market but with personalized news filtering
-    based on user's watchlist symbols + default macro symbols (SPY, QQQ, VIX).
+    Uses PersonalBrewer agent (gemini-3-flash) to generate structured digest
+    with 5 sections: stocks, news (8-10), events, macro impact, bottom line.
     """
     try:
-        result = await market_agent.analyze(user_symbols=request.symbols)
+        if not request.symbols:
+            raise HTTPException(status_code=400, detail="No symbols provided")
 
-        if not result:
-            raise HTTPException(status_code=500, detail="Failed to generate digest")
+        # Use PersonalBrewer for personalized digest
+        brewer = get_personal_brewer()
+        result = await brewer.brew(symbols=request.symbols)
+
+        if not result.get("success"):
+            error_msg = result.get("error", "Failed to generate digest")
+            raise HTTPException(status_code=500, detail=error_msg)
+
+        # Transform to response model
+        stocks = [
+            StockAnalysis(
+                symbol=s.get("symbol", ""),
+                name=s.get("name", ""),
+                price=s.get("price", 0),
+                daily_change=s.get("daily_change", ""),
+                week_change=s.get("week_change", ""),
+                status=s.get("status", ""),
+                quick_take=s.get("quick_take", ""),
+            )
+            for s in result.get("stocks", [])
+        ]
+
+        news = [
+            BrewNews(
+                title=n.get("title", ""),
+                related_symbols=n.get("related_symbols", []),
+                summary=n.get("summary", ""),
+                analysis=n.get("analysis", ""),
+                url=n.get("url", ""),
+            )
+            for n in result.get("news", [])
+        ]
+
+        events = [
+            BrewEvent(
+                date=e.get("date", ""),
+                event=e.get("event", ""),
+                related_symbols=e.get("related_symbols", []),
+                why_important=e.get("why_important", ""),
+            )
+            for e in result.get("events", [])
+        ]
+
+        macro_data = result.get("macro_impact")
+        macro_impact = None
+        if macro_data:
+            macro_impact = BrewMacroImpact(
+                overall_environment=macro_data.get("overall_environment", ""),
+                impact_on_portfolio=macro_data.get("impact_on_portfolio", ""),
+                risk_level=macro_data.get("risk_level", ""),
+                risk_factors=macro_data.get("risk_factors", ""),
+            )
 
         return DigestResponse(
-            user_id="",  # Will be set by frontend
-            symbols_used=result.get("symbols_used", []),
-            analysis=result.get("in_depth_analysis", ""),
-            news_data=result.get("news_data", {}).get("articles", []),
+            success=True,
             timestamp=result.get("timestamp", now_iso()),
+            symbols_used=result.get("symbols_used", []),
+            greeting=result.get("greeting", ""),
+            one_line_summary=result.get("one_line_summary", ""),
+            stocks=stocks,
+            news=news,
+            events=events,
+            macro_impact=macro_impact,
+            bottom_line=result.get("bottom_line", ""),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

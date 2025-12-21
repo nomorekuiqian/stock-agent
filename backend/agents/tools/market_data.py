@@ -361,3 +361,146 @@ def get_all_market_data() -> dict:
             "commodities": {},
             "currencies": {},
         }
+
+
+# =============================================================================
+# Stock Quotes for User Watchlist (PersonalBrewer)
+# =============================================================================
+
+
+def get_stock_quotes(symbols: list[str]) -> dict:
+    """
+    Fetch real-time quotes for user's watchlist stocks.
+
+    Args:
+        symbols: List of ticker symbols (e.g., ["AAPL", "MSFT", "NVDA"])
+
+    Returns:
+        {
+            "status": "success",
+            "stocks": {
+                "AAPL": {
+                    "name": "Apple Inc.",
+                    "price": 195.50,
+                    "previous_close": 193.05,
+                    "daily_change": 1.27,
+                    "week_change": 3.50,
+                    "month_change": -2.10,
+                    "day_high": 196.20,
+                    "day_low": 194.10,
+                    "week_high": 198.00,
+                    "week_low": 190.50,
+                    "pe_ratio": 29.5,
+                    "market_cap": 3000000000000,
+                    "avg_volume": 54500000,
+                    "52_week_high": 199.62,
+                    "52_week_low": 164.08,
+                },
+                ...
+            }
+        }
+    """
+    print(f"[TOOL CALLED] get_stock_quotes({symbols})")
+
+    if not symbols:
+        return {"status": "error", "error": "No symbols provided", "stocks": {}}
+
+    # Limit to 20 stocks max
+    symbols = symbols[:20]
+
+    try:
+        # Download 1 month of data for trend analysis
+        data = yf.download(
+            symbols,
+            period="1mo",
+            progress=False,
+            group_by="ticker" if len(symbols) > 1 else None,
+        )
+
+        # Get ticker info for names and fundamentals
+        tickers = yf.Tickers(" ".join(symbols))
+
+        result = {"status": "success", "stocks": {}}
+
+        for symbol in symbols:
+            try:
+                # Extract price data
+                if len(symbols) == 1:
+                    # Single ticker - data is not grouped
+                    series = data["Close"].dropna()
+                else:
+                    # Multiple tickers - data is grouped by ticker
+                    if symbol not in data.columns.get_level_values(0):
+                        continue
+                    series = data[symbol]["Close"].dropna()
+
+                if len(series) < 5:
+                    continue
+
+                current = safe_float(series.iloc[-1])
+                prev = safe_float(series.iloc[-2]) if len(series) > 1 else current
+                week_ago = safe_float(series.iloc[-5]) if len(series) >= 5 else current
+                month_ago = safe_float(series.iloc[0])
+
+                if current <= 0:
+                    continue
+
+                # Calculate changes
+                daily_change = ((current - prev) / prev) * 100 if prev != 0 else 0
+                week_change = ((current - week_ago) / week_ago) * 100 if week_ago != 0 else 0
+                month_change = ((current - month_ago) / month_ago) * 100 if month_ago != 0 else 0
+
+                # Get high/low from series
+                if len(symbols) == 1:
+                    high_series = data["High"].dropna()
+                    low_series = data["Low"].dropna()
+                else:
+                    high_series = data[symbol]["High"].dropna()
+                    low_series = data[symbol]["Low"].dropna()
+
+                day_high = safe_float(high_series.iloc[-1]) if len(high_series) > 0 else current
+                day_low = safe_float(low_series.iloc[-1]) if len(low_series) > 0 else current
+
+                # Week high/low (last 5 days)
+                week_high = safe_float(high_series.iloc[-5:].max()) if len(high_series) >= 5 else day_high
+                week_low = safe_float(low_series.iloc[-5:].min()) if len(low_series) >= 5 else day_low
+
+                # Get ticker info for name and fundamentals
+                ticker_info = {}
+                try:
+                    ticker = tickers.tickers.get(symbol)
+                    if ticker:
+                        ticker_info = ticker.info or {}
+                except Exception:
+                    pass
+
+                result["stocks"][symbol] = {
+                    "name": ticker_info.get("shortName", ticker_info.get("longName", symbol)),
+                    "price": round(current, 2),
+                    "previous_close": round(prev, 2),
+                    "daily_change": round(daily_change, 2),
+                    "week_change": round(week_change, 2),
+                    "month_change": round(month_change, 2),
+                    "day_high": round(day_high, 2),
+                    "day_low": round(day_low, 2),
+                    "week_high": round(week_high, 2),
+                    "week_low": round(week_low, 2),
+                    "pe_ratio": safe_float(ticker_info.get("trailingPE"), None),
+                    "market_cap": ticker_info.get("marketCap"),
+                    "avg_volume": ticker_info.get("averageVolume"),
+                    "52_week_high": safe_float(ticker_info.get("fiftyTwoWeekHigh"), None),
+                    "52_week_low": safe_float(ticker_info.get("fiftyTwoWeekLow"), None),
+                }
+
+            except Exception as e:
+                print(f"Error processing {symbol}: {e}")
+                continue
+
+        print(f"[get_stock_quotes] Loaded {len(result['stocks'])} stocks: {list(result['stocks'].keys())}")
+        return result
+
+    except Exception as e:
+        print(f"Error fetching stock quotes: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "error": str(e), "stocks": {}}
