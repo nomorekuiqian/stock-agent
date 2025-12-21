@@ -308,6 +308,7 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
 
 class SendEmailRequest(BaseModel):
     email: str  # Required: user's email address
+    first_name: Optional[str] = None  # Optional: for personalized greeting
 
 
 class BroadcastTestRequest(BaseModel):
@@ -468,7 +469,11 @@ async def send_test_report(request: SendEmailRequest):
 
         # Send email to single recipient
         email_service = get_email_service()
-        email_result = await email_service.send_daily_report(report_data, to_email=to_email)
+        email_result = await email_service.send_daily_report(
+            report_data,
+            to_email=to_email,
+            first_name=request.first_name
+        )
 
         if not email_result.get("success"):
             raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to send email"))

@@ -191,6 +191,36 @@ class EmailService:
             print(f"[EmailService] Error listing subscribers: {e}")
             return {"success": False, "error": str(e)}
 
+    def get_subscriber_by_email(self, email: str) -> dict:
+        """
+        Get subscriber info by email address.
+
+        Args:
+            email: Subscriber's email address
+
+        Returns:
+            dict with subscriber info or None if not found
+        """
+        if not self.api_key:
+            return None
+
+        try:
+            audience_id = self.ensure_audience()
+            result = resend.Contacts.list(audience_id=audience_id)
+
+            for contact in result.get("data", []):
+                if contact.get("email", "").lower() == email.lower():
+                    return {
+                        "email": contact.get("email"),
+                        "first_name": contact.get("first_name"),
+                        "subscribed": not contact.get("unsubscribed", False),
+                    }
+            return None
+
+        except Exception as e:
+            print(f"[EmailService] Error getting subscriber: {e}")
+            return None
+
     # =========================================================================
     # Email Formatting
     # =========================================================================
@@ -204,6 +234,16 @@ class EmailService:
             return pacific_dt.strftime("%B %d, %Y")
         except Exception:
             return now_pacific().strftime("%B %d, %Y")
+
+    def _get_time_greeting(self) -> str:
+        """Get time-based greeting in Chinese (Pacific timezone)."""
+        hour = now_pacific().hour
+        if 5 <= hour < 12:
+            return "早上好"
+        elif 12 <= hour < 18:
+            return "下午好"
+        else:
+            return "晚上好"
 
     def _format_markdown_to_html(self, text: str) -> str:
         """Convert basic Markdown to HTML for email.
@@ -282,6 +322,7 @@ class EmailService:
         """
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
+        time_greeting = self._get_time_greeting()
 
         # Use dynamic title or fallback to default
         report_title = data.get("title") or "Daily Market Brief"
@@ -510,8 +551,16 @@ class EmailService:
                     </table>
                 </div>
 
-                <!-- Title Card -->
+                <!-- Title Card with Greeting -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
+                    <!-- Personalized Greeting -->
+                    <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
+                        {time_greeting}，{{{{ first_name | default: "朋友" }}}}
+                    </p>
+                    <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
+                        新的一天，为你准备了今日的市场简报，一起看看发生了什么吧。
+                    </p>
+                    <!-- Report Title -->
                     <h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{report_title}</h1>
                     {f'<p style="color: #71717a; font-size: 14px; margin: 0; line-height: 1.6;">{report_summary}</p>' if report_summary else ''}
                 </div>
@@ -584,14 +633,15 @@ class EmailService:
     # Email Sending
     # =========================================================================
 
-    async def send_daily_report(self, data: dict, to_email: str = None) -> dict:
+    async def send_daily_report(self, data: dict, to_email: str = None, first_name: str = None) -> dict:
         """Send the daily market report email to a single recipient.
 
         Args:
             data: The macro analysis data to send
             to_email: Optional recipient email, defaults to EMAIL_TO env var
+            first_name: Optional first name for personalized greeting
         """
-        print(f"[EmailService] send_daily_report called, to_email={to_email}")
+        print(f"[EmailService] send_daily_report called, to_email={to_email}, first_name={first_name}")
         print(f"[EmailService] api_key configured: {bool(self.api_key)}")
 
         if not self.api_key:
@@ -606,6 +656,19 @@ class EmailService:
 
         try:
             html_content = self._format_html_report(data)
+
+            # For single emails, manually replace template variables
+            # (Resend template variables only work with Broadcasts API)
+            # Look up first_name from Resend audience if not provided
+            display_name = first_name
+            if not display_name:
+                subscriber = self.get_subscriber_by_email(recipient)
+                if subscriber:
+                    display_name = subscriber.get("first_name")
+                    print(f"[EmailService] Found subscriber first_name: {display_name}")
+            display_name = display_name or "朋友"
+            html_content = html_content.replace("{{ first_name | default: \"朋友\" }}", display_name)
+
             today = today_str()  # Pacific timezone
 
             # Use dynamic title from report with prefix

@@ -78,7 +78,8 @@
       "Bash(cd /Users/kedeng/Desktop/projects/stock-agent/backend && railway whoami:*)",
       "Bash(railway up:*)",
       "Bash(railway logs:*)",
-      "WebFetch(domain:site.financialmodelingprep.com)"
+      "WebFetch(domain:site.financialmodelingprep.com)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []
