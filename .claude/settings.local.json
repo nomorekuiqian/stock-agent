@@ -79,7 +79,10 @@
       "Bash(railway up:*)",
       "Bash(railway logs:*)",
       "WebFetch(domain:site.financialmodelingprep.com)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(playwright install chromium)",
+      "Bash(unzip:*)",
+      "Bash(open:*)"
     ],
     "deny": [],
     "ask": []

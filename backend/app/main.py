@@ -17,6 +17,7 @@ from app.services.fred_service import (
     fetch_fred_series,
 )
 from app.services.liquidity_agent import get_liquidity_agent
+from app.services.rednote_agent import get_rednote_agent
 from app.models.request_models import (
     DigestRequest,
     DigestResponse,
@@ -883,6 +884,132 @@ async def get_latest_liquidity_analysis():
         }
     except HTTPException:
         raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# RedNote (Xiaohongshu) Content Endpoints
+# =============================================================================
+
+
+class RedNoteGenerateRequest(BaseModel):
+    report_id: Optional[str] = None  # Optional: specific report ID to use
+    force: bool = False  # Force regenerate even if cached
+
+
+@app.post("/api/rednote/generate")
+async def generate_rednote_content(request: Optional[RedNoteGenerateRequest] = None):
+    """
+    Generate Xiaohongshu content from market report.
+
+    Uses the latest market report by default, or a specific report if report_id is provided.
+    Returns structured content ready for copy-paste to Canva templates.
+    """
+    try:
+        force = request.force if request else False
+        report_id = request.report_id if request else None
+
+        insforge_service = get_insforge_service()
+
+        # Get the market report
+        if report_id:
+            report = await insforge_service.get_report_by_id(report_id)
+            if not report:
+                raise HTTPException(status_code=404, detail=f"Report not found: {report_id}")
+        else:
+            report = await insforge_service.get_latest_report()
+            if not report:
+                raise HTTPException(status_code=404, detail="No market report found. Generate a market report first.")
+
+        report_date = report.get("report_date", "")
+
+        # Check if we already have a RedNote post for this report date
+        if not force:
+            existing_rednote = await insforge_service.get_rednote_by_date(report_date)
+            if existing_rednote:
+                print(f"[API] Found existing RedNote post for {report_date}, returning cached data")
+                return {
+                    "success": True,
+                    "post_id": existing_rednote.get("id"),
+                    "report_date": report_date,
+                    "content": existing_rednote.get("content", {}),
+                    "generated_at": existing_rednote.get("generated_at"),
+                    "from_cache": True,
+                }
+
+        # Generate new content
+        print(f"[API] Generating RedNote content for {report_date}...")
+        agent = get_rednote_agent()
+        result = await agent.generate(report)
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to generate RedNote content")
+            )
+
+        content = result.get("content", {})
+
+        # Save to database
+        save_result = await insforge_service.save_rednote_post({
+            "report_id": report.get("id"),
+            "report_date": report_date,
+            "content": content,
+        })
+
+        post_id = save_result.get("post_id") if save_result.get("success") else None
+        if not save_result.get("success"):
+            print(f"[Warning] Failed to save RedNote post: {save_result.get('error')}")
+
+        return {
+            "success": True,
+            "post_id": post_id,
+            "report_date": report_date,
+            "content": content,
+            "generated_at": now_iso(),
+            "from_cache": False,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/rednote/latest")
+async def get_latest_rednote():
+    """
+    Get the latest RedNote post from database.
+
+    Returns structured content for Canva copy-paste.
+    """
+    try:
+        insforge_service = get_insforge_service()
+        rednote = await insforge_service.get_latest_rednote()
+
+        if not rednote:
+            return {
+                "success": True,
+                "post": None,
+                "message": "No RedNote posts found. Generate one first using POST /api/rednote/generate"
+            }
+
+        return {
+            "success": True,
+            "post": {
+                "id": rednote.get("id"),
+                "report_id": rednote.get("report_id"),
+                "report_date": rednote.get("report_date"),
+                "content": rednote.get("content", {}),
+                "generated_at": rednote.get("generated_at"),
+            }
+        }
+
     except Exception as e:
         import traceback
         traceback.print_exc()

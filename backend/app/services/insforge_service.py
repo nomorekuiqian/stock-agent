@@ -289,6 +289,122 @@ class InsforgeService:
             print(f"[InsforgeService] Exception getting latest liquidity analysis: {e}")
             return None
 
+    # =========================================================================
+    # RedNote Post Methods
+    # =========================================================================
+
+    async def save_rednote_post(self, post_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Save a RedNote post to the database.
+
+        Args:
+            post_data: Dictionary containing RedNote content and metadata
+
+        Returns:
+            dict with success status and saved post ID
+        """
+        try:
+            rednote_url = f"{self.base_url}/functions/rednote-posts"
+
+            db_post = {
+                "report_id": post_data.get("report_id"),
+                "report_date": post_data.get("report_date"),
+                "content": post_data.get("content", {}),
+                "generated_at": post_data.get("generated_at", now_iso()),
+            }
+
+            print(f"[InsforgeService] Saving RedNote post for date: {db_post.get('report_date')}")
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{rednote_url}?action=upsert",
+                    headers=self.headers,
+                    json=db_post,
+                    timeout=30.0,
+                )
+
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    if data.get("success"):
+                        post_id = data.get("data", {}).get("id")
+                        print(f"[InsforgeService] RedNote post saved, ID: {post_id}")
+                        return {
+                            "success": True,
+                            "post_id": post_id,
+                            "report_date": db_post.get("report_date"),
+                        }
+                    else:
+                        error_msg = data.get("error", "Unknown error")
+                        print(f"[InsforgeService] Save failed: {error_msg}")
+                        return {"success": False, "error": error_msg}
+                else:
+                    error_msg = response.text
+                    print(f"[InsforgeService] Save failed: {response.status_code} - {error_msg}")
+                    return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception saving RedNote post: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "error": str(e)}
+
+    async def get_latest_rednote(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the latest RedNote post from the database.
+
+        Returns:
+            RedNote post data or None if not found
+        """
+        try:
+            rednote_url = f"{self.base_url}/functions/rednote-posts"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{rednote_url}?latest=true",
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data")
+                return None
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting latest RedNote post: {e}")
+            return None
+
+    async def get_rednote_by_date(self, date: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a RedNote post by date.
+
+        Args:
+            date: Date in YYYY-MM-DD format
+
+        Returns:
+            RedNote post data or None if not found
+        """
+        try:
+            rednote_url = f"{self.base_url}/functions/rednote-posts"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{rednote_url}?date={date}",
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data")
+                return None
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting RedNote post by date: {e}")
+            return None
+
 
 # Singleton instance
 _insforge_service: Optional[InsforgeService] = None
