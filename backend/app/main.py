@@ -2,11 +2,10 @@ from dotenv import load_dotenv
 load_dotenv()  # Load .env before importing agents
 
 import os
-from datetime import datetime
 from fastapi import FastAPI, HTTPException, Header, Query
 from app.utils.timezone import today_str, now_iso, days_ago
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from agents.agent import MarketAgent
 from app.services.email_service import get_email_service
