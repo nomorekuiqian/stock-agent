@@ -555,7 +555,7 @@ class EmailService:
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
                     <!-- Personalized Greeting -->
                     <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
-                        {time_greeting}，{{{{first_name | default: "朋友"}}}}
+                        {time_greeting}，{{{{{{first_name|朋友}}}}}}
                     </p>
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         新的一天，为你准备了今日的市场简报，一起看看发生了什么吧。
@@ -618,7 +618,7 @@ class EmailService:
                         </tr>
                         <tr>
                             <td style="text-align: center;">
-                                <a href="{{{{RESEND_UNSUBSCRIBE_URL}}}}" style="color: #10b981; font-size: 11px; text-decoration: none; font-weight: 500;">Unsubscribe</a>
+                                <a href="{{{{{{RESEND_UNSUBSCRIBE_URL}}}}}}" style="color: #10b981; font-size: 11px; text-decoration: none; font-weight: 500;">Unsubscribe</a>
                             </td>
                         </tr>
                     </table>
@@ -667,7 +667,7 @@ class EmailService:
                     display_name = subscriber.get("first_name")
                     print(f"[EmailService] Found subscriber first_name: {display_name}")
             display_name = display_name or "朋友"
-            html_content = html_content.replace("{{first_name | default: \"朋友\"}}", display_name)
+            html_content = html_content.replace("{{{first_name|朋友}}}", display_name)
 
             today = today_str()  # Pacific timezone
 
