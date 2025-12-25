@@ -62,6 +62,12 @@ export default function RootLayout({
                   >
                     My Brew
                   </Link>
+                  <Link
+                    href="/rednote"
+                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                  >
+                    RedNote
+                  </Link>
                   <ThemeToggle />
                   <NavAuth />
                 </div>

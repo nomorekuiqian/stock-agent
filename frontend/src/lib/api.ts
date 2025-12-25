@@ -264,6 +264,54 @@ export interface LiquidityAnalysisResponse {
   error?: string;
 }
 
+// RedNote Types
+export interface HotTopic {
+  emoji: string;
+  title: string;
+  what: string;
+  so_what: string;
+}
+
+export interface FutureEvent {
+  date: string;
+  event: string;
+  impact: string;
+}
+
+export interface RedNoteContent {
+  cover_title: string;
+  cover_subtitle: string;
+  date: string;
+  market_summary_p1: string;
+  market_summary_p2: string;
+  index_data: string;
+  news_highlights: string[];
+  hot_topics: HotTopic[];
+  future_events: FutureEvent[];
+  outlook_summary: string;
+  cta_question: string;
+  cta_options: string;
+  body: string;
+  tags: string;
+}
+
+export interface RedNoteListItem {
+  id: string;
+  report_date: string;
+  title: string;
+  generated_at: string;
+}
+
+export interface RedNoteResponse {
+  success: boolean;
+  post_id?: string;
+  report_date?: string;
+  content?: RedNoteContent;
+  generated_at?: string;
+  from_cache?: boolean;
+  error?: string;
+}
+
 export const api = {
   getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
@@ -389,5 +437,68 @@ export const api = {
       throw new Error(error.detail || 'Failed to fetch analysis');
     }
     return response.json();
+  },
+
+  // RedNote APIs
+  generateRedNote: async (): Promise<RedNoteResponse> => {
+    const response = await fetch(`${API_BASE_URL}/rednote/generate`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to generate RedNote content' }));
+      throw new Error(error.detail || 'Failed to generate RedNote content');
+    }
+    return response.json();
+  },
+
+  getLatestRedNote: async (): Promise<RedNoteResponse> => {
+    const response = await fetch(`${API_BASE_URL}/rednote/latest`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch RedNote content' }));
+      throw new Error(error.detail || 'Failed to fetch RedNote content');
+    }
+    const data = await response.json();
+    // Transform response structure: { success, post: { content, ... } } -> { success, content, ... }
+    if (data.success && data.post) {
+      return {
+        success: true,
+        post_id: data.post.id,
+        report_date: data.post.report_date,
+        content: data.post.content,
+        generated_at: data.post.generated_at,
+        from_cache: true,
+      };
+    }
+    return data;
+  },
+
+  listRedNotePosts: async (limit: number = 20): Promise<{ success: boolean; posts: RedNoteListItem[] }> => {
+    const response = await fetch(`${API_BASE_URL}/rednote/list?limit=${limit}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to list RedNote posts' }));
+      throw new Error(error.detail || 'Failed to list RedNote posts');
+    }
+    return response.json();
+  },
+
+  getRedNoteById: async (postId: string): Promise<RedNoteResponse> => {
+    const response = await fetch(`${API_BASE_URL}/rednote/${postId}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch RedNote content' }));
+      throw new Error(error.detail || 'Failed to fetch RedNote content');
+    }
+    const data = await response.json();
+    // Transform response structure
+    if (data.success && data.post) {
+      return {
+        success: true,
+        post_id: data.post.id,
+        report_date: data.post.report_date,
+        content: data.post.content,
+        generated_at: data.post.generated_at,
+        from_cache: true,
+      };
+    }
+    return data;
   },
 };

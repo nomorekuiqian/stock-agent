@@ -281,6 +281,29 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
             if not save_result.get("success"):
                 print(f"[Warning] Failed to save report to database: {save_result.get('error')}")
 
+        # Generate RedNote content for the report
+        try:
+            report_id = save_result.get("report_id") if not from_cache else existing_report.get("id")
+            if report_id:
+                # Get the full report from database for RedNote generation
+                full_report = await insforge_service.get_report_by_id(report_id)
+                if full_report:
+                    rednote_agent = get_rednote_agent()
+                    rednote_result = await rednote_agent.generate(full_report)
+                    if rednote_result.get("success"):
+                        # Save RedNote content to database
+                        rednote_save = await insforge_service.save_rednote_post({
+                            "report_id": report_id,
+                            "report_date": today,
+                            "content": rednote_result.get("content", {})
+                        })
+                        print(f"[API] RedNote content generated and saved: {rednote_save.get('success')}")
+                    else:
+                        print(f"[Warning] Failed to generate RedNote content: {rednote_result.get('error')}")
+        except Exception as rn_error:
+            print(f"[Warning] RedNote generation failed: {rn_error}")
+            # Don't fail the whole request if RedNote fails
+
         # Broadcast to all subscribers
         email_service = get_email_service()
         email_result = await email_service.broadcast_daily_report(report_data)
@@ -970,6 +993,61 @@ async def generate_rednote_content(request: Optional[RedNoteGenerateRequest] = N
             "content": content,
             "generated_at": now_iso(),
             "from_cache": False,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/rednote/list")
+async def list_rednote_posts(limit: int = 20):
+    """
+    List all RedNote posts with title and date for dropdown selection.
+
+    Returns list of posts with id, report_date, and title.
+    """
+    try:
+        insforge_service = get_insforge_service()
+        posts = await insforge_service.list_rednote_posts(limit=limit)
+
+        return {
+            "success": True,
+            "posts": posts
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/rednote/{post_id}")
+async def get_rednote_by_id(post_id: str):
+    """
+    Get a specific RedNote post by ID.
+
+    Returns full post content.
+    """
+    try:
+        insforge_service = get_insforge_service()
+        rednote = await insforge_service.get_rednote_by_id(post_id)
+
+        if not rednote:
+            raise HTTPException(status_code=404, detail="RedNote post not found")
+
+        return {
+            "success": True,
+            "post": {
+                "id": rednote.get("id"),
+                "report_id": rednote.get("report_id"),
+                "report_date": rednote.get("report_date"),
+                "content": rednote.get("content", {}),
+                "generated_at": rednote.get("generated_at"),
+            }
         }
 
     except HTTPException:

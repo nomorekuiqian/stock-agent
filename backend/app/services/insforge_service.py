@@ -405,6 +405,66 @@ class InsforgeService:
             print(f"[InsforgeService] Exception getting RedNote post by date: {e}")
             return None
 
+    async def list_rednote_posts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        List all RedNote posts from the database, ordered by date descending.
+
+        Args:
+            limit: Maximum number of posts to return (default 20)
+
+        Returns:
+            List of RedNote posts with id, report_date, and content.cover_title
+        """
+        try:
+            rednote_url = f"{self.base_url}/functions/rednote-posts"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{rednote_url}?list=true&limit={limit}",
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data", [])
+                return []
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception listing RedNote posts: {e}")
+            return []
+
+    async def get_rednote_by_id(self, post_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a RedNote post by its ID.
+
+        Args:
+            post_id: The UUID of the post
+
+        Returns:
+            RedNote post data or None if not found
+        """
+        try:
+            rednote_url = f"{self.base_url}/functions/rednote-posts"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{rednote_url}?id={post_id}",
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data")
+                return None
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting RedNote post by ID: {e}")
+            return None
+
 
 # Singleton instance
 _insforge_service: Optional[InsforgeService] = None
