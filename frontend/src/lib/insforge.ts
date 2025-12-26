@@ -428,3 +428,23 @@ export async function getUserDigests(
     return { data: [], total: 0 };
   }
 }
+
+export async function getUserDigestById(id: string): Promise<UserDigest | null> {
+  try {
+    const { data, error } = await insforge.database
+      .from('user_digests')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching digest by ID:', error);
+      return null;
+    }
+
+    return data as UserDigest | null;
+  } catch (error) {
+    console.error('Error fetching digest by ID:', error);
+    return null;
+  }
+}

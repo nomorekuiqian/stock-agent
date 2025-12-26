@@ -49,7 +49,7 @@ export default function Home() {
                 Subscribe to Daily Reports
               </a>
               <Link
-                href="/market"
+                href="/today"
                 className="w-full sm:w-auto px-8 py-4 bg-secondary hover:bg-secondary/80 text-foreground rounded-xl font-medium text-sm border border-border transition-all hover:border-emerald-500/50 flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -321,13 +321,13 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
               <Link
-                href="/market"
+                href="/today"
                 className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all hover:shadow-lg hover:shadow-emerald-500/25 dark:hover:shadow-emerald-500/20 glow-emerald-sm"
               >
                 Read Today&apos;s Report
               </Link>
               <Link
-                href="/reports"
+                href="/today/archive"
                 className="w-full sm:w-auto px-8 py-4 text-muted-foreground hover:text-foreground rounded-xl font-medium transition-all hover:bg-muted"
               >
                 Browse Past Reports

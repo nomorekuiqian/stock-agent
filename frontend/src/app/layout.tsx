@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
+import { Coffee } from "lucide-react";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { NavAuth } from "@/components/NavAuth";
@@ -29,9 +30,7 @@ export default function RootLayout({
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2 group">
                   <div className="w-7 h-7 rounded-lg bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center group-hover:glow-emerald-sm transition-all">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
+                    <Coffee className="w-4 h-4 text-white" strokeWidth={2} />
                   </div>
                   <span className="font-semibold text-sm text-foreground">MarketBrew</span>
                 </Link>
@@ -39,10 +38,10 @@ export default function RootLayout({
                 {/* Navigation Links */}
                 <div className="flex items-center gap-6">
                   <Link
-                    href="/market"
+                    href="/today"
                     className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
                   >
-                    Market
+                    Today
                   </Link>
                   <Link
                     href="/liquidity"
@@ -51,13 +50,7 @@ export default function RootLayout({
                     Liquidity
                   </Link>
                   <Link
-                    href="/reports"
-                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
-                  >
-                    Reports
-                  </Link>
-                  <Link
-                    href="/digest"
+                    href="/brew"
                     className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
                   >
                     My Brew
@@ -85,9 +78,7 @@ export default function RootLayout({
               <div className="flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-5 h-5 rounded bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
+                    <Coffee className="w-3 h-3 text-white" strokeWidth={2} />
                   </div>
                   <span className="text-xs font-medium">MarketBrew</span>
                 </div>
