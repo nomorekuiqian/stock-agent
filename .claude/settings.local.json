@@ -82,7 +82,8 @@
       "Bash(pkill:*)",
       "Bash(playwright install chromium)",
       "Bash(unzip:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

@@ -3,9 +3,31 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, DigestResponse, StockAnalysis, BrewNews, BrewEvent } from '@/lib/api';
-import { getUserWatchlist, saveUserWatchlist, saveUserDigest, getUserDigests, UserDigest } from '@/lib/insforge';
+import { api, DigestResponse, StockAnalysis, BrewNews, BrewEvent, UserPreferences, InvestmentStyle, ContentFocus } from '@/lib/api';
+import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific } from '@/lib/timezone';
+
+// Investment style options
+const STYLE_OPTIONS: { value: InvestmentStyle; label: string; description: string }[] = [
+  { value: 'trader', label: 'Short-term', description: 'Focus on daily/weekly moves' },
+  { value: 'swing', label: 'Swing', description: 'Focus on 1-4 week trends' },
+  { value: 'long_term', label: 'Long-term', description: 'Focus on fundamentals' },
+];
+
+// Content focus options
+const FOCUS_OPTIONS: { value: ContentFocus; label: string }[] = [
+  { value: 'earnings', label: 'Earnings' },
+  { value: 'macro', label: 'Macro' },
+  { value: 'industry', label: 'Industry' },
+  { value: 'technical', label: 'Technical' },
+  { value: 'deals', label: 'M&A' },
+];
+
+// Default preferences
+const DEFAULT_PREFERENCES: UserPreferences = {
+  style: 'long_term',
+  focus: ['earnings', 'macro'],
+};
 
 export default function DigestPage() {
   const router = useRouter();
@@ -20,6 +42,10 @@ export default function DigestPage() {
   const [history, setHistory] = useState<UserDigest[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
+  // User preferences state
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [showPreferences, setShowPreferences] = useState(false);
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -27,17 +53,21 @@ export default function DigestPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Load user's watchlist and history
+  // Load user's watchlist, preferences and history
   useEffect(() => {
     const loadUserData = async () => {
       if (!user?.id) return;
 
       setLoadingWatchlist(true);
       try {
-        // Load watchlist
+        // Load watchlist and preferences
         const watchlist = await getUserWatchlist(user.id);
         if (watchlist?.symbols) {
           setSymbols(watchlist.symbols);
+        }
+        // Load preferences if saved
+        if (watchlist?.preferences) {
+          setPreferences(watchlist.preferences as UserPreferences);
         }
 
         // Load history
@@ -63,9 +93,9 @@ export default function DigestPage() {
       const newSymbols = [...symbols, symbol];
       setSymbols(newSymbols);
       setNewSymbol('');
-      // Auto-save watchlist
+      // Auto-save watchlist with preferences
       if (user?.id) {
-        saveUserWatchlist(user.id, newSymbols);
+        saveUserWatchlist(user.id, newSymbols, preferences);
       }
     }
   };
@@ -73,9 +103,46 @@ export default function DigestPage() {
   const handleRemoveSymbol = (symbolToRemove: string) => {
     const newSymbols = symbols.filter((s) => s !== symbolToRemove);
     setSymbols(newSymbols);
-    // Auto-save watchlist
+    // Auto-save watchlist with preferences
     if (user?.id) {
-      saveUserWatchlist(user.id, newSymbols);
+      saveUserWatchlist(user.id, newSymbols, preferences);
+    }
+  };
+
+  // Handle style change
+  const handleStyleChange = (style: InvestmentStyle) => {
+    const newPrefs = { ...preferences, style };
+    setPreferences(newPrefs);
+    // Auto-save preferences
+    if (user?.id) {
+      saveUserWatchlist(user.id, symbols, newPrefs);
+    }
+  };
+
+  // Handle focus toggle
+  const handleFocusToggle = (focus: ContentFocus) => {
+    let newFocus: ContentFocus[];
+    if (preferences.focus.includes(focus)) {
+      // Remove focus (but keep at least 1)
+      newFocus = preferences.focus.filter(f => f !== focus);
+      if (newFocus.length === 0) {
+        newFocus = [focus]; // Keep at least one
+        return;
+      }
+    } else {
+      // Add focus (max 3)
+      if (preferences.focus.length >= 3) {
+        // Replace oldest with new
+        newFocus = [...preferences.focus.slice(1), focus];
+      } else {
+        newFocus = [...preferences.focus, focus];
+      }
+    }
+    const newPrefs = { ...preferences, focus: newFocus };
+    setPreferences(newPrefs);
+    // Auto-save preferences
+    if (user?.id) {
+      saveUserWatchlist(user.id, symbols, newPrefs);
     }
   };
 
@@ -83,18 +150,15 @@ export default function DigestPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.generateDigest(symbols);
+      // Pass user_id to let backend save the digest
+      const result = await api.generateDigest(symbols, preferences, user?.id);
       setDigest(result);
 
-      // Save complete digest to database
+      // Refresh history after generation (backend saved it)
       if (user?.id) {
-        const saveResult = await saveUserDigest(user.id, result);
-        if (saveResult.success) {
-          // Refresh history
-          const historyResult = await getUserDigests(user.id, 10, 0);
-          if (historyResult.data) {
-            setHistory(historyResult.data);
-          }
+        const historyResult = await getUserDigests(user.id, 10, 0);
+        if (historyResult.data) {
+          setHistory(historyResult.data);
         }
       }
     } catch (err) {
@@ -276,7 +340,7 @@ export default function DigestPage() {
                           const newSymbols = [...symbols, symbol];
                           setSymbols(newSymbols);
                           if (user?.id) {
-                            saveUserWatchlist(user.id, newSymbols);
+                            saveUserWatchlist(user.id, newSymbols, preferences);
                           }
                         }
                       }}
@@ -284,6 +348,77 @@ export default function DigestPage() {
                       className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       +{symbol}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Preferences Section */}
+        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+          <button
+            onClick={() => setShowPreferences(!showPreferences)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-5 bg-foreground rounded-full" />
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Analysis Style</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {STYLE_OPTIONS.find(s => s.value === preferences.style)?.label} | {preferences.focus.map(f => FOCUS_OPTIONS.find(o => o.value === f)?.label).join(', ')}
+              </span>
+              <svg
+                className={`w-4 h-4 text-muted-foreground transition-transform ${showPreferences ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </button>
+
+          {showPreferences && (
+            <div className="mt-4 space-y-4 pt-4 border-t border-border animate-fade-in">
+              {/* Investment Style */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Investment Style</p>
+                <div className="flex flex-wrap gap-2">
+                  {STYLE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleStyleChange(option.value)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        preferences.style === option.value
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-secondary text-foreground hover:bg-secondary/80'
+                      }`}
+                    >
+                      <span>{option.label}</span>
+                      <span className="text-xs opacity-70 ml-1">({option.description})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content Focus */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Focus Areas (select 1-3)</p>
+                <div className="flex flex-wrap gap-2">
+                  {FOCUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleFocusToggle(option.value)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        preferences.focus.includes(option.value)
+                          ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
+                          : 'bg-secondary text-muted-foreground hover:bg-secondary/80 border border-transparent'
+                      }`}
+                    >
+                      {option.label}
                     </button>
                   ))}
                 </div>

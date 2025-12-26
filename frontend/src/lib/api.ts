@@ -105,6 +105,21 @@ export interface SendEmailResponse {
 }
 
 // PersonalBrewer Digest Types
+
+// User Preferences for personalized analysis
+export type InvestmentStyle = 'trader' | 'swing' | 'long_term';
+export type ContentFocus = 'earnings' | 'macro' | 'industry' | 'technical' | 'deals';
+
+export interface UserPreferences {
+  style: InvestmentStyle;
+  focus: ContentFocus[];
+}
+
+export interface UserPreferencesUsed {
+  style: string;
+  focus: string[];
+}
+
 export interface StockAnalysis {
   symbol: string;
   name: string;
@@ -141,6 +156,9 @@ export interface DigestResponse {
   success: boolean;
   timestamp: string;
   symbols_used: string[];
+
+  // Preferences that were used to generate this digest
+  preferences_used?: UserPreferencesUsed | null;
 
   // Header
   greeting: string;
@@ -342,13 +360,25 @@ export const api = {
     return response.json();
   },
 
-  generateDigest: async (symbols: string[]): Promise<DigestResponse> => {
+  generateDigest: async (
+    symbols: string[],
+    preferences?: UserPreferences,
+    userId?: string
+  ): Promise<DigestResponse> => {
+    const body: { symbols: string[]; preferences?: UserPreferences; user_id?: string } = { symbols };
+    if (preferences) {
+      body.preferences = preferences;
+    }
+    if (userId) {
+      body.user_id = userId;
+    }
+
     const response = await fetch(`${API_BASE_URL}/digest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ symbols }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to generate digest' }));

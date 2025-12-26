@@ -1,6 +1,40 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Optional, Any
+from typing import Dict, Literal, Optional, Any
 from datetime import datetime
+
+
+# =============================================================================
+# User Preferences for Personalized Digest
+# =============================================================================
+
+
+class UserPreferencesRequest(BaseModel):
+    """User investment preferences for personalized digest"""
+    # Investment style (single choice)
+    style: Literal["trader", "swing", "long_term"] = Field(
+        default="long_term",
+        description="Investment style: trader (short-term), swing (1-4 weeks), long_term (months+)"
+    )
+
+    # Content focus areas (multi-select, 1-3 items)
+    focus: list[Literal["earnings", "macro", "industry", "technical", "deals"]] = Field(
+        default=["earnings", "macro"],
+        description="Content focus areas to emphasize"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "style": "long_term",
+                "focus": ["earnings", "macro"]
+            }
+        }
+
+
+class UserPreferencesUsed(BaseModel):
+    """Preferences that were used to generate the digest"""
+    style: str = Field(..., description="Investment style used")
+    focus: list[str] = Field(default=[], description="Focus areas used")
 
 
 class AssetData(BaseModel):
@@ -94,10 +128,27 @@ class DigestRequest(BaseModel):
     """Request model for generating personalized digest"""
     symbols: list[str] = Field(default=[], description="User watchlist symbols to analyze")
 
+    # User ID for saving the digest (optional - if not provided, digest won't be saved)
+    user_id: Optional[str] = Field(
+        default=None,
+        description="User UUID for saving the digest to database"
+    )
+
+    # Personalization preferences (optional, uses defaults if not provided)
+    preferences: Optional[UserPreferencesRequest] = Field(
+        default=None,
+        description="User's investment preferences for personalized analysis"
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
-                "symbols": ["AAPL", "MSFT", "NVDA", "TSLA"]
+                "symbols": ["AAPL", "MSFT", "NVDA", "TSLA"],
+                "user_id": "12345678-1234-5678-90ab-cdef12345678",
+                "preferences": {
+                    "style": "long_term",
+                    "focus": ["earnings", "macro"]
+                }
             }
         }
 
@@ -143,6 +194,11 @@ class DigestResponse(BaseModel):
     success: bool = Field(default=True, description="Whether generation was successful")
     timestamp: str = Field(..., description="Generation timestamp")
     symbols_used: list[str] = Field(default=[], description="Symbols used for analysis")
+
+    # Preferences that were used to generate this digest
+    preferences_used: Optional[UserPreferencesUsed] = Field(
+        None, description="Investment preferences used for this digest"
+    )
 
     # Header
     greeting: str = Field(default="", description="Personalized greeting with date")

@@ -172,10 +172,21 @@ export async function getReportsList(limit = 10, offset = 0): Promise<{ data: Ma
 // User Watchlist Functions
 // =============================================================================
 
+// Investment style type
+export type InvestmentStyle = 'trader' | 'swing' | 'long_term';
+export type ContentFocus = 'earnings' | 'macro' | 'industry' | 'technical' | 'deals';
+
+export interface UserPreferences {
+  style: InvestmentStyle;
+  focus: ContentFocus[];
+}
+
 export interface UserWatchlist {
   id?: string;
   user_id: string;
   symbols: string[];
+  // User preferences for personalized analysis
+  preferences?: UserPreferences;
   created_at?: string;
   updated_at?: string;
 }
@@ -202,7 +213,8 @@ export async function getUserWatchlist(userId: string): Promise<UserWatchlist | 
 
 export async function saveUserWatchlist(
   userId: string,
-  symbols: string[]
+  symbols: string[],
+  preferences?: UserPreferences
 ): Promise<{ success: boolean; data?: UserWatchlist; error?: string }> {
   try {
     console.log('[Insforge] Saving watchlist for user:', userId);
@@ -219,11 +231,16 @@ export async function saveUserWatchlist(
       return { success: false, error: `Select failed: ${selectError.message}` };
     }
 
-    const watchlistData = {
+    const watchlistData: Record<string, unknown> = {
       user_id: userId,
       symbols: symbols,
       updated_at: nowIso(),
     };
+
+    // Add preferences if provided
+    if (preferences) {
+      watchlistData.preferences = preferences;
+    }
 
     let result;
     if (existing) {

@@ -24,8 +24,9 @@ from app.models.request_models import (
     BrewNews,
     BrewEvent,
     BrewMacroImpact,
+    UserPreferencesUsed,
 )
-from agents.personal_brewer import get_personal_brewer
+from agents.personal_brewer import get_personal_brewer, UserPreferences
 
 app = FastAPI(title="Market Analysis API")
 
@@ -639,14 +640,27 @@ async def generate_digest(request: DigestRequest):
 
     Uses PersonalBrewer agent (gemini-3-flash) to generate structured digest
     with 5 sections: stocks, news (8-10), events, macro impact, bottom line.
+
+    Personalization is based on:
+    - symbols: User's watchlist stocks
+    - preferences.style: Investment style (trader/swing/long_term)
+    - preferences.focus: Content focus areas (earnings/macro/industry/technical/deals)
     """
     try:
         if not request.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
+        # Convert request preferences to agent preferences
+        preferences = None
+        if request.preferences:
+            preferences = UserPreferences(
+                style=request.preferences.style,
+                focus=list(request.preferences.focus)
+            )
+
         # Use PersonalBrewer for personalized digest
         brewer = get_personal_brewer()
-        result = await brewer.brew(symbols=request.symbols)
+        result = await brewer.brew(symbols=request.symbols, preferences=preferences)
 
         if not result.get("success"):
             error_msg = result.get("error", "Failed to generate digest")
@@ -697,10 +711,42 @@ async def generate_digest(request: DigestRequest):
                 risk_factors=macro_data.get("risk_factors", ""),
             )
 
+        # Build preferences_used from result
+        prefs_data = result.get("preferences_used")
+        preferences_used = None
+        if prefs_data:
+            preferences_used = UserPreferencesUsed(
+                style=prefs_data.get("style", "long_term"),
+                focus=prefs_data.get("focus", ["earnings", "macro"])
+            )
+
+        # Save to database if user_id is provided
+        if request.user_id:
+            insforge = get_insforge_service()
+            save_data = {
+                "user_id": request.user_id,
+                "digest_date": today_str(),
+                "symbols": result.get("symbols_used", []),
+                "preferences": prefs_data,
+                "greeting": result.get("greeting", ""),
+                "one_line_summary": result.get("one_line_summary", ""),
+                "bottom_line": result.get("bottom_line", ""),
+                "stocks": result.get("stocks", []),
+                "news": result.get("news", []),
+                "events": result.get("events", []),
+                "macro_impact": result.get("macro_impact"),
+            }
+            save_result = await insforge.save_user_digest(save_data)
+            if save_result.get("success"):
+                print(f"[Digest] Saved digest for user {request.user_id}")
+            else:
+                print(f"[Digest] Failed to save: {save_result.get('error')}")
+
         return DigestResponse(
             success=True,
             timestamp=result.get("timestamp", now_iso()),
             symbols_used=result.get("symbols_used", []),
+            preferences_used=preferences_used,
             greeting=result.get("greeting", ""),
             one_line_summary=result.get("one_line_summary", ""),
             stocks=stocks,
