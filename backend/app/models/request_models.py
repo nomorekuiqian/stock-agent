@@ -1,40 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Literal, Optional, Any
+from typing import Dict, Optional, Any
 from datetime import datetime
-
-
-# =============================================================================
-# User Preferences for Personalized Digest
-# =============================================================================
-
-
-class UserPreferencesRequest(BaseModel):
-    """User investment preferences for personalized digest"""
-    # Investment style (single choice)
-    style: Literal["trader", "swing", "long_term"] = Field(
-        default="long_term",
-        description="Investment style: trader (short-term), swing (1-4 weeks), long_term (months+)"
-    )
-
-    # Content focus areas (multi-select, 1-3 items)
-    focus: list[Literal["earnings", "macro", "industry", "technical", "deals"]] = Field(
-        default=["earnings", "macro"],
-        description="Content focus areas to emphasize"
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "style": "long_term",
-                "focus": ["earnings", "macro"]
-            }
-        }
-
-
-class UserPreferencesUsed(BaseModel):
-    """Preferences that were used to generate the digest"""
-    style: str = Field(..., description="Investment style used")
-    focus: list[str] = Field(default=[], description="Focus areas used")
 
 
 class AssetData(BaseModel):
@@ -134,21 +100,11 @@ class DigestRequest(BaseModel):
         description="User UUID for saving the digest to database"
     )
 
-    # Personalization preferences (optional, uses defaults if not provided)
-    preferences: Optional[UserPreferencesRequest] = Field(
-        default=None,
-        description="User's investment preferences for personalized analysis"
-    )
-
     class Config:
         json_schema_extra = {
             "example": {
                 "symbols": ["AAPL", "MSFT", "NVDA", "TSLA"],
-                "user_id": "12345678-1234-5678-90ab-cdef12345678",
-                "preferences": {
-                    "style": "long_term",
-                    "focus": ["earnings", "macro"]
-                }
+                "user_id": "12345678-1234-5678-90ab-cdef12345678"
             }
         }
 
@@ -164,13 +120,28 @@ class StockAnalysis(BaseModel):
     quick_take: str = Field(..., description="1-2 sentence analysis in Chinese")
 
 
-class BrewNews(BaseModel):
-    """News item relevant to user's watchlist"""
+class BrewHeadlineNews(BaseModel):
+    """Important news with deep analysis"""
     title: str = Field(..., description="News title in Chinese")
     related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
-    summary: str = Field(..., description="1 sentence summary")
+    fact_summary: str = Field(..., description="One sentence factual summary")
+    deep_analysis: str = Field(..., description="5-6 sentence deep analysis")
+    url: str = Field(default="", description="Original article URL")
+
+
+class BrewBriefNews(BaseModel):
+    """Other notable news with brief analysis"""
+    title: str = Field(..., description="News title in Chinese")
+    related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
+    summary: str = Field(..., description="One sentence summary")
     analysis: str = Field(..., description="2-3 sentence analysis")
     url: str = Field(default="", description="Original article URL")
+
+
+class BrewNewsSection(BaseModel):
+    """News section with headlines and briefs"""
+    headlines: list[BrewHeadlineNews] = Field(default=[], description="3-4 important news with deep analysis")
+    briefs: list[BrewBriefNews] = Field(default=[], description="8-10 other news with brief analysis")
 
 
 class BrewEvent(BaseModel):
@@ -181,12 +152,9 @@ class BrewEvent(BaseModel):
     why_important: str = Field(..., description="Why this matters for user's holdings")
 
 
-class BrewMacroImpact(BaseModel):
-    """How macro environment impacts user's portfolio"""
-    overall_environment: str = Field(..., description="Current macro environment summary")
-    impact_on_portfolio: str = Field(..., description="How conditions affect user's holdings")
-    risk_level: str = Field(..., description="Risk assessment level in Chinese")
-    risk_factors: str = Field(..., description="Key risk factors to watch")
+class BrewSummary(BaseModel):
+    """Comprehensive summary in 3 paragraphs"""
+    content: str = Field(default="", description="Three paragraphs: portfolio recap, movement drivers, outlook")
 
 
 class DigestResponse(BaseModel):
@@ -195,11 +163,6 @@ class DigestResponse(BaseModel):
     timestamp: str = Field(..., description="Generation timestamp")
     symbols_used: list[str] = Field(default=[], description="Symbols used for analysis")
 
-    # Preferences that were used to generate this digest
-    preferences_used: Optional[UserPreferencesUsed] = Field(
-        None, description="Investment preferences used for this digest"
-    )
-
     # Header
     greeting: str = Field(default="", description="Personalized greeting with date")
     one_line_summary: str = Field(default="", description="One sentence portfolio summary")
@@ -207,17 +170,14 @@ class DigestResponse(BaseModel):
     # Section 1: Portfolio Overview
     stocks: list[StockAnalysis] = Field(default=[], description="Summary for each stock")
 
-    # Section 2: Relevant News (8-10 items)
-    news: list[BrewNews] = Field(default=[], description="Most relevant news items")
+    # Section 2: News (Headlines + Briefs)
+    news: BrewNewsSection = Field(default_factory=BrewNewsSection, description="News with headlines and briefs")
 
     # Section 3: Upcoming Events
     events: list[BrewEvent] = Field(default=[], description="Upcoming events within 7 days")
 
-    # Section 4: Macro Impact
-    macro_impact: Optional[BrewMacroImpact] = Field(None, description="Macro environment impact")
-
-    # Section 5: Bottom Line
-    bottom_line: str = Field(default="", description="Paragraph summary with focus areas")
+    # Section 4: Summary (replaces macro_impact + bottom_line)
+    summary: BrewSummary = Field(default_factory=BrewSummary, description="Comprehensive summary")
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if generation failed")

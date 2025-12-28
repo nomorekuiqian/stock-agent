@@ -83,7 +83,13 @@
       "Bash(playwright install chromium)",
       "Bash(unzip:*)",
       "Bash(open:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "WebFetch(domain:help.figma.com)",
+      "WebFetch(domain:html.to.design)",
+      "WebFetch(domain:www.builder.io)",
+      "WebFetch(domain:developers.figma.com)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp list:*)"
     ],
     "deny": [],
     "ask": []

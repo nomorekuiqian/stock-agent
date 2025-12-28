@@ -472,7 +472,7 @@ class InsforgeService:
 
     async def save_user_digest(self, digest_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Save a personal digest to the database.
+        Save a personal digest to the database (always creates new record).
 
         Args:
             digest_data: Dictionary containing digest data including user_id
@@ -483,23 +483,26 @@ class InsforgeService:
         try:
             digest_url = f"{self.base_url}/functions/user-digests"
 
+            # Get summary content for legacy fields
+            summary_data = digest_data.get("summary", {})
+            summary_content = summary_data.get("content", "") if isinstance(summary_data, dict) else ""
+
             db_digest = {
                 "user_id": digest_data.get("user_id"),
                 "digest_date": digest_data.get("digest_date", today_str()),
                 "symbols": digest_data.get("symbols", []),
-                "preferences": digest_data.get("preferences"),
                 # Header fields
                 "greeting": digest_data.get("greeting", ""),
                 "one_line_summary": digest_data.get("one_line_summary", ""),
-                "bottom_line": digest_data.get("bottom_line", ""),
+                "bottom_line": summary_content,
                 # Legacy field
-                "analysis": digest_data.get("bottom_line", ""),
+                "analysis": summary_content,
                 # Full structured data
                 "brew_data": {
                     "stocks": digest_data.get("stocks", []),
-                    "news": digest_data.get("news", []),
+                    "news": digest_data.get("news", {}),
                     "events": digest_data.get("events", []),
-                    "macro_impact": digest_data.get("macro_impact"),
+                    "summary": digest_data.get("summary", {}),
                 },
             }
 
@@ -507,7 +510,7 @@ class InsforgeService:
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{digest_url}?action=upsert",
+                    f"{digest_url}?action=insert",
                     headers=self.headers,
                     json=db_digest,
                     timeout=30.0,

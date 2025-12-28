@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 重要规则
 
 - **禁止自动 Git 操作**: 不要自动执行 `git commit` 或 `git push`，所有 Git 提交和推送操作需要用户手动确认后再执行
+- **前端测试使用 Chrome DevTools MCP**: 进行浏览器交互测试和调试时，优先使用 Chrome DevTools MCP 工具
 
 ## 项目概述
 
@@ -19,6 +20,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 邮件: Resend API (每日报告推送)
 - 数据库: Insforge (PostgreSQL 托管服务)
 - 品牌: MarketBrew (翠绿色主题 #059669)
+
+## 测试账号
+
+用于自动化测试和调试：
+- **邮箱**: `test@marketbrew.test`
+- **密码**: `TestPass123!`
+- **用户ID**: `b530a7a8-25f5-45ee-95f1-79acddb048e5`
 
 ## 开发命令
 

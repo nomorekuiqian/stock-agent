@@ -106,20 +106,6 @@ export interface SendEmailResponse {
 
 // PersonalBrewer Digest Types
 
-// User Preferences for personalized analysis
-export type InvestmentStyle = 'trader' | 'swing' | 'long_term';
-export type ContentFocus = 'earnings' | 'macro' | 'industry' | 'technical' | 'deals';
-
-export interface UserPreferences {
-  style: InvestmentStyle;
-  focus: ContentFocus[];
-}
-
-export interface UserPreferencesUsed {
-  style: string;
-  focus: string[];
-}
-
 export interface StockAnalysis {
   symbol: string;
   name: string;
@@ -130,12 +116,25 @@ export interface StockAnalysis {
   quick_take: string;
 }
 
-export interface BrewNews {
+export interface BrewHeadlineNews {
+  title: string;
+  related_symbols: string[];
+  fact_summary: string;
+  deep_analysis: string;
+  url: string;
+}
+
+export interface BrewBriefNews {
   title: string;
   related_symbols: string[];
   summary: string;
   analysis: string;
   url: string;
+}
+
+export interface BrewNewsSection {
+  headlines: BrewHeadlineNews[];
+  briefs: BrewBriefNews[];
 }
 
 export interface BrewEvent {
@@ -145,20 +144,14 @@ export interface BrewEvent {
   why_important: string;
 }
 
-export interface BrewMacroImpact {
-  overall_environment: string;
-  impact_on_portfolio: string;
-  risk_level: string;
-  risk_factors: string;
+export interface BrewSummary {
+  content: string;
 }
 
 export interface DigestResponse {
   success: boolean;
   timestamp: string;
   symbols_used: string[];
-
-  // Preferences that were used to generate this digest
-  preferences_used?: UserPreferencesUsed | null;
 
   // Header
   greeting: string;
@@ -167,17 +160,14 @@ export interface DigestResponse {
   // Section 1: Portfolio Overview
   stocks: StockAnalysis[];
 
-  // Section 2: Relevant News (8-10 items)
-  news: BrewNews[];
+  // Section 2: News (Headline + Brief structure)
+  news: BrewNewsSection;
 
   // Section 3: Upcoming Events
   events: BrewEvent[];
 
-  // Section 4: Macro Impact
-  macro_impact: BrewMacroImpact | null;
-
-  // Section 5: Bottom Line
-  bottom_line: string;
+  // Section 4: Summary (replaces macro_impact + bottom_line)
+  summary: BrewSummary;
 
   // Error handling
   error?: string;
@@ -320,6 +310,31 @@ export interface RedNoteListItem {
   generated_at: string;
 }
 
+// Stock Search Types
+export interface StockSearchResult {
+  symbol: string;
+  name: string;
+  type: string;
+  exchange: string;
+}
+
+export interface StockSearchResponse {
+  stocks: StockSearchResult[];
+}
+
+// Stock Quote Types
+export interface StockQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  daily_change: number;
+}
+
+export interface StockQuotesResponse {
+  success: boolean;
+  quotes: StockQuote[];
+}
+
 export interface RedNoteResponse {
   success: boolean;
   post_id?: string;
@@ -362,13 +377,9 @@ export const api = {
 
   generateDigest: async (
     symbols: string[],
-    preferences?: UserPreferences,
     userId?: string
   ): Promise<DigestResponse> => {
-    const body: { symbols: string[]; preferences?: UserPreferences; user_id?: string } = { symbols };
-    if (preferences) {
-      body.preferences = preferences;
-    }
+    const body: { symbols: string[]; user_id?: string } = { symbols };
     if (userId) {
       body.user_id = userId;
     }
@@ -530,5 +541,32 @@ export const api = {
       };
     }
     return data;
+  },
+
+  // Stock Search API
+  searchStocks: async (query: string, limit: number = 8): Promise<StockSearchResponse> => {
+    const response = await fetch(
+      `${API_BASE_URL}/stocks/search?q=${encodeURIComponent(query)}&limit=${limit}`
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to search stocks' }));
+      throw new Error(error.detail || 'Failed to search stocks');
+    }
+    return response.json();
+  },
+
+  // Stock Quotes API
+  getStockQuotes: async (symbols: string[]): Promise<StockQuotesResponse> => {
+    if (symbols.length === 0) {
+      return { success: true, quotes: [] };
+    }
+    const response = await fetch(
+      `${API_BASE_URL}/stocks/quotes?symbols=${symbols.join(',')}`
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get stock quotes' }));
+      throw new Error(error.detail || 'Failed to get stock quotes');
+    }
+    return response.json();
   },
 };

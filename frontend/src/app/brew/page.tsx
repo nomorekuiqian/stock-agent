@@ -1,45 +1,114 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Coffee } from 'lucide-react';
+import { Coffee, Search, X, Plus, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, DigestResponse, StockAnalysis, BrewNews, BrewEvent, UserPreferences, InvestmentStyle, ContentFocus } from '@/lib/api';
+import { api, DigestResponse, StockAnalysis, BrewHeadlineNews, BrewBriefNews, BrewEvent, StockSearchResult, StockQuote } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort } from '@/lib/timezone';
 
-// Investment style options
-const STYLE_OPTIONS: { value: InvestmentStyle; label: string; description: string }[] = [
-  { value: 'trader', label: 'Short-term', description: 'Daily/weekly' },
-  { value: 'swing', label: 'Swing', description: '1-4 weeks' },
-  { value: 'long_term', label: 'Long-term', description: 'Fundamentals' },
-];
-
-// Content focus options
-const FOCUS_OPTIONS: { value: ContentFocus; label: string }[] = [
-  { value: 'earnings', label: 'Earnings' },
-  { value: 'macro', label: 'Macro' },
-  { value: 'industry', label: 'Industry' },
-  { value: 'technical', label: 'Technical' },
-  { value: 'deals', label: 'M&A' },
-];
-
-// Default preferences
-const DEFAULT_PREFERENCES: UserPreferences = {
-  style: 'long_term',
-  focus: ['earnings', 'macro'],
+// Stock name mapping (English + Chinese)
+const STOCK_NAMES: Record<string, { en: string; zh: string }> = {
+  'AAPL': { en: 'Apple Inc.', zh: '苹果' },
+  'MSFT': { en: 'Microsoft Corp.', zh: '微软' },
+  'NVDA': { en: 'NVIDIA Corp.', zh: '英伟达' },
+  'GOOGL': { en: 'Alphabet Inc.', zh: '谷歌' },
+  'GOOG': { en: 'Alphabet Inc.', zh: '谷歌' },
+  'AMZN': { en: 'Amazon.com Inc.', zh: '亚马逊' },
+  'META': { en: 'Meta Platforms', zh: 'Meta' },
+  'TSLA': { en: 'Tesla Inc.', zh: '特斯拉' },
+  'AMD': { en: 'AMD Inc.', zh: 'AMD' },
+  'INTC': { en: 'Intel Corp.', zh: '英特尔' },
+  'AVGO': { en: 'Broadcom Inc.', zh: '博通' },
+  'TSM': { en: 'TSMC', zh: '台积电' },
+  'BABA': { en: 'Alibaba Group', zh: '阿里巴巴' },
+  'JD': { en: 'JD.com Inc.', zh: '京东' },
+  'PDD': { en: 'PDD Holdings', zh: '拼多多' },
+  'BIDU': { en: 'Baidu Inc.', zh: '百度' },
+  'NIO': { en: 'NIO Inc.', zh: '蔚来' },
+  'LI': { en: 'Li Auto Inc.', zh: '理想' },
+  'XPEV': { en: 'XPeng Inc.', zh: '小鹏' },
+  'JPM': { en: 'JPMorgan Chase', zh: '摩根大通' },
+  'BAC': { en: 'Bank of America', zh: '美国银行' },
+  'GS': { en: 'Goldman Sachs', zh: '高盛' },
+  'MS': { en: 'Morgan Stanley', zh: '摩根士丹利' },
+  'WFC': { en: 'Wells Fargo', zh: '富国银行' },
+  'V': { en: 'Visa Inc.', zh: 'Visa' },
+  'MA': { en: 'Mastercard', zh: '万事达' },
+  'BRK.B': { en: 'Berkshire Hathaway', zh: '伯克希尔' },
+  'UNH': { en: 'UnitedHealth', zh: '联合健康' },
+  'JNJ': { en: 'Johnson & Johnson', zh: '强生' },
+  'XOM': { en: 'Exxon Mobil', zh: '埃克森美孚' },
+  'CVX': { en: 'Chevron Corp.', zh: '雪佛龙' },
+  'COST': { en: 'Costco', zh: '好市多' },
+  'WMT': { en: 'Walmart', zh: '沃尔玛' },
+  'HD': { en: 'Home Depot', zh: '家得宝' },
+  'MCD': { en: 'McDonald\'s', zh: '麦当劳' },
+  'SBUX': { en: 'Starbucks', zh: '星巴克' },
+  'DIS': { en: 'Walt Disney', zh: '迪士尼' },
+  'NFLX': { en: 'Netflix', zh: '奈飞' },
+  'CRM': { en: 'Salesforce', zh: 'Salesforce' },
+  'ORCL': { en: 'Oracle Corp.', zh: '甲骨文' },
+  'ADBE': { en: 'Adobe Inc.', zh: 'Adobe' },
+  'NOW': { en: 'ServiceNow', zh: 'ServiceNow' },
+  'COIN': { en: 'Coinbase', zh: 'Coinbase' },
+  'PLTR': { en: 'Palantir', zh: 'Palantir' },
+  'SNOW': { en: 'Snowflake', zh: 'Snowflake' },
+  'ARM': { en: 'Arm Holdings', zh: 'Arm' },
+  'UBER': { en: 'Uber Technologies', zh: 'Uber' },
+  'ABNB': { en: 'Airbnb', zh: 'Airbnb' },
 };
 
-// Popular symbols
-const POPULAR_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'GOOGL', 'META', 'AMZN', 'AMD'];
+// Preset portfolios
+const PRESET_PORTFOLIOS = [
+  {
+    id: 'mag7',
+    name: 'Magnificent 7',
+    nameZh: '科技七巨头',
+    symbols: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'],
+  },
+  {
+    id: 'chips',
+    name: 'Semiconductors',
+    nameZh: '芯片股',
+    symbols: ['NVDA', 'AMD', 'INTC', 'AVGO', 'TSM', 'ARM'],
+  },
+  {
+    id: 'china',
+    name: 'China ADRs',
+    nameZh: '中概股',
+    symbols: ['BABA', 'JD', 'PDD', 'BIDU', 'NIO', 'LI'],
+  },
+  {
+    id: 'finance',
+    name: 'Financials',
+    nameZh: '金融股',
+    symbols: ['JPM', 'BAC', 'GS', 'MS', 'WFC'],
+  },
+];
+
+// Get stock display name
+const getStockName = (symbol: string): string => {
+  const info = STOCK_NAMES[symbol];
+  if (info) {
+    return `${info.en} (${info.zh})`;
+  }
+  return symbol;
+};
+
+// Get short stock name (just Chinese if available)
+const getStockNameShort = (symbol: string): string => {
+  const info = STOCK_NAMES[symbol];
+  return info ? info.zh : '';
+};
 
 export default function BrewPage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   const [symbols, setSymbols] = useState<string[]>([]);
-  const [newSymbol, setNewSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
   const [digest, setDigest] = useState<DigestResponse | null>(null);
@@ -47,9 +116,101 @@ export default function BrewPage() {
   const [history, setHistory] = useState<UserDigest[]>([]);
   const [totalHistory, setTotalHistory] = useState(0);
 
-  // UI state
-  const [showSettings, setShowSettings] = useState(true);
-  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  // Stock quotes state
+  const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
+  const [loadingQuotes, setLoadingQuotes] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced search
+  const handleSearch = useCallback(async (query: string) => {
+    if (query.length < 1) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const result = await api.searchStocks(query, 8);
+      // Filter out already added symbols
+      const filtered = result.stocks.filter(s => !symbols.includes(s.symbol));
+      setSearchResults(filtered);
+      setShowSearchDropdown(true);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [symbols]);
+
+  // Handle search input change with debounce
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value.toUpperCase());
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearch(value);
+    }, 300);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Fetch stock quotes when symbols change
+  useEffect(() => {
+    const fetchQuotes = async () => {
+      if (symbols.length === 0) {
+        setQuotes({});
+        return;
+      }
+
+      setLoadingQuotes(true);
+      try {
+        const result = await api.getStockQuotes(symbols);
+        const quotesMap: Record<string, StockQuote> = {};
+        result.quotes.forEach((q) => {
+          quotesMap[q.symbol] = q;
+        });
+        setQuotes(quotesMap);
+      } catch (err) {
+        console.error('Failed to fetch quotes:', err);
+      } finally {
+        setLoadingQuotes(false);
+      }
+    };
+
+    fetchQuotes();
+  }, [symbols]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -58,20 +219,17 @@ export default function BrewPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Load user's watchlist, preferences and history
+  // Load user's watchlist and history
   useEffect(() => {
     const loadUserData = async () => {
       if (!user?.id) return;
 
       setLoadingWatchlist(true);
       try {
-        // Load watchlist and preferences
+        // Load watchlist
         const watchlist = await getUserWatchlist(user.id);
         if (watchlist?.symbols) {
           setSymbols(watchlist.symbols);
-        }
-        if (watchlist?.preferences) {
-          setPreferences(watchlist.preferences as UserPreferences);
         }
 
         // Load history
@@ -97,15 +255,31 @@ export default function BrewPage() {
     }
   }, [user?.id]);
 
-  const handleAddSymbol = () => {
-    const symbol = newSymbol.trim().toUpperCase();
-    if (symbol && !symbols.includes(symbol)) {
-      const newSymbols = [...symbols, symbol];
+  // Add symbol from search result
+  const handleAddSymbol = (symbol: string, name?: string) => {
+    const sym = symbol.trim().toUpperCase();
+    if (sym && !symbols.includes(sym)) {
+      const newSymbols = [...symbols, sym];
       setSymbols(newSymbols);
-      setNewSymbol('');
-      if (user?.id) {
-        saveUserWatchlist(user.id, newSymbols, preferences);
+      // Update STOCK_NAMES if we got a name from search
+      if (name && !STOCK_NAMES[sym]) {
+        STOCK_NAMES[sym] = { en: name, zh: '' };
       }
+      if (user?.id) {
+        saveUserWatchlist(user.id, newSymbols);
+      }
+    }
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchDropdown(false);
+  };
+
+  // Add preset portfolio
+  const handleAddPortfolio = (portfolio: typeof PRESET_PORTFOLIOS[0]) => {
+    const newSymbols = [...new Set([...symbols, ...portfolio.symbols])];
+    setSymbols(newSymbols);
+    if (user?.id) {
+      saveUserWatchlist(user.id, newSymbols);
     }
   };
 
@@ -113,34 +287,7 @@ export default function BrewPage() {
     const newSymbols = symbols.filter((s) => s !== symbolToRemove);
     setSymbols(newSymbols);
     if (user?.id) {
-      saveUserWatchlist(user.id, newSymbols, preferences);
-    }
-  };
-
-  const handleStyleChange = (style: InvestmentStyle) => {
-    const newPrefs = { ...preferences, style };
-    setPreferences(newPrefs);
-    if (user?.id) {
-      saveUserWatchlist(user.id, symbols, newPrefs);
-    }
-  };
-
-  const handleFocusToggle = (focus: ContentFocus) => {
-    let newFocus: ContentFocus[];
-    if (preferences.focus.includes(focus)) {
-      newFocus = preferences.focus.filter(f => f !== focus);
-      if (newFocus.length === 0) return;
-    } else {
-      if (preferences.focus.length >= 3) {
-        newFocus = [...preferences.focus.slice(1), focus];
-      } else {
-        newFocus = [...preferences.focus, focus];
-      }
-    }
-    const newPrefs = { ...preferences, focus: newFocus };
-    setPreferences(newPrefs);
-    if (user?.id) {
-      saveUserWatchlist(user.id, symbols, newPrefs);
+      saveUserWatchlist(user.id, newSymbols);
     }
   };
 
@@ -148,7 +295,7 @@ export default function BrewPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.generateDigest(symbols, preferences, user?.id);
+      const result = await api.generateDigest(symbols, user?.id);
       setDigest(result);
 
       // Refresh history
@@ -175,10 +322,11 @@ export default function BrewPage() {
       greeting: historyItem.greeting || '',
       one_line_summary: historyItem.one_line_summary || '',
       stocks: brewData.stocks || [],
-      news: brewData.news || [],
+      news: brewData.news || { headlines: [], briefs: [] },
       events: brewData.events || [],
-      macro_impact: brewData.macro_impact || null,
-      bottom_line: historyItem.bottom_line || historyItem.analysis || '',
+      summary: brewData.summary || {
+        content: historyItem.bottom_line || historyItem.analysis || '',
+      },
     };
     setDigest(digestFromHistory);
   };
@@ -192,18 +340,18 @@ export default function BrewPage() {
     return 'text-muted-foreground bg-secondary';
   };
 
-  const getRiskColor = (riskLevel: string) => {
-    const level = riskLevel.toLowerCase();
-    if (level.includes('low')) return 'text-emerald-500';
-    if (level.includes('medium') || level.includes('moderate')) return 'text-amber-500';
-    if (level.includes('high')) return 'text-red-500';
-    return 'text-muted-foreground';
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
       e.preventDefault();
-      handleAddSymbol();
+      // If there's a search result, add the first one
+      if (searchResults.length > 0) {
+        handleAddSymbol(searchResults[0].symbol, searchResults[0].name);
+      } else {
+        // Otherwise just add the query as a symbol
+        handleAddSymbol(searchQuery);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSearchDropdown(false);
     }
   };
 
@@ -254,59 +402,44 @@ export default function BrewPage() {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
-                  showSettings
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-secondary text-foreground hover:bg-secondary/80'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Settings
-              </button>
-              <button
-                onClick={handleGenerateDigest}
-                disabled={loading || symbols.length === 0}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Brewing...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Generate
-                  </>
-                )}
-              </button>
-            </div>
+            {/* Action Button */}
+            <button
+              onClick={handleGenerateDigest}
+              disabled={loading || symbols.length === 0}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Brewing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Generate
+                </>
+              )}
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Settings Panel (Collapsible) */}
-      {showSettings && (
-        <section className="border-b border-border bg-card/50">
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Watchlist */}
+      {/* Watchlist Panel */}
+      <section className="border-b border-border bg-card/50">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
+          {/* Watchlist */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-4 bg-emerald-500 rounded-full" />
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Watchlist</h3>
+                  {symbols.length > 0 && (
+                    <span className="text-xs text-muted-foreground">({symbols.length})</span>
+                  )}
                 </div>
 
                 {loadingWatchlist ? (
@@ -315,122 +448,135 @@ export default function BrewPage() {
                     <span className="text-sm">Loading...</span>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {/* Current symbols */}
-                    <div className="flex flex-wrap gap-2">
-                      {symbols.map((symbol) => (
-                        <div
-                          key={symbol}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg text-sm font-medium"
-                        >
-                          {symbol}
-                          <button
-                            onClick={() => handleRemoveSymbol(symbol)}
-                            className="hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                  <div className="space-y-4">
+                    {/* Search input with autocomplete */}
+                    <div ref={searchContainerRef} className="relative">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => handleSearchInputChange(e.target.value)}
+                          onKeyDown={handleSearchKeyDown}
+                          onFocus={() => searchQuery && setShowSearchDropdown(true)}
+                          placeholder="Search stocks (e.g. AAPL, Apple)"
+                          className="w-full pl-9 pr-3 py-2 border border-border bg-background rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                        {isSearching && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Search dropdown */}
+                      {showSearchDropdown && searchResults.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                          {searchResults.map((result) => (
+                            <button
+                              key={result.symbol}
+                              onClick={() => handleAddSymbol(result.symbol, result.name)}
+                              className="w-full px-3 py-2 text-left hover:bg-secondary transition-colors flex items-center justify-between gap-2 first:rounded-t-lg last:rounded-b-lg"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-medium text-foreground shrink-0">{result.symbol}</span>
+                                <span className="text-sm text-muted-foreground truncate">{result.name}</span>
+                              </div>
+                              <Plus className="w-4 h-4 text-emerald-500 shrink-0" />
+                            </button>
+                          ))}
                         </div>
-                      ))}
-                      {symbols.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Add stocks to track</p>
                       )}
                     </div>
 
-                    {/* Add input */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newSymbol}
-                        onChange={(e) => setNewSymbol(e.target.value.toUpperCase())}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Enter symbol (e.g., AAPL)"
-                        className="flex-1 px-3 py-2 border border-border bg-background rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
-                      <button
-                        onClick={handleAddSymbol}
-                        disabled={!newSymbol.trim()}
-                        className="px-4 py-2 bg-secondary text-foreground rounded-lg font-medium text-sm transition-all hover:bg-secondary/80 disabled:opacity-50"
-                      >
-                        Add
-                      </button>
+                    {/* Preset portfolios */}
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Quick Add</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRESET_PORTFOLIOS.map((portfolio) => {
+                          const addedCount = portfolio.symbols.filter(s => symbols.includes(s)).length;
+                          const allAdded = addedCount === portfolio.symbols.length;
+                          return (
+                            <button
+                              key={portfolio.id}
+                              onClick={() => handleAddPortfolio(portfolio)}
+                              disabled={allAdded}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                                allAdded
+                                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 cursor-default'
+                                  : 'bg-secondary text-foreground hover:bg-secondary/80'
+                              }`}
+                            >
+                              <span>{portfolio.nameZh}</span>
+                              <span className="text-muted-foreground">({portfolio.symbols.length})</span>
+                              {allAdded && <span className="text-emerald-500">done</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {/* Quick add */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {POPULAR_SYMBOLS.filter(s => !symbols.includes(s)).slice(0, 6).map((symbol) => (
-                        <button
-                          key={symbol}
-                          onClick={() => {
-                            const newSymbols = [...symbols, symbol];
-                            setSymbols(newSymbols);
-                            if (user?.id) {
-                              saveUserWatchlist(user.id, newSymbols, preferences);
-                            }
-                          }}
-                          className="px-2 py-1 text-xs text-muted-foreground border border-border rounded hover:bg-secondary transition-colors"
-                        >
-                          +{symbol}
-                        </button>
-                      ))}
-                    </div>
+                    {/* Current symbols - card style */}
+                    {symbols.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {symbols.map((symbol) => {
+                          const stockInfo = STOCK_NAMES[symbol];
+                          const quote = quotes[symbol];
+                          // Use Chinese name if available, otherwise English from mapping or API
+                          const displayName = stockInfo?.zh || stockInfo?.en || quote?.name || '';
+                          const price = quote?.price;
+                          const dailyChange = quote?.daily_change;
+                          const isPositive = dailyChange !== undefined && dailyChange >= 0;
+
+                          return (
+                            <div
+                              key={symbol}
+                              className="group relative bg-secondary/50 hover:bg-secondary rounded-lg p-2.5 transition-colors"
+                            >
+                              <button
+                                onClick={() => handleRemoveSymbol(symbol)}
+                                className="absolute top-1.5 right-1.5 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                              <div className="flex items-center justify-between pr-6">
+                                <div className="font-semibold text-foreground text-sm">{symbol}</div>
+                                {price !== undefined && (
+                                  <div className="text-xs font-medium text-foreground">
+                                    ${price.toFixed(2)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between pr-6 mt-0.5">
+                                {displayName ? (
+                                  <div className="text-xs text-muted-foreground truncate">{displayName}</div>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground/50">-</div>
+                                )}
+                                {dailyChange !== undefined && (
+                                  <div className={`text-xs font-medium ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+                                    {isPositive ? '+' : ''}{dailyChange.toFixed(2)}%
+                                  </div>
+                                )}
+                              </div>
+                              {loadingQuotes && !quote && (
+                                <div className="absolute inset-0 bg-secondary/80 rounded-lg flex items-center justify-center">
+                                  <div className="w-3 h-3 rounded-full border border-border border-t-emerald-500 animate-spin" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">Search or use quick add to build your watchlist</p>
+                    )}
                   </div>
                 )}
               </div>
-
-              {/* Preferences */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Preferences</h3>
-                </div>
-
-                {/* Investment Style */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Investment Style</p>
-                  <div className="flex flex-wrap gap-2">
-                    {STYLE_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleStyleChange(option.value)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          preferences.style === option.value
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-secondary text-foreground hover:bg-secondary/80'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Focus Areas */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Focus Areas (1-3)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {FOCUS_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleFocusToggle(option.value)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          preferences.focus.includes(option.value)
-                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                            : 'bg-secondary text-muted-foreground hover:bg-secondary/80 border border-transparent'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* Error */}
       {error && (
@@ -508,15 +654,15 @@ export default function BrewPage() {
             </section>
           )}
 
-          {/* Related News */}
-          {digest.news.length > 0 && (
+          {/* Headlines News */}
+          {digest.news?.headlines?.length > 0 && (
             <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Related News</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Headlines</h3>
               </div>
               <div className="divide-y divide-border">
-                {digest.news.map((item: BrewNews, index: number) => (
+                {digest.news.headlines.map((item: BrewHeadlineNews, index: number) => (
                   <div key={index} className="py-4 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <a
@@ -527,7 +673,7 @@ export default function BrewPage() {
                       >
                         {item.title}
                       </a>
-                      {item.related_symbols.length > 0 && (
+                      {item.related_symbols?.length > 0 && (
                         <div className="flex gap-1 shrink-0">
                           {item.related_symbols.map((sym: string) => (
                             <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded text-xs">
@@ -537,8 +683,45 @@ export default function BrewPage() {
                         </div>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-1">{item.summary}</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{item.analysis}</p>
+                    <p className="text-sm text-foreground mb-2">{item.fact_summary}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.deep_analysis}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Brief News */}
+          {digest.news?.briefs?.length > 0 && (
+            <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">More News</h3>
+              </div>
+              <div className="divide-y divide-border">
+                {digest.news.briefs.map((item: BrewBriefNews, index: number) => (
+                  <div key={index} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-foreground hover:text-emerald-500 transition-colors text-sm"
+                      >
+                        {item.title}
+                      </a>
+                      {item.related_symbols?.length > 0 && (
+                        <div className="flex gap-1 shrink-0">
+                          {item.related_symbols.map((sym: string) => (
+                            <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded text-xs">
+                              {sym}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{item.summary}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed mt-1">{item.analysis}</p>
                   </div>
                 ))}
               </div>
@@ -594,43 +777,22 @@ export default function BrewPage() {
             </section>
           )}
 
-          {/* Macro Impact */}
-          {digest.macro_impact && (
+          {/* Summary */}
+          {digest.summary?.content && (
             <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Macro Impact</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Summary</h3>
               </div>
-              <div className="divide-y divide-border">
-                <div className="pb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-sm font-semibold text-foreground">Market Environment</span>
-                    <span className={`text-sm font-medium ${getRiskColor(digest.macro_impact.risk_level)}`}>
-                      Risk: {digest.macro_impact.risk_level}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{digest.macro_impact.overall_environment}</p>
-                </div>
-                <div className="py-4">
-                  <span className="text-sm font-semibold text-foreground">Portfolio Impact</span>
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">{digest.macro_impact.impact_on_portfolio}</p>
-                </div>
-                <div className="pt-4">
-                  <span className="text-sm font-semibold text-foreground">Risk Factors</span>
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">{digest.macro_impact.risk_factors}</p>
-                </div>
+              <div className="space-y-4">
+                {digest.summary.content.split('\n\n').map((paragraph, index) => (
+                  paragraph.trim() && (
+                    <p key={index} className="text-sm text-muted-foreground leading-relaxed">
+                      {paragraph.trim()}
+                    </p>
+                  )
+                ))}
               </div>
-            </section>
-          )}
-
-          {/* Key Takeaway */}
-          {digest.bottom_line && (
-            <section className="bg-emerald-500/10 rounded-xl p-5 border border-emerald-500/20 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Key Takeaway</h3>
-              </div>
-              <p className="text-sm text-foreground leading-relaxed">{digest.bottom_line}</p>
             </section>
           )}
 
@@ -654,21 +816,10 @@ export default function BrewPage() {
               <h3 className="text-lg font-semibold text-foreground mb-2">Create Your Personalized Brew</h3>
               <p className="text-muted-foreground max-w-sm mx-auto">
                 {symbols.length === 0
-                  ? 'Click Settings to add stocks to your watchlist, then generate your personalized digest.'
+                  ? 'Add stocks to your watchlist above, then generate your personalized digest.'
                   : 'Click Generate to create a personalized market analysis for your watchlist.'}
               </p>
             </div>
-            {symbols.length === 0 && (
-              <button
-                onClick={() => setShowSettings(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium transition-all hover:bg-emerald-500"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Stocks
-              </button>
-            )}
           </div>
         </div>
       )}

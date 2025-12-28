@@ -71,6 +71,12 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     }
 
     if (data?.user) {
+      // Set auth token for database operations (RLS)
+      if (data.accessToken) {
+        console.log('[Auth] Setting auth token for database operations');
+        insforge.getHttpClient().setAuthToken(data.accessToken);
+      }
+
       return {
         success: true,
         user: {
@@ -161,6 +167,12 @@ export async function getCurrentUser(): Promise<User | null> {
     const { data: sessionData } = insforge.auth.getCurrentSession();
     if (!sessionData?.session) {
       return null;
+    }
+
+    // Set auth token for database operations (RLS) - important for page refresh
+    if (sessionData.session.accessToken) {
+      console.log('[Auth] Restoring auth token for database operations');
+      insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
     }
 
     // Then get full user info from API

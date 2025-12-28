@@ -5,9 +5,9 @@ import {
   NewsSection,
   CalendarEvent,
   StockAnalysis,
-  BrewNews,
+  BrewNewsSection,
   BrewEvent,
-  BrewMacroImpact,
+  BrewSummary,
   DigestResponse,
 } from './api';
 
@@ -172,21 +172,10 @@ export async function getReportsList(limit = 10, offset = 0): Promise<{ data: Ma
 // User Watchlist Functions
 // =============================================================================
 
-// Investment style type
-export type InvestmentStyle = 'trader' | 'swing' | 'long_term';
-export type ContentFocus = 'earnings' | 'macro' | 'industry' | 'technical' | 'deals';
-
-export interface UserPreferences {
-  style: InvestmentStyle;
-  focus: ContentFocus[];
-}
-
 export interface UserWatchlist {
   id?: string;
   user_id: string;
   symbols: string[];
-  // User preferences for personalized analysis
-  preferences?: UserPreferences;
   created_at?: string;
   updated_at?: string;
 }
@@ -213,11 +202,28 @@ export async function getUserWatchlist(userId: string): Promise<UserWatchlist | 
 
 export async function saveUserWatchlist(
   userId: string,
-  symbols: string[],
-  preferences?: UserPreferences
+  symbols: string[]
 ): Promise<{ success: boolean; data?: UserWatchlist; error?: string }> {
   try {
     console.log('[Insforge] Saving watchlist for user:', userId);
+
+    // Debug: Check current session
+    const { data: sessionData } = insforge.auth.getCurrentSession();
+    console.log('[Insforge] Current session:', sessionData?.session ? 'Active' : 'None');
+    console.log('[Insforge] Session user ID:', sessionData?.session?.user?.id);
+    console.log('[Insforge] Requested user ID:', userId);
+    console.log('[Insforge] Access token exists:', !!sessionData?.session?.accessToken);
+    console.log('[Insforge] Access token (first 50 chars):', sessionData?.session?.accessToken?.substring(0, 50));
+
+    if (!sessionData?.session) {
+      console.error('[Insforge] No active session - RLS will block this operation');
+      return { success: false, error: 'Not authenticated. Please sign in again.' };
+    }
+
+    if (sessionData.session.user.id !== userId) {
+      console.error('[Insforge] User ID mismatch - session:', sessionData.session.user.id, 'requested:', userId);
+      return { success: false, error: 'User ID mismatch. Please sign in again.' };
+    }
 
     // Check if watchlist exists for this user
     const { data: existing, error: selectError } = await insforge.database
@@ -237,11 +243,6 @@ export async function saveUserWatchlist(
       updated_at: nowIso(),
     };
 
-    // Add preferences if provided
-    if (preferences) {
-      watchlistData.preferences = preferences;
-    }
-
     let result;
     if (existing) {
       // Update existing watchlist
@@ -259,8 +260,9 @@ export async function saveUserWatchlist(
     }
 
     if (result.error) {
-      console.error('[Insforge] Save error:', result.error);
-      return { success: false, error: result.error.message };
+      console.error('[Insforge] Save watchlist error:', JSON.stringify(result.error, null, 2));
+      const errorMsg = result.error.message || result.error.details || JSON.stringify(result.error);
+      return { success: false, error: errorMsg };
     }
 
     return {
@@ -292,12 +294,12 @@ export interface UserDigest {
   // New structured fields
   greeting?: string;
   one_line_summary?: string;
-  bottom_line?: string;
+  bottom_line?: string;  // Legacy, kept for backward compatibility
   brew_data?: {
     stocks?: StockAnalysis[];
-    news?: BrewNews[];
+    news?: BrewNewsSection;
     events?: BrewEvent[];
-    macro_impact?: BrewMacroImpact | null;
+    summary?: BrewSummary;
   };
   created_at?: string;
 }
@@ -314,17 +316,17 @@ export async function saveUserDigest(
       digest_date: digestDate,
       symbols: digest.symbols_used,
       // Legacy field for backward compatibility
-      analysis: digest.bottom_line || '',
-      news_data: digest.news || [],
+      analysis: digest.summary?.content || '',
+      news_data: digest.news || { headlines: [], briefs: [] },
       // New structured fields
       greeting: digest.greeting || '',
       one_line_summary: digest.one_line_summary || '',
-      bottom_line: digest.bottom_line || '',
+      bottom_line: digest.summary?.content || '',
       brew_data: {
         stocks: digest.stocks || [],
-        news: digest.news || [],
+        news: digest.news || { headlines: [], briefs: [] },
         events: digest.events || [],
-        macro_impact: digest.macro_impact || null,
+        summary: digest.summary || null,
       },
     };
 

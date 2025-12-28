@@ -21,12 +21,13 @@ from app.models.request_models import (
     DigestRequest,
     DigestResponse,
     StockAnalysis,
-    BrewNews,
+    BrewHeadlineNews,
+    BrewBriefNews,
+    BrewNewsSection,
     BrewEvent,
-    BrewMacroImpact,
-    UserPreferencesUsed,
+    BrewSummary,
 )
-from agents.personal_brewer import get_personal_brewer, UserPreferences
+from agents.personal_brewer import get_personal_brewer
 
 app = FastAPI(title="Market Analysis API")
 
@@ -641,26 +642,18 @@ async def generate_digest(request: DigestRequest):
     Uses PersonalBrewer agent (gemini-3-flash) to generate structured digest
     with 5 sections: stocks, news (8-10), events, macro impact, bottom line.
 
-    Personalization is based on:
-    - symbols: User's watchlist stocks
-    - preferences.style: Investment style (trader/swing/long_term)
-    - preferences.focus: Content focus areas (earnings/macro/industry/technical/deals)
+    Personalization is based on user's watchlist stocks.
     """
     try:
+        if not request.user_id:
+            raise HTTPException(status_code=401, detail="Authentication required. Please sign in to generate personalized digest.")
+
         if not request.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
-        # Convert request preferences to agent preferences
-        preferences = None
-        if request.preferences:
-            preferences = UserPreferences(
-                style=request.preferences.style,
-                focus=list(request.preferences.focus)
-            )
-
         # Use PersonalBrewer for personalized digest
         brewer = get_personal_brewer()
-        result = await brewer.brew(symbols=request.symbols, preferences=preferences)
+        result = await brewer.brew(symbols=request.symbols)
 
         if not result.get("success"):
             error_msg = result.get("error", "Failed to generate digest")
@@ -680,16 +673,32 @@ async def generate_digest(request: DigestRequest):
             for s in result.get("stocks", [])
         ]
 
-        news = [
-            BrewNews(
-                title=n.get("title", ""),
-                related_symbols=n.get("related_symbols", []),
-                summary=n.get("summary", ""),
-                analysis=n.get("analysis", ""),
-                url=n.get("url", ""),
-            )
-            for n in result.get("news", [])
-        ]
+        # Transform news section (headlines + briefs)
+        news_data = result.get("news", {})
+        if isinstance(news_data, dict):
+            headlines = [
+                BrewHeadlineNews(
+                    title=n.get("title", ""),
+                    related_symbols=n.get("related_symbols", []),
+                    fact_summary=n.get("fact_summary", ""),
+                    deep_analysis=n.get("deep_analysis", ""),
+                    url=n.get("url", ""),
+                )
+                for n in news_data.get("headlines", [])
+            ]
+            briefs = [
+                BrewBriefNews(
+                    title=n.get("title", ""),
+                    related_symbols=n.get("related_symbols", []),
+                    summary=n.get("summary", ""),
+                    analysis=n.get("analysis", ""),
+                    url=n.get("url", ""),
+                )
+                for n in news_data.get("briefs", [])
+            ]
+            news = BrewNewsSection(headlines=headlines, briefs=briefs)
+        else:
+            news = BrewNewsSection(headlines=[], briefs=[])
 
         events = [
             BrewEvent(
@@ -701,59 +710,42 @@ async def generate_digest(request: DigestRequest):
             for e in result.get("events", [])
         ]
 
-        macro_data = result.get("macro_impact")
-        macro_impact = None
-        if macro_data:
-            macro_impact = BrewMacroImpact(
-                overall_environment=macro_data.get("overall_environment", ""),
-                impact_on_portfolio=macro_data.get("impact_on_portfolio", ""),
-                risk_level=macro_data.get("risk_level", ""),
-                risk_factors=macro_data.get("risk_factors", ""),
-            )
+        # Transform summary
+        summary_data = result.get("summary", {})
+        summary = BrewSummary(
+            content=summary_data.get("content", "") if isinstance(summary_data, dict) else "",
+        )
 
-        # Build preferences_used from result
-        prefs_data = result.get("preferences_used")
-        preferences_used = None
-        if prefs_data:
-            preferences_used = UserPreferencesUsed(
-                style=prefs_data.get("style", "long_term"),
-                focus=prefs_data.get("focus", ["earnings", "macro"])
-            )
-
-        # Save to database if user_id is provided
-        if request.user_id:
-            insforge = get_insforge_service()
-            save_data = {
-                "user_id": request.user_id,
-                "digest_date": today_str(),
-                "symbols": result.get("symbols_used", []),
-                "preferences": prefs_data,
-                "greeting": result.get("greeting", ""),
-                "one_line_summary": result.get("one_line_summary", ""),
-                "bottom_line": result.get("bottom_line", ""),
-                "stocks": result.get("stocks", []),
-                "news": result.get("news", []),
-                "events": result.get("events", []),
-                "macro_impact": result.get("macro_impact"),
-            }
-            save_result = await insforge.save_user_digest(save_data)
-            if save_result.get("success"):
-                print(f"[Digest] Saved digest for user {request.user_id}")
-            else:
-                print(f"[Digest] Failed to save: {save_result.get('error')}")
+        # Save to database (always save, user_id is required)
+        insforge = get_insforge_service()
+        save_data = {
+            "user_id": request.user_id,
+            "digest_date": today_str(),
+            "timestamp": result.get("timestamp", now_iso()),
+            "symbols": result.get("symbols_used", []),
+            "greeting": result.get("greeting", ""),
+            "one_line_summary": result.get("one_line_summary", ""),
+            "stocks": result.get("stocks", []),
+            "news": result.get("news", {}),
+            "events": result.get("events", []),
+            "summary": result.get("summary", {}),
+        }
+        save_result = await insforge.save_user_digest(save_data)
+        if save_result.get("success"):
+            print(f"[Digest] Saved digest for user {request.user_id}, ID: {save_result.get('digest_id')}")
+        else:
+            print(f"[Digest] Failed to save: {save_result.get('error')}")
 
         return DigestResponse(
             success=True,
             timestamp=result.get("timestamp", now_iso()),
             symbols_used=result.get("symbols_used", []),
-            preferences_used=preferences_used,
             greeting=result.get("greeting", ""),
             one_line_summary=result.get("one_line_summary", ""),
             stocks=stocks,
             news=news,
             events=events,
-            macro_impact=macro_impact,
-            bottom_line=result.get("bottom_line", ""),
+            summary=summary,
         )
 
     except HTTPException:
@@ -1132,6 +1124,84 @@ async def get_latest_rednote():
                 "generated_at": rednote.get("generated_at"),
             }
         }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Stock Search API
+# =============================================================================
+
+@app.get("/api/stocks/search")
+async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8, ge=1, le=20)):
+    """
+    Search stocks by symbol or company name using yfinance.
+
+    Returns list of matching stocks with symbol, name, type, and exchange.
+    """
+    try:
+        from yfinance import Search
+
+        search = Search(query=q, max_results=limit)
+        results = []
+
+        for quote in search.quotes:
+            # Only include stocks and ETFs (filter out options, futures, etc.)
+            quote_type = quote.get("typeDisp", "").lower()
+            if quote_type in ["equity", "etf", ""]:
+                results.append({
+                    "symbol": quote.get("symbol"),
+                    "name": quote.get("shortName") or quote.get("longName"),
+                    "type": quote.get("typeDisp"),
+                    "exchange": quote.get("exchange"),
+                })
+
+        return {"stocks": results}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stocks/quotes")
+async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-separated stock symbols")):
+    """
+    Get current quotes for multiple stocks.
+
+    Args:
+        symbols: Comma-separated stock symbols (e.g., "AAPL,MSFT,NVDA")
+
+    Returns:
+        Stock quotes with price and daily change.
+    """
+    try:
+        from agents.tools.market_data import get_stock_quotes
+
+        symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+
+        if not symbol_list:
+            raise HTTPException(status_code=400, detail="No symbols provided")
+
+        if len(symbol_list) > 20:
+            symbol_list = symbol_list[:20]
+
+        result = get_stock_quotes(symbol_list)
+
+        # Transform to simpler format for frontend
+        quotes = []
+        for symbol, data in result.get("stocks", {}).items():
+            quotes.append({
+                "symbol": symbol,
+                "name": data.get("name", symbol),
+                "price": data.get("price", 0),
+                "daily_change": data.get("daily_change", 0),
+            })
+
+        return {"success": True, "quotes": quotes}
 
     except Exception as e:
         import traceback

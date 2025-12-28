@@ -1,5 +1,5 @@
 """
-PersonalBrewer - Personalized Daily Digest for User Watchlist
+PersonalBrewer - Daily Digest for User Watchlist
 
 Architecture:
     Python (fetch stock + news data) -> PersonalBrewer Agent (gemini-3-flash) -> Structured output
@@ -7,16 +7,10 @@ Architecture:
 Cost: ~$0.018/request (vs MarketAgent $0.07 - saves 75%)
 
 Naming: "PersonalBrewer" echoes the MarketBrew brand
-
-Personalization Dimensions:
-    1. Watchlist (symbols) - which stocks to focus on
-    2. Investment Style (trader/swing/long_term) - analysis timeframe and focus
-    3. Content Focus (earnings/macro/industry/technical/deals) - what to emphasize
 """
 
 import json
 import os
-from typing import Literal
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,67 +31,6 @@ from agents.tools.earnings import get_earnings_calendar
 
 
 # =============================================================================
-# User Preferences Model
-# =============================================================================
-
-
-class UserPreferences(BaseModel):
-    """User investment preferences for personalized digest."""
-
-    # Investment style (single choice)
-    style: Literal["trader", "swing", "long_term"] = Field(
-        default="long_term",
-        description="Investment style: trader (short-term), swing (weeks), long_term (months/years)"
-    )
-
-    # Content focus areas (multi-select, 1-3 items)
-    focus: list[Literal["earnings", "macro", "industry", "technical", "deals"]] = Field(
-        default=["earnings", "macro"],
-        description="Content focus areas to emphasize"
-    )
-
-
-# Style-specific analysis instructions - written as user persona descriptions
-STYLE_INSTRUCTIONS = {
-    "trader": """这是一个短线交易者。他每天盯盘，关注的是"今天能不能操作"。
-
-对他来说重要的是:
-- 今天有没有异动? 成交量放大了吗?
-- 有没有突发消息可以博一把?
-- 技术位置到了吗? 支撑阻力在哪?
-
-他不需要你讲长期逻辑，他需要的是"现在该不该动手"。说话要直接，判断要果断。""",
-
-    "swing": """这是一个波段操作者。他看的是周线和月线级别的趋势，持仓周期通常是1-4周。
-
-对他来说重要的是:
-- 当前趋势还在吗? 有反转信号吗?
-- 板块轮动到哪了? 资金在流向哪里?
-- 这个位置值得加仓还是该减仓?
-
-他需要的是趋势判断和板块视角，不是每日波动的噪音。""",
-
-    "long_term": """这是一个长期投资者。他关注的是公司质量和长期增长逻辑，持仓以年为单位。
-
-对他来说重要的是:
-- 公司基本面有变化吗? 护城河还在吗?
-- 这个估值还合理吗?
-- 长期投资逻辑被打破了吗?
-
-短期涨跌他不太在意，但如果有什么事情可能改变长期故事，他需要知道。帮他过滤掉噪音，只说真正重要的。"""
-}
-
-# Focus-specific content emphasis instructions
-FOCUS_INSTRUCTIONS = {
-    "earnings": "财报和业绩 - 用户很在意公司赚不赚钱。财报发布、业绩指引、盈利能力变化这些要重点讲。",
-    "macro": "宏观和政策 - 用户关注大环境。美联储说了什么、利率怎么走、这些对他的股票意味着什么。",
-    "industry": "行业动态 - 用户关注竞争格局。行业里谁在崛起、谁在掉队、新技术会颠覆什么。",
-    "technical": "技术面 - 用户看图。关键价位在哪、趋势有没有变、量价配合如何。",
-    "deals": "并购交易 - 用户关注资本运作。谁在收购谁、有没有拆分、这些对估值意味着什么。"
-}
-
-
-# =============================================================================
 # Pydantic Output Schema for PersonalBrew
 # =============================================================================
 
@@ -106,66 +39,106 @@ class StockSummary(BaseModel):
     """Individual stock summary in the digest."""
 
     symbol: str = Field(description="Stock ticker symbol, e.g., 'NVDA'")
-    name: str = Field(description="Chinese company name, e.g., '英伟达', '苹果', '特斯拉'")
-    price: float = Field(description="Current stock price from input data, must be accurate")
-    daily_change: str = Field(description="Daily change with +/- sign, e.g., '+2.35%' or '-1.20%'")
-    week_change: str = Field(description="Weekly change with +/- sign, e.g., '+5.2%' or '-3.1%'")
+    name: str = Field(
+        description="Chinese company name, e.g., '英伟达', '苹果', '特斯拉'"
+    )
+    price: float = Field(
+        description="Current stock price from input data, must be accurate"
+    )
+    daily_change: str = Field(
+        description="Daily change with +/- sign, e.g., '+2.35%' or '-1.20%'"
+    )
+    week_change: str = Field(
+        description="Weekly change with +/- sign, e.g., '+5.2%' or '-3.1%'"
+    )
     status: str = Field(
         description="Natural language status - describe what's happening, not a fixed category. "
         "Good: '连涨四天后首次回调', '财报后持续消化中', '跟随板块反弹', '创一个月新高'. "
         "Bad: '强势上涨', '小幅回调' (too template-like)"
     )
     quick_take: str = Field(
-        description="1-2 sentence analysis tailored to user's investment style. "
-        "For traders: focus on technicals and catalysts. "
-        "For swing traders: focus on trends and sector rotation. "
-        "For long-term: focus on fundamentals and investment thesis."
+        description="3-4 sentences with clear logic chain: "
+        "1) What happened today (price action), "
+        "2) Why it happened (news catalyst, sentiment shift, sector rotation), "
+        "3) Market's interpretation (institutional behavior, narrative change), "
+        "4) What it means going forward. "
+        "Focus on news, sentiment, narrative - NOT technical analysis (no support/resistance levels)."
     )
 
 
-class RelevantNews(BaseModel):
-    """News item relevant to user's watchlist."""
+class HeadlineNews(BaseModel):
+    """Important news with deep analysis."""
 
     title: str = Field(description="News title in Chinese")
-    related_symbols: list[str] = Field(description="Which watchlist stocks this affects, e.g., ['NVDA', 'AMD']")
-    summary: str = Field(description="One sentence: what happened")
-    analysis: str = Field(
-        description="2-3 sentences: 'So what?' - why user should care, what it means for their holdings. "
-        "Tailor analysis angle to user's investment style."
+    related_symbols: list[str] = Field(
+        description="Which watchlist stocks this affects, e.g., ['NVDA', 'AMD']"
+    )
+    fact_summary: str = Field(
+        description="One sentence: factual summary of what happened"
+    )
+    deep_analysis: str = Field(
+        description="5-6 sentences: "
+        "1) background context, "
+        "2) why this news matters, "
+        "3) market/sector implications, "
+        "4) specific impact on user's related holdings, "
+        "5) what to watch next"
     )
     url: str = Field(description="Original article URL from input data")
+
+
+class BriefNews(BaseModel):
+    """Other notable news with brief analysis."""
+
+    title: str = Field(description="News title in Chinese")
+    related_symbols: list[str] = Field(
+        description="Which watchlist stocks this affects"
+    )
+    summary: str = Field(description="One sentence: what happened")
+    analysis: str = Field(
+        description="2-3 sentences: why it matters and impact on holdings"
+    )
+    url: str = Field(description="Original article URL from input data")
+
+
+class NewsSection(BaseModel):
+    """News section with headlines and briefs."""
+
+    headlines: list[HeadlineNews] = Field(
+        description="3-4 most impactful news items with deep analysis"
+    )
+    briefs: list[BriefNews] = Field(
+        description="8-10 other notable news items with brief analysis"
+    )
 
 
 class UpcomingEvent(BaseModel):
     """Upcoming event relevant to user's watchlist."""
 
-    date: str = Field(description="Event date in YYYY-MM-DD format, copied from input data")
-    event: str = Field(description="Event name in Chinese, e.g., '英伟达 (NVDA) Q3财报', '美国12月CPI数据'")
-    related_symbols: list[str] = Field(description="Which watchlist stocks will be affected")
+    date: str = Field(
+        description="Event date in YYYY-MM-DD format, copied from input data"
+    )
+    event: str = Field(
+        description="Event name in Chinese, e.g., '英伟达 (NVDA) Q3财报', '美国12月CPI数据'"
+    )
+    related_symbols: list[str] = Field(
+        description="Which watchlist stocks will be affected"
+    )
     why_important: str = Field(
-        description="1-2 sentences: why user should care about this event. "
-        "Tailor to investment style - traders care about volatility, long-term investors care about thesis validation."
+        description="1-2 sentences: why user should care about this event."
     )
 
 
-class MacroImpact(BaseModel):
-    """How macro environment impacts user's portfolio."""
+class Summary(BaseModel):
+    """Comprehensive summary in 3 paragraphs, no subtitles."""
 
-    overall_environment: str = Field(
-        description="2-3 sentences: current macro environment including rates, sentiment, sector rotation. "
-        "Example: '美联储维持利率不变，但点阵图暗示明年降息预期下调。市场风险偏好有所收敛。'"
-    )
-    impact_on_portfolio: str = Field(
-        description="2-3 sentences: what this means for user's specific holdings. Be concrete, mention their stocks. "
-        "Example: '你持仓的科技股（NVDA、MSFT）短期承压，高估值成长股对利率敏感。'"
-    )
-    risk_level: str = Field(
-        description="Natural language risk assessment. "
-        "Example: '中等偏高——利率预期反复是当前最大变数' or '相对可控——VIX低位，暂无系统性风险'"
-    )
-    risk_factors: str = Field(
-        description="1-2 sentences: key risks to watch, tailored to investment style. "
-        "Traders: volatility, technical breakdowns. Swing: trend reversals. Long-term: fundamental changes."
+    content: str = Field(
+        description="Three paragraphs of analysis, separated by newlines:\n\n"
+        "Paragraph 1: Portfolio performance today - best/worst performers, how it compares to market (SPY/QQQ).\n\n"
+        "Paragraph 2: Why holdings moved - connect macro factors (Fed, rates, sentiment, sector rotation) "
+        "with specific news catalysts. Be specific about cause-and-effect.\n\n"
+        "Paragraph 3: Near-term outlook - expectations for 1-2 weeks, key risks to watch, "
+        "potential catalysts, important upcoming events."
     )
 
 
@@ -185,12 +158,12 @@ class PersonalBrewOutput(BaseModel):
 
     # Section 1: Portfolio Overview
     stocks: list[StockSummary] = Field(
-        description="Analysis for each watchlist stock, ordered by volatility (most notable first)"
+        description="Analysis for each watchlist stock, ordered by importance (most notable movement first)"
     )
 
-    # Section 2: Relevant News - quality over quantity
-    news: list[RelevantNews] = Field(
-        description="5-8 curated news items that actually matter for user's holdings. Quality over quantity, max 10."
+    # Section 2: News (Headline + Brief structure)
+    news: NewsSection = Field(
+        description="News section with 3-4 headlines (deep analysis) and 8-10 briefs (short analysis)"
     )
 
     # Section 3: Upcoming Events
@@ -198,15 +171,9 @@ class PersonalBrewOutput(BaseModel):
         description="3-6 events in next 7 days relevant to user's watchlist. Prioritize earnings of held stocks."
     )
 
-    # Section 4: Macro Impact
-    macro_impact: MacroImpact = Field(
-        description="How macro environment specifically impacts this user's portfolio"
-    )
-
-    # Section 5: Bottom Line
-    bottom_line: str = Field(
-        description="3-5 sentences: the most important thing user should know. Include: 1) core theme today, "
-        "2) 1-2 things to watch, 3) specific actionable advice tailored to investment style."
+    # Section 4: Summary (replaces macro_impact + bottom_line)
+    summary: Summary = Field(
+        description="Comprehensive summary: portfolio recap, movement drivers, outlook, and action advice"
     )
 
 
@@ -214,17 +181,10 @@ class PersonalBrewOutput(BaseModel):
 # PersonalBrewer Agent Prompt (Reasoning-First Design)
 # =============================================================================
 
-BREWER_BASE_INSTRUCTION = """
+BREWER_INSTRUCTION = """
 你是用户的私人投资分析师。用户把持仓列表交给你，希望你每天帮他梳理"今天我应该知道什么"。
 
 你不是在填表格，而是在帮朋友写一份有洞见的投资笔记。
-
-## 用户画像
-
-{style_instruction}
-
-## 用户关注领域
-{focus_instructions}
 
 ## 核心原则
 - 围绕用户持仓组织内容，这不是泛泛的市场日报
@@ -257,7 +217,7 @@ BREWER_BASE_INSTRUCTION = """
 不好的示例: "今日持仓涨跌不一，NVDA涨3%，AAPL跌1%"（这是复读机）
 
 ### stocks（持仓速览）
-为用户 watchlist 中的每只股票生成分析，按波动大小排序（最值得关注的在前）。
+为用户 watchlist 中的每只股票生成分析，按重要性排序（波动最大或最值得关注的在前）。
 
 每只股票包含:
 - symbol: 股票代码
@@ -268,27 +228,50 @@ BREWER_BASE_INSTRUCTION = """
 - status: 用自然语言描述当前状态，不要用固定分类
   好的示例: "连涨四天后首次回调"、"财报后持续消化中"、"跟随板块反弹"、"创一个月新高"
   不好的示例: "强势上涨"、"小幅回调"（太模板化）
-- quick_take: 1-2句你的分析，根据用户投资风格调整视角
-  短线用户: 关注技术位、催化剂、操作时机
-  波段用户: 关注趋势、板块位置、中期逻辑
-  长期用户: 关注基本面变化、长期逻辑是否成立
+- quick_take: 3-4句深度分析，包含清晰的逻辑链条:
+  1) 今天发生了什么（股价表现）
+  2) 为什么会这样（新闻催化剂、情绪变化、板块轮动）
+  3) 市场如何解读（机构行为、叙事变化）
+  4) 这意味着什么（后续影响）
+  注意: 聚焦新闻、情绪、叙事分析，不要做技术面分析（不提支撑位/阻力位）
 
 ### news（与我相关的新闻）
-从输入新闻中精选与用户持仓相关的重要新闻。质量优先，通常5-8条，最多10条。
+从输入新闻中精选与用户持仓相关的重要新闻，分为 headlines（深度分析）和 briefs（简短分析）两类。
+
+#### headlines（重要新闻，3-4条）
+选择对用户持仓影响最大的新闻，进行深度解读。
 
 筛选标准:
-- 必须与用户某个持仓直接相关，或影响其所在板块
-- 优先: 公司官方公告、财报、产品发布、重大合同
-- 次要: 行业政策、竞争对手动态、分析师评级变化
-- 不选: 与持仓完全无关的新闻、泛泛的市场评论
+- 公司官方重大公告（财报、并购、产品发布）
+- 影响多只持仓的行业/宏观新闻
+- 可能改变投资逻辑的突发事件
 
-每条新闻包含:
+每条 headline 包含:
 - title: 中文新闻标题
 - related_symbols: 影响哪些持仓（如 ["NVDA", "AMD"]）
-- summary: 一句话说明发生了什么
-- analysis: 2-3句分析"所以呢"——为什么用户应该在意，对持仓意味着什么
-  根据用户投资风格调整分析角度
+- fact_summary: 一句话事实总结
+- deep_analysis: 5-6句深度分析:
+  1) 背景上下文
+  2) 为什么这条新闻重要
+  3) 对市场/板块的影响
+  4) 对用户相关持仓的具体影响
+  5) 后续需要关注什么
 - url: 原文链接
+
+#### briefs（其他新闻，8-10条）
+其他值得关注但不需要深度解读的新闻。
+
+每条 brief 包含:
+- title: 中文新闻标题
+- related_symbols: 影响哪些持仓
+- summary: 一句话总结
+- analysis: 2-3句分析为什么重要、对持仓的影响
+- url: 原文链接
+
+筛选原则:
+- 必须与用户某个持仓直接相关，或影响其所在板块
+- 如果某只持仓确实没有相关新闻，不必强行添加
+- 不选: 与持仓完全无关的新闻、泛泛的市场评论
 
 ### events（未来一周关注）
 从经济日历和财报日历中筛选与用户持仓相关的事件，通常3-6个。
@@ -302,95 +285,35 @@ BREWER_BASE_INSTRUCTION = """
 - date: 日期（YYYY-MM-DD格式，从输入数据复制）
 - event: 中文事件名（如"英伟达 (NVDA) Q3财报"、"美国12月CPI数据"）
 - related_symbols: 影响哪些持仓
-- why_important: 1-2句解释为什么用户需要关注，根据投资风格调整
-  短线: "财报后波动率通常放大，可关注期权策略"
-  波段: "如超预期可能开启新一轮上涨趋势"
-  长期: "关注指引中对AI需求的展望，这是核心逻辑验证点"
+- why_important: 1-2句解释为什么用户需要关注
 
-### macro_impact（宏观环境对我的影响）
-分析当前宏观环境对用户具体持仓的影响。
+### summary（综合总结）
+这是最重要的部分，整合宏观环境、持仓表现、未来展望。如果用户只看这一段，也要能知道今天的重点。
 
-包含四个字段:
-- overall_environment: 2-3句概述当前宏观环境
-  包括: 利率环境、市场情绪、资金流向、板块轮动
-  示例: "美联储维持利率不变，但点阵图暗示明年降息预期下调。市场风险偏好有所收敛，资金从成长股流向防御板块。"
+包含一个字段 content，写成三段话（用换行分隔），不要加小标题:
 
-- impact_on_portfolio: 2-3句分析这对用户持仓意味着什么
-  要具体到用户的股票，不要泛泛而谈
-  示例: "你持仓的科技股（NVDA、MSFT）短期承压，高估值成长股对利率敏感。但如果你是长期持有，当前回调反而是加仓机会。"
+第一段: 持仓回顾
+今日整体表现如何，最佳/最差表现，与大盘（SPY/QQQ）对比。
+示例: "今日持仓整体上涨1.8%，跑赢标普500(+0.9%)。NVDA领涨+4.2%贡献最大，AAPL(-1.1%)因中国销量担忧拖累。"
 
-- risk_level: 用自然语言描述风险水平
-  示例: "中等偏高——利率预期反复是当前最大变数"
-  示例: "相对可控——VIX低位，市场暂无系统性风险信号"
+第二段: 波动归因
+解释为什么今天持仓会这样表现，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。
+示例: "今日上涨主要受两个因素驱动：1) 美联储会议纪要偏鸽，市场降息预期升温，推动成长股估值修复；2) NVDA财报余温延续，带动整个AI/半导体板块轮动。AAPL的下跌则是因为早盘彭博报道中国市场份额被华为蚕食。"
 
-- risk_factors: 1-2句提醒需要关注的风险
-  根据用户投资风格调整风险类型
-  短线: 关注波动率、技术位破位、突发消息
-  波段: 关注趋势反转信号、板块轮动
-  长期: 关注基本面恶化、护城河被侵蚀
-
-### bottom_line（一段话总结）
-这是最重要的部分。如果用户只看这一段，也要能知道今天的重点。
-
-3-5句话，包含:
-1. 今天持仓的核心主题/状态
-2. 最需要关注的1-2件事
-3. 具体的建议或提醒
-
-根据用户投资风格调整建议方向:
-- 短线: 给时机建议，如"NVDA突破阻力位，可考虑跟进"
-- 波段: 给趋势判断，如"科技板块动能转弱，可逐步减仓"
-- 长期: 给基本面评估，如"短期波动不改变长期逻辑，持有不动"
-
-示例:
-"今天科技股全面反弹，你的持仓整体表现不错，NVDA领涨+4.2%。最值得关注的是下周三的CPI数据，如果通胀超预期，可能打断当前反弹。作为长期投资者，你不需要对短期波动做出反应，但如果NVDA跌回120以下，是不错的加仓点。"
+第三段: 未来展望
+未来1-2周持仓的预期走势，需要关注的风险，潜在的机会或催化剂，重要日期/事件。
+示例: "短期看，科技持仓有望继续受益于年末risk-on行情，但需警惕下周三CPI数据。如果通胀超预期，可能打断当前反弹。NVDA在12月15日有Investor Day，是验证AI需求持续性的关键事件。"
 """
 
 
-def build_personalized_instruction(preferences: UserPreferences) -> str:
-    """Build personalized instruction based on user preferences."""
-    # Get style-specific instruction
-    style_instruction = STYLE_INSTRUCTIONS.get(preferences.style, STYLE_INSTRUCTIONS["long_term"])
-
-    # Build focus instructions
-    focus_lines = []
-    for focus_area in preferences.focus:
-        if focus_area in FOCUS_INSTRUCTIONS:
-            focus_lines.append(FOCUS_INSTRUCTIONS[focus_area])
-
-    # Default focus if empty
-    if not focus_lines:
-        focus_lines = [
-            FOCUS_INSTRUCTIONS["earnings"],
-            FOCUS_INSTRUCTIONS["macro"]
-        ]
-
-    focus_instructions = "\n".join(focus_lines)
-
-    # Build final instruction
-    return BREWER_BASE_INSTRUCTION.format(
-        style_instruction=style_instruction,
-        focus_instructions=focus_instructions
-    )
-
-
-def create_personalized_agent(preferences: UserPreferences) -> LlmAgent:
-    """Create a personalized LlmAgent with user-specific instructions."""
-    instruction = build_personalized_instruction(preferences)
-
-    return LlmAgent(
-        name="personal_brewer",
-        model="gemini-3-flash-preview",
-        description="Generates personalized daily digest based on user's watchlist and preferences",
-        instruction=instruction,
-        output_schema=PersonalBrewOutput,
-        output_key="brew",
-    )
-
-
-# Default agent for backward compatibility
-DEFAULT_PREFERENCES = UserPreferences(style="long_term", focus=["earnings", "macro"])
-personal_brewer_agent = create_personalized_agent(DEFAULT_PREFERENCES)
+personal_brewer_agent = LlmAgent(
+    name="personal_brewer",
+    model="gemini-3-flash-preview",
+    description="Generates personalized daily digest based on user's watchlist",
+    instruction=BREWER_INSTRUCTION,
+    output_schema=PersonalBrewOutput,
+    output_key="brew",
+)
 
 
 # =============================================================================
@@ -404,37 +327,19 @@ class PersonalBrewer:
     DEFAULT_MACRO_SYMBOLS = ["SPY", "QQQ", "^VIX"]
 
     def __init__(self):
-        # Default runner for backward compatibility
-        self._default_runner = InMemoryRunner(
+        self._runner = InMemoryRunner(
             agent=personal_brewer_agent, app_name="personal_brewer"
         )
-        self._cached_runners: dict[str, InMemoryRunner] = {}
-
-    def _get_runner(self, preferences: UserPreferences) -> InMemoryRunner:
-        """Get or create a runner for specific preferences."""
-        # Create cache key from preferences
-        cache_key = f"{preferences.style}|{','.join(sorted(preferences.focus))}"
-
-        if cache_key not in self._cached_runners:
-            agent = create_personalized_agent(preferences)
-            self._cached_runners[cache_key] = InMemoryRunner(
-                agent=agent, app_name=f"personal_brewer_{cache_key}"
-            )
-            print(f"[PersonalBrewer] Created new agent for: style={preferences.style}, focus={preferences.focus}")
-
-        return self._cached_runners[cache_key]
 
     async def brew(
         self,
         symbols: list[str],
-        preferences: UserPreferences | None = None
     ) -> dict:
         """
         Generate personalized digest for user's watchlist.
 
         Args:
             symbols: User's watchlist symbols (e.g., ["AAPL", "MSFT", "NVDA"])
-            preferences: User's investment preferences (style, focus areas)
 
         Returns:
             Structured digest report
@@ -443,14 +348,9 @@ class PersonalBrewer:
             if not symbols:
                 return {"success": False, "error": "No symbols provided"}
 
-            # Use default preferences if not provided
-            if preferences is None:
-                preferences = DEFAULT_PREFERENCES
-
             # Limit to 20 stocks max
             symbols = symbols[:20]
             print(f"[PersonalBrewer] Brewing digest for: {symbols}")
-            print(f"[PersonalBrewer] Style: {preferences.style}, Focus: {preferences.focus}")
 
             # Step 1: Fetch user-specific stock data
             print("[PersonalBrewer] Fetching stock quotes...")
@@ -486,15 +386,11 @@ class PersonalBrewer:
                 "macro_summary": macro_summary,
             }
 
-            # Step 6: Run agent with personalized preferences
+            # Step 6: Run agent
             print("[PersonalBrewer] Running agent...")
 
-            # Get personalized runner
-            runner = self._get_runner(preferences)
-            app_name = f"personal_brewer_{preferences.style}|{','.join(sorted(preferences.focus))}"
-
-            session = await runner.session_service.create_session(
-                app_name=app_name, user_id="brewer"
+            session = await self._runner.session_service.create_session(
+                app_name="personal_brewer", user_id="brewer"
             )
 
             message = Content(
@@ -506,14 +402,14 @@ class PersonalBrewer:
                 role="user",
             )
 
-            async for _ in runner.run_async(
+            async for _ in self._runner.run_async(
                 user_id="brewer", session_id=session.id, new_message=message
             ):
                 pass
 
             # Get output from session state
-            session_data = await runner.session_service.get_session(
-                app_name=app_name, user_id="brewer", session_id=session.id
+            session_data = await self._runner.session_service.get_session(
+                app_name="personal_brewer", user_id="brewer", session_id=session.id
             )
 
             brew_output = {}
@@ -526,10 +422,16 @@ class PersonalBrewer:
                     except json.JSONDecodeError:
                         brew_output = {}
 
+            news_data = brew_output.get("news", {})
+            news_count = 0
+            if isinstance(news_data, dict):
+                news_count = len(news_data.get("headlines", [])) + len(
+                    news_data.get("briefs", [])
+                )
             print(
                 f"[PersonalBrewer] Brew complete. "
                 f"Stocks: {len(brew_output.get('stocks', []))}, "
-                f"News: {len(brew_output.get('news', []))}, "
+                f"News: {news_count}, "
                 f"Events: {len(brew_output.get('events', []))}"
             )
 
@@ -537,10 +439,6 @@ class PersonalBrewer:
                 "success": True,
                 "timestamp": now_iso(),
                 "symbols_used": symbols,
-                "preferences_used": {
-                    "style": preferences.style,
-                    "focus": preferences.focus,
-                },
                 **brew_output,
             }
 

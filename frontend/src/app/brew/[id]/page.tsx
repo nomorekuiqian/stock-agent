@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Coffee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDigestById, UserDigest } from '@/lib/insforge';
-import { DigestResponse, StockAnalysis, BrewNews, BrewEvent } from '@/lib/api';
+import { DigestResponse, StockAnalysis, BrewHeadlineNews, BrewBriefNews, BrewEvent, BrewSummary } from '@/lib/api';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific } from '@/lib/timezone';
 
 export default function BrewDetailPage({
@@ -59,10 +59,11 @@ export default function BrewDetailPage({
           greeting: historyItem.greeting || '',
           one_line_summary: historyItem.one_line_summary || '',
           stocks: brewData.stocks || [],
-          news: brewData.news || [],
+          news: brewData.news || { headlines: [], briefs: [] },
           events: brewData.events || [],
-          macro_impact: brewData.macro_impact || null,
-          bottom_line: historyItem.bottom_line || historyItem.analysis || '',
+          summary: brewData.summary || {
+            content: historyItem.bottom_line || historyItem.analysis || '',
+          },
         };
         setDigest(digestFromHistory);
       } catch (err) {
@@ -85,14 +86,6 @@ export default function BrewDetailPage({
       return 'text-red-500 bg-red-500/10';
     }
     return 'text-muted-foreground bg-secondary';
-  };
-
-  const getRiskColor = (riskLevel: string) => {
-    const level = riskLevel.toLowerCase();
-    if (level.includes('low')) return 'text-emerald-500';
-    if (level.includes('medium') || level.includes('moderate')) return 'text-amber-500';
-    if (level.includes('high')) return 'text-red-500';
-    return 'text-muted-foreground';
   };
 
   // Show loading while checking auth
@@ -223,15 +216,15 @@ export default function BrewDetailPage({
             </section>
           )}
 
-          {/* Related News */}
-          {digest.news.length > 0 && (
+          {/* Headlines */}
+          {digest.news.headlines && digest.news.headlines.length > 0 && (
             <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Related News</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Headlines</h3>
               </div>
               <div className="divide-y divide-border">
-                {digest.news.map((item: BrewNews, index: number) => (
+                {digest.news.headlines.map((item: BrewHeadlineNews, index: number) => (
                   <div key={index} className="py-4 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <a
@@ -252,8 +245,45 @@ export default function BrewDetailPage({
                         </div>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-1">{item.summary}</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{item.analysis}</p>
+                    <p className="text-sm text-muted-foreground mb-2">{item.fact_summary}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.deep_analysis}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* More News */}
+          {digest.news.briefs && digest.news.briefs.length > 0 && (
+            <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">More News</h3>
+              </div>
+              <div className="divide-y divide-border">
+                {digest.news.briefs.map((item: BrewBriefNews, index: number) => (
+                  <div key={index} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-foreground hover:text-emerald-500 transition-colors text-sm"
+                      >
+                        {item.title}
+                      </a>
+                      {item.related_symbols.length > 0 && (
+                        <div className="flex gap-1 shrink-0">
+                          {item.related_symbols.map((sym: string) => (
+                            <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded text-xs">
+                              {sym}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{item.summary}</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">{item.analysis}</p>
                   </div>
                 ))}
               </div>
@@ -309,43 +339,22 @@ export default function BrewDetailPage({
             </section>
           )}
 
-          {/* Macro Impact */}
-          {digest.macro_impact && (
+          {/* Summary */}
+          {digest.summary?.content && (
             <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Macro Impact</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Summary</h3>
               </div>
-              <div className="divide-y divide-border">
-                <div className="pb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-sm font-semibold text-foreground">Market Environment</span>
-                    <span className={`text-sm font-medium ${getRiskColor(digest.macro_impact.risk_level)}`}>
-                      Risk: {digest.macro_impact.risk_level}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{digest.macro_impact.overall_environment}</p>
-                </div>
-                <div className="py-4">
-                  <span className="text-sm font-semibold text-foreground">Portfolio Impact</span>
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">{digest.macro_impact.impact_on_portfolio}</p>
-                </div>
-                <div className="pt-4">
-                  <span className="text-sm font-semibold text-foreground">Risk Factors</span>
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">{digest.macro_impact.risk_factors}</p>
-                </div>
+              <div className="space-y-4">
+                {digest.summary.content.split('\n\n').map((paragraph, index) => (
+                  paragraph.trim() && (
+                    <p key={index} className="text-sm text-muted-foreground leading-relaxed">
+                      {paragraph.trim()}
+                    </p>
+                  )
+                ))}
               </div>
-            </section>
-          )}
-
-          {/* Key Takeaway */}
-          {digest.bottom_line && (
-            <section className="bg-emerald-500/10 rounded-xl p-5 border border-emerald-500/20 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Key Takeaway</h3>
-              </div>
-              <p className="text-sm text-foreground leading-relaxed">{digest.bottom_line}</p>
             </section>
           )}
 
