@@ -317,7 +317,7 @@ export default function ForYouPage() {
     const digestData = historyItem.digest_data || {};
     const digestFromHistory: DigestResponse = {
       success: true,
-      timestamp: historyItem.created_at || '',
+      timestamp: historyItem.created_at || historyItem.digest_date || '',
       symbols_used: historyItem.symbols,
       greeting: historyItem.greeting || '',
       one_line_summary: historyItem.one_line_summary || '',
@@ -592,7 +592,7 @@ export default function ForYouPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-12 h-12 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground">Analyzing your portfolio...</p>
+            <p className="text-muted-foreground">Analyzing your watchlist...</p>
           </div>
         </div>
       )}
@@ -618,12 +618,12 @@ export default function ForYouPage() {
             </p>
           </section>
 
-          {/* Portfolio Overview */}
+          {/* Watchlist Overview */}
           {digest.stocks.length > 0 && (
             <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Portfolio Overview</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Watchlist Overview</h3>
               </div>
               <div className="divide-y divide-border">
                 {digest.stocks.map((stock: StockAnalysis) => (
@@ -853,10 +853,10 @@ export default function ForYouPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {history.slice(0, 5).map((item) => (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => loadHistoricalDigest(item)}
-                  className="group bg-card rounded-xl border border-border p-4 hover:border-emerald-500/50 transition-all text-left"
+                  href={`/for-you/${item.id}`}
+                  className="group bg-card rounded-xl border border-border p-4 hover:border-emerald-500/50 hover-glow transition-all"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
@@ -866,7 +866,10 @@ export default function ForYouPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
-                  <div className="flex flex-wrap gap-1 mb-2">
+                  <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors mb-2">
+                    {item.greeting || formatDateChinese(item.digest_date)}
+                  </h4>
+                  <div className="flex flex-wrap gap-1">
                     {item.symbols.slice(0, 3).map((sym) => (
                       <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded text-xs">
                         {sym}
@@ -876,10 +879,7 @@ export default function ForYouPage() {
                       <span className="text-xs text-muted-foreground">+{item.symbols.length - 3}</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {item.one_line_summary || `${item.symbols.length} stocks analyzed`}
-                  </p>
-                </button>
+                </Link>
               ))}
             </div>
           </div>

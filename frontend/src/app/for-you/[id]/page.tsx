@@ -180,12 +180,12 @@ export default function ForYouDetailPage({
             </div>
           </section>
 
-          {/* Portfolio Overview */}
+          {/* Watchlist Overview */}
           {digest.stocks.length > 0 && (
             <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Portfolio Overview</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Watchlist Overview</h3>
               </div>
               <div className="divide-y divide-border">
                 {digest.stocks.map((stock: StockAnalysis) => (

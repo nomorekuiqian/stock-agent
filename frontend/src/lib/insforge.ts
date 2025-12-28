@@ -332,7 +332,7 @@ export async function saveUserDigest(
 
     // Check if digest exists for this user and date
     const { data: existing, error: selectError } = await insforge.database
-      .from('user_digests')
+      .from('personal_digests')
       .select('id')
       .eq('user_id', userId)
       .eq('digest_date', digestDate)
@@ -347,7 +347,7 @@ export async function saveUserDigest(
     if (existing) {
       // Update existing digest
       result = await insforge.database
-        .from('user_digests')
+        .from('personal_digests')
         .update(digestData)
         .eq('user_id', userId)
         .eq('digest_date', digestDate)
@@ -355,7 +355,7 @@ export async function saveUserDigest(
     } else {
       // Insert new digest
       result = await insforge.database
-        .from('user_digests')
+        .from('personal_digests')
         .insert([digestData])
         .select();
     }
@@ -385,7 +385,7 @@ export async function getUserDigestByDate(
 ): Promise<UserDigest | null> {
   try {
     const { data, error } = await insforge.database
-      .from('user_digests')
+      .from('personal_digests')
       .select('*')
       .eq('user_id', userId)
       .eq('digest_date', date)
@@ -410,7 +410,7 @@ export async function getUserDigests(
 ): Promise<{ data: UserDigest[]; total: number }> {
   try {
     const { data, error, count } = await insforge.database
-      .from('user_digests')
+      .from('personal_digests')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
       .order('digest_date', { ascending: false })
@@ -434,7 +434,7 @@ export async function getUserDigests(
 export async function getUserDigestById(id: string): Promise<UserDigest | null> {
   try {
     const { data, error } = await insforge.database
-      .from('user_digests')
+      .from('personal_digests')
       .select('*')
       .eq('id', id)
       .maybeSingle();

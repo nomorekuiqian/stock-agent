@@ -89,7 +89,8 @@
       "WebFetch(domain:www.builder.io)",
       "WebFetch(domain:developers.figma.com)",
       "Bash(claude mcp add:*)",
-      "Bash(claude mcp list:*)"
+      "Bash(claude mcp list:*)",
+      "mcp__chrome-devtools__get_console_message"
     ],
     "deny": [],
     "ask": []

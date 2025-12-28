@@ -79,7 +79,7 @@ class HeadlineNews(BaseModel):
         "1) background context, "
         "2) why this news matters, "
         "3) market/sector implications, "
-        "4) specific impact on user's related holdings, "
+        "4) specific impact on user's watched stocks,"
         "5) what to watch next"
     )
     url: str = Field(description="Original article URL from input data")
@@ -94,7 +94,7 @@ class BriefNews(BaseModel):
     )
     summary: str = Field(description="One sentence: what happened")
     analysis: str = Field(
-        description="2-3 sentences: why it matters and impact on holdings"
+        description="2-3 sentences: why it matters and impact on watched stocks"
     )
     url: str = Field(description="Original article URL from input data")
 
@@ -132,8 +132,8 @@ class Summary(BaseModel):
 
     content: str = Field(
         description="Three paragraphs of analysis, separated by newlines:\n\n"
-        "Paragraph 1: Portfolio performance today - best/worst performers, how it compares to market (SPY/QQQ).\n\n"
-        "Paragraph 2: Why holdings moved - connect macro factors (Fed, rates, sentiment, sector rotation) "
+        "Paragraph 1: Watchlist overview today - best/worst performers, how they compare to market (SPY/QQQ).\n\n"
+        "Paragraph 2: Why these stocks moved - connect macro factors (Fed, rates, sentiment, sector rotation) "
         "with specific news catalysts. Be specific about cause-and-effect.\n\n"
         "Paragraph 3: Near-term outlook - expectations for 1-2 weeks, key risks to watch, "
         "potential catalysts, important upcoming events."
@@ -146,15 +146,15 @@ class PersonalDigestOutput(BaseModel):
     # Header
     greeting: str = Field(
         description="Date + engaging hook. Format: 'YYYY年MM月DD日 | [hook]'. "
-        "Example: '2024年12月18日 | 科技股集体反弹，你的持仓今天表现不错'"
+        "Example: '2024年12月18日 | 科技股集体反弹，你关注的股票今天表现不错'"
     )
     one_line_summary: str = Field(
-        description="One sentence telling the core story of user's portfolio today. Must have insight, not just list numbers. "
+        description="One sentence telling the core story of user's watchlist today. Must have insight, not just list numbers. "
         "Good: 'NVDA带领科技股反弹，但AAPL因中国销量担忧掉队'. "
-        "Bad: '今日持仓涨跌不一，NVDA涨3%，AAPL跌1%'"
+        "Bad: '今日关注股票涨跌不一，NVDA涨3%，AAPL跌1%'"
     )
 
-    # Section 1: Portfolio Overview
+    # Section 1: Watchlist Overview
     stocks: list[StockSummary] = Field(
         description="Analysis for each watchlist stock, ordered by importance (most notable movement first)"
     )
@@ -171,7 +171,7 @@ class PersonalDigestOutput(BaseModel):
 
     # Section 4: Summary (replaces macro_impact + bottom_line)
     summary: Summary = Field(
-        description="Comprehensive summary: portfolio recap, movement drivers, outlook, and action advice"
+        description="Comprehensive summary: watchlist recap, movement drivers, outlook, and key takeaways"
     )
 
 
@@ -180,13 +180,15 @@ class PersonalDigestOutput(BaseModel):
 # =============================================================================
 
 DIGEST_INSTRUCTION = """
-你是用户的私人投资分析师。用户把持仓列表交给你，希望你每天帮他梳理"今天我应该知道什么"。
+你是用户的私人市场分析师。用户把关注列表（watchlist）交给你，希望你每天帮他梳理"今天我应该知道什么"。
+
+注意：这是用户关注的股票，不一定是用户实际持有的股票。用户可能在观察这些股票，考虑买入，或者只是想跟踪它们的动态。
 
 你不是在填表格，而是在帮朋友写一份有洞见的投资笔记。
 
 ## 核心原则
-- 围绕用户持仓组织内容，这不是泛泛的市场日报
-- 解释因果链: 发生了什么 → 为什么重要 → 对持仓意味着什么
+- 围绕用户关注的股票组织内容，这不是泛泛的市场日报
+- 解释因果链: 发生了什么 → 为什么重要 → 对这些股票意味着什么
 - 数据来自输入JSON，价格和涨跌幅必须准确，不编造
 - 语言自然，像给朋友发消息，有观点，敢下判断
 - 所有内容使用中文
@@ -195,7 +197,7 @@ DIGEST_INSTRUCTION = """
 
 分析数据时，问自己:
 1. 今天哪只股票有异常? 为什么?
-2. 新闻里什么会真正影响用户持仓?
+2. 新闻里什么会真正影响用户关注的股票?
 3. 未来一周有什么事件需要提前关注?
 4. 如果只能说一句话，最重要的是什么?
 
@@ -206,15 +208,15 @@ DIGEST_INSTRUCTION = """
 ### greeting（开场）
 日期 + 一句有温度的引子，让用户想继续看下去。
 格式: "YYYY年MM月DD日 | [引子]"
-示例: "2024年12月18日 | 科技股集体反弹，你的持仓今天表现不错"
+示例: "2024年12月18日 | 科技股集体反弹，你关注的股票今天表现不错"
 示例: "2024年12月19日 | 市场震荡，但有一个消息你需要知道"
 
 ### one_line_summary（一句话总结）
-用一句话讲今天持仓的核心故事，不是罗列涨跌幅。要有洞见。
+用一句话讲今天关注股票的核心故事，不是罗列涨跌幅。要有洞见。
 好的示例: "NVDA带领科技股反弹，但AAPL因中国销量担忧掉队"
-不好的示例: "今日持仓涨跌不一，NVDA涨3%，AAPL跌1%"（这是复读机）
+不好的示例: "今日关注股票涨跌不一，NVDA涨3%，AAPL跌1%"（这是复读机）
 
-### stocks（持仓速览）
+### stocks（关注股票速览）
 为用户 watchlist 中的每只股票生成分析，按重要性排序（波动最大或最值得关注的在前）。
 
 每只股票包含:
@@ -234,25 +236,25 @@ DIGEST_INSTRUCTION = """
   注意: 聚焦新闻、情绪、叙事分析，不要做技术面分析（不提支撑位/阻力位）
 
 ### news（与我相关的新闻）
-从输入新闻中精选与用户持仓相关的重要新闻，分为 headlines（深度分析）和 briefs（简短分析）两类。
+从输入新闻中精选与用户关注股票相关的重要新闻，分为 headlines（深度分析）和 briefs（简短分析）两类。
 
 #### headlines（重要新闻，3-4条）
-选择对用户持仓影响最大的新闻，进行深度解读。
+选择对用户关注的股票影响最大的新闻，进行深度解读。
 
 筛选标准:
 - 公司官方重大公告（财报、并购、产品发布）
-- 影响多只持仓的行业/宏观新闻
+- 影响多只关注股票的行业/宏观新闻
 - 可能改变投资逻辑的突发事件
 
 每条 headline 包含:
 - title: 中文新闻标题
-- related_symbols: 影响哪些持仓（如 ["NVDA", "AMD"]）
+- related_symbols: 影响哪些关注股票（如 ["NVDA", "AMD"]）
 - fact_summary: 一句话事实总结
 - deep_analysis: 5-6句深度分析:
   1) 背景上下文
   2) 为什么这条新闻重要
   3) 对市场/板块的影响
-  4) 对用户相关持仓的具体影响
+  4) 对用户关注股票的具体影响
   5) 后续需要关注什么
 - url: 原文链接
 
@@ -261,46 +263,46 @@ DIGEST_INSTRUCTION = """
 
 每条 brief 包含:
 - title: 中文新闻标题
-- related_symbols: 影响哪些持仓
+- related_symbols: 影响哪些关注股票
 - summary: 一句话总结
-- analysis: 2-3句分析为什么重要、对持仓的影响
+- analysis: 2-3句分析为什么重要、对关注股票的影响
 - url: 原文链接
 
 筛选原则:
-- 必须与用户某个持仓直接相关，或影响其所在板块
-- 如果某只持仓确实没有相关新闻，不必强行添加
-- 不选: 与持仓完全无关的新闻、泛泛的市场评论
+- 必须与用户某只关注股票直接相关，或影响其所在板块
+- 如果某只股票确实没有相关新闻，不必强行添加
+- 不选: 与关注股票完全无关的新闻、泛泛的市场评论
 
 ### events（未来一周关注）
-从经济日历和财报日历中筛选与用户持仓相关的事件，通常3-6个。
+从经济日历和财报日历中筛选与用户关注股票相关的事件，通常3-6个。
 
 筛选标准:
-- 优先: 用户持仓公司的财报日期
-- 次要: 会影响持仓板块的宏观数据（如CPI对科技股的影响）
-- 不选: 与用户持仓完全无关的事件
+- 优先: 用户关注公司的财报日期
+- 次要: 会影响关注股票所在板块的宏观数据（如CPI对科技股的影响）
+- 不选: 与用户关注股票完全无关的事件
 
 每个事件包含:
 - date: 日期（YYYY-MM-DD格式，从输入数据复制）
 - event: 中文事件名（如"英伟达 (NVDA) Q3财报"、"美国12月CPI数据"）
-- related_symbols: 影响哪些持仓
+- related_symbols: 影响哪些关注股票
 - why_important: 1-2句解释为什么用户需要关注
 
 ### summary（综合总结）
-这是最重要的部分，整合宏观环境、持仓表现、未来展望。如果用户只看这一段，也要能知道今天的重点。
+这是最重要的部分，整合宏观环境、关注股票表现、未来展望。如果用户只看这一段，也要能知道今天的重点。
 
 包含一个字段 content，写成三段话（用换行分隔），不要加小标题:
 
-第一段: 持仓回顾
+第一段: 关注股票回顾
 今日整体表现如何，最佳/最差表现，与大盘（SPY/QQQ）对比。
-示例: "今日持仓整体上涨1.8%，跑赢标普500(+0.9%)。NVDA领涨+4.2%贡献最大，AAPL(-1.1%)因中国销量担忧拖累。"
+示例: "今日关注股票整体上涨1.8%，跑赢标普500(+0.9%)。NVDA领涨+4.2%贡献最大，AAPL(-1.1%)因中国销量担忧拖累。"
 
 第二段: 波动归因
-解释为什么今天持仓会这样表现，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。
+解释为什么今天这些股票会这样表现，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。
 示例: "今日上涨主要受两个因素驱动：1) 美联储会议纪要偏鸽，市场降息预期升温，推动成长股估值修复；2) NVDA财报余温延续，带动整个AI/半导体板块轮动。AAPL的下跌则是因为早盘彭博报道中国市场份额被华为蚕食。"
 
 第三段: 未来展望
-未来1-2周持仓的预期走势，需要关注的风险，潜在的机会或催化剂，重要日期/事件。
-示例: "短期看，科技持仓有望继续受益于年末risk-on行情，但需警惕下周三CPI数据。如果通胀超预期，可能打断当前反弹。NVDA在12月15日有Investor Day，是验证AI需求持续性的关键事件。"
+未来1-2周关注股票的预期走势，需要关注的风险，潜在的机会或催化剂，重要日期/事件。
+示例: "短期看，科技股有望继续受益于年末risk-on行情，但需警惕下周三CPI数据。如果通胀超预期，可能打断当前反弹。NVDA在12月15日有Investor Day，是验证AI需求持续性的关键事件。"
 """
 
 
