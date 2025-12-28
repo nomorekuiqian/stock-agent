@@ -120,7 +120,7 @@ class StockAnalysis(BaseModel):
     quick_take: str = Field(..., description="1-2 sentence analysis in Chinese")
 
 
-class BrewHeadlineNews(BaseModel):
+class DigestHeadlineNews(BaseModel):
     """Important news with deep analysis"""
     title: str = Field(..., description="News title in Chinese")
     related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
@@ -129,7 +129,7 @@ class BrewHeadlineNews(BaseModel):
     url: str = Field(default="", description="Original article URL")
 
 
-class BrewBriefNews(BaseModel):
+class DigestBriefNews(BaseModel):
     """Other notable news with brief analysis"""
     title: str = Field(..., description="News title in Chinese")
     related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
@@ -138,13 +138,13 @@ class BrewBriefNews(BaseModel):
     url: str = Field(default="", description="Original article URL")
 
 
-class BrewNewsSection(BaseModel):
+class DigestNewsSection(BaseModel):
     """News section with headlines and briefs"""
-    headlines: list[BrewHeadlineNews] = Field(default=[], description="3-4 important news with deep analysis")
-    briefs: list[BrewBriefNews] = Field(default=[], description="8-10 other news with brief analysis")
+    headlines: list[DigestHeadlineNews] = Field(default=[], description="3-4 important news with deep analysis")
+    briefs: list[DigestBriefNews] = Field(default=[], description="8-10 other news with brief analysis")
 
 
-class BrewEvent(BaseModel):
+class DigestEvent(BaseModel):
     """Upcoming event relevant to user's watchlist"""
     date: str = Field(..., description="Event date in YYYY-MM-DD format")
     event: str = Field(..., description="Event name in Chinese")
@@ -152,13 +152,13 @@ class BrewEvent(BaseModel):
     why_important: str = Field(..., description="Why this matters for user's holdings")
 
 
-class BrewSummary(BaseModel):
+class DigestSummary(BaseModel):
     """Comprehensive summary in 3 paragraphs"""
     content: str = Field(default="", description="Three paragraphs: portfolio recap, movement drivers, outlook")
 
 
 class DigestResponse(BaseModel):
-    """Response model for personalized digest (PersonalBrewer output)"""
+    """Response model for personalized digest (PersonalDigest output)"""
     success: bool = Field(default=True, description="Whether generation was successful")
     timestamp: str = Field(..., description="Generation timestamp")
     symbols_used: list[str] = Field(default=[], description="Symbols used for analysis")
@@ -171,13 +171,13 @@ class DigestResponse(BaseModel):
     stocks: list[StockAnalysis] = Field(default=[], description="Summary for each stock")
 
     # Section 2: News (Headlines + Briefs)
-    news: BrewNewsSection = Field(default_factory=BrewNewsSection, description="News with headlines and briefs")
+    news: DigestNewsSection = Field(default_factory=DigestNewsSection, description="News with headlines and briefs")
 
     # Section 3: Upcoming Events
-    events: list[BrewEvent] = Field(default=[], description="Upcoming events within 7 days")
+    events: list[DigestEvent] = Field(default=[], description="Upcoming events within 7 days")
 
     # Section 4: Summary (replaces macro_impact + bottom_line)
-    summary: BrewSummary = Field(default_factory=BrewSummary, description="Comprehensive summary")
+    summary: DigestSummary = Field(default_factory=DigestSummary, description="Comprehensive summary")
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if generation failed")

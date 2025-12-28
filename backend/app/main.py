@@ -21,13 +21,13 @@ from app.models.request_models import (
     DigestRequest,
     DigestResponse,
     StockAnalysis,
-    BrewHeadlineNews,
-    BrewBriefNews,
-    BrewNewsSection,
-    BrewEvent,
-    BrewSummary,
+    DigestHeadlineNews,
+    DigestBriefNews,
+    DigestNewsSection,
+    DigestEvent,
+    DigestSummary,
 )
-from agents.personal_brewer import get_personal_brewer
+from agents.personal_digest import get_personal_digest
 
 app = FastAPI(title="Market Analysis API")
 
@@ -639,7 +639,7 @@ async def generate_digest(request: DigestRequest):
     """
     Generate a personalized daily digest based on user's stock watchlist.
 
-    Uses PersonalBrewer agent (gemini-3-flash) to generate structured digest
+    Uses PersonalDigest agent (gemini-3-flash) to generate structured digest
     with 5 sections: stocks, news (8-10), events, macro impact, bottom line.
 
     Personalization is based on user's watchlist stocks.
@@ -651,9 +651,9 @@ async def generate_digest(request: DigestRequest):
         if not request.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
-        # Use PersonalBrewer for personalized digest
-        brewer = get_personal_brewer()
-        result = await brewer.brew(symbols=request.symbols)
+        # Use PersonalDigest for personalized digest
+        digest_agent = get_personal_digest()
+        result = await digest_agent.generate(symbols=request.symbols)
 
         if not result.get("success"):
             error_msg = result.get("error", "Failed to generate digest")
@@ -677,7 +677,7 @@ async def generate_digest(request: DigestRequest):
         news_data = result.get("news", {})
         if isinstance(news_data, dict):
             headlines = [
-                BrewHeadlineNews(
+                DigestHeadlineNews(
                     title=n.get("title", ""),
                     related_symbols=n.get("related_symbols", []),
                     fact_summary=n.get("fact_summary", ""),
@@ -687,7 +687,7 @@ async def generate_digest(request: DigestRequest):
                 for n in news_data.get("headlines", [])
             ]
             briefs = [
-                BrewBriefNews(
+                DigestBriefNews(
                     title=n.get("title", ""),
                     related_symbols=n.get("related_symbols", []),
                     summary=n.get("summary", ""),
@@ -696,12 +696,12 @@ async def generate_digest(request: DigestRequest):
                 )
                 for n in news_data.get("briefs", [])
             ]
-            news = BrewNewsSection(headlines=headlines, briefs=briefs)
+            news = DigestNewsSection(headlines=headlines, briefs=briefs)
         else:
-            news = BrewNewsSection(headlines=[], briefs=[])
+            news = DigestNewsSection(headlines=[], briefs=[])
 
         events = [
-            BrewEvent(
+            DigestEvent(
                 date=e.get("date", ""),
                 event=e.get("event", ""),
                 related_symbols=e.get("related_symbols", []),
@@ -712,7 +712,7 @@ async def generate_digest(request: DigestRequest):
 
         # Transform summary
         summary_data = result.get("summary", {})
-        summary = BrewSummary(
+        summary = DigestSummary(
             content=summary_data.get("content", "") if isinstance(summary_data, dict) else "",
         )
 

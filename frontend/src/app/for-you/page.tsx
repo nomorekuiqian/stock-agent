@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Coffee, Search, X, Plus, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, DigestResponse, StockAnalysis, BrewHeadlineNews, BrewBriefNews, BrewEvent, StockSearchResult, StockQuote } from '@/lib/api';
+import { api, DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, StockSearchResult, StockQuote } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort } from '@/lib/timezone';
 
@@ -104,7 +104,7 @@ const getStockNameShort = (symbol: string): string => {
   return info ? info.zh : '';
 };
 
-export default function BrewPage() {
+export default function ForYouPage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
@@ -215,7 +215,7 @@ export default function BrewPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login?redirect=/brew');
+      router.push('/login?redirect=/for-you');
     }
   }, [authLoading, isAuthenticated, router]);
 
@@ -314,17 +314,17 @@ export default function BrewPage() {
   };
 
   const loadHistoricalDigest = (historyItem: UserDigest) => {
-    const brewData = historyItem.brew_data || {};
+    const digestData = historyItem.digest_data || {};
     const digestFromHistory: DigestResponse = {
       success: true,
       timestamp: historyItem.created_at || '',
       symbols_used: historyItem.symbols,
       greeting: historyItem.greeting || '',
       one_line_summary: historyItem.one_line_summary || '',
-      stocks: brewData.stocks || [],
-      news: brewData.news || { headlines: [], briefs: [] },
-      events: brewData.events || [],
-      summary: brewData.summary || {
+      stocks: digestData.stocks || [],
+      news: digestData.news || { headlines: [], briefs: [] },
+      events: digestData.events || [],
+      summary: digestData.summary || {
         content: historyItem.bottom_line || historyItem.analysis || '',
       },
     };
@@ -385,7 +385,7 @@ export default function BrewPage() {
                 <Coffee className="w-5 h-5 text-emerald-500" strokeWidth={2} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">My Brew</h1>
+                <h1 className="text-xl font-bold text-foreground">For You</h1>
                 <div className="flex items-center gap-2 mt-0.5">
                   {symbols.length > 0 ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
@@ -414,7 +414,7 @@ export default function BrewPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Brewing...
+                  Generating...
                 </>
               ) : (
                 <>
@@ -662,7 +662,7 @@ export default function BrewPage() {
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Headlines</h3>
               </div>
               <div className="divide-y divide-border">
-                {digest.news.headlines.map((item: BrewHeadlineNews, index: number) => (
+                {digest.news.headlines.map((item: DigestHeadlineNews, index: number) => (
                   <div key={index} className="py-4 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <a
@@ -699,7 +699,7 @@ export default function BrewPage() {
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">More News</h3>
               </div>
               <div className="divide-y divide-border">
-                {digest.news.briefs.map((item: BrewBriefNews, index: number) => (
+                {digest.news.briefs.map((item: DigestBriefNews, index: number) => (
                   <div key={index} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <a
@@ -736,7 +736,7 @@ export default function BrewPage() {
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Key Events</h3>
               </div>
               <div className="space-y-4">
-                {digest.events.map((event: BrewEvent, index: number) => {
+                {digest.events.map((event: DigestEvent, index: number) => {
                   const dateStr = event.date.split('T')[0];
                   const calendarDate = formatCalendarDate(dateStr);
                   const isToday = isTodayPacific(dateStr);
@@ -813,7 +813,7 @@ export default function BrewPage() {
               <Coffee className="w-10 h-10 text-muted-foreground" strokeWidth={1.5} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Create Your Personalized Brew</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Create Your Personalized Report</h3>
               <p className="text-muted-foreground max-w-sm mx-auto">
                 {symbols.length === 0
                   ? 'Add stocks to your watchlist above, then generate your personalized digest.'
@@ -836,12 +836,12 @@ export default function BrewPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Past Brews</h3>
-                  <p className="text-xs text-muted-foreground">{totalHistory} brews available</p>
+                  <h3 className="text-lg font-semibold text-foreground">Past Reports</h3>
+                  <p className="text-xs text-muted-foreground">{totalHistory} reports available</p>
                 </div>
               </div>
               <Link
-                href="/brew/archive"
+                href="/for-you/archive"
                 className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
               >
                 View all

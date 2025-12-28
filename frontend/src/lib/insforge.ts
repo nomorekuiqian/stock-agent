@@ -5,9 +5,9 @@ import {
   NewsSection,
   CalendarEvent,
   StockAnalysis,
-  BrewNewsSection,
-  BrewEvent,
-  BrewSummary,
+  DigestNewsSection,
+  DigestEvent,
+  DigestSummary,
   DigestResponse,
 } from './api';
 
@@ -280,7 +280,7 @@ export async function saveUserWatchlist(
 
 
 // =============================================================================
-// User Digest Functions (PersonalBrew)
+// User Digest Functions (PersonalDigest)
 // =============================================================================
 
 export interface UserDigest {
@@ -295,11 +295,11 @@ export interface UserDigest {
   greeting?: string;
   one_line_summary?: string;
   bottom_line?: string;  // Legacy, kept for backward compatibility
-  brew_data?: {
+  digest_data?: {
     stocks?: StockAnalysis[];
-    news?: BrewNewsSection;
-    events?: BrewEvent[];
-    summary?: BrewSummary;
+    news?: DigestNewsSection;
+    events?: DigestEvent[];
+    summary?: DigestSummary;
   };
   created_at?: string;
 }
@@ -322,7 +322,7 @@ export async function saveUserDigest(
       greeting: digest.greeting || '',
       one_line_summary: digest.one_line_summary || '',
       bottom_line: digest.summary?.content || '',
-      brew_data: {
+      digest_data: {
         stocks: digest.stocks || [],
         news: digest.news || { headlines: [], briefs: [] },
         events: digest.events || [],

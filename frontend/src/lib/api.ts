@@ -104,7 +104,7 @@ export interface SendEmailResponse {
   sent_to?: string;
 }
 
-// PersonalBrewer Digest Types
+// PersonalDigest Types
 
 export interface StockAnalysis {
   symbol: string;
@@ -116,7 +116,7 @@ export interface StockAnalysis {
   quick_take: string;
 }
 
-export interface BrewHeadlineNews {
+export interface DigestHeadlineNews {
   title: string;
   related_symbols: string[];
   fact_summary: string;
@@ -124,7 +124,7 @@ export interface BrewHeadlineNews {
   url: string;
 }
 
-export interface BrewBriefNews {
+export interface DigestBriefNews {
   title: string;
   related_symbols: string[];
   summary: string;
@@ -132,19 +132,19 @@ export interface BrewBriefNews {
   url: string;
 }
 
-export interface BrewNewsSection {
-  headlines: BrewHeadlineNews[];
-  briefs: BrewBriefNews[];
+export interface DigestNewsSection {
+  headlines: DigestHeadlineNews[];
+  briefs: DigestBriefNews[];
 }
 
-export interface BrewEvent {
+export interface DigestEvent {
   date: string;
   event: string;
   related_symbols: string[];
   why_important: string;
 }
 
-export interface BrewSummary {
+export interface DigestSummary {
   content: string;
 }
 
@@ -161,13 +161,13 @@ export interface DigestResponse {
   stocks: StockAnalysis[];
 
   // Section 2: News (Headline + Brief structure)
-  news: BrewNewsSection;
+  news: DigestNewsSection;
 
   // Section 3: Upcoming Events
-  events: BrewEvent[];
+  events: DigestEvent[];
 
   // Section 4: Summary (replaces macro_impact + bottom_line)
-  summary: BrewSummary;
+  summary: DigestSummary;
 
   // Error handling
   error?: string;

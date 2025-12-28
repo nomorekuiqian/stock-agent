@@ -50,10 +50,10 @@ export default function RootLayout({
                     Liquidity
                   </Link>
                   <Link
-                    href="/brew"
+                    href="/for-you"
                     className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
                   >
-                    My Brew
+                    For You
                   </Link>
                   {process.env.NODE_ENV === 'development' && (
                     <Link

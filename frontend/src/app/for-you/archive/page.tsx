@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatDateShort } from '@/lib/timezone';
 
-export default function BrewArchivePage() {
+export default function ForYouArchivePage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
@@ -21,7 +21,7 @@ export default function BrewArchivePage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login?redirect=/brew/archive');
+      router.push('/login?redirect=/for-you/archive');
     }
   }, [authLoading, isAuthenticated, router]);
 
@@ -38,7 +38,7 @@ export default function BrewArchivePage() {
         setTotal(result.total);
       } catch (err) {
         console.error('Failed to load digests:', err);
-        setError('Failed to load your brews');
+        setError('Failed to load your reports');
       } finally {
         setLoading(false);
       }
@@ -77,7 +77,7 @@ export default function BrewArchivePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link
-                href="/brew"
+                href="/for-you"
                 className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +90,7 @@ export default function BrewArchivePage() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Brew Archive</h1>
+                <h1 className="text-xl font-bold text-foreground">Report Archive</h1>
                 <p className="text-xs text-muted-foreground">{total} personalized reports</p>
               </div>
             </div>
@@ -112,7 +112,7 @@ export default function BrewArchivePage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-12 h-12 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground">Loading your brews...</p>
+            <p className="text-muted-foreground">Loading your reports...</p>
           </div>
         </div>
       )}
@@ -124,7 +124,7 @@ export default function BrewArchivePage() {
             {digests.map((digest) => (
               <Link
                 key={digest.id}
-                href={`/brew/${digest.id}`}
+                href={`/for-you/${digest.id}`}
                 className="group bg-card rounded-xl border border-border p-5 hover:border-emerald-500/50 transition-all"
               >
                 {/* Date */}
@@ -224,19 +224,19 @@ export default function BrewArchivePage() {
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Brews Yet</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Reports Yet</h3>
               <p className="text-muted-foreground max-w-sm mx-auto">
-                Generate your first personalized brew to start building your archive.
+                Generate your first personalized report to start building your archive.
               </p>
             </div>
             <Link
-              href="/brew"
+              href="/for-you"
               className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium transition-all hover:bg-emerald-500"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Create Your First Brew
+              Create Your First Report
             </Link>
           </div>
         </div>

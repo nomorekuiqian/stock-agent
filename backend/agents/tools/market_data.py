@@ -364,7 +364,7 @@ def get_all_market_data() -> dict:
 
 
 # =============================================================================
-# Stock Quotes for User Watchlist (PersonalBrewer)
+# Stock Quotes for User Watchlist (PersonalDigest)
 # =============================================================================
 
 

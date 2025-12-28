@@ -467,7 +467,7 @@ class InsforgeService:
 
 
     # =========================================================================
-    # User Digest Methods (PersonalBrew)
+    # User Digest Methods (PersonalDigest)
     # =========================================================================
 
     async def save_user_digest(self, digest_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -498,7 +498,7 @@ class InsforgeService:
                 # Legacy field
                 "analysis": summary_content,
                 # Full structured data
-                "brew_data": {
+                "digest_data": {
                     "stocks": digest_data.get("stocks", []),
                     "news": digest_data.get("news", {}),
                     "events": digest_data.get("events", []),

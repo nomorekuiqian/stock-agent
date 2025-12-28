@@ -1,12 +1,10 @@
 """
-PersonalBrewer - Daily Digest for User Watchlist
+PersonalDigest - Daily Digest for User Watchlist
 
 Architecture:
-    Python (fetch stock + news data) -> PersonalBrewer Agent (gemini-3-flash) -> Structured output
+    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3-flash) -> Structured output
 
 Cost: ~$0.018/request (vs MarketAgent $0.07 - saves 75%)
-
-Naming: "PersonalBrewer" echoes the MarketBrew brand
 """
 
 import json
@@ -31,7 +29,7 @@ from agents.tools.earnings import get_earnings_calendar
 
 
 # =============================================================================
-# Pydantic Output Schema for PersonalBrew
+# Pydantic Output Schema for PersonalDigest
 # =============================================================================
 
 
@@ -142,7 +140,7 @@ class Summary(BaseModel):
     )
 
 
-class PersonalBrewOutput(BaseModel):
+class PersonalDigestOutput(BaseModel):
     """Structured output for personalized digest."""
 
     # Header
@@ -178,10 +176,10 @@ class PersonalBrewOutput(BaseModel):
 
 
 # =============================================================================
-# PersonalBrewer Agent Prompt (Reasoning-First Design)
+# PersonalDigest Agent Prompt (Reasoning-First Design)
 # =============================================================================
 
-BREWER_INSTRUCTION = """
+DIGEST_INSTRUCTION = """
 你是用户的私人投资分析师。用户把持仓列表交给你，希望你每天帮他梳理"今天我应该知道什么"。
 
 你不是在填表格，而是在帮朋友写一份有洞见的投资笔记。
@@ -306,32 +304,32 @@ BREWER_INSTRUCTION = """
 """
 
 
-personal_brewer_agent = LlmAgent(
-    name="personal_brewer",
+personal_digest_agent = LlmAgent(
+    name="personal_digest",
     model="gemini-3-flash-preview",
     description="Generates personalized daily digest based on user's watchlist",
-    instruction=BREWER_INSTRUCTION,
-    output_schema=PersonalBrewOutput,
-    output_key="brew",
+    instruction=DIGEST_INSTRUCTION,
+    output_schema=PersonalDigestOutput,
+    output_key="digest",
 )
 
 
 # =============================================================================
-# PersonalBrewer Wrapper Class
+# PersonalDigest Wrapper Class
 # =============================================================================
 
 
-class PersonalBrewer:
-    """Wrapper class to fetch user-specific data and run the brewer agent."""
+class PersonalDigest:
+    """Wrapper class to fetch user-specific data and run the digest agent."""
 
     DEFAULT_MACRO_SYMBOLS = ["SPY", "QQQ", "^VIX"]
 
     def __init__(self):
         self._runner = InMemoryRunner(
-            agent=personal_brewer_agent, app_name="personal_brewer"
+            agent=personal_digest_agent, app_name="personal_digest"
         )
 
-    async def brew(
+    async def generate(
         self,
         symbols: list[str],
     ) -> dict:
@@ -350,24 +348,24 @@ class PersonalBrewer:
 
             # Limit to 20 stocks max
             symbols = symbols[:20]
-            print(f"[PersonalBrewer] Brewing digest for: {symbols}")
+            print(f"[PersonalDigest] Generating digest for: {symbols}")
 
             # Step 1: Fetch user-specific stock data
-            print("[PersonalBrewer] Fetching stock quotes...")
+            print("[PersonalDigest] Fetching stock quotes...")
             stock_data = get_stock_quotes(symbols)
 
             # Step 2: Fetch news filtered by user's symbols + macro symbols
-            print("[PersonalBrewer] Fetching news...")
+            print("[PersonalDigest] Fetching news...")
             news_symbols = symbols + self.DEFAULT_MACRO_SYMBOLS
             news_result = get_combined_market_news(days=1, symbols=news_symbols)
 
             # Step 3: Fetch calendars
-            print("[PersonalBrewer] Fetching calendars...")
+            print("[PersonalDigest] Fetching calendars...")
             calendar_result = get_economic_calendar(days=7)
             earnings_result = get_earnings_calendar(days=7)
 
             # Step 4: Get macro context (simplified)
-            print("[PersonalBrewer] Fetching macro context...")
+            print("[PersonalDigest] Fetching macro context...")
             market_data = get_all_market_data()
             macro_summary = self._extract_macro_summary(market_data)
 
@@ -387,10 +385,10 @@ class PersonalBrewer:
             }
 
             # Step 6: Run agent
-            print("[PersonalBrewer] Running agent...")
+            print("[PersonalDigest] Running agent...")
 
             session = await self._runner.session_service.create_session(
-                app_name="personal_brewer", user_id="brewer"
+                app_name="personal_digest", user_id="digest"
             )
 
             message = Content(
@@ -403,47 +401,47 @@ class PersonalBrewer:
             )
 
             async for _ in self._runner.run_async(
-                user_id="brewer", session_id=session.id, new_message=message
+                user_id="digest", session_id=session.id, new_message=message
             ):
                 pass
 
             # Get output from session state
             session_data = await self._runner.session_service.get_session(
-                app_name="personal_brewer", user_id="brewer", session_id=session.id
+                app_name="personal_digest", user_id="digest", session_id=session.id
             )
 
-            brew_output = {}
+            digest_output = {}
             if session_data and hasattr(session_data, "state"):
                 state = session_data.state or {}
-                brew_output = state.get("brew", {})
-                if isinstance(brew_output, str):
+                digest_output = state.get("digest", {})
+                if isinstance(digest_output, str):
                     try:
-                        brew_output = json.loads(brew_output)
+                        digest_output = json.loads(digest_output)
                     except json.JSONDecodeError:
-                        brew_output = {}
+                        digest_output = {}
 
-            news_data = brew_output.get("news", {})
+            news_data = digest_output.get("news", {})
             news_count = 0
             if isinstance(news_data, dict):
                 news_count = len(news_data.get("headlines", [])) + len(
                     news_data.get("briefs", [])
                 )
             print(
-                f"[PersonalBrewer] Brew complete. "
-                f"Stocks: {len(brew_output.get('stocks', []))}, "
+                f"[PersonalDigest] Generation complete. "
+                f"Stocks: {len(digest_output.get('stocks', []))}, "
                 f"News: {news_count}, "
-                f"Events: {len(brew_output.get('events', []))}"
+                f"Events: {len(digest_output.get('events', []))}"
             )
 
             return {
                 "success": True,
                 "timestamp": now_iso(),
                 "symbols_used": symbols,
-                **brew_output,
+                **digest_output,
             }
 
         except Exception as e:
-            print(f"[PersonalBrewer] Error: {e}")
+            print(f"[PersonalDigest] Error: {e}")
             import traceback
 
             traceback.print_exc()
@@ -494,12 +492,12 @@ class PersonalBrewer:
 # Singleton Instance
 # =============================================================================
 
-_personal_brewer_instance = None
+_personal_digest_instance = None
 
 
-def get_personal_brewer() -> PersonalBrewer:
-    """Get singleton PersonalBrewer instance."""
-    global _personal_brewer_instance
-    if _personal_brewer_instance is None:
-        _personal_brewer_instance = PersonalBrewer()
-    return _personal_brewer_instance
+def get_personal_digest() -> PersonalDigest:
+    """Get singleton PersonalDigest instance."""
+    global _personal_digest_instance
+    if _personal_digest_instance is None:
+        _personal_digest_instance = PersonalDigest()
+    return _personal_digest_instance

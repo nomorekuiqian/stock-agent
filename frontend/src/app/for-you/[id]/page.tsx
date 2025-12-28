@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { Coffee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDigestById, UserDigest } from '@/lib/insforge';
-import { DigestResponse, StockAnalysis, BrewHeadlineNews, BrewBriefNews, BrewEvent, BrewSummary } from '@/lib/api';
+import { DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, DigestSummary } from '@/lib/api';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific } from '@/lib/timezone';
 
-export default function BrewDetailPage({
+export default function ForYouDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -25,7 +25,7 @@ export default function BrewDetailPage({
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/login?redirect=/brew/${id}`);
+      router.push(`/login?redirect=/for-you/${id}`);
     }
   }, [authLoading, isAuthenticated, router, id]);
 
@@ -40,35 +40,35 @@ export default function BrewDetailPage({
         const historyItem = await getUserDigestById(id);
 
         if (!historyItem) {
-          setError('Brew not found');
+          setError('Report not found');
           return;
         }
 
         // Verify ownership
         if (historyItem.user_id !== user.id) {
-          setError('You do not have access to this brew');
+          setError('You do not have access to this report');
           return;
         }
 
         // Convert to DigestResponse format
-        const brewData = historyItem.brew_data || {};
+        const digestData = historyItem.digest_data || {};
         const digestFromHistory: DigestResponse = {
           success: true,
           timestamp: historyItem.created_at || '',
           symbols_used: historyItem.symbols,
           greeting: historyItem.greeting || '',
           one_line_summary: historyItem.one_line_summary || '',
-          stocks: brewData.stocks || [],
-          news: brewData.news || { headlines: [], briefs: [] },
-          events: brewData.events || [],
-          summary: brewData.summary || {
+          stocks: digestData.stocks || [],
+          news: digestData.news || { headlines: [], briefs: [] },
+          events: digestData.events || [],
+          summary: digestData.summary || {
             content: historyItem.bottom_line || historyItem.analysis || '',
           },
         };
         setDigest(digestFromHistory);
       } catch (err) {
         console.error('Failed to load digest:', err);
-        setError('Failed to load brew');
+        setError('Failed to load report');
       } finally {
         setLoading(false);
       }
@@ -113,7 +113,7 @@ export default function BrewDetailPage({
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center gap-3">
             <Link
-              href="/brew"
+              href="/for-you"
               className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,7 +124,7 @@ export default function BrewDetailPage({
               <Coffee className="w-5 h-5 text-emerald-500" strokeWidth={2} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">My Brew</h1>
+              <h1 className="text-xl font-bold text-foreground">For You</h1>
               <p className="text-xs text-muted-foreground">Personal Report</p>
             </div>
           </div>
@@ -145,7 +145,7 @@ export default function BrewDetailPage({
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-12 h-12 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground">Loading your brew...</p>
+            <p className="text-muted-foreground">Loading your report...</p>
           </div>
         </div>
       )}
@@ -224,7 +224,7 @@ export default function BrewDetailPage({
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Headlines</h3>
               </div>
               <div className="divide-y divide-border">
-                {digest.news.headlines.map((item: BrewHeadlineNews, index: number) => (
+                {digest.news.headlines.map((item: DigestHeadlineNews, index: number) => (
                   <div key={index} className="py-4 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <a
@@ -261,7 +261,7 @@ export default function BrewDetailPage({
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">More News</h3>
               </div>
               <div className="divide-y divide-border">
-                {digest.news.briefs.map((item: BrewBriefNews, index: number) => (
+                {digest.news.briefs.map((item: DigestBriefNews, index: number) => (
                   <div key={index} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <a
@@ -298,7 +298,7 @@ export default function BrewDetailPage({
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Key Events</h3>
               </div>
               <div className="space-y-4">
-                {digest.events.map((event: BrewEvent, index: number) => {
+                {digest.events.map((event: DigestEvent, index: number) => {
                   const dateStr = event.date.split('T')[0];
                   const calendarDate = formatCalendarDate(dateStr);
                   const isToday = isTodayPacific(dateStr);
@@ -364,13 +364,13 @@ export default function BrewDetailPage({
               AI-generated report for informational purposes only. Not financial advice.
             </p>
             <Link
-              href="/brew"
+              href="/for-you"
               className="inline-flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to My Brew
+              Back to For You
             </Link>
           </div>
         </div>
