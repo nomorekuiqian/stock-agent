@@ -1,0 +1,40 @@
+name: Daily Personal Digest
+
+on:
+  schedule:
+    # Run at 6:00 PM US Eastern Time (after market close)
+    # UTC 23:00 = 6:00 PM EST (winter) / 7:00 PM EDT (summer)
+    - cron: '0 23 * * 1-5'  # Monday to Friday only (market days)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  send-digests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Personalized Digests
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/subscriptions/personal_digest/broadcast")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Failed to send personal digests"
+            exit 1
+          fi
+
+          # Parse response for summary
+          total=$(echo "$body" | grep -o '"total":[0-9]*' | cut -d':' -f2)
+          sent=$(echo "$body" | grep -o '"sent":[0-9]*' | cut -d':' -f2)
+          failed=$(echo "$body" | grep -o '"failed":[0-9]*' | cut -d':' -f2)
+
+          echo "Personal digests sent successfully!"
+          echo "Total subscribers: $total"
+          echo "Sent: $sent"
+          echo "Failed: $failed"

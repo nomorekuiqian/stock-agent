@@ -87,10 +87,32 @@ module.exports = async function(request) {
 
     // GET - Fetch reports
     if (request.method === 'GET') {
+      const reportId = url.searchParams.get('id');
       const reportDate = url.searchParams.get('date');
       const latest = url.searchParams.get('latest');
       const limit = parseInt(url.searchParams.get('limit') || '10');
       const offset = parseInt(url.searchParams.get('offset') || '0');
+
+      // Get single report by ID
+      if (reportId) {
+        const { data, error } = await client.database
+          .from('market_reports')
+          .select('*')
+          .eq('id', reportId)
+          .maybeSingle();
+
+        if (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
       // Get single report by date
       if (reportDate) {

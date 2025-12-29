@@ -26,8 +26,20 @@ from app.models.request_models import (
     DigestNewsSection,
     DigestEvent,
     DigestSummary,
+    SubscribeRequest,
+    UnsubscribeRequest,
+    SubscriptionUpdateRequest,
+    SubscriptionStatusRequest,
+    SubscriptionStatusResponse,
+    SubscriptionResponse,
+    BroadcastResponse,
+    SubscribersListResponse,
 )
 from agents.personal_digest import get_personal_digest
+from app.services.subscription_service import (
+    get_subscription_service,
+    SubscriptionChannel,
+)
 
 app = FastAPI(title="Market Analysis API")
 
@@ -341,7 +353,10 @@ class BroadcastTestRequest(BaseModel):
 
 
 @app.get("/api/report/preview")
-async def get_email_preview(report_id: Optional[str] = Query(None)):
+async def get_email_preview(
+    report_id: Optional[str] = Query(None),
+    first_name: Optional[str] = Query(None),
+):
     """
     Get rendered HTML email preview for an existing report.
     Does NOT trigger any Gemini API calls - uses existing data only.
@@ -382,11 +397,103 @@ async def get_email_preview(report_id: Optional[str] = Query(None)):
         email_service = get_email_service()
         html_content = email_service._format_html_report(report_data)
 
+        # Replace placeholder with actual name (or default)
+        display_name = first_name or "朋友"
+        html_content = html_content.replace("{{{first_name|朋友}}}", display_name)
+
         return {
             "success": True,
             "html": html_content,
             "report_id": report.get("id"),
             "report_date": report.get("report_date"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/subscriptions/personal_digest/preview")
+async def get_digest_preview(
+    user_id: Optional[str] = Query(None),
+    digest_id: Optional[str] = Query(None),
+):
+    """
+    Get rendered HTML email preview for a personal digest.
+    Uses existing digest data only - no API calls.
+
+    Args:
+        user_id: User ID to get the latest digest for
+        digest_id: Specific digest ID to preview
+    """
+    import httpx
+
+    try:
+        insforge_service = get_insforge_service()
+        func_url = f"{insforge_service.base_url}/functions/user-digests"
+
+        # Get digest data via edge function
+        digest = None
+        async with httpx.AsyncClient() as client:
+            if digest_id:
+                # Get specific digest by ID
+                url = f"{func_url}?digest_id={digest_id}"
+                response = await client.get(url, headers=insforge_service.headers, timeout=30.0)
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("success") and result.get("data"):
+                        digest = result["data"]
+            elif user_id:
+                # Get latest digest for user
+                url = f"{func_url}?user_id={user_id}&limit=1"
+                response = await client.get(url, headers=insforge_service.headers, timeout=30.0)
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("success") and result.get("data"):
+                        data = result["data"]
+                        if isinstance(data, list) and len(data) > 0:
+                            digest = data[0]
+                        elif isinstance(data, dict):
+                            digest = data
+
+        if not digest:
+            if user_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No personal digest found for this user. Generate one first from the For You page."
+                )
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No digest found. Please provide user_id or digest_id."
+                )
+
+        # Build digest data for email rendering
+        digest_data = digest.get("digest_data", {})
+        email_data = {
+            "timestamp": digest.get("created_at", ""),
+            "greeting": digest.get("greeting", ""),
+            "one_line_summary": digest.get("one_line_summary", ""),
+            "stocks": digest_data.get("stocks", []),
+            "news": digest_data.get("news", {}),
+            "events": digest_data.get("events", []),
+            "summary": digest_data.get("summary", {}),
+        }
+
+        # Render HTML using the real email template
+        email_service = get_email_service()
+        html_content = email_service._format_digest_html(email_data, "Preview User")
+
+        return {
+            "success": True,
+            "html": html_content,
+            "digest_id": digest.get("id"),
+            "digest_date": digest.get("digest_date"),
+            "user_id": digest.get("user_id"),
+            "symbols": digest.get("symbols", []),
         }
 
     except HTTPException:
@@ -520,106 +627,270 @@ async def send_test_report(request: SendEmailRequest):
 
 
 # =============================================================================
-# Subscriber Management Endpoints
+# Unified Subscription Management Endpoints
 # =============================================================================
 
 
-class SubscribeRequest(BaseModel):
-    email: str
-    first_name: Optional[str] = None
-
-
-class UnsubscribeRequest(BaseModel):
-    email: str
-
-
-@app.post("/api/subscribe")
-async def subscribe(request: SubscribeRequest):
+@app.post("/api/subscriptions/{channel}/subscribe", response_model=SubscriptionResponse)
+async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeRequest):
     """
-    Subscribe to the daily market report newsletter.
+    Subscribe to a specific channel (daily_report or personal_digest).
+
+    For personal_digest channel, user_id and symbols are required.
     """
     try:
-        email_service = get_email_service()
-        result = email_service.add_subscriber(
+        subscription_service = get_subscription_service()
+
+        # Build metadata from request
+        metadata = {}
+        if request.first_name:
+            metadata["first_name"] = request.first_name
+        if request.user_id:
+            metadata["user_id"] = request.user_id
+        if request.symbols:
+            metadata["symbols"] = request.symbols
+
+        result = subscription_service.subscribe(
+            channel=channel,
             email=request.email,
-            first_name=request.first_name
+            metadata=metadata
         )
 
-        if not result.get("success"):
-            # Handle duplicate subscription gracefully
-            if result.get("code") == "DUPLICATE":
-                return {
-                    "success": True,
-                    "message": "Email is already subscribed",
-                    "email": request.email
-                }
-            raise HTTPException(status_code=400, detail=result.get("error", "Failed to subscribe"))
+        return SubscriptionResponse(
+            success=result.get("success", False),
+            channel=channel.value,
+            email=request.email,
+            contact_id=result.get("contact_id"),
+            metadata=result.get("metadata"),
+            error=result.get("error"),
+        )
 
-        return {
-            "success": True,
-            "message": "Successfully subscribed to daily reports",
-            "email": request.email,
-            "contact_id": result.get("contact_id")
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/unsubscribe")
-async def unsubscribe(request: UnsubscribeRequest):
+@app.post("/api/subscriptions/{channel}/unsubscribe", response_model=SubscriptionResponse)
+async def unsubscribe_from_channel(channel: SubscriptionChannel, request: UnsubscribeRequest):
     """
-    Unsubscribe from the daily market report newsletter.
+    Unsubscribe from a specific channel.
     """
     try:
-        email_service = get_email_service()
-        result = email_service.unsubscribe(email=request.email)
+        subscription_service = get_subscription_service()
+        result = subscription_service.unsubscribe(channel=channel, email=request.email)
 
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error", "Failed to unsubscribe"))
+        return SubscriptionResponse(
+            success=result.get("success", False),
+            channel=channel.value,
+            email=request.email,
+            error=result.get("error"),
+        )
 
-        return {
-            "success": True,
-            "message": "Successfully unsubscribed from daily reports",
-            "email": request.email
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/subscribers")
-async def list_subscribers(
+@app.get("/api/subscriptions/{channel}/status", response_model=SubscriptionStatusResponse)
+async def get_subscription_status(
+    channel: SubscriptionChannel,
+    email: str = Query(..., description="Email address to check")
+):
+    """
+    Get subscription status for an email in a specific channel.
+    """
+    try:
+        subscription_service = get_subscription_service()
+        result = subscription_service.get_status(channel=channel, email=email)
+
+        return SubscriptionStatusResponse(
+            success=result.get("success", False),
+            channel=channel.value,
+            subscribed=result.get("subscribed", False),
+            email=email,
+            metadata=result.get("metadata", {}),
+            error=result.get("error"),
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/subscriptions/{channel}/update", response_model=SubscriptionResponse)
+async def update_subscription(channel: SubscriptionChannel, request: SubscriptionUpdateRequest):
+    """
+    Update subscription metadata (e.g., watchlist symbols for personal_digest).
+    """
+    try:
+        subscription_service = get_subscription_service()
+
+        # Build metadata from request
+        metadata = {}
+        if request.first_name:
+            metadata["first_name"] = request.first_name
+        if request.symbols:
+            metadata["symbols"] = request.symbols
+
+        result = subscription_service.update(
+            channel=channel,
+            email=request.email,
+            metadata=metadata
+        )
+
+        return SubscriptionResponse(
+            success=result.get("success", False),
+            channel=channel.value,
+            email=request.email,
+            metadata=result.get("metadata"),
+            error=result.get("error"),
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/subscriptions/{channel}/subscribers", response_model=SubscribersListResponse)
+async def list_channel_subscribers(
+    channel: SubscriptionChannel,
     x_cron_secret: str = Header(None, alias="X-Cron-Secret"),
     limit: int = Query(default=100, le=500)
 ):
     """
-    List all active subscribers (admin only, protected by CRON_SECRET).
+    List all active subscribers for a channel (admin only, protected by CRON_SECRET).
     """
     # Verify cron secret for admin access
     if CRON_SECRET and x_cron_secret != CRON_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        email_service = get_email_service()
-        result = email_service.list_subscribers(limit=limit)
+        subscription_service = get_subscription_service()
+        result = subscription_service.list_subscribers(channel=channel, limit=limit)
 
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to list subscribers"))
 
-        return {
-            "success": True,
-            "subscribers": result.get("subscribers", []),
-            "count": result.get("count", 0)
-        }
+        return SubscribersListResponse(
+            success=True,
+            channel=channel.value,
+            subscribers=result.get("subscribers", []),
+            count=result.get("count", 0),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/subscriptions/{channel}/broadcast", response_model=BroadcastResponse)
+async def broadcast_to_channel(
+    channel: SubscriptionChannel,
+    x_cron_secret: str = Header(None, alias="X-Cron-Secret"),
+):
+    """
+    Broadcast to all subscribers of a channel.
+    Protected by CRON_SECRET for scheduled job authentication.
+
+    - daily_report: Sends the daily market report
+    - personal_digest: Generates and sends personalized digests (parallel processing)
+    """
+    # Verify cron secret
+    if CRON_SECRET and x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        email_service = get_email_service()
+
+        if channel == SubscriptionChannel.DAILY_REPORT:
+            # Generate or get today's report
+            insforge_service = get_insforge_service()
+            today = today_str()
+
+            existing_report = await insforge_service.get_report_by_date(today)
+
+            if existing_report:
+                report_data = {
+                    "indices": existing_report.get("indices", []),
+                    "timestamp": existing_report.get("timestamp", now_iso()),
+                    "title": existing_report.get("title", ""),
+                    "summary": existing_report.get("summary", ""),
+                    "quick_take": existing_report.get("quick_take", ""),
+                    "market_narrative": existing_report.get("market_narrative", ""),
+                    "macro": existing_report.get("macro"),
+                    "news": existing_report.get("news"),
+                    "conclusion": existing_report.get("conclusion", ""),
+                    "calendar": existing_report.get("calendar", []),
+                    "short_analysis": existing_report.get("short_analysis", ""),
+                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
+                }
+            else:
+                # Generate new report
+                result = await market_agent.analyze()
+                if not result:
+                    raise HTTPException(status_code=500, detail="Failed to generate market analysis")
+
+                market_data = result.get("market_data", {})
+                indices = transform_market_data_to_indices(market_data)
+
+                report_data = {
+                    "indices": indices,
+                    "timestamp": result.get("timestamp", now_iso()),
+                    "title": result.get("title", ""),
+                    "summary": result.get("summary", ""),
+                    "quick_take": result.get("quick_take", ""),
+                    "market_narrative": result.get("market_narrative", ""),
+                    "macro": result.get("macro"),
+                    "news": result.get("news"),
+                    "conclusion": result.get("conclusion", ""),
+                    "calendar": result.get("calendar", []),
+                    "short_analysis": result.get("short_analysis", ""),
+                    "in_depth_analysis": result.get("in_depth_analysis", ""),
+                }
+
+                # Save to database
+                await insforge_service.save_market_report({
+                    **report_data,
+                    "economic_calendar": result.get("economic_calendar", {}),
+                    "earnings_calendar": result.get("earnings_calendar", {}),
+                    "news_data": result.get("news_data", {}),
+                    "market_data": market_data,
+                })
+
+            # Broadcast daily report
+            broadcast_result = await email_service.broadcast_daily_report(report_data)
+
+            return BroadcastResponse(
+                success=broadcast_result.get("success", False),
+                channel=channel.value,
+                total=broadcast_result.get("total", 0),
+                sent=broadcast_result.get("sent", 0),
+                failed=broadcast_result.get("failed", 0),
+                errors=broadcast_result.get("errors", []),
+            )
+
+        elif channel == SubscriptionChannel.PERSONAL_DIGEST:
+            # Broadcast personal digests (parallel processing)
+            broadcast_result = await email_service.broadcast_personal_digests(max_concurrent=5)
+
+            return BroadcastResponse(
+                success=broadcast_result.get("success", False),
+                channel=channel.value,
+                total=broadcast_result.get("total", 0),
+                sent=broadcast_result.get("sent", 0),
+                failed=broadcast_result.get("failed", 0),
+                errors=broadcast_result.get("errors", []),
+            )
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown channel: {channel}")
 
     except HTTPException:
         raise

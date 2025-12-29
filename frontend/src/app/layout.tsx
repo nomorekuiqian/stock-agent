@@ -1,18 +1,43 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import Link from "next/link";
-import { Coffee } from "lucide-react";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { NavAuth } from "@/components/NavAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
 export const metadata: Metadata = {
   title: "MarketBrew - AI Market Intelligence",
   description: "AI-powered market analysis for smart investors",
 };
+
+// Abstract M Logo with emerald gradient
+function Logo({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="emerald-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#10B981" />
+          <stop offset="50%" stopColor="#34D399" />
+          <stop offset="100%" stopColor="#6EE7B7" />
+        </linearGradient>
+      </defs>
+      {/* Abstract M shape - three ascending lines forming M */}
+      <path
+        d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
+        stroke="url(#emerald-gradient)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -21,48 +46,72 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground min-h-screen`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+      </head>
+      <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
-          {/* Navigation - Glass effect */}
-          <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
-            <div className="max-w-5xl mx-auto px-4 md:px-6">
-              <div className="flex items-center justify-between h-12">
+          {/* Navigation - Premium Glass Effect */}
+          <nav className="sticky top-0 z-50 bg-background/60 backdrop-blur-2xl border-b border-border/50">
+            <div className="max-w-6xl mx-auto px-4 md:px-6">
+              <div className="flex items-center justify-between h-14">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 group">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center group-hover:glow-emerald-sm transition-all">
-                    <Coffee className="w-4 h-4 text-white" strokeWidth={2} />
-                  </div>
-                  <span className="font-semibold text-sm text-foreground">MarketBrew</span>
+                <Link href="/" className="flex items-center gap-2.5 group">
+                  <Logo className="w-7 h-7 transition-transform duration-300 group-hover:scale-105" />
+                  <span className="font-medium text-sm tracking-tight text-foreground">
+                    MarketBrew
+                  </span>
                 </Link>
 
                 {/* Navigation Links */}
-                <div className="flex items-center gap-6">
+                <div className="hidden md:flex items-center gap-1">
                   <Link
                     href="/today"
-                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
                     Today
                   </Link>
                   <Link
                     href="/liquidity"
-                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
                     Liquidity
                   </Link>
                   <Link
                     href="/for-you"
-                    className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
                     For You
                   </Link>
                   {process.env.NODE_ENV === 'development' && (
                     <Link
                       href="/rednote"
-                      className="text-sm text-muted-foreground hover:text-foreground dark:hover:text-emerald-400 transition-colors"
+                      className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                     >
                       RedNote
                     </Link>
                   )}
+                </div>
+
+                {/* Right Side Actions */}
+                <div className="flex items-center gap-2">
+                  {/* Mobile Nav Links */}
+                  <div className="flex md:hidden items-center gap-1">
+                    <Link
+                      href="/today"
+                      className="px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                    >
+                      Today
+                    </Link>
+                    <Link
+                      href="/liquidity"
+                      className="px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                    >
+                      Liquidity
+                    </Link>
+                  </div>
                   <ThemeToggle />
                   <NavAuth />
                 </div>
@@ -72,17 +121,31 @@ export default function RootLayout({
 
           {children}
 
-          {/* Footer */}
-          <footer className="border-t border-border mt-12">
-            <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-5 h-5 rounded bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center">
-                    <Coffee className="w-3 h-3 text-white" strokeWidth={2} />
-                  </div>
+          {/* Footer - Minimal & Elegant */}
+          <footer className="border-t border-border/50 mt-16">
+            <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                {/* Brand */}
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Logo className="w-5 h-5 opacity-60" />
                   <span className="text-xs font-medium">MarketBrew</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
+
+                {/* Links */}
+                <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                  <Link href="/today" className="hover:text-foreground transition-colors">
+                    Today
+                  </Link>
+                  <Link href="/liquidity" className="hover:text-foreground transition-colors">
+                    Liquidity
+                  </Link>
+                  <Link href="/today/archive" className="hover:text-foreground transition-colors">
+                    Archive
+                  </Link>
+                </div>
+
+                {/* Tagline */}
+                <p className="text-xs text-muted-foreground/60">
                   AI-powered market intelligence
                 </p>
               </div>

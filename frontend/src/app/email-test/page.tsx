@@ -3,36 +3,85 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+
+type EmailChannel = 'daily_report' | 'personal_digest';
 
 function EmailTestContent() {
   const searchParams = useSearchParams();
   const reportIdParam = searchParams.get('report_id');
+  const digestIdParam = searchParams.get('digest_id');
+  const { user } = useAuth();
 
+  // Active channel tab
+  const [activeChannel, setActiveChannel] = useState<EmailChannel>(
+    digestIdParam ? 'personal_digest' : 'daily_report'
+  );
+
+  // Daily Report state
   const [emailHtml, setEmailHtml] = useState<string>('');
   const [reportInfo, setReportInfo] = useState<{ id: string; date: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [reportId, setReportId] = useState(reportIdParam || '');
 
+  // Personal Digest state
+  const [digestHtml, setDigestHtml] = useState<string>('');
+  const [digestInfo, setDigestInfo] = useState<{
+    id: string;
+    date: string;
+    userId: string;
+    symbols: string[];
+  } | null>(null);
+  const [digestId, setDigestId] = useState(digestIdParam || '');
+
+  // Common state
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
+
+  // Send test email state
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
 
   useEffect(() => {
-    loadEmailPreview(reportIdParam || undefined);
-  }, [reportIdParam]);
+    if (activeChannel === 'daily_report') {
+      loadEmailPreview(reportIdParam || undefined, user?.name);
+    } else {
+      // Use logged-in user's ID for personal digest, or digestId if specified
+      loadDigestPreview({ userId: user?.id, digestId: digestIdParam || undefined });
+    }
+  }, [reportIdParam, digestIdParam, activeChannel, user?.name, user?.id]);
 
-  const loadEmailPreview = async (id?: string) => {
+  const loadEmailPreview = async (id?: string, firstName?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.getEmailPreview(id);
+      const result = await api.getEmailPreview(id, firstName);
       setEmailHtml(result.html);
       setReportInfo({ id: result.report_id, date: result.report_date });
       setReportId(result.report_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load preview');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDigestPreview = async (params?: { userId?: string; digestId?: string }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.getDigestPreview(params);
+      setDigestHtml(result.html);
+      setDigestInfo({
+        id: result.digest_id,
+        date: result.digest_date,
+        userId: result.user_id,
+        symbols: result.symbols,
+      });
+      setDigestId(result.digest_id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load digest preview');
     } finally {
       setLoading(false);
     }
@@ -47,13 +96,22 @@ function EmailTestContent() {
     setSending(true);
     setSendResult(null);
     try {
-      const result = await api.sendReportEmail(email);
-      setSendResult({
-        success: result.success,
-        message: result.success
-          ? `Email sent successfully to ${result.sent_to}`
-          : result.message || 'Failed to send email',
-      });
+      if (activeChannel === 'daily_report') {
+        const result = await api.sendReportEmail(email);
+        setSendResult({
+          success: result.success,
+          message: result.success
+            ? `Email sent successfully to ${result.sent_to}`
+            : result.message || 'Failed to send email',
+        });
+      } else {
+        // For personal digest, use the broadcast endpoint with test email
+        // This would require a separate test endpoint
+        setSendResult({
+          success: false,
+          message: 'Send test for personal digest not yet implemented. Use broadcast instead.',
+        });
+      }
     } catch (err) {
       setSendResult({
         success: false,
@@ -63,6 +121,20 @@ function EmailTestContent() {
       setSending(false);
     }
   };
+
+  const handleChannelChange = (channel: EmailChannel) => {
+    setActiveChannel(channel);
+    setError(null);
+    setSendResult(null);
+    if (channel === 'daily_report') {
+      loadEmailPreview(reportId || undefined, user?.name);
+    } else {
+      // Use logged-in user's ID for personal digest
+      loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
+    }
+  };
+
+  const currentHtml = activeChannel === 'daily_report' ? emailHtml : digestHtml;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -89,11 +161,18 @@ function EmailTestContent() {
               </div>
               <h1 className="text-xl font-semibold text-gray-900">Email Template Preview</h1>
               <p className="text-sm text-gray-500 mt-1">
-                Preview and test the daily report email format (rendered by backend)
+                Preview and test email templates (rendered by backend)
               </p>
             </div>
             <button
-              onClick={() => loadEmailPreview(reportId || undefined)}
+              onClick={() => {
+                if (activeChannel === 'daily_report') {
+                  loadEmailPreview(reportId || undefined, user?.name);
+                } else {
+                  // Use logged-in user's ID for personal digest
+                  loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
+                }
+              }}
               disabled={loading}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
@@ -113,12 +192,46 @@ function EmailTestContent() {
               Refresh
             </button>
           </div>
+
+          {/* Channel Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => handleChannelChange('daily_report')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeChannel === 'daily_report'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Daily Report
+              </div>
+            </button>
+            <button
+              onClick={() => handleChannelChange('personal_digest')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeChannel === 'personal_digest'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Personal Digest
+              </div>
+            </button>
+          </div>
         </div>
       </section>
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel - Send Test Email */}
+          {/* Left Panel - Controls */}
           <div className="lg:col-span-1 space-y-4">
             {/* Send Test Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -192,9 +305,11 @@ function EmailTestContent() {
               </div>
             </div>
 
-            {/* Report Info Card */}
+            {/* Report/Digest Info Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">Report Info</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">
+                {activeChannel === 'daily_report' ? 'Report Info' : 'Digest Info'}
+              </h2>
               {loading ? (
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
                   <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
@@ -202,7 +317,7 @@ function EmailTestContent() {
                 </div>
               ) : error ? (
                 <p className="text-sm text-red-500">{error}</p>
-              ) : reportInfo ? (
+              ) : activeChannel === 'daily_report' && reportInfo ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Report Date</span>
@@ -219,31 +334,102 @@ function EmailTestContent() {
                     <span className="text-emerald-600 font-medium">Backend API</span>
                   </div>
                 </div>
+              ) : activeChannel === 'personal_digest' && digestInfo ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Digest Date</span>
+                    <span className="text-gray-900 font-medium">{digestInfo.date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Digest ID</span>
+                    <span className="text-gray-900 font-medium font-mono text-xs">
+                      {digestInfo.id.slice(0, 8)}...
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">User ID</span>
+                    <span className="text-gray-900 font-medium font-mono text-xs">
+                      {digestInfo.userId.slice(0, 8)}...
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block mb-1">Symbols</span>
+                    <div className="flex flex-wrap gap-1">
+                      {digestInfo.symbols.map((sym) => (
+                        <span
+                          key={sym}
+                          className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-xs font-medium"
+                        >
+                          {sym}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <p className="text-sm text-gray-400">No report available</p>
+                <p className="text-sm text-gray-400">No data available</p>
               )}
 
-              {/* Load Specific Report */}
+              {/* Load Specific Report/Digest */}
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  Load Specific Report
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={reportId}
-                    onChange={(e) => setReportId(e.target.value)}
-                    placeholder="Report ID (UUID)"
-                    className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                  <button
-                    onClick={() => loadEmailPreview(reportId || undefined)}
-                    disabled={loading}
-                    className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
-                  >
-                    Load
-                  </button>
-                </div>
+                {activeChannel === 'daily_report' ? (
+                  <>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Load Specific Report
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={reportId}
+                        onChange={(e) => setReportId(e.target.value)}
+                        placeholder="Report ID (UUID)"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <button
+                        onClick={() => loadEmailPreview(reportId || undefined, user?.name)}
+                        disabled={loading}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        Load
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Logged-in User
+                    </label>
+                    <div className="px-3 py-2 bg-gray-50 rounded text-xs mb-3">
+                      {user ? (
+                        <div className="space-y-1">
+                          <div className="font-medium text-gray-900">{user.name || 'No name'}</div>
+                          <div className="text-gray-500 font-mono">{user.email}</div>
+                        </div>
+                      ) : (
+                        <div className="text-gray-500">Not logged in - please sign in to preview your digest</div>
+                      )}
+                    </div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Load Specific Digest (optional)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={digestId}
+                        onChange={(e) => setDigestId(e.target.value)}
+                        placeholder="Digest ID (UUID)"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <button
+                        onClick={() => loadDigestPreview({ userId: user?.id, digestId: digestId || undefined })}
+                        disabled={loading || !digestId}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        Load
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -287,13 +473,15 @@ function EmailTestContent() {
                     <div className="w-3 h-3 rounded-full bg-green-400" />
                   </div>
                   <span className="text-xs text-gray-500">
-                    {viewMode === 'preview' ? 'Email Preview (Real Template)' : 'HTML Source'}
+                    {viewMode === 'preview'
+                      ? `${activeChannel === 'daily_report' ? 'Daily Report' : 'Personal Digest'} Preview`
+                      : 'HTML Source'}
                   </span>
                 </div>
-                {viewMode === 'html' && emailHtml && (
+                {viewMode === 'html' && currentHtml && (
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(emailHtml);
+                      navigator.clipboard.writeText(currentHtml);
                       alert('HTML copied to clipboard!');
                     }}
                     className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
@@ -329,13 +517,17 @@ function EmailTestContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <p className="text-sm font-medium">{error}</p>
-                    <p className="text-xs text-gray-400 mt-1">Make sure the backend is running</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {activeChannel === 'personal_digest'
+                        ? 'Make sure you have generated a digest for this user'
+                        : 'Make sure the backend is running'}
+                    </p>
                   </div>
                 ) : viewMode === 'preview' ? (
-                  <div dangerouslySetInnerHTML={{ __html: emailHtml }} />
+                  <div dangerouslySetInnerHTML={{ __html: currentHtml }} />
                 ) : (
                   <pre className="p-4 text-xs text-gray-700 bg-gray-50 overflow-x-auto whitespace-pre-wrap font-mono">
-                    {emailHtml}
+                    {currentHtml}
                   </pre>
                 )}
               </div>

@@ -186,11 +186,54 @@ export interface UnsubscribeResponse {
   email: string;
 }
 
+// Subscription Management Types
+export type SubscriptionChannel = 'daily_report' | 'personal_digest';
+
+export interface SubscriptionResponse {
+  success: boolean;
+  channel: string;
+  email: string;
+  contact_id?: string;
+  metadata?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface SubscriptionStatusResponse {
+  success: boolean;
+  channel: string;
+  subscribed: boolean;
+  email: string;
+  metadata: Record<string, unknown>;
+  error?: string;
+}
+
+export interface SubscribeData {
+  email: string;
+  first_name?: string;
+  user_id?: string;
+  symbols?: string[];
+}
+
+export interface UpdateSubscriptionData {
+  email: string;
+  first_name?: string;
+  symbols?: string[];
+}
+
 export interface EmailPreviewResponse {
   success: boolean;
   html: string;
   report_id: string;
   report_date: string;
+}
+
+export interface DigestPreviewResponse {
+  success: boolean;
+  html: string;
+  digest_id: string;
+  digest_date: string;
+  user_id: string;
+  symbols: string[];
 }
 
 // Liquidity Monitor Types
@@ -398,44 +441,112 @@ export const api = {
     return response.json();
   },
 
+  // Legacy subscribe (for backward compatibility) - uses daily_report channel
   subscribe: async (email: string, firstName?: string): Promise<SubscribeResponse> => {
-    const response = await fetch(`${API_BASE_URL}/subscribe`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, first_name: firstName }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to subscribe' }));
-      throw new Error(error.detail || 'Failed to subscribe');
-    }
-    return response.json();
+    const result = await api.subscriptions.subscribe('daily_report', { email, first_name: firstName });
+    return {
+      success: result.success,
+      message: result.success ? 'Successfully subscribed' : (result.error || 'Failed to subscribe'),
+      email: result.email,
+      contact_id: result.contact_id,
+    };
   },
 
+  // Legacy unsubscribe (for backward compatibility) - uses daily_report channel
   unsubscribe: async (email: string): Promise<UnsubscribeResponse> => {
-    const response = await fetch(`${API_BASE_URL}/unsubscribe`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to unsubscribe' }));
-      throw new Error(error.detail || 'Failed to unsubscribe');
-    }
-    return response.json();
+    const result = await api.subscriptions.unsubscribe('daily_report', email);
+    return {
+      success: result.success,
+      message: result.success ? 'Successfully unsubscribed' : (result.error || 'Failed to unsubscribe'),
+      email: result.email,
+    };
   },
 
-  getEmailPreview: async (reportId?: string): Promise<EmailPreviewResponse> => {
-    const url = reportId
-      ? `${API_BASE_URL}/report/preview?report_id=${reportId}`
+  // Unified Subscription Management API
+  subscriptions: {
+    subscribe: async (channel: SubscriptionChannel, data: SubscribeData): Promise<SubscriptionResponse> => {
+      const response = await fetch(`${API_BASE_URL}/subscriptions/${channel}/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to subscribe' }));
+        throw new Error(error.detail || 'Failed to subscribe');
+      }
+      return response.json();
+    },
+
+    unsubscribe: async (channel: SubscriptionChannel, email: string): Promise<SubscriptionResponse> => {
+      const response = await fetch(`${API_BASE_URL}/subscriptions/${channel}/unsubscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to unsubscribe' }));
+        throw new Error(error.detail || 'Failed to unsubscribe');
+      }
+      return response.json();
+    },
+
+    getStatus: async (channel: SubscriptionChannel, email: string): Promise<SubscriptionStatusResponse> => {
+      const response = await fetch(
+        `${API_BASE_URL}/subscriptions/${channel}/status?email=${encodeURIComponent(email)}`
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to get status' }));
+        throw new Error(error.detail || 'Failed to get status');
+      }
+      return response.json();
+    },
+
+    update: async (channel: SubscriptionChannel, data: UpdateSubscriptionData): Promise<SubscriptionResponse> => {
+      const response = await fetch(`${API_BASE_URL}/subscriptions/${channel}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to update subscription' }));
+        throw new Error(error.detail || 'Failed to update subscription');
+      }
+      return response.json();
+    },
+  },
+
+  getEmailPreview: async (reportId?: string, firstName?: string): Promise<EmailPreviewResponse> => {
+    const params = new URLSearchParams();
+    if (reportId) params.append('report_id', reportId);
+    if (firstName) params.append('first_name', firstName);
+    const queryString = params.toString();
+    const url = queryString
+      ? `${API_BASE_URL}/report/preview?${queryString}`
       : `${API_BASE_URL}/report/preview`;
     const response = await fetch(url);
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to get email preview' }));
       throw new Error(error.detail || 'Failed to get email preview');
+    }
+    return response.json();
+  },
+
+  getDigestPreview: async (params?: { userId?: string; digestId?: string }): Promise<DigestPreviewResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.userId) searchParams.append('user_id', params.userId);
+    if (params?.digestId) searchParams.append('digest_id', params.digestId);
+    const queryString = searchParams.toString();
+    const url = `${API_BASE_URL}/subscriptions/personal_digest/preview${queryString ? `?${queryString}` : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get digest preview' }));
+      throw new Error(error.detail || 'Failed to get digest preview');
     }
     return response.json();
   },

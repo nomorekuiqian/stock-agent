@@ -187,11 +187,13 @@ export async function getCurrentUser(): Promise<User | null> {
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userWithProfile = data.user as any;
     return {
       id: data.user.id,
       email: data.user.email || '',
-      name: data.profile?.name,
-      avatarUrl: data.profile?.avatar_url,
+      name: userWithProfile.profile?.name,
+      avatarUrl: userWithProfile.profile?.avatar_url,
     };
   } catch (error) {
     console.error('[Auth] Get user exception:', error);

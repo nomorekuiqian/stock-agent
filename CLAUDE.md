@@ -358,8 +358,136 @@ POST /api/liquidity/analysis
 
 1. **Client Components**: 使用 hooks 的组件需要 `'use client'`
 2. **API 调用**: 通过 `src/lib/api.ts` 统一管理
-3. **样式**: Tailwind CSS 4,白色主题 + 翠绿色强调色
+3. **样式**: Tailwind CSS 4,深色主题 + 翠绿色强调色
 4. **缓存**: 使用 localStorage 缓存分析结果
+
+## 设计系统 (Design System)
+
+**设计方向**: Financial Terminal + Editorial Luxury (金融终端 + 编辑奢华)
+
+### 主题配置
+
+| 属性 | 值 | 用途 |
+|------|-----|------|
+| 背景色 | `#050506` | 深色主背景 |
+| 卡片背景 | `bg-card` | 内容卡片 |
+| 强调色 | `#10B981` (emerald-500) | 按钮、链接、高亮 |
+| 前景色 | `text-foreground` | 主文字 |
+| 次要色 | `text-muted-foreground` | 辅助文字 |
+| 边框 | `border-border/50` | 细微边框 |
+
+### 字体系统
+
+```css
+/* globals.css 中已定义 */
+--font-editorial: 'Instrument Serif', serif;  /* 标题、大字 */
+--font-sans: 'DM Sans', sans-serif;           /* 正文 */
+--font-data: 'JetBrains Mono', monospace;     /* 数字、代码 */
+```
+
+**使用方式**:
+- `font-editorial` - 页面标题、报告标题 (h1, h2)
+- `font-sans` - 正文、描述文字 (默认)
+- `font-data` - 价格、百分比、日期、股票代码
+
+### 核心组件样式
+
+**Terminal Card** (`.terminal-card` 在 globals.css):
+```css
+.terminal-card {
+  @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl;
+}
+```
+
+**Section Header** (翠绿竖条):
+```jsx
+<div className="flex items-center gap-2 mb-5">
+  <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+  <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">
+    Section Title
+  </h3>
+</div>
+```
+
+**Status Badge** (状态徽章):
+```jsx
+<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+  Label
+</span>
+```
+
+**Primary Button** (翠绿发光):
+```jsx
+<button className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50">
+  Button
+</button>
+```
+
+**Secondary Button** (边框样式):
+```jsx
+<button className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:border-emerald-500/30 hover:bg-card/80">
+  Button
+</button>
+```
+
+**Date/Time Chip**:
+```jsx
+<div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
+  <svg className="w-4 h-4 text-emerald-400">...</svg>
+  <span className="text-sm font-data text-foreground">2025年1月1日</span>
+</div>
+```
+
+### 页面结构模式
+
+**页面 Header**:
+```jsx
+<section className="border-b border-border/50">
+  <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
+    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      {/* 左侧: 徽章 + 标题 + 副标题 */}
+      {/* 右侧: 操作按钮 */}
+    </div>
+  </div>
+</section>
+```
+
+**内容区域**:
+```jsx
+<div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
+  <section className="terminal-card p-6 animate-fade-in-up">
+    {/* Section Header + Content */}
+  </section>
+</div>
+```
+
+**Historical Reports Grid**:
+```jsx
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+  <Link className="group terminal-card p-4 hover:border-emerald-500/30 transition-all">
+    {/* Date badge + Title + Arrow icon */}
+  </Link>
+</div>
+```
+
+### 颜色语义
+
+| 场景 | 颜色 |
+|------|------|
+| 上涨/正面 | `text-emerald-400` |
+| 下跌/负面 | `text-red-400` |
+| 中性/警告 | `text-amber-400` |
+| 链接/交互 | `text-emerald-400 hover:text-emerald-300` |
+| 禁用 | `opacity-50 cursor-not-allowed` |
+
+### 动画
+
+- `animate-fade-in-up` - 内容区块入场动画
+- `animate-pulse` - 状态指示器脉冲
+- `animate-spin` - 加载状态
+- `transition-all` - 通用过渡效果
+- `group-hover:translate-x-0.5` - 箭头微移动
 
 ### CI/CD
 

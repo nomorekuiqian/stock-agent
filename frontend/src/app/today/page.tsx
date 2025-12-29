@@ -94,46 +94,44 @@ export default function TodayPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
-      <section className="border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            {/* Title + Status */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">Market Dashboard</h1>
-                {/* Status indicator */}
-                {report && !loading && (
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {isToday ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Today&apos;s Report
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        Historical Report ({formatDateChinese(report.report_date)})
-                      </span>
-                    )}
-                  </div>
+      {/* Page Header */}
+      <section className="border-b border-border/50">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            {/* Title Section */}
+            <div className="space-y-3">
+              {/* Section Label */}
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Daily Analysis
+                </span>
+                {report && !loading && !isToday && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Historical
+                  </span>
                 )}
               </div>
+
+              {/* Main Title */}
+              <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
+                Market Dashboard
+              </h1>
+
+              {/* Subtitle */}
+              <p className="text-muted-foreground text-sm md:text-base max-w-lg">
+                AI-powered market analysis with actionable insights for informed decisions.
+              </p>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {/* Email button */}
               {report && (
                 <button
                   onClick={handleSendEmail}
                   disabled={sendingEmail}
-                  className="px-4 py-2 bg-secondary text-foreground rounded-lg font-medium text-sm border border-border transition-all hover:bg-secondary/80 hover:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:bg-card/80 hover:border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 group"
                 >
                   {sendingEmail ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -141,11 +139,11 @@ export default function TodayPage() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   )}
-                  Email
+                  <span>Send to Email</span>
                 </button>
               )}
             </div>
@@ -153,22 +151,30 @@ export default function TodayPage() {
 
           {/* Email Status */}
           {emailStatus && (
-            <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+            <div className={`mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
               emailStatus.type === 'success'
-                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'bg-red-500/10 text-red-400 border border-red-500/20'
             }`}>
+              {emailStatus.type === 'success' ? (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
               {emailStatus.message}
             </div>
           )}
-
         </div>
       </section>
 
       {/* Error */}
       {error && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm text-center">
+          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
             {error}
           </div>
         </div>
@@ -176,38 +182,47 @@ export default function TodayPage() {
 
       {/* Loading State */}
       {loading && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground">Loading market data...</p>
+            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <p className="text-muted-foreground text-sm">Loading market data...</p>
           </div>
         </div>
       )}
 
       {/* Report Content */}
       {!loading && report && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
           {/* Report Header */}
           <section className="animate-fade-in-up">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span>{formatDateChinese(report.report_date)}</span>
+            {/* Date & Time */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
+                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm font-data text-foreground">{formatDateChinese(report.report_date)}</span>
+              </div>
               {report.timestamp && (
-                <>
-                  <span className="text-muted-foreground/50">|</span>
-                  <span>{formatTimePacific(report.timestamp)}</span>
-                </>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
+                  <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-data text-muted-foreground">{formatTimePacific(report.timestamp)}</span>
+                </div>
               )}
             </div>
+
+            {/* Title */}
             {report.title && (
-              <h2 className="text-xl md:text-2xl font-bold text-foreground">
+              <h2 className="text-2xl md:text-3xl font-editorial text-foreground leading-tight">
                 {report.title}
               </h2>
             )}
+
+            {/* Summary */}
             {report.summary && (
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-3 leading-relaxed">
                 {report.summary}
               </p>
             )}
@@ -232,16 +247,16 @@ export default function TodayPage() {
 
       {/* Empty State - No reports at all */}
       {!loading && !report && !error && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
-          <div className="text-center space-y-5">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-muted border border-border flex items-center justify-center">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
+          <div className="text-center space-y-6">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center">
               <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Reports Available</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
+              <h3 className="text-xl font-medium text-foreground mb-2">No Reports Available</h3>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
                 Market reports are generated daily. Please check back later.
               </p>
             </div>
@@ -251,47 +266,45 @@ export default function TodayPage() {
 
       {/* Historical Reports Section */}
       {historicalReports.length > 0 && (
-        <section className="border-t border-border mt-8">
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                  <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
+        <section className="border-t border-border/50 mt-12">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
+            {/* Section Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+                  <h3 className="text-xl font-medium text-foreground">Past Reports</h3>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Historical Reports</h3>
-                  <p className="text-xs text-muted-foreground">{totalReports} reports available</p>
-                </div>
+                <p className="text-sm text-muted-foreground pl-3">{totalReports} reports in archive</p>
               </div>
               <Link
                 href="/today/archive"
-                className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 group"
               >
                 View all
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
             </div>
 
+            {/* Report Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {historicalReports.map((r) => (
                 <Link
                   key={r.id}
                   href={`/today/${r.id}`}
-                  className="group bg-card rounded-xl border border-border p-4 hover:border-emerald-500/50 hover-glow transition-all"
+                  className="group terminal-card p-4 hover:border-emerald-500/30 transition-all"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                    <span className="text-xs font-data text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
                       {formatDateShort(r.report_date)}
                     </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
-                  <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-snug">
                     {r.title || formatDateChinese(r.report_date)}
                   </h4>
                 </Link>

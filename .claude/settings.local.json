@@ -90,7 +90,10 @@
       "WebFetch(domain:developers.figma.com)",
       "Bash(claude mcp add:*)",
       "Bash(claude mcp list:*)",
-      "mcp__chrome-devtools__get_console_message"
+      "mcp__chrome-devtools__get_console_message",
+      "Skill(frontend-design:frontend-design)",
+      "mcp__insforge__get-anon-key",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []
