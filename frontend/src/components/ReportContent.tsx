@@ -39,6 +39,23 @@ const INDICATOR_NAMES: Record<string, string> = {
   'US Dollar': 'US DOLLAR',
 };
 
+// Section header component (matching email style)
+const SectionHeader = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex items-center gap-3 mb-5">
+    <div className="w-1 h-5 bg-foreground rounded-full" />
+    <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+      {children}
+    </h2>
+  </div>
+);
+
+// Subsection header component
+const SubsectionHeader = ({ children }: { children: React.ReactNode }) => (
+  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+    {children}
+  </h3>
+);
+
 export function ReportContent({
   indices,
   title,
@@ -67,23 +84,6 @@ export function ReportContent({
       return found ? { ...found, displayName: INDICATOR_NAMES[name] || name } : null;
     }).filter(Boolean) as (IndexData & { displayName: string })[];
   }, [indices]);
-
-  // Section header component (matching email style)
-  const SectionHeader = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-1 h-5 bg-foreground rounded-full" />
-      <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-        {children}
-      </h2>
-    </div>
-  );
-
-  // Subsection header component
-  const SubsectionHeader = ({ children }: { children: React.ReactNode }) => (
-    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-      {children}
-    </h3>
-  );
 
   return (
     <div className="space-y-5">

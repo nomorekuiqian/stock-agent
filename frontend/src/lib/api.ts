@@ -220,6 +220,20 @@ export interface UpdateSubscriptionData {
   symbols?: string[];
 }
 
+export interface SyncedChannelInfo {
+  channel: string;
+  subscribed: boolean;
+  metadata: Record<string, unknown>;
+}
+
+export interface SyncUserResponse {
+  success: boolean;
+  email: string;
+  user_id: string;
+  synced_channels: SyncedChannelInfo[];
+  errors: string[];
+}
+
 export interface EmailPreviewResponse {
   success: boolean;
   html: string;
@@ -518,6 +532,37 @@ export const api = {
         throw new Error(error.detail || 'Failed to update subscription');
       }
       return response.json();
+    },
+
+    /**
+     * Sync a website user with their existing Resend subscriptions.
+     * Call this when user logs in or registers to link their account
+     * with any existing email subscriptions.
+     */
+    syncUser: async (userId: string, email: string, firstName?: string): Promise<SyncUserResponse> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/subscriptions/sync-user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            email: email,
+            first_name: firstName,
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ detail: 'Failed to sync user' }));
+          console.warn('[API] Sync user failed:', error.detail);
+          return { success: false, email, user_id: userId, synced_channels: [], errors: [error.detail] };
+        }
+        return response.json();
+      } catch (error) {
+        // Don't throw - sync is a background operation that shouldn't block login
+        console.warn('[API] Sync user error:', error);
+        return { success: false, email, user_id: userId, synced_channels: [], errors: [String(error)] };
+      }
     },
   },
 

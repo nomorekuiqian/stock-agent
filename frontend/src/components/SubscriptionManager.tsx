@@ -27,17 +27,11 @@ export default function SubscriptionManager({
 }: SubscriptionManagerProps) {
   const { user } = useAuth();
   const [activeChannel, setActiveChannel] = useState<SubscriptionChannel>(defaultChannel);
-  const [email, setEmail] = useState('');
+  // Track locally entered email (empty means use user.email if available)
+  const [localEmail, setLocalEmail] = useState('');
   const [firstName, setFirstName] = useState('');
-  const [symbols, setSymbols] = useState<string[]>(initialSymbols);
+  const [symbols, setSymbols] = useState<string[]>(() => initialSymbols);
   const [symbolInput, setSymbolInput] = useState('');
-
-  // Sync symbols when initialSymbols changes
-  useEffect(() => {
-    if (initialSymbols.length > 0) {
-      setSymbols(initialSymbols);
-    }
-  }, [initialSymbols]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [channelStatuses, setChannelStatuses] = useState<Record<SubscriptionChannel, ChannelStatus>>({
@@ -45,9 +39,16 @@ export default function SubscriptionManager({
     personal_digest: { subscribed: false, loading: false },
   });
 
+  // Derive email: use local input if provided, otherwise fallback to user.email
+  const email = localEmail || user?.email || '';
+
+  // Wrapper to update local email
+  const setEmail = (value: string) => setLocalEmail(value);
+
   // Check subscription status on mount if user has email
   const checkStatus = useCallback(async () => {
-    if (!email) return;
+    const currentEmail = localEmail || user?.email || '';
+    if (!currentEmail) return;
 
     for (const channel of channels) {
       setChannelStatuses(prev => ({
@@ -56,7 +57,7 @@ export default function SubscriptionManager({
       }));
 
       try {
-        const result = await api.subscriptions.getStatus(channel, email);
+        const result = await api.subscriptions.getStatus(channel, currentEmail);
         setChannelStatuses(prev => ({
           ...prev,
           [channel]: {
@@ -72,19 +73,19 @@ export default function SubscriptionManager({
         }));
       }
     }
-  }, [email, channels]);
+  }, [localEmail, user?.email, channels]);
 
+  // Check subscription status when email changes
   useEffect(() => {
-    if (user?.email) {
-      setEmail(user.email);
+    const currentEmail = localEmail || user?.email || '';
+    if (currentEmail) {
+      // Delay to avoid rapid status checks
+      const timer = setTimeout(() => {
+        checkStatus();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [user]);
-
-  useEffect(() => {
-    if (email) {
-      checkStatus();
-    }
-  }, [email, checkStatus]);
+  }, [localEmail, user?.email, checkStatus]);
 
   const handleSubscribe = async () => {
     if (!email) {

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Coffee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserDigestById, UserDigest } from '@/lib/insforge';
-import { DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, DigestSummary } from '@/lib/api';
+import { getUserDigestById } from '@/lib/insforge';
+import { DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent } from '@/lib/api';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific } from '@/lib/timezone';
 
 export default function ForYouDetailPage({

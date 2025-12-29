@@ -2,6 +2,23 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, getCurrentUser, signIn, signUp, signOut, signInWithGoogle } from '@/lib/auth';
+import { api } from '@/lib/api';
+
+/**
+ * Sync user with Resend subscriptions in the background.
+ * This links the website account with any existing email subscriptions.
+ */
+const syncUserWithSubscriptions = async (user: User) => {
+  try {
+    const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
+    if (result.success && result.synced_channels.length > 0) {
+      console.log('[AuthContext] Synced user with subscriptions:', result.synced_channels.map(c => c.channel));
+    }
+  } catch (error) {
+    // Silent fail - sync is not critical for login
+    console.warn('[AuthContext] Failed to sync subscriptions:', error);
+  }
+};
 
 interface AuthContextType {
   user: User | null;
@@ -36,6 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
+
+        // Sync existing session with Resend subscriptions (background)
+        if (currentUser) {
+          syncUserWithSubscriptions(currentUser);
+        }
       } catch (error) {
         console.error('[AuthContext] Init error:', error);
       } finally {
@@ -50,6 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await signIn(email, password);
     if (result.success && result.user) {
       setUser(result.user);
+      // Sync with Resend subscriptions (background, don't block login)
+      syncUserWithSubscriptions(result.user);
     }
     return { success: result.success, error: result.error };
   };
@@ -58,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await signUp(email, password, name);
     if (result.success && result.user && !result.needsVerification) {
       setUser(result.user);
+      // Sync with Resend subscriptions (background)
+      syncUserWithSubscriptions(result.user);
     }
     return { success: result.success, error: result.error, needsVerification: result.needsVerification };
   };

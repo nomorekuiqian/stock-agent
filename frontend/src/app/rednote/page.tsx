@@ -103,13 +103,14 @@ export default function RedNotePage() {
 
   // Fetch list of posts on mount
   useEffect(() => {
+    let isInitialMount = true;
     const fetchPosts = async () => {
       try {
         const response = await api.listRedNotePosts(20);
         if (response.success && response.posts) {
           setPosts(response.posts);
-          // Auto-select the first (latest) post
-          if (response.posts.length > 0 && !selectedPostId) {
+          // Auto-select the first (latest) post only on initial mount
+          if (response.posts.length > 0 && isInitialMount) {
             setSelectedPostId(response.posts[0].id);
           }
         }
@@ -118,6 +119,9 @@ export default function RedNotePage() {
       }
     };
     fetchPosts();
+    return () => {
+      isInitialMount = false;
+    };
   }, []);
 
   // Fetch selected post content

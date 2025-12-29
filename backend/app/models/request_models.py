@@ -307,3 +307,35 @@ class SubscribersListResponse(BaseModel):
     subscribers: List[SubscriberInfo] = Field(default=[], description="List of subscribers")
     count: int = Field(default=0, description="Total subscriber count")
     error: Optional[str] = Field(None, description="Error message if failed")
+
+
+class SyncUserRequest(BaseModel):
+    """Request model for syncing website user with Resend subscriptions"""
+    user_id: str = Field(..., description="Website user ID from Insforge auth")
+    email: str = Field(..., description="User email address")
+    first_name: Optional[str] = Field(None, description="User first name")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_id": "b530a7a8-25f5-45ee-95f1-79acddb048e5",
+                "email": "user@example.com",
+                "first_name": "John"
+            }
+        }
+
+
+class SyncedChannelInfo(BaseModel):
+    """Information about a synced channel"""
+    channel: str = Field(..., description="Channel name")
+    subscribed: bool = Field(..., description="Whether user is subscribed")
+    metadata: Dict[str, Any] = Field(default={}, description="Channel metadata")
+
+
+class SyncUserResponse(BaseModel):
+    """Response model for user sync operation"""
+    success: bool = Field(..., description="Whether the sync succeeded")
+    email: str = Field(..., description="User email")
+    user_id: str = Field(..., description="User ID")
+    synced_channels: List[SyncedChannelInfo] = Field(default=[], description="Channels that were synced")
+    errors: List[str] = Field(default=[], description="Any errors encountered")

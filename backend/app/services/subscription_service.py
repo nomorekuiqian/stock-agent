@@ -413,6 +413,96 @@ class SubscriptionService:
             print(f"[SubscriptionService] Error removing {email} from {channel}: {e}")
             return {"success": False, "error": str(e)}
 
+    # =========================================================================
+    # User-Subscription Sync
+    # =========================================================================
+
+    def sync_user(
+        self,
+        user_id: str,
+        email: str,
+        first_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Sync a website user with their Resend subscriptions.
+
+        This method checks all channels for the user's email and updates
+        the user_id in the contact metadata, linking the website account
+        with existing subscriptions.
+
+        Args:
+            user_id: The website user's ID (from Insforge auth)
+            email: User's email address
+            first_name: User's first name (optional)
+
+        Returns:
+            dict with sync results for each channel
+        """
+        self._validate_api_key()
+
+        results = {
+            "success": True,
+            "email": email,
+            "user_id": user_id,
+            "synced_channels": [],
+            "errors": [],
+        }
+
+        for channel in SubscriptionChannel:
+            try:
+                audience_id = self.ensure_audience(channel)
+                contacts = resend.Contacts.list(audience_id=audience_id)
+
+                for contact in contacts.get("data", []):
+                    if contact.get("email", "").lower() == email.lower():
+                        # Found existing subscription - update with user_id
+                        is_unsubscribed = contact.get("unsubscribed", False)
+
+                        # Parse existing metadata
+                        existing_metadata = {}
+                        last_name = contact.get("last_name")
+                        if last_name:
+                            try:
+                                existing_metadata = json.loads(last_name)
+                            except json.JSONDecodeError:
+                                pass
+
+                        # Update metadata with user_id
+                        existing_metadata["user_id"] = user_id
+                        if "symbols" not in existing_metadata and channel == SubscriptionChannel.PERSONAL_DIGEST:
+                            existing_metadata["symbols"] = []
+
+                        update_params: resend.Contacts.UpdateParams = {
+                            "audience_id": audience_id,
+                            "email": email,
+                            "last_name": json.dumps(existing_metadata),
+                        }
+
+                        # Update first_name if provided
+                        if first_name:
+                            update_params["first_name"] = first_name
+
+                        resend.Contacts.update(update_params)
+
+                        results["synced_channels"].append({
+                            "channel": channel.value,
+                            "subscribed": not is_unsubscribed,
+                            "metadata": existing_metadata,
+                        })
+
+                        print(f"[SubscriptionService] Synced user {user_id} with {channel}")
+                        break
+
+            except Exception as e:
+                error_msg = f"Error syncing {channel}: {str(e)}"
+                results["errors"].append(error_msg)
+                print(f"[SubscriptionService] {error_msg}")
+
+        if results["errors"]:
+            results["success"] = len(results["synced_channels"]) > 0
+
+        return results
+
 
 # Singleton instance
 _subscription_service: Optional[SubscriptionService] = None

@@ -34,6 +34,9 @@ from app.models.request_models import (
     SubscriptionResponse,
     BroadcastResponse,
     SubscribersListResponse,
+    SyncUserRequest,
+    SyncUserResponse,
+    SyncedChannelInfo,
 )
 from agents.personal_digest import get_personal_digest
 from app.services.subscription_service import (
@@ -894,6 +897,44 @@ async def broadcast_to_channel(
 
     except HTTPException:
         raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/subscriptions/sync-user", response_model=SyncUserResponse)
+async def sync_user_subscriptions(request: SyncUserRequest):
+    """
+    Sync a website user with their existing Resend subscriptions.
+
+    When a user logs in or registers, call this endpoint to link their
+    website account (user_id) with any existing email subscriptions in Resend.
+
+    This enables:
+    - Matching existing subscribers to website accounts
+    - Personalized broadcasts using user_id
+    - Unified subscription management across channels
+    """
+    try:
+        subscription_service = get_subscription_service()
+
+        result = subscription_service.sync_user(
+            user_id=request.user_id,
+            email=request.email,
+            first_name=request.first_name,
+        )
+
+        return SyncUserResponse(
+            success=result.get("success", False),
+            email=result.get("email", request.email),
+            user_id=result.get("user_id", request.user_id),
+            synced_channels=[
+                SyncedChannelInfo(**ch) for ch in result.get("synced_channels", [])
+            ],
+            errors=result.get("errors", []),
+        )
+
     except Exception as e:
         import traceback
         traceback.print_exc()
