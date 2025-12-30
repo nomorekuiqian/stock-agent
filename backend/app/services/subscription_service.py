@@ -469,7 +469,10 @@ class SubscriptionService:
 
                         # Update metadata with user_id
                         existing_metadata["user_id"] = user_id
-                        if "symbols" not in existing_metadata and channel == SubscriptionChannel.PERSONAL_DIGEST:
+                        if (
+                            "symbols" not in existing_metadata
+                            and channel == SubscriptionChannel.PERSONAL_DIGEST
+                        ):
                             existing_metadata["symbols"] = []
 
                         update_params: resend.Contacts.UpdateParams = {
@@ -484,13 +487,17 @@ class SubscriptionService:
 
                         resend.Contacts.update(update_params)
 
-                        results["synced_channels"].append({
-                            "channel": channel.value,
-                            "subscribed": not is_unsubscribed,
-                            "metadata": existing_metadata,
-                        })
+                        results["synced_channels"].append(
+                            {
+                                "channel": channel.value,
+                                "subscribed": not is_unsubscribed,
+                                "metadata": existing_metadata,
+                            }
+                        )
 
-                        print(f"[SubscriptionService] Synced user {user_id} with {channel}")
+                        print(
+                            f"[SubscriptionService] Synced user {user_id} with {channel}"
+                        )
                         break
 
             except Exception as e:

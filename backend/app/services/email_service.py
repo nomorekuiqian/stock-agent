@@ -26,6 +26,11 @@ class EmailService:
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = os.getenv("EMAIL_FROM", "Market Report <reports@resend.dev>")
+        # Frontend URL for logo and other assets
+        self.frontend_url = os.getenv(
+            "FRONTEND_URL", "https://marketbrew.xyz"
+        ).rstrip("/")
+        self.logo_url = f"{self.frontend_url}/logo-avatar.svg"
 
     # =========================================================================
     # Email Formatting - Common Utilities
@@ -104,7 +109,7 @@ class EmailService:
     # =========================================================================
 
     def _get_email_header(self, formatted_date: str, title: str = "Daily Brief") -> str:
-        """Common email header with MARKETBREW branding."""
+        """Common email header with MARKETBREW branding and logo."""
         return f"""
         <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 20px 24px;">
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
@@ -112,10 +117,8 @@ class EmailService:
                     <td style="vertical-align: middle;">
                         <table cellpadding="0" cellspacing="0">
                             <tr>
-                                <td style="vertical-align: middle; padding-right: 10px;">
-                                    <svg width="28" height="18" viewBox="0 0 28 18" style="display: block;">
-                                        <path d="M0 9h5l2-7 3 14 2-7h5l2 5 2-5h7" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                                    </svg>
+                                <td style="vertical-align: middle; padding-right: 12px;">
+                                    <img src="{self.logo_url}" alt="MarketBrew" width="36" height="36" style="display: block; border-radius: 6px;" />
                                 </td>
                                 <td style="vertical-align: middle;">
                                     <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">MARKETBREW</span>
@@ -135,7 +138,7 @@ class EmailService:
     def _get_email_footer(
         self, unsubscribe_url: str = "{{{RESEND_UNSUBSCRIBE_URL}}}"
     ) -> str:
-        """Common email footer."""
+        """Common email footer with logo."""
         return f"""
         <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 24px;">
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
@@ -144,9 +147,7 @@ class EmailService:
                         <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                             <tr>
                                 <td style="vertical-align: middle; padding-right: 8px;">
-                                    <svg width="20" height="14" viewBox="0 0 28 18" style="display: block;">
-                                        <path d="M0 9h5l2-7 3 14 2-7h5l2 5 2-5h7" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                                    </svg>
+                                    <img src="{self.logo_url}" alt="MarketBrew" width="24" height="24" style="display: block; border-radius: 4px;" />
                                 </td>
                                 <td style="vertical-align: middle;">
                                     <span style="color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.08em;">MARKETBREW</span>
@@ -687,16 +688,24 @@ class EmailService:
             print(f"[EmailService] Error sending digest email: {e}")
             return {"success": False, "error": str(e)}
 
-    async def broadcast_daily_report(self, data: dict) -> dict:
-        """Send the daily market report to all subscribers using Resend Broadcasts."""
-        print("[EmailService] broadcast_daily_report called")
+    async def broadcast_daily_report(self, data: dict, audience_id: str = None) -> dict:
+        """Send the daily market report using Resend Broadcasts.
+
+        Args:
+            data: Report data to send
+            audience_id: Optional specific audience ID (e.g., Test Broadcast audience).
+                        If not provided, uses the default daily_report audience.
+        """
+        print(f"[EmailService] broadcast_daily_report called, audience_id={audience_id}")
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            sub_service = get_subscription_service()
-            audience_id = sub_service.ensure_audience(SubscriptionChannel.DAILY_REPORT)
+            # Use provided audience_id or get default
+            if not audience_id:
+                sub_service = get_subscription_service()
+                audience_id = sub_service.ensure_audience(SubscriptionChannel.DAILY_REPORT)
 
             html_content = self._format_html_report(data)
             today = today_str()
@@ -732,6 +741,61 @@ class EmailService:
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def broadcast_personal_digest(self, data: dict, audience_id: str = None) -> dict:
+        """Broadcast a personal digest using Resend Broadcasts.
+
+        Args:
+            data: Digest data to send (from database or agent)
+            audience_id: Optional specific audience ID (e.g., Test Broadcast audience).
+                        If not provided, uses the default personal_digest audience.
+        """
+        print(f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            # Use provided audience_id or get default
+            if not audience_id:
+                sub_service = get_subscription_service()
+                audience_id = sub_service.ensure_audience(SubscriptionChannel.PERSONAL_DIGEST)
+
+            html_content = self._format_digest_html(data)
+            today = today_str()
+
+            one_line = data.get("one_line_summary", "")
+            subject = (
+                f"[MarketBrew] {one_line[:50]}"
+                if one_line
+                else f"[MarketBrew] Personal Digest {today}"
+            )
+
+            create_params: resend.Broadcasts.CreateParams = {
+                "from": self.from_email,
+                "audience_id": audience_id,
+                "subject": subject,
+                "html": html_content,
+                "name": f"Personal Digest {today}",
+            }
+
+            broadcast = resend.Broadcasts.create(create_params)
+            broadcast_id = broadcast.get("id")
+            print(f"[EmailService] Digest broadcast created: {broadcast_id}")
+
+            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
+            resend.Broadcasts.send(send_params)
+            print(f"[EmailService] Digest broadcast sent: {broadcast_id}")
+
+            return {
+                "success": True,
+                "broadcast_id": broadcast_id,
+                "audience_id": audience_id,
+            }
+
+        except Exception as e:
+            print(f"[EmailService] Error broadcasting digest: {e}")
             return {"success": False, "error": str(e)}
 
     async def broadcast_personal_digests(self, max_concurrent: int = 5) -> dict:

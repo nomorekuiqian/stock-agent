@@ -349,10 +349,12 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
 class SendEmailRequest(BaseModel):
     email: str  # Required: user's email address
     first_name: Optional[str] = None  # Optional: for personalized greeting
+    report_id: Optional[str] = None  # Optional: specific report ID to send
 
 
 class BroadcastTestRequest(BaseModel):
     report_id: str  # ID of existing report to use for testing
+    audience_id: Optional[str] = None  # Optional: specific audience ID (e.g., Test Broadcast)
 
 
 @app.get("/api/report/preview")
@@ -543,16 +545,16 @@ async def broadcast_test_report(request: BroadcastTestRequest):
             "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
-        # Broadcast to all subscribers
+        # Broadcast to audience (default or specified test audience)
         email_service = get_email_service()
-        email_result = await email_service.broadcast_daily_report(report_data)
+        email_result = await email_service.broadcast_daily_report(report_data, audience_id=request.audience_id)
 
         if not email_result.get("success"):
             raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to broadcast email"))
 
         return {
             "success": True,
-            "message": "Test broadcast sent using existing report",
+            "message": f"Test broadcast sent to audience {email_result.get('audience_id')}",
             "report_id": request.report_id,
             "broadcast_id": email_result.get("broadcast_id"),
             "audience_id": email_result.get("audience_id"),
@@ -569,17 +571,20 @@ async def broadcast_test_report(request: BroadcastTestRequest):
 @app.post("/api/report/send-test")
 async def send_test_report(request: SendEmailRequest):
     """
-    Send the latest market report from database to the user's email.
-    Email address is required and should come from the authenticated user.
+    Send a market report from database to the user's email.
+    Email address is required. Optionally specify report_id to send a specific report.
     """
     try:
         to_email = request.email
         if not to_email:
             raise HTTPException(status_code=400, detail="Email address is required")
 
-        # Get the latest report from database
+        # Get report from database (specific or latest)
         insforge_service = get_insforge_service()
-        report = await insforge_service.get_latest_report()
+        if request.report_id:
+            report = await insforge_service.get_report_by_id(request.report_id)
+        else:
+            report = await insforge_service.get_latest_report()
 
         if not report:
             raise HTTPException(status_code=404, detail="No report found in database. Please generate a report first.")

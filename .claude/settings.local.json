@@ -93,7 +93,9 @@
       "mcp__chrome-devtools__get_console_message",
       "Skill(frontend-design:frontend-design)",
       "mcp__insforge__get-anon-key",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "mcp__chrome-devtools__hover",
+      "Bash(pip3 show:*)"
     ],
     "deny": [],
     "ask": []
