@@ -105,7 +105,7 @@ export default function TodayPage() {
       const result = await api.subscriptions.subscribe('daily_report', {
         email: user.email,
         user_id: user.id,
-        first_name: user.user_metadata?.first_name,
+        first_name: user.name,
       });
       if (result.success) {
         setIsSubscribed(true);
