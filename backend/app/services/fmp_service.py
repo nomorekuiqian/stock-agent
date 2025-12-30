@@ -10,12 +10,13 @@ from datetime import timedelta
 from app.utils.timezone import now_pacific, today_str, days_from_now
 
 
-# Core tickers for FMP news - Mag 7 + Semiconductors
+# Core tickers for FMP news - Tech worker focused
 FMP_NEWS_SYMBOLS = [
-    # Market indices
+    # === Market Indices ===
     "SPY",   # S&P 500 ETF
     "QQQ",   # Nasdaq 100 ETF
-    # Mag 7
+
+    # === Mag 7 ===
     "AAPL",  # Apple
     "MSFT",  # Microsoft
     "NVDA",  # NVIDIA
@@ -23,11 +24,50 @@ FMP_NEWS_SYMBOLS = [
     "GOOGL", # Alphabet
     "META",  # Meta
     "TSLA",  # Tesla
-    # Semiconductors
+
+    # === AI Chips ===
     "AMD",   # AMD
-    "AVGO",  # Broadcom
+    "AVGO",  # Broadcom (AI networking)
+    "ARM",   # ARM Holdings
+    "SMCI",  # Super Micro (AI servers)
+    "MRVL",  # Marvell (custom AI chips)
+
+    # === Storage (HBM/Memory) ===
+    "MU",    # Micron (HBM memory, AI hot)
+    "WDC",   # Western Digital
+    "STX",   # Seagate
+
+    # === Semiconductor Equipment ===
     "TSM",   # TSMC
     "ASML",  # ASML
+
+    # === AI/Cloud Software ===
+    "CRM",   # Salesforce
+    "SNOW",  # Snowflake
+    "PLTR",  # Palantir
+    "NOW",   # ServiceNow
+    "NET",   # Cloudflare
+    "DDOG",  # Datadog
+    "CRWD",  # CrowdStrike
+
+    # === China Tech ===
+    "BABA",  # Alibaba
+    "PDD",   # Pinduoduo/Temu
+    "NIO",   # NIO
+
+    # === Crypto/Fintech ===
+    "COIN",  # Coinbase
+    "MSTR",  # MicroStrategy (BTC proxy)
+    "SQ",    # Block/Square
+
+    # === Consumer Tech ===
+    "UBER",  # Uber
+    "ABNB",  # Airbnb
+    "NFLX",  # Netflix
+
+    # === 2024-2025 Hot ===
+    "LLY",   # Eli Lilly (GLP-1)
+    "RDDT",  # Reddit
 ]
 
 
@@ -193,7 +233,7 @@ class FMPService:
             "error": "No data available",
         }
 
-    def get_stock_news(self, symbols: list[str] = None, limit: int = 50) -> dict:
+    def get_stock_news(self, symbols: list[str] = None, limit: int = 80) -> dict:
         """
         Get news for specific stock symbols from FMP API.
 
@@ -258,7 +298,7 @@ class FMPService:
             "source": "fmp",
         }
 
-    def get_general_news(self, limit: int = 30) -> dict:
+    def get_general_news(self, limit: int = 50) -> dict:
         """
         Get general market news (macro, policy, economy) without ticker requirement.
 
@@ -572,26 +612,30 @@ class FMPService:
         """
         print(f"[FMP] get_major_earnings(days={days})")
 
-        # Major tickers we care about
+        # Major tickers - Tech worker focused
         major_tickers = {
-            # Tech Giants
+            # Mag 7
             "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "NVDA", "TSLA",
-            # AI & Semiconductors
-            "AMD", "INTC", "AVGO", "QCOM", "TSM", "SMCI", "ARM", "MU",
-            # Software & Cloud
-            "CRM", "ORCL", "ADBE", "NOW", "SNOW", "PLTR", "NET", "DDOG",
-            # Financials
-            "JPM", "BAC", "WFC", "GS", "MS", "C", "BLK", "SCHW",
-            # Consumer
-            "WMT", "COST", "TGT", "HD", "LOW", "NKE", "SBUX", "MCD",
-            # Healthcare
-            "UNH", "JNJ", "PFE", "ABBV", "MRK", "LLY", "TMO", "ABT",
-            # Energy
-            "XOM", "CVX", "COP", "SLB", "EOG",
-            # Industrial
-            "CAT", "DE", "BA", "GE", "HON", "UPS", "FDX",
+            # AI Chips
+            "AMD", "AVGO", "ARM", "SMCI", "MRVL", "QCOM", "INTC",
+            # Storage (HBM/Memory)
+            "MU", "WDC", "STX",
+            # Semiconductor Equipment
+            "TSM", "ASML", "AMAT", "LRCX",
+            # AI/Cloud Software
+            "CRM", "ORCL", "NOW", "SNOW", "PLTR", "NET", "DDOG", "CRWD", "PANW",
+            # China Tech
+            "BABA", "PDD", "JD", "BIDU", "NIO", "LI",
+            # Consumer Tech
+            "UBER", "ABNB", "NFLX", "DIS",
+            # Fintech/Crypto
+            "COIN", "SQ", "PYPL", "V", "MA",
+            # Financials (major only)
+            "JPM", "GS",
+            # 2024-2025 Hot
+            "LLY", "RDDT",
             # ETFs
-            "SPY", "QQQ", "IWM", "DIA",
+            "SPY", "QQQ",
         }
 
         calendar = self.get_earnings_calendar(days=days)
@@ -606,7 +650,7 @@ class FMPService:
         ]
 
         # Mark AI-related companies
-        ai_tickers = {"NVDA", "AMD", "MSFT", "GOOGL", "GOOG", "META", "AMZN", "TSM", "SMCI", "AVGO", "ARM", "PLTR", "SNOW"}
+        ai_tickers = {"NVDA", "AMD", "MSFT", "GOOGL", "GOOG", "META", "AMZN", "TSM", "SMCI", "AVGO", "ARM", "PLTR", "SNOW", "MU", "MRVL", "ASML", "AMAT", "LRCX", "NET", "DDOG", "CRWD"}
         for earning in major_earnings:
             earning["is_ai_related"] = earning["symbol"] in ai_tickers
 

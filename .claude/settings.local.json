@@ -95,7 +95,8 @@
       "mcp__insforge__get-anon-key",
       "Bash(chmod:*)",
       "mcp__chrome-devtools__hover",
-      "Bash(pip3 show:*)"
+      "Bash(pip3 show:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [],
     "ask": []

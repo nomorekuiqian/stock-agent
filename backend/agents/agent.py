@@ -102,10 +102,10 @@ class NewsSection(BaseModel):
     """News section with headlines and briefs."""
 
     headlines: list[HeadlineNews] = Field(
-        description="1-3 most important news items with deep analysis"
+        description="2-4 most important news items with deep analysis"
     )
     briefs: list[BriefNews] = Field(
-        description="5-8 other notable news items with brief analysis"
+        description="8-12 other notable news items with brief analysis"
     )
 
 
@@ -203,16 +203,30 @@ ANALYST_INSTRUCTION = """
 
 ### news（重要新闻）
 
-**headlines（今日头条，1-3条）**
-挑选最重要、最有市场影响力的新闻进行深度解读。
+**headlines（今日头条，2-4条）**
+挑选最重要、最有市场影响力的新闻进行深度解读。优先选择：
+- 大型科技公司重大动作（产品发布、战略调整、高管变动）
+- AI/芯片行业重大新闻
+- 宏观政策变化（Fed、财政政策）
+- 重大并购或投资
+
+每条需包含：
 - fact_summary: 1句话总结发生了什么
 - deep_analysis: 5-6句分析，解释事件背后的逻辑、重要性、对市场/板块/标的的影响
 - url: 原文链接（从输入数据中获取）
 
 不选：分析师观点、预测文章、泛泛而谈的市场评论
 
-**briefs（其他快讯，5-8条）**
-公司重大动作、政策变化、经济数据发布、重要持仓变动、并购消息等。
+**briefs（其他快讯，8-12条）**
+覆盖更广泛的市场动态：
+- 公司财报/业绩指引
+- 产品发布、技术突破
+- 监管政策、反垄断动态
+- 中概股重大新闻
+- 加密货币相关（如有）
+- 重要持仓变动、并购消息
+
+每条需包含：
 - summary: 1句话说明发生了什么
 - analysis: 2-3句话分析影响
 - url: 原文链接
@@ -407,8 +421,8 @@ class MarketAgent:
             data_for_analyst = _prepare_data_for_analyst(
                 market_data=market_data,
                 news=news_result.get("news", [])[
-                    :50
-                ],  # Top 50 news for better filtering
+                    :70
+                ],  # Top 70 news for broader coverage
                 economic_calendar=calendar_result.get("events", []),
                 earnings_calendar=earnings_result.get("earnings", []),
             )

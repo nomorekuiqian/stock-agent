@@ -30,7 +30,7 @@ class EmailService:
         self.frontend_url = os.getenv(
             "FRONTEND_URL", "https://marketbrew.xyz"
         ).rstrip("/")
-        self.logo_url = f"{self.frontend_url}/logo-avatar.svg"
+        self.logo_url = f"{self.frontend_url}/logo-avatar.png"
 
     # =========================================================================
     # Email Formatting - Common Utilities
@@ -290,7 +290,7 @@ class EmailService:
             briefs_html = ""
             if briefs:
                 briefs_items = ""
-                for brief in briefs[:3]:
+                for brief in briefs:  # Show all briefs (8-12)
                     briefs_items += f"""
                     <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
                         <a href="{brief.get('url', '#')}" style="font-size: 13px; font-weight: 500; color: #18181b; text-decoration: none;">{brief.get('title', '')}</a>
@@ -743,13 +743,16 @@ class EmailService:
             print(f"[EmailService] Error broadcasting: {e}")
             return {"success": False, "error": str(e)}
 
-    async def broadcast_personal_digest(self, data: dict, audience_id: str = None) -> dict:
+    async def broadcast_personal_digest(
+        self, data: dict, audience_id: str = None, first_name: str = ""
+    ) -> dict:
         """Broadcast a personal digest using Resend Broadcasts.
 
         Args:
             data: Digest data to send (from database or agent)
             audience_id: Optional specific audience ID (e.g., Test Broadcast audience).
                         If not provided, uses the default personal_digest audience.
+            first_name: Optional first name for greeting personalization.
         """
         print(f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}")
 
@@ -762,14 +765,14 @@ class EmailService:
                 sub_service = get_subscription_service()
                 audience_id = sub_service.ensure_audience(SubscriptionChannel.PERSONAL_DIGEST)
 
-            html_content = self._format_digest_html(data)
+            html_content = self._format_digest_html(data, first_name=first_name)
             today = today_str()
 
             one_line = data.get("one_line_summary", "")
             subject = (
-                f"[MarketBrew] {one_line[:50]}"
+                f"[MarketBrew专属日报] {one_line[:50]}"
                 if one_line
-                else f"[MarketBrew] Personal Digest {today}"
+                else f"[MarketBrew专属日报] {today}"
             )
 
             create_params: resend.Broadcasts.CreateParams = {

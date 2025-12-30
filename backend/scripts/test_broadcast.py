@@ -118,15 +118,23 @@ async def broadcast_personal_digest():
     print(f"Target: {TEST_AUDIENCE_NAME} ({TEST_AUDIENCE_ID})")
     print("=" * 60)
 
+    # Get first_name from Resend contacts in Test Broadcast audience
+    contacts = resend.Contacts.list(audience_id=TEST_AUDIENCE_ID)
+    active_contacts = [c for c in contacts.get("data", []) if not c.get("unsubscribed")]
+    first_name = ""
+    if active_contacts:
+        first_name = active_contacts[0].get("first_name", "")
+    print(f"Recipient name: {first_name or '(not set)'}")
+
     # Get latest personal digest via edge function
-    # Using a known digest_id from database
+    # Using the user's account with complete digest data
     base_url = os.getenv("NEXT_PUBLIC_INSFORGE_URL", "https://9wmhxyi4.us-east.insforge.app")
     anon_key = os.getenv("INSFORGE_ANON_KEY", "")
 
-    # Latest digest ID (from database query)
-    latest_digest_id = "8838f0a8-ff19-4094-a220-293c15eab19f"
+    # User ID with real personal digest data (pengyou's account)
+    user_id = "d00a6201-646a-489f-95a2-aff8f90fe669"
 
-    url = f"{base_url}/functions/user-digests?digest_id={latest_digest_id}"
+    url = f"{base_url}/functions/user-digests?user_id={user_id}&limit=1"
     headers = {
         "Authorization": f"Bearer {anon_key}",
         "Content-Type": "application/json"
@@ -140,30 +148,43 @@ async def broadcast_personal_digest():
             return False
         result = resp.json()
 
-    if not result.get("success") or not result.get("data"):
-        print(f"ERROR: No personal digest found! Response: {result}")
+    if not result.get("success"):
+        print(f"ERROR: API call failed! Response: {result}")
         return False
 
-    digest = result["data"]
+    data = result.get("data", [])
+    if not data or len(data) == 0:
+        print(f"ERROR: No personal digest found for user!")
+        return False
+
+    digest = data[0] if isinstance(data, list) else data
     print(f"Digest Date: {digest.get('digest_date', 'N/A')}")
     print(f"Symbols: {digest.get('symbols', [])}")
     print(f"Summary: {digest.get('one_line_summary', '')[:60]}...")
 
-    # Prepare digest data for email
-    digest_data = {
+    # Prepare digest data for email - map database fields to template format
+    stored_data = digest.get("digest_data", {})
+
+    email_data = {
         "success": True,
         "symbols": digest.get("symbols", []),
         "greeting": digest.get("greeting", ""),
         "one_line_summary": digest.get("one_line_summary", ""),
-        "analysis": digest.get("analysis", ""),
-        "bottom_line": digest.get("bottom_line", ""),
-        "news_items": digest.get("news_data", []),
-        "digest_data": digest.get("digest_data", {}),
+        # These fields come from digest_data JSON column
+        "stocks": stored_data.get("stocks", []),
+        "news": stored_data.get("news", {}),
+        "events": stored_data.get("events", []),
+        "summary": stored_data.get("summary", {}),
     }
+
+    print(f"Stocks: {len(email_data.get('stocks', []))} items")
+    print(f"News headlines: {len(email_data.get('news', {}).get('headlines', []))} items")
 
     # Broadcast using Resend Broadcasts API
     email_service = get_email_service()
-    result = await email_service.broadcast_personal_digest(digest_data, audience_id=TEST_AUDIENCE_ID)
+    result = await email_service.broadcast_personal_digest(
+        email_data, audience_id=TEST_AUDIENCE_ID, first_name=first_name
+    )
 
     if result.get("success"):
         print(f"SUCCESS: Broadcast ID = {result.get('broadcast_id')}")

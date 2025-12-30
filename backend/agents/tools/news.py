@@ -33,8 +33,9 @@ def _get_last_trading_day_cutoff() -> datetime:
 def _is_within_time_range(pub_date_str: str, days: int = 1) -> bool:
     """
     Check if publication date is within the time range.
+    Uses rolling 24-hour windows to ensure enough news coverage.
     On weekends/Monday: includes all news from last Friday onwards.
-    On other days: includes news from last N days.
+    On other days: includes news from past 24*days hours.
     """
     if not pub_date_str:
         return False
@@ -48,9 +49,9 @@ def _is_within_time_range(pub_date_str: str, days: int = 1) -> bool:
         if weekday in [0, 5, 6]:  # Monday, Saturday, Sunday
             cutoff = _get_last_trading_day_cutoff()
         else:
-            # Normal days: go back N days from start of today
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            cutoff = today_start - timedelta(days=days - 1)
+            # Use rolling 24-hour window instead of midnight cutoff
+            # This ensures we always have ~24 hours of news coverage
+            cutoff = now - timedelta(hours=24 * days)
 
         return pub_date >= cutoff
     except (ValueError, TypeError):
@@ -66,8 +67,9 @@ def _get_effective_date_range() -> tuple:
         cutoff = _get_last_trading_day_cutoff()
         return cutoff, now, True  # (start, end, is_weekend_adjusted)
     else:
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        return today_start, now, False
+        # Use rolling 24-hour window
+        cutoff = now - timedelta(hours=24)
+        return cutoff, now, False
 
 
 # =============================================================================
