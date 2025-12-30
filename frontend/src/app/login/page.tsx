@@ -16,6 +16,9 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -33,6 +36,55 @@ export default function LoginPage() {
     );
   }
 
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !verificationCode) {
+      setError('Please enter your email and verification code');
+      return;
+    }
+
+    setVerifyingCode(true);
+    setError('');
+
+    try {
+      const response = await fetch('https://9wmhxyi4.us-east.insforge.app/api/auth/email/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp: verificationCode }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || 'Invalid verification code');
+      } else {
+        setSuccessMessage('Email verified! You can now sign in.');
+        setNeedsVerification(false);
+        setVerificationCode('');
+        setIsSignUp(false);
+      }
+    } catch {
+      setError('Failed to verify code. Please try again.');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!email) return;
+    setError('');
+    try {
+      await fetch('https://9wmhxyi4.us-east.insforge.app/api/auth/email/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setSuccessMessage('Verification code sent! Check your inbox.');
+    } catch {
+      setError('Failed to resend code.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -44,10 +96,8 @@ export default function LoginPage() {
         const result = await signUp(email, password, name);
         if (result.success) {
           if (result.needsVerification) {
-            setSuccessMessage('Account created! Please check your email to verify your account.');
-            setEmail('');
-            setPassword('');
-            setName('');
+            setNeedsVerification(true);
+            setSuccessMessage('Account created! Check your email for verification code.');
           } else {
             router.push('/market');
           }
@@ -59,7 +109,13 @@ export default function LoginPage() {
         if (result.success) {
           router.push('/market');
         } else {
-          setError(result.error || 'Sign in failed');
+          const errorLower = (result.error || '').toLowerCase();
+          if (errorLower.includes('verif') || errorLower.includes('confirm')) {
+            setNeedsVerification(true);
+            setError('Please verify your email first.');
+          } else {
+            setError(result.error || 'Sign in failed');
+          }
         }
       }
     } catch {
@@ -119,10 +175,43 @@ export default function LoginPage() {
           </div>
         )}
 
+        {/* Verification Code Input */}
+        {needsVerification && email && (
+          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+            <p className="text-sm text-emerald-800 mb-3 text-center">
+              Enter verification code sent to <strong>{email}</strong>
+            </p>
+            <form onSubmit={handleVerifyCode} className="space-y-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="6-digit code"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white text-center tracking-widest font-mono text-lg"
+              />
+              <button
+                type="submit"
+                disabled={verifyingCode || verificationCode.length !== 6}
+                className="w-full px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {verifyingCode ? 'Verifying...' : 'Verify'}
+              </button>
+            </form>
+            <button
+              onClick={handleResendCode}
+              className="w-full mt-2 text-sm text-emerald-700 hover:underline"
+            >
+              Resend code
+            </button>
+          </div>
+        )}
+
         {/* Google Sign In */}
         <button
           onClick={handleGoogleSignIn}
-          disabled={loading}
+          disabled={loading || needsVerification}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -169,7 +258,7 @@ export default function LoginPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
               />
             </div>
           )}
@@ -185,7 +274,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
             />
           </div>
 
@@ -201,7 +290,7 @@ export default function LoginPage() {
               placeholder="••••••••"
               required
               minLength={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
             />
           </div>
 

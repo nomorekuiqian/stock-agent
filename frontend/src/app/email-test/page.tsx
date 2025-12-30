@@ -246,7 +246,7 @@ function EmailTestContent() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="test@example.com"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
                 <button
@@ -383,7 +383,7 @@ function EmailTestContent() {
                         value={reportId}
                         onChange={(e) => setReportId(e.target.value)}
                         placeholder="Report ID (UUID)"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                       <button
                         onClick={() => loadEmailPreview(reportId || undefined, user?.name)}
@@ -418,7 +418,7 @@ function EmailTestContent() {
                         value={digestId}
                         onChange={(e) => setDigestId(e.target.value)}
                         placeholder="Digest ID (UUID)"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                       <button
                         onClick={() => loadDigestPreview({ userId: user?.id, digestId: digestId || undefined })}
