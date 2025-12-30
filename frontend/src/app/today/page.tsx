@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { api, CalendarEvent } from '@/lib/api';
 import { getReportByDate, getLatestReport, getReportsList, MarketReport } from '@/lib/insforge';
@@ -20,17 +20,36 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [historicalReports, setHistoricalReports] = useState<MarketReport[]>([]);
   const [totalReports, setTotalReports] = useState(0);
+
+  // Subscription state
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Check subscription status
+  const checkSubscriptionStatus = useCallback(async (email: string) => {
+    try {
+      const result = await api.subscriptions.getStatus('daily_report', email);
+      setIsSubscribed(result.subscribed);
+    } catch {
+      // Ignore errors - assume not subscribed
+      setIsSubscribed(false);
+    }
+  }, []);
 
   // Load report and historical reports on mount
   useEffect(() => {
     loadReport();
     loadHistoricalReports();
-    getCurrentUser().then(setUser);
-  }, []);
+    getCurrentUser().then((u) => {
+      setUser(u);
+      if (u?.email) {
+        checkSubscriptionStatus(u.email);
+      }
+    });
+  }, [checkSubscriptionStatus]);
 
   async function loadHistoricalReports() {
     try {
@@ -74,21 +93,50 @@ export default function TodayPage() {
     }
   }
 
-  async function handleSendEmail() {
+  async function handleSubscribe() {
     if (!user?.email) {
-      setEmailStatus({ type: 'error', message: 'Please login to send email report' });
+      setSubscriptionStatus({ type: 'error', message: 'Please login to subscribe' });
       return;
     }
 
-    setSendingEmail(true);
-    setEmailStatus(null);
+    setSubscriptionLoading(true);
+    setSubscriptionStatus(null);
     try {
-      const result = await api.sendReportEmail(user.email);
-      setEmailStatus({ type: 'success', message: `Report sent to ${result.sent_to}` });
+      const result = await api.subscriptions.subscribe('daily_report', {
+        email: user.email,
+        user_id: user.id,
+        first_name: user.user_metadata?.first_name,
+      });
+      if (result.success) {
+        setIsSubscribed(true);
+        setSubscriptionStatus({ type: 'success', message: 'Subscribed to daily reports!' });
+      } else {
+        setSubscriptionStatus({ type: 'error', message: result.error || 'Failed to subscribe' });
+      }
     } catch (err) {
-      setEmailStatus({ type: 'error', message: err instanceof Error ? err.message : 'Failed to send email' });
+      setSubscriptionStatus({ type: 'error', message: err instanceof Error ? err.message : 'Failed to subscribe' });
     } finally {
-      setSendingEmail(false);
+      setSubscriptionLoading(false);
+    }
+  }
+
+  async function handleUnsubscribe() {
+    if (!user?.email) return;
+
+    setSubscriptionLoading(true);
+    setSubscriptionStatus(null);
+    try {
+      const result = await api.subscriptions.unsubscribe('daily_report', user.email);
+      if (result.success) {
+        setIsSubscribed(false);
+        setSubscriptionStatus({ type: 'success', message: 'Unsubscribed successfully' });
+      } else {
+        setSubscriptionStatus({ type: 'error', message: result.error || 'Failed to unsubscribe' });
+      }
+    } catch (err) {
+      setSubscriptionStatus({ type: 'error', message: err instanceof Error ? err.message : 'Failed to unsubscribe' });
+    } finally {
+      setSubscriptionLoading(false);
     }
   }
 
@@ -126,37 +174,59 @@ export default function TodayPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-              {/* Email button */}
-              {report && (
+              {/* Subscribe button */}
+              {isSubscribed ? (
                 <button
-                  onClick={handleSendEmail}
-                  disabled={sendingEmail}
-                  className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:bg-card/80 hover:border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 group"
+                  onClick={handleUnsubscribe}
+                  disabled={subscriptionLoading}
+                  className="px-4 py-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg font-medium text-sm border border-emerald-500/20 transition-all hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 group"
                 >
-                  {sendingEmail ? (
+                  {subscriptionLoading ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                   ) : (
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    </>
+                  )}
+                  <span className="group-hover:hidden">Subscribed</span>
+                  <span className="hidden group-hover:inline">Unsubscribe</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubscribe}
+                  disabled={subscriptionLoading}
+                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {subscriptionLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
                   )}
-                  <span>Send to Email</span>
+                  <span>Subscribe</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Email Status */}
-          {emailStatus && (
+          {/* Subscription Status */}
+          {subscriptionStatus && (
             <div className={`mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
-              emailStatus.type === 'success'
+              subscriptionStatus.type === 'success'
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-red-500/10 text-red-400 border border-red-500/20'
             }`}>
-              {emailStatus.type === 'success' ? (
+              {subscriptionStatus.type === 'success' ? (
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -165,7 +235,7 @@ export default function TodayPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               )}
-              {emailStatus.message}
+              {subscriptionStatus.message}
             </div>
           )}
         </div>
