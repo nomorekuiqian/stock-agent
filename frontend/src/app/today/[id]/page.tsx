@@ -2,9 +2,8 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { getReportById, MarketReport } from '@/lib/insforge';
+import { getReportById, MarketReport, normalizeMarketReport } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
-import { CalendarEvent } from '@/lib/api';
 import { formatDateChinese, formatTimePacific } from '@/lib/timezone';
 
 interface IndexData {
@@ -127,20 +126,22 @@ export default function ReportDetailPage({
           </section>
 
           {/* Shared Report Content Component */}
-          <ReportContent
-            indices={report.indices as IndexData[] | undefined}
-            // New structured fields
-            quickTake={report.quick_take}
-            marketNarrative={report.market_narrative}
-            macro={report.macro}
-            news={report.news}
-            conclusion={report.conclusion}
-            calendar={report.calendar as CalendarEvent[] | undefined}
-            // Legacy field for backward compatibility
-            inDepthAnalysis={report.in_depth_analysis}
-            timestamp={report.timestamp}
-            showTimestamp={true}
-          />
+          {(() => {
+            const normalized = normalizeMarketReport(report);
+            return (
+              <ReportContent
+                indices={normalized.indices as IndexData[] | undefined}
+                intro={normalized.intro}
+                macro={normalized.macro}
+                news={normalized.news}
+                reportSummary={normalized.reportSummary}
+                calendar={normalized.calendar}
+                inDepthAnalysis={normalized.inDepthAnalysis}
+                timestamp={normalized.timestamp}
+                showTimestamp={true}
+              />
+            );
+          })()}
         </div>
       )}
     </main>

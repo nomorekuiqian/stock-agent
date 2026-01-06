@@ -1,0 +1,100 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+
+export function MobileMenu() {
+  const [isOpen, setIsOpen] = useState(false);
+  const { user, isAuthenticated, isLoading, signOut } = useAuth();
+
+  const navLinks = [
+    { href: '/today', label: 'Today' },
+    { href: '/liquidity', label: 'Liquidity' },
+    { href: '/for-you', label: 'For You' },
+  ];
+
+  return (
+    <div className="md:hidden">
+      {/* Hamburger Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Toggle menu"
+      >
+        {isOpen ? (
+          // X icon
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          // Hamburger icon
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        )}
+      </button>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 top-14 bg-background/80 backdrop-blur-sm z-40"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Menu Panel */}
+          <div className="absolute top-14 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
+            <div className="max-w-6xl mx-auto px-4 py-4 space-y-1">
+              {/* Nav Links */}
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {/* Divider */}
+              <div className="h-px bg-border/50 my-2" />
+
+              {/* Auth Section */}
+              {isLoading ? (
+                <div className="px-4 py-3">
+                  <div className="w-20 h-4 rounded bg-muted animate-pulse" />
+                </div>
+              ) : isAuthenticated && user ? (
+                <>
+                  <div className="px-4 py-2 text-xs text-muted-foreground">
+                    {user.name || user.email}
+                  </div>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setIsOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 text-sm text-emerald-500 font-medium hover:bg-emerald-500/10 rounded-lg transition-colors"
+                >
+                  Sign in
+                </Link>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

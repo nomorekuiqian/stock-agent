@@ -67,19 +67,19 @@ export interface MarketData {
   indices: MarketIndex[];
   timestamp: string;
 
-  // New structured fields
+  // Structured fields (current schema)
   title?: string;
   summary?: string;
-  quick_take?: string;
-  market_narrative?: string;
+  intro?: string;
   macro?: MacroSection;
   news?: NewsSection;
-  conclusion?: string;
+  report_summary?: string;
   calendar?: CalendarEvent[];
 
-  // Legacy fields (for backward compatibility)
-  short_analysis?: string;
-  in_depth_analysis?: string;
+  // Legacy fields (old reports only)
+  market_narrative?: string;  // v1: replaced by intro
+  conclusion?: string;        // v1: replaced by report_summary
+  in_depth_analysis?: string; // v0: legacy markdown analysis
 
   // Raw data
   economic_calendar?: {
@@ -95,6 +95,39 @@ export interface MarketData {
   news_data?: unknown;
   market_data?: unknown;
   from_cache?: boolean;  // Whether report came from database cache
+}
+
+// Normalized report interface (consistent across all schema versions)
+export interface NormalizedReport {
+  indices: MarketIndex[];
+  timestamp: string;
+  title: string;
+  summary: string;
+  intro: string;
+  macro?: MacroSection;
+  news?: NewsSection;
+  reportSummary: string;
+  calendar: CalendarEvent[];
+  inDepthAnalysis: string;  // Legacy field for old reports
+}
+
+// Normalize report data from any schema version to current format
+export function normalizeReport(report: MarketData): NormalizedReport {
+  return {
+    indices: report.indices || [],
+    timestamp: report.timestamp || '',
+    title: report.title || '',
+    summary: report.summary || '',
+    // intro: new field, fallback to market_narrative (v1)
+    intro: report.intro || report.market_narrative || '',
+    macro: report.macro,
+    news: report.news,
+    // reportSummary: new field, fallback to conclusion (v1)
+    reportSummary: report.report_summary || report.conclusion || '',
+    calendar: report.calendar || [],
+    // Legacy markdown analysis for v0 reports
+    inDepthAnalysis: report.in_depth_analysis || '',
+  };
 }
 
 export interface SendEmailResponse {

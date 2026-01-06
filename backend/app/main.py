@@ -134,17 +134,15 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
                     "report_id": existing_report.get("id"),
                     "indices": existing_report.get("indices", []),
                     "timestamp": existing_report.get("timestamp", now_iso()),
-                    # New structured fields
+                    # Structured fields (new schema)
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
-                    "quick_take": existing_report.get("quick_take", ""),
-                    "market_narrative": existing_report.get("market_narrative", ""),
+                    "intro": existing_report.get("intro") or existing_report.get("market_narrative", ""),
                     "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "conclusion": existing_report.get("conclusion", ""),
+                    "report_summary": existing_report.get("report_summary") or existing_report.get("conclusion", ""),
                     "calendar": existing_report.get("calendar", []),
-                    # Legacy fields for backward compatibility
-                    "short_analysis": existing_report.get("short_analysis", ""),
+                    # Legacy fields (for old reports)
                     "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
                     # Raw data
                     "economic_calendar": existing_report.get("economic_calendar", {}),
@@ -174,17 +172,15 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
         response_data = {
             "indices": indices,
             "timestamp": result.get("timestamp", now_iso()),
-            # New structured fields
+            # Structured fields (new schema)
             "title": result.get("title", ""),
             "summary": result.get("summary", ""),
-            "quick_take": result.get("quick_take", ""),
-            "market_narrative": result.get("market_narrative", ""),
+            "intro": result.get("intro", ""),
             "macro": result.get("macro"),
             "news": result.get("news"),
-            "conclusion": result.get("conclusion", ""),
-            "calendar": result.get("calendar", []),  # LLM-curated key events
-            # Legacy fields for backward compatibility
-            "short_analysis": result.get("short_analysis", ""),
+            "report_summary": result.get("report_summary", ""),
+            "calendar": result.get("calendar", []),
+            # Legacy fields (for old reports)
             "in_depth_analysis": result.get("in_depth_analysis", ""),
             # Raw data
             "economic_calendar": result.get("economic_calendar", {}),
@@ -196,8 +192,16 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
             "from_cache": False,
         }
 
-        # Save new report to database
-        save_result = await insforge.save_market_report(response_data)
+        # Save new report to database (map new field names to DB column names)
+        db_data = {
+            **response_data,
+            "market_narrative": response_data.get("intro", ""),  # DB column name
+            "conclusion": response_data.get("report_summary", ""),  # DB column name
+        }
+        # Remove new field names (not in DB schema)
+        db_data.pop("intro", None)
+        db_data.pop("report_summary", None)
+        save_result = await insforge.save_market_report(db_data)
         if save_result.get("success"):
             print(f"[API] Report saved to database for {today}")
             response_data["report_id"] = save_result.get("report_id")
@@ -251,13 +255,11 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
                     "timestamp": existing_report.get("timestamp", now_iso()),
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
-                    "quick_take": existing_report.get("quick_take", ""),
-                    "market_narrative": existing_report.get("market_narrative", ""),
+                    "intro": existing_report.get("intro") or existing_report.get("market_narrative", ""),
                     "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "conclusion": existing_report.get("conclusion", ""),
+                    "report_summary": existing_report.get("report_summary") or existing_report.get("conclusion", ""),
                     "calendar": existing_report.get("calendar", []),
-                    "short_analysis": existing_report.get("short_analysis", ""),
                     "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
                 }
                 save_result["report_id"] = existing_report.get("id")
@@ -274,18 +276,18 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
             indices = transform_market_data_to_indices(market_data)
 
             # Build complete report data for email and database
+            # Note: DB uses old column names (market_narrative, conclusion)
+            # API returns new field names (intro, report_summary)
             report_data = {
                 "indices": indices,
                 "timestamp": result.get("timestamp", now_iso()),
                 "title": result.get("title", ""),
                 "summary": result.get("summary", ""),
-                "quick_take": result.get("quick_take", ""),
-                "market_narrative": result.get("market_narrative", ""),
+                "market_narrative": result.get("intro", ""),  # DB column name
                 "macro": result.get("macro"),
                 "news": result.get("news"),
-                "conclusion": result.get("conclusion", ""),
+                "conclusion": result.get("report_summary", ""),  # DB column name
                 "calendar": result.get("calendar", []),
-                "short_analysis": result.get("short_analysis", ""),
                 "in_depth_analysis": result.get("in_depth_analysis", ""),
                 "economic_calendar": result.get("economic_calendar", {}),
                 "earnings_calendar": result.get("earnings_calendar", {}),
@@ -384,17 +386,13 @@ async def get_email_preview(
         report_data = {
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
-            # New structured fields
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
-            "quick_take": report.get("quick_take", ""),
-            "market_narrative": report.get("market_narrative", ""),
+            "intro": report.get("intro") or report.get("market_narrative", ""),
             "macro": report.get("macro"),
             "news": report.get("news"),
-            "conclusion": report.get("conclusion", ""),
+            "report_summary": report.get("report_summary") or report.get("conclusion", ""),
             "calendar": report.get("calendar", []),
-            # Legacy fields
-            "short_analysis": report.get("short_analysis", ""),
             "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
@@ -531,17 +529,13 @@ async def broadcast_test_report(request: BroadcastTestRequest):
         report_data = {
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
-            # New structured fields
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
-            "quick_take": report.get("quick_take", ""),
-            "market_narrative": report.get("market_narrative", ""),
+            "intro": report.get("intro") or report.get("market_narrative", ""),
             "macro": report.get("macro"),
             "news": report.get("news"),
-            "conclusion": report.get("conclusion", ""),
+            "report_summary": report.get("report_summary") or report.get("conclusion", ""),
             "calendar": report.get("calendar", []),
-            # Legacy fields
-            "short_analysis": report.get("short_analysis", ""),
             "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
@@ -593,17 +587,13 @@ async def send_test_report(request: SendEmailRequest):
         report_data = {
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", now_iso()),
-            # New structured fields
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
-            "quick_take": report.get("quick_take", ""),
-            "market_narrative": report.get("market_narrative", ""),
+            "intro": report.get("intro") or report.get("market_narrative", ""),
             "macro": report.get("macro"),
             "news": report.get("news"),
-            "conclusion": report.get("conclusion", ""),
+            "report_summary": report.get("report_summary") or report.get("conclusion", ""),
             "calendar": report.get("calendar", []),
-            # Legacy fields
-            "short_analysis": report.get("short_analysis", ""),
             "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
@@ -830,13 +820,11 @@ async def broadcast_to_channel(
                     "timestamp": existing_report.get("timestamp", now_iso()),
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
-                    "quick_take": existing_report.get("quick_take", ""),
-                    "market_narrative": existing_report.get("market_narrative", ""),
+                    "intro": existing_report.get("intro") or existing_report.get("market_narrative", ""),
                     "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "conclusion": existing_report.get("conclusion", ""),
+                    "report_summary": existing_report.get("report_summary") or existing_report.get("conclusion", ""),
                     "calendar": existing_report.get("calendar", []),
-                    "short_analysis": existing_report.get("short_analysis", ""),
                     "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
                 }
             else:
@@ -853,13 +841,11 @@ async def broadcast_to_channel(
                     "timestamp": result.get("timestamp", now_iso()),
                     "title": result.get("title", ""),
                     "summary": result.get("summary", ""),
-                    "quick_take": result.get("quick_take", ""),
-                    "market_narrative": result.get("market_narrative", ""),
+                    "intro": result.get("intro", ""),
                     "macro": result.get("macro"),
                     "news": result.get("news"),
-                    "conclusion": result.get("conclusion", ""),
+                    "report_summary": result.get("report_summary", ""),
                     "calendar": result.get("calendar", []),
-                    "short_analysis": result.get("short_analysis", ""),
                     "in_depth_analysis": result.get("in_depth_analysis", ""),
                 }
 

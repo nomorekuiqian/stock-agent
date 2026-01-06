@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { api, CalendarEvent } from '@/lib/api';
-import { getReportByDate, getLatestReport, getReportsList, MarketReport } from '@/lib/insforge';
+import { api } from '@/lib/api';
+import { getReportByDate, getLatestReport, getReportsList, MarketReport, normalizeMarketReport } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
 import { getCurrentUser, User } from '@/lib/auth';
 import { todayStr, formatDateChinese, formatTimePacific, formatDateShort } from '@/lib/timezone';
@@ -299,19 +299,21 @@ export default function TodayPage() {
           </section>
 
           {/* Shared Report Content Component */}
-          <ReportContent
-            indices={report.indices as IndexData[] | undefined}
-            // New structured fields
-            quickTake={report.quick_take}
-            marketNarrative={report.market_narrative}
-            macro={report.macro}
-            news={report.news}
-            conclusion={report.conclusion}
-            calendar={report.calendar as CalendarEvent[] | undefined}
-            // Legacy field for backward compatibility
-            inDepthAnalysis={report.in_depth_analysis}
-            showTimestamp={false}
-          />
+          {(() => {
+            const normalized = normalizeMarketReport(report);
+            return (
+              <ReportContent
+                indices={normalized.indices as IndexData[] | undefined}
+                intro={normalized.intro}
+                macro={normalized.macro}
+                news={normalized.news}
+                reportSummary={normalized.reportSummary}
+                calendar={normalized.calendar}
+                inDepthAnalysis={normalized.inDepthAnalysis}
+                showTimestamp={false}
+              />
+            );
+          })()}
         </div>
       )}
 

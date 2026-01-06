@@ -24,21 +24,19 @@ export interface MarketReport {
   report_date: string;
   timestamp: string;
 
-  // New structured fields
+  // Structured fields (current schema)
   title?: string;
   summary?: string;
-  quick_take?: string;
-  market_narrative?: string;
+  intro?: string;
   macro?: MacroSection;
   news?: NewsSection;
-  conclusion?: string;
+  report_summary?: string;
   calendar?: CalendarEvent[];
 
-  // Legacy fields (for backward compatibility)
-  short_analysis?: string;
-  in_depth_analysis?: string;
-  draft_analysis?: string;
-  evaluation_report?: string;
+  // Legacy fields (old reports only)
+  market_narrative?: string;  // v1: replaced by intro
+  conclusion?: string;        // v1: replaced by report_summary
+  in_depth_analysis?: string; // v0: legacy markdown analysis
 
   // Raw data
   indices?: unknown[];
@@ -47,6 +45,40 @@ export interface MarketReport {
   news_data?: unknown;
   market_data?: unknown;
   created_at?: string;
+}
+
+// Normalized report for consistent frontend rendering
+export interface NormalizedMarketReport {
+  id?: string;
+  reportDate: string;
+  timestamp: string;
+  title: string;
+  summary: string;
+  intro: string;
+  macro?: MacroSection;
+  news?: NewsSection;
+  reportSummary: string;
+  calendar: CalendarEvent[];
+  indices: unknown[];
+  inDepthAnalysis: string;
+}
+
+// Normalize MarketReport to consistent format
+export function normalizeMarketReport(report: MarketReport): NormalizedMarketReport {
+  return {
+    id: report.id,
+    reportDate: report.report_date,
+    timestamp: report.timestamp || '',
+    title: report.title || '',
+    summary: report.summary || '',
+    intro: report.intro || report.market_narrative || '',
+    macro: report.macro,
+    news: report.news,
+    reportSummary: report.report_summary || report.conclusion || '',
+    calendar: (report.calendar || []) as CalendarEvent[],
+    indices: report.indices || [],
+    inDepthAnalysis: report.in_depth_analysis || '',
+  };
 }
 
 export async function saveMarketReport(report: Omit<MarketReport, 'id' | 'created_at'>): Promise<{ success: boolean; data?: MarketReport; error?: string }> {

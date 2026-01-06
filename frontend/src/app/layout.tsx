@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { NavAuth } from "@/components/NavAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MobileMenu } from "@/components/MobileMenu";
 
 export const metadata: Metadata = {
   title: "MarketBrew - AI Market Intelligence",
@@ -97,23 +98,13 @@ export default function RootLayout({
 
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-2">
-                  {/* Mobile Nav Links */}
-                  <div className="flex md:hidden items-center gap-1">
-                    <Link
-                      href="/today"
-                      className="px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
-                    >
-                      Today
-                    </Link>
-                    <Link
-                      href="/liquidity"
-                      className="px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
-                    >
-                      Liquidity
-                    </Link>
-                  </div>
                   <ThemeToggle />
-                  <NavAuth />
+                  {/* Desktop Auth */}
+                  <div className="hidden md:block">
+                    <NavAuth />
+                  </div>
+                  {/* Mobile Menu */}
+                  <MobileMenu />
                 </div>
               </div>
             </div>

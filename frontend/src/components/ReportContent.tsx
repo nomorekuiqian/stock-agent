@@ -13,13 +13,10 @@ interface IndexData {
 
 interface ReportContentProps {
   indices?: IndexData[];
-  title?: string;
-  summary?: string;
-  quickTake?: string;
-  marketNarrative?: string;
+  intro?: string;
   macro?: MacroSection;
   news?: NewsSection;
-  conclusion?: string;
+  reportSummary?: string;
   calendar?: CalendarEvent[];
   inDepthAnalysis?: string;
   timestamp?: string;
@@ -58,19 +55,16 @@ const SubsectionHeader = ({ children }: { children: React.ReactNode }) => (
 
 export function ReportContent({
   indices,
-  title,
-  summary,
-  quickTake,
-  marketNarrative,
+  intro,
   macro,
   news,
-  conclusion,
+  reportSummary,
   calendar,
   inDepthAnalysis,
   timestamp,
   showTimestamp = true,
 }: ReportContentProps) {
-  const hasStructuredData = !!(title || summary || quickTake || marketNarrative || macro || news || conclusion);
+  const hasStructuredData = !!(intro || macro || news || reportSummary);
   const formatDate = (dateString: string) => formatDateChinese(dateString);
   const formatTime = (dateString: string) => formatTimePacific(dateString);
 
@@ -118,12 +112,12 @@ export function ReportContent({
         </section>
       )}
 
-      {/* Market Narrative */}
-      {marketNarrative && (
+      {/* Intro / Today's Overview */}
+      {intro && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Market Narrative</SectionHeader>
+          <SectionHeader>Today</SectionHeader>
           <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-line">
-            {marketNarrative}
+            {intro}
           </p>
         </section>
       )}
@@ -258,26 +252,13 @@ export function ReportContent({
         </section>
       )}
 
-      {/* Outlook/Conclusion */}
-      {conclusion && (
+      {/* Summary */}
+      {reportSummary && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Outlook</SectionHeader>
-          <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-headings:text-base prose-headings:mt-4 prose-headings:mb-2 prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-a:text-emerald-500 prose-ul:text-muted-foreground prose-li:text-muted-foreground dark:prose-invert">
-            <ReactMarkdown
-              components={{
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="transition-colors">
-                    {children}
-                  </a>
-                ),
-                h4: ({ children }) => (
-                  <h4 className="text-base font-semibold text-foreground mt-5 mb-2">{children}</h4>
-                ),
-              }}
-            >
-              {conclusion}
-            </ReactMarkdown>
-          </div>
+          <SectionHeader>Summary</SectionHeader>
+          <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+            {reportSummary}
+          </p>
         </section>
       )}
 

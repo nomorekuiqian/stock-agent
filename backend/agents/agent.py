@@ -119,11 +119,11 @@ class MarketReportOutput(BaseModel):
     summary: str = Field(
         description="Report summary - 2-3 sentences covering key market movements and insights for list preview, 50-100 Chinese characters"
     )
-    quick_take: str = Field(
-        description="3-second read - one sentence telling retail investors what to focus on this week, the core tension/question"
-    )
-    market_narrative: str = Field(
-        description="2-3 paragraphs explaining: 1) current dominant market logic, 2) key assumptions for this logic, 3) what would validate/invalidate it"
+    intro: str = Field(
+        description="Opening section (2-3 paragraphs, 150-250 chars): "
+        "1) Today's market sentiment and performance (one sentence), "
+        "2) 2-3 most important things to watch today (preview), "
+        "3) One sentence leading to detailed analysis"
     )
 
     # Structured sections
@@ -131,8 +131,11 @@ class MarketReportOutput(BaseModel):
     news: NewsSection = Field(description="Important news with analysis")
 
     # Free-form narrative section (keeps coherence)
-    conclusion: str = Field(
-        description="Conclusion and action framework in markdown, containing: 1) Core judgment this week, 2) Where are the opportunities, 3) Where are the risks, 4) Short-term outlook with key dates and indicators to watch"
+    report_summary: str = Field(
+        description="Comprehensive summary in 3 paragraphs (separated by newlines, NO subtitles):\n\n"
+        "Paragraph 1: Today's recap - overall market performance, major index movements, sector leaders/laggards.\n\n"
+        "Paragraph 2: Why it happened - connect macro factors with news catalysts, explain cause-and-effect.\n\n"
+        "Paragraph 3: Forward outlook - must mention specific tickers ($TICKER format) or sectors worth watching with reasons, potential risks with trigger conditions, and key dates/events."
     )
 
     # Calendar - AI provides event selection and analysis, dates are matched from source data in Python
@@ -172,15 +175,20 @@ ANALYST_INSTRUCTION = """
 ### summary（摘要）
 2-3句话概括市场主要动向和关键洞察，适合列表预览，50-100个中文字符。
 
-### quick_take（3秒速读）
-一句话告诉散户本周最该关注什么、核心矛盾是什么。
-示例："CPI数据将决定科技股是继续独舞还是回调补跌"
+### intro（开场白）
+这是用户打开日报看到的第一段内容，要抓住注意力，让他想继续看下去。
 
-### market_narrative（主要市场叙事）
-2-3段话说明：
-- 当前市场的主导逻辑是什么
-- 这个逻辑成立的关键假设
-- 什么会验证/推翻这个逻辑
+写2-3段，包含：
+- 今日市场整体情绪和表现（一句话概括）
+- 今日最值得关注的2-3件事预告（让用户知道接下来会看到什么）
+- 一句话引导（"以下是今日详细分析"）
+
+示例：
+"美股三大指数集体收涨，标普创两周新高。市场在消化完Fed会议纪要后情绪回暖，科技股领涨。
+
+今日最值得关注：1) VIX大跌12%回到"恐慌"区间下方；2) 英伟达财报余温推动半导体板块轮动；3) 下周CPI数据前的布局窗口。
+
+以下是今日市场详细分析。"
 
 ### macro（宏观环境）
 
@@ -231,28 +239,26 @@ ANALYST_INSTRUCTION = """
 - analysis: 2-3句话分析影响
 - url: 原文链接
 
-### conclusion（总结与操作框架）
-这是最重要的部分，使用 markdown 格式，必须包含以下四个部分，综合前面所有分析给出连贯的判断：
+### report_summary（综合总结）
+这是日报最重要的部分。如果用户只看这一段，也要能知道今天的重点。
 
-#### 本周核心判断
-基于以上所有信息，给出对当前市场的明确判断（2-3段）：
-- 市场正在交易什么主题/逻辑
-- 这个逻辑是否合理，延续性如何
-- 当前应该偏进攻还是防守
+写成三段话（用换行分隔），不要加小标题：
 
-#### 机会在哪里
-当前逻辑下最值得关注的机会：
-- 哪些板块/标的受益于当前市场逻辑
-- 具体标的推荐（2-3个股票代码，说明关注理由）
+第一段：今日回顾
+市场整体表现如何，主要指数涨跌幅，哪些板块领涨/领跌，最值得关注的单一事件或动向。
+示例："今日美股三大指数集体上涨，标普500涨0.9%，纳指涨1.2%领跑。科技股延续强势，半导体板块在NVDA带领下普涨，费城半导体指数创月内新高。另一方面，防御性板块（公用事业、必需消费）表现疲软，显示资金在向风险资产回流。"
 
-#### 风险在哪里
-可能打破当前逻辑的风险因素：
-- 最大的不确定性是什么
-- 什么信号出现需要警惕
+第二段：波动归因
+解释为什么今天会这样，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。不是简单罗列，而是讲清楚逻辑链条。
+示例："今日上涨主要受两个因素驱动：1) 昨日Fed会议纪要措辞偏鸽，市场降息预期从年底提前至9月，推动成长股估值修复；2) NVDA财报余温延续，数据中心收入同比+154%超预期，验证AI需求持续性，带动整个半导体板块估值重估。VIX从21跌至18，显示市场恐慌情绪明显缓解。"
 
-#### 短期未来前瞻
-- **重点日期**：哪天需要盯盘（如CPI发布日、美联储会议）以及事件潜在影响
-- **观察指标**：看什么数据/信号判断市场走向
+第三段：未来展望
+未来1-2周的预期走势，需要关注的风险和机会。这一段要有实操价值，必须提到：
+- 具体值得关注的标的（使用 $TICKER 格式，如 $NVDA, $SMCI）或板块（如半导体、金融），并解释为什么值得关注
+- 潜在风险及其触发条件（如"若CPI超预期，可能压制成长股"）
+- 重要日期/事件
+
+示例："短期看，科技股有望继续受益于降息预期升温。AI算力链仍是主线，$NVDA 财报验证需求后，上游的 $MU（内存）和 $SMCI（服务器）可能迎来估值修复。金融板块在降息预期下承压，但 $JPM 等大行若财报超预期可能带动反弹。风险方面，下周三CPI是关键——若通胀超预期反弹至3%以上，降息预期降温将首先冲击高估值成长股。重点关注：1月15日CPI、1月17日大银行财报。"
 
 ### calendar（重要事件日历）
 从输入的 economic_calendar 和 earnings_calendar 中筛选5-10个最重要事件：
@@ -460,11 +466,10 @@ class MarketAgent:
             # New structured fields
             title = ""
             summary = ""
-            quick_take = ""
-            market_narrative = ""
+            intro = ""
             macro = {"signals": [], "summary": ""}
             news = {"headlines": [], "briefs": []}
-            conclusion = ""
+            report_summary = ""
             calendar = []
 
             if session_data and hasattr(session_data, "state"):
@@ -481,11 +486,10 @@ class MarketAgent:
                 if isinstance(report_data, dict):
                     title = report_data.get("title", "")
                     summary = report_data.get("summary", "")
-                    quick_take = report_data.get("quick_take", "")
-                    market_narrative = report_data.get("market_narrative", "")
+                    intro = report_data.get("intro", "")
                     macro = report_data.get("macro", {"signals": [], "summary": ""})
                     news = report_data.get("news", {"headlines": [], "briefs": []})
-                    conclusion = report_data.get("conclusion", "")
+                    report_summary = report_data.get("report_summary", "")
                     calendar = report_data.get("calendar", [])
 
             print(
@@ -517,11 +521,10 @@ class MarketAgent:
                 # New structured output
                 "title": title,
                 "summary": summary,
-                "quick_take": quick_take,
-                "market_narrative": market_narrative,
+                "intro": intro,
                 "macro": macro,
                 "news": news,
-                "conclusion": conclusion,
+                "report_summary": report_summary,
                 "calendar": calendar,
                 # Legacy field for backward compatibility
                 "in_depth_analysis": "",
@@ -545,11 +548,10 @@ class MarketAgent:
                 # New structured fields with defaults
                 "title": "",
                 "summary": f"Data fetched (analysis error: {str(e)[:100]})",
-                "quick_take": "",
-                "market_narrative": "",
+                "intro": "",
                 "macro": {"signals": [], "summary": ""},
                 "news": {"headlines": [], "briefs": []},
-                "conclusion": "",
+                "report_summary": "",
                 "calendar": [],
                 # Legacy fields
                 "in_depth_analysis": "",
