@@ -72,9 +72,15 @@ export function ReportContent({
   const keyIndices = useMemo(() => {
     if (!indices) return [];
     return KEY_INDICES.map(name => {
-      const found = indices.find(idx =>
-        idx.name.toLowerCase().includes(name.toLowerCase().split(' ')[0])
-      );
+      // Use exact match or specific patterns to avoid false matches
+      // e.g., "Russell" contains "us" which would wrongly match "US Dollar"
+      const found = indices.find(idx => {
+        const idxName = idx.name.toLowerCase();
+        const targetName = name.toLowerCase();
+        // Exact match or starts with the target name
+        return idxName === targetName || idxName.startsWith(targetName.split(' ')[0] + ' ') ||
+               (targetName === 'us dollar' && idxName.includes('dollar'));
+      });
       return found ? { ...found, displayName: INDICATOR_NAMES[name] || name } : null;
     }).filter(Boolean) as (IndexData & { displayName: string })[];
   }, [indices]);
