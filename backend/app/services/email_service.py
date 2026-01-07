@@ -98,10 +98,10 @@ class EmailService:
         )
         text = re.sub(r"(</h[234]>)\n+", r"\1", text)
         text = text.replace(
-            "\n\n", '</p><p style="margin: 8px 0; line-height: 1.7; color: #3f3f46;">'
+            "\n\n", '</p><p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">'
         )
         text = text.replace("\n", "<br>")
-        text = f'<p style="margin: 8px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
+        text = f'<p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
 
         return text
 
@@ -346,7 +346,9 @@ class EmailService:
         # Conclusion section
         conclusion_html = ""
         if conclusion:
-            conclusion_md = self._format_markdown_to_html(conclusion)
+            # Convert single newlines to double for proper paragraph spacing
+            conclusion_text = conclusion.replace('\n', '\n\n')
+            conclusion_md = self._format_markdown_to_html(conclusion_text)
             conclusion_html = f"""
             <div style="{card_style}">
                 <div style="{section_header_style}">总结展望</div>
