@@ -16,6 +16,7 @@ from app.services.subscription_service import (
     get_subscription_service,
     SubscriptionChannel,
 )
+from app.services.insforge_service import get_insforge_service
 
 
 class EmailService:
@@ -879,6 +880,27 @@ class EmailService:
                             digest_result, email, first_name
                         )
                         if send_result.get("success"):
+                            # Save digest to database
+                            user_id = metadata.get("user_id")
+                            if user_id:
+                                try:
+                                    insforge = get_insforge_service()
+                                    save_data = {
+                                        "user_id": user_id,
+                                        "digest_date": today_str(),
+                                        "timestamp": digest_result.get("timestamp", now_iso()),
+                                        "symbols": digest_result.get("symbols_used", symbols),
+                                        "greeting": digest_result.get("greeting", ""),
+                                        "one_line_summary": digest_result.get("one_line_summary", ""),
+                                        "stocks": digest_result.get("stocks", []),
+                                        "news": digest_result.get("news", {}),
+                                        "events": digest_result.get("events", []),
+                                        "summary": digest_result.get("summary", {}),
+                                    }
+                                    await insforge.save_user_digest(save_data)
+                                    print(f"[EmailService] Saved digest to DB for {email}")
+                                except Exception as db_err:
+                                    print(f"[EmailService] DB save failed for {email}: {db_err}")
                             return {"email": email, "success": True}
                         raise Exception(send_result.get("error", "Send failed"))
 
@@ -898,6 +920,27 @@ class EmailService:
                                 digest_result, email, first_name
                             )
                             if send_result.get("success"):
+                                # Save digest to database (retry success)
+                                user_id = metadata.get("user_id")
+                                if user_id:
+                                    try:
+                                        insforge = get_insforge_service()
+                                        save_data = {
+                                            "user_id": user_id,
+                                            "digest_date": today_str(),
+                                            "timestamp": digest_result.get("timestamp", now_iso()),
+                                            "symbols": digest_result.get("symbols_used", symbols),
+                                            "greeting": digest_result.get("greeting", ""),
+                                            "one_line_summary": digest_result.get("one_line_summary", ""),
+                                            "stocks": digest_result.get("stocks", []),
+                                            "news": digest_result.get("news", {}),
+                                            "events": digest_result.get("events", []),
+                                            "summary": digest_result.get("summary", {}),
+                                        }
+                                        await insforge.save_user_digest(save_data)
+                                        print(f"[EmailService] Saved digest to DB for {email} (retry)")
+                                    except Exception as db_err:
+                                        print(f"[EmailService] DB save failed for {email}: {db_err}")
                                 return {"email": email, "success": True}
                             raise Exception(send_result.get("error", "Send failed"))
 
