@@ -153,7 +153,7 @@ export default function TodayPage() {
     setError(null);
     try {
       const data = await api.getMarketAnalysis(true); // force=true
-      const normalized = normalizeMarketReport({
+      const newReport: MarketReport = {
         id: data.report_id || '',
         report_date: todayStr(),
         timestamp: data.timestamp,
@@ -166,8 +166,8 @@ export default function TodayPage() {
         calendar: data.calendar || [],
         indices: data.indices,
         in_depth_analysis: data.in_depth_analysis || '',
-      });
-      setReport(normalized);
+      };
+      setReport(newReport);
       setIsToday(true);
       // Reload historical reports list
       loadHistoricalReports();
