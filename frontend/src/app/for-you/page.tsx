@@ -599,7 +599,8 @@ export default function ForYouPage() {
                         >
                           <button
                             onClick={() => handleRemoveSymbol(symbol)}
-                            className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-all"
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-card/80 border border-border/30 text-muted-foreground/60 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all"
+                            aria-label={`Remove ${symbol}`}
                           >
                             <X className="w-3 h-3" />
                           </button>
