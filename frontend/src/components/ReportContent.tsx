@@ -262,9 +262,13 @@ export function ReportContent({
       {reportSummary && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
           <SectionHeader>总结展望</SectionHeader>
-          <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-line">
-            {reportSummary}
-          </p>
+          <div className="space-y-4">
+            {reportSummary.split('\n').filter(p => p.trim()).map((paragraph, idx) => (
+              <p key={idx} className="text-base text-muted-foreground leading-relaxed">
+                {paragraph}
+              </p>
+            ))}
+          </div>
         </section>
       )}
 
