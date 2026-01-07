@@ -5,14 +5,52 @@ import { User, getCurrentUser, signIn, signUp, signOut, signInWithGoogle } from 
 import { api } from '@/lib/api';
 
 /**
+ * Check if user has been auto-subscribed before (using localStorage)
+ */
+const getAutoSubscribedKey = (userId: string) => `auto_subscribed_${userId}`;
+
+const hasBeenAutoSubscribed = (userId: string): boolean => {
+  if (typeof window === 'undefined') return true; // SSR safety
+  return localStorage.getItem(getAutoSubscribedKey(userId)) === 'true';
+};
+
+const markAsAutoSubscribed = (userId: string) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(getAutoSubscribedKey(userId), 'true');
+  }
+};
+
+/**
  * Sync user with Resend subscriptions in the background.
  * This links the website account with any existing email subscriptions.
+ * Also auto-subscribes new users to the daily report.
  */
 const syncUserWithSubscriptions = async (user: User) => {
   try {
+    // First sync existing subscriptions
     const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
     if (result.success && result.synced_channels.length > 0) {
       console.log('[AuthContext] Synced user with subscriptions:', result.synced_channels.map(c => c.channel));
+    }
+
+    // Auto-subscribe new users to daily_report (only once per user)
+    if (!hasBeenAutoSubscribed(user.id)) {
+      try {
+        // Check if already subscribed
+        const status = await api.subscriptions.getStatus('daily_report', user.email);
+        if (!status.subscribed) {
+          await api.subscriptions.subscribe('daily_report', {
+            email: user.email,
+            first_name: user.name,
+            user_id: user.id,
+          });
+          console.log('[AuthContext] Auto-subscribed new user to daily_report');
+        }
+        // Mark as auto-subscribed (whether we subscribed or they were already subscribed)
+        markAsAutoSubscribed(user.id);
+      } catch (subError) {
+        console.warn('[AuthContext] Failed to auto-subscribe to daily_report:', subError);
+      }
     }
   } catch (error) {
     // Silent fail - sync is not critical for login
@@ -41,6 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
+      // Sync with subscriptions (handles auto-subscribe for new users)
+      if (currentUser) {
+        syncUserWithSubscriptions(currentUser);
+      }
     } catch (error) {
       console.error('[AuthContext] Refresh user error:', error);
       setUser(null);
