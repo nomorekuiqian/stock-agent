@@ -181,10 +181,11 @@ class EmailService:
 
         report_title = data.get("title") or "Daily Market Brief"
         report_summary = data.get("summary", "")
-        market_narrative = data.get("market_narrative", "")
+        # Support both old (market_narrative/conclusion) and new (intro/report_summary) field names
+        market_narrative = data.get("intro") or data.get("market_narrative", "")
         macro = data.get("macro", {})
         news = data.get("news", {})
-        conclusion = data.get("conclusion", "")
+        conclusion = data.get("report_summary") or data.get("conclusion", "")
         calendar = data.get("calendar", [])
 
         has_structured_data = bool(market_narrative or macro or news or conclusion)
@@ -229,7 +230,7 @@ class EmailService:
         if market_narrative:
             narrative_html = f"""
             <div style="{card_style}">
-                <div style="{section_header_style}">Market Narrative</div>
+                <div style="{section_header_style}">今日要点</div>
                 <div style="font-size: 14px; color: #3f3f46; line-height: 1.85; white-space: pre-line;">{market_narrative}</div>
             </div>
             """
@@ -258,7 +259,7 @@ class EmailService:
                 """
             macro_html = f"""
             <div style="{card_style}">
-                <div style="{section_header_style}">Key Signals</div>
+                <div style="{section_header_style}">关键信号</div>
                 {signals_items}
                 {f'<div style="font-size: 13px; color: #52525b; margin-top: 14px; line-height: 1.7;">{macro_summary}</div>' if macro_summary else ''}
             </div>
@@ -283,7 +284,7 @@ class EmailService:
                     </div>
                     """
                 headlines_html = f"""
-                <div style="{subsection_style}">Headlines</div>
+                <div style="{subsection_style}">头条</div>
                 {headlines_items}
                 """
 
@@ -298,13 +299,13 @@ class EmailService:
                     </div>
                     """
                 briefs_html = f"""
-                <div style="{subsection_style} margin-top: 20px;">Briefs</div>
+                <div style="{subsection_style} margin-top: 20px;">快讯</div>
                 {briefs_items}
                 """
 
             news_html = f"""
             <div style="background: #fafafa; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                <div style="{section_header_style}">News</div>
+                <div style="{section_header_style}">新闻</div>
                 {headlines_html}
                 {briefs_html}
             </div>
@@ -336,7 +337,7 @@ class EmailService:
                 """
             calendar_html = f"""
             <div style="{card_style}">
-                <div style="{section_header_style}">Upcoming Events</div>
+                <div style="{section_header_style}">近期事件</div>
                 {calendar_items}
             </div>
             """
@@ -347,7 +348,7 @@ class EmailService:
             conclusion_md = self._format_markdown_to_html(conclusion)
             conclusion_html = f"""
             <div style="{card_style}">
-                <div style="{section_header_style}">Outlook</div>
+                <div style="{section_header_style}">总结展望</div>
                 <div style="font-size: 13px; color: #3f3f46; line-height: 1.85;">{conclusion_md}</div>
             </div>
             """
@@ -357,7 +358,7 @@ class EmailService:
         if not has_structured_data and data.get("in_depth_analysis"):
             in_depth_html = f"""
             <div style="{card_style}">
-                <div style="{section_header_style}">Analysis</div>
+                <div style="{section_header_style}">深度分析</div>
                 <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
                     {self._format_markdown_to_html(data.get("in_depth_analysis", ""))}
                 </div>
@@ -396,7 +397,7 @@ class EmailService:
 
                 <!-- Content Area -->
                 <div style="background: #f0f0f0; padding: 16px;">
-                    {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">Market Overview</div>{indices_html}</div>' if indices_html else ''}
+                    {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">市场概览</div>{indices_html}</div>' if indices_html else ''}
                     {narrative_html}
                     {macro_html}
                     {news_html}

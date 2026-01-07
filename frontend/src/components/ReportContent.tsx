@@ -84,7 +84,7 @@ export function ReportContent({
       {/* Market Overview - 6 Key Indices Grid */}
       {keyIndices.length > 0 && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Market Overview</SectionHeader>
+          <SectionHeader>市场概览</SectionHeader>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {keyIndices.map((index) => {
               const change = index.change_percent || 0;
@@ -115,7 +115,7 @@ export function ReportContent({
       {/* Intro / Today's Overview */}
       {intro && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Today</SectionHeader>
+          <SectionHeader>今日要点</SectionHeader>
           <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-line">
             {intro}
           </p>
@@ -125,7 +125,7 @@ export function ReportContent({
       {/* Key Signals */}
       {macro && macro.signals && macro.signals.length > 0 && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Key Signals</SectionHeader>
+          <SectionHeader>关键信号</SectionHeader>
           <div className="space-y-0 divide-y divide-border">
             {macro.signals.map((signal, idx) => {
               const trendColor = signal.trend_direction === 'up'
@@ -161,12 +161,12 @@ export function ReportContent({
       {/* News Section */}
       {news && (news.headlines?.length > 0 || news.briefs?.length > 0) && (
         <section className="bg-secondary/30 rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>News</SectionHeader>
+          <SectionHeader>新闻</SectionHeader>
 
           {/* Headlines */}
           {news.headlines && news.headlines.length > 0 && (
             <div className="mb-6">
-              <SubsectionHeader>Headlines</SubsectionHeader>
+              <SubsectionHeader>头条</SubsectionHeader>
               <div className="space-y-4">
                 {news.headlines.map((headline, idx) => (
                   <div key={idx} className="pb-4 border-b border-border last:border-0 last:pb-0">
@@ -193,7 +193,7 @@ export function ReportContent({
           {/* Briefs */}
           {news.briefs && news.briefs.length > 0 && (
             <div>
-              <SubsectionHeader>Briefs</SubsectionHeader>
+              <SubsectionHeader>快讯</SubsectionHeader>
               <div className="space-y-3">
                 {news.briefs.map((brief, idx) => (
                   <div key={idx} className="pb-3 border-b border-border/50 last:border-0 last:pb-0">
@@ -217,7 +217,7 @@ export function ReportContent({
       {/* Upcoming Events Calendar */}
       {calendar && calendar.length > 0 && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Upcoming Events</SectionHeader>
+          <SectionHeader>近期事件</SectionHeader>
           <div className="space-y-4">
             {calendar.slice(0, 5).map((event, idx) => {
               const dateStr = event.date.split('T')[0];
@@ -255,7 +255,7 @@ export function ReportContent({
       {/* Summary */}
       {reportSummary && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Summary</SectionHeader>
+          <SectionHeader>总结展望</SectionHeader>
           <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-line">
             {reportSummary}
           </p>
@@ -265,7 +265,7 @@ export function ReportContent({
       {/* Legacy In-Depth Analysis (for old reports) */}
       {!hasStructuredData && inDepthAnalysis && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>Analysis</SectionHeader>
+          <SectionHeader>深度分析</SectionHeader>
           <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-emerald-500 prose-ul:text-muted-foreground prose-li:text-muted-foreground dark:prose-invert">
             <ReactMarkdown
               components={{
