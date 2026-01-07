@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { getReportByDate, getLatestReport, getReportsList, MarketReport, normalizeMarketReport } from '@/lib/insforge';
@@ -15,6 +16,7 @@ interface IndexData {
 }
 
 export default function TodayPage() {
+  const router = useRouter();
   const [report, setReport] = useState<MarketReport | null>(null);
   const [isToday, setIsToday] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,10 @@ export default function TodayPage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Generate state (dev only)
+  const [generating, setGenerating] = useState(false);
+  const isDev = process.env.NODE_ENV === 'development';
 
   // Check subscription status
   const checkSubscriptionStatus = useCallback(async (email: string) => {
@@ -95,7 +101,8 @@ export default function TodayPage() {
 
   async function handleSubscribe() {
     if (!user?.email) {
-      setSubscriptionStatus({ type: 'error', message: 'Please login to subscribe' });
+      // Redirect to login page if user is not logged in
+      router.push('/login?redirect=/today');
       return;
     }
 
@@ -140,6 +147,37 @@ export default function TodayPage() {
     }
   }
 
+  // Force generate new report (dev only)
+  async function handleGenerate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const data = await api.getMarketAnalysis(true); // force=true
+      const normalized = normalizeMarketReport({
+        id: data.report_id || '',
+        report_date: todayStr(),
+        timestamp: data.timestamp,
+        title: data.title || '',
+        summary: data.summary || '',
+        intro: data.intro || data.market_narrative || '',
+        macro: data.macro,
+        news: data.news,
+        report_summary: data.report_summary || data.conclusion || '',
+        calendar: data.calendar || [],
+        indices: data.indices,
+        in_depth_analysis: data.in_depth_analysis || '',
+      });
+      setReport(normalized);
+      setIsToday(true);
+      // Reload historical reports list
+      loadHistoricalReports();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate report');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background">
       {/* Page Header */}
@@ -175,45 +213,62 @@ export default function TodayPage() {
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
               {/* Subscribe button */}
-              {isSubscribed ? (
-                <button
-                  onClick={handleUnsubscribe}
-                  disabled={subscriptionLoading}
-                  className="px-4 py-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg font-medium text-sm border border-emerald-500/20 transition-all hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 group"
-                >
-                  {subscriptionLoading ? (
+              <button
+                onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
+                disabled={subscriptionLoading}
+                className={`px-4 py-2.5 rounded-lg font-medium text-sm border transition-all flex items-center gap-2 group ${
+                  isSubscribed
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
+                    : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {subscriptionLoading ? (
+                  <>
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
+                  </>
+                ) : isSubscribed ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Subscribed</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span>Subscribe</span>
+                  </>
+                )}
+              </button>
+
+              {/* Generate button (dev only) */}
+              {isDev && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || loading}
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+                >
+                  {generating ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>Generating...</span>
+                    </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Generate</span>
                     </>
                   )}
-                  <span className="group-hover:hidden">Subscribed</span>
-                  <span className="hidden group-hover:inline">Unsubscribe</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubscribe}
-                  disabled={subscriptionLoading}
-                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {subscriptionLoading ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                  )}
-                  <span>Subscribe</span>
                 </button>
               )}
             </div>
