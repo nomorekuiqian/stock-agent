@@ -100,7 +100,8 @@
       "Bash(__NEW_LINE__ echo -e \"\\\\n\\\\n=== /api/auth/users/verify ===\")",
       "Bash(__NEW_LINE__ echo -e \"\\\\n\\\\n=== /api/auth/otp/verify ===\")",
       "Bash(# Check if there''s an SDK method we can use cd /Users/kedeng/Desktop/projects/stock-agent/frontend grep -r \"\"verify\"\" node_modules/@insforge/sdk/dist/)",
-      "Bash(cd /Users/kedeng/Desktop/projects/stock-agent/frontend cat node_modules/@insforge/sdk/dist/auth/index.d.ts)"
+      "Bash(cd /Users/kedeng/Desktop/projects/stock-agent/frontend cat node_modules/@insforge/sdk/dist/auth/index.d.ts)",
+      "mcp__insforge__get-container-logs"
     ],
     "deny": [],
     "ask": []

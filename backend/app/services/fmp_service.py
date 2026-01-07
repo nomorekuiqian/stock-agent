@@ -729,7 +729,7 @@ class FMPService:
             commodities[name] = {
                 "price": self._safe_float(item.get("price")),
                 "change": self._safe_float(item.get("change")),
-                "changePercent": self._safe_float(item.get("changesPercentage")),
+                "changePercent": self._safe_float(item.get("changePercentage")),
                 "dayLow": self._safe_float(item.get("dayLow")),
                 "dayHigh": self._safe_float(item.get("dayHigh")),
                 "previousClose": self._safe_float(item.get("previousClose")),

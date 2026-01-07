@@ -278,55 +278,25 @@ def get_all_market_data() -> dict:
             if asset_data:
                 result["financials"][name] = asset_data
 
-        # === Commodities (FMP primary, yfinance fallback) ===
-        commodities_loaded = False
+        # === Commodities ===
+        # For 24-hour trading commodities (Gold, Oil), use yfinance historical data
+        # for accurate daily change calculation based on settlement prices
         try:
-            fmp = get_fmp_service()
-            fmp_commodities = fmp.get_commodity_quotes(["GCUSD", "BZUSD"])
-
-            if fmp_commodities.get("status") == "success" and fmp_commodities.get("commodities"):
-                for name, commodity_data in fmp_commodities.get("commodities", {}).items():
-                    if commodity_data.get("price"):
-                        price = commodity_data["price"]
-                        prev_close = commodity_data.get("previousClose", price)
-                        daily_change = commodity_data.get("changePercent", 0)
-
-                        result["commodities"][name] = {
-                            "value": round(price, 2),
-                            "previous_close": round(prev_close, 2) if prev_close else round(price, 2),
-                            "daily_change": round(daily_change, 2) if daily_change else 0,
-                            "week_change": None,
-                            "month_change": None,
-                            "high_1mo": commodity_data.get("dayHigh"),
-                            "low_1mo": commodity_data.get("dayLow"),
-                            "trend": "up" if daily_change and daily_change > 0 else "down" if daily_change and daily_change < 0 else "flat",
-                            "source": "fmp_spot",
-                        }
-                commodities_loaded = True
-                print(f"[FMP] Commodities loaded: {list(result['commodities'].keys())}")
-            else:
-                print(f"[FMP] Commodities failed: {fmp_commodities.get('error')}, falling back to yfinance")
+            # GC=F = Gold Futures, BZ=F = Brent Crude Oil Futures
+            yf_commodities = {"Gold": "GC=F", "Oil": "BZ=F"}
+            commodity_data = yf.download(
+                list(yf_commodities.values()),
+                period="1mo",
+                progress=False
+            )
+            for name, symbol in yf_commodities.items():
+                asset_data = _extract_asset_data(commodity_data, name, symbol)
+                if asset_data:
+                    asset_data["source"] = "yfinance_futures"
+                    result["commodities"][name] = asset_data
+            print(f"[yfinance] Commodities loaded: {list(result['commodities'].keys())}")
         except Exception as e:
-            print(f"[FMP] Commodities error: {e}, falling back to yfinance")
-
-        # Fallback to yfinance futures for spot price proxy
-        if not commodities_loaded:
-            try:
-                # GC=F = Gold Futures, CL=F = Crude Oil Futures (close to spot prices)
-                yf_commodities = {"Gold": "GC=F", "Oil": "CL=F"}
-                commodity_data = yf.download(
-                    list(yf_commodities.values()),
-                    period="1mo",
-                    progress=False
-                )
-                for name, symbol in yf_commodities.items():
-                    asset_data = _extract_asset_data(commodity_data, name, symbol)
-                    if asset_data:
-                        asset_data["source"] = "yfinance_futures"
-                        result["commodities"][name] = asset_data
-                print(f"[yfinance] Commodities loaded: {list(result['commodities'].keys())}")
-            except Exception as e:
-                print(f"[yfinance] Commodities fallback error: {e}")
+            print(f"[yfinance] Commodities error: {e}")
 
         # === Currencies ===
         for name, symbol in CURRENCY_TICKERS.items():
