@@ -279,24 +279,100 @@ def get_all_market_data() -> dict:
                 result["financials"][name] = asset_data
 
         # === Commodities ===
-        # For 24-hour trading commodities (Gold, Oil), use yfinance historical data
-        # for accurate daily change calculation based on settlement prices
+        # Strategy: FMP real-time spot price + yfinance historical for week/month changes
+        # FMP provides accurate daily change (price vs previousClose)
+        # yfinance provides historical data for trend analysis
         try:
-            # GC=F = Gold Futures, BZ=F = Brent Crude Oil Futures
-            yf_commodities = {"Gold": "GC=F", "Oil": "BZ=F"}
-            commodity_data = yf.download(
-                list(yf_commodities.values()),
-                period="1mo",
-                progress=False
-            )
-            for name, symbol in yf_commodities.items():
-                asset_data = _extract_asset_data(commodity_data, name, symbol)
-                if asset_data:
-                    asset_data["source"] = "yfinance_futures"
-                    result["commodities"][name] = asset_data
-            print(f"[yfinance] Commodities loaded: {list(result['commodities'].keys())}")
+            fmp = get_fmp_service()
+            fmp_symbols = {"Gold": "GCUSD", "Oil": "BZUSD"}
+            yf_symbols = {"Gold": "GC=F", "Oil": "BZ=F"}
+
+            # 1. Get FMP real-time quotes for spot price and daily change
+            quotes_result = fmp.get_commodity_quotes(list(fmp_symbols.values()))
+            fmp_data = {}
+            if quotes_result.get("status") == "success":
+                fmp_data = quotes_result.get("commodities", {})
+
+            # 2. Get yfinance historical data for week/month changes
+            yf_historical = {}
+            try:
+                commodity_data = yf.download(
+                    list(yf_symbols.values()),
+                    period="1mo",
+                    progress=False
+                )
+                for name, symbol in yf_symbols.items():
+                    asset_data = _extract_asset_data(commodity_data, name, symbol)
+                    if asset_data:
+                        yf_historical[name] = asset_data
+            except Exception as yf_err:
+                print(f"[yfinance] Commodity historical error: {yf_err}")
+
+            # 3. Combine FMP spot price with yfinance historical data
+            for name in ["Gold", "Oil"]:
+                fmp_quote = fmp_data.get(name)
+                yf_data = yf_historical.get(name)
+
+                # Prefer FMP for current price and daily change
+                if fmp_quote and fmp_quote.get("price"):
+                    current_price = safe_float(fmp_quote.get("price"))
+                    prev_close = safe_float(fmp_quote.get("previousClose"))
+
+                    if current_price <= 0:
+                        continue
+
+                    # Calculate daily change (FMP spot price vs previousClose)
+                    daily_change = 0.0
+                    if prev_close and prev_close > 0:
+                        daily_change = ((current_price - prev_close) / prev_close) * 100
+
+                    # Use yfinance for week/month changes (futures track spot closely)
+                    week_change = yf_data.get("week_change", 0.0) if yf_data else 0.0
+                    month_change = yf_data.get("month_change", 0.0) if yf_data else 0.0
+                    week_ago = yf_data.get("week_ago") if yf_data else None
+                    high_1mo = yf_data.get("high_1mo", current_price) if yf_data else current_price
+                    low_1mo = yf_data.get("low_1mo", current_price) if yf_data else current_price
+                    trend = yf_data.get("trend", "flat") if yf_data else "flat"
+                    position_in_range = yf_data.get("position_in_range", 50.0) if yf_data else 50.0
+
+                    result["commodities"][name] = {
+                        "value": round(current_price, 2),
+                        "previous_close": round(prev_close, 2) if prev_close else None,
+                        "week_ago": round(week_ago, 2) if week_ago else None,
+                        "high_1mo": round(high_1mo, 2),
+                        "low_1mo": round(low_1mo, 2),
+                        "daily_change": round(daily_change, 2),
+                        "week_change": round(week_change, 2),
+                        "month_change": round(month_change, 2),
+                        "trend": trend,
+                        "position_in_range": position_in_range,
+                        "source": "fmp_spot",
+                    }
+                elif yf_data:
+                    # Fallback to yfinance only
+                    yf_data["source"] = "yfinance_futures"
+                    result["commodities"][name] = yf_data
+
+            print(f"[Commodities] Loaded: {list(result['commodities'].keys())}")
+
         except Exception as e:
-            print(f"[yfinance] Commodities error: {e}")
+            print(f"[Commodities] Error: {e}")
+            # Full fallback to yfinance futures
+            try:
+                yf_commodities = {"Gold": "GC=F", "Oil": "BZ=F"}
+                commodity_data = yf.download(
+                    list(yf_commodities.values()),
+                    period="1mo",
+                    progress=False
+                )
+                for name, symbol in yf_commodities.items():
+                    asset_data = _extract_asset_data(commodity_data, name, symbol)
+                    if asset_data:
+                        asset_data["source"] = "yfinance_futures_fallback"
+                        result["commodities"][name] = asset_data
+                print(f"[yfinance fallback] Commodities loaded: {list(result['commodities'].keys())}")
+            except Exception as yf_err:
+                print(f"[yfinance fallback] Commodities error: {yf_err}")
 
         # === Currencies ===
         for name, symbol in CURRENCY_TICKERS.items():

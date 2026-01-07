@@ -754,6 +754,68 @@ class FMPService:
             "error": error,
         }
 
+    def get_commodity_historical(self, symbol: str = "GCUSD", days: int = 30) -> dict:
+        """
+        Get historical daily price data for a commodity.
+
+        Args:
+            symbol: Commodity symbol (e.g., "GCUSD" for Gold, "BZUSD" for Brent Oil)
+            days: Number of days of historical data to fetch (default: 30)
+
+        Returns:
+            {
+                "status": "success|error",
+                "symbol": "GCUSD",
+                "historical": [
+                    {"date": "2024-01-15", "open": 2650.0, "high": 2660.0, "low": 2640.0, "close": 2655.0},
+                    ...
+                ],
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_commodity_historical(symbol={symbol}, days={days})")
+
+        # FMP historical API endpoint
+        data = self._request(f"/api/v3/historical-price-full/{symbol}")
+
+        if not data or not isinstance(data, dict):
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "historical": [],
+                "source": "fmp",
+                "error": "No historical data returned",
+            }
+
+        historical = data.get("historical", [])
+        if not historical:
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "historical": [],
+                "source": "fmp",
+                "error": "Empty historical data",
+            }
+
+        # Limit to requested days and parse
+        parsed = []
+        for item in historical[:days]:
+            parsed.append({
+                "date": item.get("date", ""),
+                "open": self._safe_float(item.get("open")),
+                "high": self._safe_float(item.get("high")),
+                "low": self._safe_float(item.get("low")),
+                "close": self._safe_float(item.get("close")),
+                "volume": item.get("volume"),
+            })
+
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "historical": parsed,
+            "source": "fmp",
+        }
+
     def get_index_quote(self, symbol: str) -> dict:
         """
         Get real-time quote for an index (VIX, etc.)
