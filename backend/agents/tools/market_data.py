@@ -284,7 +284,8 @@ def get_all_market_data() -> dict:
         # yfinance provides historical data for trend analysis
         try:
             fmp = get_fmp_service()
-            fmp_symbols = {"Gold": "GCUSD", "Oil": "BZUSD"}
+            # XAUUSD = Gold Spot, BZUSD = Brent Oil
+            fmp_symbols = {"Gold": "XAUUSD", "Oil": "BZUSD"}
             yf_symbols = {"Gold": "GC=F", "Oil": "BZ=F"}
 
             # 1. Get FMP real-time quotes for spot price and daily change

@@ -713,7 +713,8 @@ class FMPService:
 
         # Map FMP symbols to friendly names
         symbol_names = {
-            "GCUSD": "Gold",
+            "XAUUSD": "Gold",    # Gold Spot
+            "GCUSD": "Gold",     # Gold Futures (legacy)
             "BZUSD": "Oil",      # Brent Crude (CLUSD/WTI requires higher tier)
             "CLUSD": "Oil",      # WTI Crude (fallback if available)
             "SIUSD": "Silver",
