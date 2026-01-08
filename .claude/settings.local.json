@@ -102,7 +102,8 @@
       "Bash(# Check if there''s an SDK method we can use cd /Users/kedeng/Desktop/projects/stock-agent/frontend grep -r \"\"verify\"\" node_modules/@insforge/sdk/dist/)",
       "Bash(cd /Users/kedeng/Desktop/projects/stock-agent/frontend cat node_modules/@insforge/sdk/dist/auth/index.d.ts)",
       "mcp__insforge__get-container-logs",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(sips:*)"
     ],
     "deny": [],
     "ask": []

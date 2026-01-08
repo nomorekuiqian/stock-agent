@@ -11,6 +11,14 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 export const metadata: Metadata = {
   title: "MarketBrew - AI Market Intelligence",
   description: "AI-powered market analysis for smart investors",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/logo-avatar.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 // Abstract M Logo with emerald gradient
