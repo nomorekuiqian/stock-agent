@@ -3,6 +3,7 @@ load_dotenv()  # Load .env before importing agents
 
 import os
 from fastapi import FastAPI, HTTPException, Header, Query
+from fastapi.responses import RedirectResponse, HTMLResponse
 from app.utils.timezone import today_str, now_iso, days_ago
 from pydantic import BaseModel
 from typing import Optional
@@ -1506,6 +1507,197 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
 
         return {"success": True, "quotes": quotes}
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Email Feedback Endpoints
+# =============================================================================
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+
+def _feedback_html_page(status: str, rating: str = None, message: str = None) -> str:
+    """Generate a simple HTML page for feedback response."""
+    rating_display = {
+        "satisfied": ("&#128522;", "satisfied", "#10b981"),
+        "neutral": ("&#128528;", "okay", "#f59e0b"),
+        "dissatisfied": ("&#128543;", "dissatisfied", "#ef4444"),
+    }
+
+    if status == "success":
+        emoji, text, color = rating_display.get(rating, ("&#128522;", "", "#10b981"))
+        title = "Thanks for your feedback!"
+        subtitle = "Your opinion helps us improve."
+        icon_bg = "#d1fae5"
+        icon_color = "#10b981"
+    elif status == "duplicate":
+        emoji, text, color = rating_display.get(rating, ("", "", "#3b82f6"))
+        title = "Already received!"
+        subtitle = "You've already submitted feedback for this report."
+        icon_bg = "#dbeafe"
+        icon_color = "#3b82f6"
+    else:
+        title = "Something went wrong"
+        subtitle = message or "Please try again later."
+        emoji, text, color = "", "", "#ef4444"
+        icon_bg = "#fee2e2"
+        icon_color = "#ef4444"
+
+    rating_badge = ""
+    if rating and text:
+        rating_badge = f'<div style="margin-top: 16px;"><span style="display: inline-block; padding: 6px 12px; background: {icon_bg}; color: {color}; border-radius: 20px; font-size: 14px;">{emoji} {text}</span></div>'
+
+    # Minimal auto-close page with fallback
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f9fafb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }}
+        .msg {{
+            text-align: center;
+            color: #6b7280;
+            font-size: 15px;
+        }}
+        .icon {{ font-size: 32px; margin-bottom: 8px; }}
+    </style>
+</head>
+<body>
+    <div class="msg">
+        <div class="icon">{"&#10003;" if status in ["success", "duplicate"] else "&#9888;"}</div>
+        <div>{title}</div>
+    </div>
+    <script>
+        // Try to close the tab/window
+        try {{
+            window.close();
+            // Some browsers need this
+            setTimeout(function() {{ window.close(); }}, 100);
+        }} catch(e) {{}}
+    </script>
+</body>
+</html>"""
+
+
+@app.get("/api/feedback")
+async def record_email_feedback(
+    report_date: str = Query(None, description="Report date in YYYY-MM-DD format"),
+    email: str = Query(None, description="User email"),
+    rating: str = Query(None, description="Rating: satisfied, neutral, or dissatisfied"),
+    report_id: str = Query(None, description="Optional report UUID"),
+):
+    """
+    Record email feedback from daily report.
+    Called when user clicks feedback button in email.
+    Returns a simple HTML thank you page.
+    """
+    # Validate required parameters
+    if not report_date or not email or not rating:
+        return HTMLResponse(
+            content=_feedback_html_page("error", message="Missing required parameters."),
+            status_code=200,
+        )
+
+    # Validate rating value
+    valid_ratings = ["satisfied", "neutral", "dissatisfied"]
+    if rating not in valid_ratings:
+        return HTMLResponse(
+            content=_feedback_html_page("error", message="Invalid rating value."),
+            status_code=200,
+        )
+
+    try:
+        insforge_service = get_insforge_service()
+        result = await insforge_service.save_email_feedback(
+            report_date=report_date,
+            email=email,
+            rating=rating,
+            report_id=report_id,
+        )
+
+        if result.get("success"):
+            is_duplicate = result.get("is_duplicate", False)
+            status = "duplicate" if is_duplicate else "success"
+            return HTMLResponse(
+                content=_feedback_html_page(status, rating=rating),
+                status_code=200,
+            )
+        else:
+            error = result.get("error", "Unknown error")
+            return HTMLResponse(
+                content=_feedback_html_page("error", message=error),
+                status_code=200,
+            )
+
+    except Exception as e:
+        print(f"[Feedback] Exception: {e}")
+        return HTMLResponse(
+            content=_feedback_html_page("error", message="Server error. Please try again."),
+            status_code=200,
+        )
+
+
+@app.get("/api/feedback/stats")
+async def get_feedback_stats(
+    start_date: str = Query(None, description="Start date (YYYY-MM-DD), defaults to 7 days ago"),
+    end_date: str = Query(None, description="End date (YYYY-MM-DD), defaults to today"),
+    x_cron_secret: str = Header(None, alias="X-Cron-Secret"),
+):
+    """
+    Get email feedback statistics for a date range.
+    Protected by CRON_SECRET for admin access.
+
+    Returns:
+        Statistics including total count, breakdown by rating, satisfaction rate, and daily data.
+    """
+    # Verify cron secret for admin access
+    if CRON_SECRET and x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        # Default date range: last 7 days
+        if not end_date:
+            end_date = today_str()
+        if not start_date:
+            start_date = days_ago(7)
+
+        insforge_service = get_insforge_service()
+        result = await insforge_service.get_feedback_stats(
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "period": result.get("period"),
+                "total": result.get("total", 0),
+                "breakdown": result.get("breakdown", {}),
+                "satisfaction_rate": result.get("satisfaction_rate", 0),
+                "daily": result.get("daily", []),
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to get feedback stats"),
+            )
+
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

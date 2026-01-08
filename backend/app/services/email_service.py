@@ -136,6 +136,81 @@ class EmailService:
         </div>
         """
 
+    def _get_feedback_section(
+        self,
+        report_date: str,
+        report_id: str = None,
+    ) -> str:
+        """Generate email feedback survey section.
+
+        Args:
+            report_date: Report date in YYYY-MM-DD format
+            report_id: Optional report UUID
+
+        Returns:
+            HTML string for feedback section
+        """
+        backend_url = os.getenv("BACKEND_URL", "https://api.marketbrew.xyz")
+
+        # Build feedback base URL with report_date and optional report_id
+        # Email will be dynamically filled by Resend template variable
+        base_params = f"report_date={report_date}"
+        if report_id:
+            base_params += f"&report_id={report_id}"
+
+        # Use Resend's template variable for email (for broadcasts)
+        # Will be replaced with actual email for single sends
+        feedback_base = f"{backend_url}/api/feedback?{base_params}&email={{{{{{email}}}}}}"
+
+        return f"""
+        <div style="background: #f9fafb; padding: 24px; border-top: 1px solid #e5e7eb;">
+            <table style="width: 100%;" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td style="text-align: center; padding-bottom: 16px;">
+                        <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                            今天的日报对你有帮助吗?
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: center;">
+                        <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                            <tr>
+                                <td style="padding: 0 6px;">
+                                    <a href="{feedback_base}&rating=satisfied"
+                                       style="display: inline-block; padding: 10px 18px;
+                                              background-color: #f3f4f6; color: #374151;
+                                              text-decoration: none; border-radius: 6px;
+                                              font-size: 14px; border: 1px solid #d1d5db;">
+                                        &#128522; 满意
+                                    </a>
+                                </td>
+                                <td style="padding: 0 6px;">
+                                    <a href="{feedback_base}&rating=neutral"
+                                       style="display: inline-block; padding: 10px 18px;
+                                              background-color: #f3f4f6; color: #374151;
+                                              text-decoration: none; border-radius: 6px;
+                                              font-size: 14px; border: 1px solid #d1d5db;">
+                                        &#128528; 一般
+                                    </a>
+                                </td>
+                                <td style="padding: 0 6px;">
+                                    <a href="{feedback_base}&rating=dissatisfied"
+                                       style="display: inline-block; padding: 10px 18px;
+                                              background-color: #f3f4f6; color: #374151;
+                                              text-decoration: none; border-radius: 6px;
+                                              font-size: 14px; border: 1px solid #d1d5db;">
+                                        &#128543; 不满意
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        """
+
     def _get_email_footer(
         self, unsubscribe_url: str = "{{{RESEND_UNSUBSCRIBE_URL}}}"
     ) -> str:
@@ -174,11 +249,21 @@ class EmailService:
         </div>
         """
 
-    def _format_html_report(self, data: dict) -> str:
-        """Format the macro analysis data into an HTML email (Daily Report)."""
+    def _format_html_report(self, data: dict, report_date: str = None, report_id: str = None) -> str:
+        """Format the macro analysis data into an HTML email (Daily Report).
+
+        Args:
+            data: Report data dictionary
+            report_date: Report date for feedback URL (defaults to today)
+            report_id: Report UUID for feedback URL (optional)
+        """
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
         time_greeting = self._get_time_greeting()
+
+        # Get report_date for feedback section
+        feedback_report_date = report_date or data.get("report_date") or today_str()
+        feedback_report_id = report_id or data.get("report_id")
 
         report_title = data.get("title") or "Daily Market Brief"
         report_summary = data.get("summary", "")
@@ -409,6 +494,7 @@ class EmailService:
                     {in_depth_html}
                 </div>
 
+                {self._get_feedback_section(feedback_report_date, feedback_report_id)}
                 {self._get_email_footer()}
             </div>
         </body>
@@ -619,7 +705,10 @@ class EmailService:
             return {"success": False, "error": "No recipient email specified"}
 
         try:
-            html_content = self._format_html_report(data)
+            # Get report_date and report_id for feedback URL
+            report_date = data.get("report_date") or today_str()
+            report_id = data.get("report_id")
+            html_content = self._format_html_report(data, report_date, report_id)
 
             # Replace template variables for single emails
             display_name = first_name
@@ -633,6 +722,9 @@ class EmailService:
                     display_name = status.get("metadata", {}).get("first_name")
             display_name = display_name or "朋友"
             html_content = html_content.replace("{{{first_name|朋友}}}", display_name)
+            # Replace email template variable for single sends (not broadcast)
+            from urllib.parse import quote
+            html_content = html_content.replace("{{{email}}}", quote(recipient))
 
             today = today_str()
             report_title = data.get("title", "")
@@ -711,8 +803,11 @@ class EmailService:
                 sub_service = get_subscription_service()
                 audience_id = sub_service.ensure_audience(SubscriptionChannel.DAILY_REPORT)
 
-            html_content = self._format_html_report(data)
+            # Get report_date and report_id for feedback URL
             today = today_str()
+            report_date = data.get("report_date") or today
+            report_id = data.get("report_id")
+            html_content = self._format_html_report(data, report_date, report_id)
 
             report_title = data.get("title", "")
             subject = (
