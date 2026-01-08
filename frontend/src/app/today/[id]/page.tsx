@@ -1,10 +1,125 @@
-'use client';
-
-import { useState, useEffect, use } from 'react';
+import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getReportById, MarketReport, normalizeMarketReport } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
-import { formatDateChinese, formatTimePacific } from '@/lib/timezone';
+
+// Force dynamic rendering (no cache)
+export const dynamic = 'force-dynamic';
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+// Generate dynamic metadata for SEO
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const report = await getReportById(id);
+
+  if (!report) {
+    return {
+      title: 'Report Not Found - MarketBrew',
+      description: 'The requested market report could not be found.',
+    };
+  }
+
+  const title = report.title || `${formatDateForSEO(report.report_date)} Market Report`;
+  const description = report.summary || 'AI-powered daily market analysis and insights for smart investors.';
+
+  return {
+    title: `${title} - MarketBrew`,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      publishedTime: report.timestamp || report.report_date,
+      siteName: 'MarketBrew',
+      locale: 'zh_CN',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    alternates: {
+      canonical: `/today/${id}`,
+    },
+  };
+}
+
+// Helper: Format date for SEO (e.g., "January 6, 2025")
+function formatDateForSEO(dateStr: string): string {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Helper: Format date in Chinese
+function formatDateChinese(dateStr: string): string {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Helper: Format timestamp
+function formatTimestamp(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('zh-CN', {
+      timeZone: 'America/Los_Angeles',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
+// JSON-LD structured data for search engines
+function generateJsonLd(report: MarketReport, id: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: report.title || `${formatDateForSEO(report.report_date)} Market Report`,
+    description: report.summary || 'AI-powered daily market analysis',
+    datePublished: report.timestamp || `${report.report_date}T00:00:00Z`,
+    dateModified: report.timestamp || `${report.report_date}T00:00:00Z`,
+    author: {
+      '@type': 'Organization',
+      name: 'MarketBrew',
+      url: 'https://themarketbrew.com',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'MarketBrew',
+      url: 'https://themarketbrew.com',
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `https://themarketbrew.com/today/${id}`,
+    },
+    articleSection: 'Market Analysis',
+    inLanguage: 'zh-CN',
+  };
+}
 
 interface IndexData {
   name: string;
@@ -12,95 +127,42 @@ interface IndexData {
   change_percent?: number;
 }
 
-export default function ReportDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
-  const [report, setReport] = useState<MarketReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function ReportDetailPage({ params }: PageProps) {
+  const { id } = await params;
+  const report = await getReportById(id);
 
-  useEffect(() => {
-    const fetchReport = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getReportById(id);
-        if (data) {
-          setReport(data);
-        } else {
-          setError('Report not found');
-        }
-      } catch {
-        setError('Failed to load report');
-      } finally {
-        setLoading(false);
-      }
-    };
+  if (!report) {
+    notFound();
+  }
 
-    fetchReport();
-  }, [id]);
-
-  // Use Pacific timezone for date formatting
-  const formatDate = (dateString: string) => formatDateChinese(dateString);
-  const formatTime = (dateString: string) => formatTimePacific(dateString);
+  const normalized = normalizeMarketReport(report);
+  const jsonLd = generateJsonLd(report, id);
 
   return (
-    <main className="min-h-screen bg-background">
-      {/* Back Navigation */}
-      <div className="border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-3">
-          <Link
-            href="/today"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Today
-          </Link>
-        </div>
-      </div>
+    <>
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
-      {/* Loading State */}
-      {loading && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-12">
-          <div className="flex flex-col items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-full border-3 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">Loading report...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-12">
-          <div className="text-center space-y-4 animate-fade-in-up">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-foreground mb-1">{error}</h3>
-              <p className="text-sm text-muted-foreground">
-                The requested report could not be found.
-              </p>
-            </div>
+      <main className="min-h-screen bg-background">
+        {/* Back Navigation */}
+        <div className="border-b border-border">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 py-3">
             <Link
               href="/today"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-secondary text-foreground rounded-xl font-medium text-sm border border-border transition-all hover:bg-secondary/80 hover:border-emerald-500/50"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
               Back to Today
             </Link>
           </div>
         </div>
-      )}
 
-      {/* Report Content */}
-      {!loading && !error && report && (
+        {/* Report Content */}
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
           {/* Header */}
           <section className="text-center space-y-4 animate-fade-in-up">
@@ -108,7 +170,7 @@ export default function ReportDetailPage({
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {formatDate(report.report_date)}
+              {formatDateChinese(report.report_date)}
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
               {report.title || 'Market Report'}
@@ -120,30 +182,25 @@ export default function ReportDetailPage({
             )}
             {report.timestamp && (
               <p className="text-sm text-muted-foreground">
-                Generated at {formatTime(report.timestamp)}
+                Generated at {formatTimestamp(report.timestamp)}
               </p>
             )}
           </section>
 
           {/* Shared Report Content Component */}
-          {(() => {
-            const normalized = normalizeMarketReport(report);
-            return (
-              <ReportContent
-                indices={normalized.indices as IndexData[] | undefined}
-                intro={normalized.intro}
-                macro={normalized.macro}
-                news={normalized.news}
-                reportSummary={normalized.reportSummary}
-                calendar={normalized.calendar}
-                inDepthAnalysis={normalized.inDepthAnalysis}
-                timestamp={normalized.timestamp}
-                showTimestamp={true}
-              />
-            );
-          })()}
+          <ReportContent
+            indices={normalized.indices as IndexData[] | undefined}
+            intro={normalized.intro}
+            macro={normalized.macro}
+            news={normalized.news}
+            reportSummary={normalized.reportSummary}
+            calendar={normalized.calendar}
+            inDepthAnalysis={normalized.inDepthAnalysis}
+            timestamp={normalized.timestamp}
+            showTimestamp={true}
+          />
         </div>
-      )}
-    </main>
+      </main>
+    </>
   );
 }

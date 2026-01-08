@@ -9,8 +9,44 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
-  title: "MarketBrew - AI Market Intelligence",
-  description: "AI-powered market analysis for smart investors",
+  // Google Search Console 验证 - 替换为你的验证码
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
+  },
+  title: {
+    default: "MarketBrew - AI Market Intelligence",
+    template: "%s | MarketBrew",
+  },
+  description: "AI-powered daily market analysis and insights for smart investors. Get comprehensive market reports, liquidity analysis, and economic calendar updates.",
+  keywords: ["market analysis", "stock market", "AI analysis", "financial news", "market report", "liquidity analysis"],
+  authors: [{ name: "MarketBrew" }],
+  creator: "MarketBrew",
+  publisher: "MarketBrew",
+  metadataBase: new URL("https://themarketbrew.com"),
+  openGraph: {
+    type: "website",
+    locale: "zh_CN",
+    url: "https://themarketbrew.com",
+    siteName: "MarketBrew",
+    title: "MarketBrew - AI Market Intelligence",
+    description: "AI-powered daily market analysis and insights for smart investors.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MarketBrew - AI Market Intelligence",
+    description: "AI-powered daily market analysis and insights for smart investors.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
