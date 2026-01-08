@@ -17,8 +17,12 @@ export const metadata: Metadata = {
     default: "MarketBrew - AI Market Intelligence",
     template: "%s | MarketBrew",
   },
-  description: "AI-powered daily market analysis and insights for smart investors. Get comprehensive market reports, liquidity analysis, and economic calendar updates.",
-  keywords: ["market analysis", "stock market", "AI analysis", "financial news", "market report", "liquidity analysis"],
+  description: "AI 驱动的美股每日分析报告。获取智能市场洞察、流动性监控、宏观经济日历，助力投资决策。每日更新，中文解读。",
+  keywords: [
+    "AI 美股分析", "美股每日报告", "美股日报", "市场分析工具",
+    "流动性监控", "美联储资产负债表", "宏观经济分析",
+    "stock market analysis", "daily market report", "AI market intelligence"
+  ],
   authors: [{ name: "MarketBrew" }],
   creator: "MarketBrew",
   publisher: "MarketBrew",
