@@ -637,6 +637,41 @@ async def send_test_report(request: SendEmailRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/welcome/send-test")
+async def send_test_welcome_email(request: SendEmailRequest):
+    """
+    Send a test welcome email to the specified email address.
+    Does not affect subscription status or welcome_sent flag.
+    """
+    try:
+        to_email = request.email
+        if not to_email:
+            raise HTTPException(status_code=400, detail="Email address is required")
+
+        email_service = get_email_service()
+        email_result = await email_service.send_welcome_email(
+            to_email=to_email,
+            first_name=request.first_name
+        )
+
+        if not email_result.get("success"):
+            raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to send welcome email"))
+
+        return {
+            "success": True,
+            "message": f"Welcome email sent to {to_email}",
+            "email_id": email_result.get("email_id"),
+            "sent_to": to_email,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =============================================================================
 # Unified Subscription Management Endpoints
 # =============================================================================
@@ -648,9 +683,14 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
     Subscribe to a specific channel (daily_report or personal_digest).
 
     For personal_digest channel, user_id and symbols are required.
+    Sends welcome email for new daily_report subscribers.
     """
     try:
         subscription_service = get_subscription_service()
+        email_service = get_email_service()
+
+        # Check if welcome email was already sent (before subscribing)
+        welcome_already_sent = subscription_service.check_welcome_sent(channel, request.email)
 
         # Build metadata from request
         metadata = {}
@@ -666,6 +706,22 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
             email=request.email,
             metadata=metadata
         )
+
+        # Send welcome email for new daily_report subscribers
+        if (
+            result.get("success")
+            and channel == SubscriptionChannel.DAILY_REPORT
+            and not welcome_already_sent
+        ):
+            welcome_result = await email_service.send_welcome_email(
+                to_email=request.email,
+                first_name=request.first_name
+            )
+            if welcome_result.get("success"):
+                subscription_service.mark_welcome_sent(channel, request.email)
+                print(f"[API] Welcome email sent to {request.email}")
+            else:
+                print(f"[API] Failed to send welcome email: {welcome_result.get('error')}")
 
         return SubscriptionResponse(
             success=result.get("success", False),

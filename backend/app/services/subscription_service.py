@@ -5,6 +5,7 @@ Supports daily_report and personal_digest channels using Resend Audiences API.
 
 import os
 import json
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List, Dict, Any
 
@@ -509,6 +510,95 @@ class SubscriptionService:
             results["success"] = len(results["synced_channels"]) > 0
 
         return results
+
+    # =========================================================================
+    # Welcome Email Tracking
+    # =========================================================================
+
+    def check_welcome_sent(self, channel: SubscriptionChannel, email: str) -> bool:
+        """
+        Check if welcome email has been sent to this subscriber.
+
+        Args:
+            channel: The subscription channel
+            email: Subscriber's email address
+
+        Returns:
+            True if welcome email was already sent, False otherwise
+        """
+        self._validate_api_key()
+
+        try:
+            audience_id = self.ensure_audience(channel)
+            contacts = resend.Contacts.list(audience_id=audience_id)
+
+            for contact in contacts.get("data", []):
+                if contact.get("email", "").lower() == email.lower():
+                    last_name = contact.get("last_name", "")
+                    if last_name:
+                        try:
+                            extra_data = json.loads(last_name)
+                            return extra_data.get("welcome_sent", False)
+                        except json.JSONDecodeError:
+                            pass
+                    return False
+
+            return False
+
+        except Exception as e:
+            print(f"[SubscriptionService] Error checking welcome_sent for {email}: {e}")
+            return False
+
+    def mark_welcome_sent(self, channel: SubscriptionChannel, email: str) -> bool:
+        """
+        Mark welcome email as sent for subscriber.
+
+        Updates the contact's metadata to include welcome_sent=True
+        and welcome_sent_at timestamp.
+
+        Args:
+            channel: The subscription channel
+            email: Subscriber's email address
+
+        Returns:
+            True if successfully marked, False otherwise
+        """
+        self._validate_api_key()
+
+        try:
+            audience_id = self.ensure_audience(channel)
+
+            # Get existing metadata
+            existing_data = {}
+            contacts = resend.Contacts.list(audience_id=audience_id)
+
+            for contact in contacts.get("data", []):
+                if contact.get("email", "").lower() == email.lower():
+                    last_name = contact.get("last_name", "")
+                    if last_name:
+                        try:
+                            existing_data = json.loads(last_name)
+                        except json.JSONDecodeError:
+                            pass
+                    break
+
+            # Update welcome_sent flag
+            existing_data["welcome_sent"] = True
+            existing_data["welcome_sent_at"] = datetime.now(timezone.utc).isoformat()
+
+            update_params: resend.Contacts.UpdateParams = {
+                "audience_id": audience_id,
+                "email": email,
+                "last_name": json.dumps(existing_data),
+            }
+            resend.Contacts.update(update_params)
+
+            print(f"[SubscriptionService] Marked welcome_sent for {email} in {channel}")
+            return True
+
+        except Exception as e:
+            print(f"[SubscriptionService] Error marking welcome_sent for {email}: {e}")
+            return False
 
 
 # Singleton instance

@@ -29,7 +29,7 @@ class EmailService:
         self.from_email = os.getenv("EMAIL_FROM", "Market Report <reports@resend.dev>")
         # Frontend URL for logo and other assets
         self.frontend_url = os.getenv(
-            "FRONTEND_URL", "https://marketbrew.xyz"
+            "FRONTEND_URL", "https://themarketbrew.com"
         ).rstrip("/")
         self.logo_url = f"{self.frontend_url}/logo-avatar.png"
 
@@ -101,7 +101,9 @@ class EmailService:
             "\n\n", '</p><p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">'
         )
         text = text.replace("\n", "<br>")
-        text = f'<p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
+        text = (
+            f'<p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
+        )
 
         return text
 
@@ -160,7 +162,9 @@ class EmailService:
 
         # Use Resend's template variable for email (for broadcasts)
         # Will be replaced with actual email for single sends
-        feedback_base = f"{backend_url}/api/feedback?{base_params}&email={{{{{{email}}}}}}"
+        feedback_base = (
+            f"{backend_url}/api/feedback?{base_params}&email={{{{{{email}}}}}}"
+        )
 
         return f"""
         <div style="background: #f9fafb; padding: 24px; border-top: 1px solid #e5e7eb;">
@@ -240,7 +244,9 @@ class EmailService:
         </div>
         """
 
-    def _format_html_report(self, data: dict, report_date: str = None, report_id: str = None) -> str:
+    def _format_html_report(
+        self, data: dict, report_date: str = None, report_id: str = None
+    ) -> str:
         """Format the macro analysis data into an HTML email (Daily Report).
 
         Args:
@@ -423,7 +429,7 @@ class EmailService:
         conclusion_html = ""
         if conclusion:
             # Convert single newlines to double for proper paragraph spacing
-            conclusion_text = conclusion.replace('\n', '\n\n')
+            conclusion_text = conclusion.replace("\n", "\n\n")
             conclusion_md = self._format_markdown_to_html(conclusion_text)
             conclusion_html = f"""
             <div style="{card_style}">
@@ -715,6 +721,7 @@ class EmailService:
             html_content = html_content.replace("{{{first_name|朋友}}}", display_name)
             # Replace email template variable for single sends (not broadcast)
             from urllib.parse import quote
+
             html_content = html_content.replace("{{{email}}}", quote(recipient))
 
             today = today_str()
@@ -783,7 +790,9 @@ class EmailService:
             audience_id: Optional specific audience ID (e.g., Test Broadcast audience).
                         If not provided, uses the default daily_report audience.
         """
-        print(f"[EmailService] broadcast_daily_report called, audience_id={audience_id}")
+        print(
+            f"[EmailService] broadcast_daily_report called, audience_id={audience_id}"
+        )
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -792,7 +801,9 @@ class EmailService:
             # Use provided audience_id or get default
             if not audience_id:
                 sub_service = get_subscription_service()
-                audience_id = sub_service.ensure_audience(SubscriptionChannel.DAILY_REPORT)
+                audience_id = sub_service.ensure_audience(
+                    SubscriptionChannel.DAILY_REPORT
+                )
 
             # Get report_date and report_id for feedback URL
             today = today_str()
@@ -844,7 +855,9 @@ class EmailService:
                         If not provided, uses the default personal_digest audience.
             first_name: Optional first name for greeting personalization.
         """
-        print(f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}")
+        print(
+            f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}"
+        )
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -853,7 +866,9 @@ class EmailService:
             # Use provided audience_id or get default
             if not audience_id:
                 sub_service = get_subscription_service()
-                audience_id = sub_service.ensure_audience(SubscriptionChannel.PERSONAL_DIGEST)
+                audience_id = sub_service.ensure_audience(
+                    SubscriptionChannel.PERSONAL_DIGEST
+                )
 
             html_content = self._format_digest_html(data, first_name=first_name)
             today = today_str()
@@ -889,6 +904,161 @@ class EmailService:
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting digest: {e}")
+            return {"success": False, "error": str(e)}
+
+    # =========================================================================
+    # Welcome Email
+    # =========================================================================
+
+    def _format_welcome_html(self, first_name: str = "") -> str:
+        """Format welcome email HTML for new subscribers."""
+        display_name = first_name or "朋友"
+        formatted_date = now_pacific().strftime("%B %d, %Y")
+
+        card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 24px; margin-bottom: 16px;"
+        section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #10b981;"
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                {self._get_email_header(formatted_date, "Welcome")}
+
+                <!-- Welcome Card -->
+                <div style="background: #ffffff; padding: 32px 24px;">
+                    <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 16px 0;">
+                        Hi {display_name}，欢迎加入 MarketBrew!
+                    </h1>
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.7; margin: 0 0 24px 0;">
+                        从今天起，你将在每个交易日收到我们精心准备的市场简报，帮助你快速了解市场动态。
+                    </p>
+
+                    <!-- What we track -->
+                    <div style="{card_style}">
+                        <div style="{section_header_style}">
+                            每日简报包含
+                        </div>
+                        <table style="width: 100%;" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                    <span style="color: #10b981;">&#10003;</span>
+                                </td>
+                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
+                                    主要股指和波动率 (S&P 500, Nasdaq, VIX)
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                    <span style="color: #10b981;">&#10003;</span>
+                                </td>
+                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
+                                    宏观环境解读
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                    <span style="color: #10b981;">&#10003;</span>
+                                </td>
+                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
+                                    重要财经新闻解读
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                    <span style="color: #10b981;">&#10003;</span>
+                                </td>
+                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
+                                    未来一周关键事件
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- When we send -->
+                    <div style="{card_style}">
+                        <div style="{section_header_style}">
+                            发送时间
+                        </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0;">
+                            每个<strong>美股交易日</strong>收盘后，约<strong>下午 6:00 (美东时间)</strong> / 次日早上 7:00 (北京时间) 发送。周末和美国节假日休市不发送。
+                        </p>
+                    </div>
+
+                    <!-- Personal Digest -->
+                    <div style="{card_style}">
+                        <div style="{section_header_style}">
+                            个性化日报
+                        </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
+                            想要追踪特定股票？开启<strong>个性化日报</strong>，我们会根据你的关注列表，每天为你筛选相关新闻和事件。
+                        </p>
+                        <a href="{self.frontend_url}/for-you" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
+                            设置我的关注列表
+                        </a>
+                    </div>
+
+                    <!-- Quick start -->
+                    <div style="{card_style}">
+                        <div style="{section_header_style}">
+                            快速指引
+                        </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 12px 0;">
+                            <a href="{self.frontend_url}" style="color: #10b981; text-decoration: none; font-weight: 500;">访问网站</a> 查看完整报告和历史数据
+                        </p>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0;">
+                            有问题或建议？直接回复此邮件即可联系我们
+                        </p>
+                    </div>
+
+                    <p style="color: #71717a; font-size: 14px; line-height: 1.6; margin: 24px 0 0 0;">
+                        祝投资顺利！<br>
+                        <span style="color: #0a0a0a; font-weight: 500;">MarketBrew 团队</span>
+                    </p>
+                </div>
+
+                {self._get_email_footer()}
+            </div>
+        </body>
+        </html>
+        """
+        return html
+
+    async def send_welcome_email(self, to_email: str, first_name: str = None) -> dict:
+        """Send welcome email to new subscriber.
+
+        Args:
+            to_email: Recipient email address
+            first_name: Optional first name for personalization
+
+        Returns:
+            dict with success status and email_id
+        """
+        print(f"[EmailService] send_welcome_email to={to_email}")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            html_content = self._format_welcome_html(first_name or "")
+
+            params = {
+                "from": self.from_email,
+                "to": [to_email],
+                "subject": "[MarketBrew] 欢迎加入 - 开始你的每日市场简报之旅",
+                "html": html_content,
+            }
+
+            email = resend.Emails.send(params)
+            print(f"[EmailService] Welcome email sent: {email.get('id')}")
+            return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
+
+        except Exception as e:
+            print(f"[EmailService] Error sending welcome email: {e}")
             return {"success": False, "error": str(e)}
 
     async def broadcast_personal_digests(self, max_concurrent: int = 5) -> dict:
@@ -976,19 +1146,29 @@ class EmailService:
                                     save_data = {
                                         "user_id": user_id,
                                         "digest_date": today_str(),
-                                        "timestamp": digest_result.get("timestamp", now_iso()),
-                                        "symbols": digest_result.get("symbols_used", symbols),
+                                        "timestamp": digest_result.get(
+                                            "timestamp", now_iso()
+                                        ),
+                                        "symbols": digest_result.get(
+                                            "symbols_used", symbols
+                                        ),
                                         "greeting": digest_result.get("greeting", ""),
-                                        "one_line_summary": digest_result.get("one_line_summary", ""),
+                                        "one_line_summary": digest_result.get(
+                                            "one_line_summary", ""
+                                        ),
                                         "stocks": digest_result.get("stocks", []),
                                         "news": digest_result.get("news", {}),
                                         "events": digest_result.get("events", []),
                                         "summary": digest_result.get("summary", {}),
                                     }
                                     await insforge.save_user_digest(save_data)
-                                    print(f"[EmailService] Saved digest to DB for {email}")
+                                    print(
+                                        f"[EmailService] Saved digest to DB for {email}"
+                                    )
                                 except Exception as db_err:
-                                    print(f"[EmailService] DB save failed for {email}: {db_err}")
+                                    print(
+                                        f"[EmailService] DB save failed for {email}: {db_err}"
+                                    )
                             return {"email": email, "success": True}
                         raise Exception(send_result.get("error", "Send failed"))
 
@@ -1016,19 +1196,31 @@ class EmailService:
                                         save_data = {
                                             "user_id": user_id,
                                             "digest_date": today_str(),
-                                            "timestamp": digest_result.get("timestamp", now_iso()),
-                                            "symbols": digest_result.get("symbols_used", symbols),
-                                            "greeting": digest_result.get("greeting", ""),
-                                            "one_line_summary": digest_result.get("one_line_summary", ""),
+                                            "timestamp": digest_result.get(
+                                                "timestamp", now_iso()
+                                            ),
+                                            "symbols": digest_result.get(
+                                                "symbols_used", symbols
+                                            ),
+                                            "greeting": digest_result.get(
+                                                "greeting", ""
+                                            ),
+                                            "one_line_summary": digest_result.get(
+                                                "one_line_summary", ""
+                                            ),
                                             "stocks": digest_result.get("stocks", []),
                                             "news": digest_result.get("news", {}),
                                             "events": digest_result.get("events", []),
                                             "summary": digest_result.get("summary", {}),
                                         }
                                         await insforge.save_user_digest(save_data)
-                                        print(f"[EmailService] Saved digest to DB for {email} (retry)")
+                                        print(
+                                            f"[EmailService] Saved digest to DB for {email} (retry)"
+                                        )
                                     except Exception as db_err:
-                                        print(f"[EmailService] DB save failed for {email}: {db_err}")
+                                        print(
+                                            f"[EmailService] DB save failed for {email}: {db_err}"
+                                        )
                                 return {"email": email, "success": True}
                             raise Exception(send_result.get("error", "Send failed"))
 
