@@ -5,6 +5,8 @@ import { Providers } from "@/components/Providers";
 import { NavAuth } from "@/components/NavAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MobileMenu } from "@/components/MobileMenu";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "MarketBrew - AI Market Intelligence",
@@ -143,6 +145,8 @@ export default function RootLayout({
             </div>
           </footer>
         </Providers>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
