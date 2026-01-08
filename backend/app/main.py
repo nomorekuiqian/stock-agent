@@ -1630,27 +1630,27 @@ def _feedback_html_page(status: str, rating: str = None, message: str = None) ->
 async def record_email_feedback(
     report_date: str = Query(None, description="Report date in YYYY-MM-DD format"),
     email: str = Query(None, description="User email"),
-    rating: str = Query(None, description="Rating: satisfied, neutral, or dissatisfied"),
+    rating: str = Query(None, description="Rating: satisfied or dissatisfied"),
     report_id: str = Query(None, description="Optional report UUID"),
 ):
     """
     Record email feedback from daily report.
     Called when user clicks feedback button in email.
-    Returns a simple HTML thank you page.
+    Redirects to frontend feedback page after recording.
     """
     # Validate required parameters
     if not report_date or not email or not rating:
-        return HTMLResponse(
-            content=_feedback_html_page("error", message="Missing required parameters."),
-            status_code=200,
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/feedback?status=error&error=missing_params",
+            status_code=302,
         )
 
     # Validate rating value
     valid_ratings = ["satisfied", "dissatisfied"]
     if rating not in valid_ratings:
-        return HTMLResponse(
-            content=_feedback_html_page("error", message="Invalid rating value."),
-            status_code=200,
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/feedback?status=error&error=invalid_rating",
+            status_code=302,
         )
 
     try:
@@ -1665,22 +1665,22 @@ async def record_email_feedback(
         if result.get("success"):
             is_duplicate = result.get("is_duplicate", False)
             status = "duplicate" if is_duplicate else "success"
-            return HTMLResponse(
-                content=_feedback_html_page(status, rating=rating),
-                status_code=200,
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}/feedback?status={status}&rating={rating}",
+                status_code=302,
             )
         else:
-            error = result.get("error", "Unknown error")
-            return HTMLResponse(
-                content=_feedback_html_page("error", message=error),
-                status_code=200,
+            error = result.get("error", "server_error")
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}/feedback?status=error&error={error}",
+                status_code=302,
             )
 
     except Exception as e:
         print(f"[Feedback] Exception: {e}")
-        return HTMLResponse(
-            content=_feedback_html_page("error", message="Server error. Please try again."),
-            status_code=200,
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/feedback?status=error&error=server_error",
+            status_code=302,
         )
 
 

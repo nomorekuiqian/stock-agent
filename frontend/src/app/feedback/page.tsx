@@ -23,11 +23,11 @@ function FeedbackContent() {
   const getRatingDisplay = (r: string | null) => {
     switch (r) {
       case 'satisfied':
-        return { text: 'helpful', color: 'text-emerald-600', bg: 'bg-emerald-100' };
+        return { text: 'thumbs-up', emoji: 'text-emerald-600', bg: 'bg-emerald-100' };
       case 'dissatisfied':
-        return { text: 'not helpful', color: 'text-red-600', bg: 'bg-red-100' };
+        return { text: 'thumbs-down', emoji: 'text-red-600', bg: 'bg-red-100' };
       default:
-        return { text: '', color: 'text-gray-600', bg: 'bg-gray-100' };
+        return { text: '', emoji: 'text-gray-600', bg: 'bg-gray-100' };
     }
   };
 
@@ -45,29 +45,29 @@ function FeedbackContent() {
               </svg>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-              Thanks for your feedback!
+              感谢你的反馈!
             </h1>
             <p className="text-sm text-gray-500">
-              Your opinion helps us improve our daily reports.
+              你的意见对我们非常重要
             </p>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
             {rating && (
               <div className="mb-6">
-                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.color}`}>
-                  You rated: {ratingInfo.text}
+                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.emoji}`}>
+                  {rating === 'satisfied' ? '有帮助' : '没帮助'}
                 </span>
               </div>
             )}
             <p className="text-sm text-gray-500 mb-6">
-              We appreciate you taking the time to share your thoughts. Your feedback will help us create better market analysis for you.
+              我们会根据你的反馈持续改进日报质量，为你提供更好的市场分析。
             </p>
             <Link
               href="/today"
               className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
             >
-              View Today&apos;s Report
+              查看今日报告
             </Link>
           </div>
 
@@ -76,7 +76,7 @@ function FeedbackContent() {
               href="/"
               className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
             >
-              Back to homepage
+              返回首页
             </Link>
           </div>
         </div>
@@ -96,29 +96,29 @@ function FeedbackContent() {
               </svg>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-              Feedback Already Received
+              已收到你的反馈
             </h1>
             <p className="text-sm text-gray-500">
-              You&apos;ve already submitted feedback for this report.
+              你已经对这份日报提交过反馈了
             </p>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
             {rating && (
               <div className="mb-6">
-                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.color}`}>
-                  Your rating: {ratingInfo.text}
+                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.emoji}`}>
+                  {rating === 'satisfied' ? '有帮助' : '没帮助'}
                 </span>
               </div>
             )}
             <p className="text-sm text-gray-500 mb-6">
-              Your feedback has been updated. Thank you for letting us know what you think!
+              你的反馈已更新，感谢你的参与!
             </p>
             <Link
               href="/today"
               className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
             >
-              View Today&apos;s Report
+              查看今日报告
             </Link>
           </div>
 
@@ -127,7 +127,7 @@ function FeedbackContent() {
               href="/"
               className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
             >
-              Back to homepage
+              返回首页
             </Link>
           </div>
         </div>
@@ -139,13 +139,13 @@ function FeedbackContent() {
   const getErrorMessage = (err: string | null) => {
     switch (err) {
       case 'missing_params':
-        return 'Some required information was missing from the request.';
+        return '请求缺少必要参数';
       case 'invalid_rating':
-        return 'The rating value was invalid.';
+        return '无效的评分值';
       case 'server_error':
-        return 'Something went wrong on our end. Please try again later.';
+        return '服务器出错，请稍后再试';
       default:
-        return err || 'An unexpected error occurred.';
+        return err || '发生了未知错误';
     }
   };
 
@@ -159,10 +159,10 @@ function FeedbackContent() {
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-            Something Went Wrong
+            出错了
           </h1>
           <p className="text-sm text-gray-500">
-            We couldn&apos;t process your feedback.
+            无法处理你的反馈
           </p>
         </div>
 
@@ -171,13 +171,13 @@ function FeedbackContent() {
             <p className="text-sm text-red-600">{getErrorMessage(error)}</p>
           </div>
           <p className="text-sm text-gray-500 mb-6">
-            Please try clicking the feedback button in your email again, or contact us if the problem persists.
+            请尝试重新点击邮件中的反馈按钮，如果问题持续存在请联系我们。
           </p>
           <Link
             href="/today"
             className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
           >
-            View Today&apos;s Report
+            查看今日报告
           </Link>
         </div>
 
@@ -186,7 +186,7 @@ function FeedbackContent() {
             href="/"
             className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
           >
-            Back to homepage
+            返回首页
           </Link>
         </div>
       </div>
