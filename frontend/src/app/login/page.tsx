@@ -149,7 +149,7 @@ export default function LoginPage() {
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium mb-4">
             <Coffee className="w-4 h-4" strokeWidth={2} />
-            MarketBrew
+            TheMarketBrew
           </div>
           <h2 className="text-2xl font-semibold text-gray-900">
             {isSignUp ? 'Create your account' : 'Sign in to your account'}

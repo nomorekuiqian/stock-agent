@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     'daily stock market report', 'US stock analysis'
   ],
   openGraph: {
-    title: '美股每日报告 - MarketBrew',
+    title: '美股每日报告 - TheMarketBrew',
     description: 'AI 生成的美股每日分析报告，深度解读市场动态',
     type: 'website',
   },

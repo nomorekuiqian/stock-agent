@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     'Fed liquidity', 'liquidity tracker', 'Fed balance sheet'
   ],
   openGraph: {
-    title: '流动性监控仪表盘 - MarketBrew',
+    title: '流动性监控仪表盘 - TheMarketBrew',
     description: '实时追踪美联储流动性指标，理解市场资金面变化',
     type: 'website',
   },

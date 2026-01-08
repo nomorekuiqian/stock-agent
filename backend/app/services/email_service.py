@@ -112,7 +112,7 @@ class EmailService:
     # =========================================================================
 
     def _get_email_header(self, formatted_date: str, title: str = "Daily Brief") -> str:
-        """Common email header with MARKETBREW branding and logo."""
+        """Common email header with THEMARKETBREW branding and logo."""
         return f"""
         <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 20px 24px;">
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
@@ -121,10 +121,10 @@ class EmailService:
                         <table cellpadding="0" cellspacing="0">
                             <tr>
                                 <td style="vertical-align: middle; padding-right: 12px;">
-                                    <img src="{self.logo_url}" alt="MarketBrew" width="36" height="36" style="display: block; border-radius: 6px;" />
+                                    <img src="{self.logo_url}" alt="TheMarketBrew" width="36" height="36" style="display: block; border-radius: 6px;" />
                                 </td>
                                 <td style="vertical-align: middle;">
-                                    <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">MARKETBREW</span>
+                                    <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">THEMARKETBREW</span>
                                 </td>
                             </tr>
                         </table>
@@ -218,10 +218,10 @@ class EmailService:
                         <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                             <tr>
                                 <td style="vertical-align: middle; padding-right: 8px;">
-                                    <img src="{self.logo_url}" alt="MarketBrew" width="24" height="24" style="display: block; border-radius: 4px;" />
+                                    <img src="{self.logo_url}" alt="TheMarketBrew" width="24" height="24" style="display: block; border-radius: 4px;" />
                                 </td>
                                 <td style="vertical-align: middle;">
-                                    <span style="color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.08em;">MARKETBREW</span>
+                                    <span style="color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.08em;">THEMARKETBREW</span>
                                 </td>
                             </tr>
                         </table>
@@ -727,9 +727,9 @@ class EmailService:
             today = today_str()
             report_title = data.get("title", "")
             subject = (
-                f"[MarketBrew] {report_title}"
+                f"[TheMarketBrew] {report_title}"
                 if report_title
-                else f"[MarketBrew] {today}"
+                else f"[TheMarketBrew] {today}"
             )
 
             params = {
@@ -762,9 +762,9 @@ class EmailService:
             today = today_str()
             one_line = data.get("one_line_summary", "")[:50]
             subject = (
-                f"[MarketBrew专属日报] {one_line}"
+                f"[TheMarketBrew专属日报] {one_line}"
                 if one_line
-                else f"[MarketBrew专属日报] {today}"
+                else f"[TheMarketBrew专属日报] {today}"
             )
 
             params = {
@@ -813,9 +813,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[MarketBrew] {report_title}"
+                f"[TheMarketBrew] {report_title}"
                 if report_title
-                else f"[MarketBrew] {today}"
+                else f"[TheMarketBrew] {today}"
             )
 
             create_params: resend.Broadcasts.CreateParams = {
@@ -875,9 +875,9 @@ class EmailService:
 
             one_line = data.get("one_line_summary", "")
             subject = (
-                f"[MarketBrew专属日报] {one_line[:50]}"
+                f"[TheMarketBrew专属日报] {one_line[:50]}"
                 if one_line
-                else f"[MarketBrew专属日报] {today}"
+                else f"[TheMarketBrew专属日报] {today}"
             )
 
             create_params: resend.Broadcasts.CreateParams = {
@@ -932,7 +932,7 @@ class EmailService:
                 <!-- Welcome Card -->
                 <div style="background: #ffffff; padding: 32px 24px;">
                     <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 16px 0;">
-                        Hi {display_name}，欢迎加入 MarketBrew!
+                        Hi {display_name}，欢迎加入 TheMarketBrew!
                     </h1>
                     <p style="color: #52525b; font-size: 15px; line-height: 1.7; margin: 0 0 24px 0;">
                         从今天起，你将在每个交易日收到我们精心准备的市场简报，帮助你快速了解市场动态。
@@ -1017,7 +1017,7 @@ class EmailService:
 
                     <p style="color: #71717a; font-size: 14px; line-height: 1.6; margin: 24px 0 0 0;">
                         祝投资顺利！<br>
-                        <span style="color: #0a0a0a; font-weight: 500;">MarketBrew 团队</span>
+                        <span style="color: #0a0a0a; font-weight: 500;">TheMarketBrew 团队</span>
                     </p>
                 </div>
 
@@ -1049,7 +1049,7 @@ class EmailService:
             params = {
                 "from": self.from_email,
                 "to": [to_email],
-                "subject": "[MarketBrew] 欢迎加入 - 开始你的每日市场简报之旅",
+                "subject": "[TheMarketBrew] 欢迎加入 - 开始你的每日市场简报之旅",
                 "html": html_content,
             }
 

@@ -14,8 +14,8 @@ export const metadata: Metadata = {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
   },
   title: {
-    default: "MarketBrew - AI Market Intelligence",
-    template: "%s | MarketBrew",
+    default: "TheMarketBrew - AI Market Intelligence",
+    template: "%s | TheMarketBrew",
   },
   description: "AI 驱动的美股每日分析报告。获取智能市场洞察、流动性监控、宏观经济日历，助力投资决策。每日更新，中文解读。",
   keywords: [
@@ -23,21 +23,21 @@ export const metadata: Metadata = {
     "流动性监控", "美联储资产负债表", "宏观经济分析",
     "stock market analysis", "daily market report", "AI market intelligence"
   ],
-  authors: [{ name: "MarketBrew" }],
-  creator: "MarketBrew",
-  publisher: "MarketBrew",
+  authors: [{ name: "TheMarketBrew" }],
+  creator: "TheMarketBrew",
+  publisher: "TheMarketBrew",
   metadataBase: new URL("https://themarketbrew.com"),
   openGraph: {
     type: "website",
     locale: "zh_CN",
     url: "https://themarketbrew.com",
-    siteName: "MarketBrew",
-    title: "MarketBrew - AI Market Intelligence",
+    siteName: "TheMarketBrew",
+    title: "TheMarketBrew - AI Market Intelligence",
     description: "AI-powered daily market analysis and insights for smart investors.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "MarketBrew - AI Market Intelligence",
+    title: "TheMarketBrew - AI Market Intelligence",
     description: "AI-powered daily market analysis and insights for smart investors.",
   },
   robots: {
@@ -112,7 +112,7 @@ export default function RootLayout({
                 <Link href="/" className="flex items-center gap-2.5 group">
                   <Logo className="w-7 h-7 transition-transform duration-300 group-hover:scale-105" />
                   <span className="font-medium text-sm tracking-tight text-foreground">
-                    MarketBrew
+                    TheMarketBrew
                   </span>
                 </Link>
 
@@ -169,7 +169,7 @@ export default function RootLayout({
                 {/* Brand */}
                 <div className="flex items-center gap-2.5 text-muted-foreground">
                   <Logo className="w-5 h-5 opacity-60" />
-                  <span className="text-xs font-medium">MarketBrew</span>
+                  <span className="text-xs font-medium">TheMarketBrew</span>
                 </div>
 
                 {/* Links */}

@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!report) {
     return {
-      title: 'Report Not Found - MarketBrew',
+      title: 'Report Not Found - TheMarketBrew',
       description: 'The requested market report could not be found.',
     };
   }
@@ -27,14 +27,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const description = report.summary || 'AI-powered daily market analysis and insights for smart investors.';
 
   return {
-    title: `${title} - MarketBrew`,
+    title: `${title} - TheMarketBrew`,
     description,
     openGraph: {
       title,
       description,
       type: 'article',
       publishedTime: report.timestamp || report.report_date,
-      siteName: 'MarketBrew',
+      siteName: 'TheMarketBrew',
       locale: 'zh_CN',
     },
     twitter: {
@@ -104,12 +104,12 @@ function generateJsonLd(report: MarketReport, id: string) {
     dateModified: report.timestamp || `${report.report_date}T00:00:00Z`,
     author: {
       '@type': 'Organization',
-      name: 'MarketBrew',
+      name: 'TheMarketBrew',
       url: 'https://themarketbrew.com',
     },
     publisher: {
       '@type': 'Organization',
-      name: 'MarketBrew',
+      name: 'TheMarketBrew',
       url: 'https://themarketbrew.com',
     },
     mainEntityOfPage: {
