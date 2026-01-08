@@ -684,13 +684,14 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
 
     For personal_digest channel, user_id and symbols are required.
     Sends welcome email for new daily_report subscribers.
+
+    Optimized flow (2-3 API calls vs old 6-7):
+    1. subscribe_with_welcome - creates contact with welcome_sent pre-set
+    2. if is_new: send welcome email
     """
     try:
         subscription_service = get_subscription_service()
         email_service = get_email_service()
-
-        # Check if welcome email was already sent (before subscribing)
-        welcome_already_sent = subscription_service.check_welcome_sent(channel, request.email)
 
         # Build metadata from request
         metadata = {}
@@ -701,24 +702,24 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
         if request.symbols:
             metadata["symbols"] = request.symbols
 
-        result = subscription_service.subscribe(
+        # Single optimized call that handles subscribe + welcome tracking
+        result = subscription_service.subscribe_with_welcome(
             channel=channel,
             email=request.email,
             metadata=metadata
         )
 
-        # Send welcome email for new daily_report subscribers
+        # Send welcome email only for NEW daily_report subscribers
         if (
             result.get("success")
+            and result.get("is_new")
             and channel == SubscriptionChannel.DAILY_REPORT
-            and not welcome_already_sent
         ):
             welcome_result = await email_service.send_welcome_email(
                 to_email=request.email,
                 first_name=request.first_name
             )
             if welcome_result.get("success"):
-                subscription_service.mark_welcome_sent(channel, request.email)
                 print(f"[API] Welcome email sent to {request.email}")
             else:
                 print(f"[API] Failed to send welcome email: {welcome_result.get('error')}")

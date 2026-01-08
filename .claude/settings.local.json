@@ -103,7 +103,8 @@
       "Bash(cd /Users/kedeng/Desktop/projects/stock-agent/frontend cat node_modules/@insforge/sdk/dist/auth/index.d.ts)",
       "mcp__insforge__get-container-logs",
       "WebFetch(domain:ai.google.dev)",
-      "Bash(sips:*)"
+      "Bash(sips:*)",
+      "Bash(timeout 3 uvicorn:*)"
     ],
     "deny": [],
     "ask": []

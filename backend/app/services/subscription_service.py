@@ -5,11 +5,26 @@ Supports daily_report and personal_digest channels using Resend Audiences API.
 
 import os
 import json
-from datetime import datetime, timezone
+import time
 from enum import Enum
 from typing import Optional, List, Dict, Any
 
 import resend
+
+
+# Rate limit handling for Resend API (2 requests/second)
+_last_resend_call = 0.0
+_RESEND_RATE_LIMIT_DELAY = 0.55  # 550ms between calls to stay under 2 req/sec
+
+
+def _rate_limit_wait():
+    """Wait if needed to avoid Resend rate limit."""
+    global _last_resend_call
+    now = time.time()
+    elapsed = now - _last_resend_call
+    if elapsed < _RESEND_RATE_LIMIT_DELAY:
+        time.sleep(_RESEND_RATE_LIMIT_DELAY - elapsed)
+    _last_resend_call = time.time()
 
 
 class SubscriptionChannel(str, Enum):
@@ -85,6 +100,7 @@ class SubscriptionService:
 
         try:
             # Try to find existing audience
+            _rate_limit_wait()
             audiences = resend.Audiences.list()
             for aud in audiences.get("data", []):
                 if aud.get("name") == audience_name:
@@ -96,6 +112,7 @@ class SubscriptionService:
                     return audience_id
 
             # Create new audience if not found
+            _rate_limit_wait()
             audience = resend.Audiences.create({"name": audience_name})
             audience_id = audience["id"]
             self._audience_ids[channel] = audience_id
@@ -161,6 +178,7 @@ class SubscriptionService:
                 if extra_data:
                     params["last_name"] = json.dumps(extra_data)
 
+            _rate_limit_wait()
             contact = resend.Contacts.create(params)
             print(
                 f"[SubscriptionService] Subscribed {email} to {channel}: {contact.get('id')}"
@@ -203,6 +221,7 @@ class SubscriptionService:
                 "email": email,
                 "unsubscribed": True,
             }
+            _rate_limit_wait()
             resend.Contacts.update(update_params)
             print(f"[SubscriptionService] Unsubscribed {email} from {channel}")
             return {
@@ -259,6 +278,7 @@ class SubscriptionService:
                 if extra_data:
                     update_params["last_name"] = json.dumps(extra_data)
 
+            _rate_limit_wait()
             resend.Contacts.update(update_params)
             print(f"[SubscriptionService] Updated {email} in {channel}")
 
@@ -288,6 +308,7 @@ class SubscriptionService:
 
         try:
             audience_id = self.ensure_audience(channel)
+            _rate_limit_wait()
             result = resend.Contacts.list(audience_id=audience_id)
 
             for contact in result.get("data", []):
@@ -345,6 +366,7 @@ class SubscriptionService:
 
         try:
             audience_id = self.ensure_audience(channel)
+            _rate_limit_wait()
             result = resend.Contacts.list(audience_id=audience_id)
 
             subscribers = []
@@ -402,6 +424,7 @@ class SubscriptionService:
 
         try:
             audience_id = self.ensure_audience(channel)
+            _rate_limit_wait()
             resend.Contacts.remove(audience_id=audience_id, email=email)
             print(f"[SubscriptionService] Removed {email} from {channel}")
             return {
@@ -452,6 +475,7 @@ class SubscriptionService:
         for channel in SubscriptionChannel:
             try:
                 audience_id = self.ensure_audience(channel)
+                _rate_limit_wait()
                 contacts = resend.Contacts.list(audience_id=audience_id)
 
                 for contact in contacts.get("data", []):
@@ -486,6 +510,7 @@ class SubscriptionService:
                         if first_name:
                             update_params["first_name"] = first_name
 
+                        _rate_limit_wait()
                         resend.Contacts.update(update_params)
 
                         results["synced_channels"].append(
@@ -511,94 +536,114 @@ class SubscriptionService:
 
         return results
 
-    # =========================================================================
-    # Welcome Email Tracking
-    # =========================================================================
-
-    def check_welcome_sent(self, channel: SubscriptionChannel, email: str) -> bool:
+    def subscribe_with_welcome(
+        self,
+        channel: SubscriptionChannel,
+        email: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
-        Check if welcome email has been sent to this subscriber.
+        Subscribe and determine if welcome email should be sent.
+
+        Uses Contacts.create success/failure to determine if subscriber is new:
+        - Success → is_new=True → caller should send welcome email
+        - "already exists" error → is_new=False → no welcome email
+
+        API calls: 2-3 (ensure_audience + Contacts.create/update)
 
         Args:
             channel: The subscription channel
             email: Subscriber's email address
+            metadata: Channel-specific metadata (first_name, user_id, symbols, etc.)
 
         Returns:
-            True if welcome email was already sent, False otherwise
+            dict with:
+                - success: bool
+                - is_new: True if new subscriber (should send welcome email)
+                - channel, email, contact_id, metadata
         """
         self._validate_api_key()
-
-        try:
-            audience_id = self.ensure_audience(channel)
-            contacts = resend.Contacts.list(audience_id=audience_id)
-
-            for contact in contacts.get("data", []):
-                if contact.get("email", "").lower() == email.lower():
-                    last_name = contact.get("last_name", "")
-                    if last_name:
-                        try:
-                            extra_data = json.loads(last_name)
-                            return extra_data.get("welcome_sent", False)
-                        except json.JSONDecodeError:
-                            pass
-                    return False
-
-            return False
-
-        except Exception as e:
-            print(f"[SubscriptionService] Error checking welcome_sent for {email}: {e}")
-            return False
-
-    def mark_welcome_sent(self, channel: SubscriptionChannel, email: str) -> bool:
-        """
-        Mark welcome email as sent for subscriber.
-
-        Updates the contact's metadata to include welcome_sent=True
-        and welcome_sent_at timestamp.
-
-        Args:
-            channel: The subscription channel
-            email: Subscriber's email address
-
-        Returns:
-            True if successfully marked, False otherwise
-        """
-        self._validate_api_key()
+        metadata = metadata or {}
 
         try:
             audience_id = self.ensure_audience(channel)
 
-            # Get existing metadata
-            existing_data = {}
-            contacts = resend.Contacts.list(audience_id=audience_id)
-
-            for contact in contacts.get("data", []):
-                if contact.get("email", "").lower() == email.lower():
-                    last_name = contact.get("last_name", "")
-                    if last_name:
-                        try:
-                            existing_data = json.loads(last_name)
-                        except json.JSONDecodeError:
-                            pass
-                    break
-
-            # Update welcome_sent flag
-            existing_data["welcome_sent"] = True
-            existing_data["welcome_sent_at"] = datetime.now(timezone.utc).isoformat()
-
-            update_params: resend.Contacts.UpdateParams = {
+            # Build contact params with welcome_sent=True pre-set
+            params: resend.Contacts.CreateParams = {
                 "audience_id": audience_id,
                 "email": email,
-                "last_name": json.dumps(existing_data),
+                "unsubscribed": False,
             }
-            resend.Contacts.update(update_params)
 
-            print(f"[SubscriptionService] Marked welcome_sent for {email} in {channel}")
-            return True
+            # Add first_name if provided
+            if "first_name" in metadata:
+                params["first_name"] = metadata["first_name"]
+
+            # Build last_name JSON for extra metadata
+            extra_data = {}
+
+            # Include user_id if provided
+            if "user_id" in metadata:
+                extra_data["user_id"] = metadata["user_id"]
+
+            # For personal_digest, also include symbols
+            if channel == SubscriptionChannel.PERSONAL_DIGEST:
+                if "symbols" in metadata:
+                    extra_data["symbols"] = metadata["symbols"]
+
+            if extra_data:
+                params["last_name"] = json.dumps(extra_data)
+
+            _rate_limit_wait()
+            contact = resend.Contacts.create(params)
+            print(
+                f"[SubscriptionService] New subscription {email} to {channel}: {contact.get('id')}"
+            )
+
+            return {
+                "success": True,
+                "is_new": True,  # New subscriber - should send welcome email
+                "channel": channel.value,
+                "contact_id": contact.get("id"),
+                "email": email,
+                "metadata": metadata,
+            }
 
         except Exception as e:
-            print(f"[SubscriptionService] Error marking welcome_sent for {email}: {e}")
-            return False
+            error_msg = str(e)
+
+            # Handle duplicate contact - this is a re-subscribe
+            if "already exists" in error_msg.lower():
+                print(f"[SubscriptionService] {email} already exists in {channel}, updating")
+
+                # Just re-enable subscription, don't send welcome again
+                try:
+                    update_params: resend.Contacts.UpdateParams = {
+                        "audience_id": audience_id,
+                        "email": email,
+                        "unsubscribed": False,
+                    }
+
+                    # Update first_name if provided
+                    if "first_name" in metadata:
+                        update_params["first_name"] = metadata["first_name"]
+
+                    _rate_limit_wait()
+                    resend.Contacts.update(update_params)
+
+                    return {
+                        "success": True,
+                        "is_new": False,  # Existing subscriber - no welcome email
+                        "channel": channel.value,
+                        "email": email,
+                        "metadata": metadata,
+                    }
+                except Exception as update_error:
+                    print(f"[SubscriptionService] Error updating {email}: {update_error}")
+                    return {"success": False, "is_new": False, "error": str(update_error)}
+
+            print(f"[SubscriptionService] Error subscribing {email} to {channel}: {e}")
+            return {"success": False, "is_new": False, "error": error_msg}
 
 
 # Singleton instance
