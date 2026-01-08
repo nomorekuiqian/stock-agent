@@ -267,59 +267,56 @@ export default function TodayPage() {
                 )}
               </button>
 
-              {/* Dev only buttons */}
-              {isDev && (
-                <>
-                  {/* Send to Email button (requires login) */}
-                  {user && (
-                    <button
-                      onClick={handleSendEmail}
-                      disabled={sendingEmail || loading || !report}
-                      className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {sendingEmail ? (
-                        <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          <span>Sending...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          <span>Send Email</span>
-                        </>
-                      )}
-                    </button>
+              {/* Send to Email button (requires login) */}
+              {user && (
+                <button
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail || loading || !report}
+                  className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>Send Email</span>
+                    </>
                   )}
+                </button>
+              )}
 
-                  {/* Generate button */}
-                  <button
-                    onClick={handleGenerate}
-                    disabled={generating || loading}
-                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
-                  >
-                    {generating ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        <span>Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span>Generate</span>
-                      </>
-                    )}
-                  </button>
-                </>
+              {/* Dev only: Generate button */}
+              {isDev && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || loading}
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+                >
+                  {generating ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span>Generate</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>
@@ -344,8 +341,8 @@ export default function TodayPage() {
             </div>
           )}
 
-          {/* Email Send Status (dev only) */}
-          {isDev && emailStatus && (
+          {/* Email Send Status */}
+          {emailStatus && (
             <div className={`mt-4 ml-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
               emailStatus.type === 'success'
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
