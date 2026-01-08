@@ -252,6 +252,8 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
                 print(f"[API] Found existing report for {today}, using cached data for email")
                 from_cache = True
                 report_data = {
+                    "report_id": existing_report.get("id"),
+                    "report_date": existing_report.get("report_date", today),
                     "indices": existing_report.get("indices", []),
                     "timestamp": existing_report.get("timestamp", now_iso()),
                     "title": existing_report.get("title", ""),
@@ -280,13 +282,16 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
             # Note: DB uses old column names (market_narrative, conclusion)
             # API returns new field names (intro, report_summary)
             report_data = {
+                "report_date": today,  # For email feedback links
                 "indices": indices,
                 "timestamp": result.get("timestamp", now_iso()),
                 "title": result.get("title", ""),
                 "summary": result.get("summary", ""),
+                "intro": result.get("intro", ""),  # For email service
                 "market_narrative": result.get("intro", ""),  # DB column name
                 "macro": result.get("macro"),
                 "news": result.get("news"),
+                "report_summary": result.get("report_summary", ""),  # For email service
                 "conclusion": result.get("report_summary", ""),  # DB column name
                 "calendar": result.get("calendar", []),
                 "in_depth_analysis": result.get("in_depth_analysis", ""),
@@ -300,6 +305,9 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
             save_result = await insforge_service.save_market_report(report_data)
             if not save_result.get("success"):
                 print(f"[Warning] Failed to save report to database: {save_result.get('error')}")
+            else:
+                # Add report_id to report_data for email feedback links
+                report_data["report_id"] = save_result.get("report_id")
 
         # Generate RedNote content for the report
         try:
@@ -385,6 +393,8 @@ async def get_email_preview(
 
         # Build report data for email rendering (include all structured fields)
         report_data = {
+            "report_id": report.get("id"),
+            "report_date": report.get("report_date", today_str()),
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
             "title": report.get("title", ""),
@@ -586,6 +596,8 @@ async def send_test_report(request: SendEmailRequest):
 
         # Prepare report data for email (include all structured fields)
         report_data = {
+            "report_id": report.get("id"),
+            "report_date": report.get("report_date"),
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", now_iso()),
             "title": report.get("title", ""),
@@ -1523,9 +1535,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 def _feedback_html_page(status: str, rating: str = None, message: str = None) -> str:
     """Generate a simple HTML page for feedback response."""
     rating_display = {
-        "satisfied": ("&#128522;", "satisfied", "#10b981"),
-        "neutral": ("&#128528;", "okay", "#f59e0b"),
-        "dissatisfied": ("&#128543;", "dissatisfied", "#ef4444"),
+        "satisfied": ("&#128077;", "helpful", "#10b981"),
+        "dissatisfied": ("&#128078;", "not helpful", "#ef4444"),
     }
 
     if status == "success":
@@ -1551,7 +1562,7 @@ def _feedback_html_page(status: str, rating: str = None, message: str = None) ->
     if rating and text:
         rating_badge = f'<div style="margin-top: 16px;"><span style="display: inline-block; padding: 6px 12px; background: {icon_bg}; color: {color}; border-radius: 20px; font-size: 14px;">{emoji} {text}</span></div>'
 
-    # Minimal auto-close page with fallback
+    # Simple feedback confirmation page (no auto-close)
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1568,27 +1579,49 @@ def _feedback_html_page(status: str, rating: str = None, message: str = None) ->
             justify-content: center;
             margin: 0;
         }}
-        .msg {{
+        .container {{
             text-align: center;
-            color: #6b7280;
-            font-size: 15px;
+            padding: 32px;
+            max-width: 320px;
         }}
-        .icon {{ font-size: 32px; margin-bottom: 8px; }}
+        .icon {{
+            width: 64px;
+            height: 64px;
+            background: {icon_bg};
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 28px;
+            color: {icon_color};
+        }}
+        h1 {{
+            margin: 0 0 8px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+        }}
+        p {{
+            margin: 0;
+            color: #6b7280;
+            font-size: 14px;
+        }}
+        .close-hint {{
+            margin-top: 24px;
+            font-size: 12px;
+            color: #9ca3af;
+        }}
     </style>
 </head>
 <body>
-    <div class="msg">
+    <div class="container">
         <div class="icon">{"&#10003;" if status in ["success", "duplicate"] else "&#9888;"}</div>
-        <div>{title}</div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+        {rating_badge}
+        <p class="close-hint">You can close this tab.</p>
     </div>
-    <script>
-        // Try to close the tab/window
-        try {{
-            window.close();
-            // Some browsers need this
-            setTimeout(function() {{ window.close(); }}, 100);
-        }} catch(e) {{}}
-    </script>
 </body>
 </html>"""
 
@@ -1613,7 +1646,7 @@ async def record_email_feedback(
         )
 
     # Validate rating value
-    valid_ratings = ["satisfied", "neutral", "dissatisfied"]
+    valid_ratings = ["satisfied", "dissatisfied"]
     if rating not in valid_ratings:
         return HTMLResponse(
             content=_feedback_html_page("error", message="Invalid rating value."),

@@ -23,11 +23,9 @@ function FeedbackContent() {
   const getRatingDisplay = (r: string | null) => {
     switch (r) {
       case 'satisfied':
-        return { text: 'satisfied', color: 'text-emerald-600', bg: 'bg-emerald-100' };
-      case 'neutral':
-        return { text: 'okay', color: 'text-amber-600', bg: 'bg-amber-100' };
+        return { text: 'helpful', color: 'text-emerald-600', bg: 'bg-emerald-100' };
       case 'dissatisfied':
-        return { text: 'dissatisfied', color: 'text-red-600', bg: 'bg-red-100' };
+        return { text: 'not helpful', color: 'text-red-600', bg: 'bg-red-100' };
       default:
         return { text: '', color: 'text-gray-600', bg: 'bg-gray-100' };
     }

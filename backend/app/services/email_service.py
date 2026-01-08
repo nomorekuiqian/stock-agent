@@ -176,31 +176,22 @@ class EmailService:
                     <td style="text-align: center;">
                         <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                             <tr>
-                                <td style="padding: 0 6px;">
+                                <td style="padding: 0 8px;">
                                     <a href="{feedback_base}&rating=satisfied"
-                                       style="display: inline-block; padding: 10px 18px;
+                                       style="display: inline-block; padding: 10px 24px;
                                               background-color: #f3f4f6; color: #374151;
                                               text-decoration: none; border-radius: 6px;
                                               font-size: 14px; border: 1px solid #d1d5db;">
-                                        &#128522; 满意
+                                        &#128077; 有帮助
                                     </a>
                                 </td>
-                                <td style="padding: 0 6px;">
-                                    <a href="{feedback_base}&rating=neutral"
-                                       style="display: inline-block; padding: 10px 18px;
-                                              background-color: #f3f4f6; color: #374151;
-                                              text-decoration: none; border-radius: 6px;
-                                              font-size: 14px; border: 1px solid #d1d5db;">
-                                        &#128528; 一般
-                                    </a>
-                                </td>
-                                <td style="padding: 0 6px;">
+                                <td style="padding: 0 8px;">
                                     <a href="{feedback_base}&rating=dissatisfied"
-                                       style="display: inline-block; padding: 10px 18px;
+                                       style="display: inline-block; padding: 10px 24px;
                                               background-color: #f3f4f6; color: #374151;
                                               text-decoration: none; border-radius: 6px;
                                               font-size: 14px; border: 1px solid #d1d5db;">
-                                        &#128543; 不满意
+                                        &#128078; 没帮助
                                     </a>
                                 </td>
                             </tr>
