@@ -210,23 +210,23 @@ export default function TodayPage() {
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Daily Analysis
+                  每日分析
                 </span>
                 {report && !loading && !isToday && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Historical
+                    历史报告
                   </span>
                 )}
               </div>
 
               {/* Main Title */}
               <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
-                Market Dashboard
+                今日日报
               </h1>
 
               {/* Subtitle */}
               <p className="text-muted-foreground text-sm md:text-base max-w-lg">
-                AI-powered market analysis with actionable insights for informed decisions.
+                AI 驱动的市场分析,提供可操作的投资洞察,助力明智决策
               </p>
             </div>
 
@@ -254,14 +254,14 @@ export default function TodayPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Subscribed</span>
+                    <span>已订阅</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <span>Subscribe</span>
+                    <span>订阅</span>
                   </>
                 )}
               </button>
@@ -279,14 +279,14 @@ export default function TodayPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      <span>Sending...</span>
+                      <span>发送中...</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      <span>Send Email</span>
+                      <span>发送邮件</span>
                     </>
                   )}
                 </button>
@@ -305,14 +305,14 @@ export default function TodayPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      <span>Generating...</span>
+                      <span>生成中...</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      <span>Generate</span>
+                      <span>生成报告</span>
                     </>
                   )}
                 </button>
@@ -376,7 +376,7 @@ export default function TodayPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">Loading market data...</p>
+            <p className="text-muted-foreground text-sm">加载市场数据...</p>
           </div>
         </div>
       )}
@@ -442,9 +442,9 @@ export default function TodayPage() {
               </svg>
             </div>
             <div>
-              <h3 className="text-xl font-medium text-foreground mb-2">No Reports Available</h3>
+              <h3 className="text-xl font-medium text-foreground mb-2">暂无报告</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                Market reports are generated daily. Please check back later.
+                市场报告每日生成,请稍后再来查看
               </p>
             </div>
           </div>
@@ -460,15 +460,15 @@ export default function TodayPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                  <h3 className="text-xl font-medium text-foreground">Past Reports</h3>
+                  <h3 className="text-xl font-medium text-foreground">往期报告</h3>
                 </div>
-                <p className="text-sm text-muted-foreground pl-3">{totalReports} reports in archive</p>
+                <p className="text-sm text-muted-foreground pl-3">{totalReports} 份报告存档</p>
               </div>
               <Link
                 href="/today/archive"
                 className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 group"
               >
-                View all
+                查看全部
                 <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>

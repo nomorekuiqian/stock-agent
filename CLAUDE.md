@@ -90,7 +90,6 @@ backend/
 │       ├── fmp_service.py         # Financial Modeling Prep API (国债利率、新闻)
 │       ├── fred_service.py        # FRED API (流动性指标: WALCL, TGA, RRP, NFCI)
 │       ├── liquidity_agent.py     # OpenAI GPT-5.2 流动性分析 Agent
-│       ├── rednote_agent.py       # Google ADK 小红书内容生成 Agent
 │       ├── email_service.py       # Resend 邮件服务 (广播订阅)
 │       └── insforge_service.py    # Insforge 数据库服务 (报告存储)
 ├── agents/
@@ -171,12 +170,6 @@ backend/
 | `/api/subscribe` | POST | 订阅每日报告 |
 | `/api/unsubscribe` | POST | 取消订阅 |
 | `/api/subscribers` | GET | 列出所有订阅者 (需 X-Cron-Secret 头) |
-
-**小红书内容 (RedNote):**
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/rednote/generate` | POST | 基于日报生成小红书图文内容 (结构化文案) |
-| `/api/rednote/latest` | GET | 获取最新的小红书内容 |
 
 ### 前端架构
 
@@ -307,24 +300,6 @@ POST /api/liquidity/analysis
 | metrics_snapshot | JSONB | 生成时的指标快照 |
 | generated_at | TIMESTAMPTZ | 生成时间 |
 | model | TEXT | 使用的模型 |
-
-**数据库表**: `rednote_posts` (小红书内容)
-
-| 字段 | 类型 | 描述 |
-|------|------|------|
-| id | UUID | 主键 |
-| report_id | UUID | 关联的日报 ID |
-| report_date | DATE | 日报日期 |
-| content | JSONB | 结构化内容 (RedNoteOutput) |
-| generated_at | TIMESTAMPTZ | 生成时间 |
-
-**RedNoteOutput 结构** (用于 Canva 复制粘贴):
-```
-封面 (第1张):  date, title, subtitle
-热点 (第2张):  hot1_title/brief, hot2_title/brief, hot3_title/brief
-事件 (第3张):  events, summary
-正文:         body, tags
-```
 
 **Insforge 配置**:
 - Base URL: `https://9wmhxyi4.us-east.insforge.app`

@@ -19,7 +19,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
 
     if (!email) {
       setStatus('error');
-      setMessage('Please enter your email address');
+      setMessage('请输入邮箱地址');
       return;
     }
 
@@ -34,7 +34,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
       setFirstName('');
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Failed to subscribe');
+      setMessage(error instanceof Error ? error.message : '订阅失败');
     }
   };
 
@@ -43,7 +43,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
       <form onSubmit={handleSubmit} className={`flex flex-col sm:flex-row gap-3 ${className}`}>
         <input
           type="email"
-          placeholder="Enter your email"
+          placeholder="输入你的邮箱"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={status === 'loading'}
@@ -60,10 +60,10 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              Subscribing...
+              订阅中...
             </>
           ) : (
-            'Subscribe'
+            '订阅'
           )}
         </button>
         {message && (
@@ -86,8 +86,8 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           </svg>
         </div>
         <div>
-          <h3 className="font-medium text-foreground">Daily Market Report</h3>
-          <p className="text-xs text-muted-foreground">Get insights delivered to your inbox</p>
+          <h3 className="font-medium text-foreground">每日市场报告</h3>
+          <p className="text-xs text-muted-foreground">洞察直达邮箱</p>
         </div>
       </div>
 
@@ -98,13 +98,13 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-emerald-400">You&apos;re subscribed!</p>
+          <p className="text-sm font-medium text-emerald-400">订阅成功!</p>
           <p className="text-xs text-muted-foreground mt-1">{message}</p>
           <button
             onClick={() => setStatus('idle')}
             className="mt-4 text-xs text-emerald-400/80 hover:text-emerald-400 transition-colors"
           >
-            Subscribe another email
+            订阅其他邮箱
           </button>
         </div>
       ) : (
@@ -112,12 +112,12 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           {/* First Name Field */}
           <div>
             <label htmlFor="firstName" className="block text-xs font-medium text-muted-foreground mb-2">
-              First Name <span className="text-muted-foreground/50">(optional)</span>
+              姓名 <span className="text-muted-foreground/50">(可选)</span>
             </label>
             <input
               type="text"
               id="firstName"
-              placeholder="John"
+              placeholder="你的姓名"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               disabled={status === 'loading'}
@@ -128,12 +128,12 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           {/* Email Field */}
           <div>
             <label htmlFor="email" className="block text-xs font-medium text-muted-foreground mb-2">
-              Email Address <span className="text-emerald-500">*</span>
+              邮箱地址 <span className="text-emerald-500">*</span>
             </label>
             <input
               type="email"
               id="email"
-              placeholder="john@example.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={status === 'loading'}
@@ -161,21 +161,21 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Subscribing...
+                订阅中...
               </>
             ) : (
               <>
                 <svg className="w-4 h-4 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                Subscribe to Daily Reports
+                订阅每日报告
               </>
             )}
           </button>
 
           {/* Privacy Note */}
           <p className="text-[10px] text-muted-foreground/60 text-center">
-            Unsubscribe anytime. We respect your privacy.
+            随时可退订，我们尊重你的隐私。
           </p>
         </form>
       )}

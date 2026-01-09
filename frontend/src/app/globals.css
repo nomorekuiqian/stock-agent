@@ -12,8 +12,8 @@
    ============================================ */
 
 @theme {
-  --font-serif: 'Instrument Serif', Georgia, serif;
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --font-sans: 'DM Sans', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Dark-First Premium Theme */

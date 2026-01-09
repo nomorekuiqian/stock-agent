@@ -96,11 +96,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
@@ -122,28 +122,20 @@ export default function RootLayout({
                     href="/today"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
-                    Today
+                    今日
                   </Link>
                   <Link
                     href="/liquidity"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
-                    Liquidity
+                    流动性
                   </Link>
                   <Link
                     href="/for-you"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
-                    For You
+                    专属
                   </Link>
-                  {process.env.NODE_ENV === 'development' && (
-                    <Link
-                      href="/rednote"
-                      className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
-                    >
-                      RedNote
-                    </Link>
-                  )}
                 </div>
 
                 {/* Right Side Actions */}
@@ -175,19 +167,19 @@ export default function RootLayout({
                 {/* Links */}
                 <div className="flex items-center gap-6 text-xs text-muted-foreground">
                   <Link href="/today" className="hover:text-foreground transition-colors">
-                    Today
+                    今日
                   </Link>
                   <Link href="/liquidity" className="hover:text-foreground transition-colors">
-                    Liquidity
+                    流动性
                   </Link>
                   <Link href="/today/archive" className="hover:text-foreground transition-colors">
-                    Archive
+                    归档
                   </Link>
                 </div>
 
                 {/* Tagline */}
                 <p className="text-xs text-muted-foreground/60">
-                  AI-powered market intelligence
+                  AI 驱动的市场洞察
                 </p>
               </div>
             </div>

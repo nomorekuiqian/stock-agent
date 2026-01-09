@@ -21,7 +21,7 @@ export function NavAuth() {
           onClick={() => signOut()}
           className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
         >
-          Sign out
+          退出登录
         </button>
       </div>
     );
@@ -32,7 +32,7 @@ export function NavAuth() {
       href="/login"
       className="text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
     >
-      Sign in
+      登录
     </a>
   );
 }

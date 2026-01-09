@@ -21,7 +21,6 @@ export default function robots(): MetadataRoute.Robots {
           '/unsubscribe',
           '/email-test',
           '/feedback',
-          '/rednote',
         ],
       },
     ],

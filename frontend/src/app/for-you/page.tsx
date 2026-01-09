@@ -382,7 +382,7 @@ export default function ForYouPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <p className="text-muted-foreground text-sm">加载中...</p>
           </div>
         </div>
       </main>
@@ -405,23 +405,23 @@ export default function ForYouPage() {
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Personal Digest
+                  专属日报
                 </span>
                 {symbols.length > 0 && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-card text-muted-foreground border border-border/50">
-                    {symbols.length} stocks
+                    {symbols.length} 只股票
                   </span>
                 )}
               </div>
 
               {/* Main Title */}
               <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
-                For You
+                专属日报
               </h1>
 
               {/* Subtitle */}
               <p className="text-muted-foreground text-sm md:text-base max-w-lg">
-                Personalized market insights tailored to your watchlist.
+                根据你的关注列表定制的市场洞察
               </p>
             </div>
 
@@ -449,14 +449,14 @@ export default function ForYouPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Subscribed</span>
+                    <span>已订阅</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <span>Subscribe</span>
+                    <span>订阅</span>
                   </>
                 )}
               </button>
@@ -473,14 +473,14 @@ export default function ForYouPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    <span>Generating...</span>
+                    <span>生成中...</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span>Generate</span>
+                    <span>生成</span>
                   </>
                 )}
               </button>
@@ -496,7 +496,7 @@ export default function ForYouPage() {
             {/* Header */}
             <div className="flex items-center gap-2 mb-6">
               <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-              <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">Watchlist</h3>
+              <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">关注列表</h3>
               {symbols.length > 0 && (
                 <span className="text-xs text-muted-foreground font-data">({symbols.length})</span>
               )}
@@ -505,7 +505,7 @@ export default function ForYouPage() {
             {loadingWatchlist ? (
               <div className="flex items-center gap-2 text-muted-foreground py-4">
                 <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
-                <span className="text-sm">Loading watchlist...</span>
+                <span className="text-sm">加载关注列表...</span>
               </div>
             ) : (
               <div className="space-y-6">
@@ -520,7 +520,7 @@ export default function ForYouPage() {
                       onChange={(e) => handleSearchInputChange(e.target.value)}
                       onKeyDown={handleSearchKeyDown}
                       onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                      placeholder="Search stocks (e.g. AAPL, Apple)"
+                      placeholder="搜索股票 (如 AAPL, Apple)"
                       className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                     />
                     {isSearching && (
@@ -552,7 +552,7 @@ export default function ForYouPage() {
 
                 {/* Preset portfolios */}
                 <div>
-                  <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider">Quick Add</p>
+                  <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider">快速添加</p>
                   <div className="flex flex-wrap gap-2">
                     {PRESET_PORTFOLIOS.map((portfolio) => {
                       const addedCount = portfolio.symbols.filter(s => symbols.includes(s)).length;
@@ -635,7 +635,7 @@ export default function ForYouPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground py-4 text-center">
-                    Search or use quick add to build your watchlist
+                    搜索或使用快速添加来构建你的关注列表
                   </p>
                 )}
               </div>
@@ -658,7 +658,7 @@ export default function ForYouPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">Analyzing your watchlist...</p>
+            <p className="text-muted-foreground text-sm">分析你的关注列表...</p>
           </div>
         </div>
       )}
@@ -702,7 +702,7 @@ export default function ForYouPage() {
             <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">Watchlist Overview</h3>
+                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
               </div>
               <div className="divide-y divide-border/30">
                 {digest.stocks.map((stock: StockAnalysis) => (
@@ -723,7 +723,7 @@ export default function ForYouPage() {
                       </span>
                       <span className="text-muted-foreground/50">|</span>
                       <span className={`font-data ${stock.week_change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {stock.week_change} (week)
+                        {stock.week_change} (周)
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed">{stock.quick_take}</p>
@@ -738,7 +738,7 @@ export default function ForYouPage() {
             <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">Headlines</h3>
+                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">头条新闻</h3>
               </div>
               <div className="divide-y divide-border/30">
                 {digest.news.headlines.map((item: DigestHeadlineNews, index: number) => (
@@ -775,7 +775,7 @@ export default function ForYouPage() {
             <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">More News</h3>
+                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">更多新闻</h3>
               </div>
               <div className="divide-y divide-border/30">
                 {digest.news.briefs.map((item: DigestBriefNews, index: number) => (
@@ -812,7 +812,7 @@ export default function ForYouPage() {
             <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">Key Events</h3>
+                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">重要事件</h3>
               </div>
               <div className="space-y-4">
                 {digest.events.map((event: DigestEvent, index: number) => {
@@ -861,7 +861,7 @@ export default function ForYouPage() {
             <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">Summary</h3>
+                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">总结</h3>
               </div>
               <div className="space-y-4">
                 {digest.summary.content.split('\n\n').map((paragraph, index) => (
@@ -878,7 +878,7 @@ export default function ForYouPage() {
           {/* Disclaimer */}
           <div className="text-center pt-4 border-t border-border/30">
             <p className="text-xs text-muted-foreground/60">
-              AI-generated report for informational purposes only. Not financial advice.
+              AI 生成的报告仅供参考,不构成投资建议
             </p>
           </div>
         </div>
@@ -894,11 +894,11 @@ export default function ForYouPage() {
               </svg>
             </div>
             <div>
-              <h3 className="text-xl font-medium text-foreground mb-2">Create Your Personalized Report</h3>
+              <h3 className="text-xl font-medium text-foreground mb-2">创建你的个性化报告</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto">
                 {symbols.length === 0
-                  ? 'Add stocks to your watchlist above, then generate your personalized digest.'
-                  : 'Click Generate to create a personalized market analysis for your watchlist.'}
+                  ? '在上方添加股票到关注列表,然后生成你的个性化摘要'
+                  : '点击生成按钮来创建关注列表的个性化市场分析'}
               </p>
             </div>
           </div>
@@ -914,15 +914,15 @@ export default function ForYouPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                  <h3 className="text-xl font-medium text-foreground">Past Reports</h3>
+                  <h3 className="text-xl font-medium text-foreground">往期报告</h3>
                 </div>
-                <p className="text-sm text-muted-foreground pl-3">{totalHistory} reports in archive</p>
+                <p className="text-sm text-muted-foreground pl-3">{totalHistory} 份报告存档</p>
               </div>
               <Link
                 href="/for-you/archive"
                 className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 group"
               >
-                View all
+                查看全部
                 <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>

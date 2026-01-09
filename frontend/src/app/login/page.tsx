@@ -39,7 +39,7 @@ export default function LoginPage() {
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !verificationCode) {
-      setError('Please enter your email and verification code');
+      setError('请输入邮箱和验证码');
       return;
     }
 
@@ -56,15 +56,15 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || 'Invalid verification code');
+        setError(data.message || '验证码无效');
       } else {
-        setSuccessMessage('Email verified! You can now sign in.');
+        setSuccessMessage('邮箱验证成功!现在可以登录了。');
         setNeedsVerification(false);
         setVerificationCode('');
         setIsSignUp(false);
       }
     } catch {
-      setError('Failed to verify code. Please try again.');
+      setError('验证失败,请重试。');
     } finally {
       setVerifyingCode(false);
     }
@@ -79,9 +79,9 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      setSuccessMessage('Verification code sent! Check your inbox.');
+      setSuccessMessage('验证码已发送!请查收邮箱。');
     } catch {
-      setError('Failed to resend code.');
+      setError('发送失败,请重试。');
     }
   };
 
@@ -97,12 +97,12 @@ export default function LoginPage() {
         if (result.success) {
           if (result.needsVerification) {
             setNeedsVerification(true);
-            setSuccessMessage('Account created! Check your email for verification code.');
+            setSuccessMessage('账户创建成功!请查收邮箱中的验证码。');
           } else {
             router.push('/market');
           }
         } else {
-          setError(result.error || 'Sign up failed');
+          setError(result.error || '注册失败');
         }
       } else {
         const result = await signIn(email, password);
@@ -112,14 +112,14 @@ export default function LoginPage() {
           const errorLower = (result.error || '').toLowerCase();
           if (errorLower.includes('verif') || errorLower.includes('confirm')) {
             setNeedsVerification(true);
-            setError('Please verify your email first.');
+            setError('请先验证邮箱。');
           } else {
-            setError(result.error || 'Sign in failed');
+            setError(result.error || '登录失败');
           }
         }
       }
     } catch {
-      setError('An unexpected error occurred');
+      setError('发生未知错误');
     } finally {
       setLoading(false);
     }
@@ -132,11 +132,11 @@ export default function LoginPage() {
     try {
       const result = await signInWithGoogle();
       if (!result.success) {
-        setError(result.error || 'Google sign in failed');
+        setError(result.error || 'Google 登录失败');
       }
       // If successful, the user will be redirected to Google
     } catch {
-      setError('An unexpected error occurred');
+      setError('发生未知错误');
     } finally {
       setLoading(false);
     }
@@ -152,12 +152,12 @@ export default function LoginPage() {
             TheMarketBrew
           </div>
           <h2 className="text-2xl font-semibold text-gray-900">
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+            {isSignUp ? '创建账户' : '登录账户'}
           </h2>
           <p className="mt-2 text-sm text-gray-500">
             {isSignUp
-              ? 'Start tracking market insights today'
-              : 'Access your market analysis dashboard'}
+              ? '开始追踪市场洞察'
+              : '访问你的市场分析仪表盘'}
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export default function LoginPage() {
         {needsVerification && email && (
           <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
             <p className="text-sm text-emerald-800 mb-3 text-center">
-              Enter verification code sent to <strong>{email}</strong>
+              请输入发送到 <strong>{email}</strong> 的验证码
             </p>
             <form onSubmit={handleVerifyCode} className="space-y-3">
               <input
@@ -188,7 +188,7 @@ export default function LoginPage() {
                 maxLength={6}
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="6-digit code"
+                placeholder="6 位验证码"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white text-center tracking-widest font-mono text-lg"
               />
               <button
@@ -196,14 +196,14 @@ export default function LoginPage() {
                 disabled={verifyingCode || verificationCode.length !== 6}
                 className="w-full px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50"
               >
-                {verifyingCode ? 'Verifying...' : 'Verify'}
+                {verifyingCode ? '验证中...' : '验证'}
               </button>
             </form>
             <button
               onClick={handleResendCode}
               className="w-full mt-2 text-sm text-emerald-700 hover:underline"
             >
-              Resend code
+              重新发送验证码
             </button>
           </div>
         )}
@@ -232,7 +232,7 @@ export default function LoginPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Continue with Google
+          使用 Google 登录
         </button>
 
         {/* Divider */}
@@ -241,7 +241,7 @@ export default function LoginPage() {
             <div className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-gray-50 text-gray-500">or continue with email</span>
+            <span className="px-4 bg-gray-50 text-gray-500">或使用邮箱</span>
           </div>
         </div>
 
@@ -250,14 +250,14 @@ export default function LoginPage() {
           {isSignUp && (
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Name
+                姓名
               </label>
               <input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder="你的姓名"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
               />
             </div>
@@ -265,7 +265,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              邮箱
             </label>
             <input
               id="email"
@@ -280,7 +280,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              密码
             </label>
             <input
               id="password"
@@ -305,17 +305,17 @@ export default function LoginPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                {isSignUp ? 'Creating account...' : 'Signing in...'}
+                {isSignUp ? '创建中...' : '登录中...'}
               </>
             ) : (
-              isSignUp ? 'Create account' : 'Sign in'
+              isSignUp ? '创建账户' : '登录'
             )}
           </button>
         </form>
 
         {/* Toggle Sign Up / Sign In */}
         <p className="text-center text-sm text-gray-500">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+          {isSignUp ? '已有账户?' : '没有账户?'}{' '}
           <button
             type="button"
             onClick={() => {
@@ -324,7 +324,7 @@ export default function LoginPage() {
             }}
             className="text-emerald-600 font-medium hover:text-emerald-700"
           >
-            {isSignUp ? 'Sign in' : 'Sign up'}
+            {isSignUp ? '登录' : '注册'}
           </button>
         </p>
       </div>

@@ -9,9 +9,9 @@ export function MobileMenu() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
 
   const navLinks = [
-    { href: '/today', label: 'Today' },
-    { href: '/liquidity', label: 'Liquidity' },
-    { href: '/for-you', label: 'For You' },
+    { href: '/today', label: '今日' },
+    { href: '/liquidity', label: '流动性' },
+    { href: '/for-you', label: '专属' },
   ];
 
   return (
@@ -79,7 +79,7 @@ export function MobileMenu() {
                     }}
                     className="w-full text-left px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
                   >
-                    Sign out
+                    退出登录
                   </button>
                 </>
               ) : (
@@ -88,7 +88,7 @@ export function MobileMenu() {
                   onClick={() => setIsOpen(false)}
                   className="block px-4 py-3 text-sm text-emerald-500 font-medium hover:bg-emerald-500/10 rounded-lg transition-colors"
                 >
-                  Sign in
+                  登录
                 </Link>
               )}
             </div>
