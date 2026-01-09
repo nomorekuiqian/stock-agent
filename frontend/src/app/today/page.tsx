@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { getReportByDate, getLatestReport, getReportsList, MarketReport, normalizeMarketReport } from '@/lib/insforge';
+import { getReportByDate, getLatestReport, getReportsList, MarketReport } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
 import { getCurrentUser, User } from '@/lib/auth';
 import { todayStr, formatDateChinese, formatTimePacific, formatDateShort } from '@/lib/timezone';
@@ -161,13 +161,12 @@ export default function TodayPage() {
         timestamp: data.timestamp,
         title: data.title || '',
         summary: data.summary || '',
-        intro: data.intro || data.market_narrative || '',
+        intro: data.intro || '',
         macro: data.macro,
         news: data.news,
-        report_summary: data.report_summary || data.conclusion || '',
+        report_summary: data.report_summary || '',
         calendar: data.calendar || [],
         indices: data.indices,
-        in_depth_analysis: data.in_depth_analysis || '',
       };
       setReport(newReport);
       setIsToday(true);
@@ -421,21 +420,15 @@ export default function TodayPage() {
           </section>
 
           {/* Shared Report Content Component */}
-          {(() => {
-            const normalized = normalizeMarketReport(report);
-            return (
-              <ReportContent
-                indices={normalized.indices as IndexData[] | undefined}
-                intro={normalized.intro}
-                macro={normalized.macro}
-                news={normalized.news}
-                reportSummary={normalized.reportSummary}
-                calendar={normalized.calendar}
-                inDepthAnalysis={normalized.inDepthAnalysis}
-                showTimestamp={false}
-              />
-            );
-          })()}
+          <ReportContent
+            indices={report.indices as IndexData[] | undefined}
+            intro={report.intro}
+            macro={report.macro}
+            news={report.news}
+            report_summary={report.report_summary}
+            calendar={report.calendar}
+            showTimestamp={false}
+          />
         </div>
       )}
 

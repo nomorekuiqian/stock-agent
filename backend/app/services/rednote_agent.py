@@ -303,9 +303,8 @@ class RedNoteAgent:
         title = report.get("title", "")
         summary = report.get("summary", "")
         quick_take = report.get("quick_take", "")
-        market_narrative = report.get("market_narrative", "")
-        conclusion = report.get("conclusion", "")
-        in_depth_analysis = report.get("in_depth_analysis", "")
+        intro = report.get("intro", "")
+        report_summary = report.get("report_summary", "")
 
         # Get indices data (key market metrics)
         indices = report.get("indices", [])
@@ -360,13 +359,10 @@ class RedNoteAgent:
 {quick_take}
 
 ## 主要市场叙事
-{market_narrative}
+{intro}
 
 ## 宏观环境
 {macro_summary}
-
-## 深度分析 (提取关键信息用于热点解读)
-{in_depth_analysis[:1500] if in_depth_analysis else '无'}
 
 ## 重要新闻 (从中挑选4-6条做新闻速递,2条做热点深度分析)
 
@@ -388,7 +384,7 @@ class RedNoteAgent:
             if isinstance(event, dict):
                 formatted += f"- {event.get('date', '')}: {event.get('event', '')} - {event.get('analysis', '')}\n"
 
-        formatted += f"\n## 总结\n{conclusion[:500] if conclusion else ''}"
+        formatted += f"\n## 总结与展望\n{report_summary[:500] if report_summary else ''}"
 
         return formatted
 

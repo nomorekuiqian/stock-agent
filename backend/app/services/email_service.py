@@ -264,14 +264,13 @@ class EmailService:
 
         report_title = data.get("title") or "Daily Market Brief"
         report_summary = data.get("summary", "")
-        # Support both old (market_narrative/conclusion) and new (intro/report_summary) field names
-        market_narrative = data.get("intro") or data.get("market_narrative", "")
+        intro = data.get("intro", "")
         macro = data.get("macro", {})
         news = data.get("news", {})
-        conclusion = data.get("report_summary") or data.get("conclusion", "")
+        outlook = data.get("report_summary", "")
         calendar = data.get("calendar", [])
 
-        has_structured_data = bool(market_narrative or macro or news or conclusion)
+        has_structured_data = bool(intro or macro or news or outlook)
 
         card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
         section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #0a0a0a;"
@@ -308,13 +307,13 @@ class EmailService:
                     indices_html += "</tr><tr>"
             indices_html += "</tr></table>"
 
-        # Market Narrative section
-        narrative_html = ""
-        if market_narrative:
-            narrative_html = f"""
+        # Intro section
+        intro_html = ""
+        if intro:
+            intro_html = f"""
             <div style="{card_style}">
                 <div style="{section_header_style}">今日要点</div>
-                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85; white-space: pre-line;">{market_narrative}</div>
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85; white-space: pre-line;">{intro}</div>
             </div>
             """
 
@@ -358,7 +357,7 @@ class EmailService:
             headlines_html = ""
             if headlines:
                 headlines_items = ""
-                for headline in headlines[:2]:
+                for headline in headlines:
                     headlines_items += f"""
                     <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
                         <a href="{headline.get('url', '#')}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{headline.get('title', '')}</a>
@@ -398,7 +397,7 @@ class EmailService:
         calendar_html = ""
         if calendar and len(calendar) > 0:
             calendar_items = ""
-            for event in calendar[:5]:
+            for event in calendar:
                 event_date = event.get("date", "")[:10]
                 # Format month as Chinese (e.g., "12月")
                 month_num = event_date[5:7].lstrip("0") if len(event_date) >= 7 else ""
@@ -425,28 +424,16 @@ class EmailService:
             </div>
             """
 
-        # Conclusion section
-        conclusion_html = ""
-        if conclusion:
+        # Outlook section (总结展望)
+        outlook_html = ""
+        if outlook:
             # Convert single newlines to double for proper paragraph spacing
-            conclusion_text = conclusion.replace("\n", "\n\n")
-            conclusion_md = self._format_markdown_to_html(conclusion_text)
-            conclusion_html = f"""
+            outlook_text = outlook.replace("\n", "\n\n")
+            outlook_md = self._format_markdown_to_html(outlook_text)
+            outlook_html = f"""
             <div style="{card_style}">
                 <div style="{section_header_style}">总结展望</div>
-                <div style="font-size: 13px; color: #3f3f46; line-height: 1.85;">{conclusion_md}</div>
-            </div>
-            """
-
-        # Legacy fallback
-        in_depth_html = ""
-        if not has_structured_data and data.get("in_depth_analysis"):
-            in_depth_html = f"""
-            <div style="{card_style}">
-                <div style="{section_header_style}">深度分析</div>
-                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
-                    {self._format_markdown_to_html(data.get("in_depth_analysis", ""))}
-                </div>
+                <div style="font-size: 13px; color: #3f3f46; line-height: 1.85;">{outlook_md}</div>
             </div>
             """
 
@@ -483,12 +470,11 @@ class EmailService:
                 <!-- Content Area -->
                 <div style="background: #f0f0f0; padding: 16px;">
                     {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">市场概览</div>{indices_html}</div>' if indices_html else ''}
-                    {narrative_html}
+                    {intro_html}
                     {macro_html}
                     {news_html}
                     {calendar_html}
-                    {conclusion_html}
-                    {in_depth_html}
+                    {outlook_html}
                 </div>
 
                 {self._get_feedback_section(feedback_report_date, feedback_report_id)}
@@ -565,7 +551,7 @@ class EmailService:
             headlines_html = ""
             if headlines:
                 headlines_items = ""
-                for headline in headlines[:3]:
+                for headline in headlines:
                     related = ", ".join(headline.get("related_symbols", [])[:3])
                     headlines_items += f"""
                     <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
@@ -582,7 +568,7 @@ class EmailService:
             briefs_html = ""
             if briefs:
                 briefs_items = ""
-                for brief in briefs[:5]:
+                for brief in briefs:
                     related = ", ".join(brief.get("related_symbols", [])[:3])
                     briefs_items += f"""
                     <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">

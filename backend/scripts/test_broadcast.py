@@ -86,14 +86,11 @@ async def broadcast_daily_report():
         "timestamp": report.get("timestamp", ""),
         "title": report.get("title", ""),
         "summary": report.get("summary", ""),
-        "quick_take": report.get("quick_take", ""),
-        "market_narrative": report.get("market_narrative", ""),
+        "intro": report.get("intro", ""),
         "macro": report.get("macro"),
         "news": report.get("news"),
-        "conclusion": report.get("conclusion", ""),
+        "report_summary": report.get("report_summary", ""),
         "calendar": report.get("calendar", []),
-        "short_analysis": report.get("short_analysis", ""),
-        "in_depth_analysis": report.get("in_depth_analysis", ""),
     }
 
     # Broadcast using Resend Broadcasts API

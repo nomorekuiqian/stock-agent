@@ -62,12 +62,11 @@ export interface NewsSection {
   briefs: BriefNews[];
 }
 
+// MarketData from backend API - matches database schema (snake_case)
 export interface MarketData {
-  report_id?: string;  // Report ID for navigation
+  report_id?: string;
   indices: MarketIndex[];
   timestamp: string;
-
-  // Structured fields (current schema)
   title?: string;
   summary?: string;
   intro?: string;
@@ -75,59 +74,8 @@ export interface MarketData {
   news?: NewsSection;
   report_summary?: string;
   calendar?: CalendarEvent[];
-
-  // Legacy fields (old reports only)
-  market_narrative?: string;  // v1: replaced by intro
-  conclusion?: string;        // v1: replaced by report_summary
-  in_depth_analysis?: string; // v0: legacy markdown analysis
-
-  // Raw data
-  economic_calendar?: {
-    count: number;
-    events: EconomicEvent[];
-    date_range?: { start: string; end: string };
-  };
-  earnings_calendar?: {
-    count: number;
-    earnings: EarningsEvent[];
-    date_range?: { start: string; end: string };
-  };
-  news_data?: unknown;
   market_data?: unknown;
-  from_cache?: boolean;  // Whether report came from database cache
-}
-
-// Normalized report interface (consistent across all schema versions)
-export interface NormalizedReport {
-  indices: MarketIndex[];
-  timestamp: string;
-  title: string;
-  summary: string;
-  intro: string;
-  macro?: MacroSection;
-  news?: NewsSection;
-  reportSummary: string;
-  calendar: CalendarEvent[];
-  inDepthAnalysis: string;  // Legacy field for old reports
-}
-
-// Normalize report data from any schema version to current format
-export function normalizeReport(report: MarketData): NormalizedReport {
-  return {
-    indices: report.indices || [],
-    timestamp: report.timestamp || '',
-    title: report.title || '',
-    summary: report.summary || '',
-    // intro: new field, fallback to market_narrative (v1)
-    intro: report.intro || report.market_narrative || '',
-    macro: report.macro,
-    news: report.news,
-    // reportSummary: new field, fallback to conclusion (v1)
-    reportSummary: report.report_summary || report.conclusion || '',
-    calendar: report.calendar || [],
-    // Legacy markdown analysis for v0 reports
-    inDepthAnalysis: report.in_depth_analysis || '',
-  };
+  from_cache?: boolean;
 }
 
 export interface SendEmailResponse {

@@ -529,7 +529,7 @@ class MarketAgent:
                     "date_range": earnings_result.get("date_range", {}),
                 },
                 "timestamp": now_iso(),
-                # New structured output
+                # Structured output
                 "title": title,
                 "summary": summary,
                 "intro": intro,
@@ -537,9 +537,6 @@ class MarketAgent:
                 "news": news,
                 "report_summary": report_summary,
                 "calendar": calendar,
-                # Legacy field for backward compatibility
-                "in_depth_analysis": "",
-                "short_analysis": "",
             }
 
         except Exception as e:
@@ -556,7 +553,7 @@ class MarketAgent:
                 "economic_calendar": {"count": 0, "events": [], "date_range": {}},
                 "earnings_calendar": {"count": 0, "earnings": [], "date_range": {}},
                 "timestamp": now_iso(),
-                # New structured fields with defaults
+                # Structured fields with defaults
                 "title": "",
                 "summary": f"Data fetched (analysis error: {str(e)[:100]})",
                 "intro": "",
@@ -564,7 +561,4 @@ class MarketAgent:
                 "news": {"headlines": [], "briefs": []},
                 "report_summary": "",
                 "calendar": [],
-                # Legacy fields
-                "in_depth_analysis": "",
-                "short_analysis": "",
             }

@@ -40,26 +40,18 @@ class InsforgeService:
             report_date = today_str()  # Pacific timezone
 
             # Prepare the report for database insertion
+            # Field names match Agent output and DB schema directly
             db_report = {
                 "report_date": report_date,
                 "timestamp": report_data.get("timestamp", now_iso()),
-                # New structured fields
                 "title": report_data.get("title", ""),
                 "summary": report_data.get("summary", ""),
-                "quick_take": report_data.get("quick_take", ""),
-                "market_narrative": report_data.get("market_narrative", ""),
+                "intro": report_data.get("intro", ""),
                 "macro": report_data.get("macro"),
                 "news": report_data.get("news"),
-                "conclusion": report_data.get("conclusion", ""),
+                "report_summary": report_data.get("report_summary", ""),
                 "calendar": report_data.get("calendar", []),
-                # Legacy fields for backward compatibility
-                "short_analysis": report_data.get("short_analysis", ""),
-                "in_depth_analysis": report_data.get("in_depth_analysis", ""),
-                # Raw data
                 "indices": report_data.get("indices", []),
-                "economic_calendar": report_data.get("economic_calendar", {}),
-                "earnings_calendar": report_data.get("earnings_calendar", {}),
-                "news_data": report_data.get("news_data", {}),
                 "market_data": report_data.get("market_data", {}),
             }
 

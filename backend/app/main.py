@@ -135,20 +135,13 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
                     "report_id": existing_report.get("id"),
                     "indices": existing_report.get("indices", []),
                     "timestamp": existing_report.get("timestamp", now_iso()),
-                    # Structured fields (new schema)
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
-                    "intro": existing_report.get("intro") or existing_report.get("market_narrative", ""),
+                    "intro": existing_report.get("intro", ""),
                     "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary") or existing_report.get("conclusion", ""),
+                    "report_summary": existing_report.get("report_summary", ""),
                     "calendar": existing_report.get("calendar", []),
-                    # Legacy fields (for old reports)
-                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
-                    # Raw data
-                    "economic_calendar": existing_report.get("economic_calendar", {}),
-                    "earnings_calendar": existing_report.get("earnings_calendar", {}),
-                    "news_data": existing_report.get("news_data", {}),
                     "market_data": existing_report.get("market_data", {}),
                     "from_cache": True,
                 }
@@ -173,7 +166,6 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
         response_data = {
             "indices": indices,
             "timestamp": result.get("timestamp", now_iso()),
-            # Structured fields (new schema)
             "title": result.get("title", ""),
             "summary": result.get("summary", ""),
             "intro": result.get("intro", ""),
@@ -181,28 +173,12 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
             "news": result.get("news"),
             "report_summary": result.get("report_summary", ""),
             "calendar": result.get("calendar", []),
-            # Legacy fields (for old reports)
-            "in_depth_analysis": result.get("in_depth_analysis", ""),
-            # Raw data
-            "economic_calendar": result.get("economic_calendar", {}),
-            "earnings_calendar": result.get("earnings_calendar", {}),
-            "news_data": result.get("news_data", {}),
-            "evaluation_report": result.get("evaluation_report", ""),
-            "draft_analysis": result.get("draft_analysis", ""),
             "market_data": market_data,
             "from_cache": False,
         }
 
-        # Save new report to database (map new field names to DB column names)
-        db_data = {
-            **response_data,
-            "market_narrative": response_data.get("intro", ""),  # DB column name
-            "conclusion": response_data.get("report_summary", ""),  # DB column name
-        }
-        # Remove new field names (not in DB schema)
-        db_data.pop("intro", None)
-        db_data.pop("report_summary", None)
-        save_result = await insforge.save_market_report(db_data)
+        # Save new report to database (field names match DB schema directly)
+        save_result = await insforge.save_market_report(response_data)
         if save_result.get("success"):
             print(f"[API] Report saved to database for {today}")
             response_data["report_id"] = save_result.get("report_id")
@@ -258,12 +234,12 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
                     "timestamp": existing_report.get("timestamp", now_iso()),
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
-                    "intro": existing_report.get("intro") or existing_report.get("market_narrative", ""),
+                    "intro": existing_report.get("intro", ""),
                     "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary") or existing_report.get("conclusion", ""),
+                    "report_summary": existing_report.get("report_summary", ""),
                     "calendar": existing_report.get("calendar", []),
-                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
+                    "market_data": existing_report.get("market_data", {}),
                 }
                 save_result["report_id"] = existing_report.get("id")
 
@@ -279,25 +255,18 @@ async def send_daily_report(x_cron_secret: str = Header(None, alias="X-Cron-Secr
             indices = transform_market_data_to_indices(market_data)
 
             # Build complete report data for email and database
-            # Note: DB uses old column names (market_narrative, conclusion)
-            # API returns new field names (intro, report_summary)
+            # Field names match DB schema directly (intro, report_summary)
             report_data = {
-                "report_date": today,  # For email feedback links
+                "report_date": today,
                 "indices": indices,
                 "timestamp": result.get("timestamp", now_iso()),
                 "title": result.get("title", ""),
                 "summary": result.get("summary", ""),
-                "intro": result.get("intro", ""),  # For email service
-                "market_narrative": result.get("intro", ""),  # DB column name
+                "intro": result.get("intro", ""),
                 "macro": result.get("macro"),
                 "news": result.get("news"),
-                "report_summary": result.get("report_summary", ""),  # For email service
-                "conclusion": result.get("report_summary", ""),  # DB column name
+                "report_summary": result.get("report_summary", ""),
                 "calendar": result.get("calendar", []),
-                "in_depth_analysis": result.get("in_depth_analysis", ""),
-                "economic_calendar": result.get("economic_calendar", {}),
-                "earnings_calendar": result.get("earnings_calendar", {}),
-                "news_data": result.get("news_data", {}),
                 "market_data": market_data,
             }
 
@@ -391,7 +360,7 @@ async def get_email_preview(
         if not report:
             raise HTTPException(status_code=404, detail="No report found")
 
-        # Build report data for email rendering (include all structured fields)
+        # Build report data for email rendering
         report_data = {
             "report_id": report.get("id"),
             "report_date": report.get("report_date", today_str()),
@@ -399,12 +368,11 @@ async def get_email_preview(
             "timestamp": report.get("timestamp", ""),
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
-            "intro": report.get("intro") or report.get("market_narrative", ""),
+            "intro": report.get("intro", ""),
             "macro": report.get("macro"),
             "news": report.get("news"),
-            "report_summary": report.get("report_summary") or report.get("conclusion", ""),
+            "report_summary": report.get("report_summary", ""),
             "calendar": report.get("calendar", []),
-            "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
         # Render HTML using the real email template
@@ -542,12 +510,11 @@ async def broadcast_test_report(request: BroadcastTestRequest):
             "timestamp": report.get("timestamp", ""),
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
-            "intro": report.get("intro") or report.get("market_narrative", ""),
+            "intro": report.get("intro", ""),
             "macro": report.get("macro"),
             "news": report.get("news"),
-            "report_summary": report.get("report_summary") or report.get("conclusion", ""),
+            "report_summary": report.get("report_summary", ""),
             "calendar": report.get("calendar", []),
-            "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
         # Broadcast to audience (default or specified test audience)
@@ -602,12 +569,11 @@ async def send_test_report(request: SendEmailRequest):
             "timestamp": report.get("timestamp", now_iso()),
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
-            "intro": report.get("intro") or report.get("market_narrative", ""),
+            "intro": report.get("intro", ""),
             "macro": report.get("macro"),
             "news": report.get("news"),
-            "report_summary": report.get("report_summary") or report.get("conclusion", ""),
+            "report_summary": report.get("report_summary", ""),
             "calendar": report.get("calendar", []),
-            "in_depth_analysis": report.get("in_depth_analysis", ""),
         }
 
         # Send email to single recipient
@@ -886,16 +852,17 @@ async def broadcast_to_channel(
 
             if existing_report:
                 report_data = {
+                    "report_id": existing_report.get("id"),
+                    "report_date": existing_report.get("report_date", today),
                     "indices": existing_report.get("indices", []),
                     "timestamp": existing_report.get("timestamp", now_iso()),
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
-                    "intro": existing_report.get("intro") or existing_report.get("market_narrative", ""),
+                    "intro": existing_report.get("intro", ""),
                     "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary") or existing_report.get("conclusion", ""),
+                    "report_summary": existing_report.get("report_summary", ""),
                     "calendar": existing_report.get("calendar", []),
-                    "in_depth_analysis": existing_report.get("in_depth_analysis", ""),
                 }
             else:
                 # Generate new report
@@ -907,6 +874,7 @@ async def broadcast_to_channel(
                 indices = transform_market_data_to_indices(market_data)
 
                 report_data = {
+                    "report_date": today,
                     "indices": indices,
                     "timestamp": result.get("timestamp", now_iso()),
                     "title": result.get("title", ""),
@@ -916,17 +884,20 @@ async def broadcast_to_channel(
                     "news": result.get("news"),
                     "report_summary": result.get("report_summary", ""),
                     "calendar": result.get("calendar", []),
-                    "in_depth_analysis": result.get("in_depth_analysis", ""),
                 }
 
                 # Save to database
-                await insforge_service.save_market_report({
+                save_result = await insforge_service.save_market_report({
                     **report_data,
                     "economic_calendar": result.get("economic_calendar", {}),
                     "earnings_calendar": result.get("earnings_calendar", {}),
                     "news_data": result.get("news_data", {}),
                     "market_data": market_data,
                 })
+
+                # Add report_id to report_data for feedback links
+                if save_result.get("success"):
+                    report_data["report_id"] = save_result.get("report_id")
 
             # Broadcast daily report
             broadcast_result = await email_service.broadcast_daily_report(report_data)

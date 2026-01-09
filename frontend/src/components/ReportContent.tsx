@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { CalendarEvent, MacroSection, NewsSection } from '@/lib/api';
 import { formatDateChinese, formatTimePacific, isTodayPacific, formatCalendarDate } from '@/lib/timezone';
 
@@ -11,14 +10,14 @@ interface IndexData {
   change_percent?: number;
 }
 
+// Props use snake_case to match database schema directly
 interface ReportContentProps {
   indices?: IndexData[];
   intro?: string;
   macro?: MacroSection;
   news?: NewsSection;
-  reportSummary?: string;
+  report_summary?: string;
   calendar?: CalendarEvent[];
-  inDepthAnalysis?: string;
   timestamp?: string;
   showTimestamp?: boolean;
 }
@@ -58,13 +57,12 @@ export function ReportContent({
   intro,
   macro,
   news,
-  reportSummary,
+  report_summary,
   calendar,
-  inDepthAnalysis,
   timestamp,
   showTimestamp = true,
 }: ReportContentProps) {
-  const hasStructuredData = !!(intro || macro || news || reportSummary);
+  const hasStructuredData = !!(intro || macro || news || report_summary);
   const formatDate = (dateString: string) => formatDateChinese(dateString);
   const formatTime = (dateString: string) => formatTimePacific(dateString);
 
@@ -259,35 +257,15 @@ export function ReportContent({
       )}
 
       {/* Summary */}
-      {reportSummary && (
+      {report_summary && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
           <SectionHeader>总结展望</SectionHeader>
           <div className="space-y-4">
-            {reportSummary.split('\n').filter(p => p.trim()).map((paragraph, idx) => (
+            {report_summary.split('\n').filter(p => p.trim()).map((paragraph, idx) => (
               <p key={idx} className="text-base text-muted-foreground leading-relaxed">
                 {paragraph}
               </p>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* Legacy In-Depth Analysis (for old reports) */}
-      {!hasStructuredData && inDepthAnalysis && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>深度分析</SectionHeader>
-          <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-emerald-500 prose-ul:text-muted-foreground prose-li:text-muted-foreground dark:prose-invert">
-            <ReactMarkdown
-              components={{
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="transition-colors">
-                    {children}
-                  </a>
-                ),
-              }}
-            >
-              {inDepthAnalysis}
-            </ReactMarkdown>
           </div>
         </section>
       )}

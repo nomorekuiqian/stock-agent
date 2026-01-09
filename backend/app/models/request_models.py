@@ -62,8 +62,10 @@ class MarketAnalysisData(BaseModel):
     """Market analysis response with market data and analysis"""
     market_data: MarketData = Field(..., description="Complete market data")
     timestamp: datetime = Field(default_factory=datetime.now, description="Data timestamp")
-    short_analysis: str = Field(default="", description="Short summary analysis")
-    in_depth_analysis: str = Field(default="", description="Detailed trend analysis")
+    title: str = Field(default="", description="Report title")
+    summary: str = Field(default="", description="Brief summary for preview")
+    intro: str = Field(default="", description="Market narrative introduction")
+    report_summary: str = Field(default="", description="Summary and outlook")
 
 
 # =============================================================================

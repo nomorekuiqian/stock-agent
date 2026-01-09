@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getReportById, MarketReport, normalizeMarketReport } from '@/lib/insforge';
+import { getReportById, MarketReport } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
 
 // Force dynamic rendering (no cache)
@@ -135,7 +135,6 @@ export default async function ReportDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const normalized = normalizeMarketReport(report);
   const jsonLd = generateJsonLd(report, id);
 
   return (
@@ -189,14 +188,13 @@ export default async function ReportDetailPage({ params }: PageProps) {
 
           {/* Shared Report Content Component */}
           <ReportContent
-            indices={normalized.indices as IndexData[] | undefined}
-            intro={normalized.intro}
-            macro={normalized.macro}
-            news={normalized.news}
-            reportSummary={normalized.reportSummary}
-            calendar={normalized.calendar}
-            inDepthAnalysis={normalized.inDepthAnalysis}
-            timestamp={normalized.timestamp}
+            indices={report.indices as IndexData[] | undefined}
+            intro={report.intro}
+            macro={report.macro}
+            news={report.news}
+            report_summary={report.report_summary}
+            calendar={report.calendar}
+            timestamp={report.timestamp}
             showTimestamp={true}
           />
         </div>
