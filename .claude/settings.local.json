@@ -104,7 +104,12 @@
       "mcp__insforge__get-container-logs",
       "WebFetch(domain:ai.google.dev)",
       "Bash(sips:*)",
-      "Bash(timeout 3 uvicorn:*)"
+      "Bash(timeout 3 uvicorn:*)",
+      "Bash(pytest:*)",
+      "Bash(pyright:*)",
+      "Bash(typescript-language-server:*)",
+      "Bash(claude mcp remove:*)",
+      "Bash(CCLSP_CONFIG_PATH=/Users/kedeng/Desktop/projects/stock-agent/.cclsp.json timeout 5 npx cclsp@latest:*)"
     ],
     "deny": [],
     "ask": []

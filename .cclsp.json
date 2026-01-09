@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "command": "pyright-langserver",
+      "args": ["--stdio"],
+      "filetypes": ["python"],
+      "rootPatterns": ["pyproject.toml", "setup.py", "requirements.txt", ".git"]
+    },
+    {
+      "command": "typescript-language-server",
+      "args": ["--stdio"],
+      "filetypes": ["typescript", "typescriptreact", "javascript", "javascriptreact"],
+      "rootPatterns": ["package.json", "tsconfig.json", ".git"]
+    }
+  ]
+}

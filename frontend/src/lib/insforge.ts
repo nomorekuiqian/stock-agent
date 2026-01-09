@@ -27,6 +27,8 @@ export interface MarketReport {
   timestamp: string;
   title?: string;
   summary?: string;
+  short_analysis?: string;
+  in_depth_analysis?: string;
   intro?: string;
   macro?: MacroSection;
   news?: NewsSection;
