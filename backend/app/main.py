@@ -1507,6 +1507,48 @@ async def record_email_feedback(
         )
 
 
+@app.post("/api/feedback/submit")
+async def submit_email_feedback(
+    report_date: str = Query(..., description="Report date in YYYY-MM-DD format"),
+    email: str = Query(..., description="User email"),
+    rating: str = Query(..., description="Rating: satisfied or dissatisfied"),
+    report_id: str = Query(None, description="Optional report UUID"),
+):
+    """
+    Submit email feedback from frontend (async).
+    Called by frontend after page loads to save feedback without blocking UX.
+
+    Returns JSON response instead of redirect.
+    """
+    # Validate rating value
+    valid_ratings = ["satisfied", "dissatisfied"]
+    if rating not in valid_ratings:
+        return {"success": False, "error": "invalid_rating"}
+
+    try:
+        insforge_service = get_insforge_service()
+        result = await insforge_service.save_email_feedback(
+            report_date=report_date,
+            email=email,
+            rating=rating,
+            report_id=report_id,
+        )
+
+        if result.get("success"):
+            is_duplicate = result.get("is_duplicate", False)
+            return {
+                "success": True,
+                "is_duplicate": is_duplicate,
+                "rating": rating,
+            }
+        else:
+            return {"success": False, "error": result.get("error", "save_failed")}
+
+    except Exception as e:
+        print(f"[Feedback Submit] Exception: {e}")
+        return {"success": False, "error": "server_error"}
+
+
 @app.get("/api/feedback/stats")
 async def get_feedback_stats(
     start_date: str = Query(None, description="Start date (YYYY-MM-DD), defaults to 7 days ago"),

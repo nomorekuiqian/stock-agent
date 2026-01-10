@@ -152,7 +152,9 @@ class EmailService:
         Returns:
             HTML string for feedback section
         """
-        backend_url = os.getenv("BACKEND_URL", "https://api.marketbrew.xyz")
+        # Always use production frontend URL for feedback links
+        # This allows local dev emails to test production feedback flow
+        feedback_frontend_url = "https://themarketbrew.com"
 
         # Build feedback base URL with report_date and optional report_id
         # Email will be dynamically filled by Resend template variable
@@ -160,10 +162,11 @@ class EmailService:
         if report_id:
             base_params += f"&report_id={report_id}"
 
+        # Link directly to frontend - frontend will async save feedback
         # Use Resend's template variable for email (for broadcasts)
         # Will be replaced with actual email for single sends
         feedback_base = (
-            f"{backend_url}/api/feedback?{base_params}&email={{{{{{email}}}}}}"
+            f"{feedback_frontend_url}/feedback?{base_params}&email={{{{{{email}}}}}}"
         )
 
         return f"""

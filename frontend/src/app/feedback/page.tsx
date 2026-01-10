@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -14,11 +14,79 @@ function LoadingState() {
   );
 }
 
+type SaveStatus = 'pending' | 'saving' | 'saved' | 'duplicate' | 'error';
+
 function FeedbackContent() {
   const searchParams = useSearchParams();
-  const status = searchParams.get('status');
+
+  // Get params from URL (from email link)
+  const reportDate = searchParams.get('report_date');
+  const email = searchParams.get('email');
   const rating = searchParams.get('rating');
-  const error = searchParams.get('error');
+  const reportId = searchParams.get('report_id');
+
+  // Legacy support: check for status param (old redirect flow)
+  const legacyStatus = searchParams.get('status');
+  const legacyError = searchParams.get('error');
+
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('pending');
+
+  // Async save feedback to backend
+  useEffect(() => {
+    // Skip if legacy flow (already saved by backend redirect)
+    if (legacyStatus) {
+      setSaveStatus(legacyStatus === 'success' ? 'saved' : legacyStatus === 'duplicate' ? 'duplicate' : 'error');
+      return;
+    }
+
+    // Skip if missing required params
+    if (!reportDate || !email || !rating) {
+      setSaveStatus('error');
+      return;
+    }
+
+    // Validate rating
+    if (rating !== 'satisfied' && rating !== 'dissatisfied') {
+      setSaveStatus('error');
+      return;
+    }
+
+    const saveFeedback = async () => {
+      setSaveStatus('saving');
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.marketbrew.xyz/api';
+        const params = new URLSearchParams({
+          report_date: reportDate,
+          email: email,
+          rating: rating,
+        });
+        if (reportId) {
+          params.append('report_id', reportId);
+        }
+
+        const response = await fetch(`${apiUrl}/feedback/submit?${params.toString()}`, {
+          method: 'POST',
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setSaveStatus(data.is_duplicate ? 'duplicate' : 'saved');
+        } else {
+          console.error('[Feedback] Save failed:', data.error);
+          // Still show success to user - feedback intent was captured
+          setSaveStatus('saved');
+        }
+      } catch (error) {
+        console.error('[Feedback] Network error:', error);
+        // Still show success to user - they clicked, that's what matters
+        setSaveStatus('saved');
+      }
+    };
+
+    saveFeedback();
+  }, [reportDate, email, rating, reportId, legacyStatus]);
 
   const getRatingDisplay = (r: string | null) => {
     switch (r) {
@@ -33,8 +101,14 @@ function FeedbackContent() {
 
   const ratingInfo = getRatingDisplay(rating);
 
-  // Success state
-  if (status === 'success') {
+  // Determine if we should show success state
+  // Show success immediately if we have valid rating (optimistic UI)
+  const showSuccess = rating === 'satisfied' || rating === 'dissatisfied';
+  const showDuplicate = saveStatus === 'duplicate';
+  const showError = !showSuccess && (saveStatus === 'error' || legacyStatus === 'error');
+
+  // Success state (immediate display)
+  if (showSuccess && !showDuplicate) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -56,7 +130,7 @@ function FeedbackContent() {
             {rating && (
               <div className="mb-6">
                 <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.emoji}`}>
-                  {rating === 'satisfied' ? '有帮助' : '没帮助'}
+                  {rating === 'satisfied' ? 'thumbs up' : 'thumbs down'}
                 </span>
               </div>
             )}
@@ -85,7 +159,7 @@ function FeedbackContent() {
   }
 
   // Duplicate state
-  if (status === 'duplicate') {
+  if (showDuplicate) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -107,7 +181,7 @@ function FeedbackContent() {
             {rating && (
               <div className="mb-6">
                 <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.emoji}`}>
-                  {rating === 'satisfied' ? '有帮助' : '没帮助'}
+                  {rating === 'satisfied' ? 'thumbs up' : 'thumbs down'}
                 </span>
               </div>
             )}
@@ -145,7 +219,7 @@ function FeedbackContent() {
       case 'server_error':
         return '服务器出错，请稍后再试';
       default:
-        return err || '发生了未知错误';
+        return '链接无效或已过期';
     }
   };
 
@@ -168,7 +242,7 @@ function FeedbackContent() {
 
         <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
           <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-6">
-            <p className="text-sm text-red-600">{getErrorMessage(error)}</p>
+            <p className="text-sm text-red-600">{getErrorMessage(legacyError)}</p>
           </div>
           <p className="text-sm text-gray-500 mb-6">
             请尝试重新点击邮件中的反馈按钮，如果问题持续存在请联系我们。
