@@ -88,24 +88,10 @@ function FeedbackContent() {
     saveFeedback();
   }, [reportDate, email, rating, reportId, legacyStatus]);
 
-  const getRatingDisplay = (r: string | null) => {
-    switch (r) {
-      case 'satisfied':
-        return { text: 'thumbs-up', emoji: 'text-emerald-600', bg: 'bg-emerald-100' };
-      case 'dissatisfied':
-        return { text: 'thumbs-down', emoji: 'text-red-600', bg: 'bg-red-100' };
-      default:
-        return { text: '', emoji: 'text-gray-600', bg: 'bg-gray-100' };
-    }
-  };
-
-  const ratingInfo = getRatingDisplay(rating);
-
   // Determine if we should show success state
   // Show success immediately if we have valid rating (optimistic UI)
   const showSuccess = rating === 'satisfied' || rating === 'dissatisfied';
   const showDuplicate = saveStatus === 'duplicate';
-  const showError = !showSuccess && (saveStatus === 'error' || legacyStatus === 'error');
 
   // Success state (immediate display)
   if (showSuccess && !showDuplicate) {
@@ -127,13 +113,6 @@ function FeedbackContent() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-            {rating && (
-              <div className="mb-6">
-                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.emoji}`}>
-                  {rating === 'satisfied' ? 'thumbs up' : 'thumbs down'}
-                </span>
-              </div>
-            )}
             <p className="text-sm text-gray-500 mb-6">
               我们会根据你的反馈持续改进日报质量，为你提供更好的市场分析。
             </p>
@@ -178,13 +157,6 @@ function FeedbackContent() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-            {rating && (
-              <div className="mb-6">
-                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${ratingInfo.bg} ${ratingInfo.emoji}`}>
-                  {rating === 'satisfied' ? 'thumbs up' : 'thumbs down'}
-                </span>
-              </div>
-            )}
             <p className="text-sm text-gray-500 mb-6">
               你的反馈已更新，感谢你的参与!
             </p>
