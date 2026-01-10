@@ -482,6 +482,8 @@ async def broadcast_test_report(request: BroadcastTestRequest):
 
         # Build report data for email (include all structured fields)
         report_data = {
+            "report_id": report.get("id") or request.report_id,
+            "report_date": report.get("report_date"),
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
             "title": report.get("title", ""),
