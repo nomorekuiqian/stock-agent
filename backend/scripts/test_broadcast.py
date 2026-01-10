@@ -82,6 +82,8 @@ async def broadcast_daily_report():
 
     # Prepare report data for email
     report_data = {
+        "report_id": report.get("id"),
+        "report_date": report.get("report_date"),
         "indices": report.get("indices", []),
         "timestamp": report.get("timestamp", ""),
         "title": report.get("title", ""),
