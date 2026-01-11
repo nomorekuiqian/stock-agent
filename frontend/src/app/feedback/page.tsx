@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -29,31 +29,34 @@ function FeedbackContent() {
   const legacyStatus = searchParams.get('status');
   const legacyError = searchParams.get('error');
 
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('pending');
+  // Compute initial status from legacy params (no effect needed)
+  const initialStatus = useMemo<SaveStatus>(() => {
+    if (legacyStatus === 'success') return 'saved';
+    if (legacyStatus === 'duplicate') return 'duplicate';
+    if (legacyStatus === 'error') return 'error';
+    return 'pending';
+  }, [legacyStatus]);
 
-  // Async save feedback to backend
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialStatus);
+
+  // Async save feedback to backend (only for new flow, not legacy)
   useEffect(() => {
     // Skip if legacy flow (already saved by backend redirect)
     if (legacyStatus) {
-      setSaveStatus(legacyStatus === 'success' ? 'saved' : legacyStatus === 'duplicate' ? 'duplicate' : 'error');
       return;
     }
 
     // Skip if missing required params
     if (!reportDate || !email || !rating) {
-      setSaveStatus('error');
       return;
     }
 
     // Validate rating
     if (rating !== 'satisfied' && rating !== 'dissatisfied') {
-      setSaveStatus('error');
       return;
     }
 
     const saveFeedback = async () => {
-      setSaveStatus('saving');
-
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.marketbrew.xyz/api';
         const params = new URLSearchParams({
@@ -71,17 +74,13 @@ function FeedbackContent() {
 
         const data = await response.json();
 
-        if (data.success) {
-          setSaveStatus(data.is_duplicate ? 'duplicate' : 'saved');
-        } else {
-          console.error('[Feedback] Save failed:', data.error);
-          // Still show success to user - feedback intent was captured
-          setSaveStatus('saved');
+        if (data.success && data.is_duplicate) {
+          setSaveStatus('duplicate');
         }
+        // For other cases, keep showing success (optimistic UI)
       } catch (error) {
         console.error('[Feedback] Network error:', error);
         // Still show success to user - they clicked, that's what matters
-        setSaveStatus('saved');
       }
     };
 
@@ -91,7 +90,7 @@ function FeedbackContent() {
   // Determine if we should show success state
   // Show success immediately if we have valid rating (optimistic UI)
   const showSuccess = rating === 'satisfied' || rating === 'dissatisfied';
-  const showDuplicate = saveStatus === 'duplicate';
+  const showDuplicate = saveStatus === 'duplicate' || initialStatus === 'duplicate';
 
   // Success state (immediate display)
   if (showSuccess && !showDuplicate) {
