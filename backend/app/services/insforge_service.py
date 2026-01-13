@@ -4,7 +4,6 @@ Uses Insforge Edge Functions API to interact with the database.
 """
 
 import os
-import json
 from typing import Optional, Dict, Any, List
 import httpx
 
@@ -428,7 +427,7 @@ class InsforgeService:
         report_date: str,
         email: str,
         rating: str,
-        report_id: str = None,
+        report_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Save email feedback to the database.

@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
-    os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+_google_api_key = os.getenv("GOOGLE_API_KEY")
+if _google_api_key and not os.getenv("GOOGLE_GENAI_API_KEY"):
+    os.environ["GOOGLE_GENAI_API_KEY"] = _google_api_key
 
 from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
@@ -21,7 +22,6 @@ from google.genai.types import Content, Part
 from app.utils.timezone import now_iso, format_report_date
 from app.models.sector_digest_models import (
     SectorDigestOutput,
-    SectorConfig,
     get_sector_by_id,
     get_enabled_sectors,
 )
