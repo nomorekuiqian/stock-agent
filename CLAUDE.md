@@ -176,33 +176,42 @@ backend/
 ```
 frontend/src/
 ├── app/
-│   ├── layout.tsx           # 根布局 (TheMarketBrew 品牌, 翠绿色导航)
-│   ├── page.tsx             # 首页 (重定向到 /market)
-│   ├── globals.css          # Tailwind 主题配置
-│   ├── market/page.tsx      # 市场分析主页面
-│   ├── liquidity/page.tsx   # 流动性监控仪表盘
-│   ├── reports/page.tsx     # 历史报告列表
-│   ├── reports/[id]/page.tsx # 单个报告详情
-│   ├── digest/page.tsx      # 个性化摘要
-│   ├── login/page.tsx       # 登录页
+│   ├── layout.tsx            # 根布局 (TheMarketBrew 品牌, 翠绿色导航)
+│   ├── page.tsx              # 首页 (营销落地页, 订阅入口)
+│   ├── globals.css           # Tailwind 主题配置
+│   ├── today/
+│   │   ├── page.tsx          # 今日日报主页面 (核心页面)
+│   │   ├── [id]/page.tsx     # 日报详情页 (SEO 优化)
+│   │   └── archive/page.tsx  # 历史日报归档
+│   ├── for-you/
+│   │   ├── page.tsx          # 个性化日报 (基于 watchlist)
+│   │   ├── [id]/page.tsx     # 个性化日报详情
+│   │   └── archive/page.tsx  # 个性化日报归档
+│   ├── market/page.tsx       # 市场数据概览 (旧页面)
+│   ├── liquidity/page.tsx    # 流动性监控仪表盘
+│   ├── reports/page.tsx      # 历史报告列表 (旧页面)
+│   ├── reports/[id]/page.tsx # 单个报告详情 (旧页面)
+│   ├── digest/page.tsx       # 个性化摘要
+│   ├── login/page.tsx        # 登录页
 │   ├── auth/callback/page.tsx # OAuth 回调
-│   ├── unsubscribe/page.tsx # 退订页面
-│   └── email-test/page.tsx  # 邮件预览测试
+│   ├── feedback/page.tsx     # 邮件反馈页面 (👍/👎)
+│   ├── unsubscribe/page.tsx  # 退订页面
+│   └── email-test/page.tsx   # 邮件预览测试
 ├── components/
-│   ├── ui/                  # shadcn/ui 组件
-│   ├── ReportContent.tsx    # 报告内容渲染 (Markdown)
+│   ├── ui/                   # shadcn/ui 组件
+│   ├── ReportContent.tsx     # 报告内容渲染 (结构化数据)
 │   ├── NetLiquidityChart.tsx # 净流动性图表
-│   ├── LiquidityCard.tsx    # 流动性指标卡片
-│   ├── NFCIGauge.tsx        # NFCI 仪表盘
-│   ├── SubscribeForm.tsx    # 订阅表单
-│   └── NavAuth.tsx          # 导航栏认证
+│   ├── LiquidityCard.tsx     # 流动性指标卡片
+│   ├── NFCIGauge.tsx         # NFCI 仪表盘
+│   ├── SubscribeForm.tsx     # 订阅表单
+│   └── NavAuth.tsx           # 导航栏认证
 ├── contexts/
-│   └── AuthContext.tsx      # 认证上下文 (Insforge Auth)
+│   └── AuthContext.tsx       # 认证上下文 (Insforge Auth)
 └── lib/
-    ├── api.ts               # 后端 API 客户端 (类型安全)
-    ├── insforge.ts          # Insforge 客户端配置
-    ├── auth.ts              # 认证工具函数
-    └── utils.ts             # 通用工具函数
+    ├── api.ts                # 后端 API 客户端 (类型安全)
+    ├── insforge.ts           # Insforge 客户端配置
+    ├── auth.ts               # 认证工具函数
+    └── utils.ts              # 通用工具函数
 ```
 
 **UI 设计**: Apple 风格,白色主题,翠绿色 (#059669) 强调色,紧凑间距
@@ -214,7 +223,7 @@ frontend/src/
 **市场日报流程:**
 ```
 POST /api/market
-  → 检查当日缓存 (Insforge market_reports)
+  → 检查当日缓存 (Insforge market_reports, 基于 Pacific 时区)
   → 有缓存 → 返回缓存数据 (from_cache: true)
   → 无缓存 → MarketAgent.analyze()
       → Python 并行获取:
@@ -223,9 +232,27 @@ POST /api/market
           - get_economic_calendar() (FMP)
           - get_earnings_calendar() (FMP)
       → _prepare_data_for_analyst() 清理数据 (减少 ~45% token)
-      → Analyst Agent 生成结构化报告
-      → 保存到 Insforge
-      → 返回 {title, summary, in_depth_analysis, calendar, indices, ...}
+      → Analyst Agent 生成结构化报告 (MarketReportOutput)
+      → 保存到 Insforge (Upsert by report_date)
+      → 返回结构化数据:
+          {
+            title,           # 一句有观点的标题
+            summary,         # 2-3 句摘要
+            intro,           # 开场白 (2-3 段)
+            macro: {         # 宏观信号分析
+              signals: [{name, current_value, change, trend_direction, analysis}],
+              summary
+            },
+            news: {          # 新闻分析
+              headlines: [{title, fact_summary, deep_analysis, url}],
+              briefs: [{title, summary, analysis, url}]
+            },
+            report_summary,  # 总结展望 (3 段)
+            calendar: [{date, event, analysis}],  # 关键事件
+            indices,         # 市场指数数据
+            market_data,     # 原始数据
+            from_cache       # 是否来自缓存
+          }
 ```
 
 **流动性分析流程:**
@@ -278,16 +305,16 @@ POST /api/liquidity/analysis
 | 字段 | 类型 | 描述 |
 |------|------|------|
 | id | UUID | 主键 |
-| report_date | DATE | 报告日期 (唯一) |
+| report_date | DATE | 报告日期 (唯一, Pacific 时区) |
 | timestamp | TEXT | 生成时间戳 |
-| title | TEXT | 报告标题 |
-| summary | TEXT | 摘要 (列表预览用) |
-| in_depth_analysis | TEXT | 深度分析 (Markdown) |
-| calendar | JSONB | LLM 精选关键事件 |
-| indices | JSONB | 市场指数数据 |
-| economic_calendar | JSONB | 经济日历 |
-| earnings_calendar | JSONB | 财报日历 |
-| news_data | JSONB | 新闻数据 |
+| title | TEXT | 报告标题 (一句有观点的话) |
+| summary | TEXT | 摘要 (2-3 句, 列表预览用) |
+| intro | TEXT | 开场白 (2-3 段) |
+| macro | JSONB | 宏观信号分析 {signals: [], summary} |
+| news | JSONB | 新闻分析 {headlines: [], briefs: []} |
+| report_summary | TEXT | 总结展望 (3 段, 无小标题) |
+| calendar | JSONB | LLM 精选关键事件 [{date, event, analysis}] |
+| indices | JSONB | 市场指数数据 (转换后格式) |
 | market_data | JSONB | 原始市场数据 |
 
 **数据库表**: `liquidity_analyses` (流动性分析)
@@ -301,9 +328,21 @@ POST /api/liquidity/analysis
 | generated_at | TIMESTAMPTZ | 生成时间 |
 | model | TEXT | 使用的模型 |
 
+**数据库表**: `email_feedback` (邮件反馈)
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| id | UUID | 主键 |
+| report_date | DATE | 报告日期 |
+| report_id | UUID | 报告 ID |
+| email | TEXT | 用户邮箱 |
+| rating | TEXT | 评分 (satisfied/dissatisfied) |
+| created_at | TIMESTAMPTZ | 反馈时间 |
+
 **Insforge 配置**:
 - Base URL: `https://9wmhxyi4.us-east.insforge.app`
 - 认证: 匿名 JWT Token
+- 存储策略: Upsert by report_date (同日多次调用只存一份)
 
 ## 开发注意事项
 
@@ -475,16 +514,66 @@ POST /api/liquidity/analysis
 
 ## 报告格式
 
-**市场日报** (Analyst Agent) 结构化输出:
-- `title`: 一句有观点的标题 (15-30 中文字符)
-- `summary`: 2-3 句摘要 (列表预览用)
-- `analysis`: Markdown 完整报告,包含以下章节:
-  1. **主要市场叙事** - 当前市场主导逻辑
-  2. **宏观环境** - 指标数据 + 综合判断
-  3. **重要新闻** - 筛选后的事件新闻 (带链接)
-  4. **未来 1-2 周** - 关键事件时间线
-  5. **总结与思考框架** - 帮助散户理解市场脉络
-- `calendar`: LLM 精选的 5-10 个关键事件 (中文事件名 + 影响分析)
+**市场日报** (Analyst Agent) 结构化输出 (MarketReportOutput):
+
+```typescript
+{
+  // 基础信息
+  title: string,      // 一句有观点的标题 (15-30 中文字符)
+  summary: string,    // 2-3 句摘要 (50-100 字符, 列表预览用)
+  intro: string,      // 开场白 (2-3 段, 150-250 字符)
+                      // 1) 今日市场情绪和表现
+                      // 2) 2-3 个最值得关注的点
+                      // 3) 引导到详细分析
+
+  // 宏观信号 (结构化)
+  macro: {
+    signals: [{       // 2-3 个最重要的宏观信号
+      name: string,           // 信号名称 (VIX, 10Y国债, 美元指数等)
+      current_value: string,  // 当前值 (18.5, 4.50%, 105.2)
+      change: string,         // 变化描述 (周跌12.3%, 周涨0.15%)
+      trend_direction: "up" | "down" | "flat",
+      analysis: string        // 3-4 句分析 (趋势、区间位置、影响)
+    }],
+    summary: string   // 4-6 句宏观环境综合判断
+  },
+
+  // 新闻分析 (结构化)
+  news: {
+    headlines: [{     // 2-4 条头条新闻 (深度分析)
+      title: string,          // 中文标题
+      fact_summary: string,   // 一句话事实摘要
+      deep_analysis: string,  // 5-6 句深度分析 (背景、影响、关注点)
+      url: string             // 原文链接
+    }],
+    briefs: [{        // 8-12 条快讯 (简短分析)
+      title: string,
+      summary: string,        // 一句话摘要
+      analysis: string,       // 2-3 句市场影响
+      url: string
+    }]
+  },
+
+  // 总结展望 (自由文本)
+  report_summary: string,  // 3 段 (无小标题):
+                           // 1) 今日回顾 - 市场表现、板块轮动
+                           // 2) 原因分析 - 宏观因素 + 新闻催化
+                           // 3) 前瞻展望 - 具体标的 ($TICKER)、风险、事件
+
+  // 关键事件
+  calendar: [{        // 5-10 个未来关键事件
+    date: string,     // YYYY-MM-DD (从源数据复制)
+    event: string,    // 中文事件名 (美光科技财报, 美国CPI数据)
+    analysis: string  // 1-2 句影响分析
+  }]
+}
+```
+
+**AI Prompt 核心原则**:
+- **事实核查**: 所有数据必须与源数据一致,不能夸大或曲解
+- **因果链条**: 为什么重要 → 会导致什么 → 意味着什么
+- **可操作性**: 包含具体标的 ($TICKER 格式) 和风险提示
+- **散户视角**: 用通俗语言解释专业概念
 
 **流动性分析** (Liquidity Agent) 6 维度框架:
 1. **当前状态** - 各指标历史水平定位

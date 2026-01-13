@@ -118,16 +118,18 @@ class EmailService:
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
                 <tr>
                     <td style="vertical-align: middle;">
-                        <table cellpadding="0" cellspacing="0">
-                            <tr>
-                                <td style="vertical-align: middle; padding-right: 12px;">
-                                    <img src="{self.logo_url}" alt="TheMarketBrew" width="36" height="36" style="display: block; border-radius: 6px;" />
-                                </td>
-                                <td style="vertical-align: middle;">
-                                    <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">THEMARKETBREW</span>
-                                </td>
-                            </tr>
-                        </table>
+                        <a href="{self.frontend_url}" style="text-decoration: none;">
+                            <table cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="vertical-align: middle; padding-right: 12px;">
+                                        <img src="{self.logo_url}" alt="TheMarketBrew" width="36" height="36" style="display: block; border-radius: 6px;" />
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.1em;">THEMARKETBREW</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </a>
                     </td>
                     <td style="text-align: right; vertical-align: middle;">
                         <div style="color: #71717a; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">{title}</div>
@@ -264,6 +266,11 @@ class EmailService:
         # Get report_date for feedback section
         feedback_report_date = report_date or data.get("report_date") or today_str()
         feedback_report_id = report_id or data.get("report_id")
+
+        # Build report URL for title link
+        report_url = ""
+        if feedback_report_id:
+            report_url = f"{self.frontend_url}/today/{feedback_report_id}"
 
         report_title = data.get("title") or "Daily Market Brief"
         report_summary = data.get("summary", "")
@@ -466,7 +473,7 @@ class EmailService:
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         新的一天，为你准备了今日的市场简报，一起看看发生了什么吧。
                     </p>
-                    <h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{report_title}</h1>
+                    {f'<a href="{report_url}" style="text-decoration: none;"><h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{report_title}</h1></a>' if report_url else f'<h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{report_title}</h1>'}
                     {f'<p style="color: #71717a; font-size: 14px; margin: 0; line-height: 1.6;">{report_summary}</p>' if report_summary else ''}
                 </div>
 
