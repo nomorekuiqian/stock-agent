@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 import { NavAuth } from "@/components/NavAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MobileMenu } from "@/components/MobileMenu";
+import { NavDropdown } from "@/components/NavDropdown";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -118,23 +119,25 @@ export default function RootLayout({
 
                 {/* Navigation Links */}
                 <div className="hidden md:flex items-center gap-1">
+                  <NavDropdown
+                    label="日报"
+                    items={[
+                      { href: '/today', label: '今日日报' },
+                      { href: '/today/archive', label: '往期归档' },
+                    ]}
+                  />
+                  <NavDropdown
+                    label="专属"
+                    items={[
+                      { href: '/for-you', label: '今日专属' },
+                      { href: '/for-you/archive', label: '往期归档' },
+                    ]}
+                  />
                   <Link
-                    href="/today"
+                    href="/tools"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
-                    今日
-                  </Link>
-                  <Link
-                    href="/liquidity"
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    流动性
-                  </Link>
-                  <Link
-                    href="/for-you"
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    专属
+                    工具
                   </Link>
                 </div>
 
@@ -167,10 +170,13 @@ export default function RootLayout({
                 {/* Links */}
                 <div className="flex items-center gap-6 text-xs text-muted-foreground">
                   <Link href="/today" className="hover:text-foreground transition-colors">
-                    今日
+                    日报
                   </Link>
-                  <Link href="/liquidity" className="hover:text-foreground transition-colors">
-                    流动性
+                  <Link href="/for-you" className="hover:text-foreground transition-colors">
+                    专属
+                  </Link>
+                  <Link href="/tools" className="hover:text-foreground transition-colors">
+                    工具
                   </Link>
                   <Link href="/today/archive" className="hover:text-foreground transition-colors">
                     归档
