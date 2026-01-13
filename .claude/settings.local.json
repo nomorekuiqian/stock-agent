@@ -112,7 +112,8 @@
       "Bash(CCLSP_CONFIG_PATH=/Users/kedeng/Desktop/projects/stock-agent/.cclsp.json timeout 5 npx cclsp@latest:*)",
       "mcp__cclsp__find_references",
       "mcp__cclsp__get_diagnostics",
-      "mcp__chrome-devtools__press_key"
+      "mcp__chrome-devtools__press_key",
+      "mcp__chrome-devtools__select_page"
     ],
     "deny": [],
     "ask": []

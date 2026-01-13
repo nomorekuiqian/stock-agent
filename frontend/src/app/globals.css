@@ -455,6 +455,34 @@ h1, h2, h3, h4, h5, h6 {
 .delay-600 { animation-delay: 600ms; }
 .delay-700 { animation-delay: 700ms; }
 
+/* Sparkline Draw Animation */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-draw-line {
+  animation: draw-line 1s ease-out forwards;
+}
+
+/* Subtle Pulse - For status indicators */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
 /* ============================================
    SCROLLBAR - Minimal & Elegant
    ============================================ */

@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api, DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, StockSearchResult, StockQuote } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort } from '@/lib/timezone';
+import WatchlistPanel from '@/components/WatchlistPanel';
 
 // Stock name mapping (English + Chinese)
 const STOCK_NAMES: Record<string, { en: string; zh: string }> = {
@@ -495,172 +496,28 @@ export default function ForYouPage() {
         </div>
       </section>
 
-      {/* Watchlist Panel */}
-      <section className="border-b border-border/50">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
-          <div className="terminal-card p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">关注列表</h3>
-                <span className={`text-xs font-data ${symbols.length >= MAX_WATCHLIST_SIZE ? 'text-amber-400' : 'text-muted-foreground'}`}>
-                  ({symbols.length}/{MAX_WATCHLIST_SIZE})
-                </span>
-              </div>
-              {symbols.length >= MAX_WATCHLIST_SIZE && (
-                <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                  已达上限
-                </span>
-              )}
-            </div>
-
-            {loadingWatchlist ? (
-              <div className="flex items-center gap-2 text-muted-foreground py-4">
-                <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
-                <span className="text-sm">加载关注列表...</span>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Search input */}
-                <div ref={searchContainerRef} className="relative">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => handleSearchInputChange(e.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                      disabled={symbols.length >= MAX_WATCHLIST_SIZE}
-                      placeholder={symbols.length >= MAX_WATCHLIST_SIZE ? "已达上限，请先移除股票" : "搜索股票 (如 AAPL, Apple)"}
-                      className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    {isSearching && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Search dropdown */}
-                  {showSearchDropdown && searchResults.length > 0 && (
-                    <div className="absolute z-50 w-full mt-2 bg-card border border-border/50 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                      {searchResults.map((result) => (
-                        <button
-                          key={result.symbol}
-                          onClick={() => handleAddSymbol(result.symbol, result.name)}
-                          className="w-full px-4 py-3 text-left hover:bg-emerald-500/5 transition-colors flex items-center justify-between gap-2 first:rounded-t-lg last:rounded-b-lg border-b border-border/30 last:border-0"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="font-medium font-data text-foreground shrink-0">{result.symbol}</span>
-                            <span className="text-sm text-muted-foreground truncate">{result.name}</span>
-                          </div>
-                          <Plus className="w-4 h-4 text-emerald-400 shrink-0" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Preset portfolios */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider">快速添加</p>
-                  <div className="flex flex-wrap gap-2">
-                    {PRESET_PORTFOLIOS.map((portfolio) => {
-                      const addedCount = portfolio.symbols.filter(s => symbols.includes(s)).length;
-                      const allAdded = addedCount === portfolio.symbols.length;
-                      const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
-                      const isDisabled = allAdded || atLimit;
-                      return (
-                        <button
-                          key={portfolio.id}
-                          onClick={() => handleAddPortfolio(portfolio)}
-                          disabled={isDisabled}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
-                            allAdded
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 cursor-default'
-                              : atLimit
-                              ? 'bg-card text-muted-foreground border-border/50 opacity-50 cursor-not-allowed'
-                              : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30 hover:bg-emerald-500/5'
-                          }`}
-                        >
-                          <span>{portfolio.nameZh}</span>
-                          <span className="text-muted-foreground font-data">({portfolio.symbols.length})</span>
-                          {allAdded && (
-                            <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Current symbols - card style */}
-                {symbols.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {symbols.map((symbol) => {
-                      const stockInfo = STOCK_NAMES[symbol];
-                      const quote = quotes[symbol];
-                      const displayName = stockInfo?.zh || stockInfo?.en || quote?.name || '';
-                      const price = quote?.price;
-                      const dailyChange = quote?.daily_change;
-                      const isPositive = dailyChange !== undefined && dailyChange >= 0;
-
-                      return (
-                        <div
-                          key={symbol}
-                          className="group relative bg-card/50 hover:bg-card border border-border/30 hover:border-emerald-500/30 rounded-lg p-3 transition-all"
-                        >
-                          <button
-                            onClick={() => handleRemoveSymbol(symbol)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full bg-card/80 border border-border/30 text-muted-foreground/60 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all"
-                            aria-label={`Remove ${symbol}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                          <div className="flex items-center justify-between pr-6">
-                            <div className="font-semibold font-data text-foreground text-sm">{symbol}</div>
-                            {price !== undefined && (
-                              <div className="text-xs font-medium font-data text-foreground">
-                                ${price.toFixed(2)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between pr-6 mt-1">
-                            {displayName ? (
-                              <div className="text-xs text-muted-foreground truncate">{displayName}</div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground/30">-</div>
-                            )}
-                            {dailyChange !== undefined && (
-                              <div className={`text-xs font-medium font-data ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {isPositive ? '+' : ''}{dailyChange.toFixed(2)}%
-                              </div>
-                            )}
-                          </div>
-                          {loadingQuotes && !quote && (
-                            <div className="absolute inset-0 bg-card/80 rounded-lg flex items-center justify-center">
-                              <div className="w-3 h-3 rounded-full border border-border border-t-emerald-500 animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    搜索或使用快速添加来构建你的关注列表
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* Watchlist Panel - Premium Redesign */}
+      <WatchlistPanel
+        symbols={symbols}
+        quotes={quotes}
+        stockNames={STOCK_NAMES}
+        presetPortfolios={PRESET_PORTFOLIOS}
+        maxSize={MAX_WATCHLIST_SIZE}
+        isLoading={loadingWatchlist}
+        isLoadingQuotes={loadingQuotes}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        showSearchDropdown={showSearchDropdown}
+        onSearchChange={handleSearchInputChange}
+        onSearchKeyDown={handleSearchKeyDown}
+        onSearchFocus={() => searchQuery && setShowSearchDropdown(true)}
+        onAddSymbol={handleAddSymbol}
+        onRemoveSymbol={handleRemoveSymbol}
+        onAddPortfolio={handleAddPortfolio}
+        searchContainerRef={searchContainerRef}
+        searchInputRef={searchInputRef}
+      />
 
       {/* Error */}
       {error && (
