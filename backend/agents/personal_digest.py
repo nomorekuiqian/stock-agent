@@ -217,7 +217,10 @@ DIGEST_INSTRUCTION = """
 不好的示例: "今日关注股票涨跌不一，NVDA涨3%，AAPL跌1%"（这是复读机）
 
 ### stocks（关注股票速览）
-为用户 watchlist 中的每只股票生成分析，按重要性排序（波动最大或最值得关注的在前）。
+**重要：必须为 user_symbols 中的每一只股票生成分析，不能遗漏任何一只。**
+
+按重要性排序（波动最大或最值得关注的在前），但所有股票都必须包含在输出中。
+即使某只股票今天没有相关新闻，也要根据价格走势和市场环境给出观察分析。
 
 每只股票包含:
 - symbol: 股票代码
@@ -348,8 +351,8 @@ class PersonalDigest:
             if not symbols:
                 return {"success": False, "error": "No symbols provided"}
 
-            # Limit to 20 stocks max
-            symbols = symbols[:20]
+            # Limit to 15 stocks max
+            symbols = symbols[:15]
             print(f"[PersonalDigest] Generating digest for: {symbols}")
 
             # Step 1: Fetch user-specific stock data

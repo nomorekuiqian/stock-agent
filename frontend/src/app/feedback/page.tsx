@@ -24,6 +24,7 @@ function FeedbackContent() {
   const email = searchParams.get('email');
   const rating = searchParams.get('rating');
   const reportId = searchParams.get('report_id');
+  const reportType = searchParams.get('report_type') || 'daily'; // 'daily' or 'digest'
 
   // Legacy support: check for status param (old redirect flow)
   const legacyStatus = searchParams.get('status');
@@ -63,6 +64,7 @@ function FeedbackContent() {
           report_date: reportDate,
           email: email,
           rating: rating,
+          report_type: reportType,
         });
         if (reportId) {
           params.append('report_id', reportId);
@@ -85,12 +87,16 @@ function FeedbackContent() {
     };
 
     saveFeedback();
-  }, [reportDate, email, rating, reportId, legacyStatus]);
+  }, [reportDate, email, rating, reportId, reportType, legacyStatus]);
 
   // Determine if we should show success state
   // Show success immediately if we have valid rating (optimistic UI)
   const showSuccess = rating === 'satisfied' || rating === 'dissatisfied';
   const showDuplicate = saveStatus === 'duplicate' || initialStatus === 'duplicate';
+
+  // Determine report link based on type
+  const reportLink = reportType === 'digest' ? '/for-you' : '/today';
+  const reportLabel = reportType === 'digest' ? '查看专属日报' : '查看今日报告';
 
   // Success state (immediate display)
   if (showSuccess && !showDuplicate) {
@@ -116,10 +122,10 @@ function FeedbackContent() {
               我们会根据你的反馈持续改进日报质量，为你提供更好的市场分析。
             </p>
             <Link
-              href="/today"
+              href={reportLink}
               className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
             >
-              查看今日报告
+              {reportLabel}
             </Link>
           </div>
 
@@ -160,10 +166,10 @@ function FeedbackContent() {
               你的反馈已更新，感谢你的参与!
             </p>
             <Link
-              href="/today"
+              href={reportLink}
               className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
             >
-              查看今日报告
+              {reportLabel}
             </Link>
           </div>
 
@@ -219,10 +225,10 @@ function FeedbackContent() {
             请尝试重新点击邮件中的反馈按钮，如果问题持续存在请联系我们。
           </p>
           <Link
-            href="/today"
+            href={reportLink}
             className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
           >
-            查看今日报告
+            {reportLabel}
           </Link>
         </div>
 

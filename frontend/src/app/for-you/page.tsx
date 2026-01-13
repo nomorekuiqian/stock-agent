@@ -62,6 +62,9 @@ const STOCK_NAMES: Record<string, { en: string; zh: string }> = {
 };
 
 // Preset portfolios
+// Watchlist limit
+const MAX_WATCHLIST_SIZE = 15;
+
 const PRESET_PORTFOLIOS = [
   {
     id: 'mag7',
@@ -283,6 +286,9 @@ export default function ForYouPage() {
   };
 
   const handleAddSymbol = (symbol: string, name?: string) => {
+    if (symbols.length >= MAX_WATCHLIST_SIZE) {
+      return; // Already at limit
+    }
     const sym = symbol.trim().toUpperCase();
     if (sym && !symbols.includes(sym)) {
       const newSymbols = [...symbols, sym];
@@ -300,7 +306,7 @@ export default function ForYouPage() {
   };
 
   const handleAddPortfolio = (portfolio: typeof PRESET_PORTFOLIOS[0]) => {
-    const newSymbols = [...new Set([...symbols, ...portfolio.symbols])];
+    const newSymbols = [...new Set([...symbols, ...portfolio.symbols])].slice(0, MAX_WATCHLIST_SIZE);
     setSymbols(newSymbols);
     if (user?.id) {
       saveUserWatchlist(user.id, newSymbols);
@@ -494,11 +500,18 @@ export default function ForYouPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
           <div className="terminal-card p-6">
             {/* Header */}
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-              <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">关注列表</h3>
-              {symbols.length > 0 && (
-                <span className="text-xs text-muted-foreground font-data">({symbols.length})</span>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">关注列表</h3>
+                <span className={`text-xs font-data ${symbols.length >= MAX_WATCHLIST_SIZE ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                  ({symbols.length}/{MAX_WATCHLIST_SIZE})
+                </span>
+              </div>
+              {symbols.length >= MAX_WATCHLIST_SIZE && (
+                <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                  已达上限
+                </span>
               )}
             </div>
 
@@ -520,8 +533,9 @@ export default function ForYouPage() {
                       onChange={(e) => handleSearchInputChange(e.target.value)}
                       onKeyDown={handleSearchKeyDown}
                       onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                      placeholder="搜索股票 (如 AAPL, Apple)"
-                      className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                      disabled={symbols.length >= MAX_WATCHLIST_SIZE}
+                      placeholder={symbols.length >= MAX_WATCHLIST_SIZE ? "已达上限，请先移除股票" : "搜索股票 (如 AAPL, Apple)"}
+                      className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     {isSearching && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -557,14 +571,18 @@ export default function ForYouPage() {
                     {PRESET_PORTFOLIOS.map((portfolio) => {
                       const addedCount = portfolio.symbols.filter(s => symbols.includes(s)).length;
                       const allAdded = addedCount === portfolio.symbols.length;
+                      const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
+                      const isDisabled = allAdded || atLimit;
                       return (
                         <button
                           key={portfolio.id}
                           onClick={() => handleAddPortfolio(portfolio)}
-                          disabled={allAdded}
+                          disabled={isDisabled}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
                             allAdded
                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 cursor-default'
+                              : atLimit
+                              ? 'bg-card text-muted-foreground border-border/50 opacity-50 cursor-not-allowed'
                               : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30 hover:bg-emerald-500/5'
                           }`}
                         >

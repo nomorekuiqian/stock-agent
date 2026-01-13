@@ -144,12 +144,14 @@ class EmailService:
         self,
         report_date: str,
         report_id: str = None,
+        report_type: str = "daily",
     ) -> str:
         """Generate email feedback survey section.
 
         Args:
             report_date: Report date in YYYY-MM-DD format
             report_id: Optional report UUID
+            report_type: Type of report ("daily" or "digest")
 
         Returns:
             HTML string for feedback section
@@ -158,9 +160,9 @@ class EmailService:
         # This allows local dev emails to test production feedback flow
         feedback_frontend_url = "https://themarketbrew.com"
 
-        # Build feedback base URL with report_date and optional report_id
+        # Build feedback base URL with report_date, report_type and optional report_id
         # Email will be dynamically filled by Resend template variable
-        base_params = f"report_date={report_date}"
+        base_params = f"report_date={report_date}&report_type={report_type}"
         if report_id:
             base_params += f"&report_id={report_id}"
 
@@ -171,13 +173,20 @@ class EmailService:
             f"{feedback_frontend_url}/feedback?{base_params}&email={{{{{{email}}}}}}"
         )
 
+        # Different prompt text based on report type
+        prompt_text = (
+            "今天的专属日报对你有帮助吗?"
+            if report_type == "digest"
+            else "今天的日报对你有帮助吗?"
+        )
+
         return f"""
         <div style="background: #f9fafb; padding: 24px; border-top: 1px solid #e5e7eb;">
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
                 <tr>
                     <td style="text-align: center; padding-bottom: 16px;">
                         <p style="margin: 0; font-size: 14px; color: #6b7280;">
-                            今天的日报对你有帮助吗?
+                            {prompt_text}
                         </p>
                     </td>
                 </tr>
@@ -495,8 +504,21 @@ class EmailService:
         """
         return html
 
-    def _format_digest_html(self, data: dict, first_name: str = "") -> str:
-        """Format personal digest data into an HTML email."""
+    def _format_digest_html(
+        self,
+        data: dict,
+        first_name: str = "",
+        digest_date: str = None,
+        digest_id: str = None,
+    ) -> str:
+        """Format personal digest data into an HTML email.
+
+        Args:
+            data: Digest data dictionary
+            first_name: User's first name for greeting
+            digest_date: Digest date for feedback URL (defaults to today)
+            digest_id: Digest UUID for feedback URL (optional)
+        """
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
 
@@ -506,6 +528,10 @@ class EmailService:
         news = data.get("news", {})
         events = data.get("events", [])
         summary = data.get("summary", {})
+
+        # Get digest_date for feedback section
+        feedback_digest_date = digest_date or data.get("digest_date") or today_str()
+        feedback_digest_id = digest_id or data.get("digest_id")
 
         display_name = first_name or "pengyou"
 
@@ -673,6 +699,7 @@ class EmailService:
                     {summary_html}
                 </div>
 
+                {self._get_feedback_section(feedback_digest_date, feedback_digest_id, "digest")}
                 {self._get_email_footer()}
             </div>
         </body>
@@ -744,16 +771,40 @@ class EmailService:
             return {"success": False, "error": str(e)}
 
     async def send_personal_digest(
-        self, data: dict, to_email: str, first_name: str = None
+        self,
+        data: dict,
+        to_email: str,
+        first_name: str = None,
+        digest_date: str = None,
+        digest_id: str = None,
     ) -> dict:
-        """Send a personal digest email to a single recipient."""
+        """Send a personal digest email to a single recipient.
+
+        Args:
+            data: Digest data dictionary
+            to_email: Recipient email address
+            first_name: User's first name for greeting
+            digest_date: Digest date for feedback URL (defaults to today)
+            digest_id: Digest UUID for feedback URL (optional)
+        """
         print(f"[EmailService] send_personal_digest to={to_email}")
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            html_content = self._format_digest_html(data, first_name or "")
+            # Get digest_date for feedback
+            feedback_date = digest_date or data.get("digest_date") or today_str()
+            feedback_id = digest_id or data.get("digest_id")
+
+            html_content = self._format_digest_html(
+                data, first_name or "", feedback_date, feedback_id
+            )
+
+            # Replace email template variable for single sends (not broadcast)
+            from urllib.parse import quote
+
+            html_content = html_content.replace("{{{email}}}", quote(to_email))
 
             today = today_str()
             one_line = data.get("one_line_summary", "")[:50]
@@ -866,8 +917,12 @@ class EmailService:
                     SubscriptionChannel.PERSONAL_DIGEST
                 )
 
-            html_content = self._format_digest_html(data, first_name=first_name)
             today = today_str()
+            digest_date = data.get("digest_date") or today
+            digest_id = data.get("digest_id")
+            html_content = self._format_digest_html(
+                data, first_name=first_name, digest_date=digest_date, digest_id=digest_id
+            )
 
             one_line = data.get("one_line_summary", "")
             subject = (

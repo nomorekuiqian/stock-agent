@@ -443,7 +443,12 @@ async def get_digest_preview(
 
         # Render HTML using the real email template
         email_service = get_email_service()
-        html_content = email_service._format_digest_html(email_data, "Preview User")
+        html_content = email_service._format_digest_html(
+            email_data,
+            first_name="Preview User",
+            digest_date=digest.get("digest_date"),
+            digest_id=digest.get("id"),
+        )
 
         return {
             "success": True,
