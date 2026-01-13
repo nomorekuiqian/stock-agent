@@ -24,6 +24,12 @@ export function MobileMenu() {
       ],
     },
     {
+      title: '板块',
+      links: [
+        { href: '/sectors', label: '板块追踪' },
+      ],
+    },
+    {
       title: '工具',
       links: [
         { href: '/tools', label: '数据工具' },

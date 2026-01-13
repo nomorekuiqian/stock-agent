@@ -39,6 +39,8 @@ from app.models.request_models import (
     SyncedChannelInfo,
 )
 from agents.personal_digest import get_personal_digest
+from agents.sector_digest import get_sector_digest, SectorDigest
+from app.models.sector_digest_models import get_enabled_sectors, get_sector_by_id
 from app.services.subscription_service import (
     get_subscription_service,
     SubscriptionChannel,
@@ -1600,6 +1602,236 @@ async def get_feedback_stats(
                 status_code=500,
                 detail=result.get("error", "Failed to get feedback stats"),
             )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Sector Digest Endpoints
+# =============================================================================
+
+
+class SectorSubscribeRequest(BaseModel):
+    user_id: str
+    sector_id: str
+
+
+class SectorUnsubscribeRequest(BaseModel):
+    user_id: str
+    sector_id: str
+
+
+@app.get("/api/sectors")
+async def list_sectors():
+    """
+    List all available sectors for subscription.
+    """
+    try:
+        sectors = get_enabled_sectors()
+        return {
+            "success": True,
+            "sectors": [
+                {
+                    "id": s.id,
+                    "name_en": s.name_en,
+                    "name_zh": s.name_zh,
+                    "description": s.description,
+                    "symbols": s.symbols,
+                    "symbol_count": len(s.symbols),
+                }
+                for s in sectors
+            ],
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sectors/{sector_id}/digest")
+async def generate_sector_digest(sector_id: str):
+    """
+    Generate a sector digest for a specific sector.
+
+    Uses SectorDigest agent (gemini-3-pro-preview) to generate
+    in-depth sector analysis.
+    """
+    try:
+        sector = get_sector_by_id(sector_id)
+        if not sector:
+            raise HTTPException(status_code=404, detail=f"Sector '{sector_id}' not found")
+
+        if not sector.enabled:
+            raise HTTPException(status_code=400, detail=f"Sector '{sector_id}' is disabled")
+
+        digest_agent = get_sector_digest()
+        result = await digest_agent.generate(sector_id=sector_id)
+
+        if not result.get("success"):
+            error_msg = result.get("error", "Failed to generate sector digest")
+            raise HTTPException(status_code=500, detail=error_msg)
+
+        # Save to database
+        try:
+            insforge_service = get_insforge_service()
+            save_result = await insforge_service.save_sector_digest(
+                sector_id=sector_id,
+                digest_date=today_str(),
+                digest_data=result,
+            )
+            result["saved"] = save_result.get("success", False)
+            result["digest_id"] = save_result.get("digest_id")
+        except Exception as save_error:
+            print(f"[Warning] Failed to save sector digest: {save_error}")
+            result["saved"] = False
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sectors/{sector_id}/digest/latest")
+async def get_latest_sector_digest(sector_id: str):
+    """
+    Get the latest sector digest from database.
+    """
+    try:
+        sector = get_sector_by_id(sector_id)
+        if not sector:
+            raise HTTPException(status_code=404, detail=f"Sector '{sector_id}' not found")
+
+        insforge_service = get_insforge_service()
+        digest = await insforge_service.get_latest_sector_digest(sector_id)
+
+        if not digest:
+            return {
+                "success": True,
+                "digest": None,
+                "sector_id": sector_id,
+                "sector_name": sector.name_zh,
+            }
+
+        return {
+            "success": True,
+            "digest": digest.get("digest_data"),
+            "digest_date": digest.get("digest_date"),
+            "generated_at": digest.get("generated_at"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sectors/subscribe")
+async def subscribe_to_sector(request: SectorSubscribeRequest):
+    """
+    Subscribe a user to a sector for daily digests.
+    """
+    try:
+        sector = get_sector_by_id(request.sector_id)
+        if not sector:
+            raise HTTPException(status_code=404, detail=f"Sector '{request.sector_id}' not found")
+
+        if not sector.enabled:
+            raise HTTPException(status_code=400, detail=f"Sector '{request.sector_id}' is disabled")
+
+        insforge_service = get_insforge_service()
+        result = await insforge_service.subscribe_to_sector(
+            user_id=request.user_id,
+            sector_id=request.sector_id,
+        )
+
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to subscribe"))
+
+        return {
+            "success": True,
+            "message": f"Subscribed to {sector.name_zh}",
+            "sector_id": request.sector_id,
+            "is_new": result.get("is_new", True),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sectors/subscriptions")
+async def get_sector_subscriptions(user_id: str = Query(..., description="User ID")):
+    """
+    Get user's sector subscriptions.
+    """
+    try:
+        insforge_service = get_insforge_service()
+        result = await insforge_service.get_user_sector_subscriptions(user_id)
+
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get subscriptions"))
+
+        # Enrich with sector info
+        subscriptions = []
+        for sub in result.get("subscriptions", []):
+            sector = get_sector_by_id(sub.get("sector_id"))
+            if sector:
+                subscriptions.append({
+                    "sector_id": sector.id,
+                    "name_en": sector.name_en,
+                    "name_zh": sector.name_zh,
+                    "description": sector.description,
+                    "symbols": sector.symbols,
+                    "subscribed_at": sub.get("subscribed_at"),
+                })
+
+        return {
+            "success": True,
+            "subscriptions": subscriptions,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/sectors/{sector_id}/unsubscribe")
+async def unsubscribe_from_sector(sector_id: str, user_id: str = Query(..., description="User ID")):
+    """
+    Unsubscribe a user from a sector.
+    """
+    try:
+        insforge_service = get_insforge_service()
+        result = await insforge_service.unsubscribe_from_sector(
+            user_id=user_id,
+            sector_id=sector_id,
+        )
+
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to unsubscribe"))
+
+        return {
+            "success": True,
+            "message": f"Unsubscribed from sector",
+            "sector_id": sector_id,
+        }
 
     except HTTPException:
         raise

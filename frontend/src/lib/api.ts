@@ -335,6 +335,72 @@ export interface StockQuotesResponse {
   quotes: StockQuote[];
 }
 
+// Sector Digest Types
+export interface SectorInfo {
+  id: string;
+  name_en: string;
+  name_zh: string;
+  description: string;
+  symbols: string[];
+  symbol_count: number;
+}
+
+export interface SectorStockAnalysis {
+  symbol: string;
+  name: string;
+  change_percent: number;
+  analysis: string;
+}
+
+export interface SectorNews {
+  title: string;
+  summary: string;
+  url?: string;
+}
+
+export interface SectorEvent {
+  date: string;
+  title: string;
+  description?: string;
+}
+
+export interface SectorDigestData {
+  success: boolean;
+  timestamp: string;
+  sector_id: string;
+  sector_name: string;
+  greeting: string;
+  intro: string;
+  stocks: SectorStockAnalysis[];
+  news: SectorNews[];
+  events: SectorEvent[];
+  summary: string;
+  error?: string;
+}
+
+export interface SectorSubscription {
+  id: string;
+  sector_id: string;
+  subscribed_at: string;
+}
+
+export interface SectorSubscriptionsResponse {
+  success: boolean;
+  subscriptions: SectorSubscription[];
+}
+
+export interface SectorSubscribeResponse {
+  success: boolean;
+  message: string;
+  sector_id: string;
+}
+
+export interface SectorUnsubscribeResponse {
+  success: boolean;
+  message: string;
+  sector_id: string;
+}
+
 export const api = {
   getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
@@ -594,5 +660,80 @@ export const api = {
       throw new Error(error.detail || 'Failed to get stock quotes');
     }
     return response.json();
+  },
+
+  // Sector APIs
+  sectors: {
+    list: async (): Promise<SectorInfo[]> => {
+      const response = await fetch(`${API_BASE_URL}/sectors`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch sectors' }));
+        throw new Error(error.detail || 'Failed to fetch sectors');
+      }
+      const data = await response.json();
+      return data.sectors;
+    },
+
+    generateDigest: async (sectorId: string): Promise<SectorDigestData> => {
+      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/digest`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to generate sector digest' }));
+        throw new Error(error.detail || 'Failed to generate sector digest');
+      }
+      return response.json();
+    },
+
+    getLatestDigest: async (sectorId: string): Promise<SectorDigestData | null> => {
+      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/digest/latest`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch sector digest' }));
+        throw new Error(error.detail || 'Failed to fetch sector digest');
+      }
+      const data = await response.json();
+      // Backend returns { success, digest, digest_date, generated_at }
+      // Extract the digest field which contains the full SectorDigestData
+      return data.digest || null;
+    },
+
+    subscribe: async (sectorId: string, userId: string): Promise<SectorSubscribeResponse> => {
+      const response = await fetch(`${API_BASE_URL}/sectors/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sector_id: sectorId, user_id: userId }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to subscribe to sector' }));
+        throw new Error(error.detail || 'Failed to subscribe to sector');
+      }
+      return response.json();
+    },
+
+    unsubscribe: async (sectorId: string, userId: string): Promise<SectorUnsubscribeResponse> => {
+      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/unsubscribe?user_id=${userId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to unsubscribe from sector' }));
+        throw new Error(error.detail || 'Failed to unsubscribe from sector');
+      }
+      return response.json();
+    },
+
+    getSubscriptions: async (userId: string): Promise<SectorSubscription[]> => {
+      const response = await fetch(`${API_BASE_URL}/sectors/subscriptions?user_id=${userId}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch subscriptions' }));
+        throw new Error(error.detail || 'Failed to fetch subscriptions');
+      }
+      const data = await response.json();
+      return data.subscriptions;
+    },
   },
 };

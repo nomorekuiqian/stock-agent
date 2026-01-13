@@ -134,6 +134,12 @@ export default function RootLayout({
                     ]}
                   />
                   <Link
+                    href="/sectors"
+                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                  >
+                    板块
+                  </Link>
+                  <Link
                     href="/tools"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
@@ -174,6 +180,9 @@ export default function RootLayout({
                   </Link>
                   <Link href="/for-you" className="hover:text-foreground transition-colors">
                     专属
+                  </Link>
+                  <Link href="/sectors" className="hover:text-foreground transition-colors">
+                    板块
                   </Link>
                   <Link href="/tools" className="hover:text-foreground transition-colors">
                     工具

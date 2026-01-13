@@ -193,14 +193,22 @@ export function todayStr(): string {
 }
 
 /** @deprecated Use formatReportDate() instead */
-export function formatDateChinese(dateInput: string | Date): string {
+export function formatDateChinese(dateInput: string | Date | undefined | null): string {
+  // Handle undefined/null input
+  if (!dateInput) {
+    return '';
+  }
   // Extract YYYY-MM-DD from input (handles both "2025-12-28" and "2025-12-28T06:26:11.988Z")
   const dateStr = typeof dateInput === 'string' ? dateInput.slice(0, 10) : dateInput.toISOString().slice(0, 10);
   return formatReportDate(dateStr);
 }
 
 /** @deprecated Use formatTime() instead */
-export function formatTimePacific(dateInput: string | Date): string {
+export function formatTimePacific(dateInput: string | Date | undefined | null): string {
+  // Handle undefined/null input
+  if (!dateInput) {
+    return '';
+  }
   const utcStr = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
   return formatTime(utcStr);
 }
