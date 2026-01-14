@@ -2,7 +2,7 @@
 SectorDigest - Daily Digest for Sector Tracking
 
 Architecture:
-    Python (fetch sector stock + news data) -> SectorDigest Agent (gemini-3-pro-preview) -> Structured output
+    Python (fetch sector stock + news data) -> SectorDigest Agent (gemini-3-flash-preview) -> Structured output
 """
 
 import json
@@ -130,7 +130,7 @@ SECTOR_DIGEST_INSTRUCTION = """
 
 sector_digest_agent = LlmAgent(
     name="sector_digest",
-    model="gemini-3-pro-preview",
+    model="gemini-3-flash-preview",
     description="Generates sector-focused daily digest",
     instruction=SECTOR_DIGEST_INSTRUCTION,
     output_schema=SectorDigestOutput,

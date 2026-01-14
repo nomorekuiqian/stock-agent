@@ -17,6 +17,7 @@ from app.services.fred_service import (
     fetch_fred_series,
 )
 from app.services.liquidity_agent import get_liquidity_agent
+from app.services.fmp_service import get_fmp_service
 from app.models.request_models import (
     DigestRequest,
     DigestResponse,
@@ -1280,34 +1281,24 @@ async def get_latest_liquidity_analysis():
 
 
 # =============================================================================
-# Stock Search API
+# Stock Search API (using FMP for faster response)
 # =============================================================================
 
 @app.get("/api/stocks/search")
 async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8, ge=1, le=20)):
     """
-    Search stocks by symbol or company name using yfinance.
+    Search stocks by symbol or company name using FMP API.
 
     Returns list of matching stocks with symbol, name, type, and exchange.
     """
     try:
-        from yfinance import Search
+        fmp = get_fmp_service()
+        result = fmp.search_stocks(query=q, limit=limit)
 
-        search = Search(query=q, max_results=limit)
-        results = []
+        if result.get("status") == "error":
+            return {"stocks": []}
 
-        for quote in search.quotes:
-            # Only include stocks and ETFs (filter out options, futures, etc.)
-            quote_type = quote.get("typeDisp", "").lower()
-            if quote_type in ["equity", "etf", ""]:
-                results.append({
-                    "symbol": quote.get("symbol"),
-                    "name": quote.get("shortName") or quote.get("longName"),
-                    "type": quote.get("typeDisp"),
-                    "exchange": quote.get("exchange"),
-                })
-
-        return {"stocks": results}
+        return {"stocks": result.get("stocks", [])}
 
     except Exception as e:
         import traceback
@@ -1318,7 +1309,7 @@ async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8,
 @app.get("/api/stocks/quotes")
 async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-separated stock symbols")):
     """
-    Get current quotes for multiple stocks.
+    Get current quotes for multiple stocks using FMP API with 5-minute caching.
 
     Args:
         symbols: Comma-separated stock symbols (e.g., "AAPL,MSFT,NVDA")
@@ -1327,8 +1318,6 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
         Stock quotes with price and daily change.
     """
     try:
-        from agents.tools.market_data import get_stock_quotes
-
         symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
 
         if not symbol_list:
@@ -1337,17 +1326,20 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
         if len(symbol_list) > 20:
             symbol_list = symbol_list[:20]
 
-        result = get_stock_quotes(symbol_list)
+        fmp = get_fmp_service()
+        result = fmp.get_stock_quotes(symbol_list, use_cache=True)
 
-        # Transform to simpler format for frontend
+        # Transform to frontend format
         quotes = []
-        for symbol, data in result.get("stocks", {}).items():
+        for quote in result.get("quotes", []):
             quotes.append({
-                "symbol": symbol,
-                "name": data.get("name", symbol),
-                "price": data.get("price", 0),
-                "daily_change": data.get("daily_change", 0),
+                "symbol": quote.get("symbol", ""),
+                "name": quote.get("name", ""),
+                "price": quote.get("price", 0),
+                "daily_change": quote.get("daily_change", 0),
             })
+
+        print(f"[API] get_stock_quotes: {len(quotes)} quotes, {result.get('from_cache', 0)} from cache")
 
         return {"success": True, "quotes": quotes}
 

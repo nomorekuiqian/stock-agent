@@ -4,10 +4,59 @@ FMP (Financial Modeling Prep) API Service
 
 import os
 import httpx
+import time
 from typing import Optional
 from datetime import timedelta
 
 from app.utils.timezone import now_pacific, today_str, days_from_now
+
+
+# =============================================================================
+# Simple Memory Cache for Stock Quotes
+# =============================================================================
+
+class QuoteCache:
+    """Simple in-memory cache with TTL for stock quotes"""
+
+    def __init__(self, ttl_seconds: int = 300):  # 5 minutes default
+        self._cache: dict[str, tuple[dict, float]] = {}
+        self._ttl = ttl_seconds
+
+    def get(self, key: str) -> dict | None:
+        """Get cached value if not expired"""
+        if key in self._cache:
+            value, timestamp = self._cache[key]
+            if time.time() - timestamp < self._ttl:
+                return value
+            else:
+                del self._cache[key]
+        return None
+
+    def set(self, key: str, value: dict) -> None:
+        """Set cache value with current timestamp"""
+        self._cache[key] = (value, time.time())
+
+    def clear(self) -> None:
+        """Clear all cached values"""
+        self._cache.clear()
+
+    def cleanup(self) -> None:
+        """Remove expired entries"""
+        current_time = time.time()
+        expired_keys = [
+            k for k, (_, ts) in self._cache.items()
+            if current_time - ts >= self._ttl
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+
+
+# Global cache instances
+_quote_cache = QuoteCache(ttl_seconds=300)  # 5 minutes for quotes
+
+# Stock list cache (for search) - longer TTL since it rarely changes
+_stock_list_cache: dict[str, tuple[list, float]] = {}
+_STOCK_LIST_TTL = 86400  # 24 hours
 
 
 # Core tickers for FMP news - Tech worker focused
@@ -845,6 +894,209 @@ class FMPService:
             "previousClose": self._safe_float(item.get("previousClose")),
             "symbol": item.get("symbol"),
         }
+
+    # =========================================================================
+    # Stock Search (for Watchlist)
+    # =========================================================================
+
+    def _get_stock_list(self) -> list:
+        """
+        Get cached stock list or fetch from FMP.
+        Uses /stable/stock-list endpoint with 24-hour cache.
+        """
+        global _stock_list_cache
+
+        # Check cache
+        if "list" in _stock_list_cache:
+            data, timestamp = _stock_list_cache["list"]
+            if time.time() - timestamp < _STOCK_LIST_TTL:
+                return data
+
+        # Fetch from FMP stable endpoint
+        print("[FMP] Fetching stock list from /stable/stock-list...")
+        data = self._request("/stable/stock-list")
+
+        if data and isinstance(data, list):
+            _stock_list_cache["list"] = (data, time.time())
+            print(f"[FMP] Cached {len(data)} stocks")
+            return data
+
+        return []
+
+    def search_stocks(self, query: str, limit: int = 10) -> dict:
+        """
+        Search for stocks by symbol or company name.
+        Uses cached stock list with local filtering for fast search.
+
+        Args:
+            query: Search query (symbol or company name)
+            limit: Maximum results to return (default: 10)
+
+        Returns:
+            {
+                "status": "success|error",
+                "stocks": [
+                    {
+                        "symbol": "AAPL",
+                        "name": "Apple Inc.",
+                        "type": "Equity",
+                        "exchange": "NASDAQ"
+                    },
+                    ...
+                ]
+            }
+        """
+        print(f"[FMP] search_stocks(query={query}, limit={limit})")
+
+        # Get stock list (cached)
+        stock_list = self._get_stock_list()
+        if not stock_list:
+            return {"status": "error", "stocks": [], "error": "Failed to fetch stock list"}
+
+        # Local search with scoring
+        query_upper = query.upper().strip()
+        query_lower = query.lower().strip()
+        results = []
+
+        for stock in stock_list:
+            symbol = stock.get("symbol", "")
+            name = stock.get("companyName", "") or stock.get("name", "")
+
+            if not symbol:
+                continue
+
+            symbol_upper = symbol.upper()
+            name_lower = name.lower()
+
+            # Scoring: exact symbol match > symbol starts with > symbol contains > name contains
+            score = 0
+            if symbol_upper == query_upper:
+                score = 100  # Exact symbol match
+            elif symbol_upper.startswith(query_upper):
+                score = 80  # Symbol starts with query
+            elif query_upper in symbol_upper:
+                score = 60  # Symbol contains query
+            elif query_lower in name_lower:
+                score = 40  # Name contains query
+            else:
+                continue  # No match
+
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "type": "ETF" if "ETF" in name.upper() else "Equity",
+                "exchange": stock.get("exchange", stock.get("stockExchange", "")),
+                "_score": score,
+            })
+
+        # Sort by score (highest first) and limit
+        results.sort(key=lambda x: -x["_score"])
+        results = results[:limit]
+
+        # Remove internal score field
+        for r in results:
+            del r["_score"]
+
+        return {
+            "status": "success",
+            "stocks": results,
+        }
+
+    # =========================================================================
+    # Stock Quotes (for Watchlist) - with Caching
+    # =========================================================================
+
+    def get_stock_quotes(self, symbols: list[str], use_cache: bool = True) -> dict:
+        """
+        Get real-time quotes for multiple stocks with caching.
+        Uses /stable/quote endpoint (one symbol at a time).
+
+        Args:
+            symbols: List of stock symbols (e.g., ["AAPL", "MSFT", "NVDA"])
+            use_cache: Whether to use cached values (default: True)
+
+        Returns:
+            {
+                "status": "success|error",
+                "quotes": [
+                    {
+                        "symbol": "AAPL",
+                        "name": "Apple Inc.",
+                        "price": 195.50,
+                        "daily_change": 1.27,
+                        "previous_close": 193.05,
+                        "day_high": 196.20,
+                        "day_low": 194.10,
+                        "cached": true/false
+                    },
+                    ...
+                ],
+                "from_cache": int (count of cached results)
+            }
+        """
+        if not symbols:
+            return {"status": "success", "quotes": [], "from_cache": 0}
+
+        print(f"[FMP] get_stock_quotes(symbols={symbols}, use_cache={use_cache})")
+
+        quotes = []
+        symbols_to_fetch = []
+        cached_count = 0
+
+        # Check cache first
+        if use_cache:
+            for symbol in symbols:
+                cached = _quote_cache.get(symbol.upper())
+                if cached:
+                    cached_copy = cached.copy()
+                    cached_copy["cached"] = True
+                    quotes.append(cached_copy)
+                    cached_count += 1
+                else:
+                    symbols_to_fetch.append(symbol.upper())
+        else:
+            symbols_to_fetch = [s.upper() for s in symbols]
+
+        # Fetch missing quotes from FMP (using /stable/quote endpoint)
+        if symbols_to_fetch:
+            for symbol in symbols_to_fetch[:20]:  # Limit to 20 to avoid too many requests
+                # Use /stable/quote endpoint (one symbol at a time)
+                data = self._request(f"/stable/quote", {"symbol": symbol})
+
+                if data and isinstance(data, list) and len(data) > 0:
+                    item = data[0]
+                    quote = {
+                        "symbol": item.get("symbol", ""),
+                        "name": item.get("name", ""),
+                        "price": self._safe_float(item.get("price"), 0),
+                        "daily_change": self._safe_float(item.get("changePercentage"), 0),
+                        "previous_close": self._safe_float(item.get("previousClose"), 0),
+                        "day_high": self._safe_float(item.get("dayHigh"), 0),
+                        "day_low": self._safe_float(item.get("dayLow"), 0),
+                        "cached": False,
+                    }
+                    quotes.append(quote)
+
+                    # Cache the result
+                    if use_cache:
+                        cache_copy = quote.copy()
+                        cache_copy["cached"] = False  # Store without cached flag
+                        _quote_cache.set(quote["symbol"], cache_copy)
+
+        # Sort quotes to match input order
+        symbol_order = {s.upper(): i for i, s in enumerate(symbols)}
+        quotes.sort(key=lambda q: symbol_order.get(q["symbol"], 999))
+
+        return {
+            "status": "success",
+            "quotes": quotes,
+            "from_cache": cached_count,
+        }
+
+    def clear_quote_cache(self) -> None:
+        """Clear the quote cache"""
+        _quote_cache.clear()
+        print("[FMP] Quote cache cleared")
 
 
 _fmp_service_instance = None

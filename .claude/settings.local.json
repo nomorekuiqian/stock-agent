@@ -113,7 +113,17 @@
       "mcp__cclsp__find_references",
       "mcp__cclsp__get_diagnostics",
       "mcp__chrome-devtools__press_key",
-      "mcp__chrome-devtools__select_page"
+      "mcp__chrome-devtools__select_page",
+      "Bash(railway service list:*)",
+      "Bash(railway service:*)",
+      "Bash(timeout 15 python:*)",
+      "Bash(time curl:*)",
+      "Bash(__NEW_LINE_9b1053a0820c5def__ echo \"\")",
+      "Bash(__NEW_LINE_01d991a4adadd296__ echo \"\")",
+      "Bash(__NEW_LINE_e10103fb0af13483__ echo \"\")",
+      "WebFetch(domain:resend.com)",
+      "Bash(gh run list:*)",
+      "Bash(node --check:*)"
     ],
     "deny": [],
     "ask": []

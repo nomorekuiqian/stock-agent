@@ -281,6 +281,40 @@ class InsforgeService:
             return None
 
     # =========================================================================
+    # User Watchlist Methods
+    # =========================================================================
+
+    async def get_user_watchlist(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a user's watchlist from the database via Edge Function.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            Watchlist data with symbols array, or None if not found
+        """
+        try:
+            watchlist_url = f"{self.base_url}/functions/user-watchlists"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{watchlist_url}?user_id={user_id}",
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data")
+                return None
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting user watchlist: {e}")
+            return None
+
+    # =========================================================================
     # User Digest Methods (PersonalDigest)
     # =========================================================================
 

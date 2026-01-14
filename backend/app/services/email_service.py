@@ -7,7 +7,7 @@ import os
 import json
 import asyncio
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional
 
 import resend
 
@@ -143,7 +143,7 @@ class EmailService:
     def _get_feedback_section(
         self,
         report_date: str,
-        report_id: str = None,
+        report_id: Optional[str] = None,
         report_type: str = "daily",
     ) -> str:
         """Generate email feedback survey section.
@@ -259,7 +259,7 @@ class EmailService:
         """
 
     def _format_html_report(
-        self, data: dict, report_date: str = None, report_id: str = None
+        self, data: dict, report_date: Optional[str] = None, report_id: Optional[str] = None
     ) -> str:
         """Format the macro analysis data into an HTML email (Daily Report).
 
@@ -288,8 +288,6 @@ class EmailService:
         news = data.get("news", {})
         outlook = data.get("report_summary", "")
         calendar = data.get("calendar", [])
-
-        has_structured_data = bool(intro or macro or news or outlook)
 
         card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
         section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #0a0a0a;"
@@ -456,13 +454,6 @@ class EmailService:
             </div>
             """
 
-        # Greeting text based on time
-        greeting_text = {
-            "early-morning": "zao-shang-hao",
-            "afternoon": "xia-wu-hao",
-            "evening": "wan-shang-hao",
-        }.get(time_greeting, "ni-hao")
-
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -508,8 +499,8 @@ class EmailService:
         self,
         data: dict,
         first_name: str = "",
-        digest_date: str = None,
-        digest_id: str = None,
+        digest_date: Optional[str] = None,
+        digest_id: Optional[str] = None,
     ) -> str:
         """Format personal digest data into an HTML email.
 
@@ -712,7 +703,7 @@ class EmailService:
     # =========================================================================
 
     async def send_daily_report(
-        self, data: dict, to_email: str = None, first_name: str = None
+        self, data: dict, to_email: Optional[str] = None, first_name: Optional[str] = None
     ) -> dict:
         """Send the daily market report email to a single recipient."""
         print(f"[EmailService] send_daily_report to={to_email}")
@@ -774,9 +765,9 @@ class EmailService:
         self,
         data: dict,
         to_email: str,
-        first_name: str = None,
-        digest_date: str = None,
-        digest_id: str = None,
+        first_name: Optional[str] = None,
+        digest_date: Optional[str] = None,
+        digest_id: Optional[str] = None,
     ) -> dict:
         """Send a personal digest email to a single recipient.
 
@@ -829,7 +820,7 @@ class EmailService:
             print(f"[EmailService] Error sending digest email: {e}")
             return {"success": False, "error": str(e)}
 
-    async def broadcast_daily_report(self, data: dict, audience_id: str = None) -> dict:
+    async def broadcast_daily_report(self, data: dict, audience_id: Optional[str] = None) -> dict:
         """Send the daily market report using Resend Broadcasts.
 
         Args:
@@ -875,11 +866,32 @@ class EmailService:
 
             broadcast = resend.Broadcasts.create(create_params)
             broadcast_id = broadcast.get("id")
+            if not broadcast_id:
+                print(f"[EmailService] ERROR: Broadcast create returned no id: {broadcast}")
+                return {"success": False, "error": "Broadcast creation returned no ID"}
             print(f"[EmailService] Broadcast created: {broadcast_id}")
 
             send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-            resend.Broadcasts.send(send_params)
-            print(f"[EmailService] Broadcast sent: {broadcast_id}")
+            send_result = resend.Broadcasts.send(send_params)
+            send_id = send_result.get("id") if send_result else None
+            print(f"[EmailService] Broadcast send result: {send_result}")
+
+            if not send_id:
+                print(f"[EmailService] WARNING: Send returned unexpected result, verifying status...")
+                # Verify broadcast was actually sent by checking its status
+                import time
+                time.sleep(1)  # Brief wait for status update
+                verify = resend.Broadcasts.get(broadcast_id)
+                status = verify.get("status") if verify else None
+                print(f"[EmailService] Broadcast status after send: {status}")
+                if status not in ("sent", "queued"):
+                    return {
+                        "success": False,
+                        "error": f"Broadcast send failed, status: {status}",
+                        "broadcast_id": broadcast_id,
+                    }
+
+            print(f"[EmailService] Broadcast sent successfully: {broadcast_id}")
 
             return {
                 "success": True,
@@ -892,7 +904,7 @@ class EmailService:
             return {"success": False, "error": str(e)}
 
     async def broadcast_personal_digest(
-        self, data: dict, audience_id: str = None, first_name: str = ""
+        self, data: dict, audience_id: Optional[str] = None, first_name: str = ""
     ) -> dict:
         """Broadcast a personal digest using Resend Broadcasts.
 
@@ -941,11 +953,31 @@ class EmailService:
 
             broadcast = resend.Broadcasts.create(create_params)
             broadcast_id = broadcast.get("id")
+            if not broadcast_id:
+                print(f"[EmailService] ERROR: Digest broadcast create returned no id: {broadcast}")
+                return {"success": False, "error": "Broadcast creation returned no ID"}
             print(f"[EmailService] Digest broadcast created: {broadcast_id}")
 
             send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-            resend.Broadcasts.send(send_params)
-            print(f"[EmailService] Digest broadcast sent: {broadcast_id}")
+            send_result = resend.Broadcasts.send(send_params)
+            send_id = send_result.get("id") if send_result else None
+            print(f"[EmailService] Digest broadcast send result: {send_result}")
+
+            if not send_id:
+                print(f"[EmailService] WARNING: Digest send returned unexpected result, verifying status...")
+                import time
+                time.sleep(1)
+                verify = resend.Broadcasts.get(broadcast_id)
+                status = verify.get("status") if verify else None
+                print(f"[EmailService] Digest broadcast status after send: {status}")
+                if status not in ("sent", "queued"):
+                    return {
+                        "success": False,
+                        "error": f"Digest broadcast send failed, status: {status}",
+                        "broadcast_id": broadcast_id,
+                    }
+
+            print(f"[EmailService] Digest broadcast sent successfully: {broadcast_id}")
 
             return {
                 "success": True,
@@ -1079,7 +1111,7 @@ class EmailService:
         """
         return html
 
-    async def send_welcome_email(self, to_email: str, first_name: str = None) -> dict:
+    async def send_welcome_email(self, to_email: str, first_name: Optional[str] = None) -> dict:
         """Send welcome email to new subscriber.
 
         Args:
@@ -1125,7 +1157,6 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            # Import here to avoid circular imports
             from agents.personal_digest import get_personal_digest
 
             sub_service = get_subscription_service()
@@ -1154,21 +1185,82 @@ class EmailService:
 
             semaphore = asyncio.Semaphore(max_concurrent)
             digest_agent = get_personal_digest()
+            insforge = get_insforge_service()
+
+            async def save_digest_to_db(
+                user_id: str, email: str, digest_result: dict, symbols: list
+            ) -> None:
+                """Save digest to database (fire-and-forget, errors logged only)."""
+                try:
+                    save_data = {
+                        "user_id": user_id,
+                        "digest_date": today_str(),
+                        "timestamp": digest_result.get("timestamp", now_iso()),
+                        "symbols": digest_result.get("symbols_used", symbols),
+                        "greeting": digest_result.get("greeting", ""),
+                        "one_line_summary": digest_result.get("one_line_summary", ""),
+                        "stocks": digest_result.get("stocks", []),
+                        "news": digest_result.get("news", {}),
+                        "events": digest_result.get("events", []),
+                        "summary": digest_result.get("summary", {}),
+                    }
+                    await insforge.save_user_digest(save_data)
+                    print(f"[EmailService] Saved digest to DB for {email}")
+                except Exception as db_err:
+                    print(f"[EmailService] DB save failed for {email}: {db_err}")
+
+            async def generate_and_send(
+                email: str, first_name: str, user_id: str, symbols: list
+            ) -> dict:
+                """Generate digest and send email. Returns success dict."""
+                digest_result = await digest_agent.generate(symbols)
+                if not digest_result.get("success"):
+                    raise Exception(digest_result.get("error", "Generation failed"))
+
+                send_result = await self.send_personal_digest(
+                    digest_result, email, first_name
+                )
+                if not send_result.get("success"):
+                    raise Exception(send_result.get("error", "Send failed"))
+
+                if user_id:
+                    await save_digest_to_db(user_id, email, digest_result, symbols)
+
+                return {"email": email, "success": True}
+
+            async def get_symbols_for_user(
+                user_id: str, metadata: dict, email: str
+            ) -> list:
+                """Get symbols from Insforge, fallback to Resend metadata."""
+                if user_id:
+                    watchlist = await insforge.get_user_watchlist(user_id)
+                    if watchlist and watchlist.get("symbols"):
+                        symbols = watchlist.get("symbols", [])
+                        print(
+                            f"[EmailService] Loaded {len(symbols)} symbols from Insforge for {email}"
+                        )
+                        return symbols
+
+                symbols = metadata.get("symbols", [])
+                if isinstance(symbols, str):
+                    try:
+                        symbols = json.loads(symbols)
+                    except json.JSONDecodeError:
+                        symbols = []
+                if symbols:
+                    print(
+                        f"[EmailService] Using fallback {len(symbols)} symbols from Resend for {email}"
+                    )
+                return symbols
 
             async def process_subscriber(sub: dict) -> dict:
                 """Process a single subscriber with retry logic."""
                 email = sub.get("email", "")
                 metadata = sub.get("metadata", {})
                 first_name = metadata.get("first_name", "")
-                symbols = metadata.get("symbols", [])
+                user_id = metadata.get("user_id")
 
-                # Parse symbols if it's a JSON string
-                if isinstance(symbols, str):
-                    try:
-                        symbols = json.loads(symbols)
-                    except json.JSONDecodeError:
-                        symbols = []
-
+                symbols = await get_symbols_for_user(user_id, metadata, email)
                 if not symbols:
                     return {
                         "email": email,
@@ -1177,121 +1269,33 @@ class EmailService:
                     }
 
                 async with semaphore:
-                    # Attempt 1
                     try:
-                        digest_result = await digest_agent.generate(symbols)
-                        if not digest_result.get("success"):
-                            raise Exception(
-                                digest_result.get("error", "Generation failed")
-                            )
-
-                        send_result = await self.send_personal_digest(
-                            digest_result, email, first_name
+                        return await generate_and_send(
+                            email, first_name, user_id, symbols
                         )
-                        if send_result.get("success"):
-                            # Save digest to database
-                            user_id = metadata.get("user_id")
-                            if user_id:
-                                try:
-                                    insforge = get_insforge_service()
-                                    save_data = {
-                                        "user_id": user_id,
-                                        "digest_date": today_str(),
-                                        "timestamp": digest_result.get(
-                                            "timestamp", now_iso()
-                                        ),
-                                        "symbols": digest_result.get(
-                                            "symbols_used", symbols
-                                        ),
-                                        "greeting": digest_result.get("greeting", ""),
-                                        "one_line_summary": digest_result.get(
-                                            "one_line_summary", ""
-                                        ),
-                                        "stocks": digest_result.get("stocks", []),
-                                        "news": digest_result.get("news", {}),
-                                        "events": digest_result.get("events", []),
-                                        "summary": digest_result.get("summary", {}),
-                                    }
-                                    await insforge.save_user_digest(save_data)
-                                    print(
-                                        f"[EmailService] Saved digest to DB for {email}"
-                                    )
-                                except Exception as db_err:
-                                    print(
-                                        f"[EmailService] DB save failed for {email}: {db_err}"
-                                    )
-                            return {"email": email, "success": True}
-                        raise Exception(send_result.get("error", "Send failed"))
-
                     except Exception as e:
                         print(f"[EmailService] First attempt failed for {email}: {e}")
 
-                        # Attempt 2 (retry)
-                        await asyncio.sleep(2)
-                        try:
-                            digest_result = await digest_agent.generate(symbols)
-                            if not digest_result.get("success"):
-                                raise Exception(
-                                    digest_result.get("error", "Generation failed")
-                                )
+                    await asyncio.sleep(2)
+                    try:
+                        return await generate_and_send(
+                            email, first_name, user_id, symbols
+                        )
+                    except Exception as retry_error:
+                        print(
+                            f"[EmailService] Retry failed for {email}: {retry_error}"
+                        )
+                        return {
+                            "email": email,
+                            "success": False,
+                            "error": str(retry_error),
+                        }
 
-                            send_result = await self.send_personal_digest(
-                                digest_result, email, first_name
-                            )
-                            if send_result.get("success"):
-                                # Save digest to database (retry success)
-                                user_id = metadata.get("user_id")
-                                if user_id:
-                                    try:
-                                        insforge = get_insforge_service()
-                                        save_data = {
-                                            "user_id": user_id,
-                                            "digest_date": today_str(),
-                                            "timestamp": digest_result.get(
-                                                "timestamp", now_iso()
-                                            ),
-                                            "symbols": digest_result.get(
-                                                "symbols_used", symbols
-                                            ),
-                                            "greeting": digest_result.get(
-                                                "greeting", ""
-                                            ),
-                                            "one_line_summary": digest_result.get(
-                                                "one_line_summary", ""
-                                            ),
-                                            "stocks": digest_result.get("stocks", []),
-                                            "news": digest_result.get("news", {}),
-                                            "events": digest_result.get("events", []),
-                                            "summary": digest_result.get("summary", {}),
-                                        }
-                                        await insforge.save_user_digest(save_data)
-                                        print(
-                                            f"[EmailService] Saved digest to DB for {email} (retry)"
-                                        )
-                                    except Exception as db_err:
-                                        print(
-                                            f"[EmailService] DB save failed for {email}: {db_err}"
-                                        )
-                                return {"email": email, "success": True}
-                            raise Exception(send_result.get("error", "Send failed"))
-
-                        except Exception as retry_error:
-                            print(
-                                f"[EmailService] Retry failed for {email}: {retry_error}"
-                            )
-                            return {
-                                "email": email,
-                                "success": False,
-                                "error": str(retry_error),
-                            }
-
-            # Run all subscribers in parallel with controlled concurrency
             results = await asyncio.gather(
                 *[process_subscriber(sub) for sub in subscribers],
                 return_exceptions=True,
             )
 
-            # Aggregate results
             sent_count = 0
             failed_count = 0
             errors = []
@@ -1300,13 +1304,14 @@ class EmailService:
                 if isinstance(result, Exception):
                     failed_count += 1
                     errors.append({"error": str(result)})
-                elif result.get("success"):
-                    sent_count += 1
-                else:
-                    failed_count += 1
-                    errors.append(
-                        {"email": result.get("email"), "error": result.get("error")}
-                    )
+                elif isinstance(result, dict):
+                    if result.get("success"):
+                        sent_count += 1
+                    else:
+                        failed_count += 1
+                        errors.append(
+                            {"email": result.get("email"), "error": result.get("error")}
+                        )
 
             print(
                 f"[EmailService] Broadcast complete: {sent_count} sent, {failed_count} failed"
@@ -1318,7 +1323,7 @@ class EmailService:
                 "total": len(subscribers),
                 "sent": sent_count,
                 "failed": failed_count,
-                "errors": errors[:10],  # Limit error list
+                "errors": errors[:10],
             }
 
         except Exception as e:
