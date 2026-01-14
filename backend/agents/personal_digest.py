@@ -123,7 +123,7 @@ class UpcomingEvent(BaseModel):
         description="Which watchlist stocks will be affected"
     )
     why_important: str = Field(
-        description="1-2 sentences: why user should care about this event."
+        description="2-3 sentences: why user should care about this event, potential impact on their watched stocks."
     )
 
 
@@ -166,7 +166,7 @@ class PersonalDigestOutput(BaseModel):
 
     # Section 3: Upcoming Events
     events: list[UpcomingEvent] = Field(
-        description="3-6 events in next 7 days relevant to user's watchlist. Prioritize earnings of held stocks."
+        description="6-10 events in next 14 days relevant to user's watchlist. Include ALL earnings of watchlist stocks, plus major macro events (CPI, Fed, jobs) that affect their sectors."
     )
 
     # Section 4: Summary (replaces macro_impact + bottom_line)
@@ -276,19 +276,22 @@ DIGEST_INSTRUCTION = """
 - 如果某只股票确实没有相关新闻，不必强行添加
 - 不选: 与关注股票完全无关的新闻、泛泛的市场评论
 
-### events（未来一周关注）
-从经济日历和财报日历中筛选与用户关注股票相关的事件，通常3-6个。
+### events（未来两周关注）
+从经济日历和财报日历中筛选与用户关注股票相关的事件，通常6-10个。
+个性化日报应该比标准日报包含更多细节，因为这些事件与用户的持仓直接相关。
 
-筛选标准:
-- 优先: 用户关注公司的财报日期
-- 次要: 会影响关注股票所在板块的宏观数据（如CPI对科技股的影响）
-- 不选: 与用户关注股票完全无关的事件
+筛选标准（按优先级）:
+1. **必选**: 用户关注公司的财报日期（watchlist 中任何股票的财报都要包含）
+2. **必选**: 重大宏观数据（CPI、非农、Fed利率决议、GDP）
+3. **推荐**: 影响用户关注股票所在板块的行业数据（如半导体销售数据影响 NVDA/AMD）
+4. **推荐**: 相关公司财报（如用户关注 NVDA，则 AMD/MU/SMCI 财报也相关）
+5. 不选: 与用户关注股票完全无关的事件
 
 每个事件包含:
 - date: 日期（YYYY-MM-DD格式，从输入数据复制）
 - event: 中文事件名（如"英伟达 (NVDA) Q3财报"、"美国12月CPI数据"）
 - related_symbols: 影响哪些关注股票
-- why_important: 1-2句解释为什么用户需要关注
+- why_important: 2-3句解释为什么用户需要关注，以及对其关注股票的潜在影响
 
 ### summary（综合总结）
 这是最重要的部分，整合宏观环境、关注股票表现、未来展望。如果用户只看这一段，也要能知道今天的重点。
@@ -364,10 +367,10 @@ class PersonalDigest:
             news_symbols = symbols + self.DEFAULT_MACRO_SYMBOLS
             news_result = get_combined_market_news(days=1, symbols=news_symbols)
 
-            # Step 3: Fetch calendars
+            # Step 3: Fetch calendars (14 days for more comprehensive coverage)
             print("[PersonalDigest] Fetching calendars...")
-            calendar_result = get_economic_calendar(days=7)
-            earnings_result = get_earnings_calendar(days=7)
+            calendar_result = get_economic_calendar(days=14)
+            earnings_result = get_earnings_calendar(days=14)
 
             # Step 4: Get macro context (simplified)
             print("[PersonalDigest] Fetching macro context...")
@@ -381,8 +384,8 @@ class PersonalDigest:
                 "report_date": report_date,
                 "user_symbols": symbols,
                 "stocks": stock_data.get("stocks", {}),
-                "news": self._clean_news(news_result.get("news", [])[:30]),
-                "economic_calendar": calendar_result.get("events", [])[:15],
+                "news": self._clean_news(news_result.get("news", [])[:50]),  # Increased from 30 to 50
+                "economic_calendar": calendar_result.get("events", [])[:25],  # Increased from 15 to 25
                 "earnings_calendar": self._filter_earnings(
                     earnings_result.get("earnings", []), symbols
                 ),
@@ -483,14 +486,18 @@ class PersonalDigest:
         ]
 
     def _filter_earnings(self, earnings: list, user_symbols: list) -> list:
-        """Filter earnings to user's watchlist + major tech."""
+        """Filter earnings to user's watchlist + major tech + related companies."""
         user_set = set(s.upper() for s in user_symbols)
         # Always include major tech earnings as reference
         always_show = {"NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "TSLA", "AMD"}
+        # Add semiconductor ecosystem if user watches any chip stocks
+        chip_stocks = {"NVDA", "AMD", "INTC", "AVGO", "QCOM", "MU", "TSM", "ARM", "SMCI", "AMAT", "LRCX", "KLAC"}
+        if user_set & chip_stocks:
+            always_show = always_show.union(chip_stocks)
         relevant = always_show.union(user_set)
 
         filtered = [e for e in earnings if e.get("symbol", "").upper() in relevant]
-        return filtered[:15]
+        return filtered[:25]  # Increased from 15 to 25
 
 
 # =============================================================================
