@@ -12,15 +12,17 @@
    ============================================ */
 
 @theme {
-  --font-serif: 'Instrument Serif', 'Noto Serif SC', 'Songti SC', Georgia, serif;
-  --font-sans: 'DM Sans', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  /* Editorial headlines: LXGW WenKai for Chinese, Instrument Serif for English */
+  --font-serif: 'LXGW WenKai', 'Instrument Serif', 'Songti SC', Georgia, serif;
+  /* Body text: OPPO Sans for Chinese (premium, rounded), DM Sans for English */
+  --font-sans: 'OPPO Sans', 'DM Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Dark-First Premium Theme */
   --color-background: #050506;
   --color-foreground: #FAFAF9;
 
-  --color-card: #0C0C0E;
+  --color-card: #111113;
   --color-card-foreground: #FAFAF9;
 
   --color-popover: #0C0C0E;
@@ -34,7 +36,7 @@
   --color-secondary-foreground: #FAFAF9;
 
   --color-muted: #1A1A1D;
-  --color-muted-foreground: #71717A;
+  --color-muted-foreground: #A1A1AA;
 
   --color-accent: #10B981;
   --color-accent-foreground: #050506;
@@ -45,7 +47,7 @@
   --color-success: #10B981;
   --color-success-foreground: #050506;
 
-  --color-border: #27272A;
+  --color-border: #3F3F46;
   --color-input: #1A1A1D;
   --color-ring: #10B981;
 
@@ -58,7 +60,7 @@
   /* Premium Dark Theme - Default */
   --background: #050506;
   --foreground: #FAFAF9;
-  --card: #0C0C0E;
+  --card: #111113;
   --card-foreground: #FAFAF9;
   --popover: #0C0C0E;
   --popover-foreground: #FAFAF9;
@@ -67,13 +69,13 @@
   --secondary: #141416;
   --secondary-foreground: #FAFAF9;
   --muted: #1A1A1D;
-  --muted-foreground: #71717A;
+  --muted-foreground: #A1A1AA;
   --accent: #141416;
   --accent-foreground: #10B981;
   --destructive: #EF4444;
   --destructive-foreground: #FAFAF9;
-  --border: #27272A;
-  --input: #27272A;
+  --border: #3F3F46;
+  --input: #3F3F46;
   --ring: #10B981;
 
   /* Chart Palette - Emerald Spectrum */
@@ -90,7 +92,7 @@
   --sidebar-primary-foreground: #050506;
   --sidebar-accent: #141416;
   --sidebar-accent-foreground: #10B981;
-  --sidebar-border: #27272A;
+  --sidebar-border: #3F3F46;
   --sidebar-ring: #10B981;
 }
 
@@ -247,22 +249,33 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 0 24px rgba(16, 185, 129, 0.15);
   }
 
-  /* Text Gradient - Emerald */
+  /* Text Gradient - Emerald (Optimized for dark mode) */
   .text-gradient-emerald {
-    background: linear-gradient(135deg, #10B981 0%, #34D399 50%, #6EE7B7 100%);
+    background: linear-gradient(135deg, #6EE7B7 0%, #A7F3D0 50%, #D1FAE5 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(110, 231, 183, 0.5));
   }
 
-  /* Dot Grid Background */
+  /* Text Gradient - Emerald (Darker for light mode) */
+  .light .text-gradient-emerald {
+    background: linear-gradient(135deg, #047857 0%, #059669 50%, #10B981 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 20px rgba(5, 150, 105, 0.3));
+  }
+
+  /* Dot Grid Background - Enhanced for visibility */
   .bg-dot-pattern {
-    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
-    background-size: 24px 24px;
+    background-image: radial-gradient(circle at 1px 1px, rgba(52, 211, 153, 0.18) 1px, transparent 0);
+    background-size: 18px 18px;
   }
 
   .light .bg-dot-pattern {
-    background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.07) 1px, transparent 0);
+    background-image: radial-gradient(circle at 1px 1px, rgba(5, 150, 105, 0.12) 1px, transparent 0);
+    background-size: 18px 18px;
   }
 
   /* Gradient Mesh Background */

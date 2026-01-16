@@ -15,28 +15,28 @@ export default function Home() {
 
         <div className="relative max-w-6xl mx-auto px-4 md:px-6 pt-24 pb-20 md:pt-32 md:pb-28">
           <div className="max-w-3xl">
-            {/* Live Badge */}
+            {/* Brand Philosophy Badge */}
             <div className="animate-fade-in-up inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-8">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              AI 驱动的市场洞察
+              拒绝噪音，只要信号
             </div>
 
-            {/* Main Headline - Editorial Style */}
+            {/* Main Headline - The Core Slogan */}
             <h1 className="animate-fade-in-up delay-100 font-editorial text-5xl md:text-7xl lg:text-8xl text-foreground leading-[0.95] mb-6">
-              读懂
+              看清因果
               <br />
-              <span className="text-gradient-emerald">市场</span>
-              <br />
-              而非数据
+              <span className="text-gradient-emerald">才敢下注</span>
             </h1>
 
-            {/* Subtitle */}
-            <p className="animate-fade-in-up delay-200 text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed mb-10">
-              每日 AI 生成的市场分析,解读行情背后的&quot;为什么&quot;。
-              为追求洞察而非噪音的投资者而生。
+            {/* Subtitle - Identity & Value Proposition */}
+            <p className="animate-fade-in-up delay-200 text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed mb-4">
+              投资不是算命，是计算概率。
+            </p>
+            <p className="animate-fade-in-up delay-200 text-base text-muted-foreground/80 max-w-xl leading-relaxed mb-10">
+              MarketBrew 用 AI 帮你从海量噪音中提炼信号，让每一次决策都有依据，而非靠猜。
             </p>
 
             {/* CTA Buttons */}
@@ -69,61 +69,178 @@ export default function Home() {
         <div className="divider-fade" />
       </section>
 
-      {/* Features Section */}
-      <section className="relative py-20 md:py-28">
+      {/* Us vs. Them Section */}
+      <section className="relative py-16 md:py-24 bg-card/30">
         <div className="max-w-6xl mx-auto px-4 md:px-6">
-          {/* Section Header */}
-          <div className="max-w-xl mb-16">
-            <p className="text-primary text-sm font-medium mb-3 tracking-wide uppercase">功能特性</p>
-            <h2 className="text-3xl md:text-4xl font-medium text-foreground mb-4">
-              你将获得
+          <div className="text-center mb-12">
+            <p className="text-primary text-sm font-medium mb-3 tracking-wide uppercase">为什么不同</p>
+            <h2 className="text-2xl md:text-3xl font-medium text-foreground">
+              我们不制造焦虑，我们消除焦虑
             </h2>
-            <p className="text-muted-foreground">
-              专业级市场情报,每日直达邮箱。
-            </p>
           </div>
 
-          {/* Feature Cards */}
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Feature 1 */}
-            <div className="group terminal-card p-6 hover-glow transition-all">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-5 group-hover:glow-emerald-sm transition-all">
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {/* The Noise - Others */}
+            <div className="terminal-card p-6 border-red-500/20 bg-red-500/5">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-red-400">市场上的噪音</span>
               </div>
-              <h3 className="font-medium text-foreground mb-2">AI 驱动洞察</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                不只告诉你发生了什么,更解释为什么重要。我们的 AI 通过因果分析解读市场动向。
-              </p>
+              <ul className="space-y-3">
+                {[
+                  '靠直觉喊单，制造 FOMO',
+                  '信息过载，让你更焦虑',
+                  '把你当流量，而非用户',
+                  '只说「买」，不说「为什么」'
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <span className="text-red-400/60 mt-0.5">-</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            {/* Feature 2 */}
-            <div className="group terminal-card p-6 hover-glow transition-all">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center mb-5">
-                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+            {/* The Signal - Us */}
+            <div className="terminal-card p-6 border-primary/30 bg-primary/5">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-primary">MarketBrew 的信号</span>
               </div>
-              <h3 className="font-medium text-foreground mb-2">前瞻性日历</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                提前知晓即将发生的事件。经济数据和财报日历,配合不同情景的分析预判。
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="group terminal-card p-6 hover-glow transition-all">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-5">
-                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-              </div>
-              <h3 className="font-medium text-foreground mb-2">专属日报</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                建立你的关注列表,获取针对你最关心的股票的定制分析。
-              </p>
+              <ul className="space-y-3">
+                {[
+                  '靠数据说话，解释因果',
+                  '精准提炼，只给你有用的',
+                  '把你当合伙人，帮你思考',
+                  '告诉你「为什么」，你自己决定'
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-foreground">
+                    <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Value Propositions Section - Editorial Style */}
+      <section className="relative py-20 md:py-28">
+        <div className="max-w-5xl mx-auto px-4 md:px-6">
+          {/* Section Header */}
+          <div className="mb-16 md:mb-20">
+            <p className="text-primary text-sm font-medium mb-4 tracking-wide">你的武器</p>
+            <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-tight">
+              像拥有私人情报局
+              <br className="hidden md:block" />
+              一样做交易
+            </h2>
+          </div>
+
+          {/* Value Items - Editorial List */}
+          <div className="space-y-12 md:space-y-0 md:grid md:grid-cols-12 md:gap-x-8 md:gap-y-16">
+
+            {/* Value 1 */}
+            <div className="md:col-span-12 md:grid md:grid-cols-12 md:gap-8 md:items-start group">
+              <div className="md:col-span-1">
+                <span className="font-data text-5xl md:text-6xl font-light text-primary/20 group-hover:text-primary/40 transition-colors">
+                  01
+                </span>
+              </div>
+              <div className="md:col-span-4 mt-2 md:mt-3">
+                <h3 className="text-xl md:text-2xl font-medium text-foreground">
+                  化噪音为信号
+                </h3>
+              </div>
+              <div className="md:col-span-7 mt-3 md:mt-3">
+                <p className="text-muted-foreground leading-relaxed">
+                  每天有几千条新闻、几百份财报、无数个大 V 的观点。AI 替你阅读这一切，从几万字中提炼出关键逻辑。原本需要一个团队一天做的事，压缩成一杯咖啡的时间。
+                </p>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden md:block md:col-span-12">
+              <div className="h-px bg-border/50" />
+            </div>
+
+            {/* Value 2 */}
+            <div className="md:col-span-12 md:grid md:grid-cols-12 md:gap-8 md:items-start group">
+              <div className="md:col-span-1">
+                <span className="font-data text-5xl md:text-6xl font-light text-primary/20 group-hover:text-primary/40 transition-colors">
+                  02
+                </span>
+              </div>
+              <div className="md:col-span-4 mt-2 md:mt-3">
+                <h3 className="text-xl md:text-2xl font-medium text-foreground">
+                  看清胜率
+                </h3>
+              </div>
+              <div className="md:col-span-7 mt-3 md:mt-3">
+                <p className="text-muted-foreground leading-relaxed">
+                  我们不负责预测未来，也不会告诉你「明天必涨」。我们帮你看清所有支持和反对的理由。当你下单时，底气来自于你清楚地知道风险在哪、机会在哪。
+                </p>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden md:block md:col-span-12">
+              <div className="h-px bg-border/50" />
+            </div>
+
+            {/* Value 3 */}
+            <div className="md:col-span-12 md:grid md:grid-cols-12 md:gap-8 md:items-start group">
+              <div className="md:col-span-1">
+                <span className="font-data text-5xl md:text-6xl font-light text-primary/20 group-hover:text-primary/40 transition-colors">
+                  03
+                </span>
+              </div>
+              <div className="md:col-span-4 mt-2 md:mt-3">
+                <h3 className="text-xl md:text-2xl font-medium text-foreground">
+                  只看与你有关的
+                </h3>
+              </div>
+              <div className="md:col-span-7 mt-3 md:mt-3">
+                <p className="text-muted-foreground leading-relaxed">
+                  建立你的关注列表，获取只对你持仓有影响的分析。不是一份「新闻列表」让你自己去猜，而是直接告诉你「这条新闻和你的 $AAPL 有什么关系」。
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Philosophy Quote Section */}
+      <section className="relative py-16 md:py-24 bg-gradient-mesh overflow-hidden">
+        <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
+        <div className="absolute inset-0 bg-noise pointer-events-none" />
+        <div className="relative max-w-4xl mx-auto px-4 md:px-6 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 border border-primary/20 mb-6">
+            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          </div>
+          <blockquote className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-tight mb-6">
+            &ldquo;在充满噪音的世界里，
+            <br />
+            <span className="text-gradient-emerald">清晰是唯一的 Alpha。</span>&rdquo;
+          </blockquote>
+          <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            我们不提供「内幕消息」，我们提供「决策证据」。
+            当你下单的那一刻，你的底气不是来自于「听说了什么」，而是来自于你清晰地看见了所有支持和反对的理由。
+          </p>
         </div>
       </section>
 
@@ -134,10 +251,10 @@ export default function Home() {
           <div className="text-center mb-16">
             <p className="text-primary text-sm font-medium mb-3 tracking-wide uppercase">工作流程</p>
             <h2 className="text-3xl md:text-4xl font-medium text-foreground mb-4">
-              如何运作
+              你的超级大脑，如何运作
             </h2>
             <p className="text-muted-foreground max-w-lg mx-auto">
-              从原始市场数据到可操作情报,只需四步。
+              从海量市场数据到一杯咖啡时间的清晰洞察。
             </p>
           </div>
 
@@ -152,9 +269,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-4 text-muted-foreground font-data text-lg relative z-10">
                   01
                 </div>
-                <h3 className="font-medium text-foreground mb-2">数据采集</h3>
+                <h3 className="font-medium text-foreground mb-2">吞噬数据</h3>
                 <p className="text-xs text-muted-foreground">
-                  实时市场数据、新闻和经济指标
+                  5000+ 条新闻、实时行情、经济指标
                 </p>
               </div>
 
@@ -163,9 +280,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-4 text-primary font-data text-lg relative z-10">
                   02
                 </div>
-                <h3 className="font-medium text-foreground mb-2">AI 分析</h3>
+                <h3 className="font-medium text-foreground mb-2">AI 提炼</h3>
                 <p className="text-xs text-muted-foreground">
-                  先进的大语言模型处理和整合信息
+                  分离噪音与信号，构建因果链条
                 </p>
               </div>
 
@@ -174,9 +291,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-4 text-muted-foreground font-data text-lg relative z-10">
                   03
                 </div>
-                <h3 className="font-medium text-foreground mb-2">洞察生成</h3>
+                <h3 className="font-medium text-foreground mb-2">生成洞察</h3>
                 <p className="text-xs text-muted-foreground">
-                  通过因果分析链条构建市场叙事
+                  解释「为什么」，而非只说「是什么」
                 </p>
               </div>
 
@@ -185,9 +302,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mx-auto mb-4 text-primary-foreground font-data text-lg glow-emerald-sm relative z-10">
                   04
                 </div>
-                <h3 className="font-medium text-foreground mb-2">你的报告</h3>
+                <h3 className="font-medium text-foreground mb-2">送达你</h3>
                 <p className="text-xs text-muted-foreground">
-                  每日送达,随时可用
+                  收盘后送达，一杯咖啡的阅读量
                 </p>
               </div>
             </div>
@@ -203,18 +320,18 @@ export default function Home() {
             <div className="space-y-6">
               <p className="text-primary text-sm font-medium tracking-wide uppercase">报告预览</p>
               <h2 className="text-3xl md:text-4xl font-medium text-foreground">
-                助你思考的分析
+                帮你思考，而非替你决定
               </h2>
               <p className="text-muted-foreground leading-relaxed">
-                每份报告都旨在帮助你理解市场叙事,而不只是记住数字。
-                我们提供思考框架,让你能够做出自己的明智决策。
+                每份报告都旨在帮助你理解市场叙事，建立自己的判断框架。
+                我们提供证据和逻辑，决策权始终在你手中。
               </p>
               <ul className="space-y-4 pt-2">
                 {[
-                  '市场叙事与主导主题',
-                  '宏观环境与信号解读',
-                  '精选新闻与影响链分析',
-                  '即将发生事件的情景推演'
+                  '市场主线：今天的核心叙事是什么',
+                  '宏观信号：VIX、国债、美元在说什么',
+                  '新闻解读：不只是发生了什么，更是为什么重要',
+                  '前瞻日历：下周要关注什么，不同情景会怎样'
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
@@ -239,36 +356,36 @@ export default function Home() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">每日报告</p>
-                  <p className="font-medium text-foreground text-sm">2024年12月13日</p>
+                  <p className="font-medium text-foreground text-sm">2025年1月15日</p>
                 </div>
               </div>
 
               {/* Market Thesis */}
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 mb-4">
-                <p className="text-xs text-primary font-medium mb-1.5">市场主线</p>
-                <p className="text-sm text-foreground/90">科技股获利回吐掩盖了板块轮动中的潜在强势...</p>
+                <p className="text-xs text-primary font-medium mb-1.5">今日主线</p>
+                <p className="text-sm text-foreground/90">通胀数据超预期回落，市场重新定价降息路径，科技股领涨...</p>
               </div>
 
               {/* Key Metrics */}
               <div className="space-y-3 p-4 rounded-lg bg-muted/50 mb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">恐慌指数</span>
-                  <span className="font-data text-sm text-foreground">15.74 <span className="text-amber-400">+5.99%</span></span>
+                  <span className="text-muted-foreground text-sm">VIX 恐慌指数</span>
+                  <span className="font-data text-sm text-foreground">14.2 <span className="text-primary">-8.3%</span></span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">10年期国债</span>
-                  <span className="font-data text-sm text-foreground">4.32% <span className="text-red-400">+2bp</span></span>
+                  <span className="text-muted-foreground text-sm">10Y 国债</span>
+                  <span className="font-data text-sm text-foreground">4.18% <span className="text-primary">-5bp</span></span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground text-sm">美元指数</span>
-                  <span className="font-data text-sm text-foreground">106.8 <span className="text-primary">-0.12%</span></span>
+                  <span className="font-data text-sm text-foreground">103.5 <span className="text-red-400">-0.4%</span></span>
                 </div>
               </div>
 
-              {/* Upcoming Event */}
+              {/* Analysis snippet */}
               <div className="pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-2">近期事件</p>
-                <p className="text-sm text-foreground">12月18日: FOMC 会议 - 关注利率路径指引...</p>
+                <p className="text-xs text-muted-foreground mb-2">为什么重要</p>
+                <p className="text-sm text-foreground">VIX 跌破 15 进入「平静区」，通常意味着...</p>
               </div>
             </div>
           </div>
@@ -282,19 +399,19 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left - Content */}
             <div className="space-y-6">
-              <p className="text-primary text-sm font-medium tracking-wide uppercase">订阅</p>
+              <p className="text-primary text-sm font-medium tracking-wide uppercase">加入我们</p>
               <h2 className="text-3xl md:text-4xl font-medium text-foreground">
-                不再错过市场洞察
+                从明天开始，清醒地交易
               </h2>
               <p className="text-muted-foreground leading-relaxed">
-                订阅后,每日市场分析将直达你的邮箱。
-                加入那些追求洞察而非信息过载的投资者。
+                每天收盘后，让 AI 替你复盘市场，然后只告诉你最重要的事。
+                你要做的，只是带着清晰的头脑规划明天。
               </p>
               <ul className="space-y-3 pt-2">
                 {[
                   '每日 AI 生成的市场分析',
-                  '开盘前送达',
-                  '随时可取消订阅'
+                  '收盘后送达，一杯咖啡读完',
+                  '随时可取消，没有任何套路'
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-foreground text-sm">
                     <svg className="w-4 h-4 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,11 +433,12 @@ export default function Home() {
       <section className="relative py-20 md:py-28">
         <div className="max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center max-w-2xl mx-auto space-y-6">
+            <p className="text-primary text-sm font-medium tracking-wide uppercase">开始行动</p>
             <h2 className="font-editorial text-4xl md:text-5xl text-foreground">
-              准备好更好地理解市场了吗?
+              停止被噪音淹没
             </h2>
-            <p className="text-muted-foreground text-lg">
-              从今日分析开始 - 完全免费。
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+              从今天的报告开始，体验什么是「化噪音为信号」。完全免费，不需要注册。
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Link

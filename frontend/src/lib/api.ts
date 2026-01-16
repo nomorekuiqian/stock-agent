@@ -401,6 +401,21 @@ export interface SectorUnsubscribeResponse {
   sector_id: string;
 }
 
+export interface SectorDigestHistoryItem {
+  id: string;
+  sector_id: string;
+  digest_date: string;
+  greeting?: string;
+  generated_at: string;
+}
+
+export interface SectorDigestHistoryResponse {
+  success: boolean;
+  sector_id: string;
+  digests: SectorDigestHistoryItem[];
+  total: number;
+}
+
 export const api = {
   getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
@@ -734,6 +749,15 @@ export const api = {
       }
       const data = await response.json();
       return data.subscriptions;
+    },
+
+    getHistory: async (sectorId: string, days: number = 30): Promise<SectorDigestHistoryResponse> => {
+      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/digest/history?days=${days}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch digest history' }));
+        throw new Error(error.detail || 'Failed to fetch digest history');
+      }
+      return response.json();
     },
   },
 };

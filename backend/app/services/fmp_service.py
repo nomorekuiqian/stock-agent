@@ -12,47 +12,131 @@ from app.utils.timezone import now_pacific, today_str, days_from_now
 
 
 # =============================================================================
-# Simple Memory Cache for Stock Quotes
+# Simple Memory Cache for Stock Quotes with Concurrency Control
 # =============================================================================
+import threading
 
 class QuoteCache:
-    """Simple in-memory cache with TTL for stock quotes"""
+    """
+    Thread-safe in-memory cache with TTL and request coalescing for stock quotes.
 
-    def __init__(self, ttl_seconds: int = 300):  # 5 minutes default
+    Features:
+    - TTL-based expiration (default 10 minutes for market hours)
+    - Request coalescing: concurrent requests for same symbols share one API call
+    - Thread-safe operations with locks
+    """
+
+    def __init__(self, ttl_seconds: int = 600):  # 10 minutes default
         self._cache: dict[str, tuple[dict, float]] = {}
         self._ttl = ttl_seconds
+        self._lock = threading.Lock()
+        # Track in-flight requests to coalesce concurrent calls
+        self._pending: dict[str, threading.Event] = {}
+        self._pending_lock = threading.Lock()
 
     def get(self, key: str) -> dict | None:
-        """Get cached value if not expired"""
-        if key in self._cache:
-            value, timestamp = self._cache[key]
-            if time.time() - timestamp < self._ttl:
-                return value
-            else:
-                del self._cache[key]
-        return None
+        """Get cached value if not expired (thread-safe)"""
+        with self._lock:
+            if key in self._cache:
+                value, timestamp = self._cache[key]
+                if time.time() - timestamp < self._ttl:
+                    return value
+                else:
+                    del self._cache[key]
+            return None
+
+    def get_many(self, keys: list[str]) -> tuple[dict[str, dict], list[str]]:
+        """
+        Get multiple cached values at once.
+        Returns: (cached_results, missing_keys)
+        """
+        cached = {}
+        missing = []
+        with self._lock:
+            current_time = time.time()
+            for key in keys:
+                if key in self._cache:
+                    value, timestamp = self._cache[key]
+                    if current_time - timestamp < self._ttl:
+                        cached[key] = value
+                    else:
+                        del self._cache[key]
+                        missing.append(key)
+                else:
+                    missing.append(key)
+        return cached, missing
 
     def set(self, key: str, value: dict) -> None:
-        """Set cache value with current timestamp"""
-        self._cache[key] = (value, time.time())
+        """Set cache value with current timestamp (thread-safe)"""
+        with self._lock:
+            self._cache[key] = (value, time.time())
+
+    def set_many(self, items: dict[str, dict]) -> None:
+        """Set multiple cache values at once (thread-safe)"""
+        with self._lock:
+            current_time = time.time()
+            for key, value in items.items():
+                self._cache[key] = (value, current_time)
 
     def clear(self) -> None:
         """Clear all cached values"""
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
     def cleanup(self) -> None:
         """Remove expired entries"""
-        current_time = time.time()
-        expired_keys = [
-            k for k, (_, ts) in self._cache.items()
-            if current_time - ts >= self._ttl
-        ]
-        for key in expired_keys:
-            del self._cache[key]
+        with self._lock:
+            current_time = time.time()
+            expired_keys = [
+                k for k, (_, ts) in self._cache.items()
+                if current_time - ts >= self._ttl
+            ]
+            for key in expired_keys:
+                del self._cache[key]
+
+    def acquire_fetch_lock(self, batch_key: str) -> tuple[bool, threading.Event]:
+        """
+        Try to acquire lock for fetching a batch of symbols.
+        Returns: (is_leader, event)
+        - is_leader=True: this request should fetch data, then signal event
+        - is_leader=False: another request is fetching, wait on event
+        """
+        with self._pending_lock:
+            if batch_key in self._pending:
+                # Another request is already fetching
+                return False, self._pending[batch_key]
+            else:
+                # This request becomes the leader
+                event = threading.Event()
+                self._pending[batch_key] = event
+                return True, event
+
+    def release_fetch_lock(self, batch_key: str) -> None:
+        """Release fetch lock and signal waiting requests"""
+        with self._pending_lock:
+            if batch_key in self._pending:
+                event = self._pending.pop(batch_key)
+                event.set()  # Signal all waiting threads
+
+    def stats(self) -> dict:
+        """Return cache statistics"""
+        with self._lock:
+            current_time = time.time()
+            total = len(self._cache)
+            valid = sum(1 for _, ts in self._cache.values() if current_time - ts < self._ttl)
+            return {
+                "total_entries": total,
+                "valid_entries": valid,
+                "expired_entries": total - valid,
+                "ttl_seconds": self._ttl,
+            }
 
 
 # Global cache instances
-_quote_cache = QuoteCache(ttl_seconds=300)  # 5 minutes for quotes
+# TTL: 10 minutes - balances freshness vs API usage
+# During market hours (9:30 AM - 4 PM ET), prices update frequently
+# Outside market hours, prices are static
+_quote_cache = QuoteCache(ttl_seconds=600)  # 10 minutes for quotes
 
 # Stock list cache (for search) - longer TTL since it rarely changes
 _stock_list_cache: dict[str, tuple[list, float]] = {}
@@ -1037,36 +1121,115 @@ class FMPService:
         if not symbols:
             return {"status": "success", "quotes": [], "from_cache": 0}
 
-        print(f"[FMP] get_stock_quotes(symbols={symbols}, use_cache={use_cache})")
+        symbols_upper = [s.upper() for s in symbols]
+        print(f"[FMP] get_stock_quotes(symbols={len(symbols_upper)} symbols, use_cache={use_cache})")
 
-        quotes = []
-        symbols_to_fetch = []
-        cached_count = 0
+        # Step 1: Check cache for existing quotes
+        quotes_dict: dict[str, dict] = {}
+        symbols_to_fetch: list[str] = []
 
-        # Check cache first
         if use_cache:
-            for symbol in symbols:
-                cached = _quote_cache.get(symbol.upper())
-                if cached:
-                    cached_copy = cached.copy()
-                    cached_copy["cached"] = True
-                    quotes.append(cached_copy)
-                    cached_count += 1
-                else:
-                    symbols_to_fetch.append(symbol.upper())
+            cached_results, missing = _quote_cache.get_many(symbols_upper)
+            for symbol, quote in cached_results.items():
+                quote_copy = quote.copy()
+                quote_copy["cached"] = True
+                quotes_dict[symbol] = quote_copy
+            symbols_to_fetch = missing
         else:
-            symbols_to_fetch = [s.upper() for s in symbols]
+            symbols_to_fetch = symbols_upper
 
-        # Fetch missing quotes from FMP (using /stable/quote endpoint)
+        cached_count = len(quotes_dict)
+
+        # Step 2: Fetch missing quotes with request coalescing
         if symbols_to_fetch:
-            for symbol in symbols_to_fetch[:20]:  # Limit to 20 to avoid too many requests
-                # Use /stable/quote endpoint (one symbol at a time)
-                data = self._request(f"/stable/quote", {"symbol": symbol})
+            # Create a batch key for request coalescing
+            # Sort symbols to ensure same batch regardless of order
+            batch_key = ",".join(sorted(symbols_to_fetch[:100]))
 
-                if data and isinstance(data, list) and len(data) > 0:
-                    item = data[0]
+            # Try to acquire fetch lock (request coalescing)
+            is_leader, event = _quote_cache.acquire_fetch_lock(batch_key)
+
+            if is_leader:
+                # This request is the leader - actually fetch data
+                try:
+                    fetched_quotes = self._fetch_quotes_from_api(symbols_to_fetch[:100])
+
+                    # Cache all fetched results
+                    if use_cache and fetched_quotes:
+                        cache_items = {}
+                        for quote in fetched_quotes:
+                            cache_copy = quote.copy()
+                            cache_copy["cached"] = False
+                            cache_items[quote["symbol"]] = cache_copy
+                        _quote_cache.set_many(cache_items)
+
+                    # Add to results
+                    for quote in fetched_quotes:
+                        quotes_dict[quote["symbol"]] = quote
+
+                finally:
+                    # Always release lock to unblock waiting requests
+                    _quote_cache.release_fetch_lock(batch_key)
+            else:
+                # Another request is fetching - wait for it
+                print(f"[FMP] Waiting for concurrent request to complete...")
+                event.wait(timeout=30)  # Wait up to 30 seconds
+
+                # Now get from cache (the leader should have populated it)
+                for symbol in symbols_to_fetch:
+                    cached = _quote_cache.get(symbol)
+                    if cached:
+                        quote_copy = cached.copy()
+                        quote_copy["cached"] = True
+                        quotes_dict[symbol] = quote_copy
+
+        # Step 3: Build result in original order
+        quotes = []
+        for symbol in symbols_upper:
+            if symbol in quotes_dict:
+                quotes.append(quotes_dict[symbol])
+
+        return {
+            "status": "success",
+            "quotes": quotes,
+            "from_cache": cached_count,
+        }
+
+    def _fetch_quotes_from_api(self, symbols: list[str]) -> list[dict]:
+        """
+        Internal method to fetch quotes from FMP API.
+        Tries batch endpoint first, falls back to individual requests.
+        """
+        fetched_quotes = []
+
+        # Try batch endpoint first (more efficient, but requires higher plan)
+        symbols_str = ",".join(symbols)
+        data = self._request(f"/stable/batch-quote", {"symbols": symbols_str})
+
+        if data and isinstance(data, list):
+            # Batch API succeeded
+            for item in data:
+                quote = {
+                    "symbol": item.get("symbol", ""),
+                    "name": item.get("name", ""),
+                    "price": self._safe_float(item.get("price"), 0),
+                    "daily_change": self._safe_float(item.get("changePercentage"), 0),
+                    "previous_close": self._safe_float(item.get("previousClose"), 0),
+                    "day_high": self._safe_float(item.get("dayHigh"), 0),
+                    "day_low": self._safe_float(item.get("dayLow"), 0),
+                    "cached": False,
+                }
+                fetched_quotes.append(quote)
+            print(f"[FMP] Batch fetched {len(fetched_quotes)} quotes in one request")
+        else:
+            # Fallback: fetch individually (for lower-tier API plans)
+            print(f"[FMP] Batch API unavailable, fetching {len(symbols)} quotes individually")
+            for symbol in symbols:
+                item = self._request(f"/stable/quote", {"symbol": symbol})
+                if item and isinstance(item, list) and len(item) > 0:
+                    item = item[0]
                     quote = {
-                        "symbol": item.get("symbol", ""),
+                        "symbol": item.get("symbol", symbol),
                         "name": item.get("name", ""),
                         "price": self._safe_float(item.get("price"), 0),
                         "daily_change": self._safe_float(item.get("changePercentage"), 0),
@@ -1075,23 +1238,10 @@ class FMPService:
                         "day_low": self._safe_float(item.get("dayLow"), 0),
                         "cached": False,
                     }
-                    quotes.append(quote)
+                    fetched_quotes.append(quote)
+            print(f"[FMP] Fetched {len(fetched_quotes)} quotes individually")
 
-                    # Cache the result
-                    if use_cache:
-                        cache_copy = quote.copy()
-                        cache_copy["cached"] = False  # Store without cached flag
-                        _quote_cache.set(quote["symbol"], cache_copy)
-
-        # Sort quotes to match input order
-        symbol_order = {s.upper(): i for i, s in enumerate(symbols)}
-        quotes.sort(key=lambda q: symbol_order.get(q["symbol"], 999))
-
-        return {
-            "status": "success",
-            "quotes": quotes,
-            "from_cache": cached_count,
-        }
+        return fetched_quotes
 
     def clear_quote_cache(self) -> None:
         """Clear the quote cache"""

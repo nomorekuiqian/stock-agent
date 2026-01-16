@@ -58,7 +58,11 @@ class MacroSignal(BaseModel):
     change: str = Field(
         description="Change description, e.g. '周跌12.3%', '周涨0.15%', '持平'"
     )
-    trend_direction: str = Field(description="Trend direction: 'up', 'down', or 'flat'")
+    trend_direction: str = Field(
+        description="Value change direction for color display: 'up' (green) if value increased, 'down' (red) if value decreased. "
+        "Always use 'up' or 'down' based on numerical change, never 'flat'. "
+        "Example: VIX drops from 21 to 18 = 'down' (red), even though it's bullish for stocks."
+    )
     analysis: str = Field(
         description="Comprehensive analysis in 3-4 sentences covering: 1) trend vs last week, 2) position in recent range, 3) impact on market/sectors"
     )

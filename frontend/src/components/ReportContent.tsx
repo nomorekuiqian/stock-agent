@@ -38,7 +38,7 @@ const INDICATOR_NAMES: Record<string, string> = {
 // Section header component (matching email style)
 const SectionHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="flex items-center gap-3 mb-5">
-    <div className="w-1 h-5 bg-foreground rounded-full" />
+    <div className="w-1 h-5 bg-emerald-500 rounded-full" />
     <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
       {children}
     </h2>
@@ -96,7 +96,7 @@ export function ReportContent({
               return (
                 <div
                   key={index.name}
-                  className="bg-secondary/50 rounded-lg p-4 text-center"
+                  className="bg-muted/80 rounded-lg p-4 text-center border border-border/50"
                 >
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
                     {index.displayName}
@@ -164,7 +164,7 @@ export function ReportContent({
 
       {/* News Section */}
       {news && (news.headlines?.length > 0 || news.briefs?.length > 0) && (
-        <section className="bg-secondary/30 rounded-xl border border-border p-5 animate-fade-in-up">
+        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
           <SectionHeader>新闻</SectionHeader>
 
           {/* Headlines */}
@@ -183,7 +183,7 @@ export function ReportContent({
                       {headline.title}
                     </a>
                     <p className="text-sm text-muted-foreground mb-3">{headline.fact_summary}</p>
-                    <div className="bg-secondary/50 rounded-lg p-3">
+                    <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {headline.deep_analysis}
                       </p>

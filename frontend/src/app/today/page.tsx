@@ -476,24 +476,27 @@ export default function TodayPage() {
             </div>
 
             {/* Report Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {historicalReports.map((r) => (
                 <Link
                   key={r.id}
                   href={`/today/${r.id}`}
-                  className="group terminal-card p-4 hover:border-emerald-500/30 transition-all"
+                  className="group terminal-card p-6 hover:border-emerald-500/30 hover:bg-card/80 transition-all"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-data text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
+                  {/* Title first - more prominent */}
+                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-relaxed mb-4">
+                    {r.title || formatDateChinese(r.report_date)}
+                  </h4>
+
+                  {/* Date and arrow at bottom - less prominent */}
+                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
+                    <span className="text-xs font-data text-muted-foreground">
                       {formatDateShort(r.report_date)}
                     </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
-                  <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-snug">
-                    {r.title || formatDateChinese(r.report_date)}
-                  </h4>
                 </Link>
               ))}
             </div>

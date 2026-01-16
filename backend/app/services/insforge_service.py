@@ -794,6 +794,53 @@ class InsforgeService:
             print(f"[InsforgeService] Exception getting sector subscriptions: {e}")
             return {"success": False, "error": str(e), "subscriptions": []}
 
+    async def get_sector_digest_history(
+        self,
+        sector_id: str | None = None,
+        days: int = 30,
+    ) -> Dict[str, Any]:
+        """
+        Get sector digest history from the database using Edge Function.
+
+        Args:
+            sector_id: Optional sector ID to filter by (None = all sectors)
+            days: Number of days of history to retrieve
+
+        Returns:
+            dict with success status and list of digest summaries
+        """
+        try:
+            function_url = f"{self.base_url}/functions/sector-digests"
+            params = [f"history=true", f"days={days}"]
+            if sector_id:
+                params.append(f"sector_id={sector_id}")
+            query_url = f"{function_url}?{'&'.join(params)}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    query_url,
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return {
+                            "success": True,
+                            "digests": data.get("digests", []),
+                        }
+                    else:
+                        error_msg = data.get("error", "Unknown error")
+                        return {"success": False, "error": error_msg, "digests": []}
+                else:
+                    error_msg = response.text
+                    return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}", "digests": []}
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting sector digest history: {e}")
+            return {"success": False, "error": str(e), "digests": []}
+
 
 # Singleton instance
 _insforge_service: Optional[InsforgeService] = None

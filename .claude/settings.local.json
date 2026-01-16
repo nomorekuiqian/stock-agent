@@ -123,7 +123,9 @@
       "Bash(__NEW_LINE_e10103fb0af13483__ echo \"\")",
       "WebFetch(domain:resend.com)",
       "Bash(gh run list:*)",
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Skill(frontend-design)",
+      "WebFetch(domain:ranaroussi.github.io)"
     ],
     "deny": [],
     "ask": []

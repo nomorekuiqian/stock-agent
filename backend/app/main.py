@@ -18,6 +18,7 @@ from app.services.fred_service import (
 )
 from app.services.liquidity_agent import get_liquidity_agent
 from app.services.fmp_service import get_fmp_service
+from app.services.yfinance_service import get_yfinance_service
 from app.models.request_models import (
     DigestRequest,
     DigestResponse,
@@ -1309,13 +1310,15 @@ async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8,
 @app.get("/api/stocks/quotes")
 async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-separated stock symbols")):
     """
-    Get current quotes for multiple stocks using FMP API with 5-minute caching.
+    Get current quotes for multiple stocks using yfinance batch API with 10-minute caching.
+
+    Uses yfinance for efficient batch fetching (1 request for 70+ stocks in ~2 seconds).
 
     Args:
         symbols: Comma-separated stock symbols (e.g., "AAPL,MSFT,NVDA")
 
     Returns:
-        Stock quotes with price and daily change.
+        Stock quotes with price and daily change percentage.
     """
     try:
         symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
@@ -1323,11 +1326,13 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
         if not symbol_list:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
-        if len(symbol_list) > 20:
-            symbol_list = symbol_list[:20]
+        # Allow up to 100 symbols for sector pages
+        if len(symbol_list) > 100:
+            symbol_list = symbol_list[:100]
 
-        fmp = get_fmp_service()
-        result = fmp.get_stock_quotes(symbol_list, use_cache=True)
+        # Use yfinance for efficient batch fetching (1 request vs 73 FMP calls)
+        yf_service = get_yfinance_service()
+        result = yf_service.get_stock_quotes(symbol_list, use_cache=True)
 
         # Transform to frontend format
         quotes = []
@@ -1339,7 +1344,7 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
                 "daily_change": quote.get("daily_change", 0),
             })
 
-        print(f"[API] get_stock_quotes: {len(quotes)} quotes, {result.get('from_cache', 0)} from cache")
+        print(f"[API] get_stock_quotes (yfinance): {len(quotes)} quotes, {result.get('from_cache', 0)} from cache")
 
         return {"success": True, "quotes": quotes}
 
@@ -1827,6 +1832,127 @@ async def unsubscribe_from_sector(sector_id: str, user_id: str = Query(..., desc
 
     except HTTPException:
         raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sectors/{sector_id}/digest/history")
+async def get_sector_digest_history(
+    sector_id: str,
+    days: int = Query(30, ge=1, le=365, description="Number of days of history"),
+):
+    """
+    Get digest history for a specific sector.
+    """
+    try:
+        sector = get_sector_by_id(sector_id)
+        if not sector:
+            raise HTTPException(status_code=404, detail=f"Sector '{sector_id}' not found")
+
+        insforge_service = get_insforge_service()
+        result = await insforge_service.get_sector_digest_history(
+            sector_id=sector_id,
+            days=days,
+        )
+
+        if not result.get("success"):
+            # Return empty list instead of error for history
+            return {
+                "success": True,
+                "sector_id": sector_id,
+                "digests": [],
+            }
+
+        return {
+            "success": True,
+            "sector_id": sector_id,
+            "digests": result.get("digests", []),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sectors/generate-all")
+async def generate_all_sector_digests(
+    x_cron_secret: str = Header(None, alias="X-Cron-Secret"),
+):
+    """
+    Generate digests for all enabled sectors.
+    This endpoint is designed for CI/CD automation.
+
+    Requires X-Cron-Secret header for authentication.
+    """
+    # Validate cron secret
+    expected_secret = os.getenv("CRON_SECRET")
+    if expected_secret and x_cron_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+    try:
+        from agents.sector_digest import get_sector_digest
+        from app.models.sector_digest_models import get_enabled_sectors
+        from app.utils.timezone import format_digest_date
+
+        sectors = get_enabled_sectors()
+        digest_agent = get_sector_digest()
+        insforge_service = get_insforge_service()
+
+        results = []
+        digest_date = format_digest_date()
+
+        for sector in sectors:
+            print(f"[GenerateAll] Generating digest for: {sector.name_zh} ({sector.id})")
+            try:
+                # Generate digest
+                digest_result = await digest_agent.generate(sector.id)
+
+                if digest_result.get("success"):
+                    # Save to database
+                    save_result = await insforge_service.save_sector_digest(
+                        sector_id=sector.id,
+                        digest_date=digest_date,
+                        digest_data=digest_result,
+                    )
+
+                    results.append({
+                        "sector_id": sector.id,
+                        "sector_name": sector.name_zh,
+                        "success": True,
+                        "saved": save_result.get("success", False),
+                    })
+                else:
+                    results.append({
+                        "sector_id": sector.id,
+                        "sector_name": sector.name_zh,
+                        "success": False,
+                        "error": digest_result.get("error", "Generation failed"),
+                    })
+
+            except Exception as e:
+                print(f"[GenerateAll] Error generating {sector.id}: {e}")
+                results.append({
+                    "sector_id": sector.id,
+                    "sector_name": sector.name_zh,
+                    "success": False,
+                    "error": str(e),
+                })
+
+        successful = sum(1 for r in results if r.get("success"))
+        total = len(results)
+
+        return {
+            "success": True,
+            "message": f"Generated {successful}/{total} sector digests",
+            "digest_date": digest_date,
+            "results": results,
+        }
+
     except Exception as e:
         import traceback
         traceback.print_exc()

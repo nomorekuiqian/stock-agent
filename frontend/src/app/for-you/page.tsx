@@ -805,33 +805,26 @@ export default function ForYouPage() {
             </div>
 
             {/* Report Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {history.slice(0, 5).map((item) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {history.slice(0, 6).map((item) => (
                 <Link
                   key={item.id}
                   href={`/for-you/${item.id}`}
-                  className="group terminal-card p-4 hover:border-emerald-500/30 transition-all"
+                  className="group terminal-card p-6 hover:border-emerald-500/30 hover:bg-card/80 transition-all"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-data text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
-                      {formatDateShort(item.digest_date)}
-                    </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                  <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-snug mb-2">
+                  {/* Title first - more prominent */}
+                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-relaxed mb-4">
                     {item.greeting || formatDateChinese(item.digest_date)}
                   </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {item.symbols.slice(0, 3).map((sym) => (
-                      <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
-                        {sym}
-                      </span>
-                    ))}
-                    {item.symbols.length > 3 && (
-                      <span className="text-xs text-muted-foreground font-data">+{item.symbols.length - 3}</span>
-                    )}
+
+                  {/* Date and arrow at bottom - less prominent */}
+                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
+                    <span className="text-xs font-data text-muted-foreground">
+                      {formatDateShort(item.digest_date)}
+                    </span>
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
                 </Link>
               ))}
