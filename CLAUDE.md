@@ -380,16 +380,26 @@ POST /api/liquidity/analysis
 
 **设计方向**: Financial Terminal + Editorial Luxury (金融终端 + 编辑奢华)
 
+> **详细规范**: 参见 [`frontend/docs/design-system.md`](frontend/docs/design-system.md)
+
+### 核心原则
+
+1. **简洁 > 花哨**：宁可单调也不要杂乱
+2. **层级清晰**：通过颜色深浅、字重、大小建立视觉层级
+3. **数据优先**：UI 服务于数据，不抢夺注意力
+4. **双主题适配**：暗色和亮色主题都要考虑
+
 ### 主题配置
 
 | 属性 | 值 | 用途 |
 |------|-----|------|
 | 背景色 | `#050506` | 深色主背景 |
-| 卡片背景 | `bg-card` | 内容卡片 |
-| 强调色 | `#10B981` (emerald-500) | 按钮、链接、高亮 |
+| 卡片背景 | `bg-card/50` | 内容卡片 |
+| 主强调色 | `emerald-500` | Section 标题、主按钮、链接 |
+| 次强调色 | `amber-400` (暗) / `amber-700` (亮) | Subsection 标题 |
 | 前景色 | `text-foreground` | 主文字 |
 | 次要色 | `text-muted-foreground` | 辅助文字 |
-| 边框 | `border-border/50` | 细微边框 |
+| 边框 | `border-border/40` | 细微边框 |
 
 ### 字体系统
 
@@ -414,14 +424,22 @@ POST /api/liquidity/analysis
 }
 ```
 
-**Section Header** (翠绿竖条):
+**Section Header** (翠绿竖条 - 一级标题):
 ```jsx
-<div className="flex items-center gap-2 mb-5">
+<h2 className="text-base font-semibold text-foreground flex items-center gap-2">
   <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-  <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">
-    Section Title
-  </h3>
-</div>
+  <span>区块标题</span>
+  <span className="text-muted-foreground text-sm font-normal">English Title</span>
+</h2>
+```
+
+**Subsection Header** (琥珀圆点 - 二级标题):
+```jsx
+<h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide mb-3">
+  <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 light:bg-amber-600" />
+  <span className="text-amber-400 light:text-amber-700">小标题</span>
+  <span className="text-muted-foreground/70 font-normal normal-case">English</span>
+</h3>
 ```
 
 **Status Badge** (状态徽章):
@@ -488,13 +506,22 @@ POST /api/liquidity/analysis
 
 ### 颜色语义
 
-| 场景 | 颜色 |
-|------|------|
-| 上涨/正面 | `text-emerald-400` |
-| 下跌/负面 | `text-red-400` |
-| 中性/警告 | `text-amber-400` |
-| 链接/交互 | `text-emerald-400 hover:text-emerald-300` |
-| 禁用 | `opacity-50 cursor-not-allowed` |
+| 场景 | 暗色主题 | 亮色主题 |
+|------|----------|----------|
+| 上涨/正面 | `text-emerald-400` | `text-emerald-600` |
+| 下跌/负面 | `text-red-400` | `text-red-600` |
+| 中性/警告 | `text-amber-400` | `text-amber-600` |
+| 链接/交互 | `text-emerald-400` | `text-emerald-600` |
+| 禁用 | `opacity-50 cursor-not-allowed` | 同左 |
+
+### 颜色层级（禁忌）
+
+**避免使用**：Sky、Violet、Rose、Cyan 等高饱和度颜色会喧宾夺主
+
+**强调色使用原则**：
+- Emerald：仅用于一级标题装饰、主按钮、重要链接
+- Amber：仅用于二级标题装饰
+- 其他信息用灰度色阶表达层级
 
 ### 动画
 

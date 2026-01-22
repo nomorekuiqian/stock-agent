@@ -147,6 +147,12 @@ export default function RootLayout({
                     板块
                   </Link>
                   <Link
+                    href="/stock"
+                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                  >
+                    个股
+                  </Link>
+                  <Link
                     href="/tools"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
                   >
@@ -191,11 +197,11 @@ export default function RootLayout({
                   <Link href="/sectors" className="hover:text-foreground transition-colors">
                     板块
                   </Link>
+                  <Link href="/stock" className="hover:text-foreground transition-colors">
+                    个股
+                  </Link>
                   <Link href="/tools" className="hover:text-foreground transition-colors">
                     工具
-                  </Link>
-                  <Link href="/today/archive" className="hover:text-foreground transition-colors">
-                    归档
                   </Link>
                 </div>
 

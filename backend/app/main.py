@@ -1355,6 +1355,90 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
 
 
 # =============================================================================
+# Individual Stock Research API (OpenBB)
+# =============================================================================
+
+
+@app.get("/api/stock/{symbol}")
+async def get_stock_data(
+    symbol: str,
+    include_financials: bool = Query(True, description="Include historical financials"),
+):
+    """
+    Get comprehensive individual stock data using OpenBB SDK.
+
+    Returns company profile, real-time quote, fundamental metrics (TTM, valuation,
+    growth, profitability), and optionally historical financial statements.
+
+    Args:
+        symbol: Stock ticker symbol (e.g., 'NVDA', 'AAPL')
+        include_financials: Whether to include quarterly financial statements
+
+    Returns:
+        StockDataResponse with profile, quote, fundamentals, and financials
+    """
+    try:
+        from app.services.stock_service import get_stock_service
+
+        service = get_stock_service()
+        data = await service.get_stock_data(
+            symbol=symbol.upper(),
+            include_financials=include_financials,
+        )
+
+        return data
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stock/{symbol}/history")
+async def get_stock_price_history(
+    symbol: str,
+    days: int = Query(default=365, ge=7, le=1825, description="Number of days of history"),
+):
+    """
+    Get historical price data for a stock.
+
+    Args:
+        symbol: Stock ticker symbol (e.g., 'NVDA', 'AAPL')
+        days: Number of days of history (default: 365, max: 1825 = 5 years)
+
+    Returns:
+        Historical OHLCV price data for charting
+    """
+    try:
+        from app.services.openbb_service import get_openbb_service
+        from datetime import datetime, timedelta
+
+        service = get_openbb_service()
+
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        history = await service.get_historical_prices(
+            symbol=symbol.upper(),
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        return {
+            "success": True,
+            "symbol": symbol.upper(),
+            "days": days,
+            "count": len(history),
+            "data": history,
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
 # Email Feedback Endpoints
 # =============================================================================
 

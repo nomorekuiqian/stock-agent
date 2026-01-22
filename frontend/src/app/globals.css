@@ -4,6 +4,7 @@
 /* Fonts loaded via <link> in layout.tsx for CSS order compatibility */
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant light (&:is(.light *));
 @plugin "@tailwindcss/typography";
 
 /* ============================================
@@ -161,10 +162,11 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.15;
 }
 
-/* Monospace for data */
+/* Elegant numerals for data - using sans-serif with tabular figures */
 .font-data {
-  font-family: var(--font-mono);
-  font-feature-settings: "tnum";
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum", "ss01";
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 

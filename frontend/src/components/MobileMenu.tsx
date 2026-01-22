@@ -30,6 +30,12 @@ export function MobileMenu() {
       ],
     },
     {
+      title: '个股',
+      links: [
+        { href: '/stock', label: '个股研究' },
+      ],
+    },
+    {
       title: '工具',
       links: [
         { href: '/tools', label: '数据工具' },

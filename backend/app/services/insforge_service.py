@@ -841,6 +841,289 @@ class InsforgeService:
             print(f"[InsforgeService] Exception getting sector digest history: {e}")
             return {"success": False, "error": str(e), "digests": []}
 
+    # =========================================================================
+    # Stock Research Methods (Individual Stock Data)
+    # =========================================================================
+
+    async def get_stock_profile(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Get stock profile from cache (stock_profiles table).
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            Profile data or None if not found
+        """
+        try:
+            function_url = f"{self.base_url}/functions/stock-data"
+            query_url = f"{function_url}?action=get_profile&symbol={symbol}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    query_url,
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data")
+                return None
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting stock profile: {e}")
+            return None
+
+    async def upsert_stock_profile(self, symbol: str, profile_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Insert or update stock profile in cache.
+
+        Args:
+            symbol: Stock ticker symbol
+            profile_data: Profile data to store
+
+        Returns:
+            dict with success status
+        """
+        try:
+            function_url = f"{self.base_url}/functions/stock-data"
+
+            db_profile = {
+                "symbol": symbol.upper(),
+                "company_name": profile_data.get("company_name", ""),
+                "company_name_zh": profile_data.get("company_name_zh"),
+                "exchange": profile_data.get("exchange"),
+                "classification": profile_data.get("classification"),
+                "description": profile_data.get("description"),
+                "company_details": profile_data.get("company_details"),
+                "data_source": profile_data.get("data_source", "openbb_fmp"),
+            }
+
+            print(f"[InsforgeService] Upserting stock profile for {symbol}")
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{function_url}?action=upsert_profile",
+                    headers=self.headers,
+                    json=db_profile,
+                    timeout=30.0,
+                )
+
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    if data.get("success"):
+                        print(f"[InsforgeService] Stock profile saved for {symbol}")
+                        return {"success": True, "data": data.get("data")}
+                    else:
+                        error_msg = data.get("error", "Unknown error")
+                        print(f"[InsforgeService] Profile save failed: {error_msg}")
+                        return {"success": False, "error": error_msg}
+                else:
+                    error_msg = response.text
+                    print(f"[InsforgeService] Profile save failed: {response.status_code}")
+                    return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception upserting stock profile: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def get_stock_financials(self, symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
+        """
+        Get stock financials from cache (stock_financials table).
+
+        Args:
+            symbol: Stock ticker symbol
+            limit: Number of quarters to retrieve
+
+        Returns:
+            List of financial data dicts, ordered by period_end_date DESC
+        """
+        try:
+            function_url = f"{self.base_url}/functions/stock-data"
+            query_url = f"{function_url}?action=get_financials&symbol={symbol}&limit={limit}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    query_url,
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data", [])
+                return []
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting stock financials: {e}")
+            return []
+
+    async def upsert_stock_financial(self, symbol: str, financial_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Insert or update a single quarter's financial data.
+
+        Args:
+            symbol: Stock ticker symbol
+            financial_data: Financial data for a single quarter
+
+        Returns:
+            dict with success status
+        """
+        try:
+            function_url = f"{self.base_url}/functions/stock-data"
+
+            # Extract period info for unique key
+            income = financial_data.get("income_statement", {})
+            period_date = financial_data.get("period") or income.get("date", "")
+            fiscal_year = income.get("fiscal_year")
+            fiscal_period = income.get("fiscal_period")
+
+            # Determine fiscal quarter from period
+            fiscal_quarter = None
+            if fiscal_period:
+                fiscal_quarter = fiscal_period  # Q1, Q2, Q3, Q4
+            elif period_date:
+                # Extract quarter from date if not provided
+                month = int(period_date.split("-")[1]) if "-" in period_date else None
+                if month:
+                    fiscal_quarter = f"Q{(month - 1) // 3 + 1}"
+
+            db_financial = {
+                "symbol": symbol.upper(),
+                "fiscal_year": fiscal_year,
+                "fiscal_quarter": fiscal_quarter,
+                "period_type": "quarterly",
+                "period_end_date": period_date,
+                "income_statement": financial_data.get("income_statement"),
+                "balance_sheet": financial_data.get("balance_sheet"),
+                "cash_flow": financial_data.get("cash_flow"),
+                "currency": "USD",
+                "data_source": "openbb_fmp",
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{function_url}?action=upsert_financial",
+                    headers=self.headers,
+                    json=db_financial,
+                    timeout=30.0,
+                )
+
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    if data.get("success"):
+                        return {"success": True, "data": data.get("data")}
+                    else:
+                        return {"success": False, "error": data.get("error", "Unknown error")}
+                else:
+                    return {"success": False, "error": f"HTTP {response.status_code}"}
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception upserting stock financial: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def get_stock_analysis(
+        self, symbol: str, analysis_type: str = "overview"
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get cached AI analysis for a stock.
+
+        Args:
+            symbol: Stock ticker symbol
+            analysis_type: Type of analysis (overview, earnings, valuation, etc.)
+
+        Returns:
+            Analysis data or None if not found/expired
+        """
+        try:
+            function_url = f"{self.base_url}/functions/stock-data"
+            query_url = f"{function_url}?action=get_analysis&symbol={symbol}&type={analysis_type}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    query_url,
+                    headers=self.headers,
+                    timeout=30.0,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        return data.get("data")
+                return None
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception getting stock analysis: {e}")
+            return None
+
+    async def save_stock_analysis(
+        self,
+        symbol: str,
+        analysis_type: str,
+        content: str,
+        data_snapshot: Optional[Dict[str, Any]] = None,
+        model: str = "gemini-3-pro-preview",
+        expires_hours: int = 24,
+    ) -> Dict[str, Any]:
+        """
+        Save AI-generated analysis to cache.
+
+        Args:
+            symbol: Stock ticker symbol
+            analysis_type: Type of analysis
+            content: Analysis text content
+            data_snapshot: Data used to generate analysis
+            model: Model used for generation
+            expires_hours: Hours until expiration
+
+        Returns:
+            dict with success status and analysis ID
+        """
+        try:
+            function_url = f"{self.base_url}/functions/stock-data"
+
+            db_analysis = {
+                "symbol": symbol.upper(),
+                "analysis_type": analysis_type,
+                "content": content,
+                "data_snapshot": data_snapshot,
+                "model": model,
+                "generated_at": now_iso(),
+                "expires_hours": expires_hours,
+            }
+
+            print(f"[InsforgeService] Saving stock analysis for {symbol} ({analysis_type})")
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{function_url}?action=save_analysis",
+                    headers=self.headers,
+                    json=db_analysis,
+                    timeout=30.0,
+                )
+
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    if data.get("success"):
+                        analysis_id = data.get("data", {}).get("id")
+                        print(f"[InsforgeService] Stock analysis saved, ID: {analysis_id}")
+                        return {"success": True, "analysis_id": analysis_id}
+                    else:
+                        error_msg = data.get("error", "Unknown error")
+                        print(f"[InsforgeService] Analysis save failed: {error_msg}")
+                        return {"success": False, "error": error_msg}
+                else:
+                    error_msg = response.text
+                    print(f"[InsforgeService] Analysis save failed: {response.status_code}")
+                    return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+
+        except Exception as e:
+            print(f"[InsforgeService] Exception saving stock analysis: {e}")
+            return {"success": False, "error": str(e)}
+
 
 # Singleton instance
 _insforge_service: Optional[InsforgeService] = None
