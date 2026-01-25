@@ -9,6 +9,8 @@ Endpoints:
 - POST /api/stock/{symbol}/analysis - Generate AI stock analysis
 """
 
+from __future__ import annotations
+
 import re
 import threading
 import traceback
@@ -20,11 +22,7 @@ from app.shared.fmp_service import get_fmp_service
 from app.shared.yfinance_service import get_yfinance_service
 from app.features.stock.service import get_stock_service
 from app.features.stock.agent import get_stock_analysis_agent
-from app.features.stock.db import (
-    get_stock_analysis,
-    save_stock_analysis,
-)
-from app.core.database import get_insforge_service
+from app.features.stock.db import get_stock_analysis, save_stock_analysis
 
 router = APIRouter(prefix="/api", tags=["stock"])
 
@@ -133,6 +131,61 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
 # =============================================================================
 # Individual Stock Research API (OpenBB)
 # =============================================================================
+
+
+@router.get("/stock/{symbol}/profile")
+async def get_stock_profile_quick(symbol: str):
+    """
+    Get stock profile from cache (fast endpoint for progressive loading).
+
+    Returns cached profile instantly without fetching quote or financials.
+    Used as first layer of progressive loading UI.
+
+    Response time: <50ms (memory cache) or <300ms (DB cache)
+    """
+    # Validate symbol format
+    upper_symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", upper_symbol):
+        return {"success": False, "profile": None, "source": "invalid_symbol"}
+
+    try:
+        from app.features.stock.service import _get_cached_profile
+        from app.features.stock.db import get_stock_profile as db_get_profile
+
+        # 1. Check in-memory cache first (instant)
+        cached = _get_cached_profile(upper_symbol)
+        if cached:
+            print(f"[API] Profile quick: memory cache HIT for {upper_symbol}")
+            return {
+                "success": True,
+                "profile": cached,
+                "source": "memory_cache",
+            }
+
+        # 2. Check DB cache (fast)
+        db_cached = await db_get_profile(upper_symbol)
+        if db_cached:
+            print(f"[API] Profile quick: DB cache HIT for {upper_symbol}")
+            # Also warm up memory cache
+            from app.features.stock.service import _set_cached_profile
+            _set_cached_profile(upper_symbol, db_cached)
+            return {
+                "success": True,
+                "profile": db_cached,
+                "source": "db_cache",
+            }
+
+        # 3. No cache - return minimal placeholder
+        print(f"[API] Profile quick: cache MISS for {upper_symbol}")
+        return {
+            "success": True,
+            "profile": None,
+            "source": "none",
+        }
+
+    except Exception:
+        traceback.print_exc()
+        return {"success": False, "profile": None, "source": "error"}
 
 
 @router.get("/stock/{symbol}")
@@ -312,7 +365,7 @@ async def generate_stock_analysis_endpoint(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         raise HTTPException(
             status_code=500,

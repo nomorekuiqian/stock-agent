@@ -9,603 +9,201 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-这是一个全栈宏观市场分析应用,使用 Google ADK (Agent Development Kit) 构建 AI Agent,提供市场数据获取、新闻分析和投资报告服务。
+全栈宏观市场分析应用，使用 Google ADK 构建 AI Agent，提供市场数据获取、新闻分析和投资报告服务。
 
 **技术栈:**
 - 前端: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4
 - 后端: FastAPI + Google ADK + Gemini + yfinance + FMP API + FRED API
-- AI:
-  - 市场分析: Google ADK 单 Agent (gemini-3-pro-preview)
-  - 流动性分析: OpenAI GPT-5.2 (带 web search)
-- 邮件: Resend API (每日报告推送)
-- 数据库: Insforge (PostgreSQL 托管服务)
-- 品牌: TheMarketBrew (翠绿色主题 #059669)
-- 网站域名: https://themarketbrew.com
-
-## 测试账号
-
-用于自动化测试和调试：
-- **邮箱**: `test@marketbrew.test`
-- **密码**: `TestPass123!`
-- **用户ID**: `b530a7a8-25f5-45ee-95f1-79acddb048e5`
+- AI: Google ADK (gemini-3-pro-preview) 市场分析 / OpenAI GPT-4o-mini (带 web search) 流动性分析
+- 邮件: Resend API
+- 数据库: Insforge (PostgreSQL)
+- 品牌: TheMarketBrew (#059669 翠绿色) / https://themarketbrew.com
 
 ## 开发命令
 
 ### 前端 (frontend/)
-
 ```bash
-cd frontend
-npm install
 npm run dev          # http://localhost:3000
-npm run build
-npm run lint
+npm run build && npm run lint
 ```
 
 ### 后端 (backend/)
-
 ```bash
-cd backend
-python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest                          # 运行测试
-pytest tests/test_main.py::test_name  # 运行单个测试
+
+# 测试
+pytest                              # 运行默认测试 (e2e + integration)
+pytest tests/test_xxx.py -v         # 运行单个测试文件
+pytest tests/test_xxx.py::TestClass::test_method  # 运行单个测试
+pytest -v --run-generate            # 包含 AI 生成测试 (慢)
 ```
 
-### 环境配置
+### 环境变量
 
 后端 `backend/.env`:
 ```
-GOOGLE_API_KEY=your_google_api_key
-FMP_API_KEY=your_fmp_api_key        # Financial Modeling Prep API (国债利率、新闻)
-OPENAI_API_KEY=your_openai_key      # 流动性分析 Agent (GPT-5.2 + web search)
-FRED_API_KEY=your_fred_key          # 可选,FRED 流动性数据 (有免费限额)
-RESEND_API_KEY=your_resend_api_key  # 可选,用于邮件报告
-CRON_SECRET=your_secret             # 可选,用于定时任务认证
-FRONTEND_URL=https://your-domain    # 可选,生产环境 CORS
-INSFORGE_ANON_KEY=your_anon_key     # 可选,Insforge 匿名密钥 (有默认值)
+GOOGLE_API_KEY=xxx          # 必需 - 市场分析 Agent
+FMP_API_KEY=xxx             # 必需 - 国债利率、新闻
+OPENAI_API_KEY=xxx          # 流动性分析 Agent
+FRED_API_KEY=xxx            # 流动性指标
+RESEND_API_KEY=xxx          # 邮件服务
+CRON_SECRET=xxx             # 定时任务认证
+FRONTEND_URL=https://xxx    # 生产环境 CORS
 ```
 
 前端 `frontend/.env.local`:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000/api
 NEXT_PUBLIC_INSFORGE_URL=https://9wmhxyi4.us-east.insforge.app
-NEXT_PUBLIC_INSFORGE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_INSFORGE_ANON_KEY=xxx
 ```
 
-## 架构设计
+## 后端架构 (Feature-based)
 
-### 后端架构
-
-**核心设计模式**: Python 数据获取 + AI Agent 分析
+重构后采用 Feature 模块化架构，每个功能领域独立封装：
 
 ```
-backend/
-├── app/
-│   ├── main.py                    # FastAPI 入口, API 路由
-│   ├── models/
-│   │   └── request_models.py      # Pydantic 请求/响应模型
-│   └── services/
-│       ├── fmp_service.py         # Financial Modeling Prep API (国债利率、新闻)
-│       ├── fred_service.py        # FRED API (流动性指标: WALCL, TGA, RRP, NFCI)
-│       ├── liquidity_agent.py     # OpenAI GPT-5.2 流动性分析 Agent
-│       ├── email_service.py       # Resend 邮件服务 (广播订阅)
-│       └── insforge_service.py    # Insforge 数据库服务 (报告存储)
-├── agents/
-│   ├── agent.py                   # ADK Agent 定义 + MacroAgent 封装类
-│   └── tools/
-│       ├── __init__.py            # 工具导出
-│       ├── market_data.py         # 市场数据工具 (yfinance + FMP)
-│       ├── news.py                # 新闻获取工具 (FMP)
-│       ├── calendar.py            # 经济日历工具 (FMP)
-│       └── earnings.py            # 财报日历工具 (FMP)
-└── tests/
+backend/app/
+├── main.py                    # FastAPI 入口，注册所有 feature routers
+├── core/                      # 核心基础设施
+│   ├── config.py              # 环境变量配置
+│   └── database.py            # InsforgeService 基类 (HTTP client)
+├── features/                  # 功能模块 (每个模块独立)
+│   ├── market/                # 市场日报
+│   │   ├── router.py          # API 端点 POST /api/market
+│   │   ├── agent.py           # MarketAgent (Google ADK)
+│   │   ├── models.py          # MarketReportOutput (Pydantic)
+│   │   └── db.py              # market_reports 表操作
+│   ├── stock/                 # 个股调研
+│   │   ├── router.py          # /api/stock/{symbol}, /api/stocks/search
+│   │   ├── agent.py           # StockAnalysisAgent (Google ADK)
+│   │   ├── service.py         # StockService (数据聚合+计算)
+│   │   └── db.py              # stock_analyses, stock_profiles 表操作
+│   ├── liquidity/             # 流动性分析
+│   │   ├── router.py          # /api/liquidity/*
+│   │   ├── agent.py           # LiquidityAgent (OpenAI + web search)
+│   │   ├── fred_service.py    # FRED API 流动性指标
+│   │   └── db.py              # liquidity_analyses 表操作
+│   ├── sector/                # 板块分析
+│   ├── digest/                # 个性化摘要
+│   ├── subscription/          # 邮件订阅
+│   │   ├── email_service.py   # Resend 邮件发送
+│   │   └── service.py         # 订阅管理
+│   └── feedback/              # 用户反馈
+├── shared/                    # 跨模块共享服务
+│   ├── fmp_service.py         # FMP API (新闻、国债利率)
+│   ├── yfinance_service.py    # yfinance (股票报价)
+│   ├── openbb_service.py      # OpenBB SDK (财务数据)
+│   ├── insforge_service.py    # Insforge 高级操作
+│   └── data_tools/            # 数据获取工具
+│       ├── market_data.py     # 市场数据 (yfinance + FMP)
+│       ├── news.py            # 新闻获取
+│       ├── calendar.py        # 经济日历
+│       └── earnings.py        # 财报日历
+├── utils/
+│   └── timezone.py            # Pacific 时区工具
+└── edge_functions/            # Insforge Edge Functions (JavaScript)
 ```
 
-### Agent 架构 (agents/agent.py)
+### Feature 模块标准结构
 
-**简化架构**: Python 直接获取数据 → Analyst Agent 分析
+每个 feature 模块遵循相同模式：
+- `router.py` - FastAPI 路由定义
+- `agent.py` - AI Agent 封装 (如有)
+- `service.py` - 业务逻辑 (如有)
+- `models.py` - Pydantic 模型
+- `db.py` - 数据库操作 (调用 edge_functions)
+
+### 数据流架构
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                  Python 数据获取层                     │
-│  ┌────────────┐ ┌────────────┐ ┌────────────────────┐ │
-│  │market_data │ │   news     │ │ calendar/earnings  │ │
-│  │ (yfinance) │ │   (FMP)    │ │       (FMP)        │ │
-│  └────────────┘ └────────────┘ └────────────────────┘ │
-└───────────────────────┬──────────────────────────────┘
-                        │ JSON 数据
-                        ▼
-              ┌─────────────────────┐
-              │   Analyst Agent     │
-              │  (gemini-3-pro)     │
-              │  中文市场日报生成    │
-              └─────────────────────┘
+Python 数据获取层 (shared/data_tools)
+         │
+         │ JSON 数据
+         ▼
+  Feature Agent (LLM 分析)
+         │
+         │ 结构化输出 (Pydantic)
+         ▼
+  Feature DB (保存到 Insforge)
 ```
 
-- **MacroAgent**: 封装类,协调数据获取和 Agent 调用
-- **analyst_agent**: 唯一的 LLM Agent,生成中文市场分析报告
-- **root_agent**: ADK Web UI 入口 (= analyst_agent)
+## API 端点
 
-### 市场数据覆盖 (market_data.py)
-
-| 类别 | 标的 |
-|------|------|
-| 股票指数 | S&P 500, Nasdaq, Dow Jones, Russell 2000, S&P 400 |
-| 波动率 | VIX |
-| 国债收益率 | 3M, 5Y, 10Y, 30Y (FMP 优先, yfinance 备用) |
-| 信用 | HYG, LQD |
-| 金融 | XLF, KRE |
-| 大宗商品 | Gold (GLD), Oil (USO) |
-| 货币 | US Dollar (DX-Y.NYB) |
-
-### API 端点
-
-**市场分析:**
 | 端点 | 方法 | 描述 |
 |------|------|------|
-| `/api/market` | POST | 执行完整宏观分析,返回市场数据+新闻+AI分析,同时保存到 Insforge (当日有缓存则返回缓存) |
-| `/api/digest` | POST | 个性化摘要,基于用户 watchlist 过滤新闻 |
+| `/api/market` | POST | 生成/获取市场日报 |
+| `/api/stocks/search` | GET | 搜索股票 |
+| `/api/stocks/quotes` | GET | 批量报价 (yfinance) |
+| `/api/stock/{symbol}` | GET | 个股完整数据 |
+| `/api/stock/{symbol}/history` | GET | 价格历史 |
+| `/api/stock/{symbol}/analysis` | POST | AI 个股分析 |
+| `/api/liquidity/metrics` | GET | 流动性指标 |
+| `/api/liquidity/analysis` | POST | AI 流动性分析 |
+| `/api/subscribe` | POST | 订阅邮件 |
+| `/api/report/send` | POST | 广播邮件 (需 X-Cron-Secret) |
 
-**流动性监控:**
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/liquidity/metrics` | GET | 获取所有流动性指标 (Fed Assets, TGA, RRP, Net Liquidity, NFCI 等) |
-| `/api/liquidity/history` | GET | 获取历史净流动性数据 (支持 days 参数,最长 5 年) |
-| `/api/liquidity/analysis` | POST | 生成 AI 流动性分析 (OpenAI GPT-5.2 + web search) |
-| `/api/liquidity/analysis/latest` | GET | 获取最新流动性分析 |
-
-**邮件报告:**
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/report/send` | POST | 广播每日邮件报告 (需 X-Cron-Secret 头) |
-| `/api/report/send-test` | POST | 发送测试邮件到指定邮箱 |
-| `/api/report/preview` | GET | 获取邮件 HTML 预览 |
-| `/api/report/broadcast-test` | POST | 使用现有报告测试广播 |
-
-**订阅管理:**
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/subscribe` | POST | 订阅每日报告 |
-| `/api/unsubscribe` | POST | 取消订阅 |
-| `/api/subscribers` | GET | 列出所有订阅者 (需 X-Cron-Secret 头) |
-
-### 前端架构
+## 测试架构
 
 ```
-frontend/src/
-├── app/
-│   ├── layout.tsx            # 根布局 (TheMarketBrew 品牌, 翠绿色导航)
-│   ├── page.tsx              # 首页 (营销落地页, 订阅入口)
-│   ├── globals.css           # Tailwind 主题配置
-│   ├── today/
-│   │   ├── page.tsx          # 今日日报主页面 (核心页面)
-│   │   ├── [id]/page.tsx     # 日报详情页 (SEO 优化)
-│   │   └── archive/page.tsx  # 历史日报归档
-│   ├── for-you/
-│   │   ├── page.tsx          # 个性化日报 (基于 watchlist)
-│   │   ├── [id]/page.tsx     # 个性化日报详情
-│   │   └── archive/page.tsx  # 个性化日报归档
-│   ├── market/page.tsx       # 市场数据概览 (旧页面)
-│   ├── liquidity/page.tsx    # 流动性监控仪表盘
-│   ├── reports/page.tsx      # 历史报告列表 (旧页面)
-│   ├── reports/[id]/page.tsx # 单个报告详情 (旧页面)
-│   ├── digest/page.tsx       # 个性化摘要
-│   ├── login/page.tsx        # 登录页
-│   ├── auth/callback/page.tsx # OAuth 回调
-│   ├── feedback/page.tsx     # 邮件反馈页面 (👍/👎)
-│   ├── unsubscribe/page.tsx  # 退订页面
-│   └── email-test/page.tsx   # 邮件预览测试
-├── components/
-│   ├── ui/                   # shadcn/ui 组件
-│   ├── ReportContent.tsx     # 报告内容渲染 (结构化数据)
-│   ├── NetLiquidityChart.tsx # 净流动性图表
-│   ├── LiquidityCard.tsx     # 流动性指标卡片
-│   ├── NFCIGauge.tsx         # NFCI 仪表盘
-│   ├── SubscribeForm.tsx     # 订阅表单
-│   └── NavAuth.tsx           # 导航栏认证
-├── contexts/
-│   └── AuthContext.tsx       # 认证上下文 (Insforge Auth)
-└── lib/
-    ├── api.ts                # 后端 API 客户端 (类型安全)
-    ├── insforge.ts           # Insforge 客户端配置
-    ├── auth.ts               # 认证工具函数
-    └── utils.ts              # 通用工具函数
+tests/
+├── conftest.py              # 测试配置，定义 markers
+├── test_stock_service_unit.py  # StockService 纯逻辑单元测试
+├── test_stock_cache.py      # 缓存层测试
+├── e2e/
+│   └── test_stock_e2e.py    # API 端点 E2E 测试
+└── integration/             # 数据库集成测试
 ```
 
-**UI 设计**: Apple 风格,白色主题,翠绿色 (#059669) 强调色,紧凑间距
+**测试标记:**
+- `@pytest.mark.e2e` - 端到端测试
+- `@pytest.mark.integration` - 数据库测试
+- `@pytest.mark.generate` - AI 生成测试 (默认跳过，需 `--run-generate`)
 
-**API 配置**: `NEXT_PUBLIC_API_URL` 环境变量,默认 `http://localhost:8000/api`
+## Agent 开发
 
-### 数据流
+**Google ADK Agent (市场/个股分析):**
+```python
+from google.adk.agents import LlmAgent
+from google.adk.runners import InMemoryRunner
 
-**市场日报流程:**
-```
-POST /api/market
-  → 检查当日缓存 (Insforge market_reports, 基于 Pacific 时区)
-  → 有缓存 → 返回缓存数据 (from_cache: true)
-  → 无缓存 → MarketAgent.analyze()
-      → Python 并行获取:
-          - get_all_market_data() (yfinance + FMP)
-          - get_combined_market_news() (FMP)
-          - get_economic_calendar() (FMP)
-          - get_earnings_calendar() (FMP)
-      → _prepare_data_for_analyst() 清理数据 (减少 ~45% token)
-      → Analyst Agent 生成结构化报告 (MarketReportOutput)
-      → 保存到 Insforge (Upsert by report_date)
-      → 返回结构化数据:
-          {
-            title,           # 一句有观点的标题
-            summary,         # 2-3 句摘要
-            intro,           # 开场白 (2-3 段)
-            macro: {         # 宏观信号分析
-              signals: [{name, current_value, change, trend_direction, analysis}],
-              summary
-            },
-            news: {          # 新闻分析
-              headlines: [{title, fact_summary, deep_analysis, url}],
-              briefs: [{title, summary, analysis, url}]
-            },
-            report_summary,  # 总结展望 (3 段)
-            calendar: [{date, event, analysis}],  # 关键事件
-            indices,         # 市场指数数据
-            market_data,     # 原始数据
-            from_cache       # 是否来自缓存
-          }
+agent = LlmAgent(
+    model="gemini-3-pro-preview",
+    name="analyst",
+    instruction=ANALYST_INSTRUCTION,
+    output_schema=MarketReportOutput,
+)
+runner = InMemoryRunner(agent=agent, app_name="market")
 ```
 
-**流动性分析流程:**
-```
-POST /api/liquidity/analysis
-  → 获取当前 FRED 指标 (get_all_liquidity_metrics)
-  → 获取 30/90 天历史数据 (get_liquidity_history)
-  → LiquidityAgent.analyze()
-      → 构建数据上下文
-      → GPT-5.2 + web search 生成 6 维度报告
-      → 保存到 Insforge (liquidity_analyses)
-      → 返回 {analysis, status, metrics_snapshot}
-```
+**OpenAI Agent (流动性分析):**
+```python
+from openai import AsyncOpenAI
 
-### 流动性分析 Agent (liquidity_agent.py)
-
-**架构**: OpenAI GPT-5.2 + Web Search → 中文流动性分析
-
-```
-┌──────────────────────────────────────────────────────┐
-│                  FRED 数据获取层                      │
-│  ┌────────────┐ ┌────────────┐ ┌────────────────────┐ │
-│  │   WALCL    │ │  TGA/RRP   │ │   NFCI/SOFR/EFFR   │ │
-│  │ (Fed资产)  │ │  (流动性)   │ │    (金融条件)       │ │
-│  └────────────┘ └────────────┘ └────────────────────┘ │
-└───────────────────────┬──────────────────────────────┘
-                        │ 指标数据
-                        ▼
-              ┌─────────────────────┐
-              │   Liquidity Agent   │
-              │    (GPT-5.2)        │
-              │  + Web Search       │
-              │  中文流动性分析      │
-              └─────────────────────┘
+response = await client.responses.create(
+    model="gpt-4o-mini",
+    tools=[{"type": "web_search"}],
+    input=prompt,
+)
 ```
 
-**流动性指标**:
-- `WALCL`: 美联储总资产
-- `WDTGAL`: 财政部一般账户 (TGA)
-- `RRPONTSYD`: 隔夜逆回购 (RRP)
-- `WRESBAL`: 银行准备金
-- `SOFR/EFFR`: 货币市场利率
-- `NFCI`: 芝加哥联储金融条件指数
-- `Net Liquidity = WALCL - TGA - RRP`
+## 设计系统
 
-### Insforge 数据存储
+**设计方向**: Financial Terminal + Editorial Luxury
 
-**数据库表**: `market_reports` (市场日报)
+**核心原则**: 简洁 > 花哨 / 层级清晰 / 数据优先
 
-| 字段 | 类型 | 描述 |
-|------|------|------|
-| id | UUID | 主键 |
-| report_date | DATE | 报告日期 (唯一, Pacific 时区) |
-| timestamp | TEXT | 生成时间戳 |
-| title | TEXT | 报告标题 (一句有观点的话) |
-| summary | TEXT | 摘要 (2-3 句, 列表预览用) |
-| intro | TEXT | 开场白 (2-3 段) |
-| macro | JSONB | 宏观信号分析 {signals: [], summary} |
-| news | JSONB | 新闻分析 {headlines: [], briefs: []} |
-| report_summary | TEXT | 总结展望 (3 段, 无小标题) |
-| calendar | JSONB | LLM 精选关键事件 [{date, event, analysis}] |
-| indices | JSONB | 市场指数数据 (转换后格式) |
-| market_data | JSONB | 原始市场数据 |
+**颜色**:
+- 主强调色: `emerald-500` (一级标题、主按钮)
+- 次强调色: `amber-400` (二级标题)
+- 避免: Sky、Violet、Rose、Cyan
 
-**数据库表**: `liquidity_analyses` (流动性分析)
+**字体**:
+- `font-editorial` - 标题 (Instrument Serif)
+- `font-sans` - 正文 (DM Sans)
+- `font-data` - 数字 (JetBrains Mono)
 
-| 字段 | 类型 | 描述 |
-|------|------|------|
-| id | UUID | 主键 |
-| analysis | TEXT | 分析报告 (Markdown) |
-| status | TEXT | 流动性状态 (充裕/适中/偏紧) |
-| metrics_snapshot | JSONB | 生成时的指标快照 |
-| generated_at | TIMESTAMPTZ | 生成时间 |
-| model | TEXT | 使用的模型 |
+**核心组件**: `.terminal-card` (globals.css 中定义)
 
-**数据库表**: `email_feedback` (邮件反馈)
-
-| 字段 | 类型 | 描述 |
-|------|------|------|
-| id | UUID | 主键 |
-| report_date | DATE | 报告日期 |
-| report_id | UUID | 报告 ID |
-| email | TEXT | 用户邮箱 |
-| rating | TEXT | 评分 (satisfied/dissatisfied) |
-| created_at | TIMESTAMPTZ | 反馈时间 |
-
-**Insforge 配置**:
-- Base URL: `https://9wmhxyi4.us-east.insforge.app`
-- 认证: 匿名 JWT Token
-- 存储策略: Upsert by report_date (同日多次调用只存一份)
-
-## 开发注意事项
-
-### Agent 开发
-
-**市场分析 Agent (Google ADK)**:
-1. **模型配置**: Agent 使用 `gemini-3-pro-preview`
-2. **工具定义**: 在 `agents/tools/` 下添加新工具函数
-3. **数据获取**: 在 Python 层完成,不使用 LLM 调用工具
-4. **Prompt 维护**: `ANALYST_INSTRUCTION` 定义报告格式
-5. **输出 Schema**: `MarketReportOutput` (Pydantic) 定义结构化输出
-
-**流动性分析 Agent (OpenAI)**:
-1. **模型配置**: 使用 `gpt-5.2` + `web_search` tool
-2. **数据获取**: FRED API 获取流动性指标
-3. **Prompt 维护**: `SYSTEM_PROMPT` 定义 6 维度分析框架
-4. **输出格式**: 中文 Markdown 分析报告
-
-### 后端开发
-
-1. **运行路径**: 必须从 `backend/` 目录启动 (导入路径使用 `app.*` 和 `agents.*`)
-2. **环境变量**: `GOOGLE_API_KEY` 必需,`FMP_API_KEY` 用于国债利率和新闻,`OPENAI_API_KEY` 用于流动性分析
-3. **CORS**: 生产环境需设置 `FRONTEND_URL` 环境变量
-4. **数据转换**: `main.py` 中 `transform_market_data_to_indices()` 将 market_data 转换为前端格式
-5. **报告缓存**: `/api/market` 会检查当日是否已有报告,有则返回缓存 (基于 timestamp 验证)
-
-### 前端开发
-
-1. **Client Components**: 使用 hooks 的组件需要 `'use client'`
-2. **API 调用**: 通过 `src/lib/api.ts` 统一管理
-3. **样式**: Tailwind CSS 4,深色主题 + 翠绿色强调色
-4. **缓存**: 使用 localStorage 缓存分析结果
-
-## 设计系统 (Design System)
-
-**设计方向**: Financial Terminal + Editorial Luxury (金融终端 + 编辑奢华)
-
-> **详细规范**: 参见 [`frontend/docs/design-system.md`](frontend/docs/design-system.md)
-
-### 核心原则
-
-1. **简洁 > 花哨**：宁可单调也不要杂乱
-2. **层级清晰**：通过颜色深浅、字重、大小建立视觉层级
-3. **数据优先**：UI 服务于数据，不抢夺注意力
-4. **双主题适配**：暗色和亮色主题都要考虑
-
-### 主题配置
-
-| 属性 | 值 | 用途 |
-|------|-----|------|
-| 背景色 | `#050506` | 深色主背景 |
-| 卡片背景 | `bg-card/50` | 内容卡片 |
-| 主强调色 | `emerald-500` | Section 标题、主按钮、链接 |
-| 次强调色 | `amber-400` (暗) / `amber-700` (亮) | Subsection 标题 |
-| 前景色 | `text-foreground` | 主文字 |
-| 次要色 | `text-muted-foreground` | 辅助文字 |
-| 边框 | `border-border/40` | 细微边框 |
-
-### 字体系统
-
-```css
-/* globals.css 中已定义 */
---font-editorial: 'Instrument Serif', serif;  /* 标题、大字 */
---font-sans: 'DM Sans', sans-serif;           /* 正文 */
---font-data: 'JetBrains Mono', monospace;     /* 数字、代码 */
-```
-
-**使用方式**:
-- `font-editorial` - 页面标题、报告标题 (h1, h2)
-- `font-sans` - 正文、描述文字 (默认)
-- `font-data` - 价格、百分比、日期、股票代码
-
-### 核心组件样式
-
-**Terminal Card** (`.terminal-card` 在 globals.css):
-```css
-.terminal-card {
-  @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl;
-}
-```
-
-**Section Header** (翠绿竖条 - 一级标题):
-```jsx
-<h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-  <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-  <span>区块标题</span>
-  <span className="text-muted-foreground text-sm font-normal">English Title</span>
-</h2>
-```
-
-**Subsection Header** (琥珀圆点 - 二级标题):
-```jsx
-<h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide mb-3">
-  <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 light:bg-amber-600" />
-  <span className="text-amber-400 light:text-amber-700">小标题</span>
-  <span className="text-muted-foreground/70 font-normal normal-case">English</span>
-</h3>
-```
-
-**Status Badge** (状态徽章):
-```jsx
-<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-  Label
-</span>
-```
-
-**Primary Button** (翠绿发光):
-```jsx
-<button className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50">
-  Button
-</button>
-```
-
-**Secondary Button** (边框样式):
-```jsx
-<button className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:border-emerald-500/30 hover:bg-card/80">
-  Button
-</button>
-```
-
-**Date/Time Chip**:
-```jsx
-<div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-  <svg className="w-4 h-4 text-emerald-400">...</svg>
-  <span className="text-sm font-data text-foreground">2025年1月1日</span>
-</div>
-```
-
-### 页面结构模式
-
-**页面 Header**:
-```jsx
-<section className="border-b border-border/50">
-  <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
-    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-      {/* 左侧: 徽章 + 标题 + 副标题 */}
-      {/* 右侧: 操作按钮 */}
-    </div>
-  </div>
-</section>
-```
-
-**内容区域**:
-```jsx
-<div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-  <section className="terminal-card p-6 animate-fade-in-up">
-    {/* Section Header + Content */}
-  </section>
-</div>
-```
-
-**Historical Reports Grid**:
-```jsx
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-  <Link className="group terminal-card p-4 hover:border-emerald-500/30 transition-all">
-    {/* Date badge + Title + Arrow icon */}
-  </Link>
-</div>
-```
-
-### 颜色语义
-
-| 场景 | 暗色主题 | 亮色主题 |
-|------|----------|----------|
-| 上涨/正面 | `text-emerald-400` | `text-emerald-600` |
-| 下跌/负面 | `text-red-400` | `text-red-600` |
-| 中性/警告 | `text-amber-400` | `text-amber-600` |
-| 链接/交互 | `text-emerald-400` | `text-emerald-600` |
-| 禁用 | `opacity-50 cursor-not-allowed` | 同左 |
-
-### 颜色层级（禁忌）
-
-**避免使用**：Sky、Violet、Rose、Cyan 等高饱和度颜色会喧宾夺主
-
-**强调色使用原则**：
-- Emerald：仅用于一级标题装饰、主按钮、重要链接
-- Amber：仅用于二级标题装饰
-- 其他信息用灰度色阶表达层级
-
-### 动画
-
-- `animate-fade-in-up` - 内容区块入场动画
-- `animate-pulse` - 状态指示器脉冲
-- `animate-spin` - 加载状态
-- `transition-all` - 通用过渡效果
-- `group-hover:translate-x-0.5` - 箭头微移动
-
-### CI/CD
-
-- `.github/workflows/daily-report.yml`: GitHub Actions 定时任务
-  - 每工作日 23:00 UTC (美东时间 6:00 PM) 执行
-  - 调用 `POST /api/report/send` 生成报告并广播给所有订阅者
-- 需配置 GitHub Secrets: `CRON_SECRET`, `BACKEND_URL`
-- 支持手动触发 (`workflow_dispatch`)
-
-## 报告格式
-
-**市场日报** (Analyst Agent) 结构化输出 (MarketReportOutput):
-
-```typescript
-{
-  // 基础信息
-  title: string,      // 一句有观点的标题 (15-30 中文字符)
-  summary: string,    // 2-3 句摘要 (50-100 字符, 列表预览用)
-  intro: string,      // 开场白 (2-3 段, 150-250 字符)
-                      // 1) 今日市场情绪和表现
-                      // 2) 2-3 个最值得关注的点
-                      // 3) 引导到详细分析
-
-  // 宏观信号 (结构化)
-  macro: {
-    signals: [{       // 2-3 个最重要的宏观信号
-      name: string,           // 信号名称 (VIX, 10Y国债, 美元指数等)
-      current_value: string,  // 当前值 (18.5, 4.50%, 105.2)
-      change: string,         // 变化描述 (周跌12.3%, 周涨0.15%)
-      trend_direction: "up" | "down" | "flat",
-      analysis: string        // 3-4 句分析 (趋势、区间位置、影响)
-    }],
-    summary: string   // 4-6 句宏观环境综合判断
-  },
-
-  // 新闻分析 (结构化)
-  news: {
-    headlines: [{     // 2-4 条头条新闻 (深度分析)
-      title: string,          // 中文标题
-      fact_summary: string,   // 一句话事实摘要
-      deep_analysis: string,  // 5-6 句深度分析 (背景、影响、关注点)
-      url: string             // 原文链接
-    }],
-    briefs: [{        // 8-12 条快讯 (简短分析)
-      title: string,
-      summary: string,        // 一句话摘要
-      analysis: string,       // 2-3 句市场影响
-      url: string
-    }]
-  },
-
-  // 总结展望 (自由文本)
-  report_summary: string,  // 3 段 (无小标题):
-                           // 1) 今日回顾 - 市场表现、板块轮动
-                           // 2) 原因分析 - 宏观因素 + 新闻催化
-                           // 3) 前瞻展望 - 具体标的 ($TICKER)、风险、事件
-
-  // 关键事件
-  calendar: [{        // 5-10 个未来关键事件
-    date: string,     // YYYY-MM-DD (从源数据复制)
-    event: string,    // 中文事件名 (美光科技财报, 美国CPI数据)
-    analysis: string  // 1-2 句影响分析
-  }]
-}
-```
-
-**AI Prompt 核心原则**:
-- **事实核查**: 所有数据必须与源数据一致,不能夸大或曲解
-- **因果链条**: 为什么重要 → 会导致什么 → 意味着什么
-- **可操作性**: 包含具体标的 ($TICKER 格式) 和风险提示
-- **散户视角**: 用通俗语言解释专业概念
-
-**流动性分析** (Liquidity Agent) 6 维度框架:
-1. **当前状态** - 各指标历史水平定位
-2. **趋势** - 短期/中期流动性走向
-3. **驱动因素** - Fed 资产负债表、TGA、RRP 变化原因
-4. **压力信号** - 货币市场利率异常、NFCI 变化
-5. **展望** - 未来 1-3 个月预判
-6. **投资启示** - 对风险资产的影响
+> 详细规范: `frontend/docs/design-system.md`

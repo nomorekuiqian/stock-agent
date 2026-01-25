@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import ReactMarkdown from 'react-markdown';
 import { StockPriceChart } from '@/components/StockPriceChart';
-import {
-  InlineAnalysisText,
-  type StockAIAnalysis,
-} from '@/components/StockAnalysisCard';
+import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
+import { useAuth } from '@/contexts/AuthContext';
 
 // =============================================================================
 // Types
@@ -241,6 +240,96 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
 };
 
 // =============================================================================
+// Sector/Industry Translations
+// =============================================================================
+
+const SECTOR_TRANSLATIONS: Record<string, string> = {
+  'Technology': '科技',
+  'Healthcare': '医疗保健',
+  'Financial Services': '金融服务',
+  'Consumer Cyclical': '可选消费',
+  'Consumer Defensive': '必需消费',
+  'Industrials': '工业',
+  'Energy': '能源',
+  'Utilities': '公用事业',
+  'Real Estate': '房地产',
+  'Basic Materials': '基础材料',
+  'Communication Services': '通信服务',
+};
+
+const INDUSTRY_TRANSLATIONS: Record<string, string> = {
+  // Technology
+  'Consumer Electronics': '消费电子',
+  'Software - Infrastructure': '基础软件',
+  'Software - Application': '应用软件',
+  'Semiconductors': '半导体',
+  'Semiconductor Equipment & Materials': '半导体设备与材料',
+  'Information Technology Services': '信息技术服务',
+  'Electronic Components': '电子元器件',
+  'Computer Hardware': '计算机硬件',
+  'Scientific & Technical Instruments': '科学技术仪器',
+  // Internet & Media
+  'Internet Content & Information': '互联网内容与信息',
+  'Internet Retail': '互联网零售',
+  'Electronic Gaming & Multimedia': '电子游戏与多媒体',
+  'Entertainment': '娱乐',
+  'Advertising Agencies': '广告代理',
+  // Financial
+  'Banks - Diversified': '综合银行',
+  'Banks - Regional': '区域银行',
+  'Capital Markets': '资本市场',
+  'Insurance - Diversified': '综合保险',
+  'Credit Services': '信贷服务',
+  'Asset Management': '资产管理',
+  'Financial Data & Stock Exchanges': '金融数据与交易所',
+  // Healthcare
+  'Drug Manufacturers - General': '制药 - 综合',
+  'Drug Manufacturers - Specialty & Generic': '制药 - 专科与仿制药',
+  'Biotechnology': '生物技术',
+  'Medical Devices': '医疗器械',
+  'Healthcare Plans': '医疗保险',
+  'Diagnostics & Research': '诊断与研究',
+  // Consumer
+  'Restaurants': '餐饮',
+  'Specialty Retail': '专业零售',
+  'Home Improvement Retail': '家居建材零售',
+  'Apparel Retail': '服装零售',
+  'Auto Manufacturers': '汽车制造',
+  'Leisure': '休闲',
+  'Beverages - Non-Alcoholic': '非酒精饮料',
+  'Packaged Foods': '包装食品',
+  'Household & Personal Products': '家居与个人用品',
+  'Discount Stores': '折扣店',
+  // Industrial
+  'Aerospace & Defense': '航空航天与国防',
+  'Farm & Heavy Construction Machinery': '农业与重型工程机械',
+  'Railroads': '铁路',
+  'Airlines': '航空',
+  'Trucking': '货运',
+  'Integrated Freight & Logistics': '综合货运与物流',
+  // Energy
+  'Oil & Gas Integrated': '综合油气',
+  'Oil & Gas E&P': '油气勘探与生产',
+  'Oil & Gas Midstream': '油气中游',
+  'Oil & Gas Refining & Marketing': '油气炼化与销售',
+  // Telecom
+  'Telecom Services': '电信服务',
+  // Utilities
+  'Utilities - Regulated Electric': '受监管电力',
+  'Utilities - Diversified': '综合公用事业',
+};
+
+function translateSector(sector: string | undefined): string {
+  if (!sector) return '';
+  return SECTOR_TRANSLATIONS[sector] || sector;
+}
+
+function translateIndustry(industry: string | undefined): string {
+  if (!industry) return '';
+  return INDUSTRY_TRANSLATIONS[industry] || industry;
+}
+
+// =============================================================================
 // Utility Functions
 // =============================================================================
 
@@ -252,6 +341,17 @@ async function fetchStockData(symbol: string): Promise<StockData> {
     throw new Error(`Failed to fetch stock data: ${response.status}`);
   }
   return response.json();
+}
+
+async function fetchStockProfileQuick(symbol: string): Promise<StockProfile | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/${symbol}/profile`);
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result.success && result.profile ? result.profile : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchPriceHistory(symbol: string, days: number = 365): Promise<PriceHistoryData[]> {
@@ -388,23 +488,23 @@ function MetricLabel({ metricKey }: { metricKey: string }) {
   );
 }
 
+const TREND_COLORS = {
+  up: 'text-emerald-400',
+  down: 'text-red-400',
+  neutral: 'text-foreground',
+} as const;
+
 function MetricCard({ metricKey, value, trend }: {
   metricKey: string;
   value: string;
   trend?: 'up' | 'down' | 'neutral';
 }) {
-  const trendColors = {
-    up: 'text-emerald-400',
-    down: 'text-red-400',
-    neutral: 'text-foreground',
-  };
-
   return (
     <div className="p-3 bg-card/40 rounded-lg border border-border/40 hover:border-border/60 transition-colors">
       <div className="text-sm mb-1.5">
         <MetricLabel metricKey={metricKey} />
       </div>
-      <div className={`font-data text-lg font-semibold ${trend ? trendColors[trend] : 'text-foreground'}`}>
+      <div className={`font-data text-lg font-semibold ${trend ? TREND_COLORS[trend] : 'text-foreground'}`}>
         {value}
       </div>
     </div>
@@ -416,18 +516,12 @@ function StatRow({ metricKey, value, trend }: {
   value: string;
   trend?: 'up' | 'down' | 'neutral';
 }) {
-  const trendColors = {
-    up: 'text-emerald-400',
-    down: 'text-red-400',
-    neutral: 'text-foreground',
-  };
-
   return (
     <div className="flex items-center justify-between py-3 border-b border-border/25 last:border-0">
       <span className="text-sm">
         <MetricLabel metricKey={metricKey} />
       </span>
-      <span className={`font-data text-base font-semibold ${trend ? trendColors[trend] : 'text-foreground'}`}>
+      <span className={`font-data text-base font-semibold ${trend ? TREND_COLORS[trend] : 'text-foreground'}`}>
         {value}
       </span>
     </div>
@@ -463,42 +557,47 @@ function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
   ];
 
   return (
-    <div className="overflow-x-auto -mx-4">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border/30">
-            <th className="text-left py-3 px-4 text-foreground/80 font-medium">
-              <span className="flex items-center gap-1.5">
+    <div className="relative">
+      {/* Mobile scroll hint */}
+      <div className="sm:hidden flex items-center justify-end gap-1 text-xs text-muted-foreground/60 mb-2">
+        <span>左右滑动查看</span>
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+      </div>
+      <div className="overflow-x-auto -mx-4">
+        <table className="w-full text-sm min-w-[400px]">
+          <thead>
+            <tr className="border-b border-border/30">
+              <th className="text-left py-3 px-4 text-foreground/80 font-medium w-24 sm:w-auto">
                 <span>指标</span>
-              </span>
-            </th>
-            {sortedQuarters.slice(0, 4).map((q, i) => (
-              <th key={i} className="text-right py-3 px-3 text-foreground/70 font-medium whitespace-nowrap font-data">
-                {formatQuarter(q.period, q.fiscal_quarter)}
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="font-data">
-          {metrics.map(({ key, zh, getter }) => (
-            <tr key={key} className="border-b border-border/20 hover:bg-card/30 transition-colors">
-              <td className="py-3 px-4">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-foreground/80 font-medium">{zh}</span>
-                </span>
-              </td>
               {sortedQuarters.slice(0, 4).map((q, i) => (
-                <td key={i} className="text-right py-3 px-3 text-foreground">
-                  {key === 'eps'
-                    ? formatNumber(getter(q), { style: 'currency', maximumFractionDigits: 2 })
-                    : formatNumber(getter(q), { style: 'currency', compact: true })
-                  }
-                </td>
+                <th key={i} className="text-right py-3 px-3 text-foreground/70 font-medium whitespace-nowrap font-data">
+                  {formatQuarter(q.period, q.fiscal_quarter)}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="font-data">
+            {metrics.map(({ key, zh, getter }) => (
+              <tr key={key} className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                <td className="py-3 px-4 whitespace-nowrap">
+                  <span className="text-foreground/80 font-medium">{zh}</span>
+                </td>
+                {sortedQuarters.slice(0, 4).map((q, i) => (
+                  <td key={i} className="text-right py-3 px-3 text-foreground whitespace-nowrap">
+                    {key === 'eps'
+                      ? formatNumber(getter(q), { style: 'currency', maximumFractionDigits: 2 })
+                      : formatNumber(getter(q), { style: 'currency', compact: true })
+                    }
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -513,6 +612,33 @@ function SubsectionHeader({ title, titleEn }: {
       <span className="text-amber-400 light:text-amber-700">{title}</span>
       <span className="text-muted-foreground/70 light:text-muted-foreground font-normal normal-case">{titleEn}</span>
     </h3>
+  );
+}
+
+function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
+  return (
+    <div className={`prose prose-sm prose-invert max-w-none ${className}`}>
+      <ReactMarkdown
+        components={{
+          // Customize heading styles
+          h1: ({ children }) => <h4 className="text-sm font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h4>,
+          h2: ({ children }) => <h5 className="text-sm font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h5>,
+          h3: ({ children }) => <h6 className="text-sm font-medium text-foreground/90 mt-2 mb-1">{children}</h6>,
+          // Paragraph styles
+          p: ({ children }) => <p className="text-sm text-muted-foreground leading-relaxed mb-2 last:mb-0">{children}</p>,
+          // Strong/bold text
+          strong: ({ children }) => <strong className="font-semibold text-foreground/90">{children}</strong>,
+          // List styles
+          ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
+          li: ({ children }) => <li className="text-sm text-muted-foreground">{children}</li>,
+          // Code styles (for financial terms)
+          code: ({ children }) => <code className="font-data text-amber-400/90 bg-amber-500/10 px-1 py-0.5 rounded text-xs">{children}</code>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -542,49 +668,213 @@ function SectionCard({ title, titleEn, children, className = '', action }: {
   );
 }
 
-function GenerateAnalysisButton({ onClick, loading, hasAnalysis }: {
-  onClick: () => void;
+function AIAnalysisSection({
+  analysis,
+  loading,
+  onGenerate,
+  onRegenerate,
+  companyName,
+  symbol,
+  isAuthenticated,
+  onLoginRequired
+}: {
+  analysis: StockAIAnalysis | null;
   loading: boolean;
-  hasAnalysis: boolean;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+  companyName: string;
+  symbol: string;
+  isAuthenticated: boolean;
+  onLoginRequired: () => void;
 }) {
-  if (hasAnalysis) {
+  // Handle generate click - check auth first
+  const handleGenerateClick = () => {
+    if (!isAuthenticated) {
+      onLoginRequired();
+      return;
+    }
+    onGenerate();
+  };
+
+  // State A: Not analyzed yet - show CTA
+  if (!analysis && !loading) {
     return (
-      <button
-        onClick={onClick}
-        disabled={loading}
-        className="p-2 text-muted-foreground hover:text-emerald-400 transition-colors disabled:opacity-50"
-        title="重新生成分析"
-      >
-        <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      </button>
+      <div className="relative">
+        <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+          <div className="px-6 py-10 md:px-10 md:py-14">
+            <div className="max-w-2xl mx-auto text-center">
+              <p className="text-xs uppercase tracking-[0.2em] text-amber-500/80 light:text-amber-600 mb-4">
+                Investment Research
+              </p>
+              <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
+                Unlock Insights for{' '}
+                <span className="text-amber-400 light:text-amber-600">{symbol}</span>
+              </h3>
+              <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-8 max-w-lg mx-auto">
+                Generate a comprehensive analysis of {companyName}&apos;s fundamentals,
+                financials, opportunities and risks.
+              </p>
+              <button
+                onClick={handleGenerateClick}
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all hover:opacity-90"
+              >
+                {isAuthenticated ? (
+                  <>
+                    <span>Generate Analysis</span>
+                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span>Sign in to Analyze</span>
+                  </>
+                )}
+              </button>
+              {!isAuthenticated && (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  AI Analysis is available for registered users
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+        </div>
+      </div>
     );
   }
 
+  // State B: Loading - show progress
+  if (loading) {
+    return (
+      <div className="relative">
+        <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+          <div className="px-6 py-12 md:px-10 md:py-16">
+            <div className="max-w-md mx-auto text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 mb-6">
+                <svg className="animate-spin w-8 h-8 text-amber-500/70" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Analyzing {companyName}...
+              </p>
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  // State C: Analysis complete - show results
+  // TypeScript narrow: at this point analysis is not null (checked above)
+  if (!analysis) return null;
+
   return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 rounded-lg transition-all disabled:opacity-50"
-    >
-      {loading ? (
-        <>
-          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          <span>分析中...</span>
-        </>
-      ) : (
-        <>
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>生成 AI 分析</span>
-        </>
-      )}
-    </button>
+    <div className="relative">
+      <div className="relative bg-card/50 border border-border/40 rounded-xl overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-border/30 bg-card/40">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <div className="w-1 h-5 bg-amber-500 rounded-full" />
+              <span>投资分析</span>
+              <span className="text-muted-foreground text-sm font-normal font-data">{symbol}</span>
+            </h2>
+            <button
+              onClick={onRegenerate}
+              disabled={loading}
+              className="p-2 text-muted-foreground hover:text-amber-400 transition-colors disabled:opacity-50"
+              title="重新生成"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 space-y-6">
+          {/* Investment Summary - Most prominent */}
+          {analysis.investment_summary && (
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                <span className="text-amber-400">投资总结</span>
+              </h3>
+              <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                <MarkdownContent content={analysis.investment_summary} />
+              </div>
+            </div>
+          )}
+
+          {/* Opportunities & Risks - Side by side */}
+          {(analysis.opportunities || analysis.risks) && (
+            <div className="grid md:grid-cols-2 gap-4">
+              {analysis.opportunities && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                    <span className="text-emerald-400">投资机会</span>
+                  </h3>
+                  <MarkdownContent content={analysis.opportunities} />
+                </div>
+              )}
+              {analysis.risks && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400/80" />
+                    <span className="text-red-400">风险因素</span>
+                  </h3>
+                  <MarkdownContent content={analysis.risks} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fundamentals Analysis */}
+          {analysis.fundamentals_analysis && (
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                <span className="text-amber-400">基本面分析</span>
+              </h3>
+              <MarkdownContent content={analysis.fundamentals_analysis} />
+            </div>
+          )}
+
+          {/* Financials Analysis */}
+          {analysis.financials_analysis && (
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                <span className="text-amber-400">财务分析</span>
+              </h3>
+              <MarkdownContent content={analysis.financials_analysis} />
+            </div>
+          )}
+
+          {/* Company Overview */}
+          {analysis.company_overview && (
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                <span className="text-amber-400">公司概述</span>
+              </h3>
+              <MarkdownContent content={analysis.company_overview} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -623,7 +913,13 @@ function LoadingSkeleton() {
 export default function StockPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
   const symbol = (params.symbol as string)?.toUpperCase();
+
+  // Progressive loading states
+  const [quickProfile, setQuickProfile] = useState<StockProfile | null>(null);
+  const [quickProfileLoading, setQuickProfileLoading] = useState(true);
 
   const [data, setData] = useState<StockData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -638,13 +934,28 @@ export default function StockPage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
+  // Redirect to login with current page as redirect target
+  const handleLoginRequired = () => {
+    const redirectUrl = encodeURIComponent(pathname);
+    router.push(`/login?redirect=${redirectUrl}`);
+  };
+
   useEffect(() => {
     if (!symbol) return;
 
     setLoading(true);
+    setQuickProfileLoading(true);
     setError(null);
     setLogoError(false);
 
+    // Layer 1: Fetch quick profile first (instant from cache)
+    fetchStockProfileQuick(symbol)
+      .then((profile) => {
+        if (profile) setQuickProfile(profile);
+      })
+      .finally(() => setQuickProfileLoading(false));
+
+    // Layer 2 & 3: Fetch full data (quote + financials) in parallel with price history
     fetchStockData(symbol)
       .then(setData)
       .catch((err) => {
@@ -679,9 +990,13 @@ export default function StockPage() {
     }
   };
 
-  if (loading) return <LoadingSkeleton />;
+  // Show full skeleton only if we have nothing to show yet
+  if (loading && !quickProfile && quickProfileLoading) return <LoadingSkeleton />;
 
-  if (error || !data) {
+  // Use quick profile for immediate display, fall back to full data profile
+  const displayProfile = data?.profile || quickProfile;
+
+  if (error || (!loading && !data)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md px-6">
@@ -703,17 +1018,20 @@ export default function StockPage() {
     );
   }
 
-  const { profile, quote, fundamentals, financials } = data;
-  const priceChange = quote.change_percent ?? 0;
+  // Extract data with fallbacks for progressive loading
+  const profile = displayProfile;
+  const quote = data?.quote;
+  const fundamentals = data?.fundamentals;
+  const financials = data?.financials;
+
+  const priceChange = quote?.change_percent ?? 0;
   const isPositive = priceChange >= 0;
-  const logoUrl = profile.company_details?.image;
+  const logoUrl = profile?.company_details?.image;
 
   // Calculate 52-week position
-  const pricePosition = quote.week_52_low && quote.week_52_high && quote.price
+  const pricePosition = quote?.week_52_low && quote?.week_52_high && quote?.price
     ? ((quote.price - quote.week_52_low) / (quote.week_52_high - quote.week_52_low)) * 100
     : 50;
-
-  const hasAnalysis = !!analysis;
 
   return (
     <div className="min-h-screen bg-background">
@@ -743,7 +1061,7 @@ export default function StockPage() {
                 <div className="w-12 h-12 rounded-xl bg-white p-1.5 shadow-md">
                   <Image
                     src={logoUrl}
-                    alt={`${profile.company_name} logo`}
+                    alt={`${profile?.company_name || symbol} logo`}
                     width={48}
                     height={48}
                     className="w-full h-full object-contain"
@@ -761,44 +1079,55 @@ export default function StockPage() {
 
             {/* Company Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-semibold text-foreground truncate leading-tight mb-1">
-                {profile.company_name}
-                <span className="ml-2 text-base font-data font-medium text-muted-foreground">
+              <div className="flex items-baseline gap-2 mb-1">
+                <h1 className="text-lg sm:text-xl font-semibold text-foreground leading-tight truncate">
+                  {profile?.company_name || symbol}
+                </h1>
+                <span className="flex-shrink-0 text-sm sm:text-base font-data font-medium text-muted-foreground">
                   {symbol}
                 </span>
-                {profile.exchange && (
-                  <span className="ml-1.5 text-sm font-normal text-muted-foreground/60">
+                {profile?.exchange && (
+                  <span className="hidden sm:inline flex-shrink-0 text-sm font-normal text-muted-foreground/60">
                     {profile.exchange}
                   </span>
                 )}
-              </h1>
-              {profile.classification?.sector && (
-                <p className="text-sm text-muted-foreground">
-                  {profile.classification.sector}
-                  {profile.classification.industry && ` / ${profile.classification.industry}`}
+              </div>
+              {profile?.classification?.sector && (
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                  {translateSector(profile.classification.sector)}
+                  {profile.classification.industry && ` / ${translateIndustry(profile.classification.industry)}`}
                 </p>
               )}
             </div>
 
-            {/* Price */}
+            {/* Price - show loading skeleton while quote is being fetched */}
             <div className="text-right flex-shrink-0">
-              <div className="text-3xl font-data font-bold text-foreground tracking-tight">
-                ${quote.price?.toFixed(2) ?? '--'}
-              </div>
-              <div className="flex items-center justify-end gap-2 mt-1">
-                <span className="text-xs text-muted-foreground">今日</span>
-                <span className={`inline-flex items-center gap-1 text-sm font-data font-medium ${
-                  isPositive ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  <svg className={`w-3.5 h-3.5 ${isPositive ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                  {quote.change !== null && (
-                    <span>{isPositive ? '+' : ''}${Math.abs(quote.change).toFixed(2)}</span>
-                  )}
-                  <span>({isPositive ? '+' : ''}{(priceChange * 100).toFixed(2)}%)</span>
-                </span>
-              </div>
+              {quote ? (
+                <>
+                  <div className="text-3xl font-data font-bold text-foreground tracking-tight">
+                    ${quote.price?.toFixed(2) ?? '--'}
+                  </div>
+                  <div className="flex items-center justify-end gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">今日</span>
+                    <span className={`inline-flex items-center gap-1 text-sm font-data font-medium ${
+                      isPositive ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      <svg className={`w-3.5 h-3.5 ${isPositive ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                      </svg>
+                      {quote.change !== null && (
+                        <span>{isPositive ? '+' : ''}${Math.abs(quote.change).toFixed(2)}</span>
+                      )}
+                      <span>({isPositive ? '+' : ''}{(priceChange * 100).toFixed(2)}%)</span>
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="animate-pulse">
+                  <div className="h-9 w-28 bg-muted rounded mb-1" />
+                  <div className="h-5 w-20 bg-muted rounded ml-auto" />
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -818,110 +1147,128 @@ export default function StockPage() {
         </section>
 
         {/* ================================================================== */}
+        {/* AI ANALYSIS SECTION */}
+        {/* ================================================================== */}
+        <section className="mb-5">
+          <AIAnalysisSection
+            analysis={analysis}
+            loading={analysisLoading}
+            onGenerate={() => handleGenerateAnalysis(false)}
+            onRegenerate={() => handleGenerateAnalysis(true)}
+            companyName={profile?.company_name || symbol}
+            symbol={symbol}
+            isAuthenticated={isAuthenticated}
+            onLoginRequired={handleLoginRequired}
+          />
+        </section>
+
+        {/* ================================================================== */}
         {/* FUNDAMENTALS */}
         {/* ================================================================== */}
         <section className="mb-5">
           <SectionCard
             title="基本面分析"
             titleEn="Fundamentals"
-            action={
-              <GenerateAnalysisButton
-                onClick={() => handleGenerateAnalysis(hasAnalysis)}
-                loading={analysisLoading}
-                hasAnalysis={hasAnalysis}
-              />
-            }
           >
-            {/* AI Fundamentals Analysis */}
-            {analysis?.fundamentals_analysis && (
-              <div className="mb-5 pb-5 border-b border-border/40">
-                <SubsectionHeader title="AI 分析" titleEn="Insights" />
-                <InlineAnalysisText text={analysis.fundamentals_analysis} loading={analysisLoading} />
+            {/* Show skeleton while fundamentals are loading */}
+            {!fundamentals || !quote ? (
+              <div className="animate-pulse space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
+                </div>
+                <div className="h-20 bg-muted rounded-lg" />
+                <div className="grid grid-cols-2 gap-2">
+                  {[1, 2].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
+                </div>
               </div>
-            )}
-
-            {/* Market Overview */}
-            <div className="mb-5 pb-5 border-b border-border/40">
-              <SubsectionHeader title="市场概览" titleEn="Overview" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
-                <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
-                <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
-                <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
-              </div>
-              {/* 52-Week Range */}
-              {quote.week_52_low && quote.week_52_high && (
-                <div className="bg-card/30 border border-border/30 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-foreground/70">
-                      52 周区间
-                    </span>
-                    <span className="text-sm text-muted-foreground font-data">
-                      at {pricePosition.toFixed(0)}%
-                    </span>
+            ) : (
+              <>
+                {/* Market Overview */}
+                <div className="mb-5 pb-5 border-b border-border/40">
+                  <SubsectionHeader title="市场概览" titleEn="Overview" />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
+                    <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+                    <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
+                    <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-data font-medium text-red-400 w-18">${quote.week_52_low.toFixed(2)}</span>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-red-500/70 via-amber-500/70 to-emerald-500/70 relative rounded-full">
-                        <div
-                          className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-background shadow-sm"
-                          style={{ left: `calc(${Math.min(Math.max(pricePosition, 5), 95)}% - 7px)` }}
-                        />
+                  {/* 52-Week Range */}
+                  {quote.week_52_low && quote.week_52_high && (
+                    <div className="bg-card/30 border border-border/30 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-foreground/70">
+                          52 周区间
+                        </span>
+                        <span className="text-sm text-muted-foreground font-data">
+                          at {pricePosition.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-data font-medium text-red-400 w-18">${quote.week_52_low.toFixed(2)}</span>
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-red-500/70 via-amber-500/70 to-emerald-500/70 relative rounded-full">
+                            <div
+                              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-background shadow-sm"
+                              style={{ left: `calc(${Math.min(Math.max(pricePosition, 5), 95)}% - 7px)` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-sm font-data font-medium text-emerald-400 w-18 text-right">${quote.week_52_high.toFixed(2)}</span>
                       </div>
                     </div>
-                    <span className="text-sm font-data font-medium text-emerald-400 w-18 text-right">${quote.week_52_high.toFixed(2)}</span>
+                  )}
+                </div>
+
+                {/* Valuation */}
+                <div className="mb-5 pb-5 border-b border-border/40">
+                  <SubsectionHeader title="估值指标" titleEn="Valuation" />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
+                    <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Valuation */}
-            <div className="mb-5 pb-5 border-b border-border/40">
-              <SubsectionHeader title="估值指标" titleEn="Valuation" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
-                <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
-              </div>
-            </div>
+                {/* Growth */}
+                <div className="mb-5 pb-5 border-b border-border/40">
+                  <SubsectionHeader title="增长指标" titleEn="Growth" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                    <StatRow
+                      metricKey="revenue_yoy"
+                      value={formatNumber(fundamentals.growth.revenue_yoy, { style: 'percent' })}
+                      trend={fundamentals.growth.revenue_yoy ? (fundamentals.growth.revenue_yoy > 0 ? 'up' : 'down') : 'neutral'}
+                    />
+                    <StatRow
+                      metricKey="net_income_yoy"
+                      value={formatNumber(fundamentals.growth.net_income_yoy, { style: 'percent' })}
+                      trend={fundamentals.growth.net_income_yoy ? (fundamentals.growth.net_income_yoy > 0 ? 'up' : 'down') : 'neutral'}
+                    />
+                    <StatRow
+                      metricKey="eps_yoy"
+                      value={formatNumber(fundamentals.growth.eps_yoy, { style: 'percent' })}
+                      trend={fundamentals.growth.eps_yoy ? (fundamentals.growth.eps_yoy > 0 ? 'up' : 'down') : 'neutral'}
+                    />
+                    <StatRow
+                      metricKey="revenue_qoq"
+                      value={formatNumber(fundamentals.growth.revenue_qoq, { style: 'percent' })}
+                      trend={fundamentals.growth.revenue_qoq ? (fundamentals.growth.revenue_qoq > 0 ? 'up' : 'down') : 'neutral'}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-            {/* Growth */}
-            <div className="mb-5 pb-5 border-b border-border/40">
-              <SubsectionHeader title="增长指标" titleEn="Growth" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                <StatRow
-                  metricKey="revenue_yoy"
-                  value={formatNumber(fundamentals.growth.revenue_yoy, { style: 'percent' })}
-                  trend={fundamentals.growth.revenue_yoy ? (fundamentals.growth.revenue_yoy > 0 ? 'up' : 'down') : 'neutral'}
-                />
-                <StatRow
-                  metricKey="net_income_yoy"
-                  value={formatNumber(fundamentals.growth.net_income_yoy, { style: 'percent' })}
-                  trend={fundamentals.growth.net_income_yoy ? (fundamentals.growth.net_income_yoy > 0 ? 'up' : 'down') : 'neutral'}
-                />
-                <StatRow
-                  metricKey="eps_yoy"
-                  value={formatNumber(fundamentals.growth.eps_yoy, { style: 'percent' })}
-                  trend={fundamentals.growth.eps_yoy ? (fundamentals.growth.eps_yoy > 0 ? 'up' : 'down') : 'neutral'}
-                />
-                <StatRow
-                  metricKey="revenue_qoq"
-                  value={formatNumber(fundamentals.growth.revenue_qoq, { style: 'percent' })}
-                  trend={fundamentals.growth.revenue_qoq ? (fundamentals.growth.revenue_qoq > 0 ? 'up' : 'down') : 'neutral'}
-                />
+            {/* Profitability - only show when data is loaded */}
+            {fundamentals && (
+              <div>
+                <SubsectionHeader title="盈利能力" titleEn="Profitability" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <MetricCard metricKey="gross_margin" value={formatNumber(fundamentals.profitability.gross_margin, { style: 'percent' })} />
+                  <MetricCard metricKey="net_margin" value={formatNumber(fundamentals.profitability.net_margin, { style: 'percent' })} />
+                  <MetricCard metricKey="roe" value={formatNumber(fundamentals.profitability.roe, { style: 'percent' })} />
+                  <MetricCard metricKey="roa" value={formatNumber(fundamentals.profitability.roa, { style: 'percent' })} />
+                </div>
               </div>
-            </div>
-
-            {/* Profitability */}
-            <div>
-              <SubsectionHeader title="盈利能力" titleEn="Profitability" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <MetricCard metricKey="gross_margin" value={formatNumber(fundamentals.profitability.gross_margin, { style: 'percent' })} />
-                <MetricCard metricKey="net_margin" value={formatNumber(fundamentals.profitability.net_margin, { style: 'percent' })} />
-                <MetricCard metricKey="roe" value={formatNumber(fundamentals.profitability.roe, { style: 'percent' })} />
-                <MetricCard metricKey="roa" value={formatNumber(fundamentals.profitability.roa, { style: 'percent' })} />
-              </div>
-            </div>
+            )}
           </SectionCard>
         </section>
 
@@ -930,49 +1277,45 @@ export default function StockPage() {
         {/* ================================================================== */}
         <section className="mb-5">
           <SectionCard title="财务报表" titleEn="Financials">
-            {/* AI Financials Analysis */}
-            {analysis?.financials_analysis && (
-              <div className="mb-5 pb-5 border-b border-border/40">
-                <SubsectionHeader title="AI 分析" titleEn="Insights" />
-                <InlineAnalysisText text={analysis.financials_analysis} loading={analysisLoading} />
+            {/* Show skeleton while financials are loading */}
+            {!fundamentals || !financials ? (
+              <div className="animate-pulse space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
+                </div>
+                <div className="h-48 bg-muted rounded-lg" />
               </div>
+            ) : (
+              <>
+                {/* TTM Summary */}
+                <div className="mb-5 pb-5 border-b border-border/40">
+                  <SubsectionHeader title="过去十二个月" titleEn="TTM" />
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true })} />
+                    <MetricCard metricKey="net_income" value={formatNumber(fundamentals.ttm.net_income, { style: 'currency', compact: true })} />
+                    <MetricCard metricKey="ebitda" value={formatNumber(fundamentals.ttm.ebitda, { style: 'currency', compact: true })} />
+                    <MetricCard metricKey="operating_cash_flow" value={formatNumber(fundamentals.ttm.operating_cash_flow, { style: 'currency', compact: true })} />
+                    <MetricCard metricKey="free_cash_flow" value={formatNumber(fundamentals.ttm.free_cash_flow, { style: 'currency', compact: true })} />
+                    <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
+                  </div>
+                </div>
+
+                {/* Quarterly Table */}
+                <div>
+                  <SubsectionHeader title="季度数据" titleEn="Quarterly" />
+                  <FinancialsTable quarters={financials.quarters} />
+                </div>
+              </>
             )}
-
-            {/* TTM Summary */}
-            <div className="mb-5 pb-5 border-b border-border/40">
-              <SubsectionHeader title="过去十二个月" titleEn="TTM" />
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true })} />
-                <MetricCard metricKey="net_income" value={formatNumber(fundamentals.ttm.net_income, { style: 'currency', compact: true })} />
-                <MetricCard metricKey="ebitda" value={formatNumber(fundamentals.ttm.ebitda, { style: 'currency', compact: true })} />
-                <MetricCard metricKey="operating_cash_flow" value={formatNumber(fundamentals.ttm.operating_cash_flow, { style: 'currency', compact: true })} />
-                <MetricCard metricKey="free_cash_flow" value={formatNumber(fundamentals.ttm.free_cash_flow, { style: 'currency', compact: true })} />
-                <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
-              </div>
-            </div>
-
-            {/* Quarterly Table */}
-            <div>
-              <SubsectionHeader title="季度数据" titleEn="Quarterly" />
-              <FinancialsTable quarters={financials.quarters} />
-            </div>
           </SectionCard>
         </section>
 
         {/* ================================================================== */}
         {/* COMPANY DESCRIPTION */}
         {/* ================================================================== */}
-        {(profile.description?.en || profile.description?.zh) && (
+        {profile && (profile.description?.en || profile.description?.zh) && (
           <section className="mb-5">
             <SectionCard title="公司概况" titleEn="About">
-              {/* AI Company Overview */}
-              {analysis?.company_overview && (
-                <div className="mb-4 pb-4 border-b border-border/40">
-                  <SubsectionHeader title="AI 概述" titleEn="Overview" />
-                  <InlineAnalysisText text={analysis.company_overview} loading={analysisLoading} />
-                </div>
-              )}
-
               {/* Company Details */}
               {profile.company_details && (
                 <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm mb-4 pb-4 border-b border-border/20">
@@ -1007,44 +1350,6 @@ export default function StockPage() {
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* INVESTMENT VIEW (Opportunities & Risks) */}
-        {/* ================================================================== */}
-        {analysis && (analysis.opportunities || analysis.risks || analysis.investment_summary) && (
-          <section className="mb-5">
-            <SectionCard title="投资观点" titleEn="Investment View">
-              {/* Opportunities & Risks - Side by Side */}
-              {(analysis.opportunities || analysis.risks) && (
-                <div className="mb-5 pb-5 border-b border-border/40">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {analysis.opportunities && (
-                      <div>
-                        <SubsectionHeader title="投资机会" titleEn="Opportunities" />
-                        <p className="text-sm text-muted-foreground leading-relaxed">{analysis.opportunities}</p>
-                      </div>
-                    )}
-                    {analysis.risks && (
-                      <div>
-                        <SubsectionHeader title="风险因素" titleEn="Risks" />
-                        <p className="text-sm text-muted-foreground leading-relaxed">{analysis.risks}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Investment Summary */}
-              {analysis.investment_summary && (
-                <div>
-                  <SubsectionHeader title="投资总结" titleEn="Summary" />
-                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
-                    <p className="text-sm text-foreground/90 leading-relaxed">{analysis.investment_summary}</p>
-                  </div>
-                </div>
-              )}
-            </SectionCard>
-          </section>
-        )}
 
         {/* Analysis Error Display */}
         {analysisError && (

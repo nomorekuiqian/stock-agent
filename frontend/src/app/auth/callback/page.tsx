@@ -1,40 +1,149 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { insforge } from '@/lib/insforge';
 
-export default function AuthCallbackPage() {
+const isDev = process.env.NODE_ENV === 'development';
+
+// Parse hash fragments from URL
+function parseHashParams(hash: string): Record<string, string> {
+  if (!hash || hash.length <= 1) return {};
+  const params: Record<string, string> = {};
+  const hashContent = hash.startsWith('#') ? hash.substring(1) : hash;
+  const pairs = hashContent.split('&');
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=');
+    if (key && value) {
+      params[decodeURIComponent(key)] = decodeURIComponent(value);
+    }
+  }
+  return params;
+}
+
+function AuthCallbackContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { refreshUser } = useAuth();
   const [status, setStatus] = useState('Processing...');
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // The SDK's detectAuthCallback() should automatically handle the OAuth callback
-        // when the insforge client is initialized. We just need to wait a moment
-        // and then refresh the user state.
-
         setStatus('Completing sign in...');
 
-        // Give the SDK time to process the callback
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Log full URL for debugging (dev only)
+        if (isDev) {
+          console.log('[Auth Callback] Full URL:', window.location.href);
+          console.log('[Auth Callback] Hash:', window.location.hash);
+          console.log('[Auth Callback] Search:', window.location.search);
+        }
 
-        // Refresh user state
-        await refreshUser();
+        // Check for error in query params or hash
+        const error = searchParams.get('error');
+        if (error) {
+          if (isDev) console.error('[Auth Callback] OAuth error:', error);
+          router.push('/login?error=' + encodeURIComponent(error));
+          return;
+        }
 
-        // Redirect to market page
-        setStatus('Redirecting...');
-        router.push('/market');
+        // Method 1: Check hash fragments for tokens (fragment response mode)
+        const hashParams = parseHashParams(window.location.hash);
+        if (isDev) console.log('[Auth Callback] Hash params keys:', Object.keys(hashParams));
+
+        if (hashParams.access_token) {
+          if (isDev) console.log('[Auth Callback] Found access_token in hash fragment');
+
+          // Store the session
+          const session = {
+            accessToken: hashParams.access_token,
+            refreshToken: hashParams.refresh_token || '',
+            expiresAt: hashParams.expires_at
+              ? Date.now() + parseInt(hashParams.expires_at) * 1000
+              : Date.now() + 3600000,
+          };
+
+          localStorage.setItem('insforge_session', JSON.stringify(session));
+          insforge.getHttpClient().setAuthToken(hashParams.access_token);
+
+          // Refresh user state
+          await refreshUser();
+
+          // Get redirect URL
+          const redirectUrl = sessionStorage.getItem('auth_redirect') || '/market';
+          sessionStorage.removeItem('auth_redirect');
+          sessionStorage.removeItem('oauth_code_verifier');
+
+          setStatus('Redirecting...');
+          router.push(redirectUrl);
+          return;
+        }
+
+        // Method 2: Check query params for tokens
+        const accessToken = searchParams.get('access_token');
+        if (accessToken) {
+          if (isDev) console.log('[Auth Callback] Found access_token in query params');
+
+          const session = {
+            accessToken: accessToken,
+            refreshToken: searchParams.get('refresh_token') || '',
+            expiresAt: Date.now() + 3600000,
+          };
+
+          localStorage.setItem('insforge_session', JSON.stringify(session));
+          insforge.getHttpClient().setAuthToken(accessToken);
+
+          await refreshUser();
+
+          const redirectUrl = sessionStorage.getItem('auth_redirect') || '/market';
+          sessionStorage.removeItem('auth_redirect');
+          sessionStorage.removeItem('oauth_code_verifier');
+
+          setStatus('Redirecting...');
+          router.push(redirectUrl);
+          return;
+        }
+
+        // Method 3: Poll for SDK session (more robust than fixed delay)
+        const maxAttempts = 10;
+        const pollInterval = 100;
+        for (let i = 0; i < maxAttempts; i++) {
+          const { data: sessionData } = await insforge.auth.getCurrentSession();
+          if (sessionData?.session?.accessToken) {
+            if (isDev) console.log('[Auth Callback] SDK session found after', i * pollInterval, 'ms');
+            insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+            await refreshUser();
+
+            const redirectUrl = sessionStorage.getItem('auth_redirect') || '/market';
+            sessionStorage.removeItem('auth_redirect');
+            sessionStorage.removeItem('oauth_code_verifier');
+
+            setStatus('Redirecting...');
+            router.push(redirectUrl);
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+
+        // No valid authentication found
+        if (isDev) {
+          console.error('[Auth Callback] No authentication data found');
+          console.error('[Auth Callback] All search params:', Array.from(searchParams.entries()));
+          console.error('[Auth Callback] All hash params:', hashParams);
+        }
+
+        sessionStorage.removeItem('oauth_code_verifier');
+        router.push('/login?error=no_auth_data');
       } catch (error) {
-        console.error('[Auth Callback] Exception:', error);
+        if (isDev) console.error('[Auth Callback] Exception:', error);
+        sessionStorage.removeItem('oauth_code_verifier');
         router.push('/login?error=callback_failed');
       }
     };
 
     handleCallback();
-  }, [router, refreshUser]);
+  }, [router, refreshUser, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -43,5 +152,18 @@ export default function AuthCallbackPage() {
         <p className="text-gray-500 text-sm">{status}</p>
       </div>
     </div>
+  );
+}
+
+// Wrap with Suspense for useSearchParams
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-10 h-10 mx-auto border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

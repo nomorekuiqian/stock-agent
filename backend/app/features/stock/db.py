@@ -5,18 +5,35 @@ Handles:
 - Stock profile caching (stock_profiles table)
 - Stock financials caching (stock_financials table)
 - Stock AI analysis caching (stock_analyses table)
+
+Uses InsforgeService for connection pooling and proper error handling.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
+from __future__ import annotations
 
-import httpx
+import json
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
 
 from app.core.config import STOCK_ANALYSIS_CACHE_HOURS
 from app.core.database import get_insforge_service
 
 
-async def get_stock_profile(symbol: str) -> Optional[Dict[str, Any]]:
+def _parse_jsonb_fields(data: dict[str, Any], fields: list[str]) -> dict[str, Any]:
+    """Parse JSONB fields that may be returned as strings from the database."""
+    if not data:
+        return data
+    for field in fields:
+        value = data.get(field)
+        if isinstance(value, str):
+            try:
+                data[field] = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+    return data
+
+
+async def get_stock_profile(symbol: str) -> Optional[dict[str, Any]]:
     """
     Get stock profile from cache (stock_profiles table).
 
@@ -28,28 +45,27 @@ async def get_stock_profile(symbol: str) -> Optional[Dict[str, Any]]:
     """
     try:
         db = get_insforge_service()
-        function_url = f"{db.base_url}/functions/stock-data"
-        query_url = f"{function_url}?action=get_profile&symbol={symbol}"
+        result = await db.call_function(
+            "stock-data",
+            method="GET",
+            params={"action": "get_profile", "symbol": symbol},
+            timeout=30.0,
+        )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                query_url,
-                headers=db.headers,
-                timeout=30.0,
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success"):
-                    return data.get("data")
-            return None
+        if result["status_code"] == 200:
+            data = result.get("data", {})
+            if data.get("success"):
+                profile = data.get("data")
+                # Parse JSONB fields that may be returned as strings
+                return _parse_jsonb_fields(profile, ["classification", "description", "company_details"])
+        return None
 
     except Exception as e:
-        print(f"[StockDB] Exception getting stock profile: {e}")
+        print(f"[StockDB] Exception getting stock profile: {type(e).__name__}: {e}")
         return None
 
 
-async def upsert_stock_profile(symbol: str, profile_data: Dict[str, Any]) -> Dict[str, Any]:
+async def upsert_stock_profile(symbol: str, profile_data: dict[str, Any]) -> dict[str, Any]:
     """
     Insert or update stock profile in cache.
 
@@ -62,7 +78,6 @@ async def upsert_stock_profile(symbol: str, profile_data: Dict[str, Any]) -> Dic
     """
     try:
         db = get_insforge_service()
-        function_url = f"{db.base_url}/functions/stock-data"
 
         db_profile = {
             "symbol": symbol.upper(),
@@ -77,34 +92,34 @@ async def upsert_stock_profile(symbol: str, profile_data: Dict[str, Any]) -> Dic
 
         print(f"[StockDB] Upserting stock profile for {symbol}")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{function_url}?action=upsert_profile",
-                headers=db.headers,
-                json=db_profile,
-                timeout=30.0,
-            )
+        result = await db.call_function(
+            "stock-data",
+            method="POST",
+            params={"action": "upsert_profile"},
+            json_body=db_profile,
+            timeout=30.0,
+        )
 
-            if response.status_code in (200, 201):
-                data = response.json()
-                if data.get("success"):
-                    print(f"[StockDB] Stock profile saved for {symbol}")
-                    return {"success": True, "data": data.get("data")}
-                else:
-                    error_msg = data.get("error", "Unknown error")
-                    print(f"[StockDB] Profile save failed: {error_msg}")
-                    return {"success": False, "error": error_msg}
+        if result["status_code"] in (200, 201):
+            data = result.get("data", {})
+            if data.get("success"):
+                print(f"[StockDB] Stock profile saved for {symbol}")
+                return {"success": True, "data": data.get("data")}
             else:
-                error_msg = response.text
-                print(f"[StockDB] Profile save failed: {response.status_code}")
-                return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+                error_msg = data.get("error", "Unknown error")
+                print(f"[StockDB] Profile save failed: {error_msg}")
+                return {"success": False, "error": error_msg}
+        else:
+            error_msg = result.get("text", "")
+            print(f"[StockDB] Profile save failed: {result['status_code']}")
+            return {"success": False, "error": f"HTTP {result['status_code']}: {error_msg}"}
 
     except Exception as e:
-        print(f"[StockDB] Exception upserting stock profile: {e}")
+        print(f"[StockDB] Exception upserting stock profile: {type(e).__name__}: {e}")
         return {"success": False, "error": str(e)}
 
 
-async def get_stock_financials(symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
+async def get_stock_financials(symbol: str, limit: int = 8) -> list[dict[str, Any]]:
     """
     Get stock financials from cache (stock_financials table).
 
@@ -117,28 +132,25 @@ async def get_stock_financials(symbol: str, limit: int = 8) -> List[Dict[str, An
     """
     try:
         db = get_insforge_service()
-        function_url = f"{db.base_url}/functions/stock-data"
-        query_url = f"{function_url}?action=get_financials&symbol={symbol}&limit={limit}"
+        result = await db.call_function(
+            "stock-data",
+            method="GET",
+            params={"action": "get_financials", "symbol": symbol, "limit": str(limit)},
+            timeout=30.0,
+        )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                query_url,
-                headers=db.headers,
-                timeout=30.0,
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success"):
-                    return data.get("data", [])
-            return []
+        if result["status_code"] == 200:
+            data = result.get("data", {})
+            if data.get("success"):
+                return data.get("data", [])
+        return []
 
     except Exception as e:
-        print(f"[StockDB] Exception getting stock financials: {e}")
+        print(f"[StockDB] Exception getting stock financials: {type(e).__name__}: {e}")
         return []
 
 
-async def upsert_stock_financial(symbol: str, financial_data: Dict[str, Any]) -> Dict[str, Any]:
+async def upsert_stock_financial(symbol: str, financial_data: dict[str, Any]) -> dict[str, Any]:
     """
     Insert or update a single quarter's financial data.
 
@@ -151,7 +163,6 @@ async def upsert_stock_financial(symbol: str, financial_data: Dict[str, Any]) ->
     """
     try:
         db = get_insforge_service()
-        function_url = f"{db.base_url}/functions/stock-data"
 
         # Extract period info for unique key
         income = financial_data.get("income_statement", {})
@@ -182,31 +193,31 @@ async def upsert_stock_financial(symbol: str, financial_data: Dict[str, Any]) ->
             "data_source": "openbb_fmp",
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{function_url}?action=upsert_financial",
-                headers=db.headers,
-                json=db_financial,
-                timeout=30.0,
-            )
+        result = await db.call_function(
+            "stock-data",
+            method="POST",
+            params={"action": "upsert_financial"},
+            json_body=db_financial,
+            timeout=30.0,
+        )
 
-            if response.status_code in (200, 201):
-                data = response.json()
-                if data.get("success"):
-                    return {"success": True, "data": data.get("data")}
-                else:
-                    return {"success": False, "error": data.get("error", "Unknown error")}
+        if result["status_code"] in (200, 201):
+            data = result.get("data", {})
+            if data.get("success"):
+                return {"success": True, "data": data.get("data")}
             else:
-                return {"success": False, "error": f"HTTP {response.status_code}"}
+                return {"success": False, "error": data.get("error", "Unknown error")}
+        else:
+            return {"success": False, "error": f"HTTP {result['status_code']}"}
 
     except Exception as e:
-        print(f"[StockDB] Exception upserting stock financial: {e}")
+        print(f"[StockDB] Exception upserting stock financial: {type(e).__name__}: {e}")
         return {"success": False, "error": str(e)}
 
 
 async def get_stock_analysis(
     symbol: str, analysis_type: str = "comprehensive"
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """
     Get cached AI analysis for a stock using Edge Function.
 
@@ -219,37 +230,30 @@ async def get_stock_analysis(
     """
     try:
         db = get_insforge_service()
-        # Use Edge Function to get cached analysis
-        function_url = (
-            f"{db.base_url}/functions/stock-analyses"
-            f"?symbol={symbol.upper()}"
-            f"&type={analysis_type}"
+        result = await db.call_function(
+            "stock-analyses",
+            method="GET",
+            params={"symbol": symbol.upper(), "type": analysis_type},
+            timeout=30.0,
         )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                function_url,
-                headers=db.headers,
-                timeout=30.0,
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success") and data.get("data"):
-                    record = data["data"]
-                    return {
-                        "id": record.get("id"),
-                        "symbol": record.get("symbol"),
-                        "analysis_type": record.get("analysis_type"),
-                        "content": record.get("content"),
-                        "model": record.get("model"),
-                        "generated_at": record.get("generated_at"),
-                        "expires_at": record.get("expires_at"),
-                    }
-            return None
+        if result["status_code"] == 200:
+            data = result.get("data", {})
+            if data.get("success") and data.get("data"):
+                record = data["data"]
+                return {
+                    "id": record.get("id"),
+                    "symbol": record.get("symbol"),
+                    "analysis_type": record.get("analysis_type"),
+                    "content": record.get("content"),
+                    "model": record.get("model"),
+                    "generated_at": record.get("generated_at"),
+                    "expires_at": record.get("expires_at"),
+                }
+        return None
 
     except Exception as e:
-        print(f"[StockDB] Exception getting stock analysis: {e}")
+        print(f"[StockDB] Exception getting stock analysis: {type(e).__name__}: {e}")
         return None
 
 
@@ -257,10 +261,10 @@ async def save_stock_analysis(
     symbol: str,
     analysis_type: str,
     content: Any,
-    data_snapshot: Optional[Dict[str, Any]] = None,
+    data_snapshot: Optional[dict[str, Any]] = None,
     model: str = "gemini-3-pro-preview",
     expires_hours: int = STOCK_ANALYSIS_CACHE_HOURS,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Save AI-generated analysis to cache using Edge Function.
 
@@ -294,32 +298,28 @@ async def save_stock_analysis(
 
         print(f"[StockDB] Saving stock analysis for {symbol} ({analysis_type})")
 
-        # Use Edge Function to save analysis
-        function_url = f"{db.base_url}/functions/stock-analyses"
+        result = await db.call_function(
+            "stock-analyses",
+            method="POST",
+            json_body=request_body,
+            timeout=30.0,
+        )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                function_url,
-                headers=db.headers,
-                json=request_body,
-                timeout=30.0,
-            )
-
-            if response.status_code in (200, 201):
-                data = response.json()
-                if data.get("success") and data.get("data"):
-                    analysis_id = data["data"].get("id")
-                    print(f"[StockDB] Stock analysis saved, ID: {analysis_id}")
-                    return {"success": True, "analysis_id": analysis_id}
-                else:
-                    error_msg = data.get("error", "Unknown error")
-                    print(f"[StockDB] Analysis save failed: {error_msg}")
-                    return {"success": False, "error": error_msg}
+        if result["status_code"] in (200, 201):
+            data = result.get("data", {})
+            if data.get("success") and data.get("data"):
+                analysis_id = data["data"].get("id")
+                print(f"[StockDB] Stock analysis saved, ID: {analysis_id}")
+                return {"success": True, "analysis_id": analysis_id}
             else:
-                error_msg = response.text
-                print(f"[StockDB] Analysis save failed: {response.status_code} - {error_msg}")
-                return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+                error_msg = data.get("error", "Unknown error")
+                print(f"[StockDB] Analysis save failed: {error_msg}")
+                return {"success": False, "error": error_msg}
+        else:
+            error_msg = result.get("text", "")
+            print(f"[StockDB] Analysis save failed: {result['status_code']} - {error_msg}")
+            return {"success": False, "error": f"HTTP {result['status_code']}: {error_msg}"}
 
     except Exception as e:
-        print(f"[StockDB] Exception saving stock analysis: {e}")
+        print(f"[StockDB] Exception saving stock analysis: {type(e).__name__}: {e}")
         return {"success": False, "error": str(e)}

@@ -8,15 +8,18 @@ Responsibilities:
 4. Provide unified data access interface
 
 Cache Strategy:
-- Profile: 30 days TTL (company info changes rarely)
-- Financials: Check for latest quarter (refresh when new data available)
+- Profile: In-memory 30min -> Insforge 30 days -> OpenBB API
+- Financials: In-memory 30min -> Insforge -> OpenBB API
 - Quote: Always fetch real-time (no cache)
 - Analysis: 24 hours TTL (AI-generated content)
 """
 
+from __future__ import annotations
+
 import asyncio
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
+import threading
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
 
 from app.shared.openbb_service import get_openbb_service
 from app.features.stock.db import (
@@ -25,6 +28,72 @@ from app.features.stock.db import (
     get_stock_financials,
     upsert_stock_financial,
 )
+
+
+# =============================================================================
+# In-memory cache for hot data (reduces Insforge calls)
+# =============================================================================
+
+_profile_cache: dict[str, dict[str, Any]] = {}
+_financials_cache: dict[str, dict[str, Any]] = {}
+_cache_lock = threading.Lock()
+
+MEMORY_CACHE_TTL_MINUTES = 30  # Hot cache TTL
+MEMORY_CACHE_MAX_SIZE = 500  # Max entries per cache (LRU eviction)
+
+
+def _evict_expired_entries(cache: dict[str, dict[str, Any]]) -> None:
+    """Remove expired entries and enforce size limit (LRU)."""
+    now = datetime.now()
+    # Remove expired entries
+    expired_keys = [k for k, v in cache.items() if now >= v["expires"]]
+    for k in expired_keys:
+        del cache[k]
+    # Enforce size limit - remove oldest entries
+    if len(cache) > MEMORY_CACHE_MAX_SIZE:
+        sorted_keys = sorted(cache.keys(), key=lambda k: cache[k]["expires"])
+        for k in sorted_keys[: len(cache) - MEMORY_CACHE_MAX_SIZE]:
+            del cache[k]
+
+
+def _get_cached_profile(symbol: str) -> Optional[dict[str, Any]]:
+    """Get profile from in-memory cache if fresh. Returns a copy to prevent mutation."""
+    with _cache_lock:
+        entry = _profile_cache.get(symbol.upper())
+        if entry and datetime.now() < entry["expires"]:
+            # Return a shallow copy to prevent cache mutation
+            return {**entry["data"]}
+    return None
+
+
+def _set_cached_profile(symbol: str, data: dict[str, Any]) -> None:
+    """Cache profile in memory with LRU eviction."""
+    with _cache_lock:
+        _evict_expired_entries(_profile_cache)
+        _profile_cache[symbol.upper()] = {
+            "data": data,
+            "expires": datetime.now() + timedelta(minutes=MEMORY_CACHE_TTL_MINUTES),
+        }
+
+
+def _get_cached_financials(symbol: str) -> Optional[list[dict[str, Any]]]:
+    """Get financials from in-memory cache if fresh. Returns a copy to prevent mutation."""
+    with _cache_lock:
+        entry = _financials_cache.get(symbol.upper())
+        if entry and datetime.now() < entry["expires"]:
+            # Return a shallow copy of the list with shallow copies of each item
+            return [{**item} for item in entry["data"]]
+    return None
+
+
+def _set_cached_financials(symbol: str, data: list[dict[str, Any]]) -> None:
+    """Cache financials in memory with LRU eviction."""
+    with _cache_lock:
+        _evict_expired_entries(_financials_cache)
+        _financials_cache[symbol.upper()] = {
+            "data": data,
+            "expires": datetime.now() + timedelta(minutes=MEMORY_CACHE_TTL_MINUTES),
+        }
 
 
 class StockService:
@@ -44,7 +113,7 @@ class StockService:
     def __init__(self):
         self.openbb = get_openbb_service()
 
-    async def get_stock_data(self, symbol: str, include_financials: bool = True) -> Dict[str, Any]:
+    async def get_stock_data(self, symbol: str, include_financials: bool = True) -> dict[str, Any]:
         """
         Get complete stock data for a symbol.
 
@@ -100,63 +169,67 @@ class StockService:
             },
             "meta": {
                 "symbol": symbol,
-                "quote_fetched_at": datetime.utcnow().isoformat(),
+                "quote_fetched_at": datetime.now(timezone.utc).isoformat(),
                 "profile_from_cache": bool(profile.get("_from_cache")),
                 "financials_from_cache": bool(financials and financials[0].get("_from_cache") if financials else False),
             }
         }
 
-    async def _get_or_fetch_profile(self, symbol: str) -> Dict[str, Any]:
-        """
-        Get company profile with 30-day caching.
+    async def _get_or_fetch_profile(self, symbol: str) -> dict[str, Any]:
+        """Get company profile with 3-tier caching: memory -> DB -> API."""
+        # 1. Check in-memory cache first (fastest)
+        memory_cached = _get_cached_profile(symbol)
+        if memory_cached:
+            memory_cached["_from_cache"] = True
+            print(f"[StockService] Using in-memory cached profile for {symbol}")
+            return memory_cached
 
-        Args:
-            symbol: Stock ticker symbol
+        # 2. Check Insforge DB cache
+        db_cached = await get_stock_profile(symbol)
+        if db_cached and self._is_profile_fresh(db_cached):
+            db_cached["_from_cache"] = True
+            # Store in memory for faster subsequent access
+            _set_cached_profile(symbol, db_cached)
+            print(f"[StockService] Using DB cached profile for {symbol}")
+            return db_cached
 
-        Returns:
-            Profile data dict
-        """
-        # 1. Check cache
-        cached = await get_stock_profile(symbol)
-        if cached and self._is_profile_fresh(cached):
-            cached["_from_cache"] = True
-            print(f"[StockService] Using cached profile for {symbol}")
-            return cached
-
-        # 2. Fetch from OpenBB
+        # 3. Fetch from OpenBB API
         print(f"[StockService] Fetching profile from OpenBB for {symbol}")
         profile = await self.openbb.get_company_profile(symbol)
 
         if profile:
-            # 3. Save to cache (async, don't wait)
-            asyncio.create_task(upsert_stock_profile(symbol, profile))
+            # Store in both caches (DB async, memory sync)
+            _set_cached_profile(symbol, profile)
+            task = asyncio.create_task(upsert_stock_profile(symbol, profile))
+            task.add_done_callback(
+                lambda t: print(f"[StockService] DB write error: {t.exception()}")
+                if t.exception() else None
+            )
             profile["_from_cache"] = False
 
-        return profile
+        return profile if profile else {}
 
-    async def _get_or_fetch_financials(self, symbol: str) -> List[Dict[str, Any]]:
-        """
-        Get financial statements with smart caching.
-
-        Checks if cached data has the latest quarter, otherwise fetches fresh data.
-
-        Args:
-            symbol: Stock ticker symbol
-
-        Returns:
-            List of quarterly financial data
-        """
-        # 1. Check cache
-        cached = await get_stock_financials(symbol)
-
-        # 2. Validate cache freshness
-        if cached and self._has_recent_quarter(cached):
-            for item in cached:
+    async def _get_or_fetch_financials(self, symbol: str) -> list[dict[str, Any]]:
+        """Get financial statements with 3-tier caching: memory -> DB -> API."""
+        # 1. Check in-memory cache first (fastest)
+        memory_cached = _get_cached_financials(symbol)
+        if memory_cached:
+            for item in memory_cached:
                 item["_from_cache"] = True
-            print(f"[StockService] Using cached financials for {symbol}")
-            return cached
+            print(f"[StockService] Using in-memory cached financials for {symbol}")
+            return memory_cached
 
-        # 3. Fetch from OpenBB (parallel for speed)
+        # 2. Check Insforge DB cache
+        db_cached = await get_stock_financials(symbol)
+        if db_cached and self._has_recent_quarter(db_cached):
+            for item in db_cached:
+                item["_from_cache"] = True
+            # Store in memory for faster subsequent access
+            _set_cached_financials(symbol, db_cached)
+            print(f"[StockService] Using DB cached financials for {symbol}")
+            return db_cached
+
+        # 3. Fetch from OpenBB API (parallel for speed)
         print(f"[StockService] Fetching financials from OpenBB for {symbol}")
         income, balance, cash = await asyncio.gather(
             self.openbb.get_income_statements(symbol),
@@ -166,30 +239,27 @@ class StockService:
 
         if not income:
             print(f"[StockService] No income statement data for {symbol}")
-            return cached or []
+            return db_cached or []
 
         # 4. Merge financial statements
         financials = self._merge_financials(income, balance, cash)
 
-        # 5. Save to cache (async)
+        # 5. Store in both caches (memory sync, DB async)
+        _set_cached_financials(symbol, financials)
         for f in financials:
-            asyncio.create_task(upsert_stock_financial(symbol, f))
+            task = asyncio.create_task(upsert_stock_financial(symbol, f))
+            task.add_done_callback(
+                lambda t: print(f"[StockService] DB write error: {t.exception()}")
+                if t.exception() else None
+            )
 
         for item in financials:
             item["_from_cache"] = False
 
         return financials
 
-    def _is_profile_fresh(self, cached: Dict[str, Any]) -> bool:
-        """
-        Check if cached profile is still fresh (within 30 days).
-
-        Args:
-            cached: Cached profile data
-
-        Returns:
-            True if cache is fresh
-        """
+    def _is_profile_fresh(self, cached: dict[str, Any]) -> bool:
+        """Check if cached profile is still fresh (within 30 days)."""
         updated_at = cached.get("updated_at")
         if not updated_at:
             return False
@@ -210,19 +280,8 @@ class StockService:
             print(f"[StockService] Error parsing updated_at: {e}")
             return False
 
-    def _has_recent_quarter(self, cached: List[Dict[str, Any]]) -> bool:
-        """
-        Check if cached financials have reasonably recent data.
-
-        We consider data fresh if the latest quarter is within 45 days.
-        This accounts for reporting lag (companies report ~30-45 days after quarter end).
-
-        Args:
-            cached: List of cached financial data
-
-        Returns:
-            True if cache has recent data
-        """
+    def _has_recent_quarter(self, cached: list[dict[str, Any]]) -> bool:
+        """Check if cached financials are fresh (latest quarter within 45 days)."""
         if not cached:
             return False
 
@@ -235,13 +294,18 @@ class StockService:
         try:
             # Parse date
             if isinstance(period_end, str):
-                period_dt = datetime.fromisoformat(period_end.replace("Z", "+00:00"))
+                # Handle dates without timezone (e.g., "2024-09-30")
+                if "T" not in period_end and "+" not in period_end:
+                    period_dt = datetime.fromisoformat(period_end).replace(tzinfo=timezone.utc)
+                else:
+                    period_dt = datetime.fromisoformat(period_end.replace("Z", "+00:00"))
             else:
                 return False
 
-            # Check freshness
-            cutoff = datetime.now(period_dt.tzinfo) if period_dt.tzinfo else datetime.utcnow()
-            cutoff = cutoff - timedelta(days=self.FINANCIALS_FRESHNESS_DAYS)
+            # Check freshness - ensure both are timezone-aware
+            if period_dt.tzinfo is None:
+                period_dt = period_dt.replace(tzinfo=timezone.utc)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=self.FINANCIALS_FRESHNESS_DAYS)
             return period_dt > cutoff
 
         except (ValueError, TypeError) as e:
@@ -250,21 +314,11 @@ class StockService:
 
     def _merge_financials(
         self,
-        income: List[Dict[str, Any]],
-        balance: List[Dict[str, Any]],
-        cash: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        """
-        Merge income statement, balance sheet, and cash flow data by date.
-
-        Args:
-            income: Income statement data
-            balance: Balance sheet data
-            cash: Cash flow data
-
-        Returns:
-            List of merged financial data
-        """
+        income: list[dict[str, Any]],
+        balance: list[dict[str, Any]],
+        cash: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Merge income statement, balance sheet, and cash flow data by date."""
         # Index by date for O(1) lookup
         balance_by_date = {b.get("date"): b for b in balance}
         cash_by_date = {c.get("date"): c for c in cash}
@@ -284,18 +338,8 @@ class StockService:
 
         return result
 
-    def _calculate_ttm_metrics(self, financials: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Calculate Trailing Twelve Months (TTM) metrics.
-
-        Sums the last 4 quarters of income statement items.
-
-        Args:
-            financials: List of quarterly financial data
-
-        Returns:
-            Dict with TTM metrics
-        """
+    def _calculate_ttm_metrics(self, financials: list[dict[str, Any]]) -> dict[str, Any]:
+        """Calculate Trailing Twelve Months (TTM) metrics from last 4 quarters."""
         if len(financials) < 4:
             # Not enough data for TTM, use available
             quarters = financials
@@ -324,21 +368,11 @@ class StockService:
 
     def _calculate_valuation(
         self,
-        quote: Dict[str, Any],
-        ttm: Dict[str, Any],
-        financials: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """
-        Calculate valuation multiples using current price and TTM metrics.
-
-        Args:
-            quote: Real-time quote data
-            ttm: TTM metrics
-            financials: Financial data for book value
-
-        Returns:
-            Dict with valuation metrics
-        """
+        quote: dict[str, Any],
+        ttm: dict[str, Any],
+        financials: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Calculate valuation multiples (P/E, P/S, P/B, EV/EBITDA)."""
         price = quote.get("price")
         market_cap = quote.get("market_cap")
 
@@ -373,16 +407,8 @@ class StockService:
 
         return valuation
 
-    def _calculate_growth(self, financials: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Calculate year-over-year and quarter-over-quarter growth rates.
-
-        Args:
-            financials: List of quarterly financial data
-
-        Returns:
-            Dict with growth metrics
-        """
+    def _calculate_growth(self, financials: list[dict[str, Any]]) -> dict[str, Any]:
+        """Calculate YoY and QoQ growth rates."""
         if len(financials) < 2:
             return {}
 
@@ -419,16 +445,8 @@ class StockService:
 
         return growth
 
-    def _calculate_profitability(self, financials: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Calculate profitability metrics from latest quarter.
-
-        Args:
-            financials: List of quarterly financial data
-
-        Returns:
-            Dict with profitability metrics
-        """
+    def _calculate_profitability(self, financials: list[dict[str, Any]]) -> dict[str, Any]:
+        """Calculate profitability metrics from latest quarter."""
         if not financials:
             return {}
 

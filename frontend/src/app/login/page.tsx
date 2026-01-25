@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Coffee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, signUp, signInWithGoogle, isAuthenticated, isLoading } = useAuth();
+
+  // Get redirect URL from query params, default to /market
+  const redirectUrl = searchParams.get('redirect') || '/market';
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -20,12 +24,22 @@ export default function LoginPage() {
   const [verificationCode, setVerificationCode] = useState('');
   const [verifyingCode, setVerifyingCode] = useState(false);
 
+  // Store redirect URL in sessionStorage for OAuth callback
+  useEffect(() => {
+    if (redirectUrl && redirectUrl !== '/market') {
+      sessionStorage.setItem('auth_redirect', redirectUrl);
+    }
+  }, [redirectUrl]);
+
   // Redirect if already authenticated
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push('/market');
+      // Clear stored redirect and navigate
+      const storedRedirect = sessionStorage.getItem('auth_redirect');
+      sessionStorage.removeItem('auth_redirect');
+      router.push(storedRedirect || redirectUrl);
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router, redirectUrl]);
 
   // Show loading while checking auth or if already authenticated
   if (isLoading || isAuthenticated) {
@@ -99,7 +113,8 @@ export default function LoginPage() {
             setNeedsVerification(true);
             setSuccessMessage('账户创建成功!请查收邮箱中的验证码。');
           } else {
-            router.push('/market');
+            sessionStorage.removeItem('auth_redirect');
+            router.push(redirectUrl);
           }
         } else {
           setError(result.error || '注册失败');
@@ -107,7 +122,8 @@ export default function LoginPage() {
       } else {
         const result = await signIn(email, password);
         if (result.success) {
-          router.push('/market');
+          sessionStorage.removeItem('auth_redirect');
+          router.push(redirectUrl);
         } else {
           const errorLower = (result.error || '').toLowerCase();
           if (errorLower.includes('verif') || errorLower.includes('confirm')) {
@@ -329,5 +345,18 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Wrap with Suspense for useSearchParams
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 }

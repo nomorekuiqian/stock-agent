@@ -197,12 +197,10 @@ export async function saveUserWatchlist(
     console.log('[Insforge] Saving watchlist for user:', userId);
 
     // Debug: Check current session
-    const { data: sessionData } = insforge.auth.getCurrentSession();
+    const { data: sessionData } = await insforge.auth.getCurrentSession();
     console.log('[Insforge] Current session:', sessionData?.session ? 'Active' : 'None');
     console.log('[Insforge] Session user ID:', sessionData?.session?.user?.id);
     console.log('[Insforge] Requested user ID:', userId);
-    console.log('[Insforge] Access token exists:', !!sessionData?.session?.accessToken);
-    console.log('[Insforge] Access token (first 50 chars):', sessionData?.session?.accessToken?.substring(0, 50));
 
     if (!sessionData?.session) {
       console.error('[Insforge] No active session - RLS will block this operation');

@@ -37,7 +37,7 @@ export async function signUp(email: string, password: string, name?: string): Pr
         user: {
           id: data.user.id,
           email: data.user.email || email,
-          name: data.user.name,
+          name: data.user.profile?.name || '',
         },
       };
     }
@@ -82,7 +82,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
         user: {
           id: data.user.id,
           email: data.user.email || email,
-          name: data.user.name,
+          name: data.user.profile?.name || '',
         },
       };
     }
@@ -97,38 +97,36 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   }
 }
 
-// Google OAuth Sign In - Fetch auth URL from Insforge then redirect
+// Google OAuth Sign In - Use SDK's signInWithOAuth with InsforgeBrowserProvider
 export async function signInWithGoogle(): Promise<{ success: boolean; error?: string }> {
   try {
     if (typeof window === 'undefined') {
       return { success: false, error: 'OAuth can only be initiated in browser' };
     }
 
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-    const insforgeBaseUrl = 'https://9wmhxyi4.us-east.insforge.app';
+    // Get stored redirect URL or use default
+    const redirectTo = sessionStorage.getItem('auth_redirect') || '/market';
+    const fullRedirectUrl = `${window.location.origin}${redirectTo}`;
 
-    // Fetch the OAuth URL from Insforge endpoint
-    const oauthEndpoint = `${insforgeBaseUrl}/api/auth/oauth/google?redirect_uri=${encodeURIComponent(redirectUrl)}`;
+    console.log('[Auth] Starting Google OAuth via SDK');
+    console.log('[Auth] Redirect after auth:', fullRedirectUrl);
 
-    console.log('[Auth] Fetching Google OAuth URL from:', oauthEndpoint);
+    // Use SDK's signInWithOAuth - InsforgeBrowserProvider handles the callback
+    const { data, error } = await insforge.auth.signInWithOAuth({
+      provider: 'google',
+      redirectTo: fullRedirectUrl,
+    });
 
-    const response = await fetch(oauthEndpoint);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Auth] OAuth endpoint error:', errorText);
-      return { success: false, error: 'Failed to initiate Google sign in' };
+    if (error) {
+      console.error('[Auth] OAuth error:', error);
+      return { success: false, error: error.message };
     }
 
-    const data = await response.json();
-
-    if (!data.authUrl) {
-      console.error('[Auth] No authUrl in response:', data);
-      return { success: false, error: 'Invalid OAuth response' };
+    // Redirect to OAuth URL
+    if (data?.url) {
+      console.log('[Auth] Redirecting to OAuth URL');
+      window.location.href = data.url;
     }
-
-    console.log('[Auth] Redirecting to Google OAuth:', data.authUrl);
-    window.location.href = data.authUrl;
 
     return { success: true };
   } catch (error) {
@@ -164,7 +162,8 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
 export async function getCurrentUser(): Promise<User | null> {
   try {
     // First check if we have a session
-    const { data: sessionData } = insforge.auth.getCurrentSession();
+    const sessionResult = await insforge.auth.getCurrentSession();
+    const sessionData = sessionResult?.data;
     if (!sessionData?.session) {
       return null;
     }
@@ -183,7 +182,7 @@ export async function getCurrentUser(): Promise<User | null> {
       return {
         id: sessionData.session.user.id,
         email: sessionData.session.user.email || '',
-        name: sessionData.session.user.name,
+        name: sessionData.session.user.profile?.name,
       };
     }
 
@@ -201,16 +200,16 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-// Get Current Session (sync, from local storage)
-export function getSession() {
+// Get Current Session (async)
+export async function getSession() {
   try {
-    const { data, error } = insforge.auth.getCurrentSession();
+    const { data, error } = await insforge.auth.getCurrentSession();
 
     if (error) {
       return null;
     }
 
-    return data.session;
+    return data?.session || null;
   } catch (error) {
     console.error('[Auth] Get session exception:', error);
     return null;
