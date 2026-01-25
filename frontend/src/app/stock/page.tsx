@@ -234,7 +234,7 @@ export default function StockResearchPage() {
             }`}
           >
             <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground tracking-tight leading-[1.1] mb-4">
-              Stock Research
+              个股研究
             </h1>
             <p className="text-muted-foreground text-lg md:text-xl max-w-lg leading-relaxed mb-10">
               按赛道浏览龙头股，实时行情一目了然
@@ -247,6 +247,7 @@ export default function StockResearchPage() {
             className={`relative max-w-xl transition-all duration-700 delay-100 ${
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}
+            style={{ zIndex: 50 }}
           >
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-emerald-500/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
@@ -273,21 +274,32 @@ export default function StockResearchPage() {
 
             {/* Search dropdown */}
             {showSearchDropdown && searchResults.length > 0 && (
-              <div className="absolute z-50 w-full mt-2 bg-popover backdrop-blur-xl border border-border rounded-xl shadow-xl overflow-hidden animate-fade-in">
-                {searchResults.map((result, idx) => (
-                  <button
-                    key={result.symbol}
-                    onClick={() => handleSearchResultClick(result)}
-                    className="w-full px-4 py-3 text-left hover:bg-emerald-500/10 transition-all duration-200 flex items-center justify-between gap-3 border-b border-border/50 last:border-0 group/item animate-fade-in-up"
-                    style={{ animationDelay: `${idx * 30}ms` }}
-                  >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <span className="font-mono font-semibold text-sm text-foreground shrink-0">{result.symbol}</span>
-                      <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/70 transition-colors">{result.name}</span>
-                    </div>
-                    <Plus className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                  </button>
-                ))}
+              <div
+                className="absolute left-0 right-0 mt-2 rounded-xl overflow-hidden border border-border shadow-2xl"
+                style={{
+                  zIndex: 9999,
+                  backgroundColor: 'var(--popover)',
+                }}
+              >
+                <div
+                  className="max-h-[400px] overflow-y-auto"
+                  style={{ backgroundColor: 'var(--popover)' }}
+                >
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.symbol}
+                      onClick={() => handleSearchResultClick(result)}
+                      className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 group/item hover:bg-accent transition-colors"
+                      style={{ backgroundColor: 'var(--popover)' }}
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <span className="font-mono font-semibold text-sm text-foreground shrink-0">{result.symbol}</span>
+                        <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/80">{result.name}</span>
+                      </div>
+                      <Plus className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100" />
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

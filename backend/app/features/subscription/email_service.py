@@ -1088,11 +1088,8 @@ class EmailService:
                         <div style="{section_header_style}">
                             快速指引
                         </div>
-                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 12px 0;">
-                            <a href="{self.frontend_url}" style="color: #10b981; text-decoration: none; font-weight: 500;">访问网站</a> 查看完整报告和历史数据
-                        </p>
                         <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0;">
-                            有问题或建议？直接回复此邮件即可联系我们
+                            <a href="{self.frontend_url}" style="color: #10b981; text-decoration: none; font-weight: 500;">访问网站</a> 查看完整报告和历史数据
                         </p>
                     </div>
 
