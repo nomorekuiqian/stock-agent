@@ -6,7 +6,7 @@ These tests do NOT call Gemini API - they only test data transformation logic.
 """
 
 import pytest
-from agents.agent import _prepare_data_for_analyst, _clean_market_data
+from app.features.market.agent import _prepare_data_for_analyst, _clean_market_data
 
 
 class TestCleanMarketData:

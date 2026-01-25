@@ -40,7 +40,7 @@ def format_revenue(value):
 
 def test_earnings_calendar(days: int = 7, show_all: bool = False, ai_only: bool = False, raw_json: bool = False):
     """Test the earnings calendar API."""
-    from app.services.fmp_service import get_fmp_service
+    from app.shared.fmp_service import get_fmp_service
     import json
 
     print("=" * 70)
@@ -125,7 +125,7 @@ def test_earnings_calendar(days: int = 7, show_all: bool = False, ai_only: bool 
 
 def test_agent_tool():
     """Test the agent tool wrapper."""
-    from agents.tools.earnings import get_earnings_calendar
+    from app.shared.data_tools.earnings import get_earnings_calendar
     import json
 
     print()

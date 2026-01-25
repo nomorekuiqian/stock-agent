@@ -23,12 +23,12 @@ export function MobileMenu() {
         { href: '/for-you/archive', label: '往期归档' },
       ],
     },
-    {
+    ...(process.env.NODE_ENV === 'development' ? [{
       title: '板块',
       links: [
         { href: '/sectors', label: '板块追踪' },
       ],
-    },
+    }] : []),
     {
       title: '个股',
       links: [

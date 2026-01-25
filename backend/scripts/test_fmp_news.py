@@ -15,7 +15,7 @@ if str(BACKEND_DIR) not in sys.path:
 from dotenv import load_dotenv
 load_dotenv()
 
-from app.services.fmp_service import get_fmp_service, FMP_NEWS_SYMBOLS
+from app.shared.fmp_service import get_fmp_service, FMP_NEWS_SYMBOLS
 
 
 def test_fmp_news():
@@ -91,7 +91,7 @@ def test_market_news():
     print("Market News Test (FMP Only)")
     print("=" * 70)
 
-    from agents.tools.news import get_combined_market_news
+    from app.shared.data_tools.news import get_combined_market_news
 
     result = get_combined_market_news(days=1)
 

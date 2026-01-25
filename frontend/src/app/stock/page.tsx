@@ -294,8 +294,34 @@ export default function StockResearchPage() {
         </div>
       </section>
 
-      {/* Track Sections */}
+      {/* Recently Viewed + Track Sections */}
       <div className="max-w-5xl mx-auto px-4 md:px-6 pb-8 space-y-10">
+        {recentStocks.length > 0 && (
+          <section>
+            <div className="mb-4">
+              <h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 dark:bg-amber-400/80 light:bg-amber-600" />
+                <span className="text-amber-700 dark:text-amber-400">最近浏览</span>
+                <span className="text-muted-foreground/70 font-normal normal-case">Recently Viewed</span>
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {recentStocks.slice(0, 5).map((stock, idx) => (
+                <StockCard
+                  key={stock.symbol}
+                  symbol={stock.symbol}
+                  quote={quotes[stock.symbol]}
+                  displayName={STOCK_NAMES[stock.symbol]?.zh || stock.name}
+                  index={idx}
+                  isLoading={isLoadingQuotes}
+                  onClick={() => handleStockClick(stock.symbol)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {STOCK_TRACKS.map((track, trackIdx) => (
           <section
             key={track.id}
@@ -331,33 +357,6 @@ export default function StockResearchPage() {
           </section>
         ))}
       </div>
-
-      {/* Recently Viewed */}
-      {recentStocks.length > 0 && (
-        <section className="border-t border-border/30">
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
-            <h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 dark:bg-amber-400/80 light:bg-amber-600" />
-              <span className="text-amber-700 dark:text-amber-400">最近浏览</span>
-              <span className="text-muted-foreground/70 font-normal normal-case">Recently Viewed</span>
-            </h3>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {recentStocks.slice(0, 5).map((stock, idx) => (
-                <StockCard
-                  key={stock.symbol}
-                  symbol={stock.symbol}
-                  quote={quotes[stock.symbol]}
-                  displayName={STOCK_NAMES[stock.symbol]?.zh || stock.name}
-                  index={idx}
-                  isLoading={isLoadingQuotes}
-                  onClick={() => handleStockClick(stock.symbol)}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Footer Links */}
       <section className="border-t border-border/30">

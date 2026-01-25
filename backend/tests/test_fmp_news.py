@@ -5,7 +5,7 @@ This file contains tests and real examples of FMP news data structure.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # =============================================================================
 # Real News Examples (captured from FMP API on 2025-12-09)
@@ -119,10 +119,10 @@ class TestFMPNewsStructure:
 class TestFMPService:
     """Test FMP service functionality"""
 
-    @patch("app.services.fmp_service.httpx.Client")
+    @patch("app.shared.fmp_service.httpx.Client")
     def test_parse_fmp_news_truncates_text(self, mock_client):
         """Test that text is truncated to 500 characters"""
-        from app.services.fmp_service import FMPService
+        from app.shared.fmp_service import FMPService
 
         service = FMPService.__new__(FMPService)
         service.api_key = "test_key"
@@ -145,10 +145,10 @@ class TestFMPService:
         assert len(parsed) == 1
         assert len(parsed[0]["text"]) == 500  # Truncated to 500
 
-    @patch("app.services.fmp_service.httpx.Client")
+    @patch("app.shared.fmp_service.httpx.Client")
     def test_parse_fmp_news_handles_empty_text(self, mock_client):
         """Test handling of news items with empty text"""
-        from app.services.fmp_service import FMPService
+        from app.shared.fmp_service import FMPService
 
         service = FMPService.__new__(FMPService)
         service.api_key = "test_key"

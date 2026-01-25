@@ -140,12 +140,14 @@ export default function RootLayout({
                       { href: '/for-you/archive', label: '往期归档' },
                     ]}
                   />
-                  <Link
-                    href="/sectors"
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    板块
-                  </Link>
+                  {process.env.NODE_ENV === 'development' && (
+                    <Link
+                      href="/sectors"
+                      className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                    >
+                      板块
+                    </Link>
+                  )}
                   <Link
                     href="/stock"
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
@@ -194,9 +196,11 @@ export default function RootLayout({
                   <Link href="/for-you" className="hover:text-foreground transition-colors">
                     专属
                   </Link>
-                  <Link href="/sectors" className="hover:text-foreground transition-colors">
-                    板块
-                  </Link>
+                  {process.env.NODE_ENV === 'development' && (
+                    <Link href="/sectors" className="hover:text-foreground transition-colors">
+                      板块
+                    </Link>
+                  )}
                   <Link href="/stock" className="hover:text-foreground transition-colors">
                     个股
                   </Link>

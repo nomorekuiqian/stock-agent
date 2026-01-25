@@ -145,7 +145,10 @@
       "WebFetch(domain:img.logo.dev)",
       "WebFetch(domain:financialmodelingprep.com)",
       "Bash(wc:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "Bash(npm init:*)",
+      "WebFetch(domain:www.remotion.dev)",
+      "WebFetch(domain:apidog.com)"
     ],
     "deny": [],
     "ask": []

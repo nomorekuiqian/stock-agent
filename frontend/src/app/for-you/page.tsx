@@ -30,6 +30,11 @@ export default function ForYouPage() {
   const [subscribing, setSubscribing] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
 
+  // Email send state
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const isDev = process.env.NODE_ENV === 'development';
+
   // Stock quotes state
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [loadingQuotes, setLoadingQuotes] = useState(false);
@@ -235,6 +240,27 @@ export default function ForYouPage() {
     }
   };
 
+  async function handleSendEmail() {
+    if (!user?.email) {
+      router.push('/login?redirect=/for-you');
+      return;
+    }
+
+    setSendingEmail(true);
+    setEmailSent(false);
+    try {
+      await api.sendReportEmail(user.email);
+      setEmailSent(true);
+      // Reset after 3 seconds
+      setTimeout(() => setEmailSent(false), 3000);
+    } catch (err) {
+      console.error('Failed to send email:', err);
+      setError('Failed to send email. Please try again.');
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   const handleGenerateDigest = async () => {
     setLoading(true);
     setError(null);
@@ -381,29 +407,68 @@ export default function ForYouPage() {
                 )}
               </button>
 
-              {/* Generate button */}
-              <button
-                onClick={handleGenerateDigest}
-                disabled={loading || symbols.length === 0}
-                className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span>生成中...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>生成</span>
-                  </>
-                )}
-              </button>
+              {/* Send to Email button (requires login) */}
+              {user && (
+                <button
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail || loading || !digest || emailSent}
+                  className={`px-4 py-2.5 rounded-lg font-medium text-sm border transition-all disabled:cursor-not-allowed flex items-center gap-2 ${
+                    emailSent
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30 disabled:opacity-50'
+                  }`}
+                >
+                  {sendingEmail ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>发送中...</span>
+                    </>
+                  ) : emailSent ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>已发送</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>发送邮件</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Dev only: Generate button */}
+              {isDev && (
+                <button
+                  onClick={handleGenerateDigest}
+                  disabled={loading || symbols.length === 0}
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>生成中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span>生成报告</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

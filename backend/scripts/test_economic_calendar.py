@@ -27,7 +27,7 @@ load_dotenv()
 
 def test_economic_calendar(days: int = 14, country: str = None, key_only: bool = False, raw_json: bool = False):
     """Test the economic calendar API."""
-    from app.services.fmp_service import get_fmp_service
+    from app.shared.fmp_service import get_fmp_service
     import json
 
     print("=" * 60)
@@ -94,14 +94,6 @@ def test_economic_calendar(days: int = 14, country: str = None, key_only: bool =
             is_key = "*" if event.get("is_key_event") else ""
             event_name = event["event"][:45]
 
-            # Color coding for impact
-            if impact == "High":
-                impact_display = f"\033[91m{impact}\033[0m"  # Red
-            elif impact == "Medium":
-                impact_display = f"\033[93m{impact}\033[0m"  # Yellow
-            else:
-                impact_display = impact
-
             print(f"{date_col:<12} {country_code:<6} {impact:<8} {is_key:<4} {event_name}")
 
         print()  # Blank line between dates
@@ -123,8 +115,7 @@ def test_economic_calendar(days: int = 14, country: str = None, key_only: bool =
 
 def test_agent_tool():
     """Test the agent tool wrapper."""
-    from agents.tools.news import get_economic_calendar
-    import json
+    from app.shared.data_tools.calendar import get_economic_calendar
 
     print()
     print("=" * 60)

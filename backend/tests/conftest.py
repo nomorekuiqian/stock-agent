@@ -77,12 +77,12 @@ def test_user_id():
 @pytest.fixture
 def insforge_service():
     """Get Insforge service instance."""
-    from app.services.insforge_service import get_insforge_service
+    from app.shared.insforge_service import get_insforge_service
     return get_insforge_service()
 
 
 @pytest.fixture
 def email_service():
     """Get Email service instance."""
-    from app.services.email_service import get_email_service
+    from app.features.subscription.email_service import get_email_service
     return get_email_service()

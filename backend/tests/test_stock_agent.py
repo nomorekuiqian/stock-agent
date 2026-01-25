@@ -7,7 +7,7 @@ Pure data preparation logic - no AI calls, no network access.
 """
 
 import pytest
-from agents.stock_agent import (
+from app.features.stock.agent import (
     _prepare_stock_data_for_analyst,
     _empty_analysis,
     ANALYSIS_FIELDS,

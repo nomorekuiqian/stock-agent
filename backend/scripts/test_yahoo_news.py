@@ -1,42 +1,38 @@
 #!/usr/bin/env python3
 """
-Quick script to display market news from Yahoo Finance.
-Run: python show_news.py
+Quick script to display market news from FMP API.
+Run: python test_yahoo_news.py
 """
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from agents.tools.news import get_market_news
+from app.shared.data_tools.news import get_fmp_news
 
 
 def main():
     print("=" * 70)
-    print("Market News from Yahoo Finance")
+    print("Market News from FMP API")
     print("=" * 70)
 
-    result = get_market_news()
+    result = get_fmp_news()
 
-    print("\nStatus: " + result["status"])
-    print("Source: " + result.get("source", "N/A"))
-    print("Tickers: " + str(result.get("tickers_scanned", [])))
-    print("Total Articles: " + str(result["news_count"]))
+    print(f"\nStatus: {result['status']}")
+    print(f"Source: {result.get('source', 'N/A')}")
+    print(f"Total Articles: {result['news_count']}")
     print()
 
     for i, news in enumerate(result["news"], 1):
         print("-" * 70)
-        print(str(i) + ". " + news["title"])
-        print("   Date: " + news["publishedDate"])
-        print("   Source: " + news["source"] + " | Symbol: " + news.get("symbol", "N/A"))
+        print(f"{i}. {news['title']}")
+        print(f"   Date: {news['publishedDate']}")
+        print(f"   Source: {news['source']} | Symbol: {news.get('symbol', 'N/A')}")
         if news.get("text"):
-            text = news.get("text", "")
-            if len(text) > 150:
-                summary = text[:150] + "..."
-            else:
-                summary = text
-            print("   Summary: " + summary)
-        print("   URL: " + news["url"])
+            text = news["text"]
+            summary = f"{text[:150]}..." if len(text) > 150 else text
+            print(f"   Summary: {summary}")
+        print(f"   URL: {news['url']}")
         print()
 
 

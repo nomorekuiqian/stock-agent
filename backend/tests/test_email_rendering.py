@@ -7,7 +7,7 @@ no network calls, no database access.
 """
 
 import pytest
-from app.services.email_service import EmailService
+from app.features.subscription.email_service import EmailService
 
 
 @pytest.fixture

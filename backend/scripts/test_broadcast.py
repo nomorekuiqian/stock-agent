@@ -58,8 +58,8 @@ def list_test_subscribers():
 
 async def broadcast_daily_report():
     """Broadcast latest daily report to Test Broadcast audience."""
-    from app.services.insforge_service import get_insforge_service
-    from app.services.email_service import get_email_service
+    from app.shared.insforge_service import get_insforge_service
+    from app.features.subscription.email_service import get_email_service
     from app.utils.timezone import today_str
 
     print("\n" + "=" * 60)
@@ -113,7 +113,7 @@ async def broadcast_daily_report():
 async def broadcast_personal_digest():
     """Broadcast latest personal digest to Test Broadcast audience."""
     import httpx
-    from app.services.email_service import get_email_service
+    from app.features.subscription.email_service import get_email_service
 
     print("\n" + "=" * 60)
     print("BROADCASTING PERSONAL DIGEST")
@@ -155,7 +155,7 @@ async def broadcast_personal_digest():
         return False
 
     data = result.get("data", [])
-    if not data or len(data) == 0:
+    if not data:
         print(f"ERROR: No personal digest found for user!")
         return False
 
