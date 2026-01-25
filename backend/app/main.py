@@ -1438,6 +1438,111 @@ async def get_stock_price_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/stock/{symbol}/analysis")
+async def generate_stock_analysis(
+    symbol: str,
+    force: bool = Query(default=False, description="Force regenerate even if cached"),
+):
+    """
+    Generate AI analysis for an individual stock.
+
+    This endpoint fetches stock data and generates a comprehensive AI analysis
+    covering business overview, valuation, earnings highlights, risks, and outlook.
+
+    Args:
+        symbol: Stock ticker symbol (e.g., 'NVDA', 'AAPL')
+        force: If True, regenerate analysis even if cached version exists
+
+    Returns:
+        Structured analysis with title, business, valuation, earnings, risks, outlook
+    """
+    import re
+
+    symbol = symbol.upper()
+
+    # Validate symbol format
+    if not re.match(r'^[A-Z0-9.\-]{1,10}$', symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        from app.services.stock_service import get_stock_service
+        from agents.stock_agent import get_stock_analysis_agent
+
+        db = get_insforge_service()
+
+        # Check cache first (unless force=True)
+        if not force:
+            cached = await db.get_stock_analysis(symbol, analysis_type="comprehensive")
+            if cached:
+                print(f"[StockAnalysis] Using cached analysis for {symbol}")
+                return {
+                    "success": True,
+                    "analysis": cached.get("content"),
+                    "meta": {
+                        "symbol": symbol,
+                        "model": cached.get("model", "gemini-3-pro-preview"),
+                        "generated_at": cached.get("generated_at"),
+                        "from_cache": True,
+                    },
+                }
+
+        # Fetch stock data
+        print(f"[StockAnalysis] Fetching data for {symbol}")
+        stock_service = get_stock_service()
+        stock_data = await stock_service.get_stock_data(
+            symbol=symbol,
+            include_financials=True,
+        )
+
+        # Generate analysis
+        print(f"[StockAnalysis] Generating AI analysis for {symbol}")
+        agent = get_stock_analysis_agent()
+        result = await agent.analyze(stock_data)
+
+        analysis = result.get("analysis", {})
+        meta = result.get("meta", {})
+
+        # Check if analysis generation failed (agent returns empty fields with error)
+        if meta.get("error"):
+            print(f"[StockAnalysis] Agent returned error for {symbol}: {meta['error']}")
+            raise HTTPException(
+                status_code=500,
+                detail="Analysis generation failed. Please try again later.",
+            )
+
+        # Save to cache
+        save_result = await db.save_stock_analysis(
+            symbol=symbol,
+            analysis_type="comprehensive",
+            content=analysis,
+            data_snapshot={
+                "quote": stock_data.get("quote", {}),
+                "fundamentals": stock_data.get("fundamentals", {}),
+            },
+            model=meta.get("model", "gemini-3-pro-preview"),
+        )
+        print(f"[StockAnalysis] Save result: {save_result}")
+
+        return {
+            "success": True,
+            "analysis": analysis,
+            "meta": {
+                **meta,
+                "from_cache": False,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate stock analysis. Please try again later.",
+        )
+
+
 # =============================================================================
 # Email Feedback Endpoints
 # =============================================================================

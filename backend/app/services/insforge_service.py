@@ -9,6 +9,9 @@ import httpx
 
 from app.utils.timezone import today_str, now_iso
 
+# Cache TTL constants (hours)
+STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days
+
 # Insforge configuration
 INSFORGE_BASE_URL = os.getenv(
     "INSFORGE_BASE_URL", "https://9wmhxyi4.us-east.insforge.app"
@@ -1026,33 +1029,46 @@ class InsforgeService:
             return {"success": False, "error": str(e)}
 
     async def get_stock_analysis(
-        self, symbol: str, analysis_type: str = "overview"
+        self, symbol: str, analysis_type: str = "comprehensive"
     ) -> Optional[Dict[str, Any]]:
         """
-        Get cached AI analysis for a stock.
+        Get cached AI analysis for a stock using Edge Function.
 
         Args:
             symbol: Stock ticker symbol
-            analysis_type: Type of analysis (overview, earnings, valuation, etc.)
+            analysis_type: Type of analysis (comprehensive, earnings, valuation, etc.)
 
         Returns:
             Analysis data or None if not found/expired
         """
         try:
-            function_url = f"{self.base_url}/functions/stock-data"
-            query_url = f"{function_url}?action=get_analysis&symbol={symbol}&type={analysis_type}"
+            # Use Edge Function to get cached analysis
+            function_url = (
+                f"{self.base_url}/functions/stock-analyses"
+                f"?symbol={symbol.upper()}"
+                f"&type={analysis_type}"
+            )
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    query_url,
+                    function_url,
                     headers=self.headers,
                     timeout=30.0,
                 )
 
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get("success"):
-                        return data.get("data")
+                    if data.get("success") and data.get("data"):
+                        record = data["data"]
+                        return {
+                            "id": record.get("id"),
+                            "symbol": record.get("symbol"),
+                            "analysis_type": record.get("analysis_type"),
+                            "content": record.get("content"),
+                            "model": record.get("model"),
+                            "generated_at": record.get("generated_at"),
+                            "expires_at": record.get("expires_at"),
+                        }
                 return None
 
         except Exception as e:
@@ -1063,18 +1079,18 @@ class InsforgeService:
         self,
         symbol: str,
         analysis_type: str,
-        content: str,
+        content: Any,
         data_snapshot: Optional[Dict[str, Any]] = None,
         model: str = "gemini-3-pro-preview",
-        expires_hours: int = 24,
+        expires_hours: int = STOCK_ANALYSIS_CACHE_HOURS,
     ) -> Dict[str, Any]:
         """
-        Save AI-generated analysis to cache.
+        Save AI-generated analysis to cache using Edge Function.
 
         Args:
             symbol: Stock ticker symbol
             analysis_type: Type of analysis
-            content: Analysis text content
+            content: Analysis content (string or dict)
             data_snapshot: Data used to generate analysis
             model: Model used for generation
             expires_hours: Hours until expiration
@@ -1083,32 +1099,39 @@ class InsforgeService:
             dict with success status and analysis ID
         """
         try:
-            function_url = f"{self.base_url}/functions/stock-data"
+            from datetime import datetime, timezone, timedelta
 
-            db_analysis = {
+            now_utc = datetime.now(timezone.utc)
+            expires_at = now_utc + timedelta(hours=expires_hours)
+
+            # Prepare request body for Edge Function
+            request_body = {
                 "symbol": symbol.upper(),
                 "analysis_type": analysis_type,
-                "content": content,
+                "content": content,  # Edge function handles JSON serialization
                 "data_snapshot": data_snapshot,
                 "model": model,
-                "generated_at": now_iso(),
-                "expires_hours": expires_hours,
+                "generated_at": now_utc.isoformat(),
+                "expires_at": expires_at.isoformat(),
             }
 
             print(f"[InsforgeService] Saving stock analysis for {symbol} ({analysis_type})")
 
+            # Use Edge Function to save analysis
+            function_url = f"{self.base_url}/functions/stock-analyses"
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{function_url}?action=save_analysis",
+                    function_url,
                     headers=self.headers,
-                    json=db_analysis,
+                    json=request_body,
                     timeout=30.0,
                 )
 
                 if response.status_code in (200, 201):
                     data = response.json()
-                    if data.get("success"):
-                        analysis_id = data.get("data", {}).get("id")
+                    if data.get("success") and data.get("data"):
+                        analysis_id = data["data"].get("id")
                         print(f"[InsforgeService] Stock analysis saved, ID: {analysis_id}")
                         return {"success": True, "analysis_id": analysis_id}
                     else:
@@ -1117,7 +1140,7 @@ class InsforgeService:
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Analysis save failed: {response.status_code}")
+                    print(f"[InsforgeService] Analysis save failed: {response.status_code} - {error_msg}")
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:

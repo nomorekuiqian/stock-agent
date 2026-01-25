@@ -3,95 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, X, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, StockSearchResult, StockQuote } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort } from '@/lib/timezone';
 import WatchlistPanel from '@/components/WatchlistPanel';
+import { STOCK_NAMES } from '@/lib/stock-names';
 
-// Stock name mapping (English + Chinese)
-const STOCK_NAMES: Record<string, { en: string; zh: string }> = {
-  'AAPL': { en: 'Apple Inc.', zh: '苹果' },
-  'MSFT': { en: 'Microsoft Corp.', zh: '微软' },
-  'NVDA': { en: 'NVIDIA Corp.', zh: '英伟达' },
-  'GOOGL': { en: 'Alphabet Inc.', zh: '谷歌' },
-  'GOOG': { en: 'Alphabet Inc.', zh: '谷歌' },
-  'AMZN': { en: 'Amazon.com Inc.', zh: '亚马逊' },
-  'META': { en: 'Meta Platforms', zh: 'Meta' },
-  'TSLA': { en: 'Tesla Inc.', zh: '特斯拉' },
-  'AMD': { en: 'AMD Inc.', zh: 'AMD' },
-  'INTC': { en: 'Intel Corp.', zh: '英特尔' },
-  'AVGO': { en: 'Broadcom Inc.', zh: '博通' },
-  'TSM': { en: 'TSMC', zh: '台积电' },
-  'BABA': { en: 'Alibaba Group', zh: '阿里巴巴' },
-  'JD': { en: 'JD.com Inc.', zh: '京东' },
-  'PDD': { en: 'PDD Holdings', zh: '拼多多' },
-  'BIDU': { en: 'Baidu Inc.', zh: '百度' },
-  'NIO': { en: 'NIO Inc.', zh: '蔚来' },
-  'LI': { en: 'Li Auto Inc.', zh: '理想' },
-  'XPEV': { en: 'XPeng Inc.', zh: '小鹏' },
-  'JPM': { en: 'JPMorgan Chase', zh: '摩根大通' },
-  'BAC': { en: 'Bank of America', zh: '美国银行' },
-  'GS': { en: 'Goldman Sachs', zh: '高盛' },
-  'MS': { en: 'Morgan Stanley', zh: '摩根士丹利' },
-  'WFC': { en: 'Wells Fargo', zh: '富国银行' },
-  'V': { en: 'Visa Inc.', zh: 'Visa' },
-  'MA': { en: 'Mastercard', zh: '万事达' },
-  'BRK.B': { en: 'Berkshire Hathaway', zh: '伯克希尔' },
-  'UNH': { en: 'UnitedHealth', zh: '联合健康' },
-  'JNJ': { en: 'Johnson & Johnson', zh: '强生' },
-  'XOM': { en: 'Exxon Mobil', zh: '埃克森美孚' },
-  'CVX': { en: 'Chevron Corp.', zh: '雪佛龙' },
-  'COST': { en: 'Costco', zh: '好市多' },
-  'WMT': { en: 'Walmart', zh: '沃尔玛' },
-  'HD': { en: 'Home Depot', zh: '家得宝' },
-  'MCD': { en: 'McDonald\'s', zh: '麦当劳' },
-  'SBUX': { en: 'Starbucks', zh: '星巴克' },
-  'DIS': { en: 'Walt Disney', zh: '迪士尼' },
-  'NFLX': { en: 'Netflix', zh: '奈飞' },
-  'CRM': { en: 'Salesforce', zh: 'Salesforce' },
-  'ORCL': { en: 'Oracle Corp.', zh: '甲骨文' },
-  'ADBE': { en: 'Adobe Inc.', zh: 'Adobe' },
-  'NOW': { en: 'ServiceNow', zh: 'ServiceNow' },
-  'COIN': { en: 'Coinbase', zh: 'Coinbase' },
-  'PLTR': { en: 'Palantir', zh: 'Palantir' },
-  'SNOW': { en: 'Snowflake', zh: 'Snowflake' },
-  'ARM': { en: 'Arm Holdings', zh: 'Arm' },
-  'UBER': { en: 'Uber Technologies', zh: 'Uber' },
-  'ABNB': { en: 'Airbnb', zh: 'Airbnb' },
-};
-
-// Preset portfolios
 // Watchlist limit
 const MAX_WATCHLIST_SIZE = 15;
-
-const PRESET_PORTFOLIOS = [
-  {
-    id: 'mag7',
-    name: 'Magnificent 7',
-    nameZh: '科技七巨头',
-    symbols: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'],
-  },
-  {
-    id: 'chips',
-    name: 'Semiconductors',
-    nameZh: '芯片股',
-    symbols: ['NVDA', 'AMD', 'INTC', 'AVGO', 'TSM', 'ARM'],
-  },
-  {
-    id: 'china',
-    name: 'China ADRs',
-    nameZh: '中概股',
-    symbols: ['BABA', 'JD', 'PDD', 'BIDU', 'NIO', 'LI'],
-  },
-  {
-    id: 'finance',
-    name: 'Financials',
-    nameZh: '金融股',
-    symbols: ['JPM', 'BAC', 'GS', 'MS', 'WFC'],
-  },
-];
 
 export default function ForYouPage() {
   const router = useRouter();
@@ -122,6 +42,7 @@ export default function ForYouPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extraNamesRef = useRef<Record<string, { en: string; zh: string }>>({});
 
   // Debounced search
   const handleSearch = useCallback(async (query: string) => {
@@ -294,8 +215,8 @@ export default function ForYouPage() {
     if (sym && !symbols.includes(sym)) {
       const newSymbols = [...symbols, sym];
       setSymbols(newSymbols);
-      if (name && !STOCK_NAMES[sym]) {
-        STOCK_NAMES[sym] = { en: name, zh: '' };
+      if (name && !STOCK_NAMES[sym] && !extraNamesRef.current[sym]) {
+        extraNamesRef.current[sym] = { en: name, zh: '' };
       }
       if (user?.id) {
         saveUserWatchlist(user.id, newSymbols);
@@ -304,14 +225,6 @@ export default function ForYouPage() {
     setSearchQuery('');
     setSearchResults([]);
     setShowSearchDropdown(false);
-  };
-
-  const handleAddPortfolio = (portfolio: typeof PRESET_PORTFOLIOS[0]) => {
-    const newSymbols = [...new Set([...symbols, ...portfolio.symbols])].slice(0, MAX_WATCHLIST_SIZE);
-    setSymbols(newSymbols);
-    if (user?.id) {
-      saveUserWatchlist(user.id, newSymbols);
-    }
   };
 
   const handleRemoveSymbol = (symbolToRemove: string) => {
@@ -500,8 +413,7 @@ export default function ForYouPage() {
       <WatchlistPanel
         symbols={symbols}
         quotes={quotes}
-        stockNames={STOCK_NAMES}
-        presetPortfolios={PRESET_PORTFOLIOS}
+        stockNames={{ ...STOCK_NAMES, ...extraNamesRef.current }}
         maxSize={MAX_WATCHLIST_SIZE}
         isLoading={loadingWatchlist}
         isLoadingQuotes={loadingQuotes}
@@ -514,7 +426,6 @@ export default function ForYouPage() {
         onSearchFocus={() => searchQuery && setShowSearchDropdown(true)}
         onAddSymbol={handleAddSymbol}
         onRemoveSymbol={handleRemoveSymbol}
-        onAddPortfolio={handleAddPortfolio}
         searchContainerRef={searchContainerRef}
         searchInputRef={searchInputRef}
       />

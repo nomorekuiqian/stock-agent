@@ -5,6 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { StockPriceChart } from '@/components/StockPriceChart';
+import {
+  InlineAnalysisText,
+  type StockAIAnalysis,
+} from '@/components/StockAnalysisCard';
 
 // =============================================================================
 // Types
@@ -131,72 +135,72 @@ interface PriceHistoryData {
 const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string }> = {
   // Valuation
   pe: {
-    zh: '市盈率',
+    zh: '市盈率 P/E',
     en: 'P/E',
-    tip: '股价与每股收益的比值。数值越低可能表示股票被低估，但也要结合行业特点判断。',
+    tip: '股价与每股收益的比值。较低的值可能意味着被低估，但需结合行业背景分析。',
   },
   ps: {
-    zh: '市销率',
+    zh: '市销率 P/S',
     en: 'P/S',
-    tip: '股价与每股营收的比值。适合评估尚未盈利的成长型公司。',
+    tip: '股价与每股销售额的比值。适用于评估尚未盈利的成长型公司。',
   },
   pb: {
-    zh: '市净率',
+    zh: '市净率 P/B',
     en: 'P/B',
-    tip: '股价与每股净资产的比值。低于1可能表示股票被低估，常用于金融和重资产行业。',
+    tip: '股价与每股净资产的比值。低于 1 可能意味着被低估，常用于金融和重资产行业。',
   },
   ev_ebitda: {
-    zh: '企业价值倍数',
+    zh: 'EV/EBITDA',
     en: 'EV/EBITDA',
-    tip: '企业价值与息税折旧摊销前利润的比值。排除了资本结构影响，便于跨公司比较。',
+    tip: '企业价值与 EBITDA 的比值。排除资本结构影响，适合跨公司比较。',
   },
   // Growth
   revenue_yoy: {
     zh: '营收同比',
     en: 'Revenue YoY',
-    tip: '与去年同期相比的营收增长率。正值表示增长，负值表示下降。',
+    tip: '营收同比增长率。正值表示增长，负值表示下降。',
   },
   net_income_yoy: {
     zh: '净利润同比',
     en: 'Net Income YoY',
-    tip: '与去年同期相比的净利润增长率。反映公司盈利能力的变化趋势。',
+    tip: '净利润同比增长率。反映盈利能力的变化趋势。',
   },
   eps_yoy: {
-    zh: 'EPS同比',
+    zh: 'EPS 同比',
     en: 'EPS YoY',
-    tip: '每股收益同比增长率。直接影响股东回报，是估值的重要参考。',
+    tip: '每股收益同比增长率。直接影响股东回报，对估值至关重要。',
   },
   revenue_qoq: {
     zh: '营收环比',
     en: 'Revenue QoQ',
-    tip: '与上一季度相比的营收增长率。反映短期业务动能。',
+    tip: '营收环比增长率。反映短期经营动能。',
   },
   // Profitability
   gross_margin: {
     zh: '毛利率',
     en: 'Gross Margin',
-    tip: '毛利润占营收的比例。反映产品或服务的基础盈利能力和定价权。',
+    tip: '毛利占营收的比例。反映基本盈利能力和定价能力。',
   },
   net_margin: {
     zh: '净利率',
     en: 'Net Margin',
-    tip: '净利润占营收的比例。综合反映公司的最终盈利能力。',
+    tip: '净利润占营收的比例。综合反映最终盈利水平。',
   },
   roe: {
-    zh: '净资产收益率',
+    zh: 'ROE',
     en: 'ROE',
-    tip: '净利润与股东权益的比值。衡量公司利用股东资金创造利润的效率。',
+    tip: '净资产收益率。衡量利用股东权益创造利润的效率。',
   },
   roa: {
-    zh: '总资产收益率',
+    zh: 'ROA',
     en: 'ROA',
-    tip: '净利润与总资产的比值。衡量公司利用全部资产创造利润的效率。',
+    tip: '总资产收益率。衡量利用全部资产创造利润的效率。',
   },
   // TTM Metrics
   revenue: {
-    zh: '营业收入',
+    zh: '营收',
     en: 'Revenue',
-    tip: '公司主营业务产生的总收入，是衡量公司规模和增长的核心指标。',
+    tip: '核心业务总收入，衡量公司规模和增长的关键指标。',
   },
   net_income: {
     zh: '净利润',
@@ -204,83 +208,37 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     tip: '扣除所有成本、费用和税款后的最终利润。',
   },
   ebitda: {
-    zh: '税息折旧摊销前利润',
+    zh: 'EBITDA',
     en: 'EBITDA',
-    tip: '排除利息、税收、折旧和摊销的利润，反映核心业务的现金创造能力。',
+    tip: '息税折旧摊销前利润。反映核心业务的现金创造能力。',
   },
   operating_cash_flow: {
     zh: '经营现金流',
     en: 'Operating Cash Flow',
-    tip: '日常经营活动产生的现金流入。正值表示公司能通过运营产生现金。',
+    tip: '日常经营活动产生的现金。正值表示公司从经营中产生现金。',
   },
   free_cash_flow: {
     zh: '自由现金流',
     en: 'Free Cash Flow',
-    tip: '经营现金流减去资本支出后的剩余现金。可用于分红、回购或再投资。',
+    tip: '经营现金流减去资本支出。可用于分红、回购或再投资。',
   },
   eps: {
-    zh: '每股收益',
+    zh: 'EPS',
     en: 'EPS',
-    tip: '净利润除以总股数。直接反映每股股票的盈利能力。',
+    tip: '每股收益，即净利润除以总股本。直接反映每股盈利水平。',
   },
   // Quote Metrics
   market_cap: {
     zh: '市值',
     en: 'Market Cap',
-    tip: '股价乘以总股数。反映市场对公司整体价值的评估。',
+    tip: '股价乘以总股本。反映市场对公司总价值的评估。',
   },
   volume: {
     zh: '成交量',
     en: 'Volume',
-    tip: '当日交易的股票数量。高成交量通常伴随重要价格变动。',
+    tip: '今日交易的股票数量。高成交量通常伴随显著的价格波动。',
   },
 };
-
-// Sector & Industry Translation Map
-const SECTOR_TRANSLATIONS: Record<string, string> = {
-  'Technology': '科技',
-  'Healthcare': '医疗保健',
-  'Financial Services': '金融服务',
-  'Consumer Cyclical': '可选消费',
-  'Consumer Defensive': '必需消费',
-  'Industrials': '工业',
-  'Energy': '能源',
-  'Utilities': '公用事业',
-  'Real Estate': '房地产',
-  'Basic Materials': '基础材料',
-  'Communication Services': '通信服务',
-};
-
-const INDUSTRY_TRANSLATIONS: Record<string, string> = {
-  'Semiconductors': '半导体',
-  'Software - Infrastructure': '基础软件',
-  'Software - Application': '应用软件',
-  'Consumer Electronics': '消费电子',
-  'Internet Content & Information': '互联网内容与信息',
-  'Internet Retail': '互联网零售',
-  'Auto Manufacturers': '汽车制造',
-  'Banks - Diversified': '综合银行',
-  'Drug Manufacturers - General': '制药',
-  'Biotechnology': '生物科技',
-  'Aerospace & Defense': '航空航天与国防',
-  'Oil & Gas Integrated': '综合油气',
-  'Specialty Retail': '专业零售',
-  'Restaurants': '餐饮',
-  'Entertainment': '娱乐',
-  'Credit Services': '信用服务',
-  'Asset Management': '资产管理',
-  'Insurance - Diversified': '综合保险',
-  'Telecom Services': '电信服务',
-  'Semiconductor Equipment & Materials': '半导体设备与材料',
-};
-
-function translateSector(sector: string): string {
-  return SECTOR_TRANSLATIONS[sector] || sector;
-}
-
-function translateIndustry(industry: string): string {
-  return INDUSTRY_TRANSLATIONS[industry] || industry;
-}
 
 // =============================================================================
 // Utility Functions
@@ -303,6 +261,17 @@ async function fetchPriceHistory(symbol: string, days: number = 365): Promise<Pr
   }
   const result = await response.json();
   return result.data || [];
+}
+
+async function fetchStockAnalysis(symbol: string, force: boolean = false): Promise<StockAIAnalysis | null> {
+  const response = await fetch(`${API_BASE_URL}/stock/${symbol}/analysis?force=${force}`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch analysis: ${response.status}`);
+  }
+  const result = await response.json();
+  return result.success ? result.analysis : null;
 }
 
 function formatNumber(value: number | null | undefined, options?: {
@@ -411,7 +380,6 @@ function MetricLabel({ metricKey }: { metricKey: string }) {
     <Tooltip content={metric.tip}>
       <span className="flex items-center gap-1.5 cursor-help">
         <span className="text-foreground/90 font-medium">{metric.zh}</span>
-        <span className="text-muted-foreground text-xs">{metric.en}</span>
         <svg className="w-3.5 h-3.5 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -486,11 +454,11 @@ function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
   });
 
   const metrics = [
-    { key: 'revenue', zh: '营业收入', en: 'Revenue', getter: (q: QuarterlyData) => q.income_statement?.revenue },
+    { key: 'revenue', zh: '营收', en: 'Revenue', getter: (q: QuarterlyData) => q.income_statement?.revenue },
     { key: 'gross_profit', zh: '毛利润', en: 'Gross Profit', getter: (q: QuarterlyData) => q.income_statement?.gross_profit },
-    { key: 'operating_income', zh: '营业利润', en: 'Operating Income', getter: (q: QuarterlyData) => q.income_statement?.operating_income },
+    { key: 'operating_income', zh: '营业利润', en: 'Op. Income', getter: (q: QuarterlyData) => q.income_statement?.operating_income },
     { key: 'net_income', zh: '净利润', en: 'Net Income', getter: (q: QuarterlyData) => q.income_statement?.net_income },
-    { key: 'eps', zh: '每股收益', en: 'EPS', getter: (q: QuarterlyData) => q.income_statement?.eps },
+    { key: 'eps', zh: 'EPS', en: 'EPS', getter: (q: QuarterlyData) => q.income_statement?.eps },
     { key: 'fcf', zh: '自由现金流', en: 'FCF', getter: (q: QuarterlyData) => q.cash_flow?.free_cash_flow },
   ];
 
@@ -502,7 +470,6 @@ function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
             <th className="text-left py-3 px-4 text-foreground/80 font-medium">
               <span className="flex items-center gap-1.5">
                 <span>指标</span>
-                <span className="text-muted-foreground text-xs font-normal">Metric</span>
               </span>
             </th>
             {sortedQuarters.slice(0, 4).map((q, i) => (
@@ -513,12 +480,11 @@ function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
           </tr>
         </thead>
         <tbody className="font-data">
-          {metrics.map(({ key, zh, en, getter }) => (
+          {metrics.map(({ key, zh, getter }) => (
             <tr key={key} className="border-b border-border/20 hover:bg-card/30 transition-colors">
               <td className="py-3 px-4">
                 <span className="flex items-center gap-1.5">
                   <span className="text-foreground/80 font-medium">{zh}</span>
-                  <span className="text-muted-foreground text-xs">{en}</span>
                 </span>
               </td>
               {sortedQuarters.slice(0, 4).map((q, i) => (
@@ -537,7 +503,6 @@ function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
   );
 }
 
-// Subsection header - unified amber color with theme adaptation
 function SubsectionHeader({ title, titleEn }: {
   title: string;
   titleEn: string;
@@ -551,25 +516,75 @@ function SubsectionHeader({ title, titleEn }: {
   );
 }
 
-function SectionCard({ title, titleEn, children, className = '' }: {
+function SectionCard({ title, titleEn, children, className = '', action }: {
   title: string;
   titleEn: string;
   children: React.ReactNode;
   className?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className={`bg-card/50 border border-border/40 rounded-xl overflow-hidden ${className}`}>
       <div className="px-5 py-4 border-b border-border/30 bg-card/40">
-        <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-          <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-          <span>{title}</span>
-          <span className="text-muted-foreground text-sm font-normal">{titleEn}</span>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <span>{title}</span>
+            <span className="text-muted-foreground text-sm font-normal">{titleEn}</span>
+          </h2>
+          {action}
+        </div>
       </div>
       <div className="p-5">
         {children}
       </div>
     </div>
+  );
+}
+
+function GenerateAnalysisButton({ onClick, loading, hasAnalysis }: {
+  onClick: () => void;
+  loading: boolean;
+  hasAnalysis: boolean;
+}) {
+  if (hasAnalysis) {
+    return (
+      <button
+        onClick={onClick}
+        disabled={loading}
+        className="p-2 text-muted-foreground hover:text-emerald-400 transition-colors disabled:opacity-50"
+        title="重新生成分析"
+      >
+        <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 rounded-lg transition-all disabled:opacity-50"
+    >
+      {loading ? (
+        <>
+          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span>分析中...</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>生成 AI 分析</span>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -618,6 +633,11 @@ export default function StockPage() {
   const [showDescription, setShowDescription] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
+  // AI Analysis state
+  const [analysis, setAnalysis] = useState<StockAIAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!symbol) return;
 
@@ -639,6 +659,25 @@ export default function StockPage() {
       .catch((err) => console.error('Failed to fetch price history:', err))
       .finally(() => setPriceHistoryLoading(false));
   }, [symbol]);
+
+  const handleGenerateAnalysis = async (force: boolean = false) => {
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+
+    try {
+      const result = await fetchStockAnalysis(symbol, force);
+      if (result) {
+        setAnalysis(result);
+      } else {
+        setAnalysisError('Failed to generate analysis');
+      }
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setAnalysisError(err instanceof Error ? err.message : 'Failed to generate analysis');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   if (loading) return <LoadingSkeleton />;
 
@@ -674,6 +713,8 @@ export default function StockPage() {
     ? ((quote.price - quote.week_52_low) / (quote.week_52_high - quote.week_52_low)) * 100
     : 50;
 
+  const hasAnalysis = !!analysis;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-5">
@@ -684,7 +725,7 @@ export default function StockPage() {
           <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <Link href="/stock" className="hover:text-emerald-400 transition-colors">个股研究</Link>
+          <Link href="/stock" className="hover:text-emerald-400 transition-colors">个股调研</Link>
           <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -733,8 +774,8 @@ export default function StockPage() {
               </h1>
               {profile.classification?.sector && (
                 <p className="text-sm text-muted-foreground">
-                  {translateSector(profile.classification.sector)}
-                  {profile.classification.industry && ` · ${translateIndustry(profile.classification.industry)}`}
+                  {profile.classification.sector}
+                  {profile.classification.industry && ` / ${profile.classification.industry}`}
                 </p>
               )}
             </div>
@@ -780,10 +821,28 @@ export default function StockPage() {
         {/* FUNDAMENTALS */}
         {/* ================================================================== */}
         <section className="mb-5">
-          <SectionCard title="基本面分析" titleEn="Fundamentals">
+          <SectionCard
+            title="基本面分析"
+            titleEn="Fundamentals"
+            action={
+              <GenerateAnalysisButton
+                onClick={() => handleGenerateAnalysis(hasAnalysis)}
+                loading={analysisLoading}
+                hasAnalysis={hasAnalysis}
+              />
+            }
+          >
+            {/* AI Fundamentals Analysis */}
+            {analysis?.fundamentals_analysis && (
+              <div className="mb-5 pb-5 border-b border-border/40">
+                <SubsectionHeader title="AI 分析" titleEn="Insights" />
+                <InlineAnalysisText text={analysis.fundamentals_analysis} loading={analysisLoading} />
+              </div>
+            )}
+
             {/* Market Overview */}
             <div className="mb-5 pb-5 border-b border-border/40">
-              <SubsectionHeader title="市场概览" titleEn="Market Overview" />
+              <SubsectionHeader title="市场概览" titleEn="Overview" />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                 <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
                 <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
@@ -795,10 +854,10 @@ export default function StockPage() {
                 <div className="bg-card/30 border border-border/30 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-foreground/70">
-                      52周价格区间 <span className="text-muted-foreground">52-Week Range</span>
+                      52 周区间
                     </span>
                     <span className="text-sm text-muted-foreground font-data">
-                      位于 {pricePosition.toFixed(0)}%
+                      at {pricePosition.toFixed(0)}%
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -870,7 +929,15 @@ export default function StockPage() {
         {/* FINANCIALS */}
         {/* ================================================================== */}
         <section className="mb-5">
-          <SectionCard title="财报数据" titleEn="Financial Statements">
+          <SectionCard title="财务报表" titleEn="Financials">
+            {/* AI Financials Analysis */}
+            {analysis?.financials_analysis && (
+              <div className="mb-5 pb-5 border-b border-border/40">
+                <SubsectionHeader title="AI 分析" titleEn="Insights" />
+                <InlineAnalysisText text={analysis.financials_analysis} loading={analysisLoading} />
+              </div>
+            )}
+
             {/* TTM Summary */}
             <div className="mb-5 pb-5 border-b border-border/40">
               <SubsectionHeader title="过去十二个月" titleEn="TTM" />
@@ -897,7 +964,15 @@ export default function StockPage() {
         {/* ================================================================== */}
         {(profile.description?.en || profile.description?.zh) && (
           <section className="mb-5">
-            <SectionCard title="公司简介" titleEn="About">
+            <SectionCard title="公司概况" titleEn="About">
+              {/* AI Company Overview */}
+              {analysis?.company_overview && (
+                <div className="mb-4 pb-4 border-b border-border/40">
+                  <SubsectionHeader title="AI 概述" titleEn="Overview" />
+                  <InlineAnalysisText text={analysis.company_overview} loading={analysisLoading} />
+                </div>
+              )}
+
               {/* Company Details */}
               {profile.company_details && (
                 <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm mb-4 pb-4 border-b border-border/20">
@@ -908,7 +983,7 @@ export default function StockPage() {
                     <span><span className="text-muted-foreground">员工:</span> <span className="font-data">{formatNumber(profile.company_details.employees)}</span></span>
                   )}
                   {profile.company_details.ipo_date && (
-                    <span><span className="text-muted-foreground">IPO:</span> <span className="font-data">{profile.company_details.ipo_date}</span></span>
+                    <span><span className="text-muted-foreground">上市日期:</span> <span className="font-data">{profile.company_details.ipo_date}</span></span>
                   )}
                   {profile.company_details.website && (
                     <a href={profile.company_details.website} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 transition-colors">
@@ -918,18 +993,76 @@ export default function StockPage() {
                 </div>
               )}
               <p className={`text-sm text-muted-foreground leading-relaxed ${!showDescription ? 'line-clamp-3' : ''}`}>
-                {profile.description?.zh || profile.description?.en}
+                {profile.description?.en || profile.description?.zh}
               </p>
-              {((profile.description?.zh || profile.description?.en)?.length ?? 0) > 200 && (
+              {((profile.description?.en || profile.description?.zh)?.length ?? 0) > 200 && (
                 <button
                   onClick={() => setShowDescription(!showDescription)}
                   className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
                 >
-                  {showDescription ? '收起' : '展开全部'}
+                  {showDescription ? '收起' : '展开'}
                 </button>
               )}
             </SectionCard>
           </section>
+        )}
+
+        {/* ================================================================== */}
+        {/* INVESTMENT VIEW (Opportunities & Risks) */}
+        {/* ================================================================== */}
+        {analysis && (analysis.opportunities || analysis.risks || analysis.investment_summary) && (
+          <section className="mb-5">
+            <SectionCard title="投资观点" titleEn="Investment View">
+              {/* Opportunities & Risks - Side by Side */}
+              {(analysis.opportunities || analysis.risks) && (
+                <div className="mb-5 pb-5 border-b border-border/40">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {analysis.opportunities && (
+                      <div>
+                        <SubsectionHeader title="投资机会" titleEn="Opportunities" />
+                        <p className="text-sm text-muted-foreground leading-relaxed">{analysis.opportunities}</p>
+                      </div>
+                    )}
+                    {analysis.risks && (
+                      <div>
+                        <SubsectionHeader title="风险因素" titleEn="Risks" />
+                        <p className="text-sm text-muted-foreground leading-relaxed">{analysis.risks}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Investment Summary */}
+              {analysis.investment_summary && (
+                <div>
+                  <SubsectionHeader title="投资总结" titleEn="Summary" />
+                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                    <p className="text-sm text-foreground/90 leading-relaxed">{analysis.investment_summary}</p>
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+          </section>
+        )}
+
+        {/* Analysis Error Display */}
+        {analysisError && (
+          <div className="mb-5 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <div className="flex items-center gap-2 text-red-400">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="text-sm font-medium">分析出错</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{analysisError}</p>
+            <button
+              onClick={() => handleGenerateAnalysis(false)}
+              className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              重试
+            </button>
+          </div>
         )}
 
         <div className="h-4" />
