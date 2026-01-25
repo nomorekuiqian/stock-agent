@@ -22,6 +22,8 @@ interface WatchlistPanelProps {
   onSearchChange: (query: string) => void;
   onSearchKeyDown: (e: React.KeyboardEvent) => void;
   onSearchFocus: () => void;
+  onCompositionStart?: () => void;
+  onCompositionEnd?: (e: React.CompositionEvent<HTMLInputElement>) => void;
   onAddSymbol: (symbol: string, name?: string) => void;
   onRemoveSymbol: (symbol: string) => void;
   searchContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -64,6 +66,8 @@ export default function WatchlistPanel({
   onSearchChange,
   onSearchKeyDown,
   onSearchFocus,
+  onCompositionStart,
+  onCompositionEnd,
   onAddSymbol,
   onRemoveSymbol,
   searchContainerRef,
@@ -137,6 +141,8 @@ export default function WatchlistPanel({
                         onChange={(e) => onSearchChange(e.target.value)}
                         onKeyDown={onSearchKeyDown}
                         onFocus={onSearchFocus}
+                        onCompositionStart={onCompositionStart}
+                        onCompositionEnd={onCompositionEnd}
                         disabled={atLimit}
                         placeholder={atLimit ? "已达上限，请先移除股票" : "搜索股票代码或公司名称..."}
                         className="w-full pl-11 pr-4 py-3 bg-background border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"

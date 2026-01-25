@@ -121,6 +121,7 @@ export default function StockResearchPage() {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isComposingRef = useRef(false);
 
   // Initialize
   useEffect(() => {
@@ -152,9 +153,14 @@ export default function StockResearchPage() {
       });
   }, []);
 
-  // Debounced search
-  const handleSearchInput = useCallback((value: string) => {
+  // Debounced search - only trigger when not composing (for CJK IME support)
+  const handleSearchInput = useCallback((value: string, forceSearch = false) => {
     setSearchQuery(value.toUpperCase());
+
+    // Skip search during IME composition (iOS Safari Chinese input fix)
+    if (isComposingRef.current && !forceSearch) {
+      return;
+    }
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -180,6 +186,17 @@ export default function StockResearchPage() {
       }
     }, 300);
   }, []);
+
+  // IME composition handlers for CJK input support (fixes iOS Safari Chinese input bug)
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
+
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false;
+    // Trigger search with the final composed value
+    handleSearchInput(e.currentTarget.value, true);
+  }, [handleSearchInput]);
 
   // Cleanup search timeout on unmount
   useEffect(() => {
@@ -257,6 +274,8 @@ export default function StockResearchPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleSearchInput(e.target.value)}
+                  onCompositionStart={handleCompositionStart}
+                  onCompositionEnd={handleCompositionEnd}
                   onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
                   placeholder="搜索股票代码或公司名称..."
                   className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-emerald-500/50 focus:bg-card/60 transition-all font-data tracking-wider"

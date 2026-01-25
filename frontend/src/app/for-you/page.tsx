@@ -48,6 +48,7 @@ export default function ForYouPage() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const extraNamesRef = useRef<Record<string, { en: string; zh: string }>>({});
+  const isComposingRef = useRef(false);
 
   // Debounced search
   const handleSearch = useCallback(async (query: string) => {
@@ -71,8 +72,13 @@ export default function ForYouPage() {
     }
   }, [symbols]);
 
-  const handleSearchInputChange = (value: string) => {
+  const handleSearchInputChange = useCallback((value: string, forceSearch = false) => {
     setSearchQuery(value.toUpperCase());
+
+    // Skip search during IME composition (iOS Safari Chinese input fix)
+    if (isComposingRef.current && !forceSearch) {
+      return;
+    }
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -81,7 +87,18 @@ export default function ForYouPage() {
     searchTimeoutRef.current = setTimeout(() => {
       handleSearch(value);
     }, 300);
-  };
+  }, [handleSearch]);
+
+  // IME composition handlers for CJK input support (fixes iOS Safari Chinese input bug)
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
+
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false;
+    // Trigger search with the final composed value
+    handleSearchInputChange(e.currentTarget.value, true);
+  }, [handleSearchInputChange]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -489,6 +506,8 @@ export default function ForYouPage() {
         onSearchChange={handleSearchInputChange}
         onSearchKeyDown={handleSearchKeyDown}
         onSearchFocus={() => searchQuery && setShowSearchDropdown(true)}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         onAddSymbol={handleAddSymbol}
         onRemoveSymbol={handleRemoveSymbol}
         searchContainerRef={searchContainerRef}
