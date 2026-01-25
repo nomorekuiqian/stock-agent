@@ -13,7 +13,7 @@ import os
 import asyncio
 from typing import Optional, List, Dict, Any
 from functools import partial
-import google.generativeai as genai
+from google import genai
 
 # Fix SSL certificate issue on macOS by using certifi
 try:
@@ -30,6 +30,7 @@ class OpenBBService:
     _instance = None
     _initialized = False
     _obb = None
+    _genai_client = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -52,7 +53,7 @@ class OpenBBService:
             # Configure Gemini for translation
             google_api_key = os.getenv("GOOGLE_API_KEY")
             if google_api_key:
-                genai.configure(api_key=google_api_key)
+                OpenBBService._genai_client = genai.Client(api_key=google_api_key)
                 print("[OpenBBService] Gemini configured for translation")
 
             OpenBBService._obb = obb
@@ -87,7 +88,9 @@ class OpenBBService:
             return None
 
         try:
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            if not self._genai_client:
+                return None
+
             prompt = f"""Please translate the following company description to Simplified Chinese.
 Keep it professional and concise. Only output the translated text, no explanations.
 
@@ -99,7 +102,10 @@ Description:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: model.generate_content(prompt)
+                lambda: self._genai_client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=prompt,
+                ),
             )
 
             if response and response.text:
