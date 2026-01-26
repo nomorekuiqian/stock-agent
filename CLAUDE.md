@@ -207,3 +207,22 @@ response = await client.responses.create(
 **核心组件**: `.terminal-card` (globals.css 中定义)
 
 > 详细规范: `frontend/docs/design-system.md`
+
+## Linear 项目管理 (待创建)
+
+Linear MCP 已配置，需要运行 `/mcp` 完成 OAuth 认证后创建以下结构：
+
+**Project 1: Engineering**
+- `daily-report` - 日报模块
+- `digest` - 专属日报模块
+- `stock` - 个股投研模块
+- `misc` - 其他功能 (登录等)
+- `tools` - 工具 (下载器等)
+- `bug` - Bug 修复
+
+**Project 2: Growth**
+- `xiaohongshu` - 小红书渠道
+- `wechat` - 微信渠道
+
+**工作流**: Backlog → In Progress → Done
+**优先级**: P0 (紧急) / P1 (高优) / P2 (中等) / P3 (低优)

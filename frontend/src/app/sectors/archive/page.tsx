@@ -131,11 +131,9 @@ export default function SectorArchivePage() {
                 <span>Back to Sectors</span>
               </Link>
 
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-card text-muted-foreground border border-border/50">
-                  <Calendar className="w-3 h-3" />
-                  Archive
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">SECTORS ARCHIVE</span>
               </div>
 
               <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">

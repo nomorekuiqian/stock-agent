@@ -278,15 +278,11 @@ export default function SectorsPage() {
             {/* Title Section */}
             <div className="space-y-3">
               {/* Section Label */}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  板块日报
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">SECTORS</span>
                 {subscriptions.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-card text-muted-foreground border border-border/50">
-                    {subscriptions.length} 个订阅
-                  </span>
+                  <span className="text-muted-foreground text-xs font-medium tracking-[0.15em] ml-2">/ {subscriptions.length} SUBSCRIBED</span>
                 )}
               </div>
 

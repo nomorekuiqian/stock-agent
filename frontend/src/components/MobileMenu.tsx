@@ -42,6 +42,12 @@ export function MobileMenu() {
         { href: '/tools/liquidity', label: '流动性监控' },
       ],
     },
+    {
+      title: '联系',
+      links: [
+        { href: '/contact', label: '联系我们' },
+      ],
+    },
   ];
 
   return (

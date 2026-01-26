@@ -92,6 +92,71 @@
 
 ## 组件规范
 
+### PageHeader（页面标题）
+
+用于页面顶部的标题区域，采用 Editorial 风格设计。
+
+**基本结构：**
+
+```tsx
+<div className="space-y-3">
+  {/* Editorial Label */}
+  <div className="flex items-center gap-3">
+    <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+    <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">LABEL TEXT</span>
+  </div>
+
+  {/* Main Title */}
+  <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
+    页面标题
+  </h1>
+
+  {/* Subtitle */}
+  <p className="text-muted-foreground text-sm md:text-base max-w-lg">
+    页面描述文字
+  </p>
+</div>
+```
+
+**设计要点：**
+- Emerald 渐变线条作为装饰元素
+- 大写英文标签 + 增加字间距 (`tracking-[0.2em]`) 提升专业感
+- 标签文字使用 `text-primary` 保持品牌一致性
+- 主标题使用 `font-editorial` 字体
+
+**带附加信息的变体：**
+
+```tsx
+<div className="flex items-center gap-3">
+  <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+  <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">FOR YOU</span>
+  {symbols.length > 0 && (
+    <span className="text-muted-foreground text-xs font-medium tracking-[0.15em] ml-2">/ {symbols.length} STOCKS</span>
+  )}
+</div>
+```
+
+**居中对齐变体（用于归档页面）：**
+
+```tsx
+<div className="flex items-center justify-center gap-3">
+  <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+  <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">ARCHIVE</span>
+  <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
+</div>
+```
+
+**应用页面：**
+- `/today` - DAILY REPORT
+- `/for-you` - FOR YOU
+- `/sectors` - SECTORS
+- `/stock` - STOCK RESEARCH
+- `/tools` - DATA TOOLS
+- `/contact` - CONTACT
+- 所有归档页面 - ARCHIVE
+
+---
+
 ### SectionCard（主区块卡片）
 
 用于包裹一个完整的内容区块，如"基本面分析"、"财报数据"。

@@ -160,6 +160,12 @@ export default function RootLayout({
                   >
                     工具
                   </Link>
+                  <Link
+                    href="/contact"
+                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                  >
+                    联系
+                  </Link>
                 </div>
 
                 {/* Right Side Actions */}
@@ -207,12 +213,30 @@ export default function RootLayout({
                   <Link href="/tools" className="hover:text-foreground transition-colors">
                     工具
                   </Link>
+                  <Link href="/contact" className="hover:text-foreground transition-colors">
+                    联系
+                  </Link>
                 </div>
 
-                {/* Tagline */}
-                <p className="text-xs text-muted-foreground/60">
-                  AI 驱动的市场洞察
-                </p>
+                {/* Social & Tagline */}
+                <div className="flex items-center gap-4">
+                  {/* Xiaohongshu Icon */}
+                  <a
+                    href="https://xiaohongshu.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground/60 hover:text-primary transition-colors"
+                    title="小红书"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm5.5 14.5c0 .828-.672 1.5-1.5 1.5s-1.5-.672-1.5-1.5.672-1.5 1.5-1.5 1.5.672 1.5 1.5zm-4-6c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm-5.5 6c0 .828-.672 1.5-1.5 1.5S5 17.328 5 16.5 5.672 15 6.5 15s1.5.672 1.5 1.5z"/>
+                    </svg>
+                  </a>
+                  <span className="text-border">|</span>
+                  <p className="text-xs text-muted-foreground/60">
+                    AI 驱动的市场洞察
+                  </p>
+                </div>
               </div>
             </div>
           </footer>

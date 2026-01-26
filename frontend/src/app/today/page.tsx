@@ -207,15 +207,11 @@ export default function TodayPage() {
             {/* Title Section */}
             <div className="space-y-3">
               {/* Section Label */}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  每日分析
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">DAILY REPORT</span>
                 {report && !loading && !isToday && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    历史报告
-                  </span>
+                  <span className="text-amber-500 text-xs font-medium tracking-[0.15em] uppercase ml-2">/ ARCHIVE</span>
                 )}
               </div>
 

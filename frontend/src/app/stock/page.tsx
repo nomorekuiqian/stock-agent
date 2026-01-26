@@ -233,6 +233,10 @@ export default function StockResearchPage() {
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}
           >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">STOCK RESEARCH</span>
+            </div>
             <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground tracking-tight leading-[1.1] mb-4">
               个股研究
             </h1>

@@ -75,11 +75,10 @@ export default function ForYouArchivePage() {
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-14">
           <div className="text-center space-y-5">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              历史数据
+            <div className="flex items-center justify-center gap-3">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">ARCHIVE</span>
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
             </div>
             <h1 className="text-3xl md:text-4xl font-editorial tracking-tight text-foreground">
               专属日报归档
