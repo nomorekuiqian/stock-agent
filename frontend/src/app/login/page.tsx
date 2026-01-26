@@ -25,6 +25,12 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'network error': '网络连接失败，请检查网络',
   'too many requests': '请求过于频繁，请稍后再试',
   'name is required': '请输入姓名',
+  'cookie_sync_failed': '登录状态同步失败，请重试',
+  'callback_failed': '登录回调失败，请重试',
+  'no_auth_data': '未收到认证数据，请重试',
+  'code_exchange_failed': '授权码交换失败，请重试',
+  'failed to complete authentication': '登录完成失败，请重试',
+  'oauth can only be initiated in browser': '请在浏览器中登录',
 };
 
 function translateError(error: string): string {
@@ -44,8 +50,7 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { signIn, signUp, signInWithGoogle, isAuthenticated, isLoading } = useAuth();
 
-  // Get redirect URL from query params, default to /market
-  const redirectUrl = searchParams.get('redirect') || '/market';
+  const redirectUrl = searchParams.get('redirect') || '/today';
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -58,17 +63,12 @@ function LoginPageContent() {
   const [verificationCode, setVerificationCode] = useState('');
   const [verifyingCode, setVerifyingCode] = useState(false);
 
-  // Store redirect URL in sessionStorage for OAuth callback
   useEffect(() => {
-    if (redirectUrl && redirectUrl !== '/market') {
-      sessionStorage.setItem('auth_redirect', redirectUrl);
-    }
+    sessionStorage.setItem('auth_redirect', redirectUrl);
   }, [redirectUrl]);
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      // Clear stored redirect and navigate
       const storedRedirect = sessionStorage.getItem('auth_redirect');
       sessionStorage.removeItem('auth_redirect');
       router.push(storedRedirect || redirectUrl);
@@ -79,7 +79,7 @@ function LoginPageContent() {
     return <LoadingSpinner />;
   }
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
+  async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !verificationCode) {
       setError('请输入邮箱和验证码');
@@ -111,9 +111,9 @@ function LoginPageContent() {
     } finally {
       setVerifyingCode(false);
     }
-  };
+  }
 
-  const handleResendCode = async () => {
+  async function handleResendCode() {
     if (!email) return;
     setError('');
     try {
@@ -126,9 +126,9 @@ function LoginPageContent() {
     } catch {
       setError('发送失败,请重试。');
     }
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
@@ -168,9 +168,9 @@ function LoginPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleGoogleSignIn = async () => {
+  async function handleGoogleSignIn() {
     setError('');
     setLoading(true);
 
@@ -184,7 +184,7 @@ function LoginPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

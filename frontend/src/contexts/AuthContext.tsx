@@ -4,39 +4,30 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, getCurrentUser, signIn, signUp, signOut, signInWithGoogle } from '@/lib/auth';
 import { api } from '@/lib/api';
 
-/**
- * Check if user has been auto-subscribed before (using localStorage)
- */
-const getAutoSubscribedKey = (userId: string) => `auto_subscribed_${userId}`;
+function getAutoSubscribedKey(userId: string): string {
+  return `auto_subscribed_${userId}`;
+}
 
-const hasBeenAutoSubscribed = (userId: string): boolean => {
-  if (typeof window === 'undefined') return true; // SSR safety
+function hasBeenAutoSubscribed(userId: string): boolean {
+  if (typeof window === 'undefined') return true;
   return localStorage.getItem(getAutoSubscribedKey(userId)) === 'true';
-};
+}
 
-const markAsAutoSubscribed = (userId: string) => {
+function markAsAutoSubscribed(userId: string): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(getAutoSubscribedKey(userId), 'true');
   }
-};
+}
 
-/**
- * Sync user with Resend subscriptions in the background.
- * This links the website account with any existing email subscriptions.
- * Also auto-subscribes new users to the daily report.
- */
-const syncUserWithSubscriptions = async (user: User) => {
+async function syncUserWithSubscriptions(user: User): Promise<void> {
   try {
-    // First sync existing subscriptions
     const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
     if (result.success && result.synced_channels.length > 0) {
-      console.log('[AuthContext] Synced user with subscriptions:', result.synced_channels.map(c => c.channel));
+      console.log('[AuthContext] Synced subscriptions:', result.synced_channels.map(c => c.channel));
     }
 
-    // Auto-subscribe new users to daily_report (only once per user)
     if (!hasBeenAutoSubscribed(user.id)) {
       try {
-        // Check if already subscribed
         const status = await api.subscriptions.getStatus('daily_report', user.email);
         if (!status.subscribed) {
           await api.subscriptions.subscribe('daily_report', {
@@ -44,19 +35,16 @@ const syncUserWithSubscriptions = async (user: User) => {
             first_name: user.name,
             user_id: user.id,
           });
-          console.log('[AuthContext] Auto-subscribed new user to daily_report');
         }
-        // Mark as auto-subscribed (whether we subscribed or they were already subscribed)
         markAsAutoSubscribed(user.id);
       } catch (subError) {
-        console.warn('[AuthContext] Failed to auto-subscribe to daily_report:', subError);
+        console.warn('[AuthContext] Auto-subscribe failed:', subError);
       }
     }
   } catch (error) {
-    // Silent fail - sync is not critical for login
-    console.warn('[AuthContext] Failed to sync subscriptions:', error);
+    console.warn('[AuthContext] Sync subscriptions failed:', error);
   }
-};
+}
 
 interface AuthContextType {
   user: User | null;
@@ -75,11 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshUser = async () => {
+  async function refreshUser(): Promise<void> {
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
-      // Sync with subscriptions (handles auto-subscribe for new users)
       if (currentUser) {
         syncUserWithSubscriptions(currentUser);
       }
@@ -87,16 +74,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[AuthContext] Refresh user error:', error);
       setUser(null);
     }
-  };
+  }
 
   useEffect(() => {
-    // Check initial auth state
-    const initAuth = async () => {
+    async function initAuth() {
       try {
+        const hasOAuthCode = typeof window !== 'undefined' &&
+          window.location.search.includes('insforge_code');
+
+        if (hasOAuthCode) {
+          const maxAttempts = 40;
+          const pollInterval = 50;
+
+          for (let i = 0; i < maxAttempts; i++) {
+            const currentUser = await getCurrentUser();
+            if (currentUser) {
+              setUser(currentUser);
+              syncUserWithSubscriptions(currentUser);
+
+              if (typeof window !== 'undefined' && window.history.replaceState) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('insforge_code');
+                window.history.replaceState({}, '', url.toString());
+              }
+
+              setIsLoading(false);
+              return;
+            }
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+
+          console.warn('[AuthContext] OAuth code present but no session after polling');
+          setIsLoading(false);
+          return;
+        }
+
         const currentUser = await getCurrentUser();
         setUser(currentUser);
-
-        // Sync existing session with Resend subscriptions (background)
         if (currentUser) {
           syncUserWithSubscriptions(currentUser);
         }
@@ -105,42 +119,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         setIsLoading(false);
       }
-    };
+    }
 
     initAuth();
   }, []);
 
-  const handleSignIn = async (email: string, password: string) => {
+  async function handleSignIn(email: string, password: string) {
     const result = await signIn(email, password);
     if (result.success && result.user) {
       setUser(result.user);
-      // Sync with Resend subscriptions (background, don't block login)
       syncUserWithSubscriptions(result.user);
     }
     return { success: result.success, error: result.error };
-  };
+  }
 
-  const handleSignUp = async (email: string, password: string, name?: string) => {
+  async function handleSignUp(email: string, password: string, name?: string) {
     const result = await signUp(email, password, name);
     if (result.success && result.user && !result.needsVerification) {
       setUser(result.user);
-      // Sync with Resend subscriptions (background)
       syncUserWithSubscriptions(result.user);
     }
     return { success: result.success, error: result.error, needsVerification: result.needsVerification };
-  };
+  }
 
-  const handleSignOut = async () => {
+  async function handleSignOut() {
     const result = await signOut();
     if (result.success) {
       setUser(null);
     }
     return result;
-  };
+  }
 
-  const handleSignInWithGoogle = async () => {
+  async function handleSignInWithGoogle() {
     return signInWithGoogle();
-  };
+  }
 
   return (
     <AuthContext.Provider
