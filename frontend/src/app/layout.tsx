@@ -113,19 +113,24 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
           {/* Navigation - Premium Glass Effect */}
-          <nav className="sticky top-0 z-50 bg-background/60 backdrop-blur-2xl border-b border-border/50">
+          <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-2xl border-b border-border/40">
             <div className="max-w-6xl mx-auto px-4 md:px-6">
-              <div className="flex items-center justify-between h-14">
+              <div className="flex items-center justify-between h-16">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2.5 group">
-                  <Logo className="w-7 h-7 transition-transform duration-300 group-hover:scale-105" />
-                  <span className="font-medium text-sm tracking-tight text-foreground">
-                    TheMarketBrew
-                  </span>
+                <Link href="/" className="flex items-center gap-3 group">
+                  <Logo className="w-8 h-8 transition-transform duration-300 group-hover:scale-105" />
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-[15px] tracking-tight text-foreground leading-tight">
+                      TheMarketBrew
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 tracking-widest uppercase hidden sm:block">
+                      Market Intelligence
+                    </span>
+                  </div>
                 </Link>
 
-                {/* Navigation Links */}
-                <div className="hidden md:flex items-center gap-1">
+                {/* Navigation Links - Center */}
+                <div className="hidden md:flex items-center">
                   <NavDropdown
                     label="日报"
                     items={[
@@ -143,36 +148,36 @@ export default function RootLayout({
                   {process.env.NODE_ENV === 'development' && (
                     <Link
                       href="/sectors"
-                      className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                      className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
                     >
                       板块
                     </Link>
                   )}
                   <Link
                     href="/stock"
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                    className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
                   >
                     个股
                   </Link>
                   <Link
                     href="/tools"
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                    className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
                   >
                     工具
                   </Link>
                   <Link
                     href="/contact"
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors"
+                    className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
                   >
                     联系
                   </Link>
                 </div>
 
                 {/* Right Side Actions */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <ThemeToggle />
                   {/* Desktop Auth */}
-                  <div className="hidden md:block">
+                  <div className="hidden md:flex items-center">
                     <NavAuth />
                   </div>
                   {/* Mobile Menu */}

@@ -2,13 +2,12 @@
 
 import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Coffee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 function LoadingSpinner(): ReactNode {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
     </div>
   );
 }
@@ -187,71 +186,82 @@ function LoginPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium mb-4">
-            <Coffee className="w-4 h-4" strokeWidth={2} />
-            TheMarketBrew
+        {/* Header Section - Editorial Style */}
+        <div className="text-center space-y-4">
+          {/* Section Label */}
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-primary" />
+            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">THEMARKETBREW</span>
+            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-primary" />
           </div>
-          <h2 className="text-2xl font-semibold text-gray-900">
-            {isSignUp ? '创建账户' : '登录账户'}
-          </h2>
-          <p className="mt-2 text-sm text-gray-500">
+
+          {/* Main Title */}
+          <h1 className="text-3xl font-editorial text-foreground tracking-tight">
+            {isSignUp ? '创建账户' : '欢迎回来'}
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-muted-foreground text-sm max-w-xs mx-auto">
             {isSignUp
-              ? '开始追踪市场洞察'
+              ? '开始追踪市场洞察,获取个性化投资分析'
               : '访问你的市场分析仪表盘'}
           </p>
         </div>
 
+        {/* Error Message */}
         {error && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm text-center">
+          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
             {error}
           </div>
         )}
 
+        {/* Success Message */}
         {successMessage && (
-          <div className="p-3 rounded-lg bg-green-50 border border-green-100 text-green-600 text-sm text-center">
+          <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm text-center">
             {successMessage}
           </div>
         )}
 
+        {/* Verification Code Input */}
         {needsVerification && email && (
-          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
-            <p className="text-sm text-emerald-800 mb-3 text-center">
-              请输入发送到 <strong>{email}</strong> 的验证码
+          <div className="terminal-card p-5">
+            <p className="text-sm text-foreground/90 mb-4 text-center">
+              请输入发送到 <span className="font-medium text-emerald-400">{email}</span> 的验证码
             </p>
-            <form onSubmit={handleVerifyCode} className="space-y-3">
+            <form onSubmit={handleVerifyCode} className="space-y-4">
               <input
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="6 位验证码"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white text-center tracking-widest font-mono text-lg"
+                placeholder="000000"
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground text-center tracking-[0.5em] font-data text-xl focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 outline-none transition-colors"
               />
               <button
                 type="submit"
                 disabled={verifyingCode || verificationCode.length !== 6}
-                className="w-full px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50"
+                className="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {verifyingCode ? '验证中...' : '验证'}
               </button>
             </form>
             <button
               onClick={handleResendCode}
-              className="w-full mt-2 text-sm text-emerald-700 hover:underline"
+              className="w-full mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               重新发送验证码
             </button>
           </div>
         )}
 
+        {/* Google Sign In Button */}
         <button
           onClick={handleGoogleSignIn}
           disabled={loading || needsVerification}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg bg-card text-foreground font-medium text-sm hover:border-border/80 hover:bg-card/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -274,19 +284,21 @@ function LoginPageContent() {
           使用 Google 登录
         </button>
 
+        {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
+            <div className="w-full border-t border-border/50" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-gray-50 text-gray-500">或使用邮箱</span>
+            <span className="px-4 bg-background text-muted-foreground">或使用邮箱</span>
           </div>
         </div>
 
+        {/* Email Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {isSignUp && (
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-foreground/90 mb-2">
                 姓名
               </label>
               <input
@@ -296,13 +308,13 @@ function LoginPageContent() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="你的姓名"
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 outline-none transition-colors"
               />
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-foreground/90 mb-2">
               邮箱
             </label>
             <input
@@ -312,12 +324,12 @@ function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 outline-none transition-colors"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground/90 mb-2">
               密码
             </label>
             <input
@@ -328,14 +340,14 @@ function LoginPageContent() {
               placeholder="••••••••"
               required
               minLength={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 outline-none transition-colors"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -351,7 +363,8 @@ function LoginPageContent() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500">
+        {/* Toggle Sign Up / Sign In */}
+        <p className="text-center text-sm text-muted-foreground">
           {isSignUp ? '已有账户?' : '没有账户?'}{' '}
           <button
             type="button"
@@ -362,7 +375,7 @@ function LoginPageContent() {
               setNeedsVerification(false);
               setVerificationCode('');
             }}
-            className="text-emerald-600 font-medium hover:text-emerald-700"
+            className="text-emerald-400 font-medium hover:text-emerald-300 transition-colors"
           >
             {isSignUp ? '登录' : '注册'}
           </button>
