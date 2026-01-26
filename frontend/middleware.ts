@@ -11,10 +11,8 @@ export function middleware(request: NextRequest): NextResponse {
   );
 
   if (isProtectedRoute) {
-    const hasAuthCookie =
-      request.cookies.has('sb-access-token') ||
-      request.cookies.has('sb-refresh-token') ||
-      request.cookies.has('insforge-auth');
+    // Check for Insforge auth cookies (set by @insforge/nextjs SDK)
+    const hasAuthCookie = request.cookies.has('insforge-session');
 
     if (!hasAuthCookie) {
       const loginUrl = new URL('/login', request.url);

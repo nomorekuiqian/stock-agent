@@ -22,6 +22,26 @@ function parseHashParams(hash: string): Record<string, string> {
   return params;
 }
 
+// Sync token to HTTP-only cookie via API route
+async function syncTokenToCookie(accessToken: string, refreshToken?: string): Promise<boolean> {
+  try {
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'sync-token',
+        accessToken,
+        refreshToken: refreshToken || '',
+      }),
+    });
+    if (isDev) console.log('[Auth Callback] Sync token response:', response.status);
+    return response.ok;
+  } catch (error) {
+    if (isDev) console.error('[Auth Callback] Failed to sync token to cookie:', error);
+    return false;
+  }
+}
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,6 +87,9 @@ function AuthCallbackContent() {
           localStorage.setItem('insforge_session', JSON.stringify(session));
           insforge.getHttpClient().setAuthToken(hashParams.access_token);
 
+          // Sync token to HTTP-only cookie for middleware auth
+          await syncTokenToCookie(hashParams.access_token, hashParams.refresh_token);
+
           // Refresh user state
           await refreshUser();
 
@@ -85,14 +108,18 @@ function AuthCallbackContent() {
         if (accessToken) {
           if (isDev) console.log('[Auth Callback] Found access_token in query params');
 
+          const refreshToken = searchParams.get('refresh_token') || '';
           const session = {
             accessToken: accessToken,
-            refreshToken: searchParams.get('refresh_token') || '',
+            refreshToken: refreshToken,
             expiresAt: Date.now() + 3600000,
           };
 
           localStorage.setItem('insforge_session', JSON.stringify(session));
           insforge.getHttpClient().setAuthToken(accessToken);
+
+          // Sync token to HTTP-only cookie for middleware auth
+          await syncTokenToCookie(accessToken, refreshToken);
 
           await refreshUser();
 
@@ -113,6 +140,15 @@ function AuthCallbackContent() {
           if (sessionData?.session?.accessToken) {
             if (isDev) console.log('[Auth Callback] SDK session found after', i * pollInterval, 'ms');
             insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+
+            // Sync token to HTTP-only cookie for middleware auth
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sessionAny = sessionData.session as any;
+            await syncTokenToCookie(
+              sessionData.session.accessToken,
+              sessionAny.refreshToken || ''
+            );
+
             await refreshUser();
 
             const redirectUrl = sessionStorage.getItem('auth_redirect') || '/market';

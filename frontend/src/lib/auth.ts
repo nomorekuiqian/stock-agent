@@ -75,6 +75,21 @@ export async function signIn(email: string, password: string): Promise<AuthResul
       if (data.accessToken) {
         console.log('[Auth] Setting auth token for database operations');
         insforge.getHttpClient().setAuthToken(data.accessToken);
+
+        // Sync token to HTTP-only cookie for middleware auth
+        try {
+          await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'sync-token',
+              accessToken: data.accessToken,
+              refreshToken: data.refreshToken || '',
+            }),
+          });
+        } catch {
+          console.warn('[Auth] Failed to sync token to cookie');
+        }
       }
 
       return {
@@ -142,6 +157,17 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await insforge.auth.signOut();
+
+    // Clear HTTP-only cookies via API
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear-token' }),
+      });
+    } catch {
+      // Non-critical, continue with logout
+    }
 
     if (error) {
       console.error('[Auth] Sign out error:', error);
