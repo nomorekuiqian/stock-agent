@@ -68,6 +68,67 @@ function AuthCallbackContent() {
           return;
         }
 
+        // Method 0: Check for insforge_code (authorization code flow)
+        const insforgeCode = searchParams.get('insforge_code');
+        if (insforgeCode) {
+          if (isDev) console.log('[Auth Callback] Found insforge_code, exchanging for token');
+          setStatus('Exchanging code for token...');
+
+          try {
+            // Exchange the code for a session via Insforge API
+            const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL || 'https://9wmhxyi4.us-east.insforge.app';
+            const exchangeResponse = await fetch(`${baseUrl}/api/auth/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: insforgeCode }),
+            });
+
+            if (!exchangeResponse.ok) {
+              const errorData = await exchangeResponse.json().catch(() => ({}));
+              console.error('[Auth Callback] Code exchange error:', errorData);
+              router.push('/login?error=' + encodeURIComponent(errorData.message || 'code_exchange_failed'));
+              return;
+            }
+
+            const tokenData = await exchangeResponse.json();
+            if (tokenData.access_token || tokenData.accessToken) {
+              const accessToken = tokenData.access_token || tokenData.accessToken;
+              const refreshToken = tokenData.refresh_token || tokenData.refreshToken || '';
+
+              if (isDev) console.log('[Auth Callback] Code exchange successful');
+
+              // Store session in localStorage
+              const session = {
+                accessToken,
+                refreshToken,
+                expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000,
+              };
+              localStorage.setItem('insforge_session', JSON.stringify(session));
+
+              // Set auth token on SDK client
+              insforge.getHttpClient().setAuthToken(accessToken);
+
+              // Sync token to HTTP-only cookie for middleware auth
+              await syncTokenToCookie(accessToken, refreshToken);
+
+              // Refresh user state
+              await refreshUser();
+
+              // Get redirect URL
+              const redirectUrl = sessionStorage.getItem('auth_redirect') || '/market';
+              sessionStorage.removeItem('auth_redirect');
+              sessionStorage.removeItem('oauth_code_verifier');
+
+              setStatus('Redirecting...');
+              router.push(redirectUrl);
+              return;
+            }
+          } catch (exchangeErr) {
+            console.error('[Auth Callback] Code exchange exception:', exchangeErr);
+            // Fall through to other methods
+          }
+        }
+
         // Method 1: Check hash fragments for tokens (fragment response mode)
         const hashParams = parseHashParams(window.location.hash);
         if (isDev) console.log('[Auth Callback] Hash params keys:', Object.keys(hashParams));
