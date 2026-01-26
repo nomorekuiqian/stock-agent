@@ -119,17 +119,17 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
       return { success: false, error: 'OAuth can only be initiated in browser' };
     }
 
-    // Get stored redirect URL or use default
-    const redirectTo = sessionStorage.getItem('auth_redirect') || '/market';
-    const fullRedirectUrl = `${window.location.origin}${redirectTo}`;
+    // Store the final destination in sessionStorage (callback page will use this)
+    // The actual redirect should go through /auth/callback to sync tokens to cookies
+    const callbackUrl = `${window.location.origin}/auth/callback`;
 
     console.log('[Auth] Starting Google OAuth via SDK');
-    console.log('[Auth] Redirect after auth:', fullRedirectUrl);
+    console.log('[Auth] Callback URL:', callbackUrl);
 
-    // Use SDK's signInWithOAuth - InsforgeBrowserProvider handles the callback
+    // Use SDK's signInWithOAuth - redirect to our callback page first
     const { data, error } = await insforge.auth.signInWithOAuth({
       provider: 'google',
-      redirectTo: fullRedirectUrl,
+      redirectTo: callbackUrl,
     });
 
     if (error) {
