@@ -1,9 +1,43 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Coffee } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+
+function LoadingSpinner(): ReactNode {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+const ERROR_TRANSLATIONS: Record<string, string> = {
+  'invalid credentials': '邮箱或密码错误',
+  'user already exists': '该邮箱已注册，请直接登录',
+  'user not found': '用户不存在',
+  'invalid email': '邮箱格式不正确',
+  'password too short': '密码长度至少为6位',
+  'email not confirmed': '请先验证邮箱',
+  'invalid token': '验证码无效或已过期',
+  'token expired': '验证码已过期，请重新发送',
+  'network error': '网络连接失败，请检查网络',
+  'too many requests': '请求过于频繁，请稍后再试',
+  'name is required': '请输入姓名',
+};
+
+function translateError(error: string): string {
+  const lowerError = error.toLowerCase();
+
+  for (const [key, value] of Object.entries(ERROR_TRANSLATIONS)) {
+    if (lowerError.includes(key)) {
+      return value;
+    }
+  }
+
+  return error;
+}
 
 function LoginPageContent() {
   const router = useRouter();
@@ -41,13 +75,8 @@ function LoginPageContent() {
     }
   }, [isLoading, isAuthenticated, router, redirectUrl]);
 
-  // Show loading while checking auth or if already authenticated
   if (isLoading || isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   const handleVerifyCode = async (e: React.FormEvent) => {
@@ -61,7 +90,7 @@ function LoginPageContent() {
     setError('');
 
     try {
-      const response = await fetch('https://9wmhxyi4.us-east.insforge.app/api/auth/email/verify', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_INSFORGE_URL}/api/auth/email/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: verificationCode }),
@@ -88,7 +117,7 @@ function LoginPageContent() {
     if (!email) return;
     setError('');
     try {
-      await fetch('https://9wmhxyi4.us-east.insforge.app/api/auth/email/resend', {
+      await fetch(`${process.env.NEXT_PUBLIC_INSFORGE_URL}/api/auth/email/resend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -117,7 +146,7 @@ function LoginPageContent() {
             router.push(redirectUrl);
           }
         } else {
-          setError(result.error || '注册失败');
+          setError(translateError(result.error || '注册失败'));
         }
       } else {
         const result = await signIn(email, password);
@@ -130,7 +159,7 @@ function LoginPageContent() {
             setNeedsVerification(true);
             setError('请先验证邮箱。');
           } else {
-            setError(result.error || '登录失败');
+            setError(translateError(result.error || '登录失败'));
           }
         }
       }
@@ -150,7 +179,6 @@ function LoginPageContent() {
       if (!result.success) {
         setError(result.error || 'Google 登录失败');
       }
-      // If successful, the user will be redirected to Google
     } catch {
       setError('发生未知错误');
     } finally {
@@ -161,7 +189,6 @@ function LoginPageContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium mb-4">
             <Coffee className="w-4 h-4" strokeWidth={2} />
@@ -177,21 +204,18 @@ function LoginPageContent() {
           </p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm text-center">
             {error}
           </div>
         )}
 
-        {/* Success Message */}
         {successMessage && (
           <div className="p-3 rounded-lg bg-green-50 border border-green-100 text-green-600 text-sm text-center">
             {successMessage}
           </div>
         )}
 
-        {/* Verification Code Input */}
         {needsVerification && email && (
           <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
             <p className="text-sm text-emerald-800 mb-3 text-center">
@@ -224,7 +248,6 @@ function LoginPageContent() {
           </div>
         )}
 
-        {/* Google Sign In */}
         <button
           onClick={handleGoogleSignIn}
           disabled={loading || needsVerification}
@@ -251,7 +274,6 @@ function LoginPageContent() {
           使用 Google 登录
         </button>
 
-        {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-200" />
@@ -261,7 +283,6 @@ function LoginPageContent() {
           </div>
         </div>
 
-        {/* Email Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {isSignUp && (
             <div>
@@ -274,6 +295,7 @@ function LoginPageContent() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="你的姓名"
+                required
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
               />
             </div>
@@ -329,7 +351,6 @@ function LoginPageContent() {
           </button>
         </form>
 
-        {/* Toggle Sign Up / Sign In */}
         <p className="text-center text-sm text-gray-500">
           {isSignUp ? '已有账户?' : '没有账户?'}{' '}
           <button
@@ -337,6 +358,9 @@ function LoginPageContent() {
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError('');
+              setSuccessMessage('');
+              setNeedsVerification(false);
+              setVerificationCode('');
             }}
             className="text-emerald-600 font-medium hover:text-emerald-700"
           >
@@ -348,14 +372,9 @@ function LoginPageContent() {
   );
 }
 
-// Wrap with Suspense for useSearchParams
-export default function LoginPage() {
+export default function LoginPage(): ReactNode {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
+    <Suspense fallback={<LoadingSpinner />}>
       <LoginPageContent />
     </Suspense>
   );

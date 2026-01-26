@@ -10,7 +10,7 @@ from typing import Optional
 
 import resend
 
-from app.core.config import RESEND_API_KEY, FRONTEND_URL
+from app.core.config import RESEND_API_KEY
 from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
 from app.features.subscription.service import (
     get_subscription_service,
@@ -22,13 +22,17 @@ from app.features.digest.db import save_user_digest, get_user_watchlist
 class EmailService:
     """Service for sending market analysis reports and personal digests via email."""
 
+    # Production frontend URL - always use this for email links
+    # This ensures emails always point to the correct site, regardless of FRONTEND_URL env var
+    PRODUCTION_URL = "https://themarketbrew.com"
+
     def __init__(self):
         self.api_key = RESEND_API_KEY
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-        # Frontend URL for logo and other assets
-        self.frontend_url = (FRONTEND_URL or "https://themarketbrew.com").rstrip("/")
+        # Always use production URL for email links (not FRONTEND_URL which may be localhost)
+        self.frontend_url = self.PRODUCTION_URL
         self.logo_url = f"{self.frontend_url}/logo-avatar.png"
 
     # =========================================================================
