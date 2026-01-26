@@ -1,5 +1,5 @@
 """
-Feedback router - Email feedback endpoints for daily reports.
+Feedback router - Feedback endpoints for daily reports and contact page.
 """
 
 import traceback
@@ -10,10 +10,13 @@ from fastapi.responses import RedirectResponse
 from app.core.config import FRONTEND_URL
 from app.core.deps import verify_cron_secret
 from app.features.feedback.db import (
-    save_email_feedback,
     get_feedback_stats,
+    get_user_feedback_list,
+    save_email_feedback,
+    save_user_feedback,
 )
-from app.utils.timezone import today_str, days_ago
+from app.features.feedback.models import UserFeedbackInput
+from app.utils.timezone import days_ago, today_str
 
 router = APIRouter(prefix="/api", tags=["feedback"])
 
@@ -259,6 +262,91 @@ async def get_feedback_stats_endpoint(
             raise HTTPException(
                 status_code=500,
                 detail=result.get("error", "Failed to get feedback stats"),
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# User Feedback (Contact Page)
+# =============================================================================
+
+
+@router.post("/feedback/user")
+async def submit_user_feedback_endpoint(feedback: UserFeedbackInput):
+    """
+    Submit user feedback from contact page.
+
+    This endpoint collects general feedback from users, including:
+    - Rating: helpful, neutral, or not_helpful
+    - Email: Required for follow-up communication
+    - Message: Optional detailed feedback
+
+    Returns:
+        Success status and saved feedback data
+    """
+    try:
+        result = await save_user_feedback(
+            rating=feedback.rating,
+            email=feedback.email,
+            message=feedback.message,
+        )
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "data": result.get("data"),
+                "message": "Feedback submitted successfully",
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to save feedback"),
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/feedback/user/list")
+async def list_user_feedback_endpoint(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    _secret: str = Depends(verify_cron_secret),
+):
+    """
+    List user feedback with pagination.
+    Protected by CRON_SECRET for admin access.
+
+    Returns:
+        Paginated list of user feedback
+    """
+    try:
+        result = await get_user_feedback_list(
+            page=page,
+            page_size=page_size,
+        )
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "data": result.get("data", []),
+                "total": result.get("total", 0),
+                "page": result.get("page", page),
+                "page_size": result.get("page_size", page_size),
+                "total_pages": result.get("total_pages", 0),
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to get feedback list"),
             )
 
     except HTTPException:
