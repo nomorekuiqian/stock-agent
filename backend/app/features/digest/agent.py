@@ -207,8 +207,8 @@ class PersonalDigest:
             if not symbols:
                 return {"success": False, "error": "No symbols provided"}
 
-            # Limit to 15 stocks max
-            symbols = symbols[:15]
+            # Limit to 25 stocks max
+            symbols = symbols[:25]
             print(f"[PersonalDigest] Generating digest for: {symbols}")
 
             # Step 1: Fetch user-specific stock data
