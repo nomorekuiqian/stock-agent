@@ -1327,6 +1327,376 @@ class FMPService:
         _quote_cache.clear()
         print("[FMP] Quote cache cleared")
 
+    # =========================================================================
+    # Peer Comparison & Industry Valuation
+    # =========================================================================
+
+    def get_stock_peers(self, symbol: str) -> dict:
+        """
+        Get peer companies in the same industry and market cap range.
+
+        Args:
+            symbol: Stock ticker symbol (e.g., "AAPL")
+
+        Returns:
+            {
+                "status": "success|error",
+                "symbol": "AAPL",
+                "peers": [{"symbol": "MSFT", "name": "...", "price": ..., "market_cap": ...}, ...],
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_stock_peers(symbol={symbol})")
+
+        data = self._request("/stable/stock-peers", {"symbol": symbol})
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "peers": [],
+                "source": "fmp",
+                "error": "No peer data returned",
+            }
+
+        # API returns: [{"symbol": "AAPL", "companyName": "...", "price": ..., "mktCap": ...}, ...]
+        # Extract peer symbols and basic info
+        peers = []
+        for item in data[:10]:  # Limit to 10 peers
+            peer_symbol = item.get("symbol")
+            if peer_symbol and peer_symbol.upper() != symbol.upper():
+                peers.append({
+                    "symbol": peer_symbol,
+                    "name": item.get("companyName", ""),
+                    "price": self._safe_float(item.get("price")),
+                    "market_cap": self._safe_float(item.get("mktCap")),
+                })
+
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "peers": peers,
+            "source": "fmp",
+        }
+
+    def get_industry_peers(self, industry: str, exclude_symbol: str = None, limit: int = 10) -> dict:
+        """
+        Get peer companies in the same industry using company screener.
+        This is more accurate than stock-peers endpoint.
+
+        Args:
+            industry: Industry name (e.g., "Internet Content & Information")
+            exclude_symbol: Symbol to exclude from results (usually the target company)
+            limit: Maximum number of peers to return
+
+        Returns:
+            {
+                "status": "success|error",
+                "industry": "Internet Content & Information",
+                "peers": [{"symbol": "GOOGL", "name": "...", "market_cap": ...}, ...],
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_industry_peers(industry={industry}, exclude={exclude_symbol})")
+
+        # Use company screener with industry filter and minimum market cap
+        params = {
+            "industry": industry,
+            "marketCapMoreThan": 1000000000,  # $1B minimum market cap
+            "limit": limit + 5,  # Fetch extra in case we need to filter
+            "isActivelyTrading": "true",
+        }
+
+        data = self._request("/stable/company-screener", params)
+
+        if not data or not isinstance(data, list):
+            return {
+                "status": "error",
+                "industry": industry,
+                "peers": [],
+                "source": "fmp",
+                "error": "No data returned from company screener",
+            }
+
+        # Filter and format results
+        peers = []
+        exclude_upper = exclude_symbol.upper() if exclude_symbol else None
+
+        for item in data:
+            symbol = item.get("symbol", "")
+            # Skip the target company and inactive stocks
+            if exclude_upper and symbol.upper() == exclude_upper:
+                continue
+            if not item.get("isActivelyTrading", True):
+                continue
+            # Skip duplicate class shares (e.g., GOOG vs GOOGL, Z vs ZG)
+            if symbol in ["GOOG", "ZG"]:
+                continue
+
+            peers.append({
+                "symbol": symbol,
+                "name": item.get("companyName", ""),
+                "market_cap": self._safe_float(item.get("marketCap")),
+                "price": self._safe_float(item.get("price")),
+                "sector": item.get("sector", ""),
+            })
+
+            if len(peers) >= limit:
+                break
+
+        return {
+            "status": "success",
+            "industry": industry,
+            "peers": peers,
+            "source": "fmp",
+        }
+
+    def get_industry_pe(self, date: str = None) -> dict:
+        """
+        Get P/E ratios for all industries.
+
+        Args:
+            date: Optional date (YYYY-MM-DD), defaults to latest
+
+        Returns:
+            {
+                "status": "success|error",
+                "date": "2024-02-01",
+                "industries": {
+                    "Semiconductors": 45.2,
+                    "Software - Application": 38.5,
+                    ...
+                },
+                "source": "fmp"
+            }
+        """
+        # Default to yesterday if no date provided (API requires date)
+        if not date:
+            from datetime import datetime, timedelta
+            date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        print(f"[FMP] get_industry_pe(date={date})")
+
+        params = {"date": date}
+
+        data = self._request("/stable/industry-pe-snapshot", params)
+
+        if not data or not isinstance(data, list):
+            return {
+                "status": "error",
+                "date": date,
+                "industries": {},
+                "source": "fmp",
+                "error": "No industry P/E data returned",
+            }
+
+        # Build industry -> PE mapping
+        industries = {}
+        for item in data:
+            industry = item.get("industry")
+            pe = self._safe_float(item.get("pe"))
+            if industry and pe:
+                industries[industry] = pe
+
+        return {
+            "status": "success",
+            "date": data[0].get("date") if data else date,
+            "industries": industries,
+            "source": "fmp",
+        }
+
+    def get_sector_pe(self, date: str = None) -> dict:
+        """
+        Get P/E ratios for all sectors.
+
+        Args:
+            date: Optional date (YYYY-MM-DD), defaults to latest
+
+        Returns:
+            {
+                "status": "success|error",
+                "date": "2024-02-01",
+                "sectors": {
+                    "Technology": 35.2,
+                    "Healthcare": 22.5,
+                    ...
+                },
+                "source": "fmp"
+            }
+        """
+        # Default to yesterday if no date provided (API requires date)
+        if not date:
+            from datetime import datetime, timedelta
+            date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        print(f"[FMP] get_sector_pe(date={date})")
+
+        params = {"date": date}
+
+        data = self._request("/stable/sector-pe-snapshot", params)
+
+        if not data or not isinstance(data, list):
+            return {
+                "status": "error",
+                "date": date,
+                "sectors": {},
+                "source": "fmp",
+                "error": "No sector P/E data returned",
+            }
+
+        # Build sector -> PE mapping
+        sectors = {}
+        for item in data:
+            sector = item.get("sector")
+            pe = self._safe_float(item.get("pe"))
+            if sector and pe:
+                sectors[sector] = pe
+
+        return {
+            "status": "success",
+            "date": data[0].get("date") if data else date,
+            "sectors": sectors,
+            "source": "fmp",
+        }
+
+    def get_key_metrics_ttm(self, symbol: str) -> dict:
+        """
+        Get key metrics for a stock using stable API.
+        Includes P/E, P/B, P/S, EV/EBITDA, ROE, ROA, etc.
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            {
+                "status": "success|error",
+                "symbol": "AAPL",
+                "metrics": {
+                    "pe_ratio": 28.5,
+                    "pb_ratio": 45.2,
+                    "ps_ratio": 7.5,
+                    "peg_ratio": 2.1,
+                    "ev_to_ebitda": 22.3,
+                    "roe": 0.85,
+                    "roa": 0.25,
+                    "dividend_yield": 0.005,
+                    ...
+                },
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_key_metrics_ttm(symbol={symbol})")
+
+        # Fetch both ratios and key-metrics from stable endpoints
+        ratios_data = self._request("/stable/ratios", {"symbol": symbol})
+        metrics_data = self._request("/stable/key-metrics", {"symbol": symbol})
+
+        if (not ratios_data or not isinstance(ratios_data, list) or len(ratios_data) == 0) and \
+           (not metrics_data or not isinstance(metrics_data, list) or len(metrics_data) == 0):
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "metrics": {},
+                "source": "fmp",
+                "error": "No key metrics data returned",
+            }
+
+        # Get the most recent data (first item)
+        ratios = ratios_data[0] if ratios_data and len(ratios_data) > 0 else {}
+        metrics_raw = metrics_data[0] if metrics_data and len(metrics_data) > 0 else {}
+
+        metrics = {
+            # From ratios
+            "pe_ratio": self._safe_float(ratios.get("priceToEarningsRatio")),
+            "pb_ratio": self._safe_float(ratios.get("priceToBookRatio")),
+            "ps_ratio": self._safe_float(ratios.get("priceToSalesRatio")),
+            "peg_ratio": self._safe_float(ratios.get("priceToEarningsGrowthRatio")),
+            "gross_margin": self._safe_float(ratios.get("grossProfitMargin")),
+            "operating_margin": self._safe_float(ratios.get("operatingProfitMargin")),
+            "net_margin": self._safe_float(ratios.get("netProfitMargin")),
+            "current_ratio": self._safe_float(ratios.get("currentRatio")),
+            "quick_ratio": self._safe_float(ratios.get("quickRatio")),
+            "dividend_yield": self._safe_float(ratios.get("dividendYieldPercentage")),  # In percentage (e.g., 0.34 = 0.34%)
+            # From key-metrics
+            "ev_to_ebitda": self._safe_float(metrics_raw.get("evToEBITDA")),
+            "ev_to_revenue": self._safe_float(metrics_raw.get("evToSales")),
+            "roe": self._safe_float(metrics_raw.get("returnOnEquity")),
+            "roa": self._safe_float(metrics_raw.get("returnOnAssets")),
+            "roic": self._safe_float(metrics_raw.get("returnOnInvestedCapital")),
+        }
+
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "metrics": metrics,
+            "source": "fmp",
+        }
+
+    def get_historical_key_metrics(self, symbol: str, period: str = "annual", limit: int = 20) -> dict:
+        """
+        Get historical key metrics for a stock (for historical valuation comparison).
+        Uses stable API endpoints.
+
+        Args:
+            symbol: Stock ticker symbol
+            period: "quarter" or "annual" (note: quarter may require premium)
+            limit: Number of periods to fetch
+
+        Returns:
+            {
+                "status": "success|error",
+                "symbol": "AAPL",
+                "period": "annual",
+                "metrics": [
+                    {
+                        "date": "2024-09-30",
+                        "pe_ratio": 28.5,
+                        "pb_ratio": 45.2,
+                        ...
+                    },
+                    ...
+                ],
+                "source": "fmp"
+            }
+        """
+        print(f"[FMP] get_historical_key_metrics(symbol={symbol}, period={period}, limit={limit})")
+
+        # Use stable/ratios endpoint (returns historical data by default)
+        data = self._request("/stable/ratios", {"symbol": symbol})
+
+        if not data or not isinstance(data, list):
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "period": period,
+                "metrics": [],
+                "source": "fmp",
+                "error": "No historical metrics data returned",
+            }
+
+        metrics = []
+        for item in data[:limit]:
+            metrics.append({
+                "date": item.get("date"),
+                "fiscal_year": item.get("fiscalYear"),
+                "period": item.get("period"),
+                "pe_ratio": self._safe_float(item.get("priceToEarningsRatio")),
+                "pb_ratio": self._safe_float(item.get("priceToBookRatio")),
+                "ps_ratio": self._safe_float(item.get("priceToSalesRatio")),
+                "peg_ratio": self._safe_float(item.get("priceToEarningsGrowthRatio")),
+                "ev_to_ebitda": self._safe_float(item.get("enterpriseValueMultiple")),
+                "gross_margin": self._safe_float(item.get("grossProfitMargin")),
+                "net_margin": self._safe_float(item.get("netProfitMargin")),
+            })
+
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "period": period,
+            "metrics": metrics,
+            "source": "fmp",
+        }
+
 
 _fmp_service_instance = None
 

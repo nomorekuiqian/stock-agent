@@ -171,6 +171,12 @@ export interface UserWatchlist {
 
 export async function getUserWatchlist(userId: string): Promise<UserWatchlist | null> {
   try {
+    // Check session before querying
+    const { data: sessionData } = await insforge.auth.getCurrentSession();
+    const hasSession = !!sessionData?.session;
+    console.log('[Insforge] getUserWatchlist - Session:', hasSession ? 'Active' : 'None');
+    console.log('[Insforge] getUserWatchlist - Querying for user:', userId);
+
     const { data, error } = await insforge.database
       .from('user_watchlists')
       .select('*')
@@ -178,13 +184,15 @@ export async function getUserWatchlist(userId: string): Promise<UserWatchlist | 
       .maybeSingle();
 
     if (error) {
-      console.error('Error fetching watchlist:', error);
+      console.error('[Insforge] Error fetching watchlist:', error);
+      console.error('[Insforge] Error details:', JSON.stringify(error, null, 2));
       return null;
     }
 
+    console.log('[Insforge] getUserWatchlist - Result:', data ? `Found ${data.symbols?.length || 0} symbols` : 'No data');
     return data as UserWatchlist | null;
   } catch (error) {
-    console.error('Error fetching watchlist:', error);
+    console.error('[Insforge] Exception fetching watchlist:', error);
     return null;
   }
 }

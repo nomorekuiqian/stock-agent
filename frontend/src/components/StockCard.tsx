@@ -67,11 +67,11 @@ export default function StockCard({
       onClick={onClick}
     >
       <div className="relative bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-emerald-500/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
-        {/* Remove button */}
+        {/* Remove button - visible on mobile, hover-controlled on desktop */}
         {onRemove && (
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="absolute top-2 right-2 p-1.5 rounded-lg bg-muted/50 border border-border/50 text-muted-foreground/60 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-200 z-10"
+            className="absolute top-2 right-2 p-1.5 rounded-lg bg-muted/80 sm:bg-muted/50 border border-border/50 text-muted-foreground sm:text-muted-foreground/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-200 z-10"
             aria-label={`Remove ${symbol}`}
           >
             <X className="w-3 h-3" />

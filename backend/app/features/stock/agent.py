@@ -92,10 +92,11 @@ Example: "英伟达：AI浪潮的最大赢家，但估值已透支未来三年�
 ### fundamentals_analysis (600-1000 chars, Markdown)
 Write a deep fundamentals analysis covering these four dimensions:
 
-**1. 估值解读**
-- 当前 P/E、P/S、EV/EBITDA 等核心估值指标
-- 与历史均值对比：当前估值处于历史什么分位？
-- 与同行对比：相比行业平均是溢价还是折价？为什么？
+**1. 估值解读** (重点使用 valuation_comparison 数据)
+- 当前 P/E、P/S、P/B、EV/EBITDA、股息率等核心估值指标
+- **纵向对比（历史）**：必须使用 valuation_comparison.historical_valuation 数据，明确指出当前估值处于历史什么水平（如"当前 P/E 25x vs 2023年 20x vs 2022年 18x"）
+- **横向对比（同行）**：必须使用 valuation_comparison.peer_comparison 数据，与具体同行公司对比（如"相比 GOOGL 的 22x，META 目前溢价 15%"）
+- **行业对比**：使用 valuation_comparison.industry_averages 数据，对比行业/板块平均估值
 
 **2. 增长质量**
 - 收入增速、EPS 增速的绝对水平和趋势
@@ -210,6 +211,7 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
     quote = stock_data.get("quote", {})
     fundamentals = stock_data.get("fundamentals", {})
     financials = stock_data.get("financials", {})
+    valuation_comparison = stock_data.get("valuation_comparison", {})
 
     clean_profile = {
         "symbol": profile.get("symbol") or stock_data.get("meta", {}).get("symbol"),
@@ -253,7 +255,67 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
         }
         clean_quarters.append(clean_q)
 
-    return {
+    # Clean valuation comparison data (keep it concise for token efficiency)
+    clean_valuation_comparison = {}
+
+    # Helper to filter out None/0 values from dict
+    def clean_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: v for k, v in d.items() if v is not None and v != 0}
+
+    # Historical valuation (year-by-year, sorted by year descending)
+    historical = valuation_comparison.get("historical_valuation", {})
+    years_data = historical.get("years", [])
+    if years_data:
+        # Sort by year descending (newest first) and keep only last 5 years
+        sorted_years = sorted(years_data, key=lambda y: y.get("year", ""), reverse=True)[:5]
+        clean_years = []
+        for y in sorted_years:
+            year_data = clean_dict({
+                "year": y.get("year"),
+                "pe": y.get("pe"),
+                "pb": y.get("pb"),
+                "ps": y.get("ps"),
+            })
+            if year_data.get("year"):  # Only include if year exists
+                clean_years.append(year_data)
+        if clean_years:
+            clean_valuation_comparison["historical_valuation"] = clean_years
+
+    # Peer comparison (top 5 peers only, key metrics, filter out empty entries)
+    peer_data = valuation_comparison.get("peer_comparison", {})
+    peers = peer_data.get("peers", [])
+    if peers:
+        clean_peers = []
+        for p in peers[:5]:
+            metrics = p.get("metrics", {})
+            peer_entry = clean_dict({
+                "symbol": p.get("symbol"),
+                "pe_ratio": metrics.get("pe_ratio"),
+                "pb_ratio": metrics.get("pb_ratio"),
+                "ps_ratio": metrics.get("ps_ratio"),
+                "roe": metrics.get("roe"),
+            })
+            # Only include if symbol and at least one metric exists
+            if peer_entry.get("symbol") and len(peer_entry) > 1:
+                clean_peers.append(peer_entry)
+        if clean_peers:
+            clean_valuation_comparison["peer_comparison"] = clean_peers
+
+    # Industry averages (only include if we have actual PE values)
+    industry_val = valuation_comparison.get("industry_valuation", {})
+    industry_pe = industry_val.get("industry_pe")
+    sector_pe = industry_val.get("sector_pe")
+    if industry_pe or sector_pe:
+        industry_averages = {}
+        if industry_pe:
+            industry_averages["industry"] = industry_val.get("industry")
+            industry_averages["industry_pe"] = industry_pe
+        if sector_pe:
+            industry_averages["sector"] = industry_val.get("sector")
+            industry_averages["sector_pe"] = sector_pe
+        clean_valuation_comparison["industry_averages"] = industry_averages
+
+    result = {
         "profile": clean_profile,
         "quote": clean_quote,
         "fundamentals": clean_fundamentals,
@@ -262,6 +324,12 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
             "quarters": clean_quarters,
         },
     }
+
+    # Only add valuation comparison if we have data
+    if clean_valuation_comparison:
+        result["valuation_comparison"] = clean_valuation_comparison
+
+    return result
 
 
 class StockAnalysisAgent:
@@ -291,10 +359,10 @@ class StockAnalysisAgent:
                 role="user",
             )
 
-            async for event in self.runner.run_async(
+            async for _ in self.runner.run_async(
                 user_id="analyst", session_id=session.id, new_message=message
             ):
-                pass
+                pass  # Consume all events from the agent run
 
             session_data = await self.runner.session_service.get_session(
                 app_name="stock_analysis", user_id="analyst", session_id=session.id

@@ -276,6 +276,58 @@ async def get_stock_price_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/stock/{symbol}/valuation")
+async def get_stock_valuation_comparison(symbol: str):
+    """
+    Get valuation comparison data for a stock.
+
+    Includes:
+    1. Peer comparison - Compare with same-industry companies
+    2. Industry valuation - Industry and sector average P/E
+    3. Historical valuation - 5-year historical valuation metrics
+
+    Args:
+        symbol: Stock ticker symbol (e.g., 'NVDA', 'AAPL')
+
+    Returns:
+        ValuationComparisonResponse with peer, industry, and historical data
+    """
+    # Validate symbol format
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        service = get_stock_service()
+
+        # First get the stock profile to know industry/sector
+        stock_data = await service.get_stock_data(symbol, include_financials=False)
+        profile = stock_data.get("profile", {})
+        classification = profile.get("classification", {})
+
+        industry = classification.get("industry")
+        sector = classification.get("sector")
+
+        # Get valuation comparison data
+        valuation_data = await service.get_valuation_comparison(
+            symbol=symbol,
+            industry=industry,
+            sector=sector,
+        )
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "industry": industry,
+            "sector": sector,
+            **valuation_data,
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/stock/{symbol}/analysis")
 async def generate_stock_analysis_endpoint(
     symbol: str,
@@ -317,13 +369,32 @@ async def generate_stock_analysis_endpoint(
                     },
                 }
 
-        # Fetch stock data
+        # Fetch stock data and valuation comparison
         print(f"[StockAnalysis] Fetching data for {symbol}")
         stock_service = get_stock_service()
+
+        # Get stock data first to know industry/sector for valuation comparison
         stock_data = await stock_service.get_stock_data(
             symbol=symbol,
             include_financials=True,
         )
+        profile = stock_data.get("profile", {})
+        classification = profile.get("classification", {})
+        industry = classification.get("industry")
+        sector = classification.get("sector")
+
+        # Now fetch valuation comparison data
+        try:
+            valuation_comparison = await stock_service.get_valuation_comparison(
+                symbol=symbol,
+                industry=industry,
+                sector=sector,
+            )
+            stock_data["valuation_comparison"] = valuation_comparison
+            print(f"[StockAnalysis] Valuation comparison data added for {symbol}")
+        except Exception as e:
+            print(f"[StockAnalysis] Failed to get valuation comparison: {e}")
+            stock_data["valuation_comparison"] = {}
 
         # Generate analysis
         print(f"[StockAnalysis] Generating AI analysis for {symbol}")

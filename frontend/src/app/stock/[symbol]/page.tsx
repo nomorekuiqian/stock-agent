@@ -66,6 +66,8 @@ interface StockFundamentals {
     ps?: number;
     pb?: number;
     ev_to_ebitda?: number;
+    dividend_yield?: number;
+    peg?: number;
   };
   growth: {
     revenue_yoy?: number;
@@ -127,6 +129,57 @@ interface PriceHistoryData {
   volume: number;
 }
 
+// Valuation Comparison Types
+interface PeerMetrics {
+  symbol: string;
+  metrics: {
+    pe_ratio?: number | null;
+    pb_ratio?: number | null;
+    ps_ratio?: number | null;
+    ev_to_ebitda?: number | null;
+    roe?: number | null;
+    gross_margin?: number | null;
+  };
+}
+
+interface ValuationComparisonData {
+  success: boolean;
+  symbol: string;
+  industry?: string;
+  sector?: string;
+  peer_comparison: {
+    symbol: string;
+    company_metrics: {
+      pe_ratio?: number | null;
+      pb_ratio?: number | null;
+      ps_ratio?: number | null;
+      ev_to_ebitda?: number | null;
+      roe?: number | null;
+      gross_margin?: number | null;
+    };
+    peers: PeerMetrics[];
+  };
+  industry_valuation: {
+    industry?: string;
+    industry_pe?: number | null;
+    sector?: string;
+    sector_pe?: number | null;
+  };
+  historical_valuation: {
+    years?: Array<{
+      year: string;
+      date?: string;
+      pe?: number | null;
+      pb?: number | null;
+      ps?: number | null;
+      ev_to_ebitda?: number | null;
+      gross_margin?: number | null;
+      net_margin?: number | null;
+    }>;
+    error?: string;
+  };
+}
+
 // =============================================================================
 // Metric Definitions with Explanations
 // =============================================================================
@@ -152,6 +205,16 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     zh: 'EV/EBITDA',
     en: 'EV/EBITDA',
     tip: '企业价值与 EBITDA 的比值。排除资本结构影响，适合跨公司比较。',
+  },
+  peg: {
+    zh: 'PEG',
+    en: 'PEG',
+    tip: '市盈率相对盈利增长比率。PEG < 1 可能被低估，> 2 可能被高估。',
+  },
+  dividend_yield: {
+    zh: '股息率',
+    en: 'Div Yield',
+    tip: '年度股息与股价的比率。反映持有股票的现金回报，收益型投资者关注。',
   },
   // Growth
   revenue_yoy: {
@@ -372,6 +435,19 @@ async function fetchStockAnalysis(symbol: string, force: boolean = false): Promi
   }
   const result = await response.json();
   return result.success ? result.analysis : null;
+}
+
+async function fetchValuationComparison(symbol: string): Promise<ValuationComparisonData | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/${symbol}/valuation`);
+    if (!response.ok) {
+      return null;
+    }
+    const result = await response.json();
+    return result.success ? result : null;
+  } catch {
+    return null;
+  }
 }
 
 function formatNumber(value: number | null | undefined, options?: {
@@ -668,6 +744,232 @@ function SectionCard({ title, titleEn, children, className = '', action }: {
   );
 }
 
+function ValuationComparisonSection({
+  data,
+  loading,
+  currentValuation,
+}: {
+  data: ValuationComparisonData | null;
+  loading: boolean;
+  currentValuation?: { pe?: number; pb?: number; ps?: number; ev_to_ebitda?: number; dividend_yield?: number; peg?: number };
+}) {
+  if (loading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-24 bg-muted rounded-lg" />
+        <div className="h-32 bg-muted rounded-lg" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const { industry_valuation, historical_valuation, peer_comparison } = data;
+
+  // Helper to format valuation number
+  const formatVal = (val: number | null | undefined): string => {
+    if (val === null || val === undefined) return '--';
+    return val.toFixed(1);
+  };
+
+  // Helper to determine trend color (handles null, undefined, and zero benchmark)
+  const getValuationTrend = (current: number | null | undefined, benchmark: number | null | undefined): 'premium' | 'discount' | 'neutral' => {
+    if (current == null || benchmark == null || benchmark === 0) return 'neutral';
+    const diff = (current - benchmark) / benchmark;
+    if (diff > 0.1) return 'premium';
+    if (diff < -0.1) return 'discount';
+    return 'neutral';
+  };
+
+  const trendColors = {
+    premium: 'text-amber-400',
+    discount: 'text-emerald-400',
+    neutral: 'text-foreground',
+  };
+
+  const trendLabels = {
+    premium: '溢价',
+    discount: '折价',
+    neutral: '持平',
+  };
+
+  // Get years data for historical valuation
+  const years = historical_valuation?.years || [];
+  const currentPE = currentValuation?.pe ?? years[0]?.pe;
+
+  return (
+    <div className="space-y-5">
+      {/* Historical Valuation - By Year */}
+      {years.length > 0 && (
+        <div>
+          <SubsectionHeader title="历史估值" titleEn="Historical Valuation" />
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm min-w-[400px]">
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className="text-left py-2 px-2 text-muted-foreground font-medium">指标</th>
+                  {years.slice(0, 5).map((y, i) => (
+                    <th key={y.year} className={`text-right py-2 px-2 font-medium ${i === 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {y.year}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="font-data">
+                <tr className="border-b border-border/20">
+                  <td className="py-2.5 px-2 text-foreground/80">P/E</td>
+                  {years.slice(0, 5).map((y, i) => (
+                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {formatVal(y.pe)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-border/20">
+                  <td className="py-2.5 px-2 text-foreground/80">P/B</td>
+                  {years.slice(0, 5).map((y, i) => (
+                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {formatVal(y.pb)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-border/20">
+                  <td className="py-2.5 px-2 text-foreground/80">P/S</td>
+                  {years.slice(0, 5).map((y, i) => (
+                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {formatVal(y.ps)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-border/20">
+                  <td className="py-2.5 px-2 text-foreground/80">EV/EBITDA</td>
+                  {years.slice(0, 5).map((y, i) => (
+                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {formatVal(y.ev_to_ebitda)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-border/20">
+                  <td className="py-2.5 px-2 text-foreground/80">毛利率</td>
+                  {years.slice(0, 5).map((y, i) => (
+                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {y.gross_margin ? `${y.gross_margin}%` : '--'}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-2 text-foreground/80">净利率</td>
+                  {years.slice(0, 5).map((y, i) => (
+                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {y.net_margin ? `${y.net_margin}%` : '--'}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Industry Comparison - Horizontal Comparison */}
+      {(industry_valuation?.industry_pe || industry_valuation?.sector_pe) && (
+        <div>
+          <SubsectionHeader title="行业对比" titleEn="Industry Comparison" />
+          <div className="grid grid-cols-2 gap-3">
+            {/* Sector P/E */}
+            {industry_valuation.sector_pe && (
+              <div className="p-3 bg-card/40 rounded-lg border border-border/40">
+                <div className="text-xs text-muted-foreground mb-1">板块 P/E</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-data text-lg font-semibold text-foreground">
+                    {formatVal(industry_valuation.sector_pe)}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {industry_valuation.sector}
+                  </span>
+                </div>
+                {currentPE && (
+                  <div className={`text-xs mt-1 ${trendColors[getValuationTrend(currentPE, industry_valuation.sector_pe)]}`}>
+                    vs 当前 {formatVal(currentPE)} ({trendLabels[getValuationTrend(currentPE, industry_valuation.sector_pe)]})
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Industry P/E */}
+            {industry_valuation.industry_pe && (
+              <div className="p-3 bg-card/40 rounded-lg border border-border/40">
+                <div className="text-xs text-muted-foreground mb-1">行业 P/E</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-data text-lg font-semibold text-foreground">
+                    {formatVal(industry_valuation.industry_pe)}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {industry_valuation.industry}
+                  </span>
+                </div>
+                {currentPE && (
+                  <div className={`text-xs mt-1 ${trendColors[getValuationTrend(currentPE, industry_valuation.industry_pe)]}`}>
+                    vs 当前 {formatVal(currentPE)} ({trendLabels[getValuationTrend(currentPE, industry_valuation.industry_pe)]})
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Peer Comparison */}
+      {peer_comparison?.peers && peer_comparison.peers.length > 0 && (
+        <div>
+          <SubsectionHeader title="同行对比" titleEn="Peer Comparison" />
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm min-w-[400px]">
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className="text-left py-2 px-2 text-muted-foreground font-medium">公司</th>
+                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">P/E</th>
+                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">P/B</th>
+                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">ROE</th>
+                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">毛利率</th>
+                </tr>
+              </thead>
+              <tbody className="font-data">
+                {/* Current company row */}
+                <tr className="border-b border-border/30 bg-emerald-500/5">
+                  <td className="py-2.5 px-2 font-medium text-emerald-400">{peer_comparison.symbol}</td>
+                  <td className="text-right py-2.5 px-2 text-foreground">{formatVal(peer_comparison.company_metrics?.pe_ratio)}</td>
+                  <td className="text-right py-2.5 px-2 text-foreground">{formatVal(peer_comparison.company_metrics?.pb_ratio)}</td>
+                  <td className="text-right py-2.5 px-2 text-foreground">
+                    {peer_comparison.company_metrics?.roe ? `${(peer_comparison.company_metrics.roe * 100).toFixed(1)}%` : '--'}
+                  </td>
+                  <td className="text-right py-2.5 px-2 text-foreground">
+                    {peer_comparison.company_metrics?.gross_margin ? `${(peer_comparison.company_metrics.gross_margin * 100).toFixed(1)}%` : '--'}
+                  </td>
+                </tr>
+                {/* Peer rows */}
+                {peer_comparison.peers.slice(0, 5).map((peer) => (
+                  <tr key={peer.symbol} className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                    <td className="py-2.5 px-2 text-muted-foreground">{peer.symbol}</td>
+                    <td className="text-right py-2.5 px-2 text-muted-foreground">{formatVal(peer.metrics?.pe_ratio)}</td>
+                    <td className="text-right py-2.5 px-2 text-muted-foreground">{formatVal(peer.metrics?.pb_ratio)}</td>
+                    <td className="text-right py-2.5 px-2 text-muted-foreground">
+                      {peer.metrics?.roe ? `${(peer.metrics.roe * 100).toFixed(1)}%` : '--'}
+                    </td>
+                    <td className="text-right py-2.5 px-2 text-muted-foreground">
+                      {peer.metrics?.gross_margin ? `${(peer.metrics.gross_margin * 100).toFixed(1)}%` : '--'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AIAnalysisSection({
   analysis,
   loading,
@@ -934,6 +1236,10 @@ export default function StockPage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
+  // Valuation Comparison state
+  const [valuationData, setValuationData] = useState<ValuationComparisonData | null>(null);
+  const [valuationLoading, setValuationLoading] = useState(false);
+
   // Redirect to login with current page as redirect target
   const handleLoginRequired = () => {
     const redirectUrl = encodeURIComponent(pathname);
@@ -969,6 +1275,13 @@ export default function StockPage() {
       .then(setPriceHistory)
       .catch((err) => console.error('Failed to fetch price history:', err))
       .finally(() => setPriceHistoryLoading(false));
+
+    // Fetch valuation comparison data (async, non-blocking)
+    setValuationLoading(true);
+    fetchValuationComparison(symbol)
+      .then(setValuationData)
+      .catch((err) => console.error('Failed to fetch valuation comparison:', err))
+      .finally(() => setValuationLoading(false));
   }, [symbol]);
 
   const handleGenerateAnalysis = async (force: boolean = false) => {
@@ -1188,8 +1501,8 @@ export default function StockPage() {
                   <SubsectionHeader title="市场概览" titleEn="Overview" />
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                     <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
-                    <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
+                    <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
+                    <MetricCard metricKey="dividend_yield" value={fundamentals.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
                     <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
                   </div>
                   {/* 52-Week Range */}
@@ -1222,9 +1535,10 @@ export default function StockPage() {
                 {/* Valuation */}
                 <div className="mb-5 pb-5 border-b border-border/40">
                   <SubsectionHeader title="估值指标" titleEn="Valuation" />
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+                    <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
                     <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
-                    <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
                   </div>
                 </div>
 
@@ -1269,6 +1583,22 @@ export default function StockPage() {
                 </div>
               </div>
             )}
+          </SectionCard>
+        </section>
+
+        {/* ================================================================== */}
+        {/* VALUATION COMPARISON */}
+        {/* ================================================================== */}
+        <section className="mb-5">
+          <SectionCard
+            title="估值对比"
+            titleEn="Valuation Comparison"
+          >
+            <ValuationComparisonSection
+              data={valuationData}
+              loading={valuationLoading}
+              currentValuation={fundamentals?.valuation}
+            />
           </SectionCard>
         </section>
 
@@ -1349,7 +1679,6 @@ export default function StockPage() {
             </SectionCard>
           </section>
         )}
-
 
         {/* Analysis Error Display */}
         {analysisError && (

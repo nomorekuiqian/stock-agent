@@ -143,7 +143,10 @@ class OpenBBService:
                 provider="fmp",
             )
 
-            return [self._serialize_income(item) for item in result.results]
+            items = [self._serialize_income(item) for item in result.results]
+            # Sort by date descending (newest first)
+            items.sort(key=lambda x: x.get("date") or "", reverse=True)
+            return items
 
         except Exception as e:
             print(f"[OpenBBService] Error fetching income statements for {symbol}: {e}")
@@ -172,7 +175,10 @@ class OpenBBService:
                 provider="fmp",
             )
 
-            return [self._serialize_balance(item) for item in result.results]
+            items = [self._serialize_balance(item) for item in result.results]
+            # Sort by date descending (newest first)
+            items.sort(key=lambda x: x.get("date") or "", reverse=True)
+            return items
 
         except Exception as e:
             print(f"[OpenBBService] Error fetching balance sheets for {symbol}: {e}")
@@ -201,7 +207,10 @@ class OpenBBService:
                 provider="fmp",
             )
 
-            return [self._serialize_cash_flow(item) for item in result.results]
+            items = [self._serialize_cash_flow(item) for item in result.results]
+            # Sort by date descending (newest first)
+            items.sort(key=lambda x: x.get("date") or "", reverse=True)
+            return items
 
         except Exception as e:
             print(f"[OpenBBService] Error fetching cash flows for {symbol}: {e}")
@@ -230,7 +239,10 @@ class OpenBBService:
                 provider="fmp",
             )
 
-            return [self._serialize_ratios(item) for item in result.results]
+            items = [self._serialize_ratios(item) for item in result.results]
+            # Sort by date descending (newest first)
+            items.sort(key=lambda x: x.get("date") or "", reverse=True)
+            return items
 
         except Exception as e:
             print(f"[OpenBBService] Error fetching key metrics for {symbol}: {e}")

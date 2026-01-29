@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.shared.openbb_service import get_openbb_service
+from app.shared.fmp_service import get_fmp_service
 from app.features.stock.db import (
     get_stock_profile,
     upsert_stock_profile,
@@ -36,10 +37,12 @@ from app.features.stock.db import (
 
 _profile_cache: dict[str, dict[str, Any]] = {}
 _financials_cache: dict[str, dict[str, Any]] = {}
+_industry_pe_cache: dict[str, dict[str, Any]] = {}  # Industry/sector P/E cache
 _cache_lock = threading.Lock()
 
 MEMORY_CACHE_TTL_MINUTES = 30  # Hot cache TTL
 MEMORY_CACHE_MAX_SIZE = 500  # Max entries per cache (LRU eviction)
+INDUSTRY_PE_CACHE_TTL_HOURS = 6  # Industry P/E rarely changes
 
 
 def _evict_expired_entries(cache: dict[str, dict[str, Any]]) -> None:
@@ -96,6 +99,24 @@ def _set_cached_financials(symbol: str, data: list[dict[str, Any]]) -> None:
         }
 
 
+def _get_cached_industry_pe(cache_key: str) -> Optional[dict[str, Any]]:
+    """Get industry/sector P/E from cache if fresh."""
+    with _cache_lock:
+        entry = _industry_pe_cache.get(cache_key)
+        if entry and datetime.now() < entry["expires"]:
+            return {**entry["data"]}
+    return None
+
+
+def _set_cached_industry_pe(cache_key: str, data: dict[str, Any]) -> None:
+    """Cache industry/sector P/E data with longer TTL (6 hours)."""
+    with _cache_lock:
+        _industry_pe_cache[cache_key] = {
+            "data": data,
+            "expires": datetime.now() + timedelta(hours=INDUSTRY_PE_CACHE_TTL_HOURS),
+        }
+
+
 class StockService:
     """Service for fetching and managing individual stock data."""
 
@@ -112,6 +133,7 @@ class StockService:
 
     def __init__(self):
         self.openbb = get_openbb_service()
+        self.fmp = get_fmp_service()
 
     async def get_stock_data(self, symbol: str, include_financials: bool = True) -> dict[str, Any]:
         """
@@ -148,9 +170,13 @@ class StockService:
             if isinstance(result, Exception):
                 print(f"[StockService] Error in task {i} for {symbol}: {result}")
 
+        # Fetch FMP key metrics for dividend_yield (run in thread to avoid blocking)
+        fmp_metrics = await asyncio.to_thread(self.fmp.get_key_metrics_ttm, symbol)
+        fmp_valuation = fmp_metrics.get("metrics", {}) if fmp_metrics.get("status") == "success" else {}
+
         # Calculate derived metrics
         ttm = self._calculate_ttm_metrics(financials) if financials else {}
-        valuation = self._calculate_valuation(quote, ttm, financials) if quote else {}
+        valuation = self._calculate_valuation(quote, ttm, financials, fmp_valuation) if quote else {}
         growth = self._calculate_growth(financials) if financials else {}
         profitability = self._calculate_profitability(financials) if financials else {}
 
@@ -216,6 +242,8 @@ class StockService:
         if memory_cached:
             for item in memory_cached:
                 item["_from_cache"] = True
+            # Ensure sorted by date descending (newest first)
+            memory_cached.sort(key=lambda x: x.get("period") or "", reverse=True)
             print(f"[StockService] Using in-memory cached financials for {symbol}")
             return memory_cached
 
@@ -224,6 +252,11 @@ class StockService:
         if db_cached and self._has_recent_quarter(db_cached):
             for item in db_cached:
                 item["_from_cache"] = True
+                # Normalize: ensure 'period' field exists (DB stores as 'period_end_date')
+                if not item.get("period") and item.get("period_end_date"):
+                    item["period"] = item["period_end_date"]
+            # Ensure sorted by date descending (newest first)
+            db_cached.sort(key=lambda x: x.get("period") or x.get("period_end_date") or "", reverse=True)
             # Store in memory for faster subsequent access
             _set_cached_financials(symbol, db_cached)
             print(f"[StockService] Using DB cached financials for {symbol}")
@@ -374,8 +407,9 @@ class StockService:
         quote: dict[str, Any],
         ttm: dict[str, Any],
         financials: list[dict[str, Any]],
+        fmp_metrics: dict[str, Any] = None,
     ) -> dict[str, Any]:
-        """Calculate valuation multiples (P/E, P/S, P/B, EV/EBITDA)."""
+        """Calculate valuation multiples (P/E, P/S, P/B, EV/EBITDA, dividend_yield, peg)."""
         price = quote.get("price")
         market_cap = quote.get("market_cap")
 
@@ -407,6 +441,12 @@ class StockService:
             equity = latest_bs.get("total_equity")
             if equity and equity > 0:
                 valuation["pb"] = round(market_cap / equity, 2)
+
+        # Add FMP metrics: dividend_yield
+        if fmp_metrics:
+            dividend_yield = fmp_metrics.get("dividend_yield")
+            if dividend_yield is not None:
+                valuation["dividend_yield"] = round(dividend_yield, 2)
 
         return valuation
 
@@ -486,6 +526,197 @@ class StockService:
                     profitability["roa"] = round(net_income / assets, 4)
 
         return profitability
+
+    async def get_valuation_comparison(self, symbol: str, industry: str = None, sector: str = None) -> dict[str, Any]:
+        """
+        Get comprehensive valuation comparison data.
+
+        Includes:
+        1. Peer comparison (same industry companies)
+        2. Industry average P/E
+        3. Historical valuation (5-year history)
+
+        Args:
+            symbol: Stock ticker symbol
+            industry: Company's industry (from profile)
+            sector: Company's sector (from profile)
+
+        Returns:
+            Dict with peer_comparison, industry_valuation, and historical_valuation
+        """
+        symbol = symbol.upper()
+        print(f"[StockService] Getting valuation comparison for {symbol}")
+
+        # Parallel fetch all valuation data
+        tasks = [
+            self._get_peer_comparison(symbol, industry),
+            self._get_industry_valuation(industry, sector),
+            self._get_historical_valuation(symbol),
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        peer_comparison = results[0] if not isinstance(results[0], Exception) else {}
+        industry_valuation = results[1] if not isinstance(results[1], Exception) else {}
+        historical_valuation = results[2] if not isinstance(results[2], Exception) else {}
+
+        # Log errors
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                print(f"[StockService] Error in valuation task {i} for {symbol}: {result}")
+
+        return {
+            "peer_comparison": peer_comparison,
+            "industry_valuation": industry_valuation,
+            "historical_valuation": historical_valuation,
+        }
+
+    async def _get_peer_comparison(self, symbol: str, industry: str = None) -> dict[str, Any]:
+        """Get peer companies and their key metrics for comparison.
+
+        Uses industry-based filtering for more accurate peer selection.
+        """
+        # Get peer list using industry-based filtering (run in thread to avoid blocking)
+        if industry:
+            peers_result = await asyncio.to_thread(
+                self.fmp.get_industry_peers, industry, symbol, 6
+            )
+        else:
+            # Fallback to stock-peers if no industry provided
+            peers_result = await asyncio.to_thread(self.fmp.get_stock_peers, symbol)
+
+        if peers_result.get("status") != "success" or not peers_result.get("peers"):
+            return {"peers": [], "error": "No peer data available"}
+
+        peers_data = peers_result["peers"][:5]  # Limit to 5 peers
+
+        # Get current company's metrics
+        company_metrics = await asyncio.to_thread(self.fmp.get_key_metrics_ttm, symbol)
+
+        # Get peer metrics in parallel with semaphore to limit concurrency
+        async def fetch_peer_metrics(peer_info):
+            peer_symbol = peer_info.get("symbol") if isinstance(peer_info, dict) else peer_info
+            if not peer_symbol:
+                return None
+            try:
+                metrics = await asyncio.to_thread(self.fmp.get_key_metrics_ttm, peer_symbol)
+                if metrics.get("status") == "success":
+                    return {
+                        "symbol": peer_symbol,
+                        "name": peer_info.get("name", "") if isinstance(peer_info, dict) else "",
+                        "metrics": metrics.get("metrics", {}),
+                    }
+            except Exception as e:
+                print(f"[StockService] Error fetching metrics for peer {peer_symbol}: {e}")
+            return None
+
+        # Fetch all peer metrics concurrently (limited by asyncio.to_thread's thread pool)
+        peer_results = await asyncio.gather(*[fetch_peer_metrics(p) for p in peers_data])
+        peer_metrics = [p for p in peer_results if p is not None]
+
+        return {
+            "symbol": symbol,
+            "company_metrics": company_metrics.get("metrics", {}) if company_metrics.get("status") == "success" else {},
+            "peers": peer_metrics,
+        }
+
+    async def _get_industry_valuation(self, industry: str = None, sector: str = None) -> dict[str, Any]:
+        """Get industry and sector average P/E ratios with caching."""
+        result = {
+            "industry": industry,
+            "industry_pe": None,
+            "sector": sector,
+            "sector_pe": None,
+        }
+
+        # Check cache for industry P/E
+        industry_pe = None
+        if industry:
+            cache_key = f"industry:{industry}"
+            cached = _get_cached_industry_pe(cache_key)
+            if cached:
+                industry_pe = cached.get("pe")
+                print(f"[StockService] Using cached industry P/E for {industry}")
+            else:
+                industry_data = await asyncio.to_thread(self.fmp.get_industry_pe)
+                if industry_data.get("status") == "success":
+                    industries = industry_data.get("industries", {})
+                    industry_pe = industries.get(industry)
+                    if industry_pe:
+                        _set_cached_industry_pe(cache_key, {"pe": industry_pe})
+
+        # Check cache for sector P/E
+        sector_pe = None
+        if sector:
+            cache_key = f"sector:{sector}"
+            cached = _get_cached_industry_pe(cache_key)
+            if cached:
+                sector_pe = cached.get("pe")
+                print(f"[StockService] Using cached sector P/E for {sector}")
+            else:
+                sector_data = await asyncio.to_thread(self.fmp.get_sector_pe)
+                if sector_data.get("status") == "success":
+                    sectors = sector_data.get("sectors", {})
+                    sector_pe = sectors.get(sector)
+                    if sector_pe:
+                        _set_cached_industry_pe(cache_key, {"pe": sector_pe})
+
+        result["industry_pe"] = industry_pe
+        result["sector_pe"] = sector_pe
+
+        return result
+
+    async def _get_historical_valuation(self, symbol: str) -> dict[str, Any]:
+        """
+        Get historical valuation metrics by fiscal year.
+
+        Returns:
+            {
+                "years": [
+                    { "year": "2025", "pe": 28.5, "pb": 45.2, ... },
+                    { "year": "2024", "pe": 25.0, "pb": 40.0, ... },
+                    ...
+                ]
+            }
+        """
+        # Get historical metrics (annual data for 5 years, run in thread to avoid blocking)
+        historical = await asyncio.to_thread(
+            self.fmp.get_historical_key_metrics, symbol, "annual", 5
+        )
+
+        if historical.get("status") != "success" or not historical.get("metrics"):
+            return {"error": "No historical data available", "years": []}
+
+        metrics_list = historical.get("metrics", [])
+        if not metrics_list:
+            return {"error": "Empty historical data", "years": []}
+
+        # Helper to safely round values (handles None and 0 correctly)
+        def safe_round(value, decimals=1):
+            return round(value, decimals) if value is not None else None
+
+        # Format by year for cleaner display
+        years_data = []
+        for m in metrics_list:
+            fiscal_year = m.get("fiscal_year", "")
+            if not fiscal_year and m.get("date"):
+                # Extract year from date if fiscal_year not available
+                fiscal_year = m.get("date", "")[:4]
+
+            years_data.append({
+                "year": fiscal_year,
+                "date": m.get("date"),
+                "pe": safe_round(m.get("pe_ratio")),
+                "pb": safe_round(m.get("pb_ratio")),
+                "ps": safe_round(m.get("ps_ratio")),
+                "ev_to_ebitda": safe_round(m.get("ev_to_ebitda")),
+                "gross_margin": safe_round(m.get("gross_margin") * 100 if m.get("gross_margin") is not None else None),
+                "net_margin": safe_round(m.get("net_margin") * 100 if m.get("net_margin") is not None else None),
+            })
+
+        return {
+            "years": years_data,
+        }
 
 
 # Singleton instance

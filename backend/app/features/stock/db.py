@@ -142,7 +142,17 @@ async def get_stock_financials(symbol: str, limit: int = 8) -> list[dict[str, An
         if result["status_code"] == 200:
             data = result.get("data", {})
             if data.get("success"):
-                return data.get("data", [])
+                financials = data.get("data", [])
+                # Parse JSON string fields to dicts
+                import json
+                for item in financials:
+                    for field in ["income_statement", "balance_sheet", "cash_flow", "derived_metrics"]:
+                        if field in item and isinstance(item[field], str):
+                            try:
+                                item[field] = json.loads(item[field])
+                            except (json.JSONDecodeError, TypeError):
+                                item[field] = {}
+                return financials
         return []
 
     except Exception as e:
