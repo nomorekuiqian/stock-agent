@@ -336,6 +336,9 @@ class StockService:
                 "cash_flow": cash_by_date.get(date, {}),
             })
 
+        # Sort by date descending (newest first) to ensure consistent order
+        result.sort(key=lambda x: x.get("period") or "", reverse=True)
+
         return result
 
     def _calculate_ttm_metrics(self, financials: list[dict[str, Any]]) -> dict[str, Any]:

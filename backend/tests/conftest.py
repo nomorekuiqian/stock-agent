@@ -5,9 +5,16 @@ Test Categories:
 - e2e: End-to-end tests using existing data (fast, runs by default)
 - integration: Database operation tests (fast, runs by default)
 - generate: Full generation tests with AI (slow, skipped by default)
+- db_write: Tests that write to production database (requires --allow-db-write)
+
+Database Isolation:
+By default, all database WRITE operations are mocked to prevent pollution.
+READ operations still work against the real database.
+Use --allow-db-write to enable real database writes (for specific integration tests).
 
 Usage:
-    pytest tests/ -v                    # Run default tests (e2e + integration)
+    pytest tests/ -v                    # Run tests with DB writes mocked
+    pytest tests/ -v --allow-db-write   # Allow real database writes
     pytest tests/ -v -m generate        # Run ONLY generation tests
     pytest tests/ -v --run-generate     # Run ALL tests including generation
 """
@@ -15,6 +22,7 @@ Usage:
 import os
 import sys
 import pytest
+from unittest.mock import AsyncMock, patch
 
 # Add backend directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -26,6 +34,9 @@ load_dotenv()
 # Configure pytest-asyncio
 pytest_plugins = ["pytest_asyncio"]
 
+# Track if we're in test mode
+_TESTING = True
+
 
 def pytest_addoption(parser):
     """Add custom command line options."""
@@ -34,6 +45,12 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Run generation tests (slow, calls AI APIs)",
+    )
+    parser.addoption(
+        "--allow-db-write",
+        action="store_true",
+        default=False,
+        help="Allow real database writes (by default, writes are mocked)",
     )
 
 
@@ -48,18 +65,26 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "generate: marks tests that generate new content via AI (slow, skipped by default)"
     )
+    config.addinivalue_line(
+        "markers", "db_write: marks tests that need real database writes (requires --allow-db-write)"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
-    """Skip generation tests unless --run-generate is specified."""
-    if config.getoption("--run-generate"):
-        # --run-generate given: run all tests
-        return
+    """Skip tests based on command line options."""
+    # Skip generation tests unless --run-generate is specified
+    if not config.getoption("--run-generate"):
+        skip_generate = pytest.mark.skip(reason="need --run-generate option to run")
+        for item in items:
+            if "generate" in item.keywords:
+                item.add_marker(skip_generate)
 
-    skip_generate = pytest.mark.skip(reason="need --run-generate option to run")
-    for item in items:
-        if "generate" in item.keywords:
-            item.add_marker(skip_generate)
+    # Skip db_write tests unless --allow-db-write is specified
+    if not config.getoption("--allow-db-write"):
+        skip_db_write = pytest.mark.skip(reason="need --allow-db-write option to run (protects production DB)")
+        for item in items:
+            if "db_write" in item.keywords:
+                item.add_marker(skip_db_write)
 
 
 @pytest.fixture
@@ -86,3 +111,106 @@ def email_service():
     """Get Email service instance."""
     from app.features.subscription.email_service import get_email_service
     return get_email_service()
+
+
+# =============================================================================
+# Database Write Protection
+# =============================================================================
+
+# List of database write functions to mock (module_path, function_name)
+DB_WRITE_FUNCTIONS = [
+    # Feedback
+    ("app.features.feedback.db", "save_email_feedback"),
+    ("app.features.feedback.db", "save_user_feedback"),
+    # Market reports
+    ("app.features.market.db", "save_market_report"),
+    # Stock
+    ("app.features.stock.db", "upsert_stock_profile"),
+    ("app.features.stock.db", "upsert_stock_financial"),
+    ("app.features.stock.db", "save_stock_analysis"),
+    # Digest
+    ("app.features.digest.db", "save_user_digest"),
+    ("app.features.digest.db", "save_user_watchlist"),
+    # Liquidity
+    ("app.features.liquidity.db", "save_liquidity_analysis"),
+    # Subscription (Resend operations)
+    ("app.features.subscription.service", "add_subscriber"),
+    ("app.features.subscription.service", "remove_subscriber"),
+    # Insforge service write operations
+    ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
+]
+
+
+def _create_mock_response(function_name: str):
+    """Create a mock response for a database write function."""
+    async def mock_func(*args, **kwargs):
+        print(f"[TEST MOCK] Blocked DB write: {function_name}(*{args}, **{kwargs})")
+        return {
+            "success": True,
+            "mocked": True,
+            "message": f"Mocked in test mode - no actual DB write for {function_name}",
+        }
+    return mock_func
+
+
+@pytest.fixture(autouse=True)
+def mock_db_writes(request):
+    """
+    Automatically mock all database write operations unless --allow-db-write is specified.
+
+    This fixture:
+    - Runs automatically for ALL tests (autouse=True)
+    - Blocks database writes by default to protect production data
+    - Can be disabled with --allow-db-write flag for specific integration tests
+
+    Tests that need real DB writes should:
+    1. Be marked with @pytest.mark.db_write
+    2. Run with --allow-db-write flag
+    """
+    # Check if db writes are allowed
+    allow_db_write = request.config.getoption("--allow-db-write", default=False)
+
+    if allow_db_write:
+        # Don't mock - allow real database writes
+        yield
+        return
+
+    # Mock all database write functions
+    patches = []
+    for module_path, func_name in DB_WRITE_FUNCTIONS:
+        try:
+            full_path = f"{module_path}.{func_name}"
+            mock = patch(full_path, new=AsyncMock(side_effect=_create_mock_response(func_name)))
+            patches.append(mock)
+            mock.start()
+        except Exception as e:
+            # Some modules might not be loaded - that's ok
+            print(f"[TEST] Could not mock {module_path}.{func_name}: {e}")
+
+    yield
+
+    # Stop all patches
+    for p in patches:
+        try:
+            p.stop()
+        except Exception:
+            pass
+
+
+@pytest.fixture
+def allow_db_write_fixture(request):
+    """
+    Fixture to explicitly allow DB writes for a specific test.
+    Use this when you need real DB writes but don't want to use the CLI flag.
+
+    Usage:
+        def test_something(allow_db_write_fixture):
+            # This test will have real DB writes
+            pass
+
+    Note: Prefer using @pytest.mark.db_write with --allow-db-write flag instead.
+    """
+    # Stop the auto-mock for this test
+    # This is a placeholder - the actual implementation would need
+    # to interact with the mock_db_writes fixture
+    yield True

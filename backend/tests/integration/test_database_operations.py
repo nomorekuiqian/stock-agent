@@ -2,12 +2,17 @@
 Integration Tests for Database Operations
 
 These tests verify database operations work correctly.
-Tests that write data will clean up after themselves.
+
+Database Protection:
+- Tests marked with @pytest.mark.db_write will WRITE to the database
+- By default, these tests are SKIPPED to protect production data
+- Use --allow-db-write to run them: pytest tests/ -v --allow-db-write
 
 Usage:
     cd backend
     source venv/bin/activate
-    pytest tests/integration/test_database_operations.py -v
+    pytest tests/integration/test_database_operations.py -v                    # Read-only tests
+    pytest tests/integration/test_database_operations.py -v --allow-db-write   # Include write tests
 """
 
 import uuid
@@ -19,10 +24,13 @@ class TestDatabaseOperations:
     """Integration tests for Insforge database operations."""
 
     @pytest.mark.asyncio
+    @pytest.mark.db_write
     async def test_save_email_feedback_with_report_id(self, insforge_service):
         """
         Test that email feedback is saved with report_id correctly.
         This was the bug we fixed - report_id was being saved as NULL.
+
+        NOTE: This test WRITES to the database. Run with --allow-db-write.
 
         Steps:
         1. Get latest report to get a valid report_id
@@ -164,12 +172,15 @@ class TestReportIdFlow:
         print(f"\n[Integration] Report {report_date} has valid ID: {report_id}")
 
     @pytest.mark.asyncio
+    @pytest.mark.db_write
     async def test_feedback_links_to_report(self, insforge_service):
         """
         Simulate the feedback flow:
         1. Get a report with ID
         2. Save feedback linking to that report
         3. Verify the link is correct
+
+        NOTE: This test WRITES to the database. Run with --allow-db-write.
         """
         # 1. Get report
         report = await insforge_service.get_latest_report()

@@ -49,7 +49,12 @@ class EmailService:
             return now_pacific().strftime("%B %d, %Y")
 
     def _get_time_greeting(self) -> str:
-        """Get time-based greeting in Chinese (Pacific timezone)."""
+        """Get time-based greeting in Chinese (Pacific timezone).
+
+        Note: This is used for single-recipient emails where we send at a known time.
+        For broadcasts, consider using a neutral greeting since users may open
+        the email at different times in different timezones.
+        """
         hour = now_pacific().hour
         if 5 <= hour < 12:
             return "早上好"
@@ -272,7 +277,6 @@ class EmailService:
         """
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
-        time_greeting = self._get_time_greeting()
 
         # Get report_date for feedback section
         feedback_report_date = report_date or data.get("report_date") or today_str()
@@ -308,17 +312,26 @@ class EmailService:
             indices_html = '<table style="width: 100%; border-collapse: separate; border-spacing: 6px;"><tr>'
             for i, index in enumerate(key_indices):
                 change = index.get("change_percent", 0)
+                change_unit = index.get("change_unit", "%")  # "%" for stocks, "bps" for rates
                 color = "#16a34a" if change >= 0 else "#dc2626"
                 arrow = "+" if change >= 0 else ""
                 value = index.get("value", 0)
                 value_str = f"{value:,.0f}" if value > 1000 else f"{value:,.2f}"
+
+                # Format change display based on unit type
+                if change_unit == "bps":
+                    # Basis points: show as integer with "bps" suffix (e.g., "+5 bps")
+                    change_str = f"{arrow}{change:.0f} bps"
+                else:
+                    # Percentage: show with % suffix (e.g., "+1.27%")
+                    change_str = f"{arrow}{change:.2f}%"
 
                 indices_html += f"""
                 <td style="vertical-align: top; width: 33.33%;">
                     <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
                         <div style="font-size: 10px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{index.get('name', '')}</div>
                         <div style="font-size: 17px; font-weight: 600; color: #0a0a0a;">{value_str}</div>
-                        <div style="font-size: 11px; font-weight: 600; color: {color}; margin-top: 2px;">{arrow}{change:.2f}%</div>
+                        <div style="font-size: 11px; font-weight: 600; color: {color}; margin-top: 2px;">{change_str}</div>
                     </div>
                 </td>
                 """
@@ -470,7 +483,7 @@ class EmailService:
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
                     <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
-                        {time_greeting}，{{{{{{first_name|朋友}}}}}}
+                        {{{{{{#if first_name}}}}}}你好，{{{{{{first_name}}}}}}{{{{{{else}}}}}}你好{{{{{{/if}}}}}}
                     </p>
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         新的一天，为你准备了今日的市场简报，一起看看发生了什么吧。
@@ -526,7 +539,8 @@ class EmailService:
         feedback_digest_date = digest_date or data.get("digest_date") or today_str()
         feedback_digest_id = digest_id or data.get("digest_id")
 
-        display_name = first_name or "pengyou"
+        # Build greeting: "Hi [name]" or just "Hi" if no name
+        hi_greeting = f"Hi {first_name}" if first_name else "Hi"
 
         card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
         section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #10b981;"
@@ -676,7 +690,7 @@ class EmailService:
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
                     <p style="color: #52525b; font-size: 16px; margin: 0 0 8px 0; line-height: 1.5;">
-                        Hi {display_name}
+                        {hi_greeting}
                     </p>
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         {greeting}
@@ -733,8 +747,20 @@ class EmailService:
                 )
                 if status.get("subscribed"):
                     display_name = status.get("metadata", {}).get("first_name")
-            display_name = display_name or "朋友"
-            html_content = html_content.replace("{{{first_name|朋友}}}", display_name)
+
+            # Replace Handlebars conditionals for single-recipient emails
+            if display_name:
+                # Has name: show "你好，[name]"
+                html_content = html_content.replace(
+                    "{{{#if first_name}}}你好，{{{first_name}}}{{{else}}}你好{{{/if}}}",
+                    f"你好，{display_name}"
+                )
+            else:
+                # No name: show just "你好"
+                html_content = html_content.replace(
+                    "{{{#if first_name}}}你好，{{{first_name}}}{{{else}}}你好{{{/if}}}",
+                    "你好"
+                )
             # Replace email template variable for single sends (not broadcast)
             from urllib.parse import quote
 
@@ -997,7 +1023,8 @@ class EmailService:
 
     def _format_welcome_html(self, first_name: str = "") -> str:
         """Format welcome email HTML for new subscribers."""
-        display_name = first_name or "朋友"
+        # Build greeting: "Hi [name]，" or just "Hi，" if no name
+        greeting = f"Hi {first_name}，" if first_name else "Hi，"
         formatted_date = now_pacific().strftime("%B %d, %Y")
 
         card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 24px; margin-bottom: 16px;"
@@ -1017,7 +1044,7 @@ class EmailService:
                 <!-- Welcome Card -->
                 <div style="background: #ffffff; padding: 32px 24px;">
                     <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 16px 0;">
-                        Hi {display_name}，欢迎加入 TheMarketBrew!
+                        {greeting}欢迎加入 TheMarketBrew!
                     </h1>
                     <p style="color: #52525b; font-size: 15px; line-height: 1.7; margin: 0 0 24px 0;">
                         从今天起，你将在每个交易日收到我们精心准备的市场简报，帮助你快速了解市场动态。

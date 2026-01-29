@@ -39,24 +39,6 @@ export function StockPriceChart({
   const [timeRange, setTimeRange] = useState<string>('1Y');
   const [chartReady, setChartReady] = useState(false);
 
-  // Compute price change from data
-  const priceStats = useMemo(() => {
-    if (!data || data.length < 2) return null;
-    const latest = data[data.length - 1];
-    const first = data[0];
-    const change = latest.close - first.close;
-    const changePercent = (change / first.close) * 100;
-    const isPositive = change >= 0;
-    return {
-      latestPrice: latest.close,
-      change,
-      changePercent,
-      isPositive,
-      high: Math.max(...data.map(d => d.high)),
-      low: Math.min(...data.map(d => d.low)),
-    };
-  }, [data]);
-
   // Filter data by time range
   const filteredData = useMemo(() => {
     if (!data) return [];
@@ -73,6 +55,24 @@ export function StockPriceChart({
     const cutoffDate = new Date(now.getTime() - daysToShow * 24 * 60 * 60 * 1000);
     return data.filter(d => new Date(d.date) >= cutoffDate);
   }, [data, timeRange]);
+
+  // Compute price change from filtered data (reflects current time range)
+  const priceStats = useMemo(() => {
+    if (!filteredData || filteredData.length < 2) return null;
+    const latest = filteredData[filteredData.length - 1];
+    const first = filteredData[0];
+    const change = latest.close - first.close;
+    const changePercent = (change / first.close) * 100;
+    const isPositive = change >= 0;
+    return {
+      latestPrice: latest.close,
+      change,
+      changePercent,
+      isPositive,
+      high: Math.max(...filteredData.map(d => d.high)),
+      low: Math.min(...filteredData.map(d => d.low)),
+    };
+  }, [filteredData]);
 
   // Update chart when data or type changes
   useEffect(() => {
