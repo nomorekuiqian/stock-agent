@@ -366,6 +366,85 @@ class FMPService:
             "error": "No data available",
         }
 
+    def get_treasury_rates_with_change(self) -> dict:
+        """
+        Get treasury rates with daily change in basis points (bps).
+
+        FMP API returns multiple days of historical data by default.
+        We use data[0] for today and data[1] for previous trading day.
+        1 basis point = 0.01%
+
+        Returns:
+            Same structure as get_treasury_rates, but rates dict contains:
+            {
+                "10Y": {
+                    "rate": 4.25,
+                    "daily_change_bps": 5.0  # +5 bps means rate went from 4.20% to 4.25%
+                },
+                ...
+            }
+        """
+        print("[FMP] get_treasury_rates_with_change()")
+
+        # Fetch treasury rates - API returns multiple days by default
+        data = self._request("/stable/treasury-rates", {})
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            print("FMP Treasury Rates API returned empty data")
+            return self._empty_treasury_response()
+
+        # data[0] is today (or most recent), data[1] is previous trading day
+        today_raw = data[0]
+        prev_raw = data[1] if len(data) > 1 else None
+
+        today_date = today_raw.get("date")
+        prev_date = prev_raw.get("date") if prev_raw else None
+
+        # Define tenor mapping
+        tenor_mapping = {
+            "1M": "month1", "2M": "month2", "3M": "month3", "6M": "month6",
+            "1Y": "year1", "2Y": "year2", "3Y": "year3",
+            "5Y": "year5", "7Y": "year7",
+            "10Y": "year10", "20Y": "year20", "30Y": "year30",
+        }
+
+        # Build rates with daily change
+        rates_with_change = {}
+        raw_rates = {}  # For spread calculation
+
+        for tenor, field in tenor_mapping.items():
+            today_rate = self._safe_float(today_raw.get(field))
+            prev_rate = self._safe_float(prev_raw.get(field)) if prev_raw else None
+
+            if today_rate is not None:
+                raw_rates[tenor] = today_rate
+                daily_change_bps = None
+                if prev_rate is not None:
+                    # Change in bps: (today - yesterday) * 100
+                    # e.g., 4.25% - 4.20% = 0.05, * 100 = 5 bps
+                    daily_change_bps = round((today_rate - prev_rate) * 100, 1)
+
+                rates_with_change[tenor] = {
+                    "rate": today_rate,
+                    "daily_change_bps": daily_change_bps,
+                }
+
+        # Calculate spreads and yield curve shape using raw rates
+        spreads = self._calculate_spreads(raw_rates)
+        yield_curve_shape = self._analyze_yield_curve_shape(raw_rates)
+
+        result = {
+            "date": today_date,
+            "prev_date": prev_date,
+            "rates": rates_with_change,
+            "spreads": spreads,
+            "yield_curve_shape": yield_curve_shape,
+            "source": "fmp",
+        }
+
+        print(f"[FMP] Treasury rates with change: today={today_date}, prev={prev_date}")
+        return result
+
     def get_stock_news(self, symbols: list[str] = None, limit: int = 80) -> dict:
         """
         Get news for specific stock symbols from FMP API.

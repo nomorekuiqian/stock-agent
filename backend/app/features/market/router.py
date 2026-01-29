@@ -37,6 +37,7 @@ def transform_market_data_to_indices(market_data: dict) -> list:
 
     # Treasury rates (special structure: rates.yield_curve)
     # Only include 2Y and 10Y for simplicity
+    # Note: Treasury changes are in basis points (bps), not percent
     rates_data = market_data.get("rates", {})
     yield_curve = rates_data.get("yield_curve", {})
     key_tenors = ["2Y", "10Y"]
@@ -44,10 +45,15 @@ def transform_market_data_to_indices(market_data: dict) -> list:
         data = yield_curve.get(tenor, {})
         if isinstance(data, dict) and "rate" in data:
             display_name = f"{tenor} Treasury"
+            # Use daily_change_bps for new format, fallback to daily_change for old format
+            change_bps = data.get("daily_change_bps")
+            if change_bps is None:
+                change_bps = data.get("daily_change", 0) or 0
             indices.append({
                 "name": display_name,
                 "value": data.get("rate", 0),
-                "change_percent": data.get("daily_change", 0) or 0
+                "change_percent": change_bps,  # Value is in bps for Treasury
+                "change_unit": "bps",  # Indicate unit is basis points
             })
 
     return indices

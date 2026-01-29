@@ -205,26 +205,28 @@ def get_all_market_data() -> dict:
         rates_source = "yfinance"  # default
         try:
             fmp = get_fmp_service()
-            fmp_rates = fmp.get_treasury_rates()
+            # Use the new method that calculates daily change in basis points
+            fmp_rates = fmp.get_treasury_rates_with_change()
 
             if fmp_rates and fmp_rates.get("rates") and not fmp_rates.get("error"):
-                # FMP success - use full 12-point yield curve
+                # FMP success - use full 12-point yield curve with daily changes
                 rates_source = "fmp"
                 result["rates"]["yield_curve"] = {}
                 result["rates"]["date"] = fmp_rates.get("date")
+                result["rates"]["prev_date"] = fmp_rates.get("prev_date")
                 result["rates"]["source"] = "fmp"
                 result["rates"]["yield_curve_shape"] = fmp_rates.get("yield_curve_shape", "unknown")
 
-                for tenor, rate in fmp_rates["rates"].items():
-                    if rate is not None:
+                for tenor, rate_data in fmp_rates["rates"].items():
+                    if rate_data is not None:
                         result["rates"]["yield_curve"][tenor] = {
-                            "rate": rate,
-                            "daily_change": None,  # FMP doesn't provide daily change
+                            "rate": rate_data.get("rate"),
+                            "daily_change_bps": rate_data.get("daily_change_bps"),
                         }
 
                 # Use FMP's pre-calculated spreads
                 result["rates"]["spreads"] = fmp_rates.get("spreads", {})
-                print(f"✅ [FMP] Treasury rates loaded: {len(fmp_rates['rates'])} maturities")
+                print(f"[FMP] Treasury rates loaded: {len(fmp_rates['rates'])} maturities, prev_date={fmp_rates.get('prev_date')}")
             else:
                 raise ValueError("FMP returned empty or error response")
 
