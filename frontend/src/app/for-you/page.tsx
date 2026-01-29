@@ -11,7 +11,7 @@ import WatchlistPanel from '@/components/WatchlistPanel';
 import { STOCK_NAMES } from '@/lib/stock-names';
 
 // Watchlist limit
-const MAX_WATCHLIST_SIZE = 15;
+const MAX_WATCHLIST_SIZE = 25;
 
 export default function ForYouPage() {
   const router = useRouter();

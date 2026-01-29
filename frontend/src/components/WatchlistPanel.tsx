@@ -54,7 +54,7 @@ export default function WatchlistPanel({
   symbols,
   quotes,
   stockNames,
-  maxSize = 15,
+  maxSize = 25,
   isLoading = false,
   isLoadingQuotes = false,
   searchQuery,
