@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.utils.timezone import today_str, now_iso
 from app.features.digest.agent import get_personal_digest
-from app.features.digest.db import save_user_digest
+from app.features.digest.db import save_user_digest, get_user_digest
 from app.features.digest.models import (
     DigestRequest,
     DigestResponse,
@@ -32,8 +32,8 @@ async def generate_digest(request: DigestRequest):
     """
     Generate a personalized daily digest based on user's stock watchlist.
 
-    Uses PersonalDigest agent (gemini-3-flash) to generate structured digest
-    with 5 sections: stocks, news (8-10), events, macro impact, bottom line.
+    If today's digest already exists for this user, returns cached data.
+    Otherwise generates a new digest using PersonalDigest agent.
 
     Personalization is based on user's watchlist stocks.
     """
@@ -44,7 +44,94 @@ async def generate_digest(request: DigestRequest):
         if not request.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
-        # Use PersonalDigest for personalized digest
+        today = today_str()
+
+        # Check if today's digest already exists
+        existing_digest = await get_user_digest(request.user_id, today)
+        if existing_digest:
+            # Verify symbols match - regenerate if user changed their watchlist
+            cached_symbols = set(s.upper() for s in existing_digest.get("symbols", []))
+            request_symbols = set(s.upper() for s in request.symbols)
+
+            if cached_symbols != request_symbols:
+                print(f"[Digest] Symbols changed for user {request.user_id[:8]}..., regenerating...")
+                existing_digest = None  # Force regeneration
+            else:
+                print(f"[Digest] Found cached digest for user {request.user_id[:8]}..., date: {today}")
+
+        if existing_digest:
+            digest_data = existing_digest.get("digest_data", {})
+
+            # Transform cached data to response model
+            stocks = [
+                StockAnalysis(
+                    symbol=s.get("symbol", ""),
+                    name=s.get("name", ""),
+                    price=s.get("price", 0),
+                    daily_change=s.get("daily_change", ""),
+                    week_change=s.get("week_change", ""),
+                    status=s.get("status", ""),
+                    quick_take=s.get("quick_take", ""),
+                )
+                for s in digest_data.get("stocks", [])
+            ]
+
+            news_data = digest_data.get("news", {})
+            if isinstance(news_data, dict):
+                headlines = [
+                    DigestHeadlineNews(
+                        title=n.get("title", ""),
+                        related_symbols=n.get("related_symbols", []),
+                        fact_summary=n.get("fact_summary", ""),
+                        deep_analysis=n.get("deep_analysis", ""),
+                        url=n.get("url", ""),
+                    )
+                    for n in news_data.get("headlines", [])
+                ]
+                briefs = [
+                    DigestBriefNews(
+                        title=n.get("title", ""),
+                        related_symbols=n.get("related_symbols", []),
+                        summary=n.get("summary", ""),
+                        analysis=n.get("analysis", ""),
+                        url=n.get("url", ""),
+                    )
+                    for n in news_data.get("briefs", [])
+                ]
+                news = DigestNewsSection(headlines=headlines, briefs=briefs)
+            else:
+                news = DigestNewsSection(headlines=[], briefs=[])
+
+            events = [
+                DigestEvent(
+                    date=e.get("date", ""),
+                    event=e.get("event", ""),
+                    related_symbols=e.get("related_symbols", []),
+                    why_important=e.get("why_important", ""),
+                )
+                for e in digest_data.get("events", [])
+            ]
+
+            summary_data = digest_data.get("summary", {})
+            summary = DigestSummary(
+                content=summary_data.get("content", "") if isinstance(summary_data, dict) else "",
+            )
+
+            return DigestResponse(
+                success=True,
+                timestamp=existing_digest.get("created_at", now_iso()),
+                symbols_used=existing_digest.get("symbols", []),
+                greeting=existing_digest.get("greeting", ""),
+                one_line_summary=existing_digest.get("one_line_summary", ""),
+                stocks=stocks,
+                news=news,
+                events=events,
+                summary=summary,
+                from_cache=True,
+            )
+
+        # No cached digest, generate new one
+        print(f"[Digest] No cached digest found for user {request.user_id[:8]}..., generating new...")
         digest_agent = get_personal_digest()
         result = await digest_agent.generate(symbols=request.symbols)
 
@@ -124,7 +211,7 @@ async def generate_digest(request: DigestRequest):
         }
         save_result = await save_user_digest(save_data)
         if save_result.get("success"):
-            print(f"[Digest] Saved digest for user {request.user_id}, ID: {save_result.get('digest_id')}")
+            print(f"[Digest] Saved digest for user {request.user_id[:8]}..., ID: {save_result.get('digest_id')}")
         else:
             print(f"[Digest] Failed to save: {save_result.get('error')}")
 

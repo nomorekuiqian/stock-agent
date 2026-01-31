@@ -156,7 +156,9 @@
       "mcp__linear__create_issue_label",
       "mcp__linear__create_issue",
       "mcp__linear__update_issue",
-      "mcp__linear__list_issues"
+      "mcp__linear__list_issues",
+      "Bash(gh pr list:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

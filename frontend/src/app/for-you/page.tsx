@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, StockSearchResult, StockQuote } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
-import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort } from '@/lib/timezone';
+import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort, marketTodayStr } from '@/lib/timezone';
 import WatchlistPanel from '@/components/WatchlistPanel';
 import { STOCK_NAMES } from '@/lib/stock-names';
 
@@ -33,7 +33,6 @@ export default function ForYouPage() {
   // Email send state
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const isDev = process.env.NODE_ENV === 'development';
 
   // Stock quotes state
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
@@ -141,7 +140,9 @@ export default function ForYouPage() {
       try {
         const watchlist = await getUserWatchlist(user.id);
         if (watchlist?.symbols) {
-          setSymbols(watchlist.symbols);
+          // Deduplicate symbols
+          const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
+          setSymbols(uniqueSymbols);
         }
 
         const historyResult = await getUserDigests(user.id, 10, 0);
@@ -440,31 +441,41 @@ export default function ForYouPage() {
                 </button>
               )}
 
-              {/* Dev only: Generate button */}
-              {isDev && (
-                <button
-                  onClick={handleGenerateDigest}
-                  disabled={loading || symbols.length === 0}
-                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      <span>生成中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <span>生成报告</span>
-                    </>
-                  )}
-                </button>
-              )}
+              {/* Generate/View Digest button */}
+              {(() => {
+                const hasTodayDigest = history.length > 0 && history[0].digest_date === marketTodayStr();
+                return (
+                  <button
+                    onClick={handleGenerateDigest}
+                    disabled={loading || symbols.length === 0}
+                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span>加载中...</span>
+                      </>
+                    ) : hasTodayDigest ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>查看今日日报</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>生成今日日报</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -552,8 +563,8 @@ export default function ForYouPage() {
                 <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
               </div>
               <div className="divide-y divide-border/30">
-                {digest.stocks.map((stock: StockAnalysis) => (
-                  <div key={stock.symbol} className="py-4 first:pt-0 last:pb-0">
+                {digest.stocks.map((stock: StockAnalysis, index: number) => (
+                  <div key={`${stock.symbol}-${index}`} className="py-4 first:pt-0 last:pb-0">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <span className="font-semibold font-data text-foreground">{stock.symbol}</span>
@@ -742,11 +753,23 @@ export default function ForYouPage() {
             </div>
             <div>
               <h3 className="text-xl font-medium text-foreground mb-2">创建你的个性化报告</h3>
-              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
                 {symbols.length === 0
                   ? '在上方添加股票到关注列表,然后生成你的个性化摘要'
-                  : '点击生成按钮来创建关注列表的个性化市场分析'}
+                  : '根据你的关注列表生成定制化的市场分析报告'}
               </p>
+              {symbols.length > 0 && (
+                <button
+                  onClick={handleGenerateDigest}
+                  disabled={loading}
+                  className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none inline-flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>生成今日日报</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

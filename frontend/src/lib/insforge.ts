@@ -11,8 +11,12 @@ import {
   DigestResponse,
 } from './api';
 
-const INSFORGE_BASE_URL = 'https://9wmhxyi4.us-east.insforge.app';
-const INSFORGE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTAyNDF9.impMF8IELyFYgeBbgiOGJ3OWDqBpVMsyRXHhgaIyS4E';
+const INSFORGE_BASE_URL = process.env.NEXT_PUBLIC_INSFORGE_URL || '';
+const INSFORGE_ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || '';
+
+if (!INSFORGE_BASE_URL || !INSFORGE_ANON_KEY) {
+  console.warn('[Insforge] Missing environment variables: NEXT_PUBLIC_INSFORGE_URL or NEXT_PUBLIC_INSFORGE_ANON_KEY');
+}
 
 export const insforge = createClient({
   baseUrl: INSFORGE_BASE_URL,
@@ -164,6 +168,7 @@ export async function getReportsList(limit = 10, offset = 0): Promise<{ data: Ma
 export interface UserWatchlist {
   id?: string;
   user_id: string;
+  email?: string;
   symbols: string[];
   created_at?: string;
   updated_at?: string;
@@ -232,9 +237,13 @@ export async function saveUserWatchlist(
       return { success: false, error: `Select failed: ${selectError.message}` };
     }
 
+    // Get user email from session for debugging purposes
+    const userEmail = sessionData.session.user.email || '';
+
     const watchlistData: Record<string, unknown> = {
       user_id: userId,
       symbols: symbols,
+      email: userEmail,
       updated_at: nowIso(),
     };
 

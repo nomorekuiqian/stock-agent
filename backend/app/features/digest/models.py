@@ -103,6 +103,9 @@ class DigestResponse(BaseModel):
     # Section 4: Summary (replaces macro_impact + bottom_line)
     summary: DigestSummary = Field(default_factory=DigestSummary, description="Comprehensive summary")
 
+    # Cache indicator
+    from_cache: bool = Field(default=False, description="Whether this digest was returned from cache")
+
     # Error handling
     error: Optional[str] = Field(None, description="Error message if generation failed")
 

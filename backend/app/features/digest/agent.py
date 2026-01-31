@@ -207,8 +207,15 @@ class PersonalDigest:
             if not symbols:
                 return {"success": False, "error": "No symbols provided"}
 
-            # Limit to 25 stocks max
-            symbols = symbols[:25]
+            # Deduplicate and limit to 25 stocks max
+            seen = set()
+            unique_symbols = []
+            for s in symbols:
+                s_upper = s.upper()
+                if s_upper not in seen:
+                    seen.add(s_upper)
+                    unique_symbols.append(s_upper)
+            symbols = unique_symbols[:25]
             print(f"[PersonalDigest] Generating digest for: {symbols}")
 
             # Step 1: Fetch user-specific stock data

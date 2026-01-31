@@ -17,7 +17,7 @@ export async function signUp(
   email: string,
   password: string,
   name?: string
-): Promise<AuthResult & { needsVerification?: boolean }> {
+): Promise<AuthResult> {
   try {
     const { data, error } = await insforge.auth.signUp({ email, password, name });
 
@@ -28,7 +28,6 @@ export async function signUp(
     if (data?.user) {
       return {
         success: true,
-        needsVerification: data.requireEmailVerification || !data.user.emailVerified,
         user: {
           id: data.user.id,
           email: data.user.email || email,
@@ -38,9 +37,8 @@ export async function signUp(
     }
 
     return {
-      success: true,
-      needsVerification: data?.requireEmailVerification ?? true,
-      error: 'Please check your email to verify your account'
+      success: false,
+      error: '注册失败，请重试'
     };
   } catch (error) {
     return {

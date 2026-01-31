@@ -3,7 +3,6 @@ Email Service using Resend for sending daily market reports and personal digests
 Subscription management is handled by SubscriptionService.
 """
 
-import json
 import asyncio
 from datetime import datetime
 from typing import Optional
@@ -483,7 +482,7 @@ class EmailService:
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
                     <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
-                        {{{{{{#if first_name}}}}}}你好，{{{{{{first_name}}}}}}{{{{{{else}}}}}}你好{{{{{{/if}}}}}}
+                        Hi {{{{{{first_name}}}}}}
                     </p>
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         新的一天，为你准备了今日的市场简报，一起看看发生了什么吧。
@@ -737,33 +736,20 @@ class EmailService:
             report_id = data.get("report_id")
             html_content = self._format_html_report(data, report_date, report_id)
 
-            # Replace template variables for single emails
+            # Replace template variables for single sends (not broadcast)
+            from urllib.parse import quote
+
+            # Get first_name if not provided
             display_name = first_name
             if not display_name:
-                # Look up from subscription service
                 sub_service = get_subscription_service()
                 status = sub_service.get_status(
                     SubscriptionChannel.DAILY_REPORT, recipient
                 )
                 if status.get("subscribed"):
-                    display_name = status.get("metadata", {}).get("first_name")
+                    display_name = status.get("metadata", {}).get("first_name", "")
 
-            # Replace Handlebars conditionals for single-recipient emails
-            if display_name:
-                # Has name: show "你好，[name]"
-                html_content = html_content.replace(
-                    "{{{#if first_name}}}你好，{{{first_name}}}{{{else}}}你好{{{/if}}}",
-                    f"你好，{display_name}"
-                )
-            else:
-                # No name: show just "你好"
-                html_content = html_content.replace(
-                    "{{{#if first_name}}}你好，{{{first_name}}}{{{else}}}你好{{{/if}}}",
-                    "你好"
-                )
-            # Replace email template variable for single sends (not broadcast)
-            from urllib.parse import quote
-
+            html_content = html_content.replace("{{{first_name}}}", display_name or "")
             html_content = html_content.replace("{{{email}}}", quote(recipient))
 
             today = today_str()
@@ -1253,30 +1239,22 @@ class EmailService:
 
                 return {"email": email, "success": True}
 
-            async def get_symbols_for_user(
-                user_id: str, metadata: dict, email: str
-            ) -> list:
-                """Get symbols from Insforge, fallback to Resend metadata."""
-                if user_id:
-                    watchlist = await get_user_watchlist(user_id)
-                    if watchlist and watchlist.get("symbols"):
-                        symbols = watchlist.get("symbols", [])
-                        print(
-                            f"[EmailService] Loaded {len(symbols)} symbols from Insforge for {email}"
-                        )
-                        return symbols
+            async def get_symbols_for_user(user_id: str, email: str) -> list:
+                """Get symbols from Insforge user_watchlists table only."""
+                if not user_id:
+                    print(f"[EmailService] No user_id for {email}, skipping")
+                    return []
 
-                symbols = metadata.get("symbols", [])
-                if isinstance(symbols, str):
-                    try:
-                        symbols = json.loads(symbols)
-                    except json.JSONDecodeError:
-                        symbols = []
-                if symbols:
+                watchlist = await get_user_watchlist(user_id)
+                if watchlist and watchlist.get("symbols"):
+                    symbols = watchlist.get("symbols", [])
                     print(
-                        f"[EmailService] Using fallback {len(symbols)} symbols from Resend for {email}"
+                        f"[EmailService] Loaded {len(symbols)} symbols from Insforge for {email}"
                     )
-                return symbols
+                    return symbols
+
+                print(f"[EmailService] No watchlist found in Insforge for {email}")
+                return []
 
             async def process_subscriber(sub: dict) -> dict:
                 """Process a single subscriber with retry logic."""
@@ -1285,7 +1263,7 @@ class EmailService:
                 first_name = metadata.get("first_name", "")
                 user_id = metadata.get("user_id")
 
-                symbols = await get_symbols_for_user(user_id, metadata, email)
+                symbols = await get_symbols_for_user(user_id, email)
                 if not symbols:
                     return {
                         "email": email,

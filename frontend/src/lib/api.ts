@@ -150,6 +150,9 @@ export interface DigestResponse {
   // Section 4: Summary (replaces macro_impact + bottom_line)
   summary: DigestSummary;
 
+  // Cache indicator
+  from_cache?: boolean;
+
   // Error handling
   error?: string;
 }
