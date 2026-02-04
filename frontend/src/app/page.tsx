@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import SubscribeForm from '@/components/SubscribeForm';
+import LogoMarquee from '@/components/LogoMarquee';
 
 export default function Home() {
   return (
@@ -17,28 +18,28 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left - Content */}
             <div>
-              {/* Editorial Style Label */}
+              {/* Product Positioning Tag */}
               <div className="animate-fade-in-up flex items-center gap-3 mb-6">
                 <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">Daily Report</span>
+                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">美股 AI 投资助理</span>
               </div>
 
-              {/* Main Headline */}
+              {/* Main Headline - Clear Value Proposition */}
               <h1 className="animate-fade-in-up delay-100 font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.05] mb-5">
-                5 分钟读完市场
+                每天 5 分钟
                 <br />
-                <span className="text-gradient-emerald">不再被噪音淹没</span>
+                <span className="text-gradient-emerald">读懂美股交易信号</span>
               </h1>
 
-              {/* Subtitle */}
+              {/* Subtitle - Specific Value */}
               <p className="animate-fade-in-up delay-200 text-base md:text-lg text-muted-foreground max-w-md leading-relaxed mb-6">
-                AI 从 5000+ 条新闻中提炼出你需要知道的 5 件事。
+                AI 从 5000+ 条新闻中提炼你需要的交易信号。
                 <br className="hidden sm:block" />
-                每天一杯咖啡的时间，掌握市场全貌。
+                收盘后自动发送，让你带着清晰的头脑规划明天。
               </p>
 
               {/* Quick Value Points */}
-              <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-2">
+              <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-6">
                 {['AI 智能提炼', '收盘后送达', '完全免费'].map((item, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,6 +48,40 @@ export default function Home() {
                     {item}
                   </div>
                 ))}
+              </div>
+
+              {/* Trust Badges - User Count */}
+              <div className="animate-fade-in-up delay-400 flex items-center gap-2">
+                <div className="flex -space-x-1.5">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-5 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border-2 border-background flex items-center justify-center"
+                    >
+                      <span className="text-[8px] text-primary/70 font-medium">
+                        {['K', 'J', 'M'][i]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  已为 <span className="text-foreground font-medium">100+</span> 投资者提供服务
+                </span>
+              </div>
+
+              {/* Secondary CTA - View Sample */}
+              <div className="animate-fade-in-up delay-500 mt-6">
+                <Link
+                  href="/today"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors group"
+                >
+                  <span className="border-b border-primary/30 group-hover:border-primary/60 transition-colors">
+                    先看一份样本报告
+                  </span>
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
             </div>
 
@@ -59,267 +94,22 @@ export default function Home() {
 
         {/* Decorative Line */}
         <div className="divider-fade" />
-      </section>
 
-      {/* Core Capabilities Section - Data Terminal Aesthetic */}
-      <section className="relative py-20 md:py-32 overflow-hidden">
-        {/* Subtle grid background */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-
-        <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-          {/* Section Header - Editorial Style */}
-          <div className="mb-16 md:mb-24">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">Features</span>
-            </div>
-            <h2 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.1]">
-              你的信息处理
-              <span className="text-gradient-emerald">升级</span>
-            </h2>
-          </div>
-
-          {/* Feature 1: The Compression Engine - Hero Feature */}
-          <div className="mb-20 md:mb-32">
-            <div className="grid md:grid-cols-12 gap-8 md:gap-12 items-center">
-              {/* Visual - Terminal Style Data Flow */}
-              <div className="md:col-span-7 relative">
-                <div className="relative rounded-2xl overflow-hidden bg-zinc-100 dark:bg-[#0a0a0a] border border-border shadow-2xl">
-                  {/* Terminal Header */}
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-white/50 dark:bg-card/50">
-                    <div className="flex gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                      <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground ml-2 font-mono">marketbrew-ai-processor</span>
-                  </div>
-
-                  <div className="p-4 md:p-6">
-                    {/* Input Section - Raw Data Sources */}
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" />
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Data Sources</span>
-                        <span className="text-[10px] text-muted-foreground/60 font-mono ml-auto">5,247 items</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { name: 'Reuters', count: '1.2K' },
-                          { name: 'Bloomberg', count: '890' },
-                          { name: 'SEC Filings', count: '156' },
-                          { name: 'Fed Data', count: '45' },
-                          { name: 'Earnings', count: '78' },
-                          { name: 'Social', count: '2.8K' },
-                        ].map((source) => (
-                          <div key={source.name} className="px-2 py-1.5 rounded bg-white/60 dark:bg-muted/30 border border-border">
-                            <p className="text-[9px] text-muted-foreground truncate">{source.name}</p>
-                            <p className="font-data text-xs text-foreground">{source.count}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Processing Animation */}
-                    <div className="flex items-center justify-center py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-px w-8 bg-gradient-to-r from-transparent to-muted-foreground/30" />
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-                          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
-                            <svg className="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                          </div>
-                        </div>
-                        <div className="h-px w-8 bg-gradient-to-r from-primary/50 to-transparent" />
-                      </div>
-                    </div>
-
-                    {/* Output Section - Structured Insights */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        <span className="text-[10px] text-primary uppercase tracking-wider font-mono">Output</span>
-                        <span className="text-[10px] text-primary/60 font-mono ml-auto">5 insights</span>
-                      </div>
-                      <div className="space-y-2">
-                        {[
-                          { label: '今日要点', desc: '科技股领涨，通胀数据回落' },
-                          { label: '关键信号', desc: 'VIX 跌破 15，风险偏好回升' },
-                          { label: '重要新闻', desc: 'Fed 官员释放鸽派信号' },
-                          { label: '财报速递', desc: 'NVDA 业绩超预期 12%' },
-                          { label: '明日关注', desc: 'CPI 数据 & FOMC 纪要' },
-                        ].map((item, idx) => (
-                          <div key={item.label} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 dark:bg-primary/5 border border-primary/30 dark:border-primary/20">
-                            <span className="font-data text-[10px] text-primary w-4">{idx + 1}</span>
-                            <div className="w-px h-4 bg-primary/40" />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-xs text-primary font-medium">{item.label}</span>
-                              <span className="text-xs text-foreground/70 ml-2 truncate">{item.desc}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="md:col-span-5">
-                {/* Feature Name Label */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Feature</p>
-                    <p className="text-sm font-medium text-foreground">每日市场报告</p>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <div className="inline-flex items-center gap-3">
-                    <div className="text-center">
-                      <span className="font-data text-4xl md:text-5xl font-light text-primary">5000</span>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">条新闻</p>
-                    </div>
-                    <svg className="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                    <div className="text-center">
-                      <span className="font-data text-4xl md:text-5xl font-light text-foreground">5</span>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">分钟阅读</p>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-xl md:text-2xl font-medium text-foreground mb-4">
-                  降噪与提取
-                </h3>
-                <p className="text-muted-foreground leading-relaxed mb-6">
-                  每天 5000+ 条新闻、财报、经济数据涌入市场。AI 像你的私人分析师团队，24 小时不停歇地阅读、筛选、提炼——最终只留下最重要的 5 件事。
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {['新闻聚合', '财报解读', '数据提炼', '因果分析'].map((tag) => (
-                    <span key={tag} className="px-3 py-1 text-xs rounded-full bg-muted text-muted-foreground border border-border/50">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
+        {/* Logo Marquee - Data Sources */}
+        <div className="relative py-8 bg-muted/20">
+          <div className="max-w-6xl mx-auto px-4 md:px-6">
+            <div className="flex items-center justify-center gap-6 mb-4">
+              <div className="h-px flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-border/50" />
+              <span className="text-[10px] text-muted-foreground/50 uppercase tracking-[0.2em]">Data Sources</span>
+              <div className="h-px flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-border/50" />
             </div>
           </div>
-
-          {/* Feature 2 & 3: Grid Layout */}
-          <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
-            {/* Feature 2: Personalization */}
-            <div className="group relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-8 rounded-2xl border border-border/50 bg-card/50 hover:border-primary/30 transition-all duration-300">
-                {/* Feature Name Label */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Feature</p>
-                    <p className="text-sm font-medium text-foreground">个性化日报</p>
-                  </div>
-                </div>
-
-                {/* Big Number */}
-                <div className="mb-3">
-                  <span className="font-data text-5xl font-light text-primary">100</span>
-                  <span className="font-data text-3xl text-primary/60">%</span>
-                  <span className="text-lg text-muted-foreground ml-2">与你相关</span>
-                </div>
-
-                <h3 className="text-lg font-medium text-foreground mb-3">
-                  只看你关心的
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  建立你的持仓清单后，每条分析都只针对你关心的股票。不是泛泛而谈的市场评论，而是「这条新闻对你的 $AAPL 意味着什么」。
-                </p>
-
-                {/* Mini visualization */}
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border/30">
-                  <div className="flex -space-x-1">
-                    {['AAPL', 'NVDA', 'MSFT'].map((ticker) => (
-                      <div key={ticker} className="w-6 h-6 rounded-full bg-primary/20 border-2 border-card flex items-center justify-center">
-                        <span className="text-[8px] font-data text-primary">{ticker[0]}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">你的关注列表</span>
-                  <svg className="w-4 h-4 text-primary ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 3: One-Stop Research */}
-            <div className="group relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-8 rounded-2xl border border-border/50 bg-card/50 hover:border-primary/30 transition-all duration-300">
-                {/* Feature Name Label */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Feature</p>
-                    <p className="text-sm font-medium text-foreground">个股投研</p>
-                  </div>
-                </div>
-
-                {/* Big Number */}
-                <div className="mb-3">
-                  <span className="font-data text-5xl font-light text-primary">1</span>
-                  <span className="text-2xl text-muted-foreground ml-2">页看透</span>
-                </div>
-
-                <h3 className="text-lg font-medium text-foreground mb-3">
-                  一站式股票分析
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  基本面、技术面、新闻面、AI 分析——所有你做决策需要的信息，整合在一个清晰的页面里。不用在十几个网站间切换。
-                </p>
-
-                {/* Mini visualization - Data layers */}
-                <div className="space-y-2">
-                  {[
-                    { label: '基本面', width: '90%' },
-                    { label: '技术面', width: '75%' },
-                    { label: '新闻面', width: '85%' },
-                    { label: 'AI 分析', width: '95%' },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center gap-3">
-                      <span className="text-[10px] text-muted-foreground w-12">{item.label}</span>
-                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400"
-                          style={{ width: item.width }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <LogoMarquee speed="slow" />
         </div>
       </section>
 
-      {/* Report Preview Section - Real Email Format */}
-      <section className="relative py-20 md:py-28 overflow-hidden">
+      {/* Report Preview Section - Moved up for immediate product visibility */}
+      <section className="relative py-16 md:py-24 overflow-hidden">
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
         <div className="relative max-w-6xl mx-auto px-4 md:px-6">
@@ -429,39 +219,15 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* News Headlines */}
+              {/* News Headlines - Simplified */}
               <div className="px-6 py-4 border-t border-border/30">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-1 h-4 bg-blue-400 rounded-full"></div>
                   <p className="text-xs font-medium text-blue-400">新闻精选</p>
                 </div>
-                <div className="space-y-3">
-                  <div className="text-xs">
-                    <p className="text-foreground font-medium mb-1">Trump signs executive order on AI infrastructure</p>
-                    <p className="text-muted-foreground leading-relaxed">特朗普签署 AI 基础设施行政令，利好数据中心和芯片企业...</p>
-                  </div>
-                  <div className="text-xs">
-                    <p className="text-foreground font-medium mb-1">Netflix beats Q4 expectations, stock surges</p>
-                    <p className="text-muted-foreground leading-relaxed">Netflix 四季度业绩超预期，订阅用户大幅增长...</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Upcoming Events */}
-              <div className="px-6 py-4 border-t border-border/30">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1 h-4 bg-purple-400 rounded-full"></div>
-                  <p className="text-xs font-medium text-purple-400">近期事件</p>
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground font-data">01/28</span>
-                    <span className="text-foreground">FOMC 利率决议</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground font-data">01/29</span>
-                    <span className="text-foreground">MSFT, META 财报</span>
-                  </div>
+                <div className="text-xs">
+                  <p className="text-foreground font-medium mb-1">Trump signs executive order on AI infrastructure</p>
+                  <p className="text-muted-foreground leading-relaxed">特朗普签署 AI 基础设施行政令，利好数据中心和芯片企业...</p>
                 </div>
               </div>
 
@@ -483,6 +249,175 @@ export default function Home() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Core Capabilities Section - Simplified */}
+      <section className="relative py-20 md:py-28 overflow-hidden">
+        {/* Subtle grid background */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
+
+        <div className="relative max-w-6xl mx-auto px-4 md:px-6">
+          {/* Section Header - Editorial Style */}
+          <div className="mb-12 md:mb-16">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">Features</span>
+            </div>
+            <h2 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.1]">
+              三大核心功能
+            </h2>
+          </div>
+
+          {/* Feature 1: Daily Report - Simplified Hero */}
+          <Link href="/today" className="block mb-8 group">
+            <div className="relative p-8 md:p-10 rounded-2xl border border-border/50 bg-card/50 hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+              <div className="grid md:grid-cols-2 gap-8 items-center">
+                {/* Left - Content */}
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">核心功能</p>
+                      <p className="text-lg font-medium text-foreground">每日市场报告</p>
+                    </div>
+                  </div>
+
+                  <h3 className="text-2xl md:text-3xl font-medium text-foreground mb-4">
+                    5000+ 条新闻 <span className="text-primary">→</span> 5 分钟阅读
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed mb-6">
+                    AI 帮你从海量信息中提炼当日要点、关键信号、重要新闻。每个交易日收盘后自动生成，让你用最短时间掌握市场全貌。
+                  </p>
+
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm group-hover:shadow-lg group-hover:shadow-primary/25 transition-all">
+                    查看今日日报
+                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Right - Simple Visual */}
+                <div className="hidden md:block">
+                  <div className="space-y-3">
+                    {[
+                      { label: '今日要点', color: 'bg-primary' },
+                      { label: '关键信号', color: 'bg-amber-400' },
+                      { label: '新闻精选', color: 'bg-blue-400' },
+                      { label: '近期事件', color: 'bg-purple-400' },
+                      { label: '总结展望', color: 'bg-primary' },
+                    ].map((item, idx) => (
+                      <div key={item.label} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/30 border border-border/30">
+                        <div className={`w-1 h-6 ${item.color} rounded-full`} />
+                        <span className="text-sm text-foreground">{item.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden ml-auto max-w-[120px]">
+                          <div className={`h-full ${item.color} rounded-full`} style={{ width: `${85 - idx * 10}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Feature 2 & 3: Grid Layout */}
+          <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
+            {/* Feature 2: Personalization */}
+            <Link href="/for-you" className="group relative h-full block">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative p-8 rounded-2xl border border-border/50 bg-card/50 hover:border-primary/40 transition-all duration-300 h-full flex flex-col">
+                {/* Feature Name Label */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">功能</p>
+                    <p className="text-sm font-medium text-foreground">个性化日报</p>
+                  </div>
+                </div>
+
+                {/* Big Number */}
+                <div className="mb-3">
+                  <span className="font-data text-5xl font-light text-primary">100</span>
+                  <span className="font-data text-3xl text-primary/60">%</span>
+                  <span className="text-lg text-muted-foreground ml-2">与你相关</span>
+                </div>
+
+                <h3 className="text-lg font-medium text-foreground mb-3">
+                  只看你关心的
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
+                  添加你的持仓清单，获得只针对你关心股票的分析。不是泛泛而谈，而是「这条新闻对你的 $AAPL 意味着什么」。
+                </p>
+
+                {/* CTA Button */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/30 mt-auto group-hover:border-primary/30 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="flex -space-x-1">
+                      {['AAPL', 'NVDA', 'MSFT'].map((ticker) => (
+                        <div key={ticker} className="w-6 h-6 rounded-full bg-primary/20 border-2 border-card flex items-center justify-center">
+                          <span className="text-[8px] font-data text-primary">{ticker[0]}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">创建关注列表</span>
+                  </div>
+                  <svg className="w-4 h-4 text-primary transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
+
+            {/* Feature 3: One-Stop Research */}
+            <Link href="/stock" className="group relative h-full block">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative p-8 rounded-2xl border border-border/50 bg-card/50 hover:border-primary/40 transition-all duration-300 h-full flex flex-col">
+                {/* Feature Name Label */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">功能</p>
+                    <p className="text-sm font-medium text-foreground">个股投研</p>
+                  </div>
+                </div>
+
+                {/* Big Number */}
+                <div className="mb-3">
+                  <span className="font-data text-5xl font-light text-primary">1</span>
+                  <span className="text-2xl text-muted-foreground ml-2">页看透</span>
+                </div>
+
+                <h3 className="text-lg font-medium text-foreground mb-3">
+                  一站式股票分析
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
+                  基本面、技术面、新闻面、AI 分析——所有你做决策需要的信息，整合在一个清晰的页面里。
+                </p>
+
+                {/* CTA Button */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/30 mt-auto group-hover:border-primary/30 transition-colors">
+                  <span className="text-xs text-muted-foreground">搜索任意美股</span>
+                  <svg className="w-4 h-4 text-primary transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </section>

@@ -470,6 +470,16 @@ h1, h2, h3, h4, h5, h6 {
 .delay-600 { animation-delay: 600ms; }
 .delay-700 { animation-delay: 700ms; }
 
+/* Marquee - Infinite scroll animation */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 /* Sparkline Draw Animation */
 @keyframes draw-line {
   from {
