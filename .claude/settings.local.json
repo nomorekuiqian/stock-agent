@@ -158,7 +158,8 @@
       "mcp__linear__update_issue",
       "mcp__linear__list_issues",
       "Bash(gh pr list:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "ask": []
