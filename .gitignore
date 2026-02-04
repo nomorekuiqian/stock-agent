@@ -38,6 +38,17 @@ htmlcov/
 *~
 .DS_Store
 
+# AI Tools & Skills
+.agent/
+.agents/
+.codex/
+.cursor/
+.gemini/
+.opencode/
+.claude/
+skills/
+.github/skills/
+
 # Node (covered by frontend/.gitignore but listed for clarity)
 node_modules/
 .next/

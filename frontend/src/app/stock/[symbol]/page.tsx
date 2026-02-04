@@ -693,23 +693,61 @@ function SubsectionHeader({ title, titleEn }: {
 
 function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
   return (
-    <div className={`prose prose-sm prose-invert max-w-none ${className}`}>
+    <div className={`max-w-none ${className}`}>
       <ReactMarkdown
         components={{
-          // Customize heading styles
-          h1: ({ children }) => <h4 className="text-sm font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h4>,
-          h2: ({ children }) => <h5 className="text-sm font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h5>,
-          h3: ({ children }) => <h6 className="text-sm font-medium text-foreground/90 mt-2 mb-1">{children}</h6>,
-          // Paragraph styles
-          p: ({ children }) => <p className="text-sm text-muted-foreground leading-relaxed mb-2 last:mb-0">{children}</p>,
-          // Strong/bold text
-          strong: ({ children }) => <strong className="font-semibold text-foreground/90">{children}</strong>,
-          // List styles
-          ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
-          li: ({ children }) => <li className="text-sm text-muted-foreground">{children}</li>,
-          // Code styles (for financial terms)
-          code: ({ children }) => <code className="font-data text-amber-400/90 bg-amber-500/10 px-1 py-0.5 rounded text-xs">{children}</code>,
+          // Heading styles - more prominent with better hierarchy
+          h1: ({ children }) => (
+            <h4 className="text-base font-semibold text-foreground mt-5 mb-3 first:mt-0 pb-2 border-b border-border/30">
+              {children}
+            </h4>
+          ),
+          h2: ({ children }) => (
+            <h5 className="text-sm font-semibold text-foreground mt-4 mb-2 first:mt-0">
+              {children}
+            </h5>
+          ),
+          h3: ({ children }) => (
+            <h6 className="text-sm font-medium text-foreground mt-3 mb-2">
+              {children}
+            </h6>
+          ),
+          // Paragraph styles - better readability
+          p: ({ children }) => (
+            <p className="text-sm text-foreground/80 leading-relaxed mb-3 last:mb-0">
+              {children}
+            </p>
+          ),
+          // Strong/bold text - used as inline headers in AI content
+          strong: ({ children }) => (
+            <strong className="font-semibold text-foreground">
+              {children}
+            </strong>
+          ),
+          // List styles - proper indentation and spacing
+          ul: ({ children }) => (
+            <ul className="pl-4 space-y-2 my-3 border-l-2 border-border/40">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal pl-5 space-y-2 my-3">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => (
+            <li className="text-sm text-foreground/80 leading-relaxed pl-2">
+              {children}
+            </li>
+          ),
+          // Code styles - for financial terms like P/E, ROE
+          code: ({ children }) => (
+            <code className="font-data text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded text-xs font-medium">
+              {children}
+            </code>
+          ),
+          // Horizontal rule
+          hr: () => <hr className="my-4 border-border/30" />,
         }}
       >
         {content}
