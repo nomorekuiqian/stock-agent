@@ -201,3 +201,47 @@ export async function getSession() {
     return null;
   }
 }
+
+// =============================================================================
+// Password Reset Functions
+// =============================================================================
+
+export async function sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.sendResetPasswordEmail({ email });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: data?.success ?? false };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function resetPassword(
+  newPassword: string,
+  otp: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.resetPassword({
+      newPassword,
+      otp,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: !!data?.message };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}

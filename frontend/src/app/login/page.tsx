@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 function LoadingSpinner(): ReactNode {
@@ -239,9 +240,19 @@ function LoginPageContent() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground/90 mb-2">
-              密码
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-foreground/90">
+                密码
+              </label>
+              {!isSignUp && (
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  忘记密码?
+                </Link>
+              )}
+            </div>
             <input
               id="password"
               type="password"
