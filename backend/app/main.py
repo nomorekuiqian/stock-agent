@@ -29,6 +29,7 @@ from app.features.sector.router import router as sector_router
 from app.features.liquidity.router import router as liquidity_router
 from app.features.subscription.router import router as subscription_router
 from app.features.feedback.router import router as feedback_router
+from app.features.macro_risk.router import router as macro_risk_router
 
 app.include_router(market_router)
 app.include_router(digest_router)
@@ -37,6 +38,7 @@ app.include_router(sector_router)
 app.include_router(liquidity_router)
 app.include_router(subscription_router)
 app.include_router(feedback_router)
+app.include_router(macro_risk_router)
 
 
 @app.get("/")

@@ -33,7 +33,7 @@ const logos = [
           <rect x="7" y="15" width="5" height="5" />
         </g>
         <text x="20" y="23" className="text-[20px] font-bold" style={{ fontFamily: 'Arial, sans-serif', letterSpacing: '-0.5px' }}>
-          <tspan className="fill-black dark:fill-white">Bloomberg</tspan>
+          <tspan className="fill-white">Bloomberg</tspan>
         </text>
       </svg>
     ),
@@ -62,14 +62,14 @@ const logos = [
     // Classical columns
     svg: (
       <svg viewBox="0 0 90 32" className="h-6 w-auto">
-        <g className="fill-[#002F6C] dark:fill-[#4A90D9]">
+        <g className="fill-[#4A90D9]">
           <rect x="2" y="8" width="3" height="16" />
           <rect x="8" y="8" width="3" height="16" />
           <rect x="14" y="8" width="3" height="16" />
           <rect x="0" y="6" width="19" height="2" />
           <rect x="0" y="24" width="19" height="2" />
         </g>
-        <text x="24" y="23" className="text-[20px] font-bold fill-[#002F6C] dark:fill-[#4A90D9]" style={{ fontFamily: 'Arial, sans-serif', letterSpacing: '1px' }}>
+        <text x="24" y="23" className="text-[20px] font-bold fill-[#4A90D9]" style={{ fontFamily: 'Arial, sans-serif', letterSpacing: '1px' }}>
           NYSE
         </text>
       </svg>
@@ -82,9 +82,9 @@ const logos = [
       <svg viewBox="0 0 80 32" className="h-6 w-auto">
         <path
           d="M10 6 L18 6 L18 18 C18 22 14 26 10 26 C6 26 2 22 2 18 L2 6 Z"
-          className="fill-[#002B5C] dark:fill-[#6B9BD2]"
+          className="fill-[#6B9BD2]"
         />
-        <text x="24" y="23" className="text-[20px] font-bold fill-[#002B5C] dark:fill-[#6B9BD2]" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <text x="24" y="23" className="text-[20px] font-bold fill-[#6B9BD2]" style={{ fontFamily: 'Arial, sans-serif' }}>
           SEC
         </text>
       </svg>
@@ -109,13 +109,13 @@ const logos = [
     // Newspaper dots pattern
     svg: (
       <svg viewBox="0 0 70 32" className="h-6 w-auto">
-        <g className="fill-black dark:fill-white" opacity="0.4">
+        <g className="fill-white" opacity="0.4">
           <circle cx="3" cy="8" r="1.5" />
           <circle cx="8" cy="8" r="1.5" />
           <circle cx="3" cy="13" r="1.5" />
           <circle cx="8" cy="13" r="1.5" />
         </g>
-        <text x="14" y="23" className="text-[20px] font-bold fill-black dark:fill-white" style={{ fontFamily: 'Georgia, serif' }}>
+        <text x="14" y="23" className="text-[20px] font-bold fill-white" style={{ fontFamily: 'Georgia, serif' }}>
           WSJ
         </text>
       </svg>
@@ -126,12 +126,12 @@ const logos = [
     // Chart/data icon
     svg: (
       <svg viewBox="0 0 90 32" className="h-6 w-auto">
-        <g className="stroke-[#003366] dark:stroke-[#5B8AC2]" fill="none" strokeWidth="2">
-          <rect x="2" y="18" width="4" height="8" className="fill-[#003366] dark:fill-[#5B8AC2]" />
-          <rect x="8" y="12" width="4" height="14" className="fill-[#003366] dark:fill-[#5B8AC2]" />
-          <rect x="14" y="6" width="4" height="20" className="fill-[#003366] dark:fill-[#5B8AC2]" />
+        <g className="stroke-[#5B8AC2]" fill="none" strokeWidth="2">
+          <rect x="2" y="18" width="4" height="8" className="fill-[#5B8AC2]" />
+          <rect x="8" y="12" width="4" height="14" className="fill-[#5B8AC2]" />
+          <rect x="14" y="6" width="4" height="20" className="fill-[#5B8AC2]" />
         </g>
-        <text x="24" y="23" className="text-[18px] font-bold fill-[#003366] dark:fill-[#5B8AC2]" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <text x="24" y="23" className="text-[18px] font-bold fill-[#5B8AC2]" style={{ fontFamily: 'Arial, sans-serif' }}>
           FRED
         </text>
       </svg>

@@ -129,6 +129,26 @@
   --sidebar-ring: #059669;
 }
 
+/* Force dark theme for hero section regardless of theme */
+.hero-dark {
+  --background: #050506;
+  --foreground: #FAFAF9;
+  --card: #111113;
+  --card-foreground: #FAFAF9;
+  --popover: #0C0C0E;
+  --popover-foreground: #FAFAF9;
+  --primary: #10B981;
+  --primary-foreground: #050506;
+  --secondary: #141416;
+  --secondary-foreground: #FAFAF9;
+  --muted: #1A1A1D;
+  --muted-foreground: #A1A1AA;
+  --accent: #141416;
+  --accent-foreground: #10B981;
+  --border: #3F3F46;
+  --input: #3F3F46;
+}
+
 /* Base Styles */
 html {
   scroll-behavior: smooth;
@@ -267,6 +287,20 @@ h1, h2, h3, h4, h5, h6 {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     filter: drop-shadow(0 0 20px rgba(5, 150, 105, 0.3));
+  }
+
+  /* Force dark gradient inside hero-dark even in light mode */
+  .hero-dark .text-gradient-emerald {
+    background: linear-gradient(135deg, #6EE7B7 0%, #A7F3D0 50%, #D1FAE5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(110, 231, 183, 0.5));
+  }
+
+  /* Nav text pure white when transparent over dark hero */
+  nav.hero-dark {
+    --muted-foreground: #FAFAF9;
   }
 
   /* Dot Grid Background - Enhanced for visibility */

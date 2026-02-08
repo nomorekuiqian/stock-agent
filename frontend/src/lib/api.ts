@@ -419,6 +419,72 @@ export interface SectorDigestHistoryResponse {
   total: number;
 }
 
+// Macro Risk Dashboard Types
+export interface RiskIndicator {
+  series_id: string;
+  name: string;
+  value: number | null;
+  date: string | null;
+  units: string;
+  change: number | null;
+  previous_value: number | null;
+  source: string;
+}
+
+export interface CategoryRiskScore {
+  category_id: number;
+  category_name: string;
+  risk_score: number;
+  risk_level: string;
+  headline: string;
+  indicators: RiskIndicator[];
+}
+
+export interface AIStockInfo {
+  symbol: string;
+  price: number | null;
+  daily_change: number | null;
+  name: string;
+}
+
+export interface MacroRiskDashboardResponse {
+  success: boolean;
+  timestamp: string;
+  composite_score: number;
+  composite_level: string;
+  categories: CategoryRiskScore[];
+  ai_stocks: AIStockInfo[];
+  liquidity_summary: {
+    nfci: { value: number | null; date: string | null; change: number | null };
+    net_liquidity: { value: number | null; date: string | null; units: string; change: number | null };
+  } | null;
+}
+
+// Economic Fundamentals Types
+export interface SubDimension {
+  name: string;
+  name_zh: string;
+  score: number;
+  risk_level: string;
+  weight: number;
+  headline: string;
+  indicators: RiskIndicator[];
+}
+
+export interface EconomicFundamentals {
+  timestamp: string;
+  overall_score: number;
+  overall_level: string;
+  overall_headline: string;
+  sub_dimensions: SubDimension[];
+}
+
+export interface EconomicFundamentalsResponse {
+  success: boolean;
+  timestamp: string;
+  data: EconomicFundamentals;
+}
+
 export const api = {
   getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
@@ -649,6 +715,26 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to fetch analysis' }));
       throw new Error(error.detail || 'Failed to fetch analysis');
+    }
+    return response.json();
+  },
+
+  // Macro Risk Dashboard API
+  getMacroRiskDashboard: async (): Promise<MacroRiskDashboardResponse> => {
+    const response = await fetch(`${API_BASE_URL}/macro-risk/dashboard`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch macro risk dashboard' }));
+      throw new Error(error.detail || 'Failed to fetch macro risk dashboard');
+    }
+    return response.json();
+  },
+
+  // Economic Fundamentals API
+  getEconomicFundamentals: async (): Promise<EconomicFundamentalsResponse> => {
+    const response = await fetch(`${API_BASE_URL}/macro-risk/economy`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch economic fundamentals' }));
+      throw new Error(error.detail || 'Failed to fetch economic fundamentals');
     }
     return response.json();
   },

@@ -12,6 +12,7 @@ Provides access to Federal Reserve Economic Data (FRED) for:
 
 import os
 import asyncio
+import time
 from typing import Optional
 import httpx
 from dotenv import load_dotenv
@@ -23,7 +24,32 @@ load_dotenv()
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 
-# Key FRED series for liquidity monitoring
+_FRED_SEMAPHORE: asyncio.Semaphore | None = None
+_CACHE_TTL = 600  # 10 minutes
+_liquidity_cache: dict = {}
+_liquidity_lock: asyncio.Lock | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _FRED_SEMAPHORE
+    if _FRED_SEMAPHORE is None:
+        _FRED_SEMAPHORE = asyncio.Semaphore(5)
+    return _FRED_SEMAPHORE
+
+
+def _get_liquidity_lock() -> asyncio.Lock:
+    global _liquidity_lock
+    if _liquidity_lock is None:
+        _liquidity_lock = asyncio.Lock()
+    return _liquidity_lock
+
+
+def _get_cached_liquidity():
+    if _liquidity_cache and (time.time() - _liquidity_cache.get("ts", 0)) < _CACHE_TTL:
+        return _liquidity_cache.get("data")
+    return None
+
+
 LIQUIDITY_SERIES = {
     "fed_assets": "WALCL",       # Fed Total Assets (Billions, Weekly)
     "tga": "WDTGAL",             # Treasury General Account (Millions, Weekly)
@@ -41,22 +67,10 @@ async def fetch_fred_series(
     end_date: Optional[str] = None,
     limit: int = 100,
 ) -> dict:
-    """
-    Fetch a single FRED series.
-
-    Args:
-        series_id: FRED series ID (e.g., "WALCL")
-        start_date: Start date in YYYY-MM-DD format
-        end_date: End date in YYYY-MM-DD format
-        limit: Maximum number of observations
-
-    Returns:
-        Dict with series info and observations
-    """
+    """Fetch a single FRED series with info and observations."""
     if not FRED_API_KEY:
         raise ValueError("FRED_API_KEY not configured")
 
-    # Default to last 2 years if no dates specified (Pacific timezone)
     if not end_date:
         end_date = today_str()
     if not start_date:
@@ -72,20 +86,21 @@ async def fetch_fred_series(
         "limit": limit,
     }
 
-    async with httpx.AsyncClient() as client:
-        # Get series info
-        info_response = await client.get(
-            f"{FRED_BASE_URL}/series",
-            params={"series_id": series_id, "api_key": FRED_API_KEY, "file_type": "json"}
-        )
-        info_data = info_response.json()
+    async with _get_semaphore():
+        async with httpx.AsyncClient() as client:
+            info_response = await client.get(
+                f"{FRED_BASE_URL}/series",
+                params={"series_id": series_id, "api_key": FRED_API_KEY, "file_type": "json"}
+            )
+            info_response.raise_for_status()
+            info_data = info_response.json()
 
-        # Get observations
-        obs_response = await client.get(
-            f"{FRED_BASE_URL}/series/observations",
-            params=params
-        )
-        obs_data = obs_response.json()
+            obs_response = await client.get(
+                f"{FRED_BASE_URL}/series/observations",
+                params=params
+            )
+            obs_response.raise_for_status()
+            obs_data = obs_response.json()
 
     series_info = info_data.get("seriess", [{}])[0]
     observations = obs_data.get("observations", [])
@@ -116,7 +131,6 @@ async def get_latest_value(series_id: str) -> dict:
 
     latest = data["observations"][0]
 
-    # Calculate change compared to previous data point
     change = None
     previous_date = None
     if len(data["observations"]) >= 2:
@@ -140,92 +154,85 @@ async def get_latest_value(series_id: str) -> dict:
 async def get_all_liquidity_metrics() -> dict:
     """
     Fetch all key liquidity metrics in parallel.
-
-    Returns:
-        Dict with all liquidity indicators and calculated net liquidity
+    Uses in-memory cache (10 min TTL) + request coalescing to avoid FRED rate limits.
     """
-    metrics = {}
+    cached = _get_cached_liquidity()
+    if cached:
+        return cached
 
-    # Fetch all series in parallel using asyncio.gather
-    keys = list(LIQUIDITY_SERIES.keys())
-    series_ids = list(LIQUIDITY_SERIES.values())
+    async with _get_liquidity_lock():
+        cached = _get_cached_liquidity()
+        if cached:
+            print("[Liquidity] Returning cached data (coalesced)")
+            return cached
 
-    async def fetch_with_error_handling(key: str, series_id: str):
+        async def fetch_with_error_handling(key: str, series_id: str):
+            try:
+                return key, await get_latest_value(series_id)
+            except Exception as e:
+                print(f"Error fetching {series_id}: {e}")
+                return key, {"value": None, "error": str(e)}
+
+        results = await asyncio.gather(
+            *[fetch_with_error_handling(k, sid) for k, sid in LIQUIDITY_SERIES.items()]
+        )
+
+        metrics = {key: value for key, value in results}
+
+        # Net Liquidity = Fed Assets - TGA - RRP
+        # Units: WALCL (Millions), WDTGAL (Millions), RRPONTSYD (Billions)
         try:
-            return key, await get_latest_value(series_id)
-        except Exception as e:
-            print(f"Error fetching {series_id}: {e}")
-            return key, {"value": None, "error": str(e)}
+            fed_assets = metrics["fed_assets"]["value"] / 1000 if metrics["fed_assets"]["value"] else None
+            tga = metrics["tga"]["value"] / 1000 if metrics["tga"]["value"] else None
+            rrp = metrics["rrp"]["value"]
 
-    results = await asyncio.gather(
-        *[fetch_with_error_handling(key, series_id) for key, series_id in zip(keys, series_ids)]
-    )
+            if fed_assets is not None and tga is not None and rrp is not None:
+                net_liquidity = fed_assets - tga - rrp
 
-    for key, value in results:
-        metrics[key] = value
+                # Get previous values for change calculation
+                fed_data = await fetch_fred_series("WALCL", limit=5)
+                tga_data = await fetch_fred_series("WDTGAL", limit=5)
+                rrp_data = await fetch_fred_series("RRPONTSYD", limit=5)
 
-    # Calculate Net Liquidity = Fed Assets - TGA - RRP
-    # Note: Units differ - WALCL is in Millions, WDTGAL is in Millions, RRPONTSYD is in Billions
-    try:
-        fed_assets = metrics["fed_assets"]["value"] / 1000 if metrics["fed_assets"]["value"] else None  # Convert Millions to Billions
-        tga = metrics["tga"]["value"] / 1000 if metrics["tga"]["value"] else None  # Convert Millions to Billions
-        rrp = metrics["rrp"]["value"]  # Billions
+                prev_fed_v = fed_data["observations"][1]["value"] if len(fed_data["observations"]) >= 2 else None
+                prev_tga_v = tga_data["observations"][1]["value"] if len(tga_data["observations"]) >= 2 else None
+                prev_rrp_v = rrp_data["observations"][1]["value"] if len(rrp_data["observations"]) >= 2 else None
 
-        if all([fed_assets, tga is not None, rrp]):
-            net_liquidity = fed_assets - tga - rrp
+                if prev_fed_v is not None and prev_tga_v is not None and prev_rrp_v is not None:
+                    prev_net = prev_fed_v / 1000 - prev_tga_v / 1000 - prev_rrp_v
+                    net_change = ((net_liquidity - prev_net) / abs(prev_net)) * 100 if prev_net else None
+                else:
+                    net_change = None
 
-            # Get previous values for change calculation
-            fed_data = await fetch_fred_series("WALCL", limit=5)
-            tga_data = await fetch_fred_series("WDTGAL", limit=5)
-            rrp_data = await fetch_fred_series("RRPONTSYD", limit=5)
-
-            if (len(fed_data["observations"]) >= 2 and
-                len(tga_data["observations"]) >= 2 and
-                len(rrp_data["observations"]) >= 2):
-
-                prev_fed = fed_data["observations"][1]["value"] / 1000  # Convert Millions to Billions
-                prev_tga = tga_data["observations"][1]["value"] / 1000  # Convert Millions to Billions
-                prev_rrp = rrp_data["observations"][1]["value"]  # Already in Billions
-                prev_net = prev_fed - prev_tga - prev_rrp
-
-                net_change = ((net_liquidity - prev_net) / abs(prev_net)) * 100 if prev_net else None
+                metrics["net_liquidity"] = {
+                    "series_id": "CALCULATED",
+                    "title": "Net Liquidity (WALCL - TGA - RRP)",
+                    "value": net_liquidity,
+                    "date": metrics["fed_assets"]["date"],
+                    "units": "Billions of Dollars",
+                    "change": net_change,
+                    "previous_date": fed_data["observations"][1]["date"] if len(fed_data["observations"]) >= 2 else None,
+                    "formula": "Fed Assets - TGA - RRP"
+                }
             else:
-                net_change = None
+                metrics["net_liquidity"] = {"value": None, "error": "Missing component data"}
 
-            metrics["net_liquidity"] = {
-                "series_id": "CALCULATED",
-                "title": "Net Liquidity (WALCL - TGA - RRP)",
-                "value": net_liquidity,
-                "date": metrics["fed_assets"]["date"],
-                "units": "Billions of Dollars",
-                "change": net_change,
-                "previous_date": fed_data["observations"][1]["date"] if len(fed_data["observations"]) >= 2 else None,
-                "formula": "Fed Assets - TGA - RRP"
-            }
-        else:
-            metrics["net_liquidity"] = {"value": None, "error": "Missing component data"}
+        except Exception as e:
+            print(f"Error calculating net liquidity: {e}")
+            metrics["net_liquidity"] = {"value": None, "error": str(e)}
 
-    except Exception as e:
-        print(f"Error calculating net liquidity: {e}")
-        metrics["net_liquidity"] = {"value": None, "error": str(e)}
+        _liquidity_cache["data"] = metrics
+        _liquidity_cache["ts"] = time.time()
+        print(f"[Liquidity] Cached {len(metrics)} metrics")
 
-    return metrics
+        return metrics
 
 
 async def get_liquidity_history(days: int = 365) -> dict:
-    """
-    Fetch historical data for net liquidity calculation.
-
-    Args:
-        days: Number of days of history to fetch
-
-    Returns:
-        Dict with historical net liquidity data including reserves, rates, and NFCI
-    """
-    start_date = days_ago(days)  # Pacific timezone
+    """Fetch historical data for net liquidity calculation including reserves, rates, and NFCI."""
+    start_date = days_ago(days)
     end_date = today_str()
 
-    # Fetch all component series in parallel
     fed_data, tga_data, rrp_data, reserves_data, sofr_data, effr_data, nfci_data = await asyncio.gather(
         fetch_fred_series("WALCL", start_date, end_date, limit=500),
         fetch_fred_series("WDTGAL", start_date, end_date, limit=500),
@@ -236,19 +243,15 @@ async def get_liquidity_history(days: int = 365) -> dict:
         fetch_fred_series("NFCI", start_date, end_date, limit=500),
     )
 
-    # Create lookup dicts by date - convert to Billions
-    fed_by_date = {obs["date"]: obs["value"] / 1000 for obs in fed_data["observations"]}  # Convert Millions to Billions
-    tga_by_date = {obs["date"]: obs["value"] / 1000 for obs in tga_data["observations"]}  # Convert Millions to Billions
-    rrp_by_date = {obs["date"]: obs["value"] for obs in rrp_data["observations"]}  # Already in Billions
-
-    # Additional lookups (reserves in Millions, rates in %)
-    reserves_by_date = {obs["date"]: obs["value"] / 1000 for obs in reserves_data["observations"]}  # Convert to Billions
+    # Lookup dicts by date (Millions converted to Billions where needed)
+    tga_by_date = {obs["date"]: obs["value"] / 1000 for obs in tga_data["observations"]}
+    rrp_by_date = {obs["date"]: obs["value"] for obs in rrp_data["observations"]}
+    reserves_by_date = {obs["date"]: obs["value"] / 1000 for obs in reserves_data["observations"]}
     sofr_by_date = {obs["date"]: obs["value"] for obs in sofr_data["observations"]}
     effr_by_date = {obs["date"]: obs["value"] for obs in effr_data["observations"]}
     nfci_by_date = {obs["date"]: obs["value"] for obs in nfci_data["observations"]}
 
     def find_closest_value(lookup_dict, target_date):
-        """Find the closest available value for a given date."""
         if target_date in lookup_dict:
             return lookup_dict[target_date]
         for d in sorted(lookup_dict.keys(), reverse=True):
@@ -256,15 +259,12 @@ async def get_liquidity_history(days: int = 365) -> dict:
                 return lookup_dict[d]
         return None
 
-    # Calculate net liquidity for each date where we have all components
-    # Use Fed assets dates as base (weekly)
     net_liquidity_history = []
 
     for obs in fed_data["observations"]:
         date = obs["date"]
-        fed_val = obs["value"] / 1000  # Convert Millions to Billions
+        fed_val = obs["value"] / 1000
 
-        # Find closest values for all components
         tga_val = find_closest_value(tga_by_date, date)
         rrp_val = find_closest_value(rrp_by_date, date)
         reserves_val = find_closest_value(reserves_by_date, date)
@@ -272,9 +272,9 @@ async def get_liquidity_history(days: int = 365) -> dict:
         effr_val = find_closest_value(effr_by_date, date)
         nfci_val = find_closest_value(nfci_by_date, date)
 
-        if all([fed_val, tga_val is not None, rrp_val]):
+        if fed_val is not None and tga_val is not None and rrp_val is not None:
             net_liquidity_history.append({
-                "time": date,  # Use "time" for lightweight-charts compatibility
+                "time": date,
                 "value": round(fed_val - tga_val - rrp_val, 2),
                 "fed_assets": fed_val,
                 "tga": tga_val,
@@ -285,10 +285,8 @@ async def get_liquidity_history(days: int = 365) -> dict:
                 "nfci": nfci_val,
             })
 
-    # Sort by date ascending for charts
     net_liquidity_history.sort(key=lambda x: x["time"])
 
-    # Build metrics from latest data point to avoid separate API calls
     metrics = None
     if len(net_liquidity_history) >= 2:
         latest = net_liquidity_history[-1]
@@ -299,88 +297,28 @@ async def get_liquidity_history(days: int = 365) -> dict:
                 return ((current - prev) / abs(prev)) * 100
             return None
 
-        # Get raw values from original data for accurate units
-        latest_fed_raw = fed_data["observations"][0]["value"] if fed_data["observations"] else None
-        latest_tga_raw = tga_data["observations"][0]["value"] if tga_data["observations"] else None
-        latest_rrp_raw = rrp_data["observations"][0]["value"] if rrp_data["observations"] else None
-        latest_reserves_raw = reserves_data["observations"][0]["value"] if reserves_data["observations"] else None
-        latest_sofr_raw = sofr_data["observations"][0]["value"] if sofr_data["observations"] else None
-        latest_effr_raw = effr_data["observations"][0]["value"] if effr_data["observations"] else None
-        latest_nfci_raw = nfci_data["observations"][0]["value"] if nfci_data["observations"] else None
-
-        # Get previous raw values for change calculation
-        prev_fed_raw = fed_data["observations"][1]["value"] if len(fed_data["observations"]) > 1 else None
-        prev_tga_raw = tga_data["observations"][1]["value"] if len(tga_data["observations"]) > 1 else None
-        prev_rrp_raw = rrp_data["observations"][1]["value"] if len(rrp_data["observations"]) > 1 else None
-        prev_reserves_raw = reserves_data["observations"][1]["value"] if len(reserves_data["observations"]) > 1 else None
-        prev_sofr_raw = sofr_data["observations"][1]["value"] if len(sofr_data["observations"]) > 1 else None
-        prev_effr_raw = effr_data["observations"][1]["value"] if len(effr_data["observations"]) > 1 else None
-        prev_nfci_raw = nfci_data["observations"][1]["value"] if len(nfci_data["observations"]) > 1 else None
+        def build_metric(series_id: str, data: dict, default_title: str, default_units: str) -> dict:
+            obs = data["observations"]
+            latest_val = obs[0]["value"] if obs else None
+            prev_val = obs[1]["value"] if len(obs) > 1 else None
+            return {
+                "series_id": series_id,
+                "title": data.get("title", default_title),
+                "value": latest_val,
+                "date": obs[0]["date"] if obs else None,
+                "units": data.get("units", default_units),
+                "change": calc_change(latest_val, prev_val),
+                "previous_date": obs[1]["date"] if len(obs) > 1 else None,
+            }
 
         metrics = {
-            "fed_assets": {
-                "series_id": "WALCL",
-                "title": fed_data.get("title", "Fed Total Assets"),
-                "value": latest_fed_raw,
-                "date": fed_data["observations"][0]["date"] if fed_data["observations"] else None,
-                "units": fed_data.get("units", "Millions of U.S. Dollars"),
-                "change": calc_change(latest_fed_raw, prev_fed_raw),
-                "previous_date": fed_data["observations"][1]["date"] if len(fed_data["observations"]) > 1 else None,
-            },
-            "tga": {
-                "series_id": "WDTGAL",
-                "title": tga_data.get("title", "Treasury General Account"),
-                "value": latest_tga_raw,
-                "date": tga_data["observations"][0]["date"] if tga_data["observations"] else None,
-                "units": tga_data.get("units", "Millions of U.S. Dollars"),
-                "change": calc_change(latest_tga_raw, prev_tga_raw),
-                "previous_date": tga_data["observations"][1]["date"] if len(tga_data["observations"]) > 1 else None,
-            },
-            "rrp": {
-                "series_id": "RRPONTSYD",
-                "title": rrp_data.get("title", "Overnight Reverse Repo"),
-                "value": latest_rrp_raw,
-                "date": rrp_data["observations"][0]["date"] if rrp_data["observations"] else None,
-                "units": rrp_data.get("units", "Billions of US Dollars"),
-                "change": calc_change(latest_rrp_raw, prev_rrp_raw),
-                "previous_date": rrp_data["observations"][1]["date"] if len(rrp_data["observations"]) > 1 else None,
-            },
-            "reserves": {
-                "series_id": "WRESBAL",
-                "title": reserves_data.get("title", "Bank Reserves"),
-                "value": latest_reserves_raw,
-                "date": reserves_data["observations"][0]["date"] if reserves_data["observations"] else None,
-                "units": reserves_data.get("units", "Millions of U.S. Dollars"),
-                "change": calc_change(latest_reserves_raw, prev_reserves_raw),
-                "previous_date": reserves_data["observations"][1]["date"] if len(reserves_data["observations"]) > 1 else None,
-            },
-            "sofr": {
-                "series_id": "SOFR",
-                "title": sofr_data.get("title", "SOFR"),
-                "value": latest_sofr_raw,
-                "date": sofr_data["observations"][0]["date"] if sofr_data["observations"] else None,
-                "units": sofr_data.get("units", "Percent"),
-                "change": calc_change(latest_sofr_raw, prev_sofr_raw),
-                "previous_date": sofr_data["observations"][1]["date"] if len(sofr_data["observations"]) > 1 else None,
-            },
-            "effr": {
-                "series_id": "EFFR",
-                "title": effr_data.get("title", "Effective Federal Funds Rate"),
-                "value": latest_effr_raw,
-                "date": effr_data["observations"][0]["date"] if effr_data["observations"] else None,
-                "units": effr_data.get("units", "Percent"),
-                "change": calc_change(latest_effr_raw, prev_effr_raw),
-                "previous_date": effr_data["observations"][1]["date"] if len(effr_data["observations"]) > 1 else None,
-            },
-            "nfci": {
-                "series_id": "NFCI",
-                "title": nfci_data.get("title", "Chicago Fed National Financial Conditions Index"),
-                "value": latest_nfci_raw,
-                "date": nfci_data["observations"][0]["date"] if nfci_data["observations"] else None,
-                "units": nfci_data.get("units", "Index"),
-                "change": calc_change(latest_nfci_raw, prev_nfci_raw),
-                "previous_date": nfci_data["observations"][1]["date"] if len(nfci_data["observations"]) > 1 else None,
-            },
+            "fed_assets": build_metric("WALCL", fed_data, "Fed Total Assets", "Millions of U.S. Dollars"),
+            "tga": build_metric("WDTGAL", tga_data, "Treasury General Account", "Millions of U.S. Dollars"),
+            "rrp": build_metric("RRPONTSYD", rrp_data, "Overnight Reverse Repo", "Billions of US Dollars"),
+            "reserves": build_metric("WRESBAL", reserves_data, "Bank Reserves", "Millions of U.S. Dollars"),
+            "sofr": build_metric("SOFR", sofr_data, "SOFR", "Percent"),
+            "effr": build_metric("EFFR", effr_data, "Effective Federal Funds Rate", "Percent"),
+            "nfci": build_metric("NFCI", nfci_data, "Chicago Fed National Financial Conditions Index", "Index"),
             "net_liquidity": {
                 "series_id": "CALCULATED",
                 "title": "Net Liquidity (WALCL - TGA - RRP)",

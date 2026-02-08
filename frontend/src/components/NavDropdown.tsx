@@ -40,7 +40,7 @@ export function NavDropdown({ label, items }: NavDropdownProps) {
       onMouseLeave={handleMouseLeave}
     >
       <button
-        className={`flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium tracking-wide transition-colors duration-200 ${
+        className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-200 ${
           isOpen
             ? 'text-foreground'
             : 'text-muted-foreground hover:text-foreground'
@@ -77,7 +77,7 @@ export function NavDropdown({ label, items }: NavDropdownProps) {
                 className="group flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-150"
               >
                 <div className="w-1 h-1 rounded-full bg-primary/0 group-hover:bg-primary transition-colors" />
-                <span className="text-[13px] font-medium">{item.label}</span>
+                <span className="text-sm font-medium">{item.label}</span>
               </Link>
             ))}
           </div>

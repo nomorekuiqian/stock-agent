@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { NavAuth } from "@/components/NavAuth";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { MobileMenu } from "@/components/MobileMenu";
-import { NavDropdown } from "@/components/NavDropdown";
+import { Navbar } from "@/components/Navbar";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -112,80 +109,9 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
-          {/* Navigation - Premium Glass Effect */}
-          <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-2xl border-b border-border/40">
-            <div className="max-w-6xl mx-auto px-4 md:px-6">
-              <div className="flex items-center justify-between h-16">
-                {/* Logo */}
-                <Link href="/" className="flex items-center gap-3 group">
-                  <Logo className="w-8 h-8 transition-transform duration-300 group-hover:scale-105" />
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-[15px] tracking-tight text-foreground leading-tight">
-                      TheMarketBrew
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/60 tracking-widest uppercase hidden sm:block">
-                      Market Intelligence
-                    </span>
-                  </div>
-                </Link>
-
-                {/* Navigation Links - Center */}
-                <div className="hidden md:flex items-center">
-                  <NavDropdown
-                    label="日报"
-                    items={[
-                      { href: '/today', label: '今日日报' },
-                      { href: '/today/archive', label: '往期归档' },
-                    ]}
-                  />
-                  <NavDropdown
-                    label="专属"
-                    items={[
-                      { href: '/for-you', label: '今日专属' },
-                      { href: '/for-you/archive', label: '往期归档' },
-                    ]}
-                  />
-                  {process.env.NODE_ENV === 'development' && (
-                    <Link
-                      href="/sectors"
-                      className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
-                    >
-                      板块
-                    </Link>
-                  )}
-                  <Link
-                    href="/stock"
-                    className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
-                  >
-                    个股
-                  </Link>
-                  <Link
-                    href="/tools"
-                    className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
-                  >
-                    工具
-                  </Link>
-                  <Link
-                    href="/contact"
-                    className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
-                  >
-                    联系
-                  </Link>
-                </div>
-
-                {/* Right Side Actions */}
-                <div className="flex items-center gap-3">
-                  <ThemeToggle />
-                  {/* Desktop Auth */}
-                  <div className="hidden md:flex items-center">
-                    <NavAuth />
-                  </div>
-                  {/* Mobile Menu */}
-                  <MobileMenu />
-                </div>
-              </div>
-            </div>
-          </nav>
+          <Navbar />
+          {/* Spacer for fixed navbar */}
+          <div className="h-16" />
 
           {children}
 
@@ -216,7 +142,7 @@ export default function RootLayout({
                     个股
                   </Link>
                   <Link href="/tools" className="hover:text-foreground transition-colors">
-                    工具
+                    宏观
                   </Link>
                   <Link href="/contact" className="hover:text-foreground transition-colors">
                     联系

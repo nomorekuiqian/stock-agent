@@ -36,10 +36,12 @@ export function MobileMenu() {
       ],
     },
     {
-      title: '工具',
+      title: '宏观',
       links: [
-        { href: '/tools', label: '数据工具' },
-        { href: '/tools/liquidity', label: '流动性监控' },
+        { href: '/tools', label: '宏观总览' },
+        { href: '/tools/liquidity', label: '流动性环境' },
+        { href: '/tools/macro-risk/economy', label: '经济基本面' },
+        { href: '/tools/macro-risk', label: '综合风险仪表盘' },
       ],
     },
     {
@@ -76,12 +78,12 @@ export function MobileMenu() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 top-14 bg-background/80 backdrop-blur-sm z-40"
+            className="fixed inset-0 top-16 bg-background/80 backdrop-blur-sm z-40"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Menu Panel */}
-          <div className="absolute top-14 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
+          <div className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
             <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
               {/* Nav Sections */}
               {navSections.map((section) => (

@@ -203,7 +203,7 @@ export async function getSession() {
 }
 
 // =============================================================================
-// Password Reset Functions
+// Password Reset Functions (Code-based flow)
 // =============================================================================
 
 export async function sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
@@ -215,6 +215,33 @@ export async function sendPasswordResetEmail(email: string): Promise<{ success: 
     }
 
     return { success: data?.success ?? false };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function exchangeResetPasswordCode(
+  email: string,
+  code: string
+): Promise<{ success: boolean; token?: string; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.exchangeResetPasswordToken({
+      email,
+      code,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (!data?.token) {
+      return { success: false, error: 'Invalid reset code' };
+    }
+
+    return { success: true, token: data.token };
   } catch (error) {
     return {
       success: false,

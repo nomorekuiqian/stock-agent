@@ -159,7 +159,13 @@
       "mcp__linear__list_issues",
       "Bash(gh pr list:*)",
       "Bash(xargs:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(gh auth login:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:claude.com)",
+      "Bash(uipro init:*)",
+      "WebFetch(domain:useorigin.com)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

@@ -30,6 +30,11 @@ export function NetLiquidityChart({
   const chartRef = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seriesRef = useRef<ISeriesApi<any> | null>(null);
+  const dataRef = useRef(data);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   // Compute latest value from data
   const latestValue = useMemo(() => {
@@ -37,7 +42,7 @@ export function NetLiquidityChart({
     return data[data.length - 1].value;
   }, [data]);
 
-  // Update chart when data changes
+  // Update chart when data changes after chart is already created
   useEffect(() => {
     if (!data || data.length === 0 || !seriesRef.current) return;
 
@@ -112,6 +117,17 @@ export function NetLiquidityChart({
     });
 
     seriesRef.current = series;
+
+    // Set data immediately if already available (handles tab-based lazy mount)
+    if (dataRef.current && dataRef.current.length > 0) {
+      series.setData(
+        dataRef.current.map(obs => ({
+          time: obs.time as Time,
+          value: obs.value,
+        }))
+      );
+      chart.timeScale().fitContent();
+    }
 
     // Handle resize
     const handleResize = () => {
