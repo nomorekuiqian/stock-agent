@@ -11,6 +11,7 @@ import {
   RiskIndicator,
 } from '@/lib/api';
 import { formatTimestamp } from '@/lib/timezone';
+import { TrendingUp, Users, DollarSign, Landmark, type LucideIcon } from 'lucide-react';
 
 // ============================================================================
 // Constants
@@ -280,6 +281,61 @@ const SECTION_META: Record<string, { number: string; subtitle: string }> = {
 
 /** Index-level series where MoM change should be displayed as primary value */
 const CHANGE_AS_PRIMARY = new Set(['cpi', 'core_pce', 'retail_sales', 'industrial_production']);
+
+const SECTION_EXPLAINER: Record<string, {
+  icon: LucideIcon;
+  title: string;
+  paragraphs: string[];
+  items?: { label: string; text: string }[];
+}> = {
+  growth: {
+    icon: TrendingUp,
+    title: '经济增长如何影响股市?',
+    paragraphs: [
+      '企业利润来自经济活动。经济增长，企业营收增加，股价上涨；经济衰退，企业利润下滑，股价下跌。但股市通常会提前 6-9 个月反映经济变化 — 所以当这些增长指标刚开始走弱时，股市可能就已经在跌了。',
+    ],
+    items: [
+      { label: 'GDP 增长率', text: '经济总量的增长速度。高于 2% 是健康增长，利好股市；连续两个季度为负就是技术性衰退，股市通常大幅下跌。' },
+      { label: '衰退概率 / CFNAI', text: '预警指标。衰退概率超过 30% 或 CFNAI 低于 -0.7 时，历史上每次都出现了经济衰退。一旦触发，防御性板块（公用事业、医疗）表现更好。' },
+      { label: '零售销售 / 工业产出', text: '消费占美国 GDP 的 70%，零售销售下降意味着消费者在缩减开支，直接影响消费类股票。工业产出下降则影响制造业和周期性股票。' },
+    ],
+  },
+  employment: {
+    icon: Users,
+    title: '就业如何影响股市?',
+    paragraphs: [
+      '就业好 = 人们有收入 = 消费强劲 = 企业利润好 = 股市上涨。反过来，失业率快速上升往往是经济衰退的信号，对股市非常不利。同时，就业也是美联储决定是否降息的关键因素 — 就业恶化时美联储更可能降息救市。关注的重点不是绝对水平，而是变化方向。',
+    ],
+    items: [
+      { label: '失业率 / Sahm 规则', text: '失业率本身不可怕，可怕的是上升趋势。失业率从低点上升 0.5 个百分点触发 Sahm 规则，自 1970 年以来每次触发都伴随衰退和股市下跌。' },
+      { label: '非农就业', text: '每月第一个周五发布，是当月最重要的经济数据。非农增长强劲利好股市；转为负增长通常只在衰退期出现。' },
+      { label: '初请 / 续请失业金', text: '每周发布，是最及时的就业数据。初请突破 25 万意味着裁员增加，通常领先失业率上升 2-4 个月，是提前预警信号。' },
+    ],
+  },
+  inflation: {
+    icon: DollarSign,
+    title: '通胀如何影响股市?',
+    paragraphs: [
+      '通胀高于 2% 目标时，美联储倾向于加息；通胀回落时，美联储才有空间降息。加息直接压低股价（尤其是成长股），降息则推高股价。所以通胀是否在回落，直接决定了美联储的下一步动作和股市走势。',
+    ],
+    items: [
+      { label: 'CPI / 核心 PCE', text: 'CPI 覆盖所有消费品价格；核心 PCE 剔除食品和能源，是美联储制定利率政策的首选指标。月环比低于 0.2% 意味着通胀正在接近 2% 目标，利好股市。' },
+      { label: '通胀预期', text: '市场 (T5YIE) 和消费者 (密歇根调查) 对未来通胀的预判。预期大幅上升会迫使美联储更激进地加息，对股市冲击很大。' },
+    ],
+  },
+  credit: {
+    icon: Landmark,
+    title: '信用市场如何影响股市?',
+    paragraphs: [
+      '企业需要借钱来运营和扩张。当借钱成本上升（利差扩大）或贷款违约增加时，说明金融环境在恶化，企业经营压力加大。历史上，信用利差急剧扩大往往领先于股市大跌 — 因为债券投资者通常比股票投资者更早感知到风险。',
+    ],
+    items: [
+      { label: '高收益债利差', text: '高风险企业债相对国债的额外收益率。低于 350bps 说明市场乐观；超过 500bps 说明恐慌情绪上升；超过 800bps 是危机级别（如 2008、2020 年初）。' },
+      { label: '收益率曲线 (10Y-2Y)', text: '正常情况下长期利率高于短期利率。一旦倒挂（变为负值），意味着市场预期未来经济将恶化。自 1970 年以来，倒挂预测了每一次衰退。' },
+      { label: '贷款违约率', text: '商业地产和企业贷款的违约率上升，意味着企业还不起钱，银行将收紧放贷，经济会进一步恶化，形成恶性循环。' },
+    ],
+  },
+};
 
 const TIME_RANGES = ['1M', '3M', '6M', '1Y', 'ALL'] as const;
 
@@ -607,6 +663,39 @@ function DeepDiveSection({
             ))}
           </div>
         </div>
+
+        {/* Section explainer banner */}
+        {SECTION_EXPLAINER[dim.name] && (
+          <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
+            <div className="flex items-start gap-3">
+              {(() => { const Icon = SECTION_EXPLAINER[dim.name].icon; return (
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+              </div>
+              ); })()}
+              <div>
+                <h3 className="text-base font-medium text-foreground mb-2">
+                  {SECTION_EXPLAINER[dim.name].title}
+                </h3>
+                {SECTION_EXPLAINER[dim.name].paragraphs.map((p, i) => (
+                  <p key={i} className="text-sm text-muted-foreground leading-relaxed mt-2 first:mt-0">
+                    {p}
+                  </p>
+                ))}
+                {SECTION_EXPLAINER[dim.name].items && (
+                  <ul className="text-sm text-muted-foreground leading-relaxed mt-3 space-y-1.5 list-none">
+                    {SECTION_EXPLAINER[dim.name].items!.map((item, i) => (
+                      <li key={i}>
+                        <span className="text-emerald-500 font-medium">{item.label}</span>
+                        {' '}&mdash; {item.text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Metric panels: each indicator with value + description + chart */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

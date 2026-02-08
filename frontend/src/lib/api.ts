@@ -739,6 +739,16 @@ export const api = {
     return response.json();
   },
 
+  // Inflation & Rates API
+  getInflationRates: async (): Promise<EconomicFundamentalsResponse> => {
+    const response = await fetch(`${API_BASE_URL}/macro-risk/inflation-rates`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch inflation & rates' }));
+      throw new Error(error.detail || 'Failed to fetch inflation & rates');
+    }
+    return response.json();
+  },
+
   // Stock Search API
   searchStocks: async (query: string, limit: number = 8): Promise<StockSearchResponse> => {
     const response = await fetch(

@@ -47,6 +47,10 @@ MACRO_RISK_FRED_SERIES = {
     "core_pce": "PCEPILFE",
     "inflation_expectations_5y": "T5YIE",
     "michigan_inflation": "MICH",
+    # Inflation & Rates - Interest Rates
+    "fed_funds_rate": "FEDFUNDS",
+    "treasury_10y": "DGS10",
+    "real_rate_10y": "DFII10",
 }
 
 AI_STOCK_BASKET = [
@@ -58,16 +62,23 @@ _CACHE_TTL = 600  # 10 minutes
 _dashboard_cache: dict = {}
 _economy_cache: dict = {}
 
+_inflation_cache: dict = {}
+
 _dashboard_lock: asyncio.Lock | None = None
 _economy_lock: asyncio.Lock | None = None
+_inflation_lock: asyncio.Lock | None = None
 
 
 def _get_lock(name: str) -> asyncio.Lock:
-    global _dashboard_lock, _economy_lock
+    global _dashboard_lock, _economy_lock, _inflation_lock
     if name == "dashboard":
         if _dashboard_lock is None:
             _dashboard_lock = asyncio.Lock()
         return _dashboard_lock
+    elif name == "inflation":
+        if _inflation_lock is None:
+            _inflation_lock = asyncio.Lock()
+        return _inflation_lock
     else:
         if _economy_lock is None:
             _economy_lock = asyncio.Lock()
@@ -424,6 +435,9 @@ _INDICATOR_NAMES = {
     "core_pce": "核心 PCE 物价指数",
     "inflation_expectations_5y": "5年期通胀预期",
     "michigan_inflation": "密歇根通胀预期",
+    "fed_funds_rate": "联邦基金利率",
+    "treasury_10y": "10年期国债收益率",
+    "real_rate_10y": "10年期实际利率",
 }
 
 
@@ -548,6 +562,20 @@ _CREDIT_INDICATORS = [
     ("cre_delinquency", "DRCRELEXFACBS", 2, 4, False, 0.20),     # 5/25
     ("bbb_spread", "BAMLC0A4CBBB", 1.5, 2.5, False, 0.16),       # 4/25
     ("business_delinquency", "DRBLACBS", 1.5, 3, False, 0.12),   # 3/25
+]
+
+# Inflation & Rates page: 2 sub-dimensions (inflation 60%, rates 40%)
+_INFLATION_RATES_INFLATION = [
+    ("cpi", "CPIAUCSL", None, None, None, 0.30),
+    ("core_pce", "PCEPILFE", None, None, None, 0.35),
+    ("inflation_expectations_5y", "T5YIE", 2.5, 3.5, False, 0.20),
+    ("michigan_inflation", "MICH", 3.0, 4.5, False, 0.15),
+]
+
+_INFLATION_RATES_RATES = [
+    ("fed_funds_rate", "FEDFUNDS", 3.0, 5.0, False, 0.375),
+    ("treasury_10y", "DGS10", 3.5, 5.0, False, 0.375),
+    ("real_rate_10y", "DFII10", 1.0, 2.0, False, 0.25),
 ]
 
 
@@ -723,6 +751,26 @@ def _subdimension_headline(name: str, score: float, indicators: dict) -> str:
         else:
             return "信用市场稳定，利差可控"
 
+    elif name == "rates":
+        ffr = indicators.get("fed_funds_rate", {}).get("value")
+        t10y = indicators.get("treasury_10y", {}).get("value")
+        if score >= 7:
+            parts = []
+            if ffr and ffr >= 5:
+                parts.append(f"联邦基金利率 {ffr:.2f}%")
+            if t10y and t10y >= 5:
+                parts.append(f"10Y 收益率 {t10y:.2f}%")
+            return "利率水平显著偏高: " + (", ".join(parts) if parts else "融资条件紧缩")
+        elif score >= 4:
+            parts = []
+            if ffr:
+                parts.append(f"联邦基金利率 {ffr:.2f}%")
+            if t10y:
+                parts.append(f"10Y {t10y:.2f}%")
+            return "利率处于限制性水平: " + (", ".join(parts) if parts else "密切关注")
+        else:
+            return "利率水平温和，融资条件宽松"
+
     return "数据加载中"
 
 
@@ -800,5 +848,81 @@ async def get_economic_fundamentals() -> EconomicFundamentals:
 
         _set_cached(_economy_cache, result)
         print(f"[Economy] Ready: overall={overall} ({overall_level})")
+
+        return result
+
+
+def _overall_inflation_rates_headline(score: float, sub_dims: list[SubDimension]) -> str:
+    if score >= 7:
+        return "通胀与利率双重承压，紧缩环境显著"
+    elif score >= 4:
+        weak_dims = [d.name_zh for d in sub_dims if d.score >= 5]
+        if weak_dims:
+            return f"通胀利率信号混合，{'/'.join(weak_dims)}偏紧"
+        return "通胀与利率处于过渡期"
+    else:
+        return "通胀温和，利率环境友好"
+
+
+async def get_inflation_rates() -> EconomicFundamentals:
+    """
+    Compute inflation & rates with 2 sub-dimensions:
+    inflation (60%), rates (40%).
+    Cached independently for 10 minutes. Uses request coalescing.
+    """
+    cached = _get_cached(_inflation_cache)
+    if cached:
+        print("[InflationRates] Returning cached data")
+        return cached
+
+    async with _get_lock("inflation"):
+        cached = _get_cached(_inflation_cache)
+        if cached:
+            print("[InflationRates] Returning cached data (coalesced)")
+            return cached
+
+        print("[InflationRates] Fetching fresh data...")
+
+        needed_keys = {
+            defn[0]
+            for defs in [_INFLATION_RATES_INFLATION, _INFLATION_RATES_RATES]
+            for defn in defs
+        }
+
+        async def fetch_indicator(key: str):
+            series_id = MACRO_RISK_FRED_SERIES.get(key)
+            if not series_id:
+                return key, {"value": None, "error": f"Unknown series key: {key}"}
+            try:
+                return key, await get_latest_value(series_id)
+            except Exception as e:
+                print(f"[InflationRates] Error fetching {series_id}: {e}")
+                return key, {"value": None, "error": str(e)}
+
+        results_raw = await asyncio.gather(
+            *[fetch_indicator(key) for key in needed_keys]
+        )
+
+        indicators = {key: data for key, data in results_raw}
+
+        inflation = _compute_subdimension("inflation", "通胀", 0.60, _INFLATION_RATES_INFLATION, indicators)
+        rates = _compute_subdimension("rates", "利率", 0.40, _INFLATION_RATES_RATES, indicators)
+
+        sub_dims = [inflation, rates]
+
+        overall = sum(d.score * d.weight for d in sub_dims)
+        overall = round(min(10.0, max(0.0, overall)), 1)
+        overall_level = "low" if overall < 4 else ("medium" if overall < 7 else "high")
+
+        result = EconomicFundamentals(
+            timestamp=now_iso(),
+            overall_score=overall,
+            overall_level=overall_level,
+            overall_headline=_overall_inflation_rates_headline(overall, sub_dims),
+            sub_dimensions=sub_dims,
+        )
+
+        _set_cached(_inflation_cache, result)
+        print(f"[InflationRates] Ready: overall={overall} ({overall_level})")
 
         return result

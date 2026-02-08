@@ -11,6 +11,7 @@ from app.features.liquidity.fred_service import fetch_fred_series, LIQUIDITY_SER
 from app.features.macro_risk.service import (
     get_macro_risk_dashboard,
     get_economic_fundamentals,
+    get_inflation_rates,
     MACRO_RISK_FRED_SERIES,
 )
 
@@ -58,6 +59,24 @@ async def get_economy():
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to fetch economic fundamentals")
+
+
+@router.get("/inflation-rates")
+async def get_inflation_rates_endpoint():
+    """
+    Get inflation & rates with 2 sub-dimensions:
+    inflation (CPI, PCE, expectations) and rates (Fed Funds, 10Y, TIPS).
+    """
+    try:
+        data = await get_inflation_rates()
+        return {
+            "success": True,
+            "timestamp": data.timestamp,
+            "data": data.model_dump(),
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to fetch inflation & rates data")
 
 
 @router.get("/history/{series_id}")

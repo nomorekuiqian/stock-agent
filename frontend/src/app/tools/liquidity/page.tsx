@@ -15,6 +15,7 @@ import {
 } from '@/lib/api';
 import { formatCompareDateLabel, formatDateTimePacific } from '@/lib/timezone';
 import ReactMarkdown from 'react-markdown';
+import { Droplets, Layers, Gauge } from 'lucide-react';
 
 // ============================================================================
 // Constants
@@ -467,19 +468,7 @@ function NetLiquidityDeepDive({
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg
-                className="w-4 h-4 text-emerald-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Droplets className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -635,19 +624,7 @@ function BalanceSheetDeepDive({
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg
-                className="w-4 h-4 text-emerald-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Layers className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -757,19 +734,7 @@ function FinancialConditionsDeepDive({
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg
-                className="w-4 h-4 text-emerald-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Gauge className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
