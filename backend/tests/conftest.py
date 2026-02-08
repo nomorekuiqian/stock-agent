@@ -131,11 +131,11 @@ DB_WRITE_FUNCTIONS = [
     # Digest
     ("app.features.digest.db", "save_user_digest"),
     ("app.features.digest.db", "save_user_watchlist"),
-    # Liquidity
-    ("app.features.liquidity.db", "save_liquidity_analysis"),
     # Subscription (Resend operations)
     ("app.features.subscription.service", "add_subscriber"),
     ("app.features.subscription.service", "remove_subscriber"),
+    # Weekly Report
+    ("app.features.weekly_report.db", "save_weekly_report"),
     # Insforge service write operations
     ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
 ]

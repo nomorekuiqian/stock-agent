@@ -59,10 +59,14 @@
 ## 字体系统
 
 ```css
-/* 已在 globals.css 中定义 */
+/* 字体族 - 已在 globals.css 中定义 */
 --font-editorial: 'Instrument Serif', serif;  /* 大标题、页面标题 */
 --font-sans: 'DM Sans', sans-serif;           /* 正文、说明文字 */
 --font-data: 'JetBrains Mono', monospace;     /* 数字、代码、股票代码 */
+
+/* 自定义字号 Token - 已在 globals.css @theme 块中定义 */
+--text-micro: 0.625rem;     /* 10px - 头像字母、数据源标签 */
+--text-data-hero: 2.5rem;   /* 40px - Dashboard 核心指标大数字 */
 ```
 
 ### 使用规则
@@ -76,17 +80,36 @@
 | 股票代码 | `font-data` | NVDA、AAPL |
 | 日期/时间 | `font-data` | 2025-01-19、14:30 |
 
-### 字号规范
+### 字号规范 (Consolidated Type Scale)
 
-| 元素 | 大小 | Tailwind |
-|------|------|----------|
-| 页面标题 | 24-30px | `text-2xl` / `text-3xl` |
-| 区块标题 | 16px | `text-base` |
-| 小标题 | 14px | `text-sm` |
-| 正文 | 14px | `text-sm` |
-| 辅助文字 | 12-13px | `text-xs` / `text-sm` |
-| 大数字（价格） | 30px | `text-3xl` |
-| 指标数值 | 18px | `text-lg` |
+项目统一使用以下 10 级字号，禁止使用 `text-[Npx]` 等自定义值（SVG `<text>` 元素除外）。
+
+| 级别 | Class | 大小 | 用途 |
+|------|-------|------|------|
+| micro | `text-micro` | 10px (0.625rem) | 头像字母、数据源标签、悬浮提示 |
+| caption | `text-xs` | 12px | 标签、徽章、元数据、眉标、时间按钮 |
+| body | `text-sm` | 14px | 正文、导航项、按钮、描述 |
+| lead | `text-base` | 16px | 页面描述、品牌名、主要摘要 |
+| title-sm | `text-lg` | 18px | 卡片标题、区块小标题 |
+| title | `text-xl` | 20px | 突出标题、统计数值 |
+| title-lg | `text-2xl` | 24px | 页面子标题 |
+| display | `text-3xl` ~ `text-6xl` | 30-60px | 页面 Hero 标题 (响应式链) |
+| data-hero | `text-data-hero` | 40px (2.5rem) | Dashboard Hero 大数字 |
+
+**自定义 Token** (定义在 `globals.css` 的 `@theme` 块中)：
+
+```css
+--text-micro: 0.625rem;       /* 10px - 最小可读文字 */
+--text-data-hero: 2.5rem;     /* 40px - Dashboard 核心指标大数字 */
+```
+
+**使用原则**：
+
+- 数据密集页面（Dashboard、宏观指标）的 Hero 数字用 `text-data-hero`
+- 区块编号（01、02、03）用 `text-3xl`
+- 眉标/标签/时间按钮统一用 `text-xs`，不要用 11px
+- 最小文字（monogram、hover hint）统一用 `text-micro`，不要用 8px 或 10px
+- 导航下拉和按钮统一用 `text-sm`，不要用 13px
 
 ---
 

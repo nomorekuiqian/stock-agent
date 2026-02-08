@@ -6,12 +6,15 @@ import { TradingViewWidget } from '@/components/TradingViewWidget';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
   api,
+  invalidateCache,
   EconomicFundamentals,
   SubDimension,
   RiskIndicator,
+  WeeklyMacroReport,
 } from '@/lib/api';
+import { InsightBanner } from '@/components/InsightBanner';
 import { formatTimestamp } from '@/lib/timezone';
-import { TrendingUp, Users, DollarSign, Landmark, type LucideIcon } from 'lucide-react';
+import { TrendingUp, Users, Landmark, type LucideIcon } from 'lucide-react';
 
 // ============================================================================
 // Constants
@@ -29,10 +32,6 @@ const FRED_SYMBOLS: Record<string, string> = {
   initial_claims: 'FRED:ICSA',
   continued_claims: 'FRED:CCSA',
   sahm_rule: 'FRED:SAHMREALTIME',
-  cpi: 'FRED:CPIAUCSL',
-  core_pce: 'FRED:PCEPILFE',
-  inflation_expectations_5y: 'FRED:T5YIE',
-  michigan_inflation: 'FRED:MICH',
   hy_oas: 'FRED:BAMLH0A0HYM2',
   bbb_spread: 'FRED:BAMLC0A4CBBB',
   cre_delinquency: 'FRED:DRCRELEXFACBS',
@@ -52,10 +51,6 @@ const SERIES_TO_CHART: Record<string, string> = {
   ICSA: 'initial_claims',
   CCSA: 'continued_claims',
   SAHMREALTIME: 'sahm_rule',
-  CPIAUCSL: 'cpi',
-  PCEPILFE: 'core_pce',
-  T5YIE: 'inflation_expectations_5y',
-  MICH: 'michigan_inflation',
   BAMLH0A0HYM2: 'hy_oas',
   BAMLC0A4CBBB: 'bbb_spread',
   DRCRELEXFACBS: 'cre_delinquency',
@@ -96,23 +91,6 @@ const HERO_CONFIG: Record<string, {
       return { color: 'red' };
     },
   },
-  inflation: {
-    primary: 'CPIAUCSL',
-    secondary: 'T5YIE',
-    label: 'CPI 月环比通胀率',
-    format: (ind) => {
-      const c = ind.change;
-      if (c == null) return 'N/A';
-      return `${c >= 0 ? '+' : ''}${c.toFixed(2)}%`;
-    },
-    interpret: (ind) => {
-      const c = ind.change;
-      if (c == null) return { color: 'amber' };
-      if (Math.abs(c) <= 0.2) return { color: 'emerald' };
-      if (Math.abs(c) <= 0.4) return { color: 'amber' };
-      return { color: 'red' };
-    },
-  },
   credit: {
     primary: 'T10Y2Y',
     secondary: 'BAMLH0A0HYM2',
@@ -143,14 +121,6 @@ const SECONDARY_FORMAT: Record<string, {
   PAYEMS: {
     label: '非农就业',
     format: (ind) => ind.change != null ? `${ind.change >= 0 ? '+' : ''}${ind.change.toFixed(1)}% MoM` : 'N/A',
-  },
-  MICH: {
-    label: '消费者通胀预期',
-    format: (ind) => ind.value != null ? `${ind.value.toFixed(1)}%` : 'N/A',
-  },
-  T5YIE: {
-    label: '5年期通胀预期',
-    format: (ind) => ind.value != null ? `${ind.value.toFixed(2)}%` : 'N/A',
   },
   BAMLH0A0HYM2: {
     label: '高收益债利差',
@@ -203,22 +173,6 @@ const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
     title: 'Sahm 规则指标',
     description: '失业率3个月移动平均值比过去12个月低点上升0.50个百分点时触发。自1970年以来准确识别每一次衰退，无误报。',
   },
-  cpi: {
-    title: 'CPI 消费者价格指数',
-    description: '衡量城市消费者一篮子商品和服务价格变动的指标。月环比超过0.3%意味着年化通胀率超过3.5%，可能迫使美联储维持紧缩立场。',
-  },
-  core_pce: {
-    title: '核心 PCE 物价指数',
-    description: '剔除食品和能源的个人消费支出物价指数，是美联储首选的通胀度量。美联储的目标是核心PCE年化率回到2%。',
-  },
-  inflation_expectations_5y: {
-    title: '5年期通胀预期',
-    description: '由5年期TIPS与名义国债的利差推导，反映市场对未来5年平均通胀的定价。超过2.5%表明市场认为通胀将持续高于目标。',
-  },
-  michigan_inflation: {
-    title: '密歇根通胀预期',
-    description: '密歇根大学调查的1年期消费者通胀预期。消费者预期自我实现：预期上升会推动工资要求和提前消费，形成通胀螺旋。',
-  },
   hy_oas: {
     title: '高收益债利差',
     description: '高收益企业债相对国债的期权调整利差。超过500bps表明显著压力；超过800bps为危机级别。最敏感的实时压力指标之一。',
@@ -254,10 +208,6 @@ const CHANGE_PERIOD: Record<string, string> = {
   initial_claims: '较上周',
   continued_claims: '较上周',
   sahm_rule: '较上月',
-  cpi: '较上月',
-  core_pce: '较上月',
-  inflation_expectations_5y: '较前日',
-  michigan_inflation: '较上月',
   hy_oas: '较前日',
   bbb_spread: '较前日',
   cre_delinquency: '较上季度',
@@ -268,19 +218,17 @@ const CHANGE_PERIOD: Record<string, string> = {
 const SUB_DIM_NAMES: Record<string, string> = {
   growth: '增长',
   employment: '就业',
-  inflation: '通胀',
   credit: '信用',
 };
 
 const SECTION_META: Record<string, { number: string; subtitle: string }> = {
   growth: { number: '01', subtitle: 'GDP / 衰退概率 / CFNAI / 零售销售 / 工业产出 / 消费者信心' },
   employment: { number: '02', subtitle: '失业率 / 非农 / 初请 / 续请 / Sahm 规则' },
-  inflation: { number: '03', subtitle: 'CPI / 核心 PCE / 通胀预期 / 密歇根预期' },
-  credit: { number: '04', subtitle: '高收益利差 / BBB 利差 / 地产违约 / 商贷违约 / 收益率曲线' },
+  credit: { number: '03', subtitle: '高收益利差 / BBB 利差 / 地产违约 / 商贷违约 / 收益率曲线' },
 };
 
 /** Index-level series where MoM change should be displayed as primary value */
-const CHANGE_AS_PRIMARY = new Set(['cpi', 'core_pce', 'retail_sales', 'industrial_production']);
+const CHANGE_AS_PRIMARY = new Set(['retail_sales', 'industrial_production']);
 
 const SECTION_EXPLAINER: Record<string, {
   icon: LucideIcon;
@@ -312,17 +260,6 @@ const SECTION_EXPLAINER: Record<string, {
       { label: '初请 / 续请失业金', text: '每周发布，是最及时的就业数据。初请突破 25 万意味着裁员增加，通常领先失业率上升 2-4 个月，是提前预警信号。' },
     ],
   },
-  inflation: {
-    icon: DollarSign,
-    title: '通胀如何影响股市?',
-    paragraphs: [
-      '通胀高于 2% 目标时，美联储倾向于加息；通胀回落时，美联储才有空间降息。加息直接压低股价（尤其是成长股），降息则推高股价。所以通胀是否在回落，直接决定了美联储的下一步动作和股市走势。',
-    ],
-    items: [
-      { label: 'CPI / 核心 PCE', text: 'CPI 覆盖所有消费品价格；核心 PCE 剔除食品和能源，是美联储制定利率政策的首选指标。月环比低于 0.2% 意味着通胀正在接近 2% 目标，利好股市。' },
-      { label: '通胀预期', text: '市场 (T5YIE) 和消费者 (密歇根调查) 对未来通胀的预判。预期大幅上升会迫使美联储更激进地加息，对股市冲击很大。' },
-    ],
-  },
   credit: {
     icon: Landmark,
     title: '信用市场如何影响股市?',
@@ -337,8 +274,6 @@ const SECTION_EXPLAINER: Record<string, {
   },
 };
 
-const TIME_RANGES = ['1M', '3M', '6M', '1Y', 'ALL'] as const;
-
 // ============================================================================
 // Hooks
 // ============================================================================
@@ -346,14 +281,18 @@ const TIME_RANGES = ['1M', '3M', '6M', '1Y', 'ALL'] as const;
 function useInView(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const reducedMotion = useRef(false);
+
+  useEffect(() => {
+    reducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setIsVisible(true);
+    if (reducedMotion.current) {
+      requestAnimationFrame(() => setIsVisible(true));
       return;
     }
 
@@ -472,14 +411,14 @@ function HeroCard({
     >
       {/* Sub-dimension label */}
       <div className="mb-3">
-        <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
           {SUB_DIM_NAMES[dim.name] || dim.name_zh}
         </span>
       </div>
 
       {/* Primary big number */}
       <div className="mb-1">
-        <span className={`text-[2.5rem] font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+        <span className={`text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
           selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'
         }`}>
           {formatted}
@@ -504,7 +443,7 @@ function HeroCard({
       <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${
         selected ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
       }`}>
-        <span className="text-[10px] text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
           点击查看详情
         </span>
       </div>
@@ -603,14 +542,10 @@ function DeepDiveSection({
   dim,
   theme,
   interval,
-  timeRange,
-  onTimeRangeChange,
 }: {
   dim: SubDimension;
   theme: 'light' | 'dark';
   interval: string;
-  timeRange: string;
-  onTimeRangeChange: (range: string) => void;
 }) {
   const { ref, isVisible } = useInView();
   const meta = SECTION_META[dim.name];
@@ -630,37 +565,18 @@ function DeepDiveSection({
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}
       >
-        {/* Section header row: title + time range selector */}
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="text-[2rem] font-data font-bold leading-none text-foreground tracking-tighter select-none">
-              {meta?.number || '00'}
-            </span>
-            <div className="pt-0.5 min-w-0">
-              <h2 className="text-lg font-editorial text-foreground tracking-tight mb-0.5">
-                {dim.name_zh}详解
-              </h2>
-              <p className="text-xs text-muted-foreground tracking-wide">
-                {meta?.subtitle}
-              </p>
-            </div>
-          </div>
-
-          {/* Time range selector */}
-          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range}
-                onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
-                  timeRange === range
-                    ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {range}
-              </button>
-            ))}
+        {/* Section header */}
+        <div className="flex items-start gap-3 min-w-0 mb-5">
+          <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
+            {meta?.number || '00'}
+          </span>
+          <div className="pt-0.5 min-w-0">
+            <h2 className="text-lg font-editorial text-foreground tracking-tight mb-0.5">
+              {dim.name_zh}详解
+            </h2>
+            <p className="text-xs text-muted-foreground tracking-wide">
+              {meta?.subtitle}
+            </p>
           </div>
         </div>
 
@@ -719,7 +635,6 @@ function DeepDiveSection({
 // ============================================================================
 
 export default function EconomyPage() {
-  const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('6M');
   const [theme] = useState<'light' | 'dark'>('dark');
   const [data, setData] = useState<EconomicFundamentals | null>(null);
   const [loading, setLoading] = useState(true);
@@ -727,8 +642,20 @@ export default function EconomyPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedDim, setSelectedDim] = useState<string>('growth');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    return () => {
+      if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    };
+  }, []);
+
+  // Weekly report state
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(true);
+
+  const fetchData = useCallback(async (bypassCache = false) => {
+    if (bypassCache) invalidateCache('economic-fundamentals');
     setLoading(true);
     setError(null);
     try {
@@ -747,24 +674,19 @@ export default function EconomyPage() {
 
   useEffect(() => {
     fetchData();
+    api.weeklyReport
+      .getLatest()
+      .then((res) => {
+        if (res.success) setWeeklyReport(res.data);
+      })
+      .catch(() => {})
+      .finally(() => setWeeklyLoading(false));
   }, [fetchData]);
-
-  const getInterval = () => {
-    switch (timeRange) {
-      case '1M': return 'D';
-      case '3M': return 'D';
-      case '6M': return 'W';
-      case '1Y': return 'W';
-      case 'ALL': return 'M';
-      default: return 'W';
-    }
-  };
 
   const growthDim = data?.sub_dimensions.find((d) => d.name === 'growth');
   const employmentDim = data?.sub_dimensions.find((d) => d.name === 'employment');
-  const inflationDim = data?.sub_dimensions.find((d) => d.name === 'inflation');
   const creditDim = data?.sub_dimensions.find((d) => d.name === 'credit');
-  const orderedDims = [growthDim, employmentDim, inflationDim, creditDim].filter((d): d is SubDimension => d != null);
+  const orderedDims = [growthDim, employmentDim, creditDim].filter((d): d is SubDimension => d != null);
 
   return (
     <main className="min-h-screen bg-background">
@@ -774,7 +696,7 @@ export default function EconomyPage() {
         question="经济是在变好还是变差?"
         lastUpdated={lastUpdated ? formatTimestamp(lastUpdated) : null}
         loading={loading}
-        onRefresh={fetchData}
+        onRefresh={() => fetchData(true)}
       />
 
       {/* Error */}
@@ -788,11 +710,11 @@ export default function EconomyPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-8">
 
-        {/* Hero Section: 4 big-number cards (tabs) */}
+        {/* Hero Section: 3 big-number cards (tabs) */}
         <section>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {loading ? (
-              [0, 1, 2, 3].map((i) => <HeroCardSkeleton key={i} index={i} />)
+              [0, 1, 2].map((i) => <HeroCardSkeleton key={i} index={i} />)
             ) : (
               orderedDims.map((dim, i) => (
                 <HeroCard
@@ -803,9 +725,11 @@ export default function EconomyPage() {
                   onSelect={() => {
                     if (selectedDim === dim.name) return;
                     setIsTransitioning(true);
-                    setTimeout(() => {
+                    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+                    transitionTimer.current = setTimeout(() => {
                       setSelectedDim(dim.name);
                       setIsTransitioning(false);
+                      transitionTimer.current = null;
                     }, 200);
                   }}
                 />
@@ -813,6 +737,15 @@ export default function EconomyPage() {
             )}
           </div>
         </section>
+
+        {/* Insight Banner */}
+        <InsightBanner
+          sectionTitle="经济基本面"
+          analysis={weeklyReport?.economy_analysis ?? null}
+          signalColor={weeklyReport?.signal_lights.economy ?? null}
+          weekLabel={weeklyReport?.week_label ?? null}
+          loading={weeklyLoading}
+        />
 
         {/* Deep Dive: Only selected dimension */}
         {orderedDims
@@ -827,9 +760,7 @@ export default function EconomyPage() {
               <DeepDiveSection
                 dim={dim}
                 theme={theme}
-                interval={getInterval()}
-                timeRange={timeRange}
-                onTimeRangeChange={(r) => setTimeRange(r as typeof timeRange)}
+                interval="W"
               />
             </div>
           ))}
@@ -837,7 +768,7 @@ export default function EconomyPage() {
         {/* Footer */}
         <section className="text-center py-4">
           <Link
-            href="/tools"
+            href="/macro"
             className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald-400 transition-colors duration-200"
           >
             <svg className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -845,7 +776,7 @@ export default function EconomyPage() {
             </svg>
             返回宏观总览
           </Link>
-          <p className="text-[11px] text-muted-foreground/60 mt-3">
+          <p className="text-xs text-muted-foreground/60 mt-3">
             数据来源{' '}
             <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
               FRED

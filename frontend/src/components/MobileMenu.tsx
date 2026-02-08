@@ -38,10 +38,11 @@ export function MobileMenu() {
     {
       title: '宏观',
       links: [
-        { href: '/tools', label: '宏观总览' },
-        { href: '/tools/liquidity', label: '流动性环境' },
-        { href: '/tools/macro-risk/economy', label: '经济基本面' },
-        { href: '/tools/macro-risk', label: '综合风险仪表盘' },
+        { href: '/macro', label: '宏观总览' },
+        { href: '/macro/liquidity', label: '流动性环境' },
+        { href: '/macro/economy', label: '经济基本面' },
+        { href: '/macro/inflation-rates', label: '通胀与利率' },
+        { href: '/macro/sentiment', label: '市场情绪' },
       ],
     },
     {

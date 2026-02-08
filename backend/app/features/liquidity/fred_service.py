@@ -66,8 +66,16 @@ async def fetch_fred_series(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = 100,
+    units: Optional[str] = None,
 ) -> dict:
-    """Fetch a single FRED series with info and observations."""
+    """Fetch a single FRED series with info and observations.
+
+    Args:
+        units: FRED units transformation. Common values:
+            None  - raw index level (default)
+            "pc1" - Percent Change from Year Ago (YoY%)
+            "pch" - Percent Change (MoM% for monthly series)
+    """
     if not FRED_API_KEY:
         raise ValueError("FRED_API_KEY not configured")
 
@@ -85,6 +93,8 @@ async def fetch_fred_series(
         "sort_order": "desc",
         "limit": limit,
     }
+    if units:
+        params["units"] = units
 
     async with _get_semaphore():
         async with httpx.AsyncClient() as client:

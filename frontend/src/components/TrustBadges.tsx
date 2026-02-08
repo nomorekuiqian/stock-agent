@@ -38,7 +38,7 @@ const DataSourceLogos = {
         strokeWidth="1.5"
         className="opacity-60"
       />
-      <text x="17" y="20" className="text-[10px] font-bold fill-current">
+      <text x="17" y="20" className="text-micro font-bold fill-current">
         SEC
       </text>
       <text x="34" y="23" className="text-[16px] font-medium fill-current opacity-80" style={{ fontFamily: 'system-ui' }}>
@@ -88,7 +88,7 @@ export default function TrustBadges({
       <div className={`flex flex-col gap-3 ${className}`}>
         {/* Data Sources */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Data from</span>
+          <span className="text-micro text-muted-foreground/50 uppercase tracking-wider">Data from</span>
           <div className="flex items-center gap-3">
             {dataSources.map((source, i) => (
               <span key={source} className="text-xs text-muted-foreground/60 font-medium">
@@ -108,7 +108,7 @@ export default function TrustBadges({
                   key={i}
                   className="w-5 h-5 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border-2 border-background flex items-center justify-center"
                 >
-                  <span className="text-[8px] text-primary/70 font-medium">
+                  <span className="text-micro text-primary/70 font-medium">
                     {['K', 'J', 'M'][i]}
                   </span>
                 </div>
@@ -151,7 +151,7 @@ export default function TrustBadges({
     <div className={`space-y-4 ${className}`}>
       {/* Logos Row */}
       <div className="flex items-center gap-6 text-muted-foreground/60">
-        <span className="text-[10px] uppercase tracking-wider opacity-50">Data from</span>
+        <span className="text-micro uppercase tracking-wider opacity-50">Data from</span>
         <DataSourceLogos.Reuters />
         <DataSourceLogos.Bloomberg />
         <DataSourceLogos.SEC />

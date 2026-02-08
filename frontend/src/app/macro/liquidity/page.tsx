@@ -8,13 +8,14 @@ import { NFCIGauge } from '@/components/NFCIGauge';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
   api,
+  invalidateCache,
   LiquidityMetrics,
   LiquidityMetric,
-  LiquidityAnalysis,
   LiquidityHistoryObservation,
+  WeeklyMacroReport,
 } from '@/lib/api';
+import { InsightBanner } from '@/components/InsightBanner';
 import { formatCompareDateLabel, formatDateTimePacific } from '@/lib/timezone';
-import ReactMarkdown from 'react-markdown';
 import { Droplets, Layers, Gauge } from 'lucide-react';
 
 // ============================================================================
@@ -282,7 +283,7 @@ function LiquidityHeroCard({
     >
       {/* Tab label */}
       <div className="mb-3">
-        <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
           {config.name}
         </span>
       </div>
@@ -290,7 +291,7 @@ function LiquidityHeroCard({
       {/* Primary big number */}
       <div className="mb-1">
         <span
-          className={`text-[2.5rem] font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+          className={`text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
             selected
               ? getColorClass(accentColor)
               : 'text-foreground group-hover:text-foreground'
@@ -322,7 +323,7 @@ function LiquidityHeroCard({
             : 'opacity-0 group-hover:opacity-100'
         }`}
       >
-        <span className="text-[10px] text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
           点击查看详情
         </span>
       </div>
@@ -433,7 +434,7 @@ function NetLiquidityDeepDive({
         {/* Section header */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-start gap-3 min-w-0">
-            <span className="text-[2rem] font-data font-bold leading-none text-foreground tracking-tighter select-none">
+            <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
               01
             </span>
             <div className="pt-0.5 min-w-0">
@@ -452,7 +453,7 @@ function NetLiquidityDeepDive({
               <button
                 key={range}
                 onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                   timeRange === range
                     ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -532,7 +533,7 @@ function NetLiquidityDeepDive({
                         {m.change!.toFixed(2)}%
                       </span>
                       {m.previous_date && (
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {formatCompareDate(m.previous_date)}
                         </span>
                       )}
@@ -590,7 +591,7 @@ function BalanceSheetDeepDive({
         {/* Section header */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-start gap-3 min-w-0">
-            <span className="text-[2rem] font-data font-bold leading-none text-foreground tracking-tighter select-none">
+            <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
               02
             </span>
             <div className="pt-0.5 min-w-0">
@@ -603,12 +604,13 @@ function BalanceSheetDeepDive({
             </div>
           </div>
 
+          {/* Time range selector */}
           <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
             {TIME_RANGES.map((range) => (
               <button
                 key={range}
                 onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                   timeRange === range
                     ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -700,7 +702,7 @@ function FinancialConditionsDeepDive({
         {/* Section header */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-start gap-3 min-w-0">
-            <span className="text-[2rem] font-data font-bold leading-none text-foreground tracking-tighter select-none">
+            <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
               03
             </span>
             <div className="pt-0.5 min-w-0">
@@ -713,12 +715,13 @@ function FinancialConditionsDeepDive({
             </div>
           </div>
 
+          {/* Time range selector */}
           <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
             {TIME_RANGES.map((range) => (
               <button
                 key={range}
                 onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                   timeRange === range
                     ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -795,200 +798,6 @@ function FinancialConditionsDeepDive({
 }
 
 // ============================================================================
-// AI Analysis Section
-// ============================================================================
-
-function AIAnalysisSection({
-  analysis,
-  analysisLoading,
-  analysisError,
-  onGenerate,
-}: {
-  analysis: LiquidityAnalysis | null;
-  analysisLoading: boolean;
-  analysisError: string | null;
-  onGenerate: () => void;
-}) {
-  const { ref, isVisible } = useInView();
-
-  return (
-    <section
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-      }`}
-    >
-      <div className="bg-card rounded-xl border border-border p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-              <svg
-                className="w-4 h-4 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-foreground">
-                AI 流动性分析
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                由 GPT-4o-mini 提供支持
-                {analysis?.generated_at && (
-                  <span className="ml-2">
-                    | 生成于 {formatDateTimePacific(analysis.generated_at)}
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onGenerate}
-            disabled={analysisLoading}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-          >
-            {analysisLoading ? (
-              <>
-                <svg
-                  className="w-4 h-4 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                生成中...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                生成分析
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Analysis Error */}
-        {analysisError && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-            {analysisError}
-          </div>
-        )}
-
-        {/* Analysis Content */}
-        {analysis ? (
-          <div className="space-y-4">
-            {/* Status Badge */}
-            <div className="flex items-center gap-2">
-              <span
-                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  analysis.status === '充裕'
-                    ? 'bg-emerald-500/10 text-emerald-500'
-                    : analysis.status === '适中'
-                      ? 'bg-amber-500/10 text-amber-500'
-                      : 'bg-red-500/10 text-red-500'
-                }`}
-              >
-                流动性状态: {analysis.status}
-              </span>
-            </div>
-
-            {/* Analysis Text */}
-            <div className="bg-muted/30 rounded-lg p-4">
-              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-h3:text-base prose-h3:mt-4 prose-h3:mb-2 prose-p:text-foreground/90 prose-p:leading-relaxed prose-li:text-foreground/90 prose-strong:text-foreground prose-a:text-emerald-500 prose-a:no-underline hover:prose-a:underline">
-                <ReactMarkdown>{analysis.analysis}</ReactMarkdown>
-              </div>
-            </div>
-
-            {/* Metrics Snapshot */}
-            {analysis.metrics_snapshot && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 pt-2 border-t border-border">
-                <div className="text-center p-2">
-                  <div className="text-xs text-muted-foreground">净流动性</div>
-                  <div className="text-sm font-medium text-foreground">
-                    $
-                    {analysis.metrics_snapshot.net_liquidity?.toFixed(0) ?? 'N/A'}
-                    B
-                  </div>
-                </div>
-                <div className="text-center p-2">
-                  <div className="text-xs text-muted-foreground">
-                    美联储资产
-                  </div>
-                  <div className="text-sm font-medium text-foreground">
-                    $
-                    {analysis.metrics_snapshot.fed_assets?.toFixed(0) ?? 'N/A'}B
-                  </div>
-                </div>
-                <div className="text-center p-2">
-                  <div className="text-xs text-muted-foreground">TGA</div>
-                  <div className="text-sm font-medium text-foreground">
-                    ${analysis.metrics_snapshot.tga?.toFixed(0) ?? 'N/A'}B
-                  </div>
-                </div>
-                <div className="text-center p-2">
-                  <div className="text-xs text-muted-foreground">RRP</div>
-                  <div className="text-sm font-medium text-foreground">
-                    ${analysis.metrics_snapshot.rrp?.toFixed(0) ?? 'N/A'}B
-                  </div>
-                </div>
-                <div className="text-center p-2">
-                  <div className="text-xs text-muted-foreground">NFCI</div>
-                  <div className="text-sm font-medium text-foreground">
-                    {analysis.metrics_snapshot.nfci?.toFixed(2) ?? 'N/A'}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-muted/50 rounded-lg p-6 border border-dashed border-border">
-            <p className="text-sm text-muted-foreground text-center">
-              点击「生成分析」按钮,AI 将分析当前流动性状况
-              <br />
-              <span className="text-xs">
-                分析包含当前状态、变化趋势、驱动因素、压力信号、前瞻展望和投资含义
-              </span>
-            </p>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-// ============================================================================
 // Main Page
 // ============================================================================
 
@@ -1009,12 +818,12 @@ export default function LiquidityPage() {
   const [selectedTab, setSelectedTab] = useState<TabId>('net_liquidity');
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // AI Analysis state
-  const [analysis, setAnalysis] = useState<LiquidityAnalysis | null>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  // Weekly report state
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (bypassCache = false) => {
+    if (bypassCache) invalidateCache('liquidity-history-365');
     setLoading(true);
     setError(null);
     try {
@@ -1034,39 +843,16 @@ export default function LiquidityPage() {
     }
   }, []);
 
-  const fetchLatestAnalysis = useCallback(async () => {
-    try {
-      const response = await api.getLatestLiquidityAnalysis();
-      if (response.success && response.analysis) {
-        setAnalysis(response.analysis);
-      }
-    } catch (err) {
-      console.error('Error fetching latest analysis:', err);
-    }
-  }, []);
-
-  const generateAnalysis = async () => {
-    setAnalysisLoading(true);
-    setAnalysisError(null);
-    try {
-      const response = await api.generateLiquidityAnalysis();
-      if (response.success && response.analysis) {
-        setAnalysis(response.analysis);
-      } else {
-        setAnalysisError(response.error || '生成分析失败');
-      }
-    } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : '生成分析失败');
-      console.error('Error generating analysis:', err);
-    } finally {
-      setAnalysisLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchData();
-    fetchLatestAnalysis();
-  }, [fetchData, fetchLatestAnalysis]);
+    api.weeklyReport
+      .getLatest()
+      .then((res) => {
+        if (res.success) setWeeklyReport(res.data);
+      })
+      .catch(() => {})
+      .finally(() => setWeeklyLoading(false));
+  }, [fetchData]);
 
   const getInterval = () => {
     switch (timeRange) {
@@ -1112,7 +898,7 @@ export default function LiquidityPage() {
         question="市场上的钱是多了还是少了?"
         lastUpdated={lastUpdated ? formatDateTimePacific(lastUpdated) : null}
         loading={loading}
-        onRefresh={fetchData}
+        onRefresh={() => fetchData(true)}
       />
 
       {/* Error Message */}
@@ -1143,6 +929,15 @@ export default function LiquidityPage() {
                 ))}
           </div>
         </section>
+
+        {/* Insight Banner */}
+        <InsightBanner
+          sectionTitle="流动性"
+          analysis={weeklyReport?.liquidity_analysis ?? null}
+          signalColor={weeklyReport?.signal_lights.liquidity ?? null}
+          weekLabel={weeklyReport?.week_label ?? null}
+          loading={weeklyLoading}
+        />
 
         {/* Deep Dive: Selected tab content */}
         {metrics && (
@@ -1192,18 +987,10 @@ export default function LiquidityPage() {
           </div>
         )}
 
-        {/* AI Analysis - Persistent section below tabs */}
-        <AIAnalysisSection
-          analysis={analysis}
-          analysisLoading={analysisLoading}
-          analysisError={analysisError}
-          onGenerate={generateAnalysis}
-        />
-
         {/* Footer */}
         <section className="text-center py-4">
           <Link
-            href="/tools"
+            href="/macro"
             className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald-400 transition-colors duration-200"
           >
             <svg
@@ -1221,7 +1008,7 @@ export default function LiquidityPage() {
             </svg>
             返回宏观总览
           </Link>
-          <p className="text-[11px] text-muted-foreground/60 mt-3">
+          <p className="text-xs text-muted-foreground/60 mt-3">
             数据来源{' '}
             <a
               href="https://fred.stlouisfed.org/"

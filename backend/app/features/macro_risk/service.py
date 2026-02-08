@@ -6,11 +6,14 @@ Fetches FRED data, yfinance AI basket quotes, and computes risk scores.
 
 import asyncio
 import time
+import httpx
 from app.features.liquidity.fred_service import (
     get_latest_value,
     get_all_liquidity_metrics,
+    fetch_fred_series,
 )
 from app.shared.yfinance_service import get_yfinance_service
+from app.shared.fmp_service import get_fmp_service
 from app.features.macro_risk.models import (
     RiskIndicator,
     CategoryRiskScore,
@@ -18,6 +21,8 @@ from app.features.macro_risk.models import (
     MacroRiskDashboard,
     SubDimension,
     EconomicFundamentals,
+    CpiComponent,
+    CpiBreakdown,
 )
 from app.utils.timezone import now_iso
 
@@ -58,31 +63,27 @@ AI_STOCK_BASKET = [
     "AVGO", "TSM", "SMCI", "ARM", "PLTR",
 ]
 
-_CACHE_TTL = 600  # 10 minutes
-_dashboard_cache: dict = {}
-_economy_cache: dict = {}
+_CACHE_TTL = 600
 
-_inflation_cache: dict = {}
+_caches: dict[str, dict] = {
+    "dashboard": {},
+    "economy": {},
+    "inflation": {},
+    "sentiment": {},
+    "treasury_commodities": {},
+}
 
-_dashboard_lock: asyncio.Lock | None = None
-_economy_lock: asyncio.Lock | None = None
-_inflation_lock: asyncio.Lock | None = None
+_locks: dict[str, asyncio.Lock] = {}
 
 
 def _get_lock(name: str) -> asyncio.Lock:
-    global _dashboard_lock, _economy_lock, _inflation_lock
-    if name == "dashboard":
-        if _dashboard_lock is None:
-            _dashboard_lock = asyncio.Lock()
-        return _dashboard_lock
-    elif name == "inflation":
-        if _inflation_lock is None:
-            _inflation_lock = asyncio.Lock()
-        return _inflation_lock
-    else:
-        if _economy_lock is None:
-            _economy_lock = asyncio.Lock()
-        return _economy_lock
+    if name not in _locks:
+        _locks[name] = asyncio.Lock()
+    return _locks[name]
+
+
+def _get_cache(name: str) -> dict:
+    return _caches.setdefault(name, {})
 
 
 def _get_cached(store: dict):
@@ -451,13 +452,13 @@ async def get_macro_risk_dashboard() -> MacroRiskDashboard:
     Results cached for 10 minutes. Uses request coalescing to avoid
     duplicate FRED fetches when multiple requests arrive at cache expiry.
     """
-    cached = _get_cached(_dashboard_cache)
+    cached = _get_cached(_get_cache("dashboard"))
     if cached:
         print("[MacroRisk] Returning cached dashboard")
         return cached
 
     async with _get_lock("dashboard"):
-        cached = _get_cached(_dashboard_cache)
+        cached = _get_cached(_get_cache("dashboard"))
         if cached:
             print("[MacroRisk] Returning cached dashboard (coalesced)")
             return cached
@@ -525,7 +526,7 @@ async def get_macro_risk_dashboard() -> MacroRiskDashboard:
             liquidity_summary=liquidity_summary,
         )
 
-        _set_cached(_dashboard_cache, dashboard)
+        _set_cached(_get_cache("dashboard"), dashboard)
         print(f"[MacroRisk] Dashboard ready: composite={composite} ({composite_level})")
 
         return dashboard
@@ -792,13 +793,13 @@ async def get_economic_fundamentals() -> EconomicFundamentals:
     growth (30%), employment (30%), inflation (20%), credit (20%).
     Cached independently for 10 minutes. Uses request coalescing.
     """
-    cached = _get_cached(_economy_cache)
+    cached = _get_cached(_get_cache("economy"))
     if cached:
         print("[Economy] Returning cached data")
         return cached
 
     async with _get_lock("economy"):
-        cached = _get_cached(_economy_cache)
+        cached = _get_cached(_get_cache("economy"))
         if cached:
             print("[Economy] Returning cached data (coalesced)")
             return cached
@@ -807,7 +808,7 @@ async def get_economic_fundamentals() -> EconomicFundamentals:
 
         needed_keys = {
             defn[0]
-            for defs in [_GROWTH_INDICATORS, _EMPLOYMENT_INDICATORS, _INFLATION_INDICATORS, _CREDIT_INDICATORS]
+            for defs in [_GROWTH_INDICATORS, _EMPLOYMENT_INDICATORS, _CREDIT_INDICATORS]
             for defn in defs
         }
 
@@ -827,12 +828,11 @@ async def get_economic_fundamentals() -> EconomicFundamentals:
 
         indicators = {key: data for key, data in results_raw}
 
-        growth = _compute_subdimension("growth", "增长", 0.30, _GROWTH_INDICATORS, indicators)
-        employment = _compute_subdimension("employment", "就业", 0.30, _EMPLOYMENT_INDICATORS, indicators)
-        inflation = _compute_subdimension("inflation", "通胀", 0.20, _INFLATION_INDICATORS, indicators)
-        credit = _compute_subdimension("credit", "信用", 0.20, _CREDIT_INDICATORS, indicators)
+        growth = _compute_subdimension("growth", "增长", 0.35, _GROWTH_INDICATORS, indicators)
+        employment = _compute_subdimension("employment", "就业", 0.35, _EMPLOYMENT_INDICATORS, indicators)
+        credit = _compute_subdimension("credit", "信用", 0.30, _CREDIT_INDICATORS, indicators)
 
-        sub_dims = [growth, employment, inflation, credit]
+        sub_dims = [growth, employment, credit]
 
         overall = sum(d.score * d.weight for d in sub_dims)
         overall = round(min(10.0, max(0.0, overall)), 1)
@@ -846,7 +846,7 @@ async def get_economic_fundamentals() -> EconomicFundamentals:
             sub_dimensions=sub_dims,
         )
 
-        _set_cached(_economy_cache, result)
+        _set_cached(_get_cache("economy"), result)
         print(f"[Economy] Ready: overall={overall} ({overall_level})")
 
         return result
@@ -870,13 +870,13 @@ async def get_inflation_rates() -> EconomicFundamentals:
     inflation (60%), rates (40%).
     Cached independently for 10 minutes. Uses request coalescing.
     """
-    cached = _get_cached(_inflation_cache)
+    cached = _get_cached(_get_cache("inflation"))
     if cached:
         print("[InflationRates] Returning cached data")
         return cached
 
     async with _get_lock("inflation"):
-        cached = _get_cached(_inflation_cache)
+        cached = _get_cached(_get_cache("inflation"))
         if cached:
             print("[InflationRates] Returning cached data (coalesced)")
             return cached
@@ -922,7 +922,495 @@ async def get_inflation_rates() -> EconomicFundamentals:
             sub_dimensions=sub_dims,
         )
 
-        _set_cached(_inflation_cache, result)
+        _set_cached(_get_cache("inflation"), result)
         print(f"[InflationRates] Ready: overall={overall} ({overall_level})")
+
+        return result
+
+
+# ============================================================================
+# CPI Breakdown (YoY% + MoM% for key CPI components)
+# ============================================================================
+
+_CPI_COMPONENTS = [
+    ("CPIAUCSL", "CPI All Items", "CPI 总体"),
+    ("CPILFESL", "Core CPI", "核心 CPI"),
+    ("CUSR0000SAH1", "Shelter", "住房"),
+    ("CPIUFDSL", "Food", "食品"),
+    ("CPIENGSL", "Energy", "能源"),
+]
+
+
+
+async def get_cpi_breakdown() -> CpiBreakdown:
+    """
+    Fetch YoY% and MoM% for key CPI components using FRED's
+    built-in units transformation (pc1 / pch).
+    Cached for 10 minutes with request coalescing.
+    """
+    cached = _get_cached(_get_cache("cpi"))
+    if cached:
+        print("[CPI] Returning cached data")
+        return cached
+
+    async with _get_lock("cpi"):
+        cached = _get_cached(_get_cache("cpi"))
+        if cached:
+            print("[CPI] Returning cached data (coalesced)")
+            return cached
+
+        print("[CPI] Fetching fresh CPI breakdown data...")
+
+        async def fetch_one(series_id: str, units: str):
+            try:
+                data = await fetch_fred_series(
+                    series_id, limit=1, units=units,
+                )
+                obs = data.get("observations", [])
+                if obs:
+                    raw_val = obs[0].get("value")
+                    try:
+                        parsed_val = float(raw_val) if raw_val not in (None, ".", "") else None
+                    except (ValueError, TypeError):
+                        parsed_val = None
+                    return series_id, units, obs[0]["date"], parsed_val
+                return series_id, units, None, None
+            except Exception as e:
+                print(f"[CPI] Error fetching {series_id} ({units}): {e}")
+                return series_id, units, None, None
+
+        tasks = []
+        for sid, _, _ in _CPI_COMPONENTS:
+            tasks.append(fetch_one(sid, "pc1"))   # YoY%
+            tasks.append(fetch_one(sid, "pch"))   # MoM%
+
+        results = await asyncio.gather(*tasks)
+
+        lookup: dict[str, dict] = {}
+        for sid, units, date, value in results:
+            if sid not in lookup:
+                lookup[sid] = {}
+            lookup[sid][units] = {"date": date, "value": value}
+
+        components = []
+        for series_id, name_en, name_zh in _CPI_COMPONENTS:
+            info = lookup.get(series_id, {})
+            yoy = info.get("pc1", {})
+            mom = info.get("pch", {})
+
+            yoy_val = yoy.get("value")
+            mom_val = mom.get("value")
+
+            components.append(CpiComponent(
+                series_id=series_id,
+                name=name_en,
+                name_zh=name_zh,
+                date=yoy.get("date") or mom.get("date"),
+                yoy_pct=round(yoy_val, 1) if yoy_val is not None else None,
+                mom_pct=round(mom_val, 2) if mom_val is not None else None,
+            ))
+
+        result = CpiBreakdown(
+            timestamp=now_iso(),
+            components=components,
+        )
+
+        _set_cached(_get_cache("cpi"), result)
+        print(f"[CPI] Ready: {len(components)} components")
+
+        return result
+
+
+# ============================================================================
+# Market Sentiment (CNN Fear & Greed + VIX/Put-Call/Breadth/Credit)
+# ============================================================================
+
+_CNN_FG_URL = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
+_CNN_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.cnn.com/",
+    "Origin": "https://www.cnn.com",
+    "Accept": "application/json",
+}
+
+_CNN_COMPONENTS = [
+    "stock_price_strength",
+    "stock_price_breadth",
+    "put_call_options",
+    "market_momentum",
+    "junk_bond_demand",
+    "market_volatility",
+    "safe_haven_demand",
+]
+
+_CNN_COMPONENT_NAMES_ZH = {
+    "stock_price_strength": "股价强度",
+    "stock_price_breadth": "股价宽度",
+    "put_call_options": "看跌/看涨期权",
+    "market_momentum": "市场动能",
+    "junk_bond_demand": "垃圾债需求",
+    "market_volatility": "市场波动率 (VIX)",
+    "safe_haven_demand": "避险资产需求",
+}
+
+_BREADTH_BASKET = [
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V",
+    "UNH", "XOM", "JNJ", "WMT", "PG", "MA", "HD", "CVX", "MRK", "ABBV",
+    "KO", "PEP", "COST", "LLY", "AVGO", "TMO", "MCD", "CSCO", "ACN", "ABT",
+    "CRM", "DHR", "TXN", "NEE", "LIN", "PM", "UNP", "RTX", "AMGN", "CMCSA",
+    "LOW", "HON", "IBM", "QCOM", "CAT", "BA", "GE", "INTC", "AMAT", "ISRG",
+    "MDLZ", "ADI", "BKNG", "ADP", "PLD", "GILD", "SYK", "MMC", "CB", "BDX",
+    "VRTX", "CI", "DE", "AMT", "SO", "DUK", "ZTS", "MO", "PGR", "CL",
+    "SHW", "BSX", "REGN", "AON", "CME", "FIS", "NSC", "ICE", "TGT", "WM",
+    "APD", "EMR", "FCX", "SLB", "ETN", "PH", "ORLY", "ECL", "ADSK", "KLAC",
+    "PSA", "AEP", "D", "GIS", "SRE", "FTNT", "CTAS", "AZO", "WELL", "MNST",
+]
+
+
+async def _fetch_cnn_fear_greed() -> dict | None:
+    """Fetch CNN Fear & Greed Index data."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(_CNN_FG_URL, headers=_CNN_HEADERS)
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        print(f"[Sentiment] Error fetching CNN Fear & Greed: {e}")
+        return None
+
+
+async def _fetch_sentiment_market_data() -> dict[str, list[RiskIndicator]]:
+    """Fetch volatility (VIX/VVIX/SKEW), breadth, and credit (HY OAS/BBB) indicators."""
+    yf_service = get_yfinance_service()
+
+    async def fetch_yf():
+        symbols = ["^VIX", "^VVIX", "^SKEW"] + _BREADTH_BASKET
+        return await asyncio.to_thread(yf_service.get_stock_quotes, symbols)
+
+    async def fetch_fred_pair():
+        keys = ["hy_oas", "bbb_spread"]
+        series_ids = [(k, MACRO_RISK_FRED_SERIES.get(k)) for k in keys]
+
+        async def _fetch_one(key, sid):
+            try:
+                return key, await get_latest_value(sid)
+            except Exception as e:
+                print(f"[Sentiment] Error fetching {key}: {e}")
+                return key, {"value": None, "error": str(e)}
+
+        tasks = [_fetch_one(k, sid) for k, sid in series_ids if sid]
+        pairs = await asyncio.gather(*tasks)
+        return dict(pairs)
+
+    yf_result, fred_data = await asyncio.gather(fetch_yf(), fetch_fred_pair())
+
+    quotes = yf_result.get("quotes", [])
+    quotes_by_symbol = {q["symbol"]: q for q in quotes}
+
+    # -- Volatility --
+    volatility = []
+    for sym, sid, name in [
+        ("^VIX", "VIX", "VIX 波动率指数"),
+        ("^VVIX", "VVIX", "VVIX (VIX 的波动率)"),
+        ("^SKEW", "SKEW", "SKEW 尾部风险指数"),
+    ]:
+        q = quotes_by_symbol.get(sym)
+        volatility.append(RiskIndicator(
+            series_id=sid,
+            name=name,
+            value=q.get("price") if q else None,
+            units="Index",
+            change=q.get("daily_change") if q else None,
+            source="yfinance",
+        ))
+
+    # -- Breadth & Options --
+    breadth_options = []
+
+    breadth_quotes = [quotes_by_symbol.get(s) for s in _BREADTH_BASKET if s in quotes_by_symbol]
+    if breadth_quotes:
+        up_count = sum(1 for q in breadth_quotes if q and q.get("daily_change", 0) > 0)
+        breadth_pct = round(up_count / len(breadth_quotes) * 100, 1)
+    else:
+        breadth_pct = None
+    breadth_options.append(RiskIndicator(
+        series_id="BREADTH",
+        name="S&P 500 市场宽度",
+        value=breadth_pct,
+        units="Percent",
+        source="yfinance",
+    ))
+    # Put/Call: yfinance ^PCCE delisted, use CNN score as reference
+    breadth_options.append(RiskIndicator(
+        series_id="PCCE",
+        name="看跌/看涨比率 (CBOE)",
+        value=None,
+        units="Ratio",
+        source="cnn",
+    ))
+
+    # -- Credit --
+    credit = []
+    for key, sid, name in [
+        ("hy_oas", "BAMLH0A0HYM2", "高收益债利差 (OAS)"),
+        ("bbb_spread", "BAMLC0A4CBBB", "BBB 公司债利差"),
+    ]:
+        data = fred_data.get(key, {})
+        credit.append(RiskIndicator(
+            series_id=sid,
+            name=name,
+            value=data.get("value"),
+            date=data.get("date"),
+            units=data.get("units", "Percent"),
+            change=data.get("change"),
+            source="fred",
+        ))
+
+    return {
+        "volatility": volatility,
+        "breadth_options": breadth_options,
+        "credit": credit,
+    }
+
+
+def _sentiment_headline(rating: str | None, score: float | None) -> str:
+    if not rating or score is None:
+        return "市场情绪数据获取中"
+    r = rating.lower()
+    if "extreme fear" in r:
+        return f"极度恐慌 ({score:.0f}/100) - 市场恐慌情绪蔓延，可能出现超卖机会"
+    elif "extreme greed" in r:
+        return f"极度贪婪 ({score:.0f}/100) - 市场过度乐观，注意回调风险"
+    elif "fear" in r:
+        return f"恐慌 ({score:.0f}/100) - 市场情绪偏悲观，风险偏好下降"
+    elif "greed" in r:
+        return f"贪婪 ({score:.0f}/100) - 市场情绪乐观，风险偏好上升"
+    else:
+        return f"中性 ({score:.0f}/100) - 市场情绪平稳，观望为主"
+
+
+async def get_market_sentiment() -> EconomicFundamentals:
+    """
+    Get market sentiment: CNN Fear & Greed (7 components) + 3 market dimensions.
+    4 sub-dimensions: cnn_indicators, volatility, breadth_options, credit.
+    overall_score = CNN composite (0-100 scale).
+    Cached independently for 10 minutes. Uses request coalescing.
+    """
+    cached = _get_cached(_get_cache("sentiment"))
+    if cached:
+        print("[Sentiment] Returning cached data")
+        return cached
+
+    async with _get_lock("sentiment"):
+        cached = _get_cached(_get_cache("sentiment"))
+        if cached:
+            print("[Sentiment] Returning cached data (coalesced)")
+            return cached
+
+        print("[Sentiment] Fetching fresh sentiment data...")
+
+        cnn_data, market_groups = await asyncio.gather(
+            _fetch_cnn_fear_greed(),
+            _fetch_sentiment_market_data(),
+        )
+
+        # -- 1. CNN sub-dimension --
+        cnn_indicators = []
+        overall_score = 50.0
+        overall_rating = "Neutral"
+
+        if cnn_data:
+            fg = cnn_data.get("fear_and_greed", {})
+            overall_score = fg.get("score") or 50.0
+            overall_rating = fg.get("rating") or "Neutral"
+
+            for comp_key in _CNN_COMPONENTS:
+                comp = cnn_data.get(comp_key, {})
+                ts_raw = comp.get("timestamp")
+                ts_str = None
+                if ts_raw is not None:
+                    try:
+                        from datetime import datetime, timezone
+                        ts_str = datetime.fromtimestamp(ts_raw / 1000, tz=timezone.utc).isoformat()
+                    except Exception:
+                        ts_str = str(ts_raw)
+                cnn_indicators.append(RiskIndicator(
+                    series_id=f"CNN_{comp_key.upper()}",
+                    name=_CNN_COMPONENT_NAMES_ZH.get(comp_key, comp_key),
+                    value=comp.get("score"),
+                    date=ts_str,
+                    units="Score (0-100)",
+                    source="cnn",
+                ))
+
+        cnn_score_0_10 = round(overall_score / 10, 1) if overall_score is not None else 5.0
+        cnn_risk_level = "low" if cnn_score_0_10 >= 6 else ("medium" if cnn_score_0_10 >= 4 else "high")
+
+        cnn_dim = SubDimension(
+            name="cnn_indicators",
+            name_zh="CNN 恐慌贪婪指数",
+            score=cnn_score_0_10,
+            risk_level=cnn_risk_level,
+            weight=0.0,
+            headline=_sentiment_headline(overall_rating, overall_score),
+            indicators=cnn_indicators,
+        )
+
+        # -- 2. Volatility sub-dimension --
+        vol_indicators = market_groups.get("volatility", [])
+        vix_val = next((i.value for i in vol_indicators if i.series_id == "VIX"), None)
+        vol_headline = "VIX / VVIX / SKEW 波动率实时数据"
+        if vix_val is not None:
+            if vix_val >= 30:
+                vol_headline = f"VIX {vix_val:.1f} - 市场恐慌情绪升温，波动率显著偏高"
+            elif vix_val >= 20:
+                vol_headline = f"VIX {vix_val:.1f} - 波动率适中，市场保持警惕"
+            else:
+                vol_headline = f"VIX {vix_val:.1f} - 波动率偏低，市场相对平静"
+
+        vol_dim = SubDimension(
+            name="volatility",
+            name_zh="波动率",
+            score=5.0,
+            risk_level="medium",
+            weight=0.0,
+            headline=vol_headline,
+            indicators=vol_indicators,
+        )
+
+        # -- 3. Breadth & Options sub-dimension --
+        bo_indicators = market_groups.get("breadth_options", [])
+        breadth_val = next((i.value for i in bo_indicators if i.series_id == "BREADTH"), None)
+        bo_headline = "市场宽度与期权情绪"
+        if breadth_val is not None:
+            if breadth_val >= 70:
+                bo_headline = f"上涨比例 {breadth_val:.0f}% - 多数股票参与上涨，市场广度健康"
+            elif breadth_val >= 40:
+                bo_headline = f"上涨比例 {breadth_val:.0f}% - 市场涨跌分化，广度一般"
+            else:
+                bo_headline = f"上涨比例 {breadth_val:.0f}% - 多数股票下跌，市场广度疲弱"
+
+        bo_dim = SubDimension(
+            name="breadth_options",
+            name_zh="市场宽度与期权",
+            score=5.0,
+            risk_level="medium",
+            weight=0.0,
+            headline=bo_headline,
+            indicators=bo_indicators,
+        )
+
+        # -- 4. Credit sub-dimension --
+        credit_indicators = market_groups.get("credit", [])
+        hy_val = next((i.value for i in credit_indicators if i.series_id == "BAMLH0A0HYM2"), None)
+        credit_headline = "信用利差实时数据"
+        if hy_val is not None:
+            if hy_val >= 5:
+                credit_headline = f"高收益利差 {hy_val:.2f}% - 信用风险显著上升"
+            elif hy_val >= 3.5:
+                credit_headline = f"高收益利差 {hy_val:.2f}% - 信用条件适度偏紧"
+            else:
+                credit_headline = f"高收益利差 {hy_val:.2f}% - 信用市场稳定"
+
+        credit_dim = SubDimension(
+            name="credit",
+            name_zh="信用利差",
+            score=5.0,
+            risk_level="medium",
+            weight=0.0,
+            headline=credit_headline,
+            indicators=credit_indicators,
+        )
+
+        sub_dims = [cnn_dim, vol_dim, bo_dim, credit_dim]
+
+        overall_level = (
+            "low" if overall_score >= 60
+            else ("medium" if overall_score >= 40 else "high")
+        )
+
+        result = EconomicFundamentals(
+            timestamp=now_iso(),
+            overall_score=round(overall_score, 1),
+            overall_level=overall_level,
+            overall_headline=_sentiment_headline(overall_rating, overall_score),
+            sub_dimensions=sub_dims,
+        )
+
+        _set_cached(_get_cache("sentiment"), result)
+        print(f"[Sentiment] Ready: overall={overall_score:.0f} ({overall_rating})")
+
+        return result
+
+
+# ============================================================================
+# Treasury & Commodities (Yield Curve + Gold/Oil/Dollar)
+# ============================================================================
+
+
+def _fetch_dollar_index() -> dict:
+    """Synchronous yfinance fetch for DX-Y.NYB (US Dollar Index)."""
+    import warnings as _warnings
+    import yfinance as yf
+
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        ticker = yf.Ticker("DX-Y.NYB")
+        hist = ticker.history(period="2d")
+
+    if hist.empty:
+        return {"price": None, "daily_change": None}
+
+    today_close = float(hist["Close"].iloc[-1])
+    if today_close != today_close:
+        return {"price": None, "daily_change": None}
+
+    prev_close = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else None
+    daily_change = None
+    if prev_close and prev_close == prev_close and prev_close > 0:
+        daily_change = round(((today_close - prev_close) / prev_close) * 100, 2)
+
+    return {
+        "price": round(today_close, 2),
+        "daily_change": daily_change,
+    }
+
+
+async def get_treasury_and_commodities() -> dict:
+    """
+    Get treasury yield curve (12 tenors with daily change) + commodity quotes + dollar index.
+    Cached for 10 minutes with request coalescing.
+    """
+    cached = _get_cached(_get_cache("treasury_commodities"))
+    if cached:
+        print("[TreasuryCommodities] Returning cached data")
+        return cached
+
+    async with _get_lock("treasury_commodities"):
+        cached = _get_cached(_get_cache("treasury_commodities"))
+        if cached:
+            print("[TreasuryCommodities] Returning cached data (coalesced)")
+            return cached
+
+        print("[TreasuryCommodities] Fetching fresh data...")
+
+        fmp = get_fmp_service()
+
+        # Parallel fetch: FMP treasury, FMP commodities, yfinance dollar index
+        treasury_result, commodities_result, dollar_result = await asyncio.gather(
+            asyncio.to_thread(fmp.get_treasury_rates_with_change),
+            asyncio.to_thread(fmp.get_commodity_quotes, ["GCUSD", "BZUSD", "HGUSD", "SIUSD"]),
+            asyncio.to_thread(_fetch_dollar_index),
+        )
+
+        result = {
+            "treasury": treasury_result,
+            "commodities": commodities_result.get("commodities", {}),
+            "dollar": dollar_result,
+            "timestamp": now_iso(),
+        }
+
+        _set_cached(_get_cache("treasury_commodities"), result)
+        print(f"[TreasuryCommodities] Ready: {len(treasury_result.get('rates', {}))} tenors")
 
         return result

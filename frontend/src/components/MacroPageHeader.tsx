@@ -34,9 +34,9 @@ export function MacroPageHeader({
         {/* Row 1: Section path + Controls */}
         <div className="flex items-center justify-between mb-4 md:mb-5">
           {/* Section path */}
-          <nav className="flex items-center gap-2 text-[11px] tracking-[0.15em] uppercase">
+          <nav className="flex items-center gap-2 text-xs tracking-[0.15em] uppercase">
             <Link
-              href="/tools"
+              href="/macro"
               className="text-muted-foreground/60 hover:text-emerald-500 transition-colors"
             >
               Macro
@@ -76,7 +76,7 @@ export function MacroPageHeader({
                   <button
                     key={range}
                     onClick={() => onTimeRangeChange(range)}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                       timeRange === range
                         ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
                         : 'text-muted-foreground/60 hover:text-foreground'
@@ -102,7 +102,7 @@ export function MacroPageHeader({
 
         {/* Row 3: Timestamp */}
         {lastUpdated && (
-          <div className="mt-3 md:mt-4 flex items-center gap-2 text-[11px] text-muted-foreground/40">
+          <div className="mt-3 md:mt-4 flex items-center gap-2 text-xs text-muted-foreground/40">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 animate-pulse" />
             <span className="font-data tracking-wide">
               {lastUpdated}

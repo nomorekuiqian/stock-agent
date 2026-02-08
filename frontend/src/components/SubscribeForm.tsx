@@ -84,7 +84,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
       <div className="p-7">
         {/* Header - Editorial style */}
         <div className="mb-6">
-          <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-emerald-500/80 mb-2">
+          <p className="text-xs font-medium tracking-[0.15em] uppercase text-emerald-500/80 mb-2">
             免费订阅 / 收盘后送达
           </p>
           <h3 className="font-editorial text-xl text-foreground leading-tight">
@@ -171,7 +171,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
             </button>
 
             {/* Privacy Note */}
-            <p className="text-[10px] text-muted-foreground/40 text-center pt-0.5">
+            <p className="text-micro text-muted-foreground/40 text-center pt-0.5">
               随时可退订，我们尊重你的隐私
             </p>
           </form>

@@ -15,8 +15,8 @@
 @theme {
   /* Editorial headlines: LXGW WenKai for Chinese, Instrument Serif for English */
   --font-serif: 'LXGW WenKai', 'Instrument Serif', 'Songti SC', Georgia, serif;
-  /* Body text: OPPO Sans for Chinese (premium, rounded), DM Sans for English */
-  --font-sans: 'OPPO Sans', 'DM Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  /* Body text: HarmonyOS Sans SC for Chinese (professional, clean), DM Sans for English */
+  --font-sans: 'HarmonyOS Sans SC', 'DM Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Dark-First Premium Theme */
@@ -53,7 +53,25 @@
   --color-ring: #10B981;
 
   --radius: 0.5rem;
+
+  /* Custom Type Scale Tokens */
+  --text-micro: 0.625rem;       /* 10px - avatar monograms, data source labels, tooltips */
+  --text-data-hero: 2.5rem;     /* 40px - dashboard hero metric numbers */
 }
+
+/* ============================================
+   TYPE SCALE REFERENCE
+   ============================================
+   micro      text-micro      10px   Avatar monograms, data source labels, tooltips
+   caption    text-xs         12px   Labels, badges, metadata, eyebrows, time buttons
+   body       text-sm         14px   Body text, nav items, buttons, descriptions
+   lead       text-base       16px   Page descriptions, brand name, primary summaries
+   title-sm   text-lg         18px   Card titles, section headings
+   title      text-xl         20px   Prominent headings, stat values
+   title-lg   text-2xl        24px   Page sub-headings
+   display    text-3xl~6xl    30-60  Page hero titles (responsive chain)
+   data-hero  text-data-hero  40px   Dashboard hero metric numbers
+   ============================================ */
 
 :root {
   --radius: 0.5rem;

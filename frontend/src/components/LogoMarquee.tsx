@@ -254,7 +254,7 @@ export default function LogoMarquee({
 export function LogoMarqueeCompact({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center gap-8 ${className}`}>
-      <span className="text-[10px] text-muted-foreground/40 uppercase tracking-wider flex-shrink-0">
+      <span className="text-micro text-muted-foreground/40 uppercase tracking-wider flex-shrink-0">
         Data from
       </span>
       <div className="flex items-center gap-6 overflow-hidden">

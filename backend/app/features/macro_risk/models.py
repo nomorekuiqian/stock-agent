@@ -57,3 +57,18 @@ class EconomicFundamentals(BaseModel):
     overall_level: str  # "low" / "medium" / "high"
     overall_headline: str
     sub_dimensions: list[SubDimension]
+
+
+class CpiComponent(BaseModel):
+    series_id: str
+    name: str
+    name_zh: str
+    value: float | None = None  # index level
+    date: str | None = None
+    yoy_pct: float | None = None  # year-over-year %
+    mom_pct: float | None = None  # month-over-month %
+
+
+class CpiBreakdown(BaseModel):
+    timestamp: str
+    components: list[CpiComponent]

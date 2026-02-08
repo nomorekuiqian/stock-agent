@@ -102,10 +102,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
         {/* LXGW WenKai - Chinese editorial font for headlines */}
         <link href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" rel="stylesheet" />
-        {/* OPPO Sans - Modern Chinese body font with premium feel */}
-        <link href="https://cdn.jsdelivr.net/npm/oppo-sans@1.0.1/OPPOSans-Regular.css" rel="stylesheet" />
-        <link href="https://cdn.jsdelivr.net/npm/oppo-sans@1.0.1/OPPOSans-Medium.css" rel="stylesheet" />
-        <link href="https://cdn.jsdelivr.net/npm/oppo-sans@1.0.1/OPPOSans-Bold.css" rel="stylesheet" />
+        {/* HarmonyOS Sans SC - Professional Chinese body font */}
+        <link href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Regular.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Medium.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Bold.css" rel="stylesheet" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
@@ -141,7 +141,7 @@ export default function RootLayout({
                   <Link href="/stock" className="hover:text-foreground transition-colors">
                     个股
                   </Link>
-                  <Link href="/tools" className="hover:text-foreground transition-colors">
+                  <Link href="/macro" className="hover:text-foreground transition-colors">
                     宏观
                   </Link>
                   <Link href="/contact" className="hover:text-foreground transition-colors">

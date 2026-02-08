@@ -43,7 +43,7 @@ export default function Home() {
               </div>
 
               {/* Main Headline - Clear Value Proposition */}
-              <h1 className="animate-fade-in-up delay-100 font-editorial text-[1.75rem] sm:text-3xl md:text-5xl lg:text-6xl text-foreground leading-[1.05] mb-5">
+              <h1 className="animate-fade-in-up delay-100 font-editorial text-3xl md:text-5xl lg:text-6xl text-foreground leading-[1.05] mb-5">
                 每天 5 分钟
                 <br />
                 <span className="text-gradient-emerald">读懂美股交易信号</span>
@@ -89,7 +89,7 @@ export default function Home() {
                       key={i}
                       className="w-5 h-5 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border-2 border-background flex items-center justify-center"
                     >
-                      <span className="text-[8px] text-primary/70 font-medium">
+                      <span className="text-micro text-primary/70 font-medium">
                         {["K", "J", "M"][i]}
                       </span>
                     </div>
@@ -139,7 +139,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 md:px-6">
             <div className="flex items-center justify-center gap-6 mb-1.5">
               <div className="h-px flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-border/50" />
-              <span className="text-[10px] text-muted-foreground/50 uppercase tracking-[0.2em]">
+              <span className="text-micro text-muted-foreground/50 uppercase tracking-[0.2em]">
                 Data Sources
               </span>
               <div className="h-px flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-border/50" />
@@ -218,7 +218,7 @@ export default function Home() {
                       <p className="text-xs text-primary font-medium tracking-wider">
                         THEMARKETBREW
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-micro text-muted-foreground">
                         每日市场报告
                       </p>
                     </div>
@@ -269,14 +269,14 @@ export default function Home() {
                     },
                   ].map((item, i) => (
                     <div key={i} className="bg-muted/30 rounded px-2.5 py-2">
-                      <p className="text-[10px] text-muted-foreground truncate">
+                      <p className="text-micro text-muted-foreground truncate">
                         {item.name}
                       </p>
                       <p className="font-data text-xs text-foreground">
                         {item.value}
                       </p>
                       <p
-                        className={`font-data text-[10px] ${
+                        className={`font-data text-micro ${
                           item.up ? "text-primary" : "text-red-400"
                         }`}
                       >
@@ -360,7 +360,7 @@ export default function Home() {
 
               {/* Footer hint */}
               <div className="px-6 py-3 bg-muted/20 border-t border-border/30">
-                <p className="text-[10px] text-muted-foreground text-center">
+                <p className="text-micro text-muted-foreground text-center">
                   这是真实邮件的简化预览
                 </p>
               </div>
@@ -396,7 +396,7 @@ export default function Home() {
                 <div className="grid md:grid-cols-2 gap-8 items-center">
                   {/* Left - Content */}
                   <div>
-                    <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-primary/80 mb-3">
+                    <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-3">
                       核心功能 / 每日简报
                     </p>
                     <h3 className="font-editorial text-xl sm:text-2xl md:text-3xl text-foreground mb-4 leading-tight">
@@ -454,7 +454,7 @@ export default function Home() {
               <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
-                  <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
                     专属定制 / 你的持仓
                   </p>
 
@@ -476,7 +476,7 @@ export default function Home() {
                       <div className="flex -space-x-1">
                         {["AAPL", "NVDA", "MSFT"].map((ticker) => (
                           <div key={ticker} className="w-6 h-6 rounded-full bg-primary/15 border-2 border-card flex items-center justify-center">
-                            <span className="text-[8px] font-data text-primary/80">{ticker[0]}</span>
+                            <span className="text-micro font-data text-primary/80">{ticker[0]}</span>
                           </div>
                         ))}
                       </div>
@@ -495,7 +495,7 @@ export default function Home() {
               <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
-                  <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
                     深度研究 / 个股透视
                   </p>
 
@@ -606,7 +606,7 @@ export default function Home() {
               <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
-                  <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
                     即刻开始 / 免费阅读
                   </p>
 
@@ -635,7 +635,7 @@ export default function Home() {
               <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
-                  <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
                     自动送达 / 一键订阅
                   </p>
 
@@ -664,7 +664,7 @@ export default function Home() {
               <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
-                  <p className="text-[11px] font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
                     个性定制 / 需登录
                   </p>
 
@@ -699,7 +699,7 @@ export default function Home() {
               个股研究
             </Link>
             <Link
-              href="/tools/liquidity"
+              href="/macro/liquidity"
               className="px-4 py-2 rounded-lg bg-card/60 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
             >
               流动性监控

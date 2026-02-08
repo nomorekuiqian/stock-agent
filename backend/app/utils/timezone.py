@@ -39,6 +39,13 @@ def market_today_str() -> str:
     return market_today().strftime("%Y-%m-%d")
 
 
+def market_week_label() -> str:
+    """Get current market week label like '2025.W06' using ISO week number."""
+    d = market_today()
+    iso = d.isocalendar()
+    return f"{iso[0]}.W{iso[1]:02d}"
+
+
 def market_days_ago(days: int) -> str:
     """Get date string for N days ago in market timezone."""
     return (market_today() - timedelta(days=days)).strftime("%Y-%m-%d")

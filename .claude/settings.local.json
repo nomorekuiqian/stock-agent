@@ -165,7 +165,10 @@
       "WebFetch(domain:claude.com)",
       "Bash(uipro init:*)",
       "WebFetch(domain:useorigin.com)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:production.dataviz.cnn.io)",
+      "WebFetch(domain:blog.justfont.com)"
     ],
     "deny": [],
     "ask": []

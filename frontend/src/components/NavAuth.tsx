@@ -99,7 +99,7 @@ export function NavAuth() {
   return (
     <Link
       href="/login"
-      className="px-4 py-2 text-[13px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+      className="px-4 py-1.5 text-sm font-medium tracking-[0.04em] text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/50 rounded-lg transition-all duration-200"
     >
       登录
     </Link>
