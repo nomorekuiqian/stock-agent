@@ -240,13 +240,47 @@ export function ReportContent({
               ))}
             </div>
           ) : typeof report_summary === 'string' ? (
-            <div className="space-y-4">
-              {report_summary.replace(/\\n/g, '\n').split('\n').filter((p: string) => p.trim()).map((paragraph: string, idx: number) => (
-                <p key={idx} className="text-base text-foreground/90 leading-relaxed">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
+            (() => {
+              let parsed: SummarySection[] | null = null;
+              try {
+                const obj = JSON.parse(report_summary);
+                if (Array.isArray(obj) && obj.length > 0 && obj[0].title && obj[0].content) {
+                  parsed = obj as SummarySection[];
+                }
+              } catch { /* not JSON, render as plain text */ }
+
+              if (parsed) {
+                return (
+                  <div className="space-y-6">
+                    {parsed.map((section, idx) => (
+                      <div key={idx}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+                          <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                        </div>
+                        <div className="space-y-3">
+                          {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
+                            <p key={pIdx} className="text-base text-foreground/90 leading-relaxed">
+                              {paragraph}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {report_summary.replace(/\\n/g, '\n').split('\n').filter((p: string) => p.trim()).map((paragraph: string, idx: number) => (
+                    <p key={idx} className="text-base text-foreground/90 leading-relaxed">
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()
           ) : null}
           <p className="text-xs text-muted-foreground mt-6 pt-4 border-t border-border/50">
             以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，决策需谨慎。

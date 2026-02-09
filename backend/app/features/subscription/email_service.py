@@ -1032,62 +1032,55 @@ class EmailService:
 
                 <!-- Welcome Card -->
                 <div style="background: #ffffff; padding: 32px 24px;">
-                    <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 16px 0;">
+                    <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 20px 0;">
                         {greeting}欢迎加入 TheMarketBrew!
                     </h1>
-                    <p style="color: #52525b; font-size: 15px; line-height: 1.7; margin: 0 0 24px 0;">
-                        从今天起，你将在每个交易日收到我们精心准备的市场简报，帮助你快速了解市场动态。
+
+                    <!-- Personal story -->
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 12px 0;">
+                        我是 Golden，一个在硅谷写代码的程序员，也是一个投了十多年美股的散户。
+                    </p>
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 12px 0;">
+                        和你一样，我也曾每天被市场噪音搞得焦虑——涨的时候不知道为什么涨，跌的时候更不知道该不该跑。所以我做了 TheMarketBrew：让 AI 帮我们从噪音中提炼出清晰的逻辑，省下时间和精力，更理性地面对投资。
+                    </p>
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 28px 0;">
+                        这个工具帮我调整了投资心态，希望也能帮到你。以下是你可以用到的功能：
                     </p>
 
-                    <!-- What we track -->
+                    <!-- What you get -->
                     <div style="{card_style}">
                         <div style="{section_header_style}">
-                            每日简报包含
+                            你会收到什么
                         </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 12px 0;">
+                            每个<strong>美股交易日</strong>收盘后（约美东下午 6:00 / 北京时间次日早 7:00），你会收到一份市场简报，包含：
+                        </p>
                         <table style="width: 100%;" cellpadding="0" cellspacing="0">
                             <tr>
-                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                <td style="padding: 6px 0; vertical-align: top; width: 24px;">
                                     <span style="color: #10b981;">&#10003;</span>
                                 </td>
-                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
-                                    主要股指和波动率 (S&P 500, Nasdaq, VIX)
+                                <td style="padding: 6px 0; color: #3f3f46; font-size: 14px;">
+                                    股指、利率、商品等核心数据速览
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                <td style="padding: 6px 0; vertical-align: top; width: 24px;">
                                     <span style="color: #10b981;">&#10003;</span>
                                 </td>
-                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
-                                    宏观环境解读
+                                <td style="padding: 6px 0; color: #3f3f46; font-size: 14px;">
+                                    重要新闻的因果分析，不只是搬运标题
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
+                                <td style="padding: 6px 0; vertical-align: top; width: 24px;">
                                     <span style="color: #10b981;">&#10003;</span>
                                 </td>
-                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
-                                    重要财经新闻解读
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; vertical-align: top; width: 24px;">
-                                    <span style="color: #10b981;">&#10003;</span>
-                                </td>
-                                <td style="padding: 8px 0; color: #3f3f46; font-size: 14px;">
-                                    未来一周关键事件
+                                <td style="padding: 6px 0; color: #3f3f46; font-size: 14px;">
+                                    未来一周值得关注的事件和判断框架
                                 </td>
                             </tr>
                         </table>
-                    </div>
-
-                    <!-- When we send -->
-                    <div style="{card_style}">
-                        <div style="{section_header_style}">
-                            发送时间
-                        </div>
-                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0;">
-                            每个<strong>美股交易日</strong>收盘后，约<strong>下午 6:00 (美东时间)</strong> / 次日早上 7:00 (北京时间) 发送。周末和美国节假日休市不发送。
-                        </p>
                     </div>
 
                     <!-- Explore more features -->
@@ -1102,7 +1095,7 @@ class EmailService:
                                 </td>
                                 <td style="padding: 12px 0;">
                                     <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个性化日报</p>
-                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">根据你的关注列表，每天筛选相关新闻和事件</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">添加你的持仓，每天只看跟你相关的新闻和分析</p>
                                     <a href="{self.frontend_url}/for-you" style="display: inline-block; padding: 7px 14px; background-color: #10b981; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
                                         设置我的关注列表
                                     </a>
@@ -1115,7 +1108,7 @@ class EmailService:
                                 </td>
                                 <td style="padding: 12px 0;">
                                     <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个股投研</p>
-                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">AI 深度分析个股基本面、财务数据和投资逻辑</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">搜索任意美股，AI 帮你拆解基本面和财务数据</p>
                                     <a href="{self.frontend_url}/stock" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
                                         开始个股分析
                                     </a>
@@ -1128,7 +1121,7 @@ class EmailService:
                                 </td>
                                 <td style="padding: 12px 0;">
                                     <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">宏观投研</p>
-                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">利率、通胀、流动性等宏观指标追踪与解读</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">利率、通胀、流动性，看懂影响大盘的底层逻辑</p>
                                     <a href="{self.frontend_url}/macro" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
                                         查看宏观数据
                                     </a>
@@ -1137,7 +1130,10 @@ class EmailService:
                         </table>
                     </div>
 
-                    <p style="color: #71717a; font-size: 14px; line-height: 1.6; margin: 24px 0 0 0;">
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 24px 0 0 0;">
+                        如果在使用中有任何想法或建议，欢迎直接回复这封邮件，我会亲自查看每一封。
+                    </p>
+                    <p style="color: #71717a; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
                         祝投资顺利！<br>
                         <span style="color: #0a0a0a; font-weight: 500;">Golden / 金黄</span><br>
                         <span style="color: #a1a1aa; font-size: 13px;">独立开发者 / 十年美股散户</span>
@@ -1170,9 +1166,9 @@ class EmailService:
             html_content = self._format_welcome_html(first_name or "")
 
             params = {
-                "from": self.from_email,
+                "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
                 "to": [to_email],
-                "subject": "[TheMarketBrew] 欢迎加入 - 开始你的每日市场简报之旅",
+                "subject": "欢迎加入 TheMarketBrew",
                 "html": html_content,
             }
 
