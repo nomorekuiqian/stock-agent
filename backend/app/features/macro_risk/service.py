@@ -25,6 +25,7 @@ from app.features.macro_risk.models import (
     CpiBreakdown,
 )
 from app.utils.timezone import now_iso
+from app.features.macro_cache.db import try_db_cache
 
 MACRO_RISK_FRED_SERIES = {
     # Economic Deterioration
@@ -64,13 +65,15 @@ AI_STOCK_BASKET = [
 ]
 
 _CACHE_TTL = 600
+_CACHE_TTL_REALTIME = 120  # 2 min for intraday data (commodities, dollar)
 
 _caches: dict[str, dict] = {
     "dashboard": {},
     "economy": {},
     "inflation": {},
     "sentiment": {},
-    "treasury_commodities": {},
+    "treasury_rates": {},
+    "commodities_realtime": {},
 }
 
 _locks: dict[str, asyncio.Lock] = {}
@@ -86,8 +89,8 @@ def _get_cache(name: str) -> dict:
     return _caches.setdefault(name, {})
 
 
-def _get_cached(store: dict):
-    if "data" in store and time.time() - store["ts"] < _CACHE_TTL:
+def _get_cached(store: dict, ttl: int = _CACHE_TTL):
+    if "data" in store and time.time() - store["ts"] < ttl:
         return store["data"]
     return None
 
@@ -446,7 +449,9 @@ def _indicator_name(key: str) -> str:
     return _INDICATOR_NAMES.get(key, key)
 
 
-async def get_macro_risk_dashboard() -> MacroRiskDashboard:
+async def get_macro_risk_dashboard(
+    *, skip_db_cache: bool = False,
+) -> MacroRiskDashboard:
     """
     Main function: fetch all data, compute risk scores, return dashboard.
     Results cached for 10 minutes. Uses request coalescing to avoid
@@ -462,6 +467,15 @@ async def get_macro_risk_dashboard() -> MacroRiskDashboard:
         if cached:
             print("[MacroRisk] Returning cached dashboard (coalesced)")
             return cached
+
+        # DB cache layer
+        if not skip_db_cache:
+            db_data, db_valid = await try_db_cache("macro:dashboard")
+            if db_valid and db_data:
+                print("[MacroRisk] Returning DB-cached dashboard")
+                dashboard = MacroRiskDashboard(**db_data)
+                _set_cached(_get_cache("dashboard"), dashboard)
+                return dashboard
 
         print("[MacroRisk] Fetching fresh dashboard data...")
 
@@ -787,7 +801,9 @@ def _overall_economy_headline(score: float, sub_dims: list[SubDimension]) -> str
         return "经济基本面整体健康，风险可控"
 
 
-async def get_economic_fundamentals() -> EconomicFundamentals:
+async def get_economic_fundamentals(
+    *, skip_db_cache: bool = False,
+) -> EconomicFundamentals:
     """
     Compute economic fundamentals with 4 sub-dimensions:
     growth (30%), employment (30%), inflation (20%), credit (20%).
@@ -803,6 +819,15 @@ async def get_economic_fundamentals() -> EconomicFundamentals:
         if cached:
             print("[Economy] Returning cached data (coalesced)")
             return cached
+
+        # DB cache layer
+        if not skip_db_cache:
+            db_data, db_valid = await try_db_cache("macro:economy")
+            if db_valid and db_data:
+                print("[Economy] Returning DB-cached data")
+                result = EconomicFundamentals(**db_data)
+                _set_cached(_get_cache("economy"), result)
+                return result
 
         print("[Economy] Fetching fresh economic fundamentals data...")
 
@@ -864,7 +889,9 @@ def _overall_inflation_rates_headline(score: float, sub_dims: list[SubDimension]
         return "通胀温和，利率环境友好"
 
 
-async def get_inflation_rates() -> EconomicFundamentals:
+async def get_inflation_rates(
+    *, skip_db_cache: bool = False,
+) -> EconomicFundamentals:
     """
     Compute inflation & rates with 2 sub-dimensions:
     inflation (60%), rates (40%).
@@ -880,6 +907,15 @@ async def get_inflation_rates() -> EconomicFundamentals:
         if cached:
             print("[InflationRates] Returning cached data (coalesced)")
             return cached
+
+        # DB cache layer
+        if not skip_db_cache:
+            db_data, db_valid = await try_db_cache("macro:inflation_rates")
+            if db_valid and db_data:
+                print("[InflationRates] Returning DB-cached data")
+                result = EconomicFundamentals(**db_data)
+                _set_cached(_get_cache("inflation"), result)
+                return result
 
         print("[InflationRates] Fetching fresh data...")
 
@@ -942,7 +978,9 @@ _CPI_COMPONENTS = [
 
 
 
-async def get_cpi_breakdown() -> CpiBreakdown:
+async def get_cpi_breakdown(
+    *, skip_db_cache: bool = False,
+) -> CpiBreakdown:
     """
     Fetch YoY% and MoM% for key CPI components using FRED's
     built-in units transformation (pc1 / pch).
@@ -958,6 +996,15 @@ async def get_cpi_breakdown() -> CpiBreakdown:
         if cached:
             print("[CPI] Returning cached data (coalesced)")
             return cached
+
+        # DB cache layer
+        if not skip_db_cache:
+            db_data, db_valid = await try_db_cache("fred:cpi_breakdown")
+            if db_valid and db_data:
+                print("[CPI] Returning DB-cached data")
+                result = CpiBreakdown(**db_data)
+                _set_cached(_get_cache("cpi"), result)
+                return result
 
         print("[CPI] Fetching fresh CPI breakdown data...")
 
@@ -1080,29 +1127,12 @@ async def _fetch_cnn_fear_greed() -> dict | None:
 
 
 async def _fetch_sentiment_market_data() -> dict[str, list[RiskIndicator]]:
-    """Fetch volatility (VIX/VVIX/SKEW), breadth, and credit (HY OAS/BBB) indicators."""
+    """Fetch volatility (VIX/VVIX/SKEW) and breadth indicators.
+    Credit spreads (HY OAS/BBB) are covered in Economic Fundamentals."""
     yf_service = get_yfinance_service()
 
-    async def fetch_yf():
-        symbols = ["^VIX", "^VVIX", "^SKEW"] + _BREADTH_BASKET
-        return await asyncio.to_thread(yf_service.get_stock_quotes, symbols)
-
-    async def fetch_fred_pair():
-        keys = ["hy_oas", "bbb_spread"]
-        series_ids = [(k, MACRO_RISK_FRED_SERIES.get(k)) for k in keys]
-
-        async def _fetch_one(key, sid):
-            try:
-                return key, await get_latest_value(sid)
-            except Exception as e:
-                print(f"[Sentiment] Error fetching {key}: {e}")
-                return key, {"value": None, "error": str(e)}
-
-        tasks = [_fetch_one(k, sid) for k, sid in series_ids if sid]
-        pairs = await asyncio.gather(*tasks)
-        return dict(pairs)
-
-    yf_result, fred_data = await asyncio.gather(fetch_yf(), fetch_fred_pair())
+    symbols = ["^VIX", "^VVIX", "^SKEW"] + _BREADTH_BASKET
+    yf_result = await asyncio.to_thread(yf_service.get_stock_quotes, symbols)
 
     quotes = yf_result.get("quotes", [])
     quotes_by_symbol = {q["symbol"]: q for q in quotes}
@@ -1149,27 +1179,9 @@ async def _fetch_sentiment_market_data() -> dict[str, list[RiskIndicator]]:
         source="cnn",
     ))
 
-    # -- Credit --
-    credit = []
-    for key, sid, name in [
-        ("hy_oas", "BAMLH0A0HYM2", "高收益债利差 (OAS)"),
-        ("bbb_spread", "BAMLC0A4CBBB", "BBB 公司债利差"),
-    ]:
-        data = fred_data.get(key, {})
-        credit.append(RiskIndicator(
-            series_id=sid,
-            name=name,
-            value=data.get("value"),
-            date=data.get("date"),
-            units=data.get("units", "Percent"),
-            change=data.get("change"),
-            source="fred",
-        ))
-
     return {
         "volatility": volatility,
         "breadth_options": breadth_options,
-        "credit": credit,
     }
 
 
@@ -1189,10 +1201,13 @@ def _sentiment_headline(rating: str | None, score: float | None) -> str:
         return f"中性 ({score:.0f}/100) - 市场情绪平稳，观望为主"
 
 
-async def get_market_sentiment() -> EconomicFundamentals:
+async def get_market_sentiment(
+    *, skip_db_cache: bool = False,
+) -> EconomicFundamentals:
     """
-    Get market sentiment: CNN Fear & Greed (7 components) + 3 market dimensions.
-    4 sub-dimensions: cnn_indicators, volatility, breadth_options, credit.
+    Get market sentiment: CNN Fear & Greed (7 components) + 2 market dimensions.
+    3 sub-dimensions: cnn_indicators, volatility, breadth_options.
+    Credit spreads are covered in Economic Fundamentals.
     overall_score = CNN composite (0-100 scale).
     Cached independently for 10 minutes. Uses request coalescing.
     """
@@ -1206,6 +1221,15 @@ async def get_market_sentiment() -> EconomicFundamentals:
         if cached:
             print("[Sentiment] Returning cached data (coalesced)")
             return cached
+
+        # DB cache layer
+        if not skip_db_cache:
+            db_data, db_valid = await try_db_cache("macro:sentiment")
+            if db_valid and db_data:
+                print("[Sentiment] Returning DB-cached data")
+                result = EconomicFundamentals(**db_data)
+                _set_cached(_get_cache("sentiment"), result)
+                return result
 
         print("[Sentiment] Fetching fresh sentiment data...")
 
@@ -1300,29 +1324,7 @@ async def get_market_sentiment() -> EconomicFundamentals:
             indicators=bo_indicators,
         )
 
-        # -- 4. Credit sub-dimension --
-        credit_indicators = market_groups.get("credit", [])
-        hy_val = next((i.value for i in credit_indicators if i.series_id == "BAMLH0A0HYM2"), None)
-        credit_headline = "信用利差实时数据"
-        if hy_val is not None:
-            if hy_val >= 5:
-                credit_headline = f"高收益利差 {hy_val:.2f}% - 信用风险显著上升"
-            elif hy_val >= 3.5:
-                credit_headline = f"高收益利差 {hy_val:.2f}% - 信用条件适度偏紧"
-            else:
-                credit_headline = f"高收益利差 {hy_val:.2f}% - 信用市场稳定"
-
-        credit_dim = SubDimension(
-            name="credit",
-            name_zh="信用利差",
-            score=5.0,
-            risk_level="medium",
-            weight=0.0,
-            headline=credit_headline,
-            indicators=credit_indicators,
-        )
-
-        sub_dims = [cnn_dim, vol_dim, bo_dim, credit_dim]
+        sub_dims = [cnn_dim, vol_dim, bo_dim]
 
         overall_level = (
             "low" if overall_score >= 60
@@ -1379,38 +1381,69 @@ def _fetch_dollar_index() -> dict:
 async def get_treasury_and_commodities() -> dict:
     """
     Get treasury yield curve (12 tenors with daily change) + commodity quotes + dollar index.
-    Cached for 10 minutes with request coalescing.
+
+    Caching strategy:
+    - Treasury rates: 3-layer cache (memory 10min -> DB -> FMP API)
+      Rates change once daily, safe to cache.
+    - Commodities & Dollar: short memory cache only (2min -> FMP/yfinance API)
+      Prices change intraday, always fetch near real-time.
     """
-    cached = _get_cached(_get_cache("treasury_commodities"))
-    if cached:
-        print("[TreasuryCommodities] Returning cached data")
-        return cached
+    # --- Treasury rates (3-layer: memory -> DB -> API) ---
+    treasury_result = _get_cached(_get_cache("treasury_rates"))
+    if treasury_result:
+        print("[Treasury] Returning memory-cached data")
+    else:
+        async with _get_lock("treasury_rates"):
+            treasury_result = _get_cached(_get_cache("treasury_rates"))
+            if treasury_result:
+                print("[Treasury] Returning memory-cached data (coalesced)")
+            else:
+                db_data, db_valid = await try_db_cache("macro:treasury_rates")
+                if db_valid and db_data:
+                    treasury_result = db_data
+                    _set_cached(_get_cache("treasury_rates"), treasury_result)
+                    print("[Treasury] Returning DB-cached data")
+                else:
+                    fmp = get_fmp_service()
+                    treasury_result = await asyncio.to_thread(fmp.get_treasury_rates_with_change)
+                    _set_cached(_get_cache("treasury_rates"), treasury_result)
+                    print(f"[Treasury] Fetched fresh: {len(treasury_result.get('rates', {}))} tenors")
 
-    async with _get_lock("treasury_commodities"):
-        cached = _get_cached(_get_cache("treasury_commodities"))
-        if cached:
-            print("[TreasuryCommodities] Returning cached data (coalesced)")
-            return cached
+    # --- Commodities & Dollar (short memory cache -> API, no DB cache) ---
+    realtime_cache = _get_cached(
+        _get_cache("commodities_realtime"), ttl=_CACHE_TTL_REALTIME
+    )
+    if realtime_cache:
+        commodities_map = realtime_cache["commodities"]
+        dollar_result = realtime_cache["dollar"]
+        print("[Commodities] Returning short-cached real-time data")
+    else:
+        async with _get_lock("commodities_realtime"):
+            realtime_cache = _get_cached(
+                _get_cache("commodities_realtime"), ttl=_CACHE_TTL_REALTIME
+            )
+            if realtime_cache:
+                commodities_map = realtime_cache["commodities"]
+                dollar_result = realtime_cache["dollar"]
+            else:
+                fmp = get_fmp_service()
+                commodities_result, dollar_result = await asyncio.gather(
+                    asyncio.to_thread(
+                        fmp.get_commodity_quotes,
+                        ["GCUSD", "BZUSD", "HGUSD", "SIUSD"],
+                    ),
+                    asyncio.to_thread(_fetch_dollar_index),
+                )
+                commodities_map = commodities_result.get("commodities", {})
+                _set_cached(
+                    _get_cache("commodities_realtime"),
+                    {"commodities": commodities_map, "dollar": dollar_result},
+                )
+                print("[Commodities] Fetched real-time data")
 
-        print("[TreasuryCommodities] Fetching fresh data...")
-
-        fmp = get_fmp_service()
-
-        # Parallel fetch: FMP treasury, FMP commodities, yfinance dollar index
-        treasury_result, commodities_result, dollar_result = await asyncio.gather(
-            asyncio.to_thread(fmp.get_treasury_rates_with_change),
-            asyncio.to_thread(fmp.get_commodity_quotes, ["GCUSD", "BZUSD", "HGUSD", "SIUSD"]),
-            asyncio.to_thread(_fetch_dollar_index),
-        )
-
-        result = {
-            "treasury": treasury_result,
-            "commodities": commodities_result.get("commodities", {}),
-            "dollar": dollar_result,
-            "timestamp": now_iso(),
-        }
-
-        _set_cached(_get_cache("treasury_commodities"), result)
-        print(f"[TreasuryCommodities] Ready: {len(treasury_result.get('rates', {}))} tenors")
-
-        return result
+    return {
+        "treasury": treasury_result,
+        "commodities": commodities_map,
+        "dollar": dollar_result,
+        "timestamp": now_iso(),
+    }

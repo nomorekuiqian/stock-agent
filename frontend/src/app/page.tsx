@@ -30,8 +30,8 @@ export default function Home() {
         {/* Bottom fade for smooth transition to page content */}
         <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-b from-transparent via-[#050506]/70 to-[#050506] pointer-events-none" />
 
-        <div className="relative flex-1 flex items-start md:items-center max-w-6xl mx-auto w-full px-4 md:px-6 pt-8 pb-20 md:pt-20 md:pb-24">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="relative flex-1 flex items-start md:items-center max-w-6xl mx-auto w-full px-4 md:px-6 pt-24 pb-32 md:pt-20 md:pb-24">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
             {/* Left - Content */}
             <div>
               {/* Product Positioning Tag */}
@@ -157,9 +157,9 @@ export default function Home() {
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
         <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-start">
+          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left - Content */}
-            <div className="space-y-6 md:sticky md:top-8">
+            <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
                 <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
@@ -174,12 +174,11 @@ export default function Home() {
               </p>
               <ul className="space-y-4 pt-2">
                 {[
-                  { icon: "chart", text: "市场指数：一眼看清大盘走势" },
+                  { icon: "chart", text: "市场概览：一眼看清大盘走势" },
                   { icon: "bulb", text: "今日要点：当日核心叙事" },
-                  { icon: "signal", text: "关键信号：VIX、国债、美元在说什么" },
                   { icon: "news", text: "新闻精选：重要头条 + 深度解读" },
                   { icon: "calendar", text: "近期事件：不错过任何重要日程" },
-                  { icon: "eye", text: "总结展望：明天要关注什么" },
+                  { icon: "eye", text: "总结与展望：明天要关注什么" },
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
@@ -203,166 +202,133 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Right - Real Email Preview */}
-            <div className="terminal-card p-0 overflow-hidden">
-              {/* Email Header - THEMARKETBREW branding */}
-              <div className="bg-zinc-100 dark:bg-[#0a0a0a] px-6 py-4 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-                      <span className="text-primary-foreground font-bold text-sm">
-                        M
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-xs text-primary font-medium tracking-wider">
-                        THEMARKETBREW
-                      </p>
-                      <p className="text-micro text-muted-foreground">
-                        每日市场报告
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground font-data">
-                    2025-01-24
-                  </p>
-                </div>
-              </div>
+            {/* Right - iPhone Mockup */}
+            <div className="flex justify-center">
+              <div className="relative">
+                {/* Ambient glow */}
+                <div className="absolute -inset-12 bg-primary/[0.07] blur-[60px] rounded-full pointer-events-none" />
 
-              {/* Market Indices Grid */}
-              <div className="px-6 py-4 bg-card/50">
-                <p className="text-xs text-muted-foreground mb-3 font-medium">
-                  市场指数
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    {
-                      name: "S&P 500",
-                      value: "6,118.71",
-                      change: "+0.53%",
-                      up: true,
-                    },
-                    {
-                      name: "Nasdaq",
-                      value: "20,053.68",
-                      change: "+0.22%",
-                      up: true,
-                    },
-                    {
-                      name: "10Y Treasury",
-                      value: "4.63%",
-                      change: "+2bp",
-                      up: false,
-                    },
-                    { name: "VIX", value: "14.85", change: "-5.2%", up: true },
-                    {
-                      name: "Gold",
-                      value: "$2,758",
-                      change: "+0.8%",
-                      up: true,
-                    },
-                    {
-                      name: "US Dollar",
-                      value: "107.95",
-                      change: "-0.3%",
-                      up: true,
-                    },
-                  ].map((item, i) => (
-                    <div key={i} className="bg-muted/30 rounded px-2.5 py-2">
-                      <p className="text-micro text-muted-foreground truncate">
-                        {item.name}
-                      </p>
-                      <p className="font-data text-xs text-foreground">
-                        {item.value}
-                      </p>
-                      <p
-                        className={`font-data text-micro ${
-                          item.up ? "text-primary" : "text-red-400"
-                        }`}
-                      >
-                        {item.change}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                {/* Phone body */}
+                <div
+                  className="relative bg-zinc-900 rounded-[3rem] p-[10px] border border-zinc-700/50 w-[320px]"
+                  style={{
+                    boxShadow: '0 25px 60px -12px rgba(0,0,0,0.5), 0 0 40px -8px rgba(16,185,129,0.1)',
+                    transform: 'perspective(1200px) rotateY(-3deg) rotateX(1deg)',
+                  }}
+                >
+                  {/* Dynamic Island */}
+                  <div className="absolute top-[18px] left-1/2 -translate-x-1/2 w-[80px] h-[24px] bg-black rounded-full z-20" />
 
-              {/* Today's Key Points */}
-              <div className="px-6 py-4 border-t border-border/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-1 h-4 bg-primary rounded-full"></div>
-                  <p className="text-xs font-medium text-primary">今日要点</p>
-                </div>
-                <p className="text-sm text-foreground/90 leading-relaxed">
-                  科技股带领市场收涨，投资者消化特朗普关税政策影响。Nvidia
-                  领涨芯片板块，市场情绪回暖但仍需关注下周财报季...
-                </p>
-              </div>
-
-              {/* Key Signals */}
-              <div className="px-6 py-4 border-t border-border/30">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1 h-4 bg-amber-400 rounded-full"></div>
-                  <p className="text-xs font-medium text-amber-400">关键信号</p>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    {
-                      signal: "VIX 跌破 15 进入「平静区」",
-                      implication: "市场恐慌情绪消退",
-                    },
-                    {
-                      signal: "10Y 国债小幅上行",
-                      implication: "降息预期略有降温",
-                    },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <span className="text-muted-foreground">-</span>
-                      <div>
-                        <span className="text-foreground">{item.signal}</span>
-                        <span className="text-muted-foreground">
-                          {" "}
-                          - {item.implication}
-                        </span>
+                  {/* Screen */}
+                  <div className="relative bg-[#f0f0f0] rounded-[2.4rem] overflow-hidden" style={{ height: 580 }}>
+                    {/* Status bar */}
+                    <div className="flex items-center justify-between px-8 pt-[14px] pb-1 bg-[#0a0a0a]">
+                      <span className="text-[10px] text-white/50 font-medium">9:41</span>
+                      <div className="flex items-center gap-[3px]">
+                        <svg className="w-[14px] h-[10px] text-white/50" viewBox="0 0 16 12" fill="currentColor">
+                          <rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.4" />
+                          <rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.6" />
+                          <rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.8" />
+                          <rect x="13" y="0" width="3" height="12" rx="0.5" />
+                        </svg>
+                        <svg className="w-[14px] h-[10px] text-white/50" viewBox="0 0 16 12" fill="currentColor">
+                          <path d="M8 3C10.7 3 13.1 4.2 14.8 6.1L16 4.8C14 2.6 11.2 1.2 8 1.2S2 2.6 0 4.8L1.2 6.1C2.9 4.2 5.3 3 8 3Z" opacity="0.4" />
+                          <path d="M8 6.5C9.8 6.5 11.4 7.3 12.5 8.5L13.7 7.2C12.3 5.7 10.3 4.7 8 4.7S3.7 5.7 2.3 7.2L3.5 8.5C4.6 7.3 6.2 6.5 8 6.5Z" opacity="0.7" />
+                          <circle cx="8" cy="11" r="1.5" />
+                        </svg>
+                        <div className="w-[22px] h-[10px] rounded-[2px] border border-white/30 relative ml-0.5">
+                          <div className="absolute inset-[1.5px] right-[2px] bg-white/50 rounded-[1px]" />
+                          <div className="absolute right-[-2.5px] top-[2.5px] w-[1.5px] h-[5px] bg-white/30 rounded-r" />
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* News Headlines - Simplified */}
-              <div className="px-6 py-4 border-t border-border/30">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1 h-4 bg-blue-400 rounded-full"></div>
-                  <p className="text-xs font-medium text-blue-400">新闻精选</p>
-                </div>
-                <div className="text-xs">
-                  <p className="text-foreground font-medium mb-1">
-                    Trump signs executive order on AI infrastructure
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    特朗普签署 AI 基础设施行政令，利好数据中心和芯片企业...
-                  </p>
-                </div>
-              </div>
+                    {/* Email content - matching real email template */}
+                    <div>
+                      {/* Dark gradient header - matching real email */}
+                      <div className="px-4 py-4 text-center" style={{ background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)' }}>
+                        <p className="text-[8px] text-emerald-400 font-bold tracking-[0.25em] mb-0.5">THEMARKETBREW</p>
+                        <p className="text-[7px] text-white/40 tracking-[0.15em] mb-1">DAILY BRIEF</p>
+                        <p className="text-[7px] text-white/30 font-data">2025-01-24 Friday</p>
+                      </div>
 
-              {/* Outlook */}
-              <div className="px-6 py-4 border-t border-border/30 bg-primary/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-1 h-4 bg-primary rounded-full"></div>
-                  <p className="text-xs font-medium text-primary">总结展望</p>
-                </div>
-                <p className="text-xs text-foreground/80 leading-relaxed">
-                  短期关注财报季表现和 FOMC
-                  会议，技术面看好但需警惕获利回吐压力...
-                </p>
-              </div>
+                      {/* Email body - light background */}
+                      <div className="px-3 py-3">
+                        {/* Greeting + headline */}
+                        <div className="bg-white rounded-lg px-3 py-2.5 mb-2 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+                          <p className="text-[8px] text-zinc-500 mb-1">Hi Investor,</p>
+                          <p className="text-[10px] text-zinc-900 font-bold leading-tight mb-1">
+                            科技股领涨，AI 投资潮持续升温
+                          </p>
+                          <p className="text-[7px] text-zinc-500 leading-relaxed">
+                            市场在关税担忧缓解后强劲反弹，标普500突破6100点...
+                          </p>
+                        </div>
 
-              {/* Footer hint */}
-              <div className="px-6 py-3 bg-muted/20 border-t border-border/30">
-                <p className="text-micro text-muted-foreground text-center">
-                  这是真实邮件的简化预览
-                </p>
+                        {/* Market overview - 3x2 grid matching real email */}
+                        <div className="bg-white rounded-lg px-3 py-2.5 mb-2 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+                          <p className="text-[8px] text-zinc-800 font-bold mb-2">Market Overview</p>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[
+                              { name: "S&P 500", val: "6,118", chg: "+0.53%", up: true },
+                              { name: "NASDAQ", val: "20,053", chg: "+0.22%", up: true },
+                              { name: "VIX", val: "14.85", chg: "-5.2%", up: true },
+                              { name: "GOLD", val: "2,770", chg: "+0.8%", up: true },
+                              { name: "US DOLLAR", val: "107.9", chg: "-0.3%", up: false },
+                              { name: "10Y YIELD", val: "4.63%", chg: "+2bp", up: false },
+                            ].map((d, i) => (
+                              <div key={i} className="bg-[#f8f8f8] rounded px-1.5 py-1 border border-zinc-100">
+                                <p className="text-[6px] text-zinc-400 truncate">{d.name}</p>
+                                <p className="text-[9px] text-zinc-900 font-semibold font-data">{d.val}</p>
+                                <p className={`text-[7px] font-data font-medium ${d.up ? 'text-emerald-600' : 'text-red-500'}`}>{d.chg}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Today's key points */}
+                        <div className="bg-white rounded-lg px-3 py-2.5 mb-2 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+                          <p className="text-[8px] text-zinc-800 font-bold mb-1.5">Key Takeaways</p>
+                          <div className="space-y-1">
+                            <div className="flex items-start gap-1.5">
+                              <div className="w-1 h-1 rounded-full bg-emerald-500 mt-[3px] flex-shrink-0" />
+                              <p className="text-[7px] text-zinc-600 leading-relaxed">Nvidia 领涨芯片板块，AI 基础设施投资加速</p>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <div className="w-1 h-1 rounded-full bg-emerald-500 mt-[3px] flex-shrink-0" />
+                              <p className="text-[7px] text-zinc-600 leading-relaxed">关税担忧缓解，投资者重新布局风险资产</p>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <div className="w-1 h-1 rounded-full bg-emerald-500 mt-[3px] flex-shrink-0" />
+                              <p className="text-[7px] text-zinc-600 leading-relaxed">VIX 回落至 15 以下，市场恐慌情绪消退</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* News Headlines */}
+                        <div className="bg-white rounded-lg px-3 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+                          <p className="text-[8px] text-zinc-800 font-bold mb-1.5">News Headlines</p>
+                          <div className="space-y-1.5">
+                            <div>
+                              <p className="text-[7px] text-zinc-800 font-semibold leading-tight">Nvidia CEO: AI Infrastructure Spending to Accelerate</p>
+                              <p className="text-[6.5px] text-zinc-500 leading-relaxed">黄仁勋表示数据中心需求远超预期，带动芯片板块全线走强...</p>
+                            </div>
+                            <div className="border-t border-zinc-100 pt-1.5">
+                              <p className="text-[7px] text-zinc-800 font-semibold leading-tight">Fed Officials Signal Patience on Rate Cuts</p>
+                              <p className="text-[6.5px] text-zinc-500 leading-relaxed">多位联储官员暗示将维持利率不变，市场重新评估降息时间表...</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom fade */}
+                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#e8e8e8] via-[#f0f0f0]/90 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Home indicator */}
+                  <div className="mx-auto mt-[6px] mb-[2px] w-[100px] h-[4px] bg-zinc-700 rounded-full" />
+                </div>
               </div>
             </div>
           </div>
@@ -384,71 +350,43 @@ export default function Home() {
               </span>
             </div>
             <h2 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.1]">
-              三大核心功能
+              四大核心功能
             </h2>
           </div>
 
-          {/* Feature 1: Daily Report */}
-          <Link href="/today" className="block mb-8 group cursor-pointer">
-            <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300">
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-              <div className="p-8 md:p-10">
-                <div className="grid md:grid-cols-2 gap-8 items-center">
-                  {/* Left - Content */}
-                  <div>
-                    <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-3">
-                      核心功能 / 每日简报
-                    </p>
-                    <h3 className="font-editorial text-xl sm:text-2xl md:text-3xl text-foreground mb-4 leading-tight">
-                      5000+ 条新闻
-                      <span className="text-primary mx-2">→</span>
-                      5 分钟阅读
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                      AI 帮你从海量信息中提炼当日要点、关键信号、重要新闻。每个交易日收盘后自动生成，让你用最短时间掌握市场全貌。
-                    </p>
+          {/* 4 Features: 2x2 Grid Layout */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Feature 1: Daily Report */}
+            <Link href="/today" className="group block h-full cursor-pointer">
+              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                <div className="p-7 flex flex-col h-full">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                    核心功能 / 每日简报
+                  </p>
 
-                    <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm group-hover:bg-emerald-500 group-hover:shadow-lg group-hover:shadow-emerald-500/15 transition-all cursor-pointer">
-                      查看今日日报
-                      <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
+                  {/* Big Number */}
+                  <div className="mb-3">
+                    <span className="font-data text-5xl font-light text-primary">5</span>
+                    <span className="text-base text-muted-foreground ml-2">min</span>
                   </div>
 
-                  {/* Right - Report structure preview */}
-                  <div className="hidden md:block">
-                    <div className="space-y-2.5">
-                      {[
-                        { label: "今日要点", color: "bg-emerald-500" },
-                        { label: "关键信号", color: "bg-amber-400" },
-                        { label: "新闻精选", color: "bg-blue-400" },
-                        { label: "近期事件", color: "bg-purple-400" },
-                        { label: "总结展望", color: "bg-emerald-500" },
-                      ].map((item, idx) => (
-                        <div
-                          key={item.label}
-                          className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-muted/30 border border-border/50"
-                        >
-                          <div className={`w-0.5 h-5 ${item.color} rounded-full`} />
-                          <span className="text-sm text-foreground/80">{item.label}</span>
-                          <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden ml-auto max-w-[100px]">
-                            <div
-                              className={`h-full ${item.color} rounded-full opacity-60`}
-                              style={{ width: `${85 - idx * 10}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <h3 className="font-editorial text-xl text-foreground mb-3">每日市场简报</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
+                    AI 从海量信息中提炼当日要点和重要新闻，5 分钟掌握市场全貌。
+                  </p>
+
+                  {/* CTA */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
+                    <span className="text-xs text-muted-foreground">查看今日日报</span>
+                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
                 </div>
               </div>
-            </div>
-          </Link>
+            </Link>
 
-          {/* Feature 2 & 3: Grid Layout */}
-          <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
             {/* Feature 2: Personalization */}
             <Link href="/for-you" className="group block h-full cursor-pointer">
               <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
@@ -490,7 +428,7 @@ export default function Home() {
               </div>
             </Link>
 
-            {/* Feature 3: One-Stop Research */}
+            {/* Feature 3: Stock Research */}
             <Link href="/stock" className="group block h-full cursor-pointer">
               <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
@@ -513,6 +451,38 @@ export default function Home() {
                   {/* CTA */}
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
                     <span className="text-xs text-muted-foreground">搜索任意美股</span>
+                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            {/* Feature 4: Macro Analysis (NEW) */}
+            <Link href="/macro" className="group block h-full cursor-pointer">
+              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                <div className="p-7 flex flex-col h-full">
+                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
+                    宏观分析 / 经济全景
+                  </p>
+
+                  {/* Big Number */}
+                  <div className="mb-3">
+                    <span className="font-data text-5xl font-light text-primary">360</span>
+                    <span className="font-data text-xl text-primary/50">&deg;</span>
+                    <span className="text-base text-muted-foreground ml-2">全景视角</span>
+                  </div>
+
+                  <h3 className="font-editorial text-xl text-foreground mb-3">宏观经济仪表盘</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
+                    通胀、利率、流动性、风险指标一站式追踪，理解推动市场的宏观力量。
+                  </p>
+
+                  {/* CTA */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
+                    <span className="text-xs text-muted-foreground">查看宏观面板</span>
                     <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>

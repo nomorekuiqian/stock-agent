@@ -1,6 +1,8 @@
 # 宏观看板产品路线图
 
 > 本文档是宏观看板重构的完整产品规划，作为后续所有宏观相关开发的执行依据。
+>
+> **最后更新**: 2026-02-07
 
 ---
 
@@ -28,201 +30,116 @@
 | 不知道接下来会发生什么 | 纯回顾、无前瞻 | 事件日历 + AI 前瞻研判 |
 | 缺少通胀和情绪维度 | 现有看板无覆盖 | 新增"通胀与利率"和"市场情绪"板块 |
 
-### 现有看板问题
-
-当前 `macro_risk` 看板的 4 个分类（经济恶化、信用违约、就业、AI 公司健康）存在以下问题：
-
-1. **缺少通胀维度** — CPI / PCE / 盈亏平衡通胀率完全缺失，而通胀是当前市场最核心的变量
-2. **缺少市场情绪** — 无 VIX、Put/Call Ratio 等情绪指标
-3. **"AI 公司健康"定位模糊** — 这是板块行情而非宏观风险指标，应移出宏观看板
-4. **信用与就业可合并** — 两者都是"经济基本面"的子维度，分开导致信息碎片化
-5. **无前瞻性内容** — 纯数据展示，没有"接下来看什么"
-6. **无交互教育** — 用户看到数字但不理解含义
-
 ---
 
 ## 二、四大宏观板块
 
-用 4 个板块替代现有 5 分类，每个板块回答一个核心问题：
+用 4 个板块替代旧 5 分类，每个板块回答一个核心问题：
 
-### 板块 1：流动性环境 (Liquidity)
+### 板块 1：流动性环境 (Liquidity) -- DONE
 
 > **核心问题**: 市场上的钱是多了还是少了？
 
-**状态**: 已完成 (现有 `features/liquidity/` 模块)
+**状态**: 已完成
+
+**实现**: `features/liquidity/fred_service.py` + 前端 `/macro/liquidity`
 
 | 指标 | FRED Series | 判断逻辑 | 权重 |
 |------|------------|----------|------|
 | 美联储资产负债表 (WALCL) | `WALCL` | 扩张 = 流动性增加 | 30% |
-| 财政部一般账户 (TGA) | `WTREGEN` | TGA 下降 = 流动性释放 | 25% |
+| 财政部一般账户 (TGA) | `WDTGAL` | TGA 下降 = 流动性释放 | 25% |
 | 逆回购 (RRP) | `RRPONTSYD` | RRP 下降 = 流动性回流市场 | 25% |
-| 净流动性 | WALCL - TGA - RRP | 综合流动性水位 | — |
+| 净流动性 | WALCL - TGA - RRP | 综合流动性水位 | -- |
 | 全国金融状况指数 (NFCI) | `NFCI` | <0 宽松, >0 收紧 | 20% |
 
-**技术方案**: 保留现有 `features/liquidity/` 不变，作为板块 1 的数据源。
+**已删除功能**: 流动性 AI 分析 (`agent.py`, `db.py`, edge function) 已移除，仅保留 FRED 指标数据端点。AI 分析能力已由周报模块替代。
 
 ---
 
-### 板块 2：经济基本面 (Economic Fundamentals)
+### 板块 2：经济基本面 (Economic Fundamentals) -- DONE
 
 > **核心问题**: 经济是在变好还是变差？
 
-**状态**: 需重构 (合并现有"经济恶化 + 信用违约 + 就业"三个分类)
+**状态**: 已完成
 
-#### 核心指标
+**实现**: `features/macro_risk/service.py` 中的 `get_economic_fundamentals()` + 前端 `/macro/economy`
 
-| 指标 | FRED Series | 判断逻辑 | 权重 |
-|------|------------|----------|------|
-| **增长子维度** | | | |
-| GDP 实际增长率 | `A191RL1Q225SBEA` | <0 衰退, 0-2 低迷, >2 健康 | 15% |
-| 衰退概率 | `RECPROUSM156N` | >30% 高风险 | 10% |
-| 芝加哥联储活动指数 (CFNAI) | `CFNAI` | <-0.7 衰退信号 | 10% |
-| 消费者信心 | `UMCSENT` | <60 悲观, 60-80 中性, >80 乐观 | 5% |
-| **就业子维度** | | | |
-| 失业率 | `UNRATE` | >5% 高风险 | 10% |
-| 非农就业 | `PAYEMS` | MoM 变化方向 | 10% |
-| 初请失业金 | `ICSA` | >300K 警告 | 8% |
-| 续请失业金 | `CCSA` | 持续上升 = 就业市场恶化 | 5% |
-| Sahm 规则指标 | `SAHMREALTIME` | >0.5 衰退信号 | 7% |
-| **信用子维度** | | | |
-| 高收益债利差 (HY OAS) | `BAMLH0A0HYM2` | >500bps 高风险 | 8% |
-| BBB 公司债利差 | `BAMLC0A4CBBB` | >250bps 风险上升 | 4% |
-| 商业地产违约率 | `DRCRELEXFACBS` | >4% 风险升高 (季度更新) | 5% |
-| 商业贷款违约率 | `DRBLACBS` | >3% 风险升高 (季度更新) | 3% |
-| 收益率曲线 (10Y-2Y) | `T10Y2Y` | 倒挂 = 衰退先行指标 | 5% |
+已合并旧"经济恶化 + 信用违约 + 就业"三个分类为 3 个子维度：
 
-#### 综合评分逻辑
+| 子维度 | 权重 | 核心指标 |
+|--------|------|---------|
+| 增长 (Growth) | 35% | GDP、衰退概率、CFNAI、消费者信心、零售销售、工业产出 |
+| 就业 (Employment) | 35% | 失业率、非农就业、初请失业金、Sahm 规则、续请失业金 |
+| 信用 (Credit) | 30% | HY OAS、收益率曲线、商业地产违约率、BBB 利差、商业贷款违约率 |
 
-- 三个子维度（增长 40%、就业 35%、信用 25%）加权得到板块总分
-- 每个指标独立评分 0-10，然后按权重汇总
-- 沿用现有 `_score_indicator()` 评分函数
-
-**技术方案**:
-- 重构 `features/macro_risk/service.py`，将 `_compute_economic_deterioration()` + `_compute_credit_risk()` + `_compute_employment_risk()` 合并为 `_compute_economic_fundamentals()`
-- 新增 GDP 系列 `A191RL1Q225SBEA`
-- 移除 `_compute_ai_health()` 及 AI 股票篮子逻辑
-- 更新 `models.py` 中的 `MacroRiskDashboard` 结构
+综合评分: 加权风险分 0-10，沿用 `_score_indicator()` 评分函数。
 
 ---
 
-### 板块 3：通胀与利率 (Inflation & Rates)
+### 板块 3：通胀与利率 (Inflation & Rates) -- DONE
 
 > **核心问题**: 物价压力如何？美联储会怎么做？
 
-**状态**: 全新板块
+**状态**: 已完成
 
-#### 核心指标
+**实现**: `features/macro_risk/service.py` 中的 `get_inflation_rates()` + 前端 `/macro/inflation-rates`
 
-| 指标 | FRED Series | 判断逻辑 | 权重 |
-|------|------------|----------|------|
-| **通胀子维度** | | | |
-| CPI 同比 | `CPIAUCSL` | >3% 偏高, 2-3% 目标区间, <2% 偏低 | 20% |
-| 核心 PCE 同比 | `PCEPILFE` | 美联储首选指标, >2.5% 偏高 | 25% |
-| 5年盈亏平衡通胀率 | `T5YIE` | 市场隐含通胀预期 | 15% |
-| **利率子维度** | | | |
-| 联邦基金利率 | `FEDFUNDS` | 当前政策利率水位 | 15% |
-| 10年期国债收益率 | `DGS10` | 长端利率趋势 | 15% |
-| 实际利率 (10Y TIPS) | `DFII10` | 实际融资成本, >2% 紧缩 | 10% |
+| 子维度 | 权重 | 核心指标 |
+|--------|------|---------|
+| 通胀 (Inflation) | 60% | CPI (`CPIAUCSL`)、核心 PCE (`PCEPILFE`)、5Y 盈亏平衡 (`T5YIE`)、密歇根通胀预期 |
+| 利率 (Rates) | 40% | 联邦基金利率 (`FEDFUNDS`)、10Y 国债 (`DGS10`)、10Y 实际利率 (`DFII10`) |
 
-#### 综合评分逻辑
-
-- 通胀子维度 (60%) + 利率子维度 (40%) 加权
-- 评分方向: 通胀越高 + 利率越高 = 风险越高
-- 特殊逻辑: 通胀下行 + 降息周期 = 显著降低风险分
-
-**技术方案**:
-- 新建 `features/macro_risk/inflation.py` (或在 service.py 中新增 `_compute_inflation_rates()`)
-- 新增 6 个 FRED series
-- CPI / PCE 需要计算同比变化率（取最近 13 个月数据计算 YoY）
+**配套功能**:
+- `get_cpi_breakdown()`: CPI 细分 (总体/核心/住房/食品/能源 YoY% + MoM%)
+- `get_treasury_and_commodities()`: 12 期限国债收益率曲线 + 日变化 bps
 
 ---
 
-### 板块 4：市场情绪 (Market Sentiment)
+### 板块 4：市场情绪 (Market Sentiment) -- DONE
 
 > **核心问题**: 市场参与者现在是贪婪还是恐惧？
 
-**状态**: 全新板块
+**状态**: 已完成
 
-#### 核心指标
+**实现**: `features/macro_risk/service.py` 中的 `get_market_sentiment()` + 前端 `/macro/sentiment`
 
-| 指标 | 数据源 | 判断逻辑 | 权重 |
-|------|--------|----------|------|
-| VIX 波动率指数 | yfinance `^VIX` | <15 贪婪, 15-25 中性, >25 恐惧, >35 极度恐惧 | 35% |
-| Put/Call Ratio | yfinance `^PCCE` / CBOE | >1.0 恐惧 (看跌多), <0.7 贪婪 (看涨多) | 25% |
-| 市场宽度 (涨跌比) | yfinance 计算 | 上涨股票占比, <40% 弱势 | 20% |
-| 信用利差变化 | FRED `BAMLH0A0HYM2` | 利差快速扩大 = 恐惧升温 | 20% |
+| 子维度 | 核心指标 | 数据源 |
+|--------|---------|--------|
+| CNN 恐慌贪婪 | 7 组件 (股价强度/宽度/看跌看涨/动能/垃圾债/VIX/避险) | CNN Fear & Greed API |
+| 波动率 | VIX / VVIX / SKEW | yfinance |
+| 市场宽度 + 期权 | S&P 500 上涨比例 + Put/Call Ratio | yfinance (100 只成分股) |
+| 信用利差 | HY OAS + BBB Spread | FRED |
 
-#### 综合评分逻辑
-
-- VIX 为主锚点，其他指标辅助验证
-- VIX 极端值 (>35 或 <12) 时拉高/拉低板块分数
-- 多指标交叉验证: VIX 高 + P/C Ratio 高 + 宽度差 = 高确信度恐惧
-
-**技术方案**:
-- 新建 `features/macro_risk/sentiment.py` (或在 service.py 中新增 `_compute_market_sentiment()`)
-- VIX 和 P/C Ratio 通过 yfinance 获取
-- 市场宽度通过 yfinance 计算 S&P 500 成分股涨跌比
-- 信用利差复用板块 2 的 HY OAS 数据，避免重复请求
+**特点**: CNN 综合评分 (0-100) 作为主锚点，10 分钟缓存 + request coalescing 防并发。
 
 ---
 
-### 板块对比：现有 vs 新设计
-
-| 维度 | 现有看板 (4 分类) | 新看板 (4 板块) |
-|------|------------------|-----------------|
-| 分类 1 | 经济恶化 | 流动性环境 (已完成) |
-| 分类 2 | 信用违约 | 经济基本面 (合并重构) |
-| 分类 3 | 就业 | 通胀与利率 (全新) |
-| 分类 4 | AI 公司健康 | 市场情绪 (全新) |
-| 通胀 | 无 | CPI / PCE / 盈亏平衡 |
-| 情绪 | 无 | VIX / P/C Ratio |
-| 前瞻 | 无 | 事件日历 + AI 研判 |
-| 教育 | 无 | 三层认知脚手架 |
-| AI 股票 | 10 只 AI 股篮子 | 移除 (板块行情，不属于宏观) |
-
----
-
-## 三、信息架构 — 三层渐进式设计
-
-用户进入宏观页面后，信息按照"总览 → 扫描 → 深入"三层渐进呈现：
+## 三、信息架构 — 三层渐进式设计 -- DONE
 
 ### Layer 1: 5 秒总览 — Dashboard Header
 
-**用户目标**: 一眼判断"今天宏观环境怎么样"
+**状态**: 已完成 (`/macro` 首页)
 
-- **综合宏观评分**: 0-10 仪表盘（已有 `RiskGauge` 组件）
-- **一句话总结**: AI 生成的当日宏观摘要（如"流动性充裕但通胀回升，关注下周 CPI"）
-- **四色信号灯**: 每个板块一个 低/中/高 状态指示器
-
-```
-┌───────────────────────────────────────────┐
-│  宏观环境评分: 4.2/10 [====----]  中性    │
-│  "流动性环境宽松，但通胀数据偏高，         │
-│   关注下周三 CPI 数据"                     │
-│                                           │
-│  流动性 [绿] 经济 [绿] 通胀 [黄] 情绪 [绿] │
-└───────────────────────────────────────────┘
-```
+- **综合宏观评分**: 0-10 仪表盘 (`RiskGauge` 组件)
+- **一句话总结**: AI 生成的宏观摘要 (来自周报 `executive_summary`)
+- **四色信号灯**: 每个板块一个信号灯 (来自周报 `signal_lights`)
 
 ### Layer 2: 30 秒扫描 — 四板块卡片
 
-**用户目标**: 快速扫描每个维度的关键信号
+**状态**: 已完成
 
-每个板块一张卡片，采用 `terminal-card` 样式：
-- 板块名称 + 评分（0-10）
-- Headline 一句话（沿用现有 headline 生成逻辑）
-- 2-3 个最关键指标的当前值 + 变化趋势箭头
-- 展开箭头进入 Layer 3
+每个板块一张 `terminal-card`：板块名称 + 评分 + headline + 关键指标 + 展开进入 Layer 3。
 
 ### Layer 3: 5 分钟深入 — 板块详情页
 
-**用户目标**: 深入理解某个维度的完整情况
+**状态**: 已完成
 
-- 该板块所有指标的完整数据
-- 每个指标配套"指标即教育"解读
-- 历史走势图（30 天 / 90 天 / 1 年）
-- 情景推演卡片（见第四节）
-- 相关前瞻事件（见第五节）
+4 个详情页 (`/macro/liquidity`, `/macro/economy`, `/macro/inflation-rates`, `/macro/sentiment`)：
+- 全量指标数据
+- `InsightBanner` 组件展示 AI 解读 (来自周报 `SectionAnalysis`)
+- 历史走势图 (`HistoryAreaChart` / `IndexAreaChart` / `CommodityAreaChart` / `YieldCurveChart`)
+- TradingView 嵌入图表
+- 时间范围选择 (1M/3M/6M/1Y/ALL)
 
 ---
 
@@ -239,15 +156,14 @@
 历史参考：{关键阈值说明}。
 ```
 
-**示例**:
-> **VIX 波动率指数** 当前 18.5，较上周上升 2.3 点。
-> VIX 衡量市场对未来 30 天波动的预期，被称为"恐惧指数"。
-> 历史参考：<15 市场偏乐观，15-25 正常范围，>25 市场紧张，>35 极度恐慌。
-
 **技术方案**:
 - 在 `models.py` 中为 `RiskIndicator` 新增 `education_text` 字段
-- 文案存储在后端配置文件或数据库中，按 `series_id` 索引
+- 文案按 `series_id` 索引
 - 前端通过 tooltip 或 inline 展示
+
+**状态**: 未实现 | 优先级 P2
+
+---
 
 ### 脚手架 2：情景推演卡片
 
@@ -270,10 +186,11 @@
 | 净流动性环比增加 > 5% | 风险资产受益，成长股表现好 | 可适度增加权益仓位 |
 | 收益率曲线从倒挂转正 | 历史上衰退通常在此后 6-12 个月发生 | 降低杠杆，增加现金比例 |
 
-**技术方案**:
-- 后端存储预设场景模板，前端根据当前指标值判断触发条件
-- 优先级 P2，可在 Phase 2 实现
-- 前端组件: `ScenarioCard.tsx`
+**技术方案**: 前端 `ScenarioCard.tsx` + 后端预设场景模板
+
+**状态**: 未实现 | 优先级 P3
+
+---
 
 ### 脚手架 3：周报一课
 
@@ -285,7 +202,8 @@
 - 内容由 AI 生成初稿 + 人工审核
 - 存储在 Insforge 数据库中
 - 在周报中嵌入"本周一课"区块
-- 优先级 P3，Phase 3 实现
+
+**状态**: 未实现 | 优先级 P3
 
 ---
 
@@ -293,7 +211,7 @@
 
 ### 事件日历
 
-展示未来 1-2 周影响市场的关键事件：
+展示未来 1-2 周影响市场的关键事件。
 
 | 事件类型 | 数据源 | 示例 |
 |---------|--------|------|
@@ -301,180 +219,207 @@
 | 美联储活动 | FMP + 手动维护 | FOMC 会议、联储官员讲话 |
 | 财报季节点 | 现有 `earnings.py` | 大型科技公司财报日期 |
 
-**技术方案**:
-- 复用现有 `shared/data_tools/calendar.py` 经济日历功能
-- 前端新建 `EventCalendar.tsx` 组件
-- 每个事件标注"对哪个板块影响最大"
-- 优先级 P1，Phase 1 可实现
+**技术方案**: 复用 `shared/data_tools/calendar.py` + 前端 `EventCalendar.tsx`
+
+**状态**: 后端数据已有 (`calendar.py`)，前端日历组件未实现 | 优先级 P2
+
+**注意**: 周报中已有 `week_ahead` 字段 (3-5 个事件的 if-then 预判)，独立日历组件是增量功能。
 
 ### AI 前瞻研判
 
-基于当前数据 + 未来事件，生成前瞻性判断：
+**状态**: 部分实现
 
-**输出结构**:
-```
-本周关注：
-1. [日期] CPI 数据发布 → 市场预期 X%，若高于预期则 {影响判断}
-2. [日期] FOMC 会议纪要 → 关注点: {具体关注点}
+周报 Agent (`features/weekly_report/agent.py`) 已包含前瞻研判能力：
+- `week_ahead`: 3-5 个关键事件 + if-then 预判
+- `investment_implications`: 风格倾向 + 板块偏好 + 风险提示
 
-未来 30 天风险评估：
-- 最大风险: {描述}
-- 最大机会: {描述}
-```
-
-**技术方案**:
-- 在 `features/macro_risk/agent.py`（新建）中使用 Google ADK Agent
-- 输入: 当前四大板块数据 + 未来 2 周事件日历
-- 输出: 结构化前瞻研判（Pydantic schema）
-- 生成频率: 每日一次，缓存 24 小时
-- 优先级 P2
+**未实现**: 独立的实时前瞻 Agent (`macro_risk/agent.py`)，当前前瞻内容仅在周报中提供。
+评估后认为周报频率已够，暂不需要独立的每日前瞻 Agent。降为 P3。
 
 ---
 
-## 六、周报产品
+## 六、周报产品 -- PARTIALLY DONE
 
-### 结构设计
+### 结构设计 -- DONE
 
 ```
 ┌─ 周报标题 ─────────────────────────┐
-│  MarketBrew 宏观周报 · 2025.01.13  │
+│  MarketBrew 宏观周报 · 2025.W06    │
 ├────────────────────────────────────┤
-│  一、本周宏观总览                    │
-│  综合评分 + 一段话总结                │
+│  一、本周宏观定调 (executive_summary)│
+│  综合判断 + 环境定性                │
 ├────────────────────────────────────┤
-│  二、四大板块速览                    │
-│  每个板块 2-3 句 + 关键数据变化       │
+│  二、四维信号灯 (signal_lights)     │
+│  流动性/经济/通胀/情绪 green/yellow/red │
 ├────────────────────────────────────┤
-│  三、下周前瞻                       │
-│  关键事件 + AI 研判                  │
+│  三、本周市场回顾 (market_recap)    │
+│  指数表现 + 风格/板块趋势           │
 ├────────────────────────────────────┤
-│  四、本周一课                       │
-│  一个宏观概念科普                    │
+│  四、四大板块分析                   │
+│  每个板块: 数据变化 → 趋势解读 → 市场含义 │
 ├────────────────────────────────────┤
-│  五、情景推演                       │
-│  当前最值得关注的 1-2 个 if-then     │
+│  五、对股市的启示 (investment_implications) │
+│  风格倾向 + 板块偏好 + 风险提示      │
+├────────────────────────────────────┤
+│  六、下周关注 (week_ahead)          │
+│  3-5 个关键事件 + if-then 预判      │
 └────────────────────────────────────┘
 ```
 
-### 分发机制
+### 已完成
 
-- 复用现有 `features/subscription/` 邮件订阅系统
-- 生成时机: 每周日晚 (Pacific) 自动生成
-- 分发: 周一早晨通过 Resend API 发送
-- 触发方式: Cron Job → `/api/report/send` (复用现有广播机制)
+| 组件 | 路径 | 说明 |
+|------|------|------|
+| 数据模型 | `features/weekly_report/models.py` | `WeeklyReportOutput`, `SignalLights`, `SectionAnalysis`, `WeekAheadEvent` |
+| AI Agent | `features/weekly_report/agent.py` | Google ADK (gemini-3-pro-preview) 生成报告 |
+| 数据收集 | `features/weekly_report/data_collector.py` | 整合 4 板块数据 + 市场表现 + 日历 |
+| 数据库 | `features/weekly_report/db.py` | Insforge `weekly_macro_reports` 表 + edge function |
+| API 端点 | `features/weekly_report/router.py` | GET 读取 / POST 生成 (X-Cron-Secret 保护) |
+| 前端展示 | `InsightBanner` 组件 | 在 4 个详情页中展示周报 AI 解读 |
+| 测试 | `tests/e2e/test_weekly_report_e2e.py` + `tests/test_weekly_report_unit.py` | 9 E2E + 10 单元测试 |
 
-**技术方案**:
-- 新建 `features/macro_risk/weekly_report.py`
-- Agent 整合四大板块数据 + 前瞻引擎输出
-- HTML 邮件模板 (与现有市场日报邮件风格一致)
-- 优先级 P2
+### API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/weekly-report` | GET | 获取最新周报 (或 `?week=2025.W06` 指定周) |
+| `/api/weekly-report/list` | GET | 分页列表 (`?limit=20&offset=0`) |
+| `/api/weekly-report/generate` | POST | 生成周报 (需 `X-Cron-Secret`，支持 `?force=true`) |
+
+### 未完成
+
+| 任务 | 说明 | 优先级 |
+|------|------|--------|
+| HTML 邮件模板 | 需在 `email_service.py` 中添加 `_format_weekly_html()` | P1 |
+| 邮件分发端点 | `/api/weekly-report/send` 广播周报邮件 | P1 |
+| Cron Job 配置 | 每周日晚自动生成 + 周一早晨发送 | P1 |
+| 前端周报阅读页 | 独立页面展示完整周报内容 | P2 |
 
 ---
 
 ## 七、实施路线图
 
-### Phase 1: 基础重构 (优先级最高)
+### Phase 1: 基础重构 -- DONE
 
 > 目标: 完成四大板块数据层 + 前端重构
 
-| 任务 | 描述 | 涉及文件 | 工作量 |
-|------|------|---------|-------|
-| 重构经济基本面板块 | 合并现有三个分类为一个，新增 GDP | `features/macro_risk/service.py`, `models.py` | M |
-| 新建通胀与利率板块 | 6 个新 FRED series + 评分逻辑 | `features/macro_risk/service.py` (新增函数) | M |
-| 新建市场情绪板块 | VIX + P/C Ratio + 市场宽度 | `features/macro_risk/sentiment.py` (新建) | M |
-| 移除 AI 股票篮子 | 从宏观看板中移除 | `features/macro_risk/service.py`, `models.py` | S |
-| 更新 API 响应结构 | 新 dashboard 模型 | `features/macro_risk/models.py`, `router.py` | S |
-| 前端四板块重构 | 新板块卡片 + 三层信息架构 | `frontend/src/app/tools/macro-risk/` | L |
-| 事件日历 | 接入经济日历数据 | `frontend/src/components/EventCalendar.tsx` | M |
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 重构经济基本面板块 | DONE | 合并 3 分类为 `get_economic_fundamentals()` |
+| 新建通胀与利率板块 | DONE | `get_inflation_rates()` + CPI 细分 + 国债曲线 |
+| 新建市场情绪板块 | DONE | `get_market_sentiment()` + CNN Fear & Greed |
+| 更新 API 响应结构 | DONE | `EconomicFundamentals` 统一模型 + 新 router 端点 |
+| 前端四板块重构 | DONE | `/macro/*` 4 个详情页 + 5 个图表组件 |
+| 删除流动性 AI 分析 | DONE | 移除 `agent.py` / `db.py` / edge function |
+| 后端测试 | DONE | 25 个测试 (周报 E2E + 流动性 E2E + 模型单元测试) |
 
-**S = 小(< 半天), M = 中(半天-1天), L = 大(1-2天)**
+### Phase 2: 周报闭环 + 教育 -- IN PROGRESS
 
-### Phase 2: 智能层 + 教育
+> 目标: 完成周报邮件分发 + 交互教育功能
 
-> 目标: AI 前瞻 + 交互教育功能
-
-| 任务 | 描述 | 涉及文件 |
-|------|------|---------|
-| AI 前瞻研判 Agent | Google ADK Agent 生成前瞻报告 | `features/macro_risk/agent.py` (新建) |
-| 指标即教育 | 每个指标配教育文案 | `models.py` + 前端 tooltip |
-| 情景推演卡片 | 预设 if-then 场景 | `ScenarioCard.tsx` (新建) |
-| 周报 MVP | 自动生成 + 邮件发送 | `features/macro_risk/weekly_report.py` (新建) |
+| 任务 | 状态 | 优先级 | 说明 |
+|------|------|--------|------|
+| 周报 AI 生成 | DONE | -- | `weekly_report/agent.py` 已完成 |
+| 周报数据收集 | DONE | -- | `data_collector.py` 整合 4 板块 + 日历 |
+| 周报 API 读写 | DONE | -- | GET/POST 端点 + DB 持久化 |
+| 前端 InsightBanner | DONE | -- | 在详情页展示周报 AI 解读 |
+| 周报 HTML 邮件模板 | TODO | P1 | `email_service.py` 新增 `_format_weekly_html()` |
+| 周报邮件分发 | TODO | P1 | `/api/weekly-report/send` + Cron 配置 |
+| 移除 AI 股票篮子 | TODO | P2 | `_compute_ai_health()` + `AI_STOCK_BASKET` 仍在代码中，前端已不使用 |
+| 指标即教育 | TODO | P2 | `RiskIndicator` 新增 `education_text` 字段 |
+| 事件日历组件 | TODO | P2 | 前端 `EventCalendar.tsx`，后端数据已有 |
+| 前端周报阅读页 | TODO | P2 | 独立页面展示完整周报 |
 
 ### Phase 3: 增强 + 打磨
 
 > 目标: 高级功能 + 用户体验优化
 
-| 任务 | 描述 |
-|------|------|
-| 历史走势图 | 每个指标的时间序列可视化 |
-| 周报一课 | AI 生成 + 人工审核的概念科普 |
-| 自定义看板 | 用户可选择关注的板块/指标 |
-| 通知与预警 | 指标异常变动时推送通知 |
-| 指标相关性分析 | 展示指标之间的联动关系 |
+| 任务 | 状态 | 优先级 |
+|------|------|--------|
+| 情景推演卡片 (`ScenarioCard.tsx`) | TODO | P3 |
+| 周报一课 (概念科普) | TODO | P3 |
+| 自定义看板 (用户选择板块/指标) | TODO | P3 |
+| 通知与预警 (指标异常推送) | TODO | P3 |
+| 指标相关性分析 | TODO | P3 |
+| 实时前瞻 Agent (`macro_risk/agent.py`) | TODO | P3 |
 
 ---
 
-## 八、现有代码影响
+## 八、当前代码架构
 
-### 保留不变
-
-| 模块 | 路径 | 原因 |
-|------|------|------|
-| 流动性模块 | `features/liquidity/` | 作为板块 1 数据源，完全保留 |
-| FRED 服务 | `features/liquidity/fred_service.py` | 新板块复用 `get_latest_value()` |
-| yfinance 服务 | `shared/yfinance_service.py` | 市场情绪板块需要用 |
-| 经济日历 | `shared/data_tools/calendar.py` | 事件日历复用 |
-| 邮件订阅 | `features/subscription/` | 周报分发复用 |
-| 评分函数 | `_score_indicator()` | 逻辑通用，保留并复用 |
-
-### 需要修改
-
-| 文件 | 改动 |
-|------|------|
-| `features/macro_risk/service.py` | 重构分类逻辑：合并 3 个分类 → "经济基本面"，新增 `_compute_inflation_rates()`, 移除 `_compute_ai_health()` |
-| `features/macro_risk/models.py` | 更新 `MacroRiskDashboard`: 移除 `ai_stocks` 字段，更新 `categories` 结构，新增教育字段 |
-| `features/macro_risk/router.py` | 适配新的 dashboard 结构，可能新增板块详情端点 |
-| `MACRO_RISK_FRED_SERIES` 配置 | 新增: `A191RL1Q225SBEA`, `CPIAUCSL`, `PCEPILFE`, `T5YIE`, `FEDFUNDS`, `DGS10`, `DFII10`；保留所有现有 series |
-| 前端宏观页面 | `frontend/src/app/tools/macro-risk/` 整体重构 |
-
-### 需要新增
-
-| 文件 | 用途 |
-|------|------|
-| `features/macro_risk/sentiment.py` | 市场情绪板块：VIX / P/C Ratio / 市场宽度计算 |
-| `features/macro_risk/agent.py` | AI 前瞻研判 Agent (Google ADK) |
-| `features/macro_risk/weekly_report.py` | 周报生成逻辑 |
-| `frontend/src/components/EventCalendar.tsx` | 事件日历组件 |
-| `frontend/src/components/ScenarioCard.tsx` | 情景推演卡片组件 |
-
-### 新增 FRED Series 汇总
-
-| Series ID | 指标 | 板块 | 更新频率 |
-|-----------|------|------|---------|
-| `A191RL1Q225SBEA` | GDP 实际增长率 | 经济基本面 | 季度 |
-| `CPIAUCSL` | CPI (需计算 YoY) | 通胀与利率 | 月度 |
-| `PCEPILFE` | 核心 PCE (需计算 YoY) | 通胀与利率 | 月度 |
-| `T5YIE` | 5年盈亏平衡通胀率 | 通胀与利率 | 日度 |
-| `FEDFUNDS` | 联邦基金利率 | 通胀与利率 | 月度 |
-| `DGS10` | 10年期国债收益率 | 通胀与利率 | 日度 |
-| `DFII10` | 10年期实际利率 (TIPS) | 通胀与利率 | 日度 |
-
-### 数据流架构（重构后）
+### 后端架构
 
 ```
-FRED API ──────────────────────┐
-  (流动性 5 series)              │
-  (经济基本面 11 series)          │
-  (通胀与利率 6 series)           ├──→ macro_risk/service.py ──→ 四板块评分
-                                │       ↕ 复用 fred_service.py
-yfinance ─────────────────────┤
-  (VIX, P/C Ratio, 市场宽度)     │
-                                │
-FMP API ──────────────────────┘
-  (经济日历, 事件)
+features/macro_risk/
+  service.py          # 四板块核心逻辑 (dashboard, economy, inflation, sentiment)
+  models.py           # MacroRiskDashboard, EconomicFundamentals, RiskIndicator
+  router.py           # API 端点 (/api/macro-risk/*)
+
+features/liquidity/
+  fred_service.py     # FRED API 流动性指标 (WALCL, TGA, RRP, NFCI, SOFR, EFFR)
+  router.py           # API 端点 (/api/liquidity/*)
+  [已删除]            # agent.py, db.py (AI 分析功能已移除)
+
+features/weekly_report/
+  agent.py            # WeeklyReportAgent (Google ADK, gemini-3-pro-preview)
+  data_collector.py   # collect_weekly_data() 整合 4 板块 + 市场表现 + 日历
+  db.py               # Insforge edge function 读写
+  models.py           # WeeklyReportOutput, SignalLights, SectionAnalysis, WeekAheadEvent
+  router.py           # API 端点 (/api/weekly-report/*)
+```
+
+### 前端页面
+
+```
+/macro                    # 宏观仪表板首页 (4 维度概览)
+/macro/liquidity          # 流动性环境详情
+/macro/economy            # 经济基本面详情
+/macro/inflation-rates    # 通胀与利率详情
+/macro/sentiment          # 市场情绪详情
+```
+
+### 前端组件
+
+| 组件 | 用途 |
+|------|------|
+| `InsightBanner` | AI 解读横幅 (3 层: 数据变动 / 趋势解读 / 市场影响) |
+| `HistoryAreaChart` | 通用历史面积图 (可复用基础组件) |
+| `IndexAreaChart` | 指数历史图 (VIX/VVIX/SKEW) |
+| `CommodityAreaChart` | 商品历史图 (Gold/Silver/Oil/Copper/DXY) |
+| `YieldCurveChart` | 国债收益率曲线 |
+| `MacroPageHeader` | 宏观页面统一页头 |
+| `NetLiquidityChart` | 净流动性图表 |
+
+### 数据流架构
+
+```
+FRED API ────────────────────────────┐
+  (流动性 7 series)                    │
+  (经济基本面 11 series)                │
+  (通胀与利率 7 series)                 │
+                                     ├──→ macro_risk/service.py ──→ 四板块评分 + API
+yfinance ──────────────────────────┤
+  (VIX/VVIX/SKEW, S&P 500 成分股)     │
+                                     │
+CNN Fear & Greed API ────────────────┤
+  (7 组件恐慌贪婪指数)                  │
+                                     │
+FMP API ─────────────────────────────┘
+  (经济日历, 财报日历, 国债利率)
 
                     ↓
-            macro_risk/agent.py (Phase 2)
+         weekly_report/data_collector.py  (每周收集)
                     ↓
-              AI 前瞻研判 + 周报
+         weekly_report/agent.py  (AI 生成周报)
+                    ↓
+         Insforge DB  (持久化)
+                    ↓
+         InsightBanner  (前端展示 AI 解读)
 ```
+
+### 遗留清理项
+
+| 项目 | 说明 | 优先级 |
+|------|------|--------|
+| `AI_STOCK_BASKET` + `_compute_ai_health()` | 后端仍在 dashboard API 中计算和返回 `ai_stocks`，但前端 `/macro` 页面已不使用 | P2 |
+| `test_macro_risk_unit.py` | 因 `_get_cached_dashboard` 重命名导致 import 失败，需更新 | P2 |

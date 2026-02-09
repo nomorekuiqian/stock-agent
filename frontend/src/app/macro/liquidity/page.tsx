@@ -143,6 +143,26 @@ const TAB_META: Record<
 
 const TIME_RANGES = ['1M', '3M', '6M', '1Y', 'ALL'] as const;
 
+const EMPTY_METRIC: LiquidityMetric = {
+  series_id: '',
+  title: '',
+  value: null,
+  date: null,
+  units: '',
+  change: null,
+};
+
+const EMPTY_METRICS: LiquidityMetrics = {
+  fed_assets: { ...EMPTY_METRIC, series_id: 'WALCL', title: 'Fed Total Assets', units: 'Millions of U.S. Dollars' },
+  tga: { ...EMPTY_METRIC, series_id: 'WDTGAL', title: 'Treasury General Account', units: 'Millions of U.S. Dollars' },
+  rrp: { ...EMPTY_METRIC, series_id: 'RRPONTSYD', title: 'Overnight Reverse Repo', units: 'Billions of US Dollars' },
+  reserves: { ...EMPTY_METRIC, series_id: 'WRESBAL', title: 'Bank Reserves', units: 'Millions of U.S. Dollars' },
+  sofr: { ...EMPTY_METRIC, series_id: 'SOFR', title: 'SOFR', units: 'Percent' },
+  effr: { ...EMPTY_METRIC, series_id: 'EFFR', title: 'Effective Federal Funds Rate', units: 'Percent' },
+  nfci: { ...EMPTY_METRIC, series_id: 'NFCI', title: 'Chicago Fed NFCI', units: 'Index' },
+  net_liquidity: { ...EMPTY_METRIC, series_id: 'CALCULATED', title: 'Net Liquidity', units: 'Billions of Dollars' },
+};
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -822,10 +842,14 @@ export default function LiquidityPage() {
   const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(true);
 
+  // Whether FRED data source is temporarily unavailable
+  const [dataUnavailable, setDataUnavailable] = useState(false);
+
   const fetchData = useCallback(async (bypassCache = false) => {
     if (bypassCache) invalidateCache('liquidity-history-365');
     setLoading(true);
     setError(null);
+    setDataUnavailable(false);
     try {
       const response = await api.getLiquidityHistory(365);
       if (response.success && response.data) {
@@ -833,10 +857,23 @@ export default function LiquidityPage() {
         setLastUpdated(response.timestamp);
         if (response.data.metrics) {
           setMetrics(response.data.metrics);
+        } else {
+          // FRED API unavailable - use empty metrics so page still renders
+          setMetrics(EMPTY_METRICS);
+          setDataUnavailable(true);
+        }
+        // Check if observations are empty (partial data)
+        if (!response.data.observations || response.data.observations.length === 0) {
+          setDataUnavailable(true);
+          if (!response.data.metrics) {
+            setMetrics(EMPTY_METRICS);
+          }
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取数据失败');
+      // Even on full failure, set empty metrics so TradingView charts still render
+      setMetrics(EMPTY_METRICS);
+      setDataUnavailable(true);
       console.error('Error fetching liquidity data:', err);
     } finally {
       setLoading(false);
@@ -906,6 +943,23 @@ export default function LiquidityPage() {
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
           <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
             {error}
+          </div>
+        </div>
+      )}
+
+      {/* FRED Data Unavailable Banner */}
+      {dataUnavailable && !loading && (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm flex items-start gap-3">
+            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div>
+              <p className="font-medium">FRED 数据源暂时不可用</p>
+              <p className="text-amber-400/80 mt-1">
+                实时数值数据暂时无法加载。下方的 TradingView 图表和 AI 分析仍然可用。
+              </p>
+            </div>
           </div>
         </div>
       )}

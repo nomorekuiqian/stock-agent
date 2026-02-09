@@ -169,7 +169,7 @@ module.exports = async function(request) {
       // Get list of reports with pagination
       const { data, error, count } = await client.database
         .from('market_reports')
-        .select('id, report_date, timestamp, title, short_analysis, created_at', { count: 'exact' })
+        .select('id, report_date, timestamp, title, summary, report_summary, created_at', { count: 'exact' })
         .order('report_date', { ascending: false })
         .range(offset, offset + limit - 1);
 

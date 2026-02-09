@@ -97,18 +97,20 @@ class TestPrepareDataForAnalyst:
         assert "type" not in cleaned
         assert "_source" not in cleaned
 
-    def test_filters_news_without_url(self):
-        """News without URL should be filtered out"""
+    def test_keeps_news_without_url(self):
+        """News without URL is kept (AI uses article_id, not URL directly)"""
         news = [
             {"title": "Has URL", "text": "...", "source": "A", "url": "https://a.com"},
-            {"title": "No URL", "text": "...", "source": "B"},  # Missing url
-            {"title": "Empty URL", "text": "...", "source": "C", "url": ""},  # Empty url
+            {"title": "No URL", "text": "...", "source": "B"},
+            {"title": "Empty URL", "text": "...", "source": "C", "url": ""},
         ]
 
         result = _prepare_data_for_analyst({}, news, [], [])
 
-        assert len(result["news"]) == 1
-        assert result["news"][0]["title"] == "Has URL"
+        assert len(result["news"]) == 3
+        assert result["news"][0]["url"] == "https://a.com"
+        assert result["news"][1]["url"] == ""
+        assert result["news"][2]["url"] == ""
 
     def test_cleans_calendar_fields(self):
         """Calendar should only have: date, event, previous, estimate, is_key_event"""

@@ -49,7 +49,12 @@ async def get_liquidity_metrics():
         }
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": True,
+            "timestamp": now_iso(),
+            "metrics": {},
+            "error": str(e),
+        }
 
 
 @router.get("/history")
@@ -67,14 +72,29 @@ async def get_liquidity_history_endpoint(
     """
     try:
         history = await get_liquidity_history(days=days)
+        has_data = bool(history.get("observations"))
         return {
             "success": True,
             "timestamp": now_iso(),
-            "data": history
+            "data": history,
+            "partial": not has_data,
         }
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": True,
+            "timestamp": now_iso(),
+            "data": {
+                "series_id": "NET_LIQUIDITY",
+                "title": "Net Liquidity",
+                "units": "Billions of Dollars",
+                "formula": "WALCL - TGA - RRP",
+                "observations": [],
+                "metrics": None,
+            },
+            "partial": True,
+            "error": str(e),
+        }
 
 
 @router.get("/series/{series_id}")

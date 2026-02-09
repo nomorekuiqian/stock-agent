@@ -15,8 +15,11 @@ from app.features.macro_risk.service import (
     get_macro_risk_dashboard,
     get_economic_fundamentals,
     get_inflation_rates,
+    get_market_sentiment,
+    get_cpi_breakdown,
 )
 from app.features.liquidity.fred_service import get_all_liquidity_metrics
+from app.features.macro_cache.db import try_db_cache
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
 from app.features.weekly_report.models import (
@@ -25,11 +28,6 @@ from app.features.weekly_report.models import (
 )
 
 
-# =============================================================================
-# Market Performance - Weekly Change Calculation
-# =============================================================================
-
-# ETF symbols for weekly market performance
 MARKET_INDICES = {
     "SPY": "S&P 500",
     "QQQ": "Nasdaq 100",
@@ -58,16 +56,10 @@ STYLE_ETFS = {
 
 
 def _fetch_weekly_performance() -> MarketPerformance:
-    """
-    Fetch weekly price change for indices, sectors, and style ETFs.
-    Uses yf.download(period='5d') and calculates week-over-week change.
-
-    This is a synchronous function (yfinance is sync).
-    """
+    """Fetch weekly price change for indices, sectors, and style ETFs via yfinance."""
     all_symbols = list(MARKET_INDICES) + list(SECTOR_ETFS) + list(STYLE_ETFS)
 
     try:
-        # Batch download 5 days of data for all symbols
         data = yf.download(
             all_symbols,
             period="5d",
@@ -81,7 +73,6 @@ def _fetch_weekly_performance() -> MarketPerformance:
             return MarketPerformance()
 
         def _calc_change(symbol: str) -> dict | None:
-            """Calculate weekly change for a single symbol."""
             try:
                 if len(all_symbols) == 1:
                     close = data["Close"]
@@ -125,47 +116,48 @@ def _fetch_weekly_performance() -> MarketPerformance:
         return MarketPerformance()
 
 
-# =============================================================================
-# Main Data Collection
-# =============================================================================
+def _safe_calendar(result, key: str) -> list:
+    """Extract calendar list from result, handling exceptions and dict/list formats."""
+    if isinstance(result, Exception):
+        return []
+    if isinstance(result, dict):
+        return result.get(key, [])
+    return result if isinstance(result, list) else []
 
 
 async def collect_weekly_data() -> WeeklyRawData:
-    """
-    Collect all data needed for the weekly macro report.
-
-    Calls existing services in parallel, plus fetches weekly market performance.
-    Returns a WeeklyRawData object ready to be passed to the AI Agent.
-    """
+    """Collect all data needed for the weekly macro report in parallel."""
     print("[WeeklyCollector] Starting weekly data collection...")
 
-    # Step 1: Fetch async data in parallel
     dashboard_task = get_macro_risk_dashboard()
     economy_task = get_economic_fundamentals()
     inflation_task = get_inflation_rates()
     liquidity_task = get_all_liquidity_metrics()
+    sentiment_task = get_market_sentiment()
+    cpi_task = get_cpi_breakdown()
 
-    # Step 2: Run sync functions in executor (yfinance, FMP calendar)
     loop = asyncio.get_event_loop()
     market_perf_task = loop.run_in_executor(None, _fetch_weekly_performance)
     econ_cal_task = loop.run_in_executor(None, get_economic_calendar, 14)
     earn_cal_task = loop.run_in_executor(None, get_earnings_calendar, 14)
 
-    # Step 3: Await all results
     results = await asyncio.gather(
         dashboard_task,
         economy_task,
         inflation_task,
         liquidity_task,
+        sentiment_task,
+        cpi_task,
         econ_cal_task,
         earn_cal_task,
         market_perf_task,
+        try_db_cache("macro:liquidity_percentiles"),
         return_exceptions=True,
     )
 
-    dashboard, economy, inflation, liquidity, econ_cal, earn_cal, market_perf = results
+    (dashboard, economy, inflation, liquidity, sentiment, cpi_data,
+     econ_cal, earn_cal, market_perf, liq_cache_result) = results
 
-    # Step 4: Handle errors gracefully - convert exceptions to None
     def _safe_dump(result, label: str):
         if isinstance(result, Exception):
             print(f"[WeeklyCollector] Error fetching {label}: {result}")
@@ -174,6 +166,18 @@ async def collect_weekly_data() -> WeeklyRawData:
             return result.model_dump()
         return result
 
+    liq_context = None
+    if isinstance(liq_cache_result, Exception):
+        print(f"[WeeklyCollector] Error reading liquidity percentiles cache: {liq_cache_result}")
+    elif isinstance(liq_cache_result, tuple):
+        cached_data, is_valid = liq_cache_result
+        if cached_data:
+            liq_context = cached_data
+            status = "valid" if is_valid else "stale"
+            print(f"[WeeklyCollector] Liquidity percentiles from cache ({status}): {list(liq_context.keys())}")
+        else:
+            print("[WeeklyCollector] No liquidity percentiles in cache")
+
     raw_data = WeeklyRawData(
         week_label=market_week_label(),
         collected_at=utc_now_iso(),
@@ -181,20 +185,15 @@ async def collect_weekly_data() -> WeeklyRawData:
         economy=_safe_dump(economy, "economy"),
         inflation_rates=_safe_dump(inflation, "inflation_rates"),
         liquidity=_safe_dump(liquidity, "liquidity"),
+        sentiment=_safe_dump(sentiment, "sentiment"),
+        cpi_breakdown=_safe_dump(cpi_data, "cpi_breakdown"),
+        liquidity_historical=liq_context,
         market_performance=(
             market_perf if isinstance(market_perf, MarketPerformance)
             else MarketPerformance()
         ),
-        economic_calendar=(
-            econ_cal.get("events", [])
-            if isinstance(econ_cal, dict)
-            else (econ_cal if not isinstance(econ_cal, Exception) else [])
-        ),
-        earnings_calendar=(
-            earn_cal.get("earnings", [])
-            if isinstance(earn_cal, dict)
-            else (earn_cal if not isinstance(earn_cal, Exception) else [])
-        ),
+        economic_calendar=_safe_calendar(econ_cal, "events"),
+        earnings_calendar=_safe_calendar(earn_cal, "earnings"),
     )
 
     print(f"[WeeklyCollector] Data collection complete for {raw_data.week_label}")

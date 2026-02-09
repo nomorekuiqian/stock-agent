@@ -445,13 +445,15 @@ class FMPService:
         print(f"[FMP] Treasury rates with change: today={today_date}, prev={prev_date}")
         return result
 
-    def get_stock_news(self, symbols: list[str] = None, limit: int = 80) -> dict:
+    def get_stock_news(self, symbols: list[str] = None, limit: int = 80, from_date: str = None) -> dict:
         """
         Get news for specific stock symbols from FMP API.
+        Batches requests in groups of 20 (API limit per request).
 
         Args:
             symbols: List of ticker symbols (defaults to FMP_NEWS_SYMBOLS)
-            limit: Maximum news items to return (default: 50)
+            limit: Maximum news items per batch (default: 80)
+            from_date: Only include news from this date onwards (YYYY-MM-DD)
 
         Returns:
             {
@@ -463,39 +465,46 @@ class FMPService:
             }
         """
         symbols = symbols or FMP_NEWS_SYMBOLS
-        symbols_str = ",".join(symbols[:20])  # API limit
 
-        print(f"[FMP] get_stock_news(symbols={len(symbols)}, limit={limit})")
+        # Batch into groups of 20 (FMP API limit per request)
+        batches = [symbols[i:i + 20] for i in range(0, len(symbols), 20)]
+        print(f"[FMP] get_stock_news(symbols={len(symbols)}, batches={len(batches)}, limit={limit}, from={from_date})")
 
-        params = {"symbols": symbols_str, "limit": limit}
-        data = self._request("/stable/news/stock", params)
+        all_news = []
+        for batch in batches:
+            symbols_str = ",".join(batch)
+            params = {"symbols": symbols_str, "limit": limit}
+            if from_date:
+                params["from"] = from_date
+            data = self._request("/stable/news/stock", params)
 
-        if not data or not isinstance(data, list):
-            return self._empty_news_response("No news data returned")
-
-        news = self._parse_fmp_news(data)
+            if data and isinstance(data, list):
+                all_news.extend(self._parse_fmp_news(data))
 
         return {
             "status": "success",
-            "news_count": len(news),
-            "news": news,
+            "news_count": len(all_news),
+            "news": all_news,
             "source": "fmp",
-            "symbols_queried": symbols[:20],
+            "symbols_queried": symbols,
         }
 
-    def get_latest_news(self, limit: int = 50) -> dict:
+    def get_latest_news(self, limit: int = 50, from_date: str = None) -> dict:
         """
         Get latest general stock market news (no ticker required).
 
         Args:
             limit: Maximum news items to return (default: 50)
+            from_date: Only include news from this date onwards (YYYY-MM-DD)
 
         Returns:
             Standardized news response dict
         """
-        print(f"[FMP] get_latest_news(limit={limit})")
+        print(f"[FMP] get_latest_news(limit={limit}, from={from_date})")
 
         params = {"limit": limit}
+        if from_date:
+            params["from"] = from_date
         data = self._request("/stable/news/stock-latest", params)
 
         if not data or not isinstance(data, list):
@@ -510,7 +519,7 @@ class FMPService:
             "source": "fmp",
         }
 
-    def get_general_news(self, limit: int = 50) -> dict:
+    def get_general_news(self, limit: int = 50, from_date: str = None) -> dict:
         """
         Get general market news (macro, policy, economy) without ticker requirement.
 
@@ -522,13 +531,16 @@ class FMPService:
 
         Args:
             limit: Maximum news items to return (default: 30)
+            from_date: Only include news from this date onwards (YYYY-MM-DD)
 
         Returns:
             Standardized news response dict
         """
-        print(f"[FMP] get_general_news(limit={limit})")
+        print(f"[FMP] get_general_news(limit={limit}, from={from_date})")
 
         params = {"limit": limit}
+        if from_date:
+            params["from"] = from_date
         data = self._request("/stable/news/general-latest", params)
 
         if not data or not isinstance(data, list):
@@ -988,10 +1000,10 @@ class FMPService:
         """
         print(f"[FMP] get_commodity_historical(symbol={symbol}, days={days})")
 
-        # FMP historical API endpoint
-        data = self._request(f"/api/v3/historical-price-full/{symbol}")
+        # FMP stable API endpoint (migrated from legacy v3)
+        data = self._request(f"/stable/historical-price-eod/full", params={"symbol": symbol})
 
-        if not data or not isinstance(data, dict):
+        if not data or not isinstance(data, list):
             return {
                 "status": "error",
                 "symbol": symbol,
@@ -1000,7 +1012,7 @@ class FMPService:
                 "error": "No historical data returned",
             }
 
-        historical = data.get("historical", [])
+        historical = data
         if not historical:
             return {
                 "status": "error",

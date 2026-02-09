@@ -42,6 +42,9 @@ def _is_within_time_range(pub_date_str: str, days: int = 1) -> bool:
 
     try:
         pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
+        # FMP API returns dates without timezone - assume UTC
+        if pub_date.tzinfo is None:
+            pub_date = pub_date.replace(tzinfo=timezone.utc)
         now = now_pacific()
         weekday = now.weekday()
 
@@ -55,7 +58,8 @@ def _is_within_time_range(pub_date_str: str, days: int = 1) -> bool:
 
         return pub_date >= cutoff
     except (ValueError, TypeError):
-        return True  # Include if date parsing fails
+        print(f"[NEWS] Skipping article with unparseable date: {pub_date_str!r}")
+        return False
 
 
 def _get_effective_date_range() -> tuple:
@@ -94,7 +98,10 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
         from app.shared.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        result = fmp.get_stock_news(symbols=symbols, limit=50)
+        # Pass cutoff date to FMP API for server-side filtering
+        cutoff = _get_last_trading_day_cutoff()
+        from_date = cutoff.strftime("%Y-%m-%d")
+        result = fmp.get_stock_news(symbols=symbols, limit=50, from_date=from_date)
 
         if result.get("status") == "error":
             print(f"FMP news error: {result.get('error')}")
@@ -161,7 +168,9 @@ def _get_general_news(days: int = 1) -> list:
         from app.shared.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        result = fmp.get_general_news(limit=30)
+        cutoff = _get_last_trading_day_cutoff()
+        from_date = cutoff.strftime("%Y-%m-%d")
+        result = fmp.get_general_news(limit=50, from_date=from_date)
 
         if result.get("status") == "error":
             print(f"FMP general news error: {result.get('error')}")
@@ -181,6 +190,47 @@ def _get_general_news(days: int = 1) -> list:
 
     except Exception as e:
         print(f"Error fetching general news: {e}")
+        return []
+
+
+def _get_latest_stock_news(days: int = 1) -> list:
+    """
+    Fetch latest stock market news (not tied to specific tickers) from FMP.
+    Provides broader coverage for news that may not be associated with
+    our tracked ticker list.
+
+    Args:
+        days: Only include news from the last N days (default: 1)
+
+    Returns:
+        List of filtered news articles
+    """
+    try:
+        from app.shared.fmp_service import get_fmp_service
+
+        fmp = get_fmp_service()
+        cutoff = _get_last_trading_day_cutoff()
+        from_date = cutoff.strftime("%Y-%m-%d")
+        result = fmp.get_latest_news(limit=30, from_date=from_date)
+
+        if result.get("status") == "error":
+            print(f"FMP latest news error: {result.get('error')}")
+            return []
+
+        news = result.get("news", [])
+        filtered_news = []
+
+        for item in news:
+            if not _is_within_time_range(item.get("publishedDate"), days):
+                continue
+            item["_source"] = "fmp_latest"
+            filtered_news.append(item)
+
+        print(f"Fetched {len(filtered_news)} latest stock news (from {len(news)} total)")
+        return filtered_news
+
+    except Exception as e:
+        print(f"Error fetching latest stock news: {e}")
         return []
 
 
@@ -234,8 +284,11 @@ def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
     # Fetch general market news
     general_news = _get_general_news(days=days)
 
+    # Fetch latest stock news (broader coverage, not tied to our ticker list)
+    latest_news = _get_latest_stock_news(days=days)
+
     # Combine and deduplicate
-    all_news = ticker_news + general_news
+    all_news = ticker_news + general_news + latest_news
     unique_news = _deduplicate_news(all_news)
 
     # Sort by published date (newest first)
@@ -249,7 +302,7 @@ def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
 
     print(f"Market news: {len(unique_news)} articles "
           f"(ticker: {len(ticker_news)}, general: {len(general_news)}, "
-          f"after dedup: {len(unique_news)})")
+          f"latest: {len(latest_news)}, after dedup: {len(unique_news)})")
 
     return {
         "status": "success",
@@ -259,6 +312,7 @@ def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
         "sources": {
             "ticker_news": len(ticker_news),
             "general_news": len(general_news),
+            "latest_news": len(latest_news),
         },
         "filters": {
             "date_from": start_date.isoformat(),

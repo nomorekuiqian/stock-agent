@@ -15,7 +15,7 @@ import {
 } from '@/lib/api';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatTimestamp } from '@/lib/timezone';
-import { ShieldAlert, Activity, BarChart3, TrendingDown, type LucideIcon } from 'lucide-react';
+import { ShieldAlert, Activity, BarChart3, type LucideIcon } from 'lucide-react';
 
 // ============================================================================
 // Constants
@@ -25,10 +25,9 @@ const SUB_DIM_NAMES: Record<string, string> = {
   cnn_indicators: '恐慌贪婪',
   volatility: '波动率',
   breadth_options: '市场宽度',
-  credit: '信用利差',
 };
 
-const DIM_ORDER = ['cnn_indicators', 'volatility', 'breadth_options', 'credit'];
+const DIM_ORDER = ['cnn_indicators', 'volatility', 'breadth_options'];
 
 function getRatingZh(score: number): { label: string; color: string } {
   if (score <= 25) return { label: '极度恐慌', color: 'red' };
@@ -95,21 +94,6 @@ const HERO_CONFIG: Record<string, {
       return { color: 'red' };
     },
   },
-  credit: {
-    primary: 'BAMLH0A0HYM2',
-    secondary: 'BAMLC0A4CBBB',
-    label: '高收益债利差 (OAS)',
-    secondaryLabel: 'BBB 利差',
-    format: (ind) => ind.value != null ? `${ind.value.toFixed(2)}%` : 'N/A',
-    secondaryFormat: (ind) => ind.value != null ? `${ind.value.toFixed(2)}%` : 'N/A',
-    interpret: (ind) => {
-      const v = ind?.value;
-      if (v == null) return { color: 'amber' };
-      if (v < 3) return { color: 'emerald' };
-      if (v < 5) return { color: 'amber' };
-      return { color: 'red' };
-    },
-  },
 };
 
 const CNN_COMPONENT_INFO: Record<string, { description: string }> = {
@@ -166,16 +150,6 @@ const CHART_CONFIG: Record<string, {
     chartType: 'none',
     description: 'CBOE 看跌/看涨期权总量比率。> 1.0 表示看跌者多于看涨者（偏恐慌），< 0.7 表示看涨者占优（偏贪婪）。极端读数往往是反向指标。',
   },
-  BAMLH0A0HYM2: {
-    chartType: 'tradingview',
-    tvSymbol: 'FRED:BAMLH0A0HYM2',
-    description: '高收益债券（垃圾债）与同期国债的利差。利差扩大 = 信用风险上升、风险偏好下降（恐慌）；利差收窄 = 信用条件宽松、风险偏好上升（贪婪）。',
-  },
-  BAMLC0A4CBBB: {
-    chartType: 'tradingview',
-    tvSymbol: 'FRED:BAMLC0A4CBBB',
-    description: 'BBB 级公司债券与同期国债的利差。BBB 是投资级的最低档，利差变动反映市场对企业信用恶化的担忧程度。利差扩大预示经济前景恶化。',
-  },
 };
 
 const SECTION_EXPLAINER: Record<string, {
@@ -218,17 +192,6 @@ const SECTION_EXPLAINER: Record<string, {
     items: [
       { label: '市场宽度', text: '> 70% 表示多数股票参与上涨（健康牛市），< 30% 表示下跌广泛（恐慌抛售）。50% 左右是中性。' },
       { label: 'Put/Call 比率', text: '> 1.0 看跌情绪主导（恐慌），< 0.7 看涨情绪主导（贪婪）。极端值往往是反转信号 -- 当所有人都在恐慌时，反弹可能即将到来。' },
-    ],
-  },
-  credit: {
-    icon: TrendingDown,
-    title: '信用利差与风险偏好',
-    paragraphs: [
-      '信用利差是债券市场对风险的定价。当投资者担心企业违约风险上升时，他们要求更高的收益率补偿，利差就会扩大。信用市场往往比股市更早反映出经济恶化的信号。',
-    ],
-    items: [
-      { label: '高收益债利差', text: '高收益债（垃圾债）利差。< 3% 表示风险偏好高（贪婪），> 5% 表示避险情绪浓厚（恐慌）。2020 年 3 月利差一度飙升至 10% 以上。' },
-      { label: 'BBB 利差', text: 'BBB 级是投资级债券的最低档。如果 BBB 利差快速扩大，可能预示大量「堕落天使」（从投资级降到垃圾级），引发连锁抛售。' },
     ],
   },
 };
@@ -510,7 +473,7 @@ function MarketDataPanel({
 
   const hasChange = indicator.change != null;
   const isPositiveChange = hasChange && indicator.change! >= 0;
-  const invertedSeries = new Set(['VIX', 'VVIX', 'SKEW', 'BAMLH0A0HYM2', 'BAMLC0A4CBBB']);
+  const invertedSeries = new Set(['VIX', 'VVIX', 'SKEW']);
   const isInverted = invertedSeries.has(indicator.series_id);
   const changeColor = isInverted
     ? (isPositiveChange ? 'text-red-500' : 'text-emerald-500')
@@ -731,9 +694,9 @@ export default function SentimentPage() {
 
         {/* Hero Cards = Tab Buttons */}
         <section>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {loading ? (
-              [0, 1, 2, 3].map((i) => <HeroCardSkeleton key={i} index={i} />)
+              [0, 1, 2].map((i) => <HeroCardSkeleton key={i} index={i} />)
             ) : (
               orderedDims.map((dim, i) => (
                 <HeroCard

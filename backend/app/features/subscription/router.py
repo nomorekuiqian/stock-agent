@@ -80,9 +80,8 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
                     "intro": existing_report.get("intro", ""),
-                    "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary", ""),
+                    "report_summary": existing_report.get("report_summary", []),
                     "calendar": existing_report.get("calendar", []),
                     "market_data": existing_report.get("market_data", {}),
                 }
@@ -110,9 +109,8 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
                 "title": result.get("title", ""),
                 "summary": result.get("summary", ""),
                 "intro": result.get("intro", ""),
-                "macro": result.get("macro"),
                 "news": result.get("news"),
-                "report_summary": result.get("report_summary", ""),
+                "report_summary": result.get("report_summary", []),
                 "calendar": result.get("calendar", []),
                 "market_data": market_data,
             }
@@ -179,9 +177,8 @@ async def get_email_preview(
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
             "intro": report.get("intro", ""),
-            "macro": report.get("macro"),
             "news": report.get("news"),
-            "report_summary": report.get("report_summary", ""),
+            "report_summary": report.get("report_summary", []),
             "calendar": report.get("calendar", []),
         }
 
@@ -324,9 +321,8 @@ async def broadcast_test_report(request: BroadcastTestRequest):
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
             "intro": report.get("intro", ""),
-            "macro": report.get("macro"),
             "news": report.get("news"),
-            "report_summary": report.get("report_summary", ""),
+            "report_summary": report.get("report_summary", []),
             "calendar": report.get("calendar", []),
         }
 
@@ -381,9 +377,8 @@ async def send_test_report(request: SendEmailRequest):
             "title": report.get("title", ""),
             "summary": report.get("summary", ""),
             "intro": report.get("intro", ""),
-            "macro": report.get("macro"),
             "news": report.get("news"),
-            "report_summary": report.get("report_summary", ""),
+            "report_summary": report.get("report_summary", []),
             "calendar": report.get("calendar", []),
         }
 

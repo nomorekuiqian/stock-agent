@@ -1,6 +1,8 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { SectionAnalysis } from '@/lib/api';
 import { Sparkles, ChevronDown } from 'lucide-react';
 
@@ -31,10 +33,43 @@ const SIGNAL_STYLES = {
 };
 
 const SECTIONS = [
-  { key: 'data_changes', label: '数据变动' },
-  { key: 'trend_interpretation', label: '趋势解读' },
-  { key: 'market_implication', label: '市场影响' },
+  { key: 'data_changes', label: '当前状况' },
+  { key: 'trend_interpretation', label: '近期趋势' },
+  { key: 'market_implication', label: '未来展望' },
 ] as const;
+
+const INSIGHT_MD_COMPONENTS = {
+  p: ({ children }: { children?: ReactNode }) => (
+    <p className="text-sm text-muted-foreground leading-relaxed mb-2 last:mb-0">
+      {children}
+    </p>
+  ),
+  strong: ({ children }: { children?: ReactNode }) => (
+    <strong className="font-semibold text-foreground/90">
+      {children}
+    </strong>
+  ),
+  ul: ({ children }: { children?: ReactNode }) => (
+    <ul className="pl-4 space-y-1 my-2 border-l-2 border-border/30">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }: { children?: ReactNode }) => (
+    <ol className="list-decimal pl-5 space-y-1 my-2">
+      {children}
+    </ol>
+  ),
+  li: ({ children }: { children?: ReactNode }) => (
+    <li className="text-sm text-muted-foreground leading-relaxed pl-1">
+      {children}
+    </li>
+  ),
+  code: ({ children }: { children?: ReactNode }) => (
+    <code className="font-data text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded text-xs">
+      {children}
+    </code>
+  ),
+};
 
 export function InsightBanner({
   sectionTitle,
@@ -87,7 +122,6 @@ export function InsightBanner({
     <div
       className={`rounded-xl border border-border/40 border-l-2 ${colors.border} ${colors.bg} transition-all duration-300`}
     >
-      {/* Header */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -118,30 +152,36 @@ export function InsightBanner({
         </div>
       </button>
 
-      {/* Content */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-out ${
-          expanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+        className={`grid transition-all duration-300 ease-out ${
+          expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         }`}
       >
-        <div className="px-5 pb-4 space-y-0">
-          {SECTIONS.map((section, i) => {
-            const content = analysis[section.key];
-            if (!content) return null;
-            return (
-              <div
-                key={section.key}
-                className={i > 0 ? 'pt-3 mt-3 border-t border-border/20' : ''}
-              >
-                <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-[0.15em] mb-1.5">
-                  {section.label}
-                </p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {content}
-                </p>
-              </div>
-            );
-          })}
+        <div className="overflow-hidden">
+          <div className="px-5 pb-4 space-y-0">
+            {SECTIONS.map((section, i) => {
+              const content = analysis[section.key];
+              if (!content) return null;
+              return (
+                <div
+                  key={section.key}
+                  className={i > 0 ? 'pt-4 mt-4 border-t border-border/30' : ''}
+                >
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className="w-0.5 h-3.5 bg-emerald-500/60 rounded-full" />
+                    <span className="text-xs font-semibold text-foreground/70 tracking-wide">
+                      {section.label}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground leading-relaxed">
+                    <ReactMarkdown components={INSIGHT_MD_COMPONENTS}>
+                      {content}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

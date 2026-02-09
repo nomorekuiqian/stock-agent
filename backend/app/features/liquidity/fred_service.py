@@ -18,6 +18,7 @@ import httpx
 from dotenv import load_dotenv
 
 from app.utils.timezone import today_str, days_ago
+from app.features.macro_cache.db import try_db_cache
 
 load_dotenv()
 
@@ -26,8 +27,10 @@ FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 
 _FRED_SEMAPHORE: asyncio.Semaphore | None = None
 _CACHE_TTL = 600  # 10 minutes
+_SERIES_CACHE_TTL = 300  # 5 min cache for individual series fetches
 _liquidity_cache: dict = {}
 _liquidity_lock: asyncio.Lock | None = None
+_series_cache: dict[str, dict] = {}  # per-series result cache
 
 
 def _get_semaphore() -> asyncio.Semaphore:
@@ -70,6 +73,9 @@ async def fetch_fred_series(
 ) -> dict:
     """Fetch a single FRED series with info and observations.
 
+    Results are cached for 5 minutes to avoid redundant API calls when
+    multiple service functions request the same series during a refresh cycle.
+
     Args:
         units: FRED units transformation. Common values:
             None  - raw index level (default)
@@ -83,6 +89,11 @@ async def fetch_fred_series(
         end_date = today_str()
     if not start_date:
         start_date = days_ago(730)
+
+    cache_key = f"{series_id}:{units}:{limit}:{start_date}"
+    cached = _series_cache.get(cache_key)
+    if cached and time.time() - cached["ts"] < _SERIES_CACHE_TTL:
+        return cached["data"]
 
     params = {
         "series_id": series_id,
@@ -115,7 +126,7 @@ async def fetch_fred_series(
     series_info = info_data.get("seriess", [{}])[0]
     observations = obs_data.get("observations", [])
 
-    return {
+    result = {
         "series_id": series_id,
         "title": series_info.get("title", ""),
         "units": series_info.get("units", ""),
@@ -130,6 +141,9 @@ async def fetch_fred_series(
             if obs["value"] != "."
         ]
     }
+
+    _series_cache[cache_key] = {"data": result, "ts": time.time()}
+    return result
 
 
 async def get_latest_value(series_id: str) -> dict:
@@ -175,6 +189,14 @@ async def get_all_liquidity_metrics() -> dict:
         if cached:
             print("[Liquidity] Returning cached data (coalesced)")
             return cached
+
+        # DB cache layer
+        db_data, db_valid = await try_db_cache("fred:liquidity_metrics")
+        if db_valid and db_data:
+            print("[Liquidity] Returning DB-cached metrics")
+            _liquidity_cache["data"] = db_data
+            _liquidity_cache["ts"] = time.time()
+            return db_data
 
         async def fetch_with_error_handling(key: str, series_id: str):
             try:
@@ -240,17 +262,31 @@ async def get_all_liquidity_metrics() -> dict:
 
 async def get_liquidity_history(days: int = 365) -> dict:
     """Fetch historical data for net liquidity calculation including reserves, rates, and NFCI."""
+    # DB cache layer (only for default 365-day request)
+    if days == 365:
+        db_data, db_valid = await try_db_cache("fred:liquidity_history")
+        if db_valid and db_data:
+            print("[Liquidity] Returning DB-cached history")
+            return db_data
+
     start_date = days_ago(days)
     end_date = today_str()
 
+    async def safe_fetch(series_id: str) -> dict:
+        try:
+            return await fetch_fred_series(series_id, start_date, end_date, limit=500)
+        except Exception as e:
+            print(f"[Liquidity] Failed to fetch {series_id}: {e}")
+            return {"series_id": series_id, "title": "", "units": "", "frequency": "", "last_updated": "", "observations": []}
+
     fed_data, tga_data, rrp_data, reserves_data, sofr_data, effr_data, nfci_data = await asyncio.gather(
-        fetch_fred_series("WALCL", start_date, end_date, limit=500),
-        fetch_fred_series("WDTGAL", start_date, end_date, limit=500),
-        fetch_fred_series("RRPONTSYD", start_date, end_date, limit=500),
-        fetch_fred_series("WRESBAL", start_date, end_date, limit=500),
-        fetch_fred_series("SOFR", start_date, end_date, limit=500),
-        fetch_fred_series("EFFR", start_date, end_date, limit=500),
-        fetch_fred_series("NFCI", start_date, end_date, limit=500),
+        safe_fetch("WALCL"),
+        safe_fetch("WDTGAL"),
+        safe_fetch("RRPONTSYD"),
+        safe_fetch("WRESBAL"),
+        safe_fetch("SOFR"),
+        safe_fetch("EFFR"),
+        safe_fetch("NFCI"),
     )
 
     # Lookup dicts by date (Millions converted to Billions where needed)

@@ -1,7 +1,7 @@
 import { createClient } from '@insforge/sdk';
 import { nowIso, todayStr } from './timezone';
 import {
-  MacroSection,
+  SummarySection,
   NewsSection,
   CalendarEvent,
   StockAnalysis,
@@ -35,9 +35,8 @@ export interface MarketReport {
   short_analysis?: string;
   in_depth_analysis?: string;
   intro?: string;
-  macro?: MacroSection;
   news?: NewsSection;
-  report_summary?: string;
+  report_summary?: SummarySection[] | string;
   calendar?: CalendarEvent[];
   indices?: unknown[];
   market_data?: unknown;

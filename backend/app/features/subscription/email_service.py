@@ -289,9 +289,8 @@ class EmailService:
         report_title = data.get("title") or "Daily Market Brief"
         report_summary = data.get("summary", "")
         intro = data.get("intro", "")
-        macro = data.get("macro", {})
         news = data.get("news", {})
-        outlook = data.get("report_summary", "")
+        outlook = data.get("report_summary", [])
         calendar = data.get("calendar", [])
 
         card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
@@ -345,36 +344,6 @@ class EmailService:
             <div style="{card_style}">
                 <div style="{section_header_style}">今日要点</div>
                 <div style="font-size: 14px; color: #3f3f46; line-height: 1.85; white-space: pre-line;">{intro}</div>
-            </div>
-            """
-
-        # Macro Signals section
-        macro_html = ""
-        signals = macro.get("signals", []) if macro else []
-        macro_summary = macro.get("summary", "") if macro else ""
-        if signals:
-            signals_items = ""
-            for signal in signals[:4]:
-                trend = signal.get("trend_direction", "flat")
-                trend_color = (
-                    "#16a34a"
-                    if trend == "up"
-                    else "#dc2626" if trend == "down" else "#71717a"
-                )
-                signals_items += f"""
-                <div style="padding: 14px 0; border-bottom: 1px solid #f0f0f0;">
-                    <div style="margin-bottom: 6px;">
-                        <span style="font-size: 13px; font-weight: 600; color: #0a0a0a;">{signal.get('name', '')}</span>
-                        <span style="font-size: 12px; font-weight: 600; color: {trend_color}; margin-left: 10px;">{signal.get('current_value', '')} ({signal.get('change', '')})</span>
-                    </div>
-                    <div style="font-size: 13px; color: #52525b; line-height: 1.6;">{signal.get('analysis', '')}</div>
-                </div>
-                """
-            macro_html = f"""
-            <div style="{card_style}">
-                <div style="{section_header_style}">关键信号</div>
-                {signals_items}
-                {f'<div style="font-size: 13px; color: #52525b; margin-top: 14px; line-height: 1.7;">{macro_summary}</div>' if macro_summary else ''}
             </div>
             """
 
@@ -455,18 +424,53 @@ class EmailService:
             </div>
             """
 
-        # Outlook section
+        # Outlook section (report_summary is a list of {title, content} dicts)
         outlook_html = ""
         if outlook:
-            # Convert single newlines to double for proper paragraph spacing
-            outlook_text = outlook.replace("\n", "\n\n")
-            outlook_md = self._format_markdown_to_html(outlook_text)
-            outlook_html = f"""
-            <div style="{card_style}">
-                <div style="{section_header_style}">总结展望</div>
-                <div style="font-size: 13px; color: #3f3f46; line-height: 1.85;">{outlook_md}</div>
-            </div>
-            """
+            # Parse JSON string if needed (DB may store list as JSON string)
+            if isinstance(outlook, str):
+                try:
+                    import json as _json
+                    parsed = _json.loads(outlook)
+                    if isinstance(parsed, list):
+                        outlook = parsed
+                except (ValueError, TypeError):
+                    pass
+
+            subsections_html = ""
+            # Handle both list format (new) and string format (legacy)
+            if isinstance(outlook, list):
+                for section in outlook:
+                    if not isinstance(section, dict):
+                        continue
+                    section_title = section.get("title", "")
+                    section_content = section.get("content", "")
+                    if not section_content:
+                        continue
+                    # Render paragraphs from content (split by newlines)
+                    paragraphs = [p.strip() for p in section_content.replace("\\n", "\n").split("\n") if p.strip()]
+                    paragraphs_html = "".join(
+                        f'<p style="margin: 0 0 10px 0; font-size: 13px; color: #3f3f46; line-height: 1.85;">{p}</p>'
+                        for p in paragraphs
+                    )
+                    subsections_html += f"""
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #0a0a0a; margin-bottom: 8px;">{section_title}</div>
+                        {paragraphs_html}
+                    </div>
+                    """
+            elif isinstance(outlook, str) and outlook.strip():
+                # Legacy string format fallback
+                outlook_text = outlook.replace("\\n", "\n").replace("\n", "\n\n")
+                subsections_html = self._format_markdown_to_html(outlook_text)
+
+            if subsections_html:
+                outlook_html = f"""
+                <div style="{card_style}">
+                    <div style="{section_header_style}">总结与展望</div>
+                    {subsections_html}
+                </div>
+                """
 
         html = f"""
         <!DOCTYPE html>
@@ -495,7 +499,6 @@ class EmailService:
                 <div style="background: #f0f0f0; padding: 16px;">
                     {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">市场概览</div>{indices_html}</div>' if indices_html else ''}
                     {intro_html}
-                    {macro_html}
                     {news_html}
                     {calendar_html}
                     {outlook_html}
@@ -1087,32 +1090,57 @@ class EmailService:
                         </p>
                     </div>
 
-                    <!-- Personal Digest -->
+                    <!-- Explore more features -->
                     <div style="{card_style}">
                         <div style="{section_header_style}">
-                            个性化日报
+                            探索更多功能
                         </div>
-                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
-                            想要追踪特定股票？开启<strong>个性化日报</strong>，我们会根据你的关注列表，每天为你筛选相关新闻和事件。
-                        </p>
-                        <a href="{self.frontend_url}/for-you" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
-                            设置我的关注列表
-                        </a>
-                    </div>
-
-                    <!-- Quick start -->
-                    <div style="{card_style}">
-                        <div style="{section_header_style}">
-                            快速指引
-                        </div>
-                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0;">
-                            <a href="{self.frontend_url}" style="color: #10b981; text-decoration: none; font-weight: 500;">访问网站</a> 查看完整报告和历史数据
-                        </p>
+                        <table style="width: 100%;" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td style="padding: 12px 0; vertical-align: top; width: 36px;">
+                                    <span style="font-size: 20px;">&#128203;</span>
+                                </td>
+                                <td style="padding: 12px 0;">
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个性化日报</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">根据你的关注列表，每天筛选相关新闻和事件</p>
+                                    <a href="{self.frontend_url}/for-you" style="display: inline-block; padding: 7px 14px; background-color: #10b981; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                                        设置我的关注列表
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr><td colspan="2" style="padding: 0;"><div style="border-top: 1px solid #f4f4f5;"></div></td></tr>
+                            <tr>
+                                <td style="padding: 12px 0; vertical-align: top; width: 36px;">
+                                    <span style="font-size: 20px;">&#128269;</span>
+                                </td>
+                                <td style="padding: 12px 0;">
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个股投研</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">AI 深度分析个股基本面、财务数据和投资逻辑</p>
+                                    <a href="{self.frontend_url}/stock" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                                        开始个股分析
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr><td colspan="2" style="padding: 0;"><div style="border-top: 1px solid #f4f4f5;"></div></td></tr>
+                            <tr>
+                                <td style="padding: 12px 0; vertical-align: top; width: 36px;">
+                                    <span style="font-size: 20px;">&#127758;</span>
+                                </td>
+                                <td style="padding: 12px 0;">
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">宏观投研</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">利率、通胀、流动性等宏观指标追踪与解读</p>
+                                    <a href="{self.frontend_url}/macro" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                                        查看宏观数据
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
 
                     <p style="color: #71717a; font-size: 14px; line-height: 1.6; margin: 24px 0 0 0;">
                         祝投资顺利！<br>
-                        <span style="color: #0a0a0a; font-weight: 500;">TheMarketBrew 团队</span>
+                        <span style="color: #0a0a0a; font-weight: 500;">Golden / 金黄</span><br>
+                        <span style="color: #a1a1aa; font-size: 13px;">独立开发者 / 十年美股散户</span>
                     </p>
                 </div>
 

@@ -59,6 +59,43 @@ def transform_market_data_to_indices(market_data: dict) -> list:
     return indices
 
 
+def _normalize_report_data(data: dict) -> dict:
+    """Normalize report data before saving to DB.
+
+    Fixes:
+    - report_summary stored as JSON string instead of list
+    - Literal '\\n' in text fields instead of real newlines
+    """
+    import json as _json
+
+    # Ensure report_summary is a list (ADK may serialize it as JSON string)
+    rs = data.get("report_summary", [])
+    if isinstance(rs, str):
+        try:
+            rs = _json.loads(rs)
+        except (ValueError, TypeError):
+            rs = []
+        data["report_summary"] = rs
+
+    # Fix literal \\n in text fields
+    def fix_newlines(s: str) -> str:
+        if not isinstance(s, str):
+            return s
+        return s.replace("\\n", "\n")
+
+    # Fix intro
+    if isinstance(data.get("intro"), str):
+        data["intro"] = fix_newlines(data["intro"])
+
+    # Fix report_summary content
+    if isinstance(rs, list):
+        for section in rs:
+            if isinstance(section, dict) and "content" in section:
+                section["content"] = fix_newlines(section["content"])
+
+    return data
+
+
 class MarketAnalysisRequest(BaseModel):
     force: bool = False  # Force regenerate even if cached
 
@@ -81,20 +118,20 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
             if report_date_from_timestamp == today:
                 print(f"[API] Found existing report for {today}, returning cached data")
                 # Return existing report from database
-                return {
+                cached = {
                     "report_id": existing_report.get("id"),
                     "indices": existing_report.get("indices", []),
                     "timestamp": existing_report.get("timestamp", now_iso()),
                     "title": existing_report.get("title", ""),
                     "summary": existing_report.get("summary", ""),
                     "intro": existing_report.get("intro", ""),
-                    "macro": existing_report.get("macro"),
                     "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary", ""),
+                    "report_summary": existing_report.get("report_summary", []),
                     "calendar": existing_report.get("calendar", []),
                     "market_data": existing_report.get("market_data", {}),
                     "from_cache": True,
                 }
+                return _normalize_report_data(cached)
             else:
                 print(f"[API] Found report but timestamp ({report_date_from_timestamp}) doesn't match today ({today}), regenerating...")
 
@@ -119,13 +156,15 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
             "title": result.get("title", ""),
             "summary": result.get("summary", ""),
             "intro": result.get("intro", ""),
-            "macro": result.get("macro"),
             "news": result.get("news"),
-            "report_summary": result.get("report_summary", ""),
+            "report_summary": result.get("report_summary", []),
             "calendar": result.get("calendar", []),
             "market_data": market_data,
             "from_cache": False,
         }
+
+        # Normalize data before saving (fix double-escaped newlines, ensure correct types)
+        response_data = _normalize_report_data(response_data)
 
         # Save new report to database (field names match DB schema directly)
         save_result = await market_db.save_market_report(response_data)

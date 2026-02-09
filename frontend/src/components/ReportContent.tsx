@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { CalendarEvent, MacroSection, NewsSection } from '@/lib/api';
+import { CalendarEvent, NewsSection, SummarySection } from '@/lib/api';
 import { formatDateChinese, formatTimePacific, isTodayPacific, formatCalendarDate } from '@/lib/timezone';
 
 interface IndexData {
@@ -14,9 +14,8 @@ interface IndexData {
 interface ReportContentProps {
   indices?: IndexData[];
   intro?: string;
-  macro?: MacroSection;
   news?: NewsSection;
-  report_summary?: string;
+  report_summary?: SummarySection[] | string;
   calendar?: CalendarEvent[];
   timestamp?: string;
   showTimestamp?: boolean;
@@ -55,14 +54,12 @@ const SubsectionHeader = ({ children }: { children: React.ReactNode }) => (
 export function ReportContent({
   indices,
   intro,
-  macro,
   news,
   report_summary,
   calendar,
   timestamp,
   showTimestamp = true,
 }: ReportContentProps) {
-  const hasStructuredData = !!(intro || macro || news || report_summary);
   const formatDate = (dateString: string) => formatDateChinese(dateString);
   const formatTime = (dateString: string) => formatTimePacific(dateString);
 
@@ -120,45 +117,9 @@ export function ReportContent({
       {intro && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
           <SectionHeader>今日要点</SectionHeader>
-          <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-line">
-            {intro}
+          <p className="text-base text-foreground/90 leading-relaxed whitespace-pre-line">
+            {intro.replace(/\\n/g, '\n')}
           </p>
-        </section>
-      )}
-
-      {/* Key Signals */}
-      {macro && macro.signals && macro.signals.length > 0 && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>关键信号</SectionHeader>
-          <div className="space-y-0 divide-y divide-border">
-            {macro.signals.map((signal, idx) => {
-              const trendColor = signal.trend_direction === 'up'
-                ? 'text-emerald-500'
-                : signal.trend_direction === 'down'
-                ? 'text-red-500'
-                : 'text-muted-foreground';
-              return (
-                <div key={idx} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-sm font-semibold text-foreground">{signal.name}</span>
-                    <span className={`text-sm font-semibold ${trendColor}`}>
-                      {signal.current_value} ({signal.change})
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {signal.analysis}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-          {macro.summary && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {macro.summary}
-              </p>
-            </div>
-          )}
         </section>
       )}
 
@@ -184,7 +145,7 @@ export function ReportContent({
                     </a>
                     <p className="text-sm text-muted-foreground mb-3">{headline.fact_summary}</p>
                     <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      <p className="text-sm text-foreground/90 leading-relaxed">
                         {headline.deep_analysis}
                       </p>
                     </div>
@@ -209,7 +170,7 @@ export function ReportContent({
                     >
                       {brief.title}
                     </a>
-                    <p className="text-sm text-muted-foreground mt-1">{brief.summary}</p>
+                    <p className="text-sm text-foreground/80 mt-1">{brief.summary}</p>
                   </div>
                 ))}
               </div>
@@ -247,7 +208,7 @@ export function ReportContent({
                   {/* Event Details */}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold text-foreground mb-1">{event.event}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{event.analysis}</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{event.analysis}</p>
                   </div>
                 </div>
               );
@@ -259,14 +220,37 @@ export function ReportContent({
       {/* Summary */}
       {report_summary && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
-          <SectionHeader>总结展望</SectionHeader>
-          <div className="space-y-4">
-            {report_summary.split('\n').filter(p => p.trim()).map((paragraph, idx) => (
-              <p key={idx} className="text-base text-muted-foreground leading-relaxed">
-                {paragraph}
-              </p>
-            ))}
-          </div>
+          <SectionHeader>总结与展望</SectionHeader>
+          {Array.isArray(report_summary) ? (
+            <div className="space-y-6">
+              {report_summary.map((section, idx) => (
+                <div key={idx}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+                    <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
+                      <p key={pIdx} className="text-base text-foreground/90 leading-relaxed">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : typeof report_summary === 'string' ? (
+            <div className="space-y-4">
+              {report_summary.replace(/\\n/g, '\n').split('\n').filter((p: string) => p.trim()).map((paragraph: string, idx: number) => (
+                <p key={idx} className="text-base text-foreground/90 leading-relaxed">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          <p className="text-xs text-muted-foreground mt-6 pt-4 border-t border-border/50">
+            以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，决策需谨慎。
+          </p>
         </section>
       )}
 

@@ -1,10 +1,11 @@
 """
-Market Agent - Simplified Architecture
+Market Agent - Single Agent Architecture
 
 Architecture:
-    Python (fetch data) -> Analyst Agent (analyze)
+    Python (fetch data) -> Analyst Agent (analyze + select news)
 
-Data is fetched directly in Python and passed to the analyst agent for analysis.
+Data is fetched in Python, then the analyst agent selects important news
+and produces the final structured report.
 """
 
 import json
@@ -26,6 +27,7 @@ from google.genai.types import Content, Part
 
 # Import Pydantic models from the models module
 from app.features.market.models import MarketReportOutput
+from app.features.market import db as market_db
 
 # Import data fetching tools
 from app.shared.data_tools import get_all_market_data
@@ -40,131 +42,153 @@ from app.shared.data_tools.earnings import get_earnings_calendar
 
 ANALYST_INSTRUCTION = """
 你是资深市场分析师，服务对象是美股散户投资人——他们想了解市场但每天只有10-15分钟，苦于没有整理好的信息和解读市场的能力。
-你的价值是帮用户建立思考框架，提供可操作的洞察，而不是简单搬运信息。
+这些用户大多是科技股持有者和科技行业从业者，对科技股（尤其是AI、半导体、云计算、SaaS）和科技行业动态最为关注。
+你的价值不是搬运信息，而是帮用户建立思考框架和判断能力。
 
 ## 核心原则
-- 解释因果链条：为什么重要 → 会导致什么 → 意味着什么
-- 提供思考框架，帮用户自己判断
+- 解释因果链条：为什么重要 -> 会导致什么 -> 意味着什么
+- 提供判断框架而非推荐：给场景分析和触发条件，让用户自己决策
 - 数据来自输入JSON，不编造，数据必须准确
-- 给出具体可操作的建议，包括标的和风险提示
 - 所有内容使用中文
 
-## 事实核查规则（重要！）
-你的解读和claim必须与源数据完全一致，不能夸大或曲解：
-- "超越某公司"不等于"登顶"或"第一"——必须明确具体排名
+## 叙事连续性规则（重要！）
+输入数据中可能包含 previous_reports（过去几天的日报标题和总结）。你必须：
+- 将今天的行情放在最近几天的叙事里，而非孤立分析。例如："这是连续第三天科技股承压"或"与周二的恐慌不同，今天市场态度发生了转变"
+- 如果前几天的展望被验证或被推翻，要主动说明。例如："我们周三提到关注 $AMZN 在200美元的支撑，今天该位果然被测试"
+- 时间表述用"最近几天"、"近期"、"过去几个交易日"等，避免使用"本周"——因为 previous_reports 可能跨周
+- 如果没有 previous_reports，则正常分析，不需要强行引用历史
+
+## 情绪校准规则（重要！）
+你是冷静的分析师，不是情绪放大器：
+- 大涨日：在分析上涨逻辑的同时，必须指出"什么条件下涨势可能停止"
+- 大跌日：在分析风险的同时，必须给出"更大图景中这次下跌的位置"（如"标普距年内高点仅回调3%"）
+- 禁止使用以下词汇：黑色星期X、末日、狂欢、疯狂、崩盘（除非真的跌超10%）
+- 标题风格：有观点但克制，像《经济学人》而非小报
+
+## 事实核查规则
 - "创新高"必须确认是历史最高，而非仅仅上涨
 - "暴跌/暴涨"需有具体百分比支撑（通常>5%）
 - 任何排名、数字、时间的claim都必须能在源数据中找到依据
-- 如果源数据不明确，使用保守表述（如"显著上涨"而非"暴涨"）
-
-错误示例：新闻说"A超越B成为第二"→ 标题写"A登顶" ❌
-正确示例：新闻说"A超越B成为第二"→ 标题写"A跃居第二" ✓
+- 如果源数据不明确，使用保守表述
 
 ## 输出字段指南
 
 ### title（标题）
-用一句有观点的话概括今日市场核心，15-30个中文字符。
-示例："科技股独舞难掩市场分化，降息预期再遭打压"
+用一句有观点但克制的话概括今日市场核心，15-30个中文字符。
+好标题："AI开支争议进入第四天，硬件与软件阵营分化加剧"
+坏标题："AI军备竞赛狂热掩盖巨头财控隐忧"（太煽情）
 
 ### summary（摘要）
 2-3句话概括市场主要动向和关键洞察，适合列表预览，50-100个中文字符。
 
 ### intro（开场白）
-这是用户打开日报看到的第一段内容，要抓住注意力，让他想继续看下去。
+这是用户打开日报看到的第一段内容。写2-3段：
 
-写2-3段，包含：
-- 今日市场整体情绪和表现（一句话概括）
-- 今日最值得关注的2-3件事预告（让用户知道接下来会看到什么）
-- 一句话引导（"以下是今日详细分析"）
+第一段：今日市场一句话概括 + 与近几天的关联（如果有 previous_reports）
+第二段：今日最值得关注的2-3件事预告
+第三段：引导语
 
-示例：
-"美股三大指数集体收涨，标普创两周新高。市场在消化完Fed会议纪要后情绪回暖，科技股领涨。
+示例（有连续性的）：
+"经历了周二周三的连续回调后，美股今日迎来技术性反弹，标普500收涨1.97%。但上涨结构值得细看——涨幅主要来自硬件芯片股，而非引发本轮调整的云计算巨头。
 
-今日最值得关注：1) VIX大跌12%回到"恐慌"区间下方；2) 英伟达财报余温推动半导体板块轮动；3) 下周CPI数据前的布局窗口。
+今日关键：1) 道指首次收于50,000点上方；2) 亚马逊2000亿开支计划的市场消化过程；3) 英伟达CEO关于需求的最新表态。
 
-以下是今日市场详细分析。"
+以下是详细分析。"
 
-### macro（宏观环境）
+### news（今日市场热点）
 
-**signals（核心信号，2-3个）**
-从输入数据中选择最重要的宏观信号。利用数据中的历史信息（previous_close, week_ago, high_1mo, low_1mo, trend, position_in_range）分析趋势。
+这个板块的目的是让读者快速了解：今天市场上在讨论什么？发生了哪些重要的事？
 
-每个信号的 analysis 字段需包含（融合成一段连贯的话）：
-- 趋势：与上周相比的变化方向和幅度
-- 位置：在近期区间的位置（接近高点/低点/中间）
-- 影响：对股市/板块意味着什么
+输入JSON中有一个 news 数组，包含近期新闻文章，每条有 article_id、title、text、publishedDate。
+你需要从中选出今天真正重要的市场热点。所有条目都必须来自这个数组中的真实文章。
 
-示例 analysis："VIX从上周的21.2下降至18.5，跌幅超过12%，显示市场恐慌情绪明显缓解。目前处于月内低位区间，接近一个月最低点16.8。低波动环境通常利好风险资产，尤其是科技成长股，短期内市场有望延续反弹。"
+**什么是"新闻"？——用"今天发生了什么"测试**
+每条新闻必须能用"[某公司/某人] 做了 [某事]"来概括。如果概括不出来，它就不是新闻。
 
-**summary（宏观总结）**
-4-6句话综合评价：
-- 当前宏观周期（如"高利率+经济韧性"、"降息预期升温"）
-- 各信号综合来看，对股市整体是利好还是利空
-- 哪类资产/板块在这种环境下更有机会
-- 什么事件/数据可能改变当前格局
+是新闻（有人做了某事）：
+- "英伟达CEO黄仁勋表示AI需求远超预期" -> 黄仁勋发表了声明
+- "亚马逊宣布2000亿美元AI投资计划" -> 亚马逊做了决定
+- "Block宣布裁员10%" -> Block采取了行动
+- "Palantir Q4利润同比增长700%" -> Palantir公布了财报
 
-### news（重要新闻）
+不是新闻（没有新事件发生）：
+- "周三将公布CPI数据" -> 日历预告，属于 calendar 板块
+- "道指首次突破5万点" -> 指数变动，属于 report_summary 分析
+- "分析师认为AI股票被高估" -> 个人观点，不是事件
+- "美股本周回顾与展望" -> 市场综述，不是具体事件
+
+**URL 规则：** url 字段填写来源文章的 article_id 数字（如 "0"、"5"、"12"），系统自动替换为真实链接。
 
 **headlines（今日头条，2-4条）**
-挑选最重要、最有市场影响力的新闻进行深度解读。优先选择：
-- 大型科技公司重大动作（产品发布、战略调整、高管变动）
-- AI/芯片行业重大新闻
-- 宏观政策变化（Fed、财政政策）
-- 重大并购或投资
+头条 = 今天市场关注度最高的热点。选择前先思考：如果一个科技行业从业者今天只看3条新闻，他最想知道什么？
+
+选择标准（全部满足）：
+1. 市场关注度高——判断方法：这条新闻会不会出现在 CNBC/Bloomberg 的首页？普通投资者会不会在社交媒体上讨论它？如果答案是"不会"，就不要选。像 Firmus、Wolfspeed、Faraday Future 这类大多数投资者没听过的公司，关注度不够做头条。
+2. 公司知名度门槛——headlines 中涉及的公司必须是大众投资者认识的名字：
+   - Mag 7（AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA）
+   - 知名科技/金融公司（AMD, CRM, NFLX, COIN, PLTR, SQ, UBER, SNOW, BA, JPM, GS 等）
+   - 中概龙头（BABA, PDD, NIO, LI, BIDU, JD 等）
+   - 如果是行业事件（如AI出口管制、关税政策），不需要特定公司
+   - 不符合以上条件的公司只能放 briefs
+3. 有实质性的新事件发生（不是预告、不是评论、不是指数变动）
+4. 优先科技/AI相关热点
 
 每条需包含：
 - fact_summary: 1句话总结发生了什么
 - deep_analysis: 5-6句分析，解释事件背后的逻辑、重要性、对市场/板块/标的的影响
-- url: 原文链接（从输入数据中获取）
+- url: 来源文章的 article_id 数字
 
-不选：分析师观点、预测文章、泛泛而谈的市场评论
+**briefs（其他快讯，目标8-12条，最少5条）**
+读者以科技股投资者为主，优先级从高到低：
+1. 科技/AI公司动态（财报、产品、战略、人事）
+2. 半导体、云计算、SaaS行业变化
+3. 科技行业监管和政策
+4. 中概股科技公司
+5. 加密货币
+6. 其他行业——仅当对大盘有显著影响时才选入
 
-**briefs（其他快讯，8-12条）**
-覆盖更广泛的市场动态：
-- 公司财报/业绩指引
-- 产品发布、技术突破
-- 监管政策、反垄断动态
-- 中概股重大新闻
-- 加密货币相关（如有）
-- 重要持仓变动、并购消息
+数量规则：质量优先于数量。宁可少几条，也不要凑数。
 
 每条需包含：
 - summary: 1句话说明发生了什么
 - analysis: 2-3句话分析影响
-- url: 原文链接
+- url: 来源文章的 article_id 数字
 
-### report_summary（综合总结）
-这是日报最重要的部分。如果用户只看这一段，也要能知道今天的重点。
+### report_summary（总结与展望）
+输出2个子板块（title + content）。读者已经看过 intro 和新闻，这里不要重复那些内容。
 
-写成三段话（用换行分隔），不要加小标题：
+**语言规则**
+- 大白话写作，禁止术语（"结构性扩散"、"风险资产定价"）和比喻（"就像爱马仕和优衣库"）
+- 专业概念必须翻译：如"VIX（恐慌指数）跌了20%，说明市场紧张情绪正在消退"
+- 标准：没有金融背景的大学生也能看懂
 
-第一段：今日回顾
-市场整体表现如何，主要指数涨跌幅，哪些板块领涨/领跌，最值得关注的单一事件或动向。
-示例："今日美股三大指数集体上涨，标普500涨0.9%，纳指涨1.2%领跑。科技股延续强势，半导体板块在NVDA带领下普涨，费城半导体指数创月内新高。另一方面，防御性板块（公用事业、必需消费）表现疲软，显示资金在向风险资产回流。"
+**子板块1：深度解读与总结**
+title: "深度解读与总结"
+content: 1段，150-200字。回答一个问题：把今天所有事串起来，背后的一条主线是什么？
+- 第一句话就是核心洞察（不是"今天市场…"的流水账开头）
+- 融入关键宏观信号（VIX、利率、美元等），用大白话解释含义
+- 如果有 previous_reports，把今天放到最近几天的叙事中
 
-第二段：波动归因
-解释为什么今天会这样，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。不是简单罗列，而是讲清楚逻辑链条。
-示例："今日上涨主要受两个因素驱动：1) 昨日Fed会议纪要措辞偏鸽，市场降息预期从年底提前至9月，推动成长股估值修复；2) NVDA财报余温延续，数据中心收入同比+154%超预期，验证AI需求持续性，带动整个半导体板块估值重估。VIX从21跌至18，显示市场恐慌情绪明显缓解。"
+示例："今天表面上是科技股反弹，但真正的信号藏在债市——10年期国债利率一天跌了8个基点，说明市场押注经济在降温。这和昨天公布的疲软就业数据一脉相承：如果经济真的在放缓，美联储降息的理由就更充分了，而降息预期正是今天成长股反弹的底层逻辑。不过VIX（恐慌指数）还在20以上，说明市场并没有完全放心。"
 
-第三段：未来展望
-未来1-2周的预期走势，需要关注的风险和机会。这一段要有实操价值，必须提到：
-- 具体值得关注的标的（使用 $TICKER 格式，如 $NVDA, $SMCI）或板块（如半导体、金融），并解释为什么值得关注
-- 潜在风险及其触发条件（如"若CPI超预期，可能压制成长股"）
-- 重要日期/事件
+**子板块2：未来展望**
+title: "未来展望"
+content: 1-2段，150-250字。回答一个问题：接下来最值得关注的2-3件事是什么？
+- 每件事必须有具体日期 + "如果X -> 则Y"的场景分析
+- 提到标的时附带具体价位或触发条件
+- 给判断框架，不给操作建议
 
-示例："短期看，科技股有望继续受益于降息预期升温。AI算力链仍是主线，$NVDA 财报验证需求后，上游的 $MU（内存）和 $SMCI（服务器）可能迎来估值修复。金融板块在降息预期下承压，但 $JPM 等大行若财报超预期可能带动反弹。风险方面，下周三CPI是关键——若通胀超预期反弹至3%以上，降息预期降温将首先冲击高估值成长股。重点关注：1月15日CPI、1月17日大银行财报。"
+示例："接下来关注两件事：周三（2月11日）的CPI数据，如果低于2.5%，降息预期升温，科技股可能继续反弹；如果超过3%，高估值科技股首当其冲。第二，$AMZN周四盘后财报，AWS增速能否超19%的预期将直接影响AI板块信心，200美元是关键支撑位。"
 
 ### calendar（重要事件日历）
 从输入的 economic_calendar 和 earnings_calendar 中筛选5-10个最重要事件：
 - 优先：美联储利率决议、CPI/PPI、非农就业、GDP、大型科技股财报
 - 次要：零售销售、PMI、消费者信心、其他重要公司财报
 
-**字段说明**：
+字段说明：
 - date: 从输入数据中原样复制日期（YYYY-MM-DD格式）
-  - 财报：从 earnings_calendar 的 date 字段复制
-  - 经济数据：从 economic_calendar 的 date 字段复制（只取日期部分）
-- event: 中文事件名称，如 "美光科技 (MU) 财报"、"美国11月CPI数据"
-- analysis: 1-2句中文分析，说明为什么重要及对市场的潜在影响
+- event: 中文事件名称，如 "美光科技 (MU) 财报"、"美国1月CPI数据"
+- analysis: 1-2句分析，说明为什么重要及潜在影响
 """
 
 analyst_agent = LlmAgent(
@@ -180,7 +204,6 @@ analyst_agent = LlmAgent(
 # Pipeline Configuration
 # =============================================================================
 
-# Single agent with structured output (title, summary, analysis)
 market_report_agent = analyst_agent
 
 # ADK web UI needs root_agent variable
@@ -239,18 +262,31 @@ def _prepare_data_for_analyst(
     - earnings_calendar: epsActual, revenueActual, lastUpdated
     - market_data: month_change
     """
-    # 1. Clean news - keep only: title, text, source, url, publishedDate
-    clean_news = [
-        {
-            "title": n.get("title", ""),
+    # 1. Clean news - add article_id for reliable URL resolution.
+    #    URL is kept in data so AI can see it, but AI writes article_id in output.
+    #    Python post-processing resolves article_id -> real URL.
+    #    Pre-filter obvious junk before sending to AI.
+    clean_news = []
+    for i, n in enumerate(news):
+        title = n.get("title", "")
+        if not title:
+            continue
+        # Pre-filter junk articles that waste AI attention
+        title_upper = title.upper()
+        if any(spam in title_upper for spam in [
+            "DEADLINE ALERT", "ROSEN,", "CLASS ACTION",
+            "INVESTORS WITH LOSSES", "ENCOURAGES", "LAWSUIT",
+        ]):
+            continue
+        item = {
+            "article_id": i,
+            "title": title,
             "text": n.get("text", ""),
             "source": n.get("source", ""),
             "url": n.get("url", ""),
             "publishedDate": n.get("publishedDate", ""),
         }
-        for n in news
-        if n.get("title") and n.get("url")  # Must have title and url
-    ]
+        clean_news.append(item)
 
     # 2. Clean economic_calendar - keep only: date, event, previous, estimate, is_key_event
     clean_calendar = [
@@ -315,20 +351,36 @@ class MarketAgent:
                 f"Earnings: {earnings_result.get('earnings_count', 0)}"
             )
 
-            # Step 2: Prepare and clean data for the agent (reduce token usage)
+            # Step 2: Prepare and clean data for the analyst (reduce token usage)
+            raw_news = news_result.get("news", [])
             report_date = format_report_date()  # Pacific timezone
 
             data_for_analyst = _prepare_data_for_analyst(
                 market_data=market_data,
-                news=news_result.get("news", [])[
-                    :70
-                ],  # Top 70 news for broader coverage
+                news=raw_news,
                 economic_calendar=calendar_result.get("events", []),
                 earnings_calendar=earnings_result.get("earnings", []),
             )
             data_for_analyst["report_date"] = report_date
 
-            # Step 3: Create session and run the analyst agent
+            # Step 3: Fetch past 5 days' reports for narrative continuity
+            previous_reports = []
+            try:
+                recent_reports = await market_db.list_reports(limit=5)
+                for r in reversed(recent_reports):  # oldest first
+                    previous_reports.append({
+                        "date": r.get("report_date", "")[:10],
+                        "title": r.get("title", ""),
+                        "report_summary": r.get("report_summary", ""),
+                    })
+                print(f"[MarketAgent] Loaded {len(previous_reports)} previous reports for context")
+            except Exception as e:
+                print(f"[MarketAgent] Could not load previous reports: {e}")
+
+            if previous_reports:
+                data_for_analyst["previous_reports"] = previous_reports
+
+            # Step 4: Create session and run the analyst agent
             print("[MarketAgent] Running analyst agent with structured output...")
 
             session = await self.runner.session_service.create_session(
@@ -361,9 +413,8 @@ class MarketAgent:
             title = ""
             summary = ""
             intro = ""
-            macro = {"signals": [], "summary": ""}
             news = {"headlines": [], "briefs": []}
-            report_summary = ""
+            report_summary = []
             calendar = []
 
             if session_data and hasattr(session_data, "state"):
@@ -381,14 +432,15 @@ class MarketAgent:
                     title = report_data.get("title", "")
                     summary = report_data.get("summary", "")
                     intro = report_data.get("intro", "")
-                    macro = report_data.get("macro", {"signals": [], "summary": ""})
                     news = report_data.get("news", {"headlines": [], "briefs": []})
-                    report_summary = report_data.get("report_summary", "")
+                    report_summary = report_data.get("report_summary", [])
                     calendar = report_data.get("calendar", [])
+
+            # Resolve article_id references to real URLs
+            news = self._resolve_article_urls(news, raw_news)
 
             print(
                 f"[MarketAgent] Analysis complete. Title: {title[:30] if title else 'N/A'}, "
-                f"Macro signals: {len(macro.get('signals', []))}, "
                 f"Headlines: {len(news.get('headlines', []))}, "
                 f"Briefs: {len(news.get('briefs', []))}, "
                 f"Calendar: {len(calendar)} events"
@@ -416,7 +468,6 @@ class MarketAgent:
                 "title": title,
                 "summary": summary,
                 "intro": intro,
-                "macro": macro,
                 "news": news,
                 "report_summary": report_summary,
                 "calendar": calendar,
@@ -440,8 +491,56 @@ class MarketAgent:
                 "title": "",
                 "summary": f"Data fetched (analysis error: {str(e)[:100]})",
                 "intro": "",
-                "macro": {"signals": [], "summary": ""},
                 "news": {"headlines": [], "briefs": []},
-                "report_summary": "",
+                "report_summary": [],
                 "calendar": [],
             }
+
+    def _resolve_article_urls(self, news: dict, source_news: list) -> dict:
+        """Ensure all news URLs are valid by resolving article_id or validating URLs.
+
+        Handles three cases:
+        1. AI wrote article_id (e.g. "0", "5") -> resolve to real URL
+        2. AI copied a real URL from input -> keep as-is
+        3. AI fabricated a URL -> try to fix, otherwise clear
+        """
+        if not news or not source_news:
+            return news
+
+        # Build mappings
+        id_to_url = {}
+        valid_urls = set()
+        for i, article in enumerate(source_news):
+            url = article.get("url", "")
+            if url:
+                id_to_url[str(i)] = url
+                valid_urls.add(url)
+
+        resolved = 0
+        kept = 0
+        cleared = 0
+
+        for item in news.get("headlines", []) + news.get("briefs", []):
+            url_field = str(item.get("url", "")).strip()
+
+            if url_field in id_to_url:
+                # Case 1: article_id -> resolve to real URL
+                item["url"] = id_to_url[url_field]
+                resolved += 1
+            elif url_field in valid_urls:
+                # Case 2: AI correctly copied a real URL from input
+                kept += 1
+            elif url_field.startswith("http"):
+                # Case 3: AI wrote a URL but it's not from input (fabricated)
+                # Clear it rather than show a broken/wrong link
+                item["url"] = ""
+                cleared += 1
+            else:
+                # Empty or unrecognized
+                item["url"] = ""
+                if url_field:
+                    cleared += 1
+
+        print(f"[URLResolve] {resolved} resolved from ID, {kept} valid URLs kept, {cleared} cleared")
+        return news
+

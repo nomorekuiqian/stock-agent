@@ -136,6 +136,8 @@ DB_WRITE_FUNCTIONS = [
     ("app.features.subscription.service", "remove_subscriber"),
     # Weekly Report
     ("app.features.weekly_report.db", "save_weekly_report"),
+    # Macro Cache
+    ("app.features.macro_cache.db", "set_cached"),
     # Insforge service write operations
     ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
 ]

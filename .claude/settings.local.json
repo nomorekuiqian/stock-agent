@@ -168,7 +168,9 @@
       "Bash(git rm:*)",
       "WebFetch(domain:pypi.org)",
       "WebFetch(domain:production.dataviz.cnn.io)",
-      "WebFetch(domain:blog.justfont.com)"
+      "WebFetch(domain:blog.justfont.com)",
+      "mcp__chrome-devtools__emulate",
+      "WebFetch(domain:www.originfinancial.com)"
     ],
     "deny": [],
     "ask": []

@@ -190,7 +190,6 @@ export default async function ReportDetailPage({ params }: PageProps) {
           <ReportContent
             indices={report.indices as IndexData[] | undefined}
             intro={report.intro}
-            macro={report.macro}
             news={report.news}
             report_summary={report.report_summary}
             calendar={report.calendar}

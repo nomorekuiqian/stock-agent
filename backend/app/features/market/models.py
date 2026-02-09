@@ -23,40 +23,6 @@ class CalendarEvent(BaseModel):
     )
 
 
-# --- Macro Section ---
-class MacroSignal(BaseModel):
-    """A single macro signal with analysis."""
-
-    name: str = Field(
-        description="Signal name in Chinese, e.g. 'VIX', '10Y国债', '美元指数', '10Y-3M利差'"
-    )
-    current_value: str = Field(
-        description="Current value with unit, e.g. '18.5', '4.50%', '105.2'"
-    )
-    change: str = Field(
-        description="Change description, e.g. '周跌12.3%', '周涨0.15%', '持平'"
-    )
-    trend_direction: str = Field(
-        description="Value change direction for color display: 'up' (green) if value increased, 'down' (red) if value decreased. "
-        "Always use 'up' or 'down' based on numerical change, never 'flat'. "
-        "Example: VIX drops from 21 to 18 = 'down' (red), even though it's bullish for stocks."
-    )
-    analysis: str = Field(
-        description="Comprehensive analysis in 3-4 sentences covering: 1) trend vs last week, 2) position in recent range, 3) impact on market/sectors"
-    )
-
-
-class MacroSection(BaseModel):
-    """Macro environment section."""
-
-    signals: list[MacroSignal] = Field(
-        description="2-3 most important macro signals with analysis"
-    )
-    summary: str = Field(
-        description="4-6 sentence summary of overall macro environment: current cycle, combined signal interpretation, sector implications, key risks"
-    )
-
-
 # --- News Section ---
 class HeadlineNews(BaseModel):
     """A headline news item with deep analysis."""
@@ -68,7 +34,7 @@ class HeadlineNews(BaseModel):
     deep_analysis: str = Field(
         description="5-6 sentence deep analysis: background context, why it matters, market/sector/stock implications, what to watch next"
     )
-    url: str = Field(description="Original article URL")
+    url: str = Field(description="The article_id number of the source article from the input news array (e.g. '0', '3', '12')")
 
 
 class BriefNews(BaseModel):
@@ -77,7 +43,7 @@ class BriefNews(BaseModel):
     title: str = Field(description="News title in Chinese")
     summary: str = Field(description="One sentence summary of what happened")
     analysis: str = Field(description="2-3 sentence analysis of market impact")
-    url: str = Field(description="Original article URL")
+    url: str = Field(description="The article_id number of the source article from the input news array (e.g. '1', '7')")
 
 
 class NewsSection(BaseModel):
@@ -89,6 +55,13 @@ class NewsSection(BaseModel):
     briefs: list[BriefNews] = Field(
         description="8-12 other notable news items with brief analysis"
     )
+
+
+class SummarySection(BaseModel):
+    """A sub-section of the report summary with its own title and content."""
+
+    title: str = Field(description="Sub-section title in Chinese: '深度解读与总结' or '未来展望'")
+    content: str = Field(description="Sub-section content, 1-2 paragraphs separated by \\n\\n. Concise plain-language analysis (150-250 chars per section).")
 
 
 class MarketReportOutput(BaseModel):
@@ -109,15 +82,12 @@ class MarketReportOutput(BaseModel):
     )
 
     # Structured sections
-    macro: MacroSection = Field(description="Macro environment analysis")
     news: NewsSection = Field(description="Important news with analysis")
 
-    # Free-form narrative section (keeps coherence)
-    report_summary: str = Field(
-        description="Comprehensive summary in 3 paragraphs (separated by newlines, NO subtitles):\n\n"
-        "Paragraph 1: Today's recap - overall market performance, major index movements, sector leaders/laggards.\n\n"
-        "Paragraph 2: Why it happened - connect macro factors with news catalysts, explain cause-and-effect.\n\n"
-        "Paragraph 3: Forward outlook - must mention specific tickers ($TICKER format) or sectors worth watching with reasons, potential risks with trigger conditions, and key dates/events."
+    # Structured summary with sub-sections
+    report_summary: list[SummarySection] = Field(
+        description="2 concise sub-sections: 1) 深度解读与总结 - the ONE connecting thread behind today's events (1 paragraph, ~200 chars); "
+        "2) 未来展望 - 2-3 specific things to watch with dates and if/then scenarios (1-2 paragraphs, ~200 chars)."
     )
 
     # Calendar - AI provides event selection and analysis, dates are matched from source data in Python

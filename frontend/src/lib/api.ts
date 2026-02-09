@@ -87,20 +87,6 @@ export interface CalendarEvent {
   analysis: string;
 }
 
-// New structured types for market report
-export interface MacroSignal {
-  name: string;
-  current_value: string;
-  change: string;
-  trend_direction: 'up' | 'down' | 'flat';
-  analysis: string;
-}
-
-export interface MacroSection {
-  signals: MacroSignal[];
-  summary: string;
-}
-
 export interface HeadlineNews {
   title: string;
   fact_summary: string;
@@ -120,6 +106,11 @@ export interface NewsSection {
   briefs: BriefNews[];
 }
 
+export interface SummarySection {
+  title: string;
+  content: string;
+}
+
 // MarketData from backend API - matches database schema (snake_case)
 export interface MarketData {
   report_id?: string;
@@ -128,9 +119,8 @@ export interface MarketData {
   title?: string;
   summary?: string;
   intro?: string;
-  macro?: MacroSection;
   news?: NewsSection;
-  report_summary?: string;
+  report_summary?: SummarySection[] | string;
   calendar?: CalendarEvent[];
   market_data?: unknown;
   from_cache?: boolean;
@@ -1044,6 +1034,25 @@ export const api = {
         }
         return response.json();
       }, 10 * 60 * 1000); // 10 min TTL
+    },
+
+    generate: async (force: boolean = false): Promise<WeeklyReportResponse> => {
+      const headers: Record<string, string> = {};
+      const cronSecret = process.env.NEXT_PUBLIC_CRON_SECRET;
+      if (cronSecret) {
+        headers['X-Cron-Secret'] = cronSecret;
+      }
+      const response = await fetch(
+        `${API_BASE_URL}/weekly-report/generate?force=${force}`,
+        { method: 'POST', headers },
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to generate weekly report' }));
+        throw new Error(error.detail || 'Failed to generate weekly report');
+      }
+      // Invalidate cached weekly report so sub-pages fetch fresh data
+      invalidateCache('weekly-report-latest');
+      return response.json();
     },
   },
 };
