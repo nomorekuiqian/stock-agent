@@ -170,7 +170,10 @@
       "WebFetch(domain:production.dataviz.cnn.io)",
       "WebFetch(domain:blog.justfont.com)",
       "mcp__chrome-devtools__emulate",
-      "WebFetch(domain:www.originfinancial.com)"
+      "WebFetch(domain:www.originfinancial.com)",
+      "WebFetch(domain:fred.stlouisfed.org)",
+      "WebFetch(domain:www.tradingview.com)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

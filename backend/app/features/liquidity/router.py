@@ -1,9 +1,4 @@
-"""
-Liquidity Monitor API Router
-
-Endpoints for fetching liquidity metrics, historical data,
-and FRED series.
-"""
+"""Liquidity Monitor API Router."""
 
 import traceback
 
@@ -15,10 +10,13 @@ from app.features.liquidity.fred_service import (
     get_liquidity_history,
     fetch_fred_series,
 )
+from app.features.liquidity.global_service import (
+    get_global_liquidity_metrics,
+    get_global_liquidity_history,
+)
 
 router = APIRouter(prefix="/api/liquidity", tags=["liquidity"])
 
-# Allowlist of FRED series IDs that this endpoint may serve
 ALLOWED_SERIES = {
     "WALCL", "WDTGAL", "RRPONTSYD", "WRESBAL",
     "SOFR", "EFFR", "NFCI",
@@ -27,19 +25,7 @@ ALLOWED_SERIES = {
 
 @router.get("/metrics")
 async def get_liquidity_metrics():
-    """
-    Get all key liquidity metrics including calculated net liquidity.
-
-    Returns:
-        - fed_assets: Fed Total Assets (WALCL)
-        - tga: Treasury General Account (WDTGAL)
-        - rrp: Overnight Reverse Repo (RRPONTSYD)
-        - reserves: Bank Reserves (WRESBAL)
-        - sofr: SOFR Rate
-        - effr: Effective Fed Funds Rate
-        - nfci: Financial Conditions Index
-        - net_liquidity: Calculated (WALCL - TGA - RRP)
-    """
+    """Get all key liquidity metrics including calculated net liquidity."""
     try:
         metrics = await get_all_liquidity_metrics()
         return {
@@ -61,15 +47,7 @@ async def get_liquidity_metrics():
 async def get_liquidity_history_endpoint(
     days: int = Query(default=365, ge=30, le=1825, description="Number of days of history")
 ):
-    """
-    Get historical net liquidity data for charting.
-
-    Args:
-        days: Number of days of history (default: 365, max: 1825 = 5 years)
-
-    Returns:
-        Historical net liquidity with component breakdown
-    """
+    """Get historical net liquidity data for charting."""
     try:
         history = await get_liquidity_history(days=days)
         has_data = bool(history.get("observations"))
@@ -97,21 +75,62 @@ async def get_liquidity_history_endpoint(
         }
 
 
+@router.get("/global")
+async def get_global_liquidity():
+    """Get global liquidity metrics (Global M2, ECB/BOJ assets) in USD Billions."""
+    try:
+        metrics = await get_global_liquidity_metrics()
+        return {
+            "success": True,
+            "timestamp": now_iso(),
+            "data": metrics,
+        }
+    except Exception as e:
+        traceback.print_exc()
+        return {
+            "success": False,
+            "timestamp": now_iso(),
+            "data": {},
+            "error": str(e),
+        }
+
+
+@router.get("/global/history")
+async def get_global_liquidity_history_endpoint(
+    days: int = Query(default=365, ge=30, le=1825, description="Number of days of history"),
+):
+    """Get historical Global Liquidity Index data for charting."""
+    try:
+        history = await get_global_liquidity_history(days=days)
+        has_data = bool(history.get("observations"))
+        return {
+            "success": True,
+            "timestamp": now_iso(),
+            "data": history,
+            "partial": not has_data,
+        }
+    except Exception as e:
+        traceback.print_exc()
+        return {
+            "success": False,
+            "timestamp": now_iso(),
+            "data": {
+                "series_id": "GLOBAL_LIQUIDITY_INDEX",
+                "title": "Global Liquidity Index",
+                "units": "Billions of U.S. Dollars",
+                "observations": [],
+            },
+            "partial": True,
+            "error": str(e),
+        }
+
+
 @router.get("/series/{series_id}")
 async def get_fred_series_endpoint(
     series_id: str,
     days: int = Query(default=365, ge=30, le=1825, description="Number of days of history")
 ):
-    """
-    Get raw FRED series data.
-
-    Args:
-        series_id: FRED series ID (e.g., WALCL, WDTGAL, RRPONTSYD, NFCI)
-        days: Number of days of history
-
-    Returns:
-        Raw series data with observations
-    """
+    """Get raw FRED series data for an allowed series ID."""
     if series_id not in ALLOWED_SERIES:
         raise HTTPException(status_code=400, detail=f"Series '{series_id}' is not allowed")
 

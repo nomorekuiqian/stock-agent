@@ -35,14 +35,28 @@ from app.features.subscription.models import (
     SyncedChannelInfo,
     SendEmailRequest,
     BroadcastTestRequest,
+    NewsletterGenerateRequest,
+    NewsletterSendRequest,
+    NewsletterBroadcastRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["subscription"])
 
 
-# =============================================================================
-# Email Report Endpoints
-# =============================================================================
+def _report_data_from_db(report: dict) -> dict:
+    """Extract report data dict from a DB report row for email rendering."""
+    return {
+        "report_id": report.get("id"),
+        "report_date": report.get("report_date", today_str()),
+        "indices": report.get("indices", []),
+        "timestamp": report.get("timestamp", now_iso()),
+        "title": report.get("title", ""),
+        "summary": report.get("summary", ""),
+        "intro": report.get("intro", ""),
+        "news": report.get("news"),
+        "report_summary": report.get("report_summary", []),
+        "calendar": report.get("calendar", []),
+    }
 
 
 @router.post("/report/send")
@@ -72,19 +86,8 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
             if report_date_from_timestamp == today:
                 print(f"[API] Found existing report for {today}, using cached data for email")
                 from_cache = True
-                report_data = {
-                    "report_id": existing_report.get("id"),
-                    "report_date": existing_report.get("report_date", today),
-                    "indices": existing_report.get("indices", []),
-                    "timestamp": existing_report.get("timestamp", now_iso()),
-                    "title": existing_report.get("title", ""),
-                    "summary": existing_report.get("summary", ""),
-                    "intro": existing_report.get("intro", ""),
-                    "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary", []),
-                    "calendar": existing_report.get("calendar", []),
-                    "market_data": existing_report.get("market_data", {}),
-                }
+                report_data = _report_data_from_db(existing_report)
+                report_data["market_data"] = existing_report.get("market_data", {})
                 save_result["report_id"] = existing_report.get("id")
 
         # Generate new report if no cache found
@@ -168,19 +171,7 @@ async def get_email_preview(
         if not report:
             raise HTTPException(status_code=404, detail="No report found")
 
-        # Build report data for email rendering
-        report_data = {
-            "report_id": report.get("id"),
-            "report_date": report.get("report_date", today_str()),
-            "indices": report.get("indices", []),
-            "timestamp": report.get("timestamp", ""),
-            "title": report.get("title", ""),
-            "summary": report.get("summary", ""),
-            "intro": report.get("intro", ""),
-            "news": report.get("news"),
-            "report_summary": report.get("report_summary", []),
-            "calendar": report.get("calendar", []),
-        }
+        report_data = _report_data_from_db(report)
 
         # Render HTML using the real email template
         email_service = get_email_service()
@@ -312,19 +303,8 @@ async def broadcast_test_report(request: BroadcastTestRequest):
         if not report:
             raise HTTPException(status_code=404, detail=f"Report not found: {request.report_id}")
 
-        # Build report data for email (include all structured fields)
-        report_data = {
-            "report_id": report.get("id") or request.report_id,
-            "report_date": report.get("report_date"),
-            "indices": report.get("indices", []),
-            "timestamp": report.get("timestamp", ""),
-            "title": report.get("title", ""),
-            "summary": report.get("summary", ""),
-            "intro": report.get("intro", ""),
-            "news": report.get("news"),
-            "report_summary": report.get("report_summary", []),
-            "calendar": report.get("calendar", []),
-        }
+        report_data = _report_data_from_db(report)
+        report_data["report_id"] = report.get("id") or request.report_id
 
         # Broadcast to audience (default or specified test audience)
         email_service = get_email_service()
@@ -368,19 +348,7 @@ async def send_test_report(request: SendEmailRequest):
         if not report:
             raise HTTPException(status_code=404, detail="No report found in database. Please generate a report first.")
 
-        # Prepare report data for email (include all structured fields)
-        report_data = {
-            "report_id": report.get("id"),
-            "report_date": report.get("report_date"),
-            "indices": report.get("indices", []),
-            "timestamp": report.get("timestamp", now_iso()),
-            "title": report.get("title", ""),
-            "summary": report.get("summary", ""),
-            "intro": report.get("intro", ""),
-            "news": report.get("news"),
-            "report_summary": report.get("report_summary", []),
-            "calendar": report.get("calendar", []),
-        }
+        report_data = _report_data_from_db(report)
 
         # Send email to single recipient
         email_service = get_email_service()
@@ -442,9 +410,166 @@ async def send_test_welcome_email(request: SendEmailRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# =============================================================================
-# Unified Subscription Management Endpoints
-# =============================================================================
+@router.post("/newsletter/generate")
+async def generate_newsletter(
+    request: NewsletterGenerateRequest,
+    _secret: str = Depends(verify_cron_secret),
+):
+    """
+    Generate newsletter content using AI agent.
+    Returns structured content (subject, greeting, sections, closing) for review.
+    Protected by CRON_SECRET to prevent unauthorized API cost consumption.
+    """
+    try:
+        from app.features.subscription.newsletter_agent import NewsletterAgent
+
+        agent = NewsletterAgent()
+        result = await agent.generate(
+            intent=request.intent,
+            tone=request.tone,
+            language=request.language,
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to generate newsletter content"),
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/newsletter/preview")
+async def preview_newsletter(request: NewsletterSendRequest):
+    """
+    Render newsletter as plain text for preview.
+    Template variables are replaced with preview values.
+    """
+    try:
+        email_service = get_email_service()
+
+        data = {
+            "greeting": request.greeting,
+            "sections": [s.model_dump() for s in request.sections],
+            "closing": request.closing,
+            "sign_off_name": request.sign_off_name,
+            "sign_off_title": request.sign_off_title,
+        }
+
+        text_content = email_service._format_newsletter_plaintext(data)
+
+        preview_name = request.first_name or "朋友"
+        text_content = text_content.replace("{{{first_name|朋友}}}", preview_name)
+        text_content = text_content.replace("{{{first_name}}}", preview_name)
+
+        return {
+            "success": True,
+            "text": text_content,
+            "subject": request.subject,
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/newsletter/send-test")
+async def send_test_newsletter(request: NewsletterSendRequest):
+    """
+    Send newsletter to a single email address for testing.
+    Email address is required in the request body.
+    Protected by CRON_SECRET to prevent abuse as spam relay.
+    """
+    try:
+        if not request.email:
+            raise HTTPException(status_code=400, detail="Email address is required")
+
+        email_service = get_email_service()
+
+        data = {
+            "greeting": request.greeting,
+            "sections": [s.model_dump() for s in request.sections],
+            "closing": request.closing,
+            "sign_off_name": request.sign_off_name,
+            "sign_off_title": request.sign_off_title,
+        }
+
+        result = await email_service.send_newsletter(
+            data=data,
+            subject=request.subject,
+            to_email=request.email,
+            first_name=request.first_name,
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to send newsletter"),
+            )
+
+        return {
+            "success": True,
+            "message": f"Newsletter sent to {request.email}",
+            "email_id": result.get("email_id"),
+            "sent_to": request.email,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/newsletter/broadcast")
+async def broadcast_newsletter(
+    request: NewsletterBroadcastRequest,
+    _secret: str = Depends(verify_cron_secret),
+):
+    """
+    Broadcast newsletter to all daily report subscribers.
+    Protected by CRON_SECRET authentication.
+    """
+    try:
+        email_service = get_email_service()
+
+        data = {
+            "greeting": request.greeting,
+            "sections": [s.model_dump() for s in request.sections],
+            "closing": request.closing,
+            "sign_off_name": request.sign_off_name,
+            "sign_off_title": request.sign_off_title,
+        }
+
+        result = await email_service.broadcast_newsletter(
+            data=data,
+            subject=request.subject,
+        )
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to broadcast newsletter"),
+            )
+
+        return {
+            "success": True,
+            "message": "Newsletter broadcast to all subscribers",
+            "broadcast_id": result.get("broadcast_id"),
+            "audience_id": result.get("audience_id"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/subscriptions/{channel}/subscribe", response_model=SubscriptionResponse)

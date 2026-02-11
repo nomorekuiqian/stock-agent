@@ -1,9 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
-// ============================================================================
-// Client-side cache with TTL + request coalescing
-// ============================================================================
-
 const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface CacheEntry<T> {
@@ -337,6 +333,66 @@ export interface LiquidityHistoryResponse {
   success: boolean;
   timestamp: string;
   data: LiquidityHistoryData;
+}
+
+// Global Liquidity Types
+export interface GlobalLiquidityMetric {
+  series_id: string;
+  title: string;
+  value: number | null;
+  raw_value?: number | null;
+  date: string | null;
+  units: string;
+  change: number | null;
+  previous_date?: string | null;
+  components_available?: number;
+  components_total?: number;
+  partial?: boolean;
+}
+
+export interface GlobalLiquidityIndex {
+  series_id: string;
+  title: string;
+  value: number | null;
+  date: string | null;
+  units: string;
+  formula: string;
+}
+
+export interface GlobalLiquidityMetrics {
+  global_liquidity: GlobalLiquidityIndex;
+  fed_assets: GlobalLiquidityMetric;
+  us_m2: GlobalLiquidityMetric;
+  ecb_assets: GlobalLiquidityMetric;
+  boj_assets: GlobalLiquidityMetric;
+  fx_rates?: {
+    eurusd: number | null;
+    usdjpy: number | null;
+  };
+}
+
+export interface GlobalLiquidityResponse {
+  success: boolean;
+  timestamp: string;
+  data: GlobalLiquidityMetrics;
+}
+
+export interface GlobalLiquidityHistoryObservation {
+  time: string;
+  value: number | null;
+}
+
+export interface GlobalLiquidityHistoryData {
+  series_id: string;
+  title: string;
+  units: string;
+  observations: GlobalLiquidityHistoryObservation[];
+}
+
+export interface GlobalLiquidityHistoryResponse {
+  success: boolean;
+  timestamp: string;
+  data: GlobalLiquidityHistoryData;
 }
 
 // Stock Search Types
@@ -832,6 +888,29 @@ export const api = {
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: 'Failed to fetch liquidity history' }));
         throw new Error(error.detail || 'Failed to fetch liquidity history');
+      }
+      return response.json();
+    });
+  },
+
+  // Global Liquidity API
+  getGlobalLiquidity: async (): Promise<GlobalLiquidityResponse> => {
+    return cachedFetch('global-liquidity', async () => {
+      const response = await fetch(`${API_BASE_URL}/liquidity/global`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch global liquidity' }));
+        throw new Error(error.detail || 'Failed to fetch global liquidity');
+      }
+      return response.json();
+    });
+  },
+
+  getGlobalLiquidityHistory: async (days: number = 365): Promise<GlobalLiquidityHistoryResponse> => {
+    return cachedFetch(`global-liquidity-history-${days}`, async () => {
+      const response = await fetch(`${API_BASE_URL}/liquidity/global/history?days=${days}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch global liquidity history' }));
+        throw new Error(error.detail || 'Failed to fetch global liquidity history');
       }
       return response.json();
     });

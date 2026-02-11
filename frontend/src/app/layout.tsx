@@ -32,11 +32,20 @@ export const metadata: Metadata = {
     siteName: "TheMarketBrew",
     title: "TheMarketBrew - AI Market Intelligence",
     description: "AI-powered daily market analysis and insights for smart investors.",
+    images: [
+      {
+        url: "/logo-avatar.png",
+        width: 400,
+        height: 400,
+        alt: "TheMarketBrew - AI Market Intelligence",
+      },
+    ],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "TheMarketBrew - AI Market Intelligence",
     description: "AI-powered daily market analysis and insights for smart investors.",
+    images: ["/logo-avatar.png"],
   },
   robots: {
     index: true,

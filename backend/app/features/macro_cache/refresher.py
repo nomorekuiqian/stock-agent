@@ -40,11 +40,9 @@ async def _safe_set(key: str, data: Any, source: str, ttl: float) -> bool:
 async def _safe_set_with_error(key: str, source: str, ttl: float, error: str) -> None:
     """Record a fetch failure in DB - keep old data, update error field."""
     try:
-        from app.features.macro_cache.db import get_cached, set_cached as _set
         existing = await get_cached(key)
         old_data = existing.get("data") if existing else None
-        # Short TTL so retry happens sooner
-        await _set(key, old_data, source, min(ttl, 1.0), error=error)
+        await set_cached(key, old_data, source, min(ttl, 1.0), error=error)
     except Exception:
         pass
 
@@ -74,7 +72,7 @@ async def refresh_tier1() -> dict:
         raw = await asyncio.gather(
             *[fetch_one(k, sid) for k, sid in LIQUIDITY_SERIES.items()]
         )
-        metrics = {k: v for k, v in raw}
+        metrics = dict(raw)
 
         # Calculate net liquidity
         try:
@@ -141,10 +139,8 @@ async def refresh_tier1() -> dict:
 
     # 3. Market Sentiment (CNN + VIX/breadth/credit)
     try:
-        from app.features.macro_risk.service import get_market_sentiment
-        from app.features.macro_risk.service import _get_cache
-        cache_store = _get_cache("sentiment")
-        cache_store.clear()
+        from app.features.macro_risk.service import get_market_sentiment, _get_cache
+        _get_cache("sentiment").clear()
 
         data = await get_market_sentiment(skip_db_cache=True)
         ok = await _safe_set("macro:sentiment", data.model_dump(), "computed", TTL_T1)
@@ -235,6 +231,7 @@ async def refresh_tier2() -> dict:
         ("macro:inflation_rates", _refresh_inflation_rates),
         ("fred:cpi_breakdown", _refresh_cpi_breakdown),
         ("macro:liquidity_percentiles", _refresh_liquidity_percentiles),
+        ("fred:global_liquidity", _refresh_global_liquidity),
     ]
 
     for key, fn in refresh_tasks:
@@ -311,6 +308,29 @@ async def _refresh_liquidity_percentiles() -> bool:
     return await _safe_set("macro:liquidity_percentiles", context, "computed", TTL_T2)
 
 
+async def _refresh_global_liquidity() -> bool:
+    """Fetch current global M2 + central bank metrics and cache."""
+    from app.features.liquidity.global_service import fetch_and_compute_global_m2
+    data = await fetch_and_compute_global_m2()
+    if not data or not data.get("us_m2", {}).get("value"):
+        print("[Refresher] Global liquidity: no valid US M2 data")
+        await _safe_set_with_error("fred:global_liquidity", "fred", TTL_T2, "No valid US M2")
+        return False
+    return await _safe_set("fred:global_liquidity", data, "fred", TTL_T2)
+
+
+async def _refresh_global_liquidity_history() -> bool:
+    """Fetch 365-day global M2 history and cache."""
+    from app.features.liquidity.global_service import get_global_liquidity_history
+    data = await get_global_liquidity_history(days=365)
+    obs = data.get("observations", [])
+    if not obs:
+        print("[Refresher] Global liquidity history: no observations")
+        await _safe_set_with_error("fred:global_liquidity_history", "fred", TTL_T3, "No observations")
+        return False
+    return await _safe_set("fred:global_liquidity_history", data, "fred", TTL_T3)
+
+
 async def refresh_tier3() -> dict:
     """
     Fetch and cache:
@@ -329,6 +349,16 @@ async def refresh_tier3() -> dict:
         traceback.print_exc()
         await _safe_set_with_error("fred:liquidity_history", "fred", TTL_T3, str(e))
         results["fred:liquidity_history"] = False
+
+    # Global liquidity history (365 days)
+    try:
+        ok = await _refresh_global_liquidity_history()
+        results["fred:global_liquidity_history"] = ok
+    except Exception as e:
+        print(f"[Refresher] T3 global_liquidity_history error: {e}")
+        traceback.print_exc()
+        await _safe_set_with_error("fred:global_liquidity_history", "fred", TTL_T3, str(e))
+        results["fred:global_liquidity_history"] = False
 
     return results
 

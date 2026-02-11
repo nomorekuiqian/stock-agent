@@ -448,6 +448,33 @@ export default function MacroPage() {
           </p>
         </section>
 
+        {/* ── Dimension Quick Nav ── */}
+        <section>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {DIMENSIONS.map((dim) => {
+              const signalColor = report?.signal_lights?.[dim.id as keyof SignalLights] ?? null;
+              const dotClass = signalColor ? SIGNAL_COLORS[signalColor] : null;
+              return (
+                <Link key={dim.id} href={dim.href} className="group">
+                  <div className="relative rounded-xl border border-border/40 bg-card/60 p-4 hover:border-emerald-500/30 hover:bg-card transition-all duration-300 cursor-pointer overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-data text-xs text-emerald-500/60 tracking-tight">{dim.number}</span>
+                      {dotClass && <div className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />}
+                    </div>
+                    <h3 className="text-sm font-medium text-foreground mb-1 group-hover:text-emerald-400 transition-colors duration-300">
+                      {dim.nameZh}
+                    </h3>
+                    <p className="text-xs text-muted-foreground/60 leading-relaxed line-clamp-1">
+                      {dim.question}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
         {/* ── Weekly Report ── */}
         <section>
           <div className="flex items-center gap-3 mb-8">

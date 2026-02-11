@@ -21,8 +21,6 @@ from app.features.digest.db import save_user_digest, get_user_watchlist
 class EmailService:
     """Service for sending market analysis reports and personal digests via email."""
 
-    # Production frontend URL - always use this for email links
-    # This ensures emails always point to the correct site, regardless of FRONTEND_URL env var
     PRODUCTION_URL = "https://themarketbrew.com"
 
     def __init__(self):
@@ -30,13 +28,8 @@ class EmailService:
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-        # Always use production URL for email links (not FRONTEND_URL which may be localhost)
         self.frontend_url = self.PRODUCTION_URL
         self.logo_url = f"{self.frontend_url}/logo-avatar.png"
-
-    # =========================================================================
-    # Email Formatting - Common Utilities
-    # =========================================================================
 
     def _format_timestamp(self, timestamp: str) -> str:
         """Format ISO timestamp to human-readable format (Pacific timezone)."""
@@ -48,12 +41,7 @@ class EmailService:
             return now_pacific().strftime("%B %d, %Y")
 
     def _get_time_greeting(self) -> str:
-        """Get time-based greeting in Chinese (Pacific timezone).
-
-        Note: This is used for single-recipient emails where we send at a known time.
-        For broadcasts, consider using a neutral greeting since users may open
-        the email at different times in different timezones.
-        """
+        """Get time-based greeting in Chinese (Pacific timezone)."""
         hour = now_pacific().hour
         if 5 <= hour < 12:
             return "早上好"
@@ -113,10 +101,6 @@ class EmailService:
 
         return text
 
-    # =========================================================================
-    # Email Templates
-    # =========================================================================
-
     def _get_email_header(self, formatted_date: str, title: str = "Daily Brief") -> str:
         """Common email header with THEMARKETBREW branding and logo."""
         return f"""
@@ -152,16 +136,7 @@ class EmailService:
         report_id: Optional[str] = None,
         report_type: str = "daily",
     ) -> str:
-        """Generate email feedback survey section.
-
-        Args:
-            report_date: Report date in YYYY-MM-DD format
-            report_id: Optional report UUID
-            report_type: Type of report ("daily" or "digest")
-
-        Returns:
-            HTML string for feedback section
-        """
+        """Generate email feedback survey section."""
         # Always use production frontend URL for feedback links
         # This allows local dev emails to test production feedback flow
         feedback_frontend_url = "https://themarketbrew.com"
@@ -267,13 +242,7 @@ class EmailService:
     def _format_html_report(
         self, data: dict, report_date: Optional[str] = None, report_id: Optional[str] = None
     ) -> str:
-        """Format the macro analysis data into an HTML email (Daily Report).
-
-        Args:
-            data: Report data dictionary
-            report_date: Report date for feedback URL (defaults to today)
-            report_id: Report UUID for feedback URL (optional)
-        """
+        """Format the macro analysis data into an HTML email (Daily Report)."""
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
 
@@ -519,14 +488,7 @@ class EmailService:
         digest_date: Optional[str] = None,
         digest_id: Optional[str] = None,
     ) -> str:
-        """Format personal digest data into an HTML email.
-
-        Args:
-            data: Digest data dictionary
-            first_name: User's first name for greeting
-            digest_date: Digest date for feedback URL (defaults to today)
-            digest_id: Digest UUID for feedback URL (optional)
-        """
+        """Format personal digest data into an HTML email."""
         timestamp = data.get("timestamp", now_iso())
         formatted_date = self._format_timestamp(timestamp)
 
@@ -716,10 +678,6 @@ class EmailService:
         """
         return html
 
-    # =========================================================================
-    # Email Sending
-    # =========================================================================
-
     async def send_daily_report(
         self, data: dict, to_email: Optional[str] = None, first_name: Optional[str] = None
     ) -> dict:
@@ -786,15 +744,7 @@ class EmailService:
         digest_date: Optional[str] = None,
         digest_id: Optional[str] = None,
     ) -> dict:
-        """Send a personal digest email to a single recipient.
-
-        Args:
-            data: Digest data dictionary
-            to_email: Recipient email address
-            first_name: User's first name for greeting
-            digest_date: Digest date for feedback URL (defaults to today)
-            digest_id: Digest UUID for feedback URL (optional)
-        """
+        """Send a personal digest email to a single recipient."""
         print(f"[EmailService] send_personal_digest to={to_email}")
 
         if not self.api_key:
@@ -838,13 +788,7 @@ class EmailService:
             return {"success": False, "error": str(e)}
 
     async def broadcast_daily_report(self, data: dict, audience_id: Optional[str] = None) -> dict:
-        """Send the daily market report using Resend Broadcasts.
-
-        Args:
-            data: Report data to send
-            audience_id: Optional specific audience ID (e.g., Test Broadcast audience).
-                        If not provided, uses the default daily_report audience.
-        """
+        """Send the daily market report using Resend Broadcasts."""
         print(
             f"[EmailService] broadcast_daily_report called, audience_id={audience_id}"
         )
@@ -923,14 +867,7 @@ class EmailService:
     async def broadcast_personal_digest(
         self, data: dict, audience_id: Optional[str] = None, first_name: str = ""
     ) -> dict:
-        """Broadcast a personal digest using Resend Broadcasts.
-
-        Args:
-            data: Digest data to send (from database or agent)
-            audience_id: Optional specific audience ID (e.g., Test Broadcast audience).
-                        If not provided, uses the default personal_digest audience.
-            first_name: Optional first name for greeting personalization.
-        """
+        """Broadcast a personal digest using Resend Broadcasts."""
         print(
             f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}"
         )
@@ -1006,9 +943,147 @@ class EmailService:
             print(f"[EmailService] Error broadcasting digest: {e}")
             return {"success": False, "error": str(e)}
 
-    # =========================================================================
-    # Welcome Email
-    # =========================================================================
+    def _format_newsletter_plaintext(self, data: dict) -> str:
+        """Format newsletter data into plain text for maximum deliverability."""
+        import re
+
+        greeting = data.get("greeting", "")
+        sections = data.get("sections", [])
+        closing = data.get("closing", "")
+        sign_off_name = data.get("sign_off_name", "Golden / 金黄")
+        sign_off_title = data.get("sign_off_title", "独立开发者 / 十年美股散户")
+
+        def _clean_markdown(text: str) -> str:
+            """Strip markdown syntax for plain text: **bold** -> bold, [text](url) -> text: url"""
+            text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+            text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1: \2", text)
+            return text.rstrip()
+
+        # Build paragraphs list - each entry is a clean text block (no trailing newlines).
+        # "\n\n".join() will put exactly ONE blank line between paragraphs.
+        paragraphs = []
+
+        # Hi {name},
+        paragraphs.append("Hi {{{first_name}}},")
+
+        # Greeting
+        if greeting:
+            paragraphs.append(_clean_markdown(greeting))
+
+        # Sections - title + content form one paragraph block
+        for section in sections:
+            title = section.get("title", "")
+            content = section.get("content", "")
+            block = ""
+            if title:
+                block = title.strip() + "\n"
+            if content:
+                block += _clean_markdown(content)
+            block = block.strip()
+            if block:
+                paragraphs.append(block)
+
+        # Closing
+        if closing:
+            paragraphs.append(_clean_markdown(closing))
+
+        # Signature (name + title together, separated by single line break)
+        paragraphs.append(sign_off_name + "\n" + sign_off_title)
+
+        return "\n\n".join(paragraphs)
+
+    async def send_newsletter(
+        self, data: dict, subject: str, to_email: str, first_name: str = ""
+    ) -> dict:
+        """Send a newsletter as plain text email to a single recipient."""
+        print(f"[EmailService] send_newsletter to={to_email}")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            text_content = self._format_newsletter_plaintext(data)
+            text_content = text_content.replace("{{{first_name}}}", first_name or "朋友")
+
+            params = {
+                "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
+                "to": [to_email],
+                "subject": subject,
+                "text": text_content,
+            }
+
+            email = resend.Emails.send(params)
+            print(f"[EmailService] Newsletter sent: {email.get('id')}")
+            return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
+
+        except Exception as e:
+            print(f"[EmailService] Error sending newsletter: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def broadcast_newsletter(
+        self, data: dict, subject: str, audience_id: Optional[str] = None
+    ) -> dict:
+        """Broadcast newsletter to all daily report subscribers."""
+        print(f"[EmailService] broadcast_newsletter called, audience_id={audience_id}")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            if not audience_id:
+                sub_service = get_subscription_service()
+                audience_id = sub_service.ensure_audience(
+                    SubscriptionChannel.DAILY_REPORT
+                )
+
+            text_content = self._format_newsletter_plaintext(data)
+            today = today_str()
+
+            create_params: resend.Broadcasts.CreateParams = {
+                "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
+                "audience_id": audience_id,
+                "subject": subject,
+                "text": text_content,
+                "name": f"Newsletter {today}",
+            }
+
+            broadcast = resend.Broadcasts.create(create_params)
+            broadcast_id = broadcast.get("id")
+            if not broadcast_id:
+                print(f"[EmailService] ERROR: Newsletter broadcast create returned no id: {broadcast}")
+                return {"success": False, "error": "Broadcast creation returned no ID"}
+            print(f"[EmailService] Newsletter broadcast created: {broadcast_id}")
+
+            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
+            send_result = resend.Broadcasts.send(send_params)
+            send_id = send_result.get("id") if send_result else None
+            print(f"[EmailService] Newsletter broadcast send result: {send_result}")
+
+            if not send_id:
+                print(f"[EmailService] WARNING: Newsletter send returned unexpected result, verifying status...")
+                import asyncio as _asyncio
+                await _asyncio.sleep(1)
+                verify = resend.Broadcasts.get(broadcast_id)
+                status = verify.get("status") if verify else None
+                print(f"[EmailService] Newsletter broadcast status after send: {status}")
+                if status not in ("sent", "queued"):
+                    return {
+                        "success": False,
+                        "error": f"Newsletter broadcast send failed, status: {status}",
+                        "broadcast_id": broadcast_id,
+                    }
+
+            print(f"[EmailService] Newsletter broadcast sent successfully: {broadcast_id}")
+
+            return {
+                "success": True,
+                "broadcast_id": broadcast_id,
+                "audience_id": audience_id,
+            }
+
+        except Exception as e:
+            print(f"[EmailService] Error broadcasting newsletter: {e}")
+            return {"success": False, "error": str(e)}
 
     def _format_welcome_html(self, first_name: str = "") -> str:
         """Format welcome email HTML for new subscribers."""
@@ -1148,15 +1223,7 @@ class EmailService:
         return html
 
     async def send_welcome_email(self, to_email: str, first_name: Optional[str] = None) -> dict:
-        """Send welcome email to new subscriber.
-
-        Args:
-            to_email: Recipient email address
-            first_name: Optional first name for personalization
-
-        Returns:
-            dict with success status and email_id
-        """
+        """Send welcome email to new subscriber."""
         print(f"[EmailService] send_welcome_email to={to_email}")
 
         if not self.api_key:

@@ -6,11 +6,6 @@ from pydantic import BaseModel, Field
 from typing import Dict, Optional, Any, List
 
 
-# =============================================================================
-# Request Models
-# =============================================================================
-
-
 class SubscribeRequest(BaseModel):
     """Request model for subscribing to a channel"""
     email: str = Field(..., description="Subscriber email address")
@@ -104,11 +99,6 @@ class BroadcastTestRequest(BaseModel):
     audience_id: Optional[str] = None  # Optional: specific audience ID (e.g., Test Broadcast)
 
 
-# =============================================================================
-# Response Models
-# =============================================================================
-
-
 class SubscriptionStatusResponse(BaseModel):
     """Response model for subscription status"""
     success: bool = Field(..., description="Whether the request succeeded")
@@ -180,3 +170,48 @@ class SyncUserResponse(BaseModel):
     user_id: str = Field(..., description="User ID")
     synced_channels: List[SyncedChannelInfo] = Field(default=[], description="Channels that were synced")
     errors: List[str] = Field(default=[], description="Any errors encountered")
+
+
+class NewsletterSection(BaseModel):
+    """A section in the newsletter content"""
+    title: str = Field(..., max_length=200, description="Section title")
+    content: str = Field(..., max_length=5000, description="Section content, supports markdown bold")
+
+
+class NewsletterOutput(BaseModel):
+    """Structured output from the newsletter agent"""
+    subject: str = Field(..., description="Email subject line")
+    greeting: str = Field(..., description="Opening text (without Hi {name} part)")
+    sections: List[NewsletterSection] = Field(..., description="Content sections, 2-4")
+    closing: str = Field(..., description="Closing text with feedback invitation")
+    sign_off_name: str = Field(default="Golden / 金黄", description="Sign-off name")
+    sign_off_title: str = Field(default="独立开发者 / 十年美股散户", description="Sign-off title")
+
+
+class NewsletterGenerateRequest(BaseModel):
+    """Request model for generating newsletter content via AI"""
+    intent: str = Field(..., description="What the newsletter should convey (bullet points or free text)")
+    tone: str = Field(default="warm", description="Tone: warm, professional, casual")
+    language: str = Field(default="zh", description="Language: zh, en")
+
+
+class NewsletterSendRequest(BaseModel):
+    """Request model for sending/previewing a newsletter"""
+    email: str = Field(default="", max_length=320, description="Recipient email for test send")
+    first_name: str = Field(default="", max_length=100, description="Recipient first name for personalization")
+    subject: str = Field(..., max_length=200, description="Email subject line")
+    greeting: str = Field(..., max_length=2000, description="Opening text")
+    sections: List[NewsletterSection] = Field(..., description="Content sections")
+    closing: str = Field(..., max_length=2000, description="Closing text")
+    sign_off_name: str = Field(default="Golden / 金黄", max_length=100, description="Sign-off name")
+    sign_off_title: str = Field(default="独立开发者 / 十年美股散户", max_length=200, description="Sign-off title")
+
+
+class NewsletterBroadcastRequest(BaseModel):
+    """Request model for broadcasting newsletter to all subscribers"""
+    subject: str = Field(..., max_length=200, description="Email subject line")
+    greeting: str = Field(..., max_length=2000, description="Opening text")
+    sections: List[NewsletterSection] = Field(..., description="Content sections")
+    closing: str = Field(..., max_length=2000, description="Closing text")
+    sign_off_name: str = Field(default="Golden / 金黄", max_length=100, description="Sign-off name")
+    sign_off_title: str = Field(default="独立开发者 / 十年美股散户", max_length=200, description="Sign-off title")

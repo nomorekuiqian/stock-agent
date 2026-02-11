@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
 import { NetLiquidityChart } from '@/components/NetLiquidityChart';
+import { GlobalLiquidityChart } from '@/components/GlobalLiquidityChart';
 import { NFCIGauge } from '@/components/NFCIGauge';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
@@ -13,14 +14,12 @@ import {
   LiquidityMetric,
   LiquidityHistoryObservation,
   WeeklyMacroReport,
+  GlobalLiquidityMetrics,
+  GlobalLiquidityHistoryObservation,
 } from '@/lib/api';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatCompareDateLabel, formatDateTimePacific } from '@/lib/timezone';
-import { Droplets, Layers, Gauge } from 'lucide-react';
-
-// ============================================================================
-// Constants
-// ============================================================================
+import { Droplets, Layers, Gauge, Globe, Banknote } from 'lucide-react';
 
 const FRED_SYMBOLS: Record<string, string> = {
   fedAssets: 'FRED:WALCL',
@@ -30,6 +29,13 @@ const FRED_SYMBOLS: Record<string, string> = {
   sofr: 'FRED:SOFR',
   effr: 'FRED:EFFR',
   nfci: 'FRED:NFCI',
+  ecbAssets: 'FRED:ECBASSETSW',
+  bojAssets: 'FRED:JPNASSETS',
+  usM2: 'FRED:M2SL',
+  euroM2: 'FRED:MYAGM2EZM196N',
+  japanM2: 'FRED:MABMM301JPM189S',
+  usdjpy: 'FX_IDC:USDJPY',
+  eurusd: 'FX_IDC:EURUSD',
 };
 
 const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
@@ -68,76 +74,64 @@ const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
     description:
       '综合衡量美国金融状况的指标,包含风险、信贷和杠杆三个维度。负值表示金融条件宽松(有利于风险资产),正值表示金融条件收紧。除当前值外,也需关注变化趋势。',
   },
+  ecbAssets: {
+    title: '欧洲央行 (ECB) 总资产',
+    description:
+      '欧洲央行 (European Central Bank) 资产负债表规模。ECB通过资产购买计划(APP/PEPP)向欧元区注入流动性。资产扩张意味着欧洲流动性增加,缩表则收紧。',
+  },
+  bojAssets: {
+    title: '日本央行 (BOJ) 总资产',
+    description:
+      '日本央行 (Bank of Japan) 资产负债表规模。BOJ长期实施收益率曲线控制(YCC)和大规模资产购买,是全球最宽松的主要央行之一。其资产规模变化影响全球套利交易和流动性。',
+  },
+  usM2: {
+    title: '美国 M2 货币供应 (M2SL)',
+    description:
+      '美国广义货币供应量,包括现金、活期存款、储蓄存款和货币市场基金。M2 增长代表货币环境宽松,下降则意味着流动性紧缩。2022 年 M2 出现 1930 年代以来首次同比下降。',
+  },
+  euroM2: {
+    title: '欧元区 M2 货币供应',
+    description:
+      '欧元区广义货币供应量,受 ECB 货币政策和成员国信贷环境影响。欧元区 M2 增速放缓通常伴随信贷紧缩,对欧洲经济增长和全球资本流动有重要指示意义。',
+  },
+  japanM2: {
+    title: '日本 M2 货币供应',
+    description:
+      '日本广义货币供应量。尽管 BOJ 长期实施超宽松政策,日本 M2 增长一直相对温和,反映了低利率环境下信贷需求不足的结构性问题。',
+  },
+  usdjpy: {
+    title: '美元/日元汇率 (USD/JPY)',
+    description:
+      '日元兑美元汇率,反映中日美利差和套利交易 (Carry Trade) 强度。日元贬值 (汇率上升) 通常伴随日本资本外流和全球风险偏好上升;日元急速升值可能触发套利交易平仓,引发全球风险资产抛售。',
+  },
+  eurusd: {
+    title: '欧元/美元汇率 (EUR/USD)',
+    description:
+      '欧元兑美元汇率,全球交易量最大的货币对。反映欧美货币政策差异和经济增长预期。欧元走强通常伴随欧洲经济复苏和 ECB 鹰派信号;欧元走弱则反映避险需求和美元流动性收紧。',
+  },
 };
 
 // Tab system
-type TabId = 'net_liquidity' | 'balance_sheet' | 'financial_conditions';
+type TabId = 'us_liquidity' | 'global_liquidity';
 
-const TAB_ORDER: TabId[] = ['net_liquidity', 'balance_sheet', 'financial_conditions'];
+const TAB_ORDER: TabId[] = ['us_liquidity', 'global_liquidity'];
 
-const TAB_META: Record<
-  TabId,
-  {
-    name: string;
-    number: string;
-    subtitle: string;
-    primaryKey: keyof LiquidityMetrics;
-    secondaryKey: keyof LiquidityMetrics;
-    secondaryLabel: string;
-    primaryLabel: string;
-    format: (m: LiquidityMetric) => string;
-    formatSecondary: (m: LiquidityMetric) => string;
-    interpret: (m: LiquidityMetric) => string;
-  }
-> = {
-  net_liquidity: {
-    name: '净流动性',
+interface TabMeta {
+  name: string;
+  number: string;
+  subtitle: string;
+}
+
+const TAB_META: Record<TabId, TabMeta> = {
+  us_liquidity: {
+    name: '美国流动性',
     number: '01',
-    subtitle: 'WALCL - TGA - RRP / 净流动性公式 / 历史趋势',
-    primaryKey: 'net_liquidity',
-    secondaryKey: 'reserves',
-    secondaryLabel: '银行准备金',
-    primaryLabel: 'WALCL - TGA - RRP',
-    format: (m) => formatValue(m.value, m.units),
-    formatSecondary: (m) => formatValue(m.value, m.units),
-    interpret: (m) => {
-      if (m.change === null) return 'amber';
-      if (m.change >= 0) return 'emerald';
-      return 'red';
-    },
+    subtitle: '净流动性 / 资产负债表 / M2 / 金融条件',
   },
-  balance_sheet: {
-    name: '资产负债表',
+  global_liquidity: {
+    name: '全球流动性',
     number: '02',
-    subtitle: 'WALCL / TGA / RRP / 银行准备金',
-    primaryKey: 'fed_assets',
-    secondaryKey: 'tga',
-    secondaryLabel: 'TGA 余额',
-    primaryLabel: '美联储总资产',
-    format: (m) => formatValue(m.value, m.units),
-    formatSecondary: (m) => formatValue(m.value, m.units),
-    interpret: (m) => {
-      if (m.change === null) return 'amber';
-      if (m.change >= 0) return 'emerald';
-      return 'amber';
-    },
-  },
-  financial_conditions: {
-    name: '金融条件',
-    number: '03',
-    subtitle: 'SOFR / EFFR / NFCI',
-    primaryKey: 'nfci',
-    secondaryKey: 'sofr',
-    secondaryLabel: 'SOFR',
-    primaryLabel: '芝加哥联储金融状况指数',
-    format: (m) => (m.value !== null ? m.value.toFixed(2) : 'N/A'),
-    formatSecondary: (m) => (m.value !== null ? `${m.value.toFixed(2)}%` : 'N/A'),
-    interpret: (m) => {
-      if (m.value === null) return 'amber';
-      if (m.value < -0.5) return 'emerald';
-      if (m.value > 0.5) return 'red';
-      return 'amber';
-    },
+    subtitle: '全球流动性指数 / 日本 / 欧洲',
   },
 };
 
@@ -163,12 +157,6 @@ const EMPTY_METRICS: LiquidityMetrics = {
   net_liquidity: { ...EMPTY_METRIC, series_id: 'CALCULATED', title: 'Net Liquidity', units: 'Billions of Dollars' },
 };
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-const formatCompareDate = formatCompareDateLabel;
-
 function formatValue(value: number | null, units: string): string {
   if (value === null) return 'N/A';
   if (units.toLowerCase().includes('billion')) {
@@ -181,6 +169,7 @@ function formatValue(value: number | null, units: string): string {
     return `$${value.toFixed(0)}M`;
   }
   if (units.toLowerCase().includes('percent')) return `${value.toFixed(2)}%`;
+  if (units.toLowerCase() === 'rate') return value.toFixed(4);
   return value.toFixed(2);
 }
 
@@ -190,9 +179,10 @@ function getColorClass(color: string) {
   return 'text-red-400';
 }
 
-// ============================================================================
-// Hooks
-// ============================================================================
+function interpretChange(change: number | null): string {
+  if (change === null) return 'amber';
+  return change >= 0 ? 'emerald' : 'red';
+}
 
 function useInView(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
@@ -226,10 +216,6 @@ function useInView(threshold = 0.1) {
   return { ref, isVisible };
 }
 
-// ============================================================================
-// Components
-// ============================================================================
-
 function HeroCardSkeleton({ index }: { index: number }) {
   return (
     <div
@@ -249,24 +235,26 @@ function HeroCardSkeleton({ index }: { index: number }) {
 
 function LiquidityHeroCard({
   tabId,
-  metrics,
+  primaryLabel,
+  primaryFormatted,
+  secondaryLabel,
+  secondaryFormatted,
+  accentColor,
   index,
   selected,
   onSelect,
 }: {
   tabId: TabId;
-  metrics: LiquidityMetrics;
+  primaryLabel: string;
+  primaryFormatted: string;
+  secondaryLabel: string;
+  secondaryFormatted: string;
+  accentColor: string;
   index: number;
   selected: boolean;
   onSelect: () => void;
 }) {
   const config = TAB_META[tabId];
-  const primaryMetric = metrics[config.primaryKey];
-  const secondaryMetric = metrics[config.secondaryKey];
-
-  const formatted = config.format(primaryMetric);
-  const accentColor = config.interpret(primaryMetric);
-  const secFormatted = config.formatSecondary(secondaryMetric);
 
   return (
     <button
@@ -317,21 +305,21 @@ function LiquidityHeroCard({
               : 'text-foreground group-hover:text-foreground'
           }`}
         >
-          {formatted}
+          {primaryFormatted}
         </span>
       </div>
 
       {/* Label */}
-      <p className="text-xs text-muted-foreground mb-3">{config.primaryLabel}</p>
+      <p className="text-xs text-muted-foreground mb-3">{primaryLabel}</p>
 
       {/* Divider */}
       <div className="h-px bg-border/50 mb-3 mt-auto" />
 
       {/* Secondary metric */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{config.secondaryLabel}</span>
+        <span className="text-muted-foreground">{secondaryLabel}</span>
         <span className="font-data font-medium text-foreground">
-          {secFormatted}
+          {secondaryFormatted}
         </span>
       </div>
 
@@ -356,11 +344,13 @@ function LiquidityMetricPanel({
   metric,
   theme,
   interval,
+  range,
 }: {
   indicatorKey: string;
   metric: LiquidityMetric;
   theme: 'light' | 'dark';
   interval: string;
+  range?: string;
 }) {
   const { ref, isVisible } = useInView(0.05);
   const info = INDICATOR_INFO[indicatorKey];
@@ -413,6 +403,7 @@ function LiquidityMetricPanel({
           symbol={symbol}
           height={300}
           interval={interval}
+          range={range}
           theme={theme}
         />
       </div>
@@ -420,11 +411,55 @@ function LiquidityMetricPanel({
   );
 }
 
-// ============================================================================
-// DeepDive Sections
-// ============================================================================
+function SectionHeader({
+  number,
+  title,
+  subtitle,
+  timeRange,
+  onTimeRangeChange,
+}: {
+  number: string;
+  title: string;
+  subtitle: string;
+  timeRange: string;
+  onTimeRangeChange: (range: string) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="flex items-start gap-3 min-w-0">
+        <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
+          {number}
+        </span>
+        <div className="pt-0.5 min-w-0">
+          <h2 className="text-lg font-editorial text-foreground tracking-tight mb-0.5">
+            {title}
+          </h2>
+          <p className="text-xs text-muted-foreground tracking-wide">
+            {subtitle}
+          </p>
+        </div>
+      </div>
 
-function NetLiquidityDeepDive({
+      <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
+        {TIME_RANGES.map((range) => (
+          <button
+            key={range}
+            onClick={() => onTimeRangeChange(range)}
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+              timeRange === range
+                ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {range}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function USLiquidityDeepDive({
   metrics,
   historyData,
   historyLoading,
@@ -432,6 +467,9 @@ function NetLiquidityDeepDive({
   onRetry,
   timeRange,
   onTimeRangeChange,
+  theme,
+  interval,
+  loading,
 }: {
   metrics: LiquidityMetrics;
   historyData: LiquidityHistoryObservation[];
@@ -440,159 +478,13 @@ function NetLiquidityDeepDive({
   onRetry: () => void;
   timeRange: string;
   onTimeRangeChange: (range: string) => void;
-}) {
-  const { ref, isVisible } = useInView();
-
-  return (
-    <section className="relative">
-      <div
-        ref={ref}
-        className={`relative transition-all duration-700 ease-out ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}
-      >
-        {/* Section header */}
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
-              01
-            </span>
-            <div className="pt-0.5 min-w-0">
-              <h2 className="text-lg font-editorial text-foreground tracking-tight mb-0.5">
-                净流动性详解
-              </h2>
-              <p className="text-xs text-muted-foreground tracking-wide">
-                WALCL - TGA - RRP / 净流动性公式 / 历史趋势
-              </p>
-            </div>
-          </div>
-
-          {/* Time range selector */}
-          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range}
-                onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                  timeRange === range
-                    ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Section explanation banner */}
-        <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Droplets className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-base font-medium text-foreground mb-2">
-                这个板块看什么?
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                净流动性 = 市场上实际能用的钱有多少。你可以把美联储想象成一个大水龙头:
-                它印的钱 (WALCL) 是往市场里「放水」,而政府账户 (TGA) 和隔夜逆回购
-                (RRP) 是在「抽水」。放的水减去抽的水,就是市场上真正能用的钱。
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                <code className="bg-muted px-2 py-1 rounded text-emerald-500">
-                  净流动性 = 美联储总资产 (WALCL) - TGA - RRP
-                </code>
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                这个数字越大,说明市场上钱越多,对股市等风险资产通常是利好;
-                这个数字缩小,说明市场上钱在变少,资产价格容易承压。
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Component breakdown cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          {(['net_liquidity', 'fed_assets', 'tga', 'rrp'] as const).map(
-            (key) => {
-              const m = metrics[key];
-              const isHighlight = key === 'net_liquidity';
-              const hasChange = m.change != null;
-              const isPositive = hasChange && m.change! >= 0;
-              const labels: Record<string, string> = {
-                net_liquidity: '净流动性',
-                fed_assets: '美联储总资产',
-                tga: 'TGA 余额',
-                rrp: '隔夜逆回购',
-              };
-              return (
-                <div
-                  key={key}
-                  className={`bg-card/60 rounded-xl border p-4 ${
-                    isHighlight
-                      ? 'border-emerald-500/30 bg-emerald-500/5'
-                      : 'border-border/40'
-                  }`}
-                >
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {labels[key]}
-                  </p>
-                  <p className="text-xl font-bold font-data text-foreground tracking-tight">
-                    {formatValue(m.value, m.units)}
-                  </p>
-                  {hasChange && (
-                    <div className="flex items-center gap-1 mt-1">
-                      <span
-                        className={`text-xs font-data font-medium ${
-                          isPositive ? 'text-emerald-500' : 'text-red-500'
-                        }`}
-                      >
-                        {isPositive ? '+' : ''}
-                        {m.change!.toFixed(2)}%
-                      </span>
-                      {m.previous_date && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatCompareDate(m.previous_date)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-          )}
-        </div>
-
-        {/* Net Liquidity historical chart */}
-        <NetLiquidityChart
-          height={400}
-          data={historyData}
-          loading={historyLoading}
-          error={historyError}
-          onRetry={onRetry}
-        />
-      </div>
-    </section>
-  );
-}
-
-function BalanceSheetDeepDive({
-  metrics,
-  theme,
-  interval,
-  timeRange,
-  onTimeRangeChange,
-}: {
-  metrics: LiquidityMetrics;
   theme: 'light' | 'dark';
   interval: string;
-  timeRange: string;
-  onTimeRangeChange: (range: string) => void;
+  loading: boolean;
 }) {
   const { ref, isVisible } = useInView();
-  const indicatorKeys = ['fedAssets', 'tga', 'rrp', 'reserves'] as const;
+
+  const bsIndicatorKeys = ['fedAssets', 'tga', 'rrp', 'reserves'] as const;
   const metricKeys: Record<string, keyof LiquidityMetrics> = {
     fedAssets: 'fed_assets',
     tga: 'tga',
@@ -601,48 +493,125 @@ function BalanceSheetDeepDive({
   };
 
   return (
-    <section className="relative">
-      <div
-        ref={ref}
-        className={`relative transition-all duration-700 ease-out ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}
-      >
-        {/* Section header */}
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
-              02
-            </span>
-            <div className="pt-0.5 min-w-0">
-              <h2 className="text-lg font-editorial text-foreground tracking-tight mb-0.5">
-                资产负债表详解
-              </h2>
-              <p className="text-xs text-muted-foreground tracking-wide">
-                WALCL / TGA / RRP / 银行准备金
-              </p>
+    <div className="space-y-10">
+      {/* ---- Section 1: Net Liquidity ---- */}
+      <section className="relative">
+        <div
+          ref={ref}
+          className={`relative transition-all duration-700 ease-out ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}
+        >
+          <SectionHeader
+            number="01"
+            title="净流动性"
+            subtitle="WALCL - TGA - RRP / 净流动性公式 / 历史趋势"
+            timeRange={timeRange}
+            onTimeRangeChange={onTimeRangeChange}
+          />
+
+          {/* Educational banner */}
+          <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Droplets className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+              </div>
+              <div>
+                <h3 className="text-base font-medium text-foreground mb-2">
+                  这个板块看什么?
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  净流动性 = 市场上实际能用的钱有多少。你可以把美联储想象成一个大水龙头:
+                  它印的钱 (WALCL) 是往市场里「放水」,而政府账户 (TGA) 和隔夜逆回购
+                  (RRP) 是在「抽水」。放的水减去抽的水,就是市场上真正能用的钱。
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                  <code className="bg-muted px-2 py-1 rounded text-emerald-500">
+                    净流动性 = 美联储总资产 (WALCL) - TGA - RRP
+                  </code>
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                  这个数字越大,说明市场上钱越多,对股市等风险资产通常是利好;
+                  这个数字缩小,说明市场上钱在变少,资产价格容易承压。
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Time range selector */}
-          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range}
-                onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                  timeRange === range
-                    ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {range}
-              </button>
-            ))}
+          {/* Component breakdown cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            {(['net_liquidity', 'fed_assets', 'tga', 'rrp'] as const).map(
+              (key) => {
+                const m = metrics[key];
+                const isHighlight = key === 'net_liquidity';
+                const hasChange = m.change != null;
+                const isPositive = hasChange && m.change! >= 0;
+                const labels: Record<string, string> = {
+                  net_liquidity: '净流动性',
+                  fed_assets: '美联储总资产',
+                  tga: 'TGA 余额',
+                  rrp: '隔夜逆回购',
+                };
+                return (
+                  <div
+                    key={key}
+                    className={`bg-card/60 rounded-xl border p-4 ${
+                      isHighlight
+                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        : 'border-border/40'
+                    }`}
+                  >
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {labels[key]}
+                    </p>
+                    <p className="text-xl font-bold font-data text-foreground tracking-tight">
+                      {formatValue(m.value, m.units)}
+                    </p>
+                    {hasChange && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span
+                          className={`text-xs font-data font-medium ${
+                            isPositive ? 'text-emerald-500' : 'text-red-500'
+                          }`}
+                        >
+                          {isPositive ? '+' : ''}
+                          {m.change!.toFixed(2)}%
+                        </span>
+                        {m.previous_date && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatCompareDateLabel(m.previous_date)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+            )}
           </div>
-        </div>
 
-        {/* Section explanation banner */}
+          {/* Net Liquidity historical chart */}
+          <NetLiquidityChart
+            height={400}
+            data={historyData}
+            loading={historyLoading}
+            error={historyError}
+            onRetry={onRetry}
+          />
+        </div>
+      </section>
+
+      {/* ---- Section 2: Balance Sheet ---- */}
+      <section className="relative">
+        <SectionHeader
+          number="02"
+          title="资产负债表"
+          subtitle="WALCL / TGA / RRP / 银行准备金"
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+        />
+
+        {/* Educational banner */}
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -679,7 +648,7 @@ function BalanceSheetDeepDive({
 
         {/* Metric panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {indicatorKeys.map((key) => (
+          {bsIndicatorKeys.map((key) => (
             <LiquidityMetricPanel
               key={key}
               indicatorKey={key}
@@ -689,71 +658,72 @@ function BalanceSheetDeepDive({
             />
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function FinancialConditionsDeepDive({
-  metrics,
-  loading,
-  theme,
-  interval,
-  timeRange,
-  onTimeRangeChange,
-}: {
-  metrics: LiquidityMetrics;
-  loading: boolean;
-  theme: 'light' | 'dark';
-  interval: string;
-  timeRange: string;
-  onTimeRangeChange: (range: string) => void;
-}) {
-  const { ref, isVisible } = useInView();
+      {/* ---- Section 3: M2 Money Supply ---- */}
+      <section className="relative">
+        <SectionHeader
+          number="03"
+          title="货币供应 M2"
+          subtitle="广义货币 / 信贷传导 / 实体经济流动性"
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+        />
 
-  return (
-    <section className="relative">
-      <div
-        ref={ref}
-        className={`relative transition-all duration-700 ease-out ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}
-      >
-        {/* Section header */}
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
-              03
-            </span>
-            <div className="pt-0.5 min-w-0">
-              <h2 className="text-lg font-editorial text-foreground tracking-tight mb-0.5">
-                金融条件详解
-              </h2>
-              <p className="text-xs text-muted-foreground tracking-wide">
-                SOFR / EFFR / NFCI
-              </p>
+        {/* Educational banner */}
+        <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Banknote className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
             </div>
-          </div>
-
-          {/* Time range selector */}
-          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range}
-                onClick={() => onTimeRangeChange(range)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                  timeRange === range
-                    ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {range}
-              </button>
-            ))}
+            <div>
+              <h3 className="text-base font-medium text-foreground mb-2">
+                这个板块看什么?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                前面两个板块讲的是美联储「水龙头」端的情况 &mdash; 放了多少水、留了多少在管道里。
+                这个板块讲的是水龙头流出的水最终有多少到了「水池」里,
+                也就是实体经济中实际流通的钱有多少。
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                <span className="text-emerald-500 font-medium">M2</span> = 现金 + 活期存款 + 储蓄存款 + 货币市场基金。
+                当美联储放水 (QE) 且银行积极放贷时,M2 增长;
+                当美联储缩表 (QT) 或银行收紧信贷时,M2 收缩。
+                2022 年 M2 出现了 1930 年代大萧条以来的首次同比下降,是当年股市下跌的重要驱动力。
+              </p>
+              <div className="mt-3 p-3 bg-muted/40 rounded-lg">
+                <p className="text-xs text-muted-foreground font-medium mb-1.5">传导链条</p>
+                <p className="text-xs text-muted-foreground font-data">
+                  美联储操作 (QE/QT) &rarr; 银行准备金 &rarr; 净流动性 &rarr;{' '}
+                  <span className="text-emerald-500 font-semibold">银行信贷 &rarr; M2 货币供应</span>
+                  {' '}&rarr; 金融条件
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Section explanation banner */}
+        <div className="grid grid-cols-1 gap-4">
+          <LiquidityMetricPanel
+            indicatorKey="usM2"
+            metric={EMPTY_METRIC}
+            theme={theme}
+            interval={interval}
+          />
+        </div>
+      </section>
+
+      {/* ---- Section 4: Financial Conditions ---- */}
+      <section className="relative">
+        <SectionHeader
+          number="04"
+          title="金融条件"
+          subtitle="SOFR / EFFR / NFCI"
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+        />
+
+        {/* Educational banner */}
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -764,7 +734,7 @@ function FinancialConditionsDeepDive({
                 这个板块看什么?
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                前面两个板块告诉你市场上有多少钱,这个板块告诉你借钱贵不贵、金融环境紧不紧:
+                前面三个板块告诉你市场上有多少钱,这个板块告诉你借钱贵不贵、金融环境紧不紧:
               </p>
               <ul className="text-sm text-muted-foreground leading-relaxed mt-2 space-y-1.5 list-none">
                 <li>
@@ -782,7 +752,6 @@ function FinancialConditionsDeepDive({
 
         {/* NFCI Gauge + Chart */}
         <div className="mb-5">
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <NFCIGauge value={metrics.nfci?.value ?? 0} loading={loading} />
             <div className="bg-card/60 rounded-xl border border-border/40 overflow-hidden">
@@ -812,14 +781,301 @@ function FinancialConditionsDeepDive({
             interval={interval}
           />
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
-// ============================================================================
-// Main Page
-// ============================================================================
+function GlobalMetricCard({
+  label,
+  metric,
+  highlighted,
+}: {
+  label: string;
+  metric: { value: number | null; change?: number | null; units?: string } | null;
+  highlighted?: boolean;
+}) {
+  const val = metric?.value ?? null;
+  const change = metric?.change ?? null;
+  const units = metric?.units ?? 'Billions of U.S. Dollars';
+  return (
+    <div
+      className={`bg-card/60 rounded-xl border p-4 ${
+        highlighted ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border/40'
+      }`}
+    >
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-xl font-bold font-data text-foreground tracking-tight">
+        {formatValue(val, units)}
+      </p>
+      {change != null && (
+        <span
+          className={`text-xs font-data font-medium ${
+            change >= 0 ? 'text-emerald-500' : 'text-red-500'
+          }`}
+        >
+          {change >= 0 ? '+' : ''}
+          {change.toFixed(2)}%
+        </span>
+      )}
+    </div>
+  );
+}
+
+function GlobalLiquidityDeepDive({
+  globalMetrics,
+  globalLoading,
+  globalHistoryData,
+  globalHistoryLoading,
+  globalHistoryError,
+  onRetryHistory,
+  timeRange,
+  onTimeRangeChange,
+  theme,
+}: {
+  globalMetrics: GlobalLiquidityMetrics | null;
+  globalLoading: boolean;
+  globalHistoryData: GlobalLiquidityHistoryObservation[];
+  globalHistoryLoading: boolean;
+  globalHistoryError: string | null;
+  onRetryHistory: () => void;
+  timeRange: string;
+  onTimeRangeChange: (range: string) => void;
+  theme: 'light' | 'dark';
+}) {
+  const { ref, isVisible } = useInView();
+
+  const toMetricProp = (m: GlobalLiquidityMetrics[keyof GlobalLiquidityMetrics] | undefined) =>
+    m && typeof m === 'object' && 'series_id' in m
+      ? {
+          series_id: m.series_id,
+          title: m.title,
+          value: m.value,
+          date: m.date,
+          units: m.units,
+          change: 'change' in m ? (m.change as number | null) : null,
+        }
+      : EMPTY_METRIC;
+
+  return (
+    <div className="space-y-10">
+      {/* ---- Section 1: Global M2 Overview ---- */}
+      <section className="relative">
+        <div
+          ref={ref}
+          className={`relative transition-all duration-700 ease-out ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}
+        >
+          <SectionHeader
+            number="01"
+            title="全球流动性指数"
+            subtitle="Fed + ECB + BOJ - TGA - RRP / 三大央行聚合"
+            timeRange={timeRange}
+            onTimeRangeChange={onTimeRangeChange}
+          />
+
+          {/* Educational banner */}
+          <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Globe className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+              </div>
+              <div>
+                <h3 className="text-base font-medium text-foreground mb-2">
+                  这个板块看什么?
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  衡量全球主要央行向市场注入的总流动性规模。
+                  指数越高,全球市场上的「钱」越多,对风险资产通常是利好。
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                  <code className="bg-muted px-2 py-1 rounded text-emerald-500">
+                    全球流动性 = Fed + ECB + BOJ - TGA - RRP
+                  </code>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Global Liquidity Index + component cards */}
+          {globalLoading && (
+            <div className="space-y-3">
+              {/* Prominent card skeleton */}
+              <div className="bg-card/60 rounded-xl border border-border/40 p-5 animate-pulse">
+                <div className="h-3 w-40 bg-muted rounded mb-3" />
+                <div className="h-9 w-28 bg-muted rounded mb-2" />
+                <div className="h-3 w-24 bg-muted rounded" />
+              </div>
+              {/* 3-col component breakdown skeleton */}
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="bg-card/60 rounded-xl border border-border/40 p-4 animate-pulse">
+                    <div className="h-3 w-16 bg-muted rounded mb-2" />
+                    <div className="h-7 w-20 bg-muted rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {globalMetrics && (
+            <div className="space-y-3 mb-5">
+              {/* Global Liquidity Index - prominent card */}
+              <div className="bg-card/60 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      全球流动性指数 (Global Liquidity Index)
+                    </p>
+                    <p className="text-3xl font-bold font-data text-foreground tracking-tight">
+                      {globalMetrics.global_liquidity?.value != null
+                        ? formatValue(globalMetrics.global_liquidity.value, 'Billions of U.S. Dollars')
+                        : 'N/A'}
+                    </p>
+                    {globalMetrics.global_liquidity?.date && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {globalMetrics.global_liquidity.date}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground leading-relaxed md:text-right md:max-w-xs">
+                    <p>
+                      三大央行 (Fed + ECB + BOJ) 资产负债表总和,
+                      减去 TGA 和 RRP 冻结资金,折算为美元。
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Component breakdown */}
+              <div className="grid grid-cols-3 gap-3">
+                <GlobalMetricCard label="美联储 (Fed) 总资产" metric={globalMetrics.fed_assets} />
+                <GlobalMetricCard label="欧洲央行 (ECB) 总资产" metric={globalMetrics.ecb_assets} />
+                <GlobalMetricCard label="日本央行 (BOJ) 总资产" metric={globalMetrics.boj_assets} />
+              </div>
+            </div>
+          )}
+
+          {/* Global Liquidity Index historical chart */}
+          <GlobalLiquidityChart
+            height={400}
+            data={globalHistoryData}
+            loading={globalHistoryLoading}
+            error={globalHistoryError}
+            onRetry={onRetryHistory}
+          />
+        </div>
+      </section>
+
+      {/* ---- Section 2: Japan ---- */}
+      <section className="relative">
+        <SectionHeader
+          number="02"
+          title="日本"
+          subtitle="日本央行 (BOJ) 总资产 / M2 货币供应 / USD/JPY"
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+        />
+
+        <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Layers className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            </div>
+            <div>
+              <h3 className="text-base font-medium text-foreground mb-2">
+                这个板块看什么?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                日本央行 (Bank of Japan, BOJ) 长期实施超宽松货币政策,资产负债表规模相对于 GDP 全球最高。
+                BOJ 的政策转向 (如调整 YCC、加息) 对全球套利交易 (Carry Trade) 和资本流动有巨大影响 &mdash;
+                2024 年日元套利交易平仓就曾引发全球股市剧烈波动。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <LiquidityMetricPanel
+            indicatorKey="bojAssets"
+            metric={toMetricProp(globalMetrics?.boj_assets)}
+            theme={theme}
+            interval="M"
+            range="60M"
+          />
+          <LiquidityMetricPanel
+            indicatorKey="japanM2"
+            metric={EMPTY_METRIC}
+            theme={theme}
+            interval="M"
+            range="60M"
+          />
+          <LiquidityMetricPanel
+            indicatorKey="usdjpy"
+            metric={EMPTY_METRIC}
+            theme={theme}
+            interval="D"
+            range="12M"
+          />
+        </div>
+      </section>
+
+      {/* ---- Section 3: Europe ---- */}
+      <section className="relative">
+        <SectionHeader
+          number="03"
+          title="欧洲"
+          subtitle="欧洲央行 (ECB) 总资产 / 欧元区 M2 / EUR/USD"
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+        />
+
+        <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Layers className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            </div>
+            <div>
+              <h3 className="text-base font-medium text-foreground mb-2">
+                这个板块看什么?
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                欧洲央行 (European Central Bank, ECB) 通过资产购买计划 (APP/PEPP) 向欧元区注入流动性。
+                ECB 的缩表节奏和利率决策直接影响欧元区信贷环境,并通过汇率渠道影响全球资本流动。
+                欧元区 M2 增速放缓通常伴随信贷紧缩和经济放缓。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <LiquidityMetricPanel
+            indicatorKey="ecbAssets"
+            metric={toMetricProp(globalMetrics?.ecb_assets)}
+            theme={theme}
+            interval="M"
+            range="60M"
+          />
+          <LiquidityMetricPanel
+            indicatorKey="euroM2"
+            metric={EMPTY_METRIC}
+            theme={theme}
+            interval="M"
+            range="60M"
+          />
+          <LiquidityMetricPanel
+            indicatorKey="eurusd"
+            metric={EMPTY_METRIC}
+            theme={theme}
+            interval="D"
+            range="12M"
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
 
 export default function LiquidityPage() {
   const [timeRange, setTimeRange] = useState<
@@ -835,7 +1091,7 @@ export default function LiquidityPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   // Tab state
-  const [selectedTab, setSelectedTab] = useState<TabId>('net_liquidity');
+  const [selectedTab, setSelectedTab] = useState<TabId>('us_liquidity');
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Weekly report state
@@ -844,6 +1100,14 @@ export default function LiquidityPage() {
 
   // Whether FRED data source is temporarily unavailable
   const [dataUnavailable, setDataUnavailable] = useState(false);
+
+  // Global liquidity state
+  const [globalMetrics, setGlobalMetrics] = useState<GlobalLiquidityMetrics | null>(null);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalHistoryData, setGlobalHistoryData] = useState<GlobalLiquidityHistoryObservation[]>([]);
+  const [globalHistoryLoading, setGlobalHistoryLoading] = useState(false);
+  const [globalHistoryError, setGlobalHistoryError] = useState<string | null>(null);
+  const globalFetchedRef = useRef(false);
 
   const fetchData = useCallback(async (bypassCache = false) => {
     if (bypassCache) invalidateCache('liquidity-history-365');
@@ -858,11 +1122,9 @@ export default function LiquidityPage() {
         if (response.data.metrics) {
           setMetrics(response.data.metrics);
         } else {
-          // FRED API unavailable - use empty metrics so page still renders
           setMetrics(EMPTY_METRICS);
           setDataUnavailable(true);
         }
-        // Check if observations are empty (partial data)
         if (!response.data.observations || response.data.observations.length === 0) {
           setDataUnavailable(true);
           if (!response.data.metrics) {
@@ -871,7 +1133,6 @@ export default function LiquidityPage() {
         }
       }
     } catch (err) {
-      // Even on full failure, set empty metrics so TradingView charts still render
       setMetrics(EMPTY_METRICS);
       setDataUnavailable(true);
       console.error('Error fetching liquidity data:', err);
@@ -880,8 +1141,46 @@ export default function LiquidityPage() {
     }
   }, []);
 
+  const fetchGlobalData = useCallback(async () => {
+    if (globalFetchedRef.current) return;
+    globalFetchedRef.current = true;
+    setGlobalLoading(true);
+    setGlobalHistoryLoading(true);
+    setGlobalHistoryError(null);
+    try {
+      const [metricsResult, historyResult] = await Promise.allSettled([
+        api.getGlobalLiquidity(),
+        api.getGlobalLiquidityHistory(365),
+      ]);
+      if (metricsResult.status === 'fulfilled') {
+        const metricsRes = metricsResult.value;
+        if (metricsRes.success && metricsRes.data) {
+          setGlobalMetrics(metricsRes.data);
+        }
+      } else {
+        console.error('Error fetching global metrics:', metricsResult.reason);
+      }
+      if (historyResult.status === 'fulfilled') {
+        const historyRes = historyResult.value;
+        if (historyRes.success && historyRes.data) {
+          setGlobalHistoryData(historyRes.data.observations);
+        }
+      } else {
+        console.error('Error fetching global history:', historyResult.reason);
+        setGlobalHistoryError('Failed to load global liquidity history');
+      }
+    } catch (err) {
+      console.error('Error fetching global liquidity:', err);
+      setGlobalHistoryError('Failed to load global liquidity history');
+    } finally {
+      setGlobalLoading(false);
+      setGlobalHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
+    fetchGlobalData();
     api.weeklyReport
       .getLatest()
       .then((res) => {
@@ -889,24 +1188,12 @@ export default function LiquidityPage() {
       })
       .catch(() => {})
       .finally(() => setWeeklyLoading(false));
-  }, [fetchData]);
+  }, [fetchData, fetchGlobalData]);
 
-  const getInterval = () => {
-    switch (timeRange) {
-      case '1M':
-        return 'D';
-      case '3M':
-        return 'D';
-      case '6M':
-        return 'W';
-      case '1Y':
-        return 'W';
-      case 'ALL':
-        return 'M';
-      default:
-        return 'W';
-    }
+  const INTERVAL_MAP: Record<string, string> = {
+    '1M': 'D', '3M': 'D', '6M': 'W', '1Y': 'W', 'ALL': 'M',
   };
+  const getInterval = () => INTERVAL_MAP[timeRange] ?? 'W';
 
   const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -925,6 +1212,35 @@ export default function LiquidityPage() {
       setSelectedTab(tabId);
       setIsTransitioning(false);
     }, 200);
+  };
+
+  // Build hero card data for each tab
+  const getHeroProps = (tabId: TabId) => {
+    if (tabId === 'us_liquidity') {
+      const primary = metrics?.net_liquidity ?? EMPTY_METRIC;
+      const secondary = metrics?.sofr ?? EMPTY_METRIC;
+      return {
+        primaryLabel: 'WALCL - TGA - RRP',
+        primaryFormatted: formatValue(primary.value, primary.units),
+        secondaryLabel: 'SOFR',
+        secondaryFormatted: secondary.value !== null ? `${secondary.value.toFixed(2)}%` : 'N/A',
+        accentColor: interpretChange(primary.change),
+      };
+    }
+    // global_liquidity — show Global Liquidity Index as primary
+    const glIndex = globalMetrics?.global_liquidity;
+    const secondary = globalMetrics?.ecb_assets;
+    return {
+      primaryLabel: 'Fed + ECB + BOJ - TGA - RRP',
+      primaryFormatted: glIndex?.value != null
+        ? formatValue(glIndex.value, 'Billions of U.S. Dollars')
+        : globalLoading ? '...' : 'N/A',
+      secondaryLabel: '欧洲央行 (ECB) 总资产',
+      secondaryFormatted: secondary?.value != null
+        ? formatValue(secondary.value, 'Billions of U.S. Dollars')
+        : 'N/A',
+      accentColor: glIndex?.value != null ? 'emerald' : 'amber',
+    };
   };
 
   return (
@@ -965,22 +1281,24 @@ export default function LiquidityPage() {
       )}
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-8">
-        {/* Hero Section: 3 big-number cards (tabs) */}
+        {/* Hero Section: 2 big-number cards (tabs) */}
         <section>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {loading
-              ? [0, 1, 2].map((i) => <HeroCardSkeleton key={i} index={i} />)
-              : metrics &&
-                TAB_ORDER.map((tabId, i) => (
-                  <LiquidityHeroCard
-                    key={tabId}
-                    tabId={tabId}
-                    metrics={metrics}
-                    index={i}
-                    selected={selectedTab === tabId}
-                    onSelect={() => handleTabSelect(tabId)}
-                  />
-                ))}
+              ? [0, 1].map((i) => <HeroCardSkeleton key={i} index={i} />)
+              : TAB_ORDER.map((tabId, i) => {
+                  const heroProps = getHeroProps(tabId);
+                  return (
+                    <LiquidityHeroCard
+                      key={tabId}
+                      tabId={tabId}
+                      {...heroProps}
+                      index={i}
+                      selected={selectedTab === tabId}
+                      onSelect={() => handleTabSelect(tabId)}
+                    />
+                  );
+                })}
           </div>
         </section>
 
@@ -994,52 +1312,48 @@ export default function LiquidityPage() {
         />
 
         {/* Deep Dive: Selected tab content */}
-        {metrics && (
-          <div
-            className={`transition-all duration-300 ease-out ${
-              isTransitioning
-                ? 'opacity-0 translate-y-4'
-                : 'opacity-100 translate-y-0'
-            }`}
-          >
-            {selectedTab === 'net_liquidity' && (
-              <NetLiquidityDeepDive
-                metrics={metrics}
-                historyData={historyData}
-                historyLoading={loading}
-                historyError={error}
-                onRetry={fetchData}
-                timeRange={timeRange}
-                onTimeRangeChange={(r) =>
-                  setTimeRange(r as typeof timeRange)
-                }
-              />
-            )}
-            {selectedTab === 'balance_sheet' && (
-              <BalanceSheetDeepDive
-                metrics={metrics}
-                theme={theme}
-                interval={getInterval()}
-                timeRange={timeRange}
-                onTimeRangeChange={(r) =>
-                  setTimeRange(r as typeof timeRange)
-                }
-              />
-            )}
-            {selectedTab === 'financial_conditions' && (
-              <FinancialConditionsDeepDive
-                metrics={metrics}
-                loading={loading}
-                theme={theme}
-                interval={getInterval()}
-                timeRange={timeRange}
-                onTimeRangeChange={(r) =>
-                  setTimeRange(r as typeof timeRange)
-                }
-              />
-            )}
-          </div>
-        )}
+        <div
+          className={`transition-all duration-300 ease-out ${
+            isTransitioning
+              ? 'opacity-0 translate-y-4'
+              : 'opacity-100 translate-y-0'
+          }`}
+        >
+          {selectedTab === 'us_liquidity' && metrics && (
+            <USLiquidityDeepDive
+              metrics={metrics}
+              historyData={historyData}
+              historyLoading={loading}
+              historyError={error}
+              onRetry={fetchData}
+              timeRange={timeRange}
+              onTimeRangeChange={(r) =>
+                setTimeRange(r as typeof timeRange)
+              }
+              theme={theme}
+              interval={getInterval()}
+              loading={loading}
+            />
+          )}
+          {selectedTab === 'global_liquidity' && (
+            <GlobalLiquidityDeepDive
+              globalMetrics={globalMetrics}
+              globalLoading={globalLoading}
+              globalHistoryData={globalHistoryData}
+              globalHistoryLoading={globalHistoryLoading}
+              globalHistoryError={globalHistoryError}
+              onRetryHistory={() => {
+                globalFetchedRef.current = false;
+                fetchGlobalData();
+              }}
+              timeRange={timeRange}
+              onTimeRangeChange={(r) =>
+                setTimeRange(r as typeof timeRange)
+              }
+              theme={theme}
+            />
+          )}
+        </div>
 
         {/* Footer */}
         <section className="text-center py-4">

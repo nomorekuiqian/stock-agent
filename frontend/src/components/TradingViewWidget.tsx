@@ -7,6 +7,7 @@ interface TradingViewWidgetProps {
   title?: string;
   height?: number;
   interval?: string;
+  range?: string;
   theme?: 'light' | 'dark';
   showToolbar?: boolean;
 }
@@ -16,11 +17,11 @@ function TradingViewWidgetComponent({
   title,
   height = 300,
   interval = 'W',
+  range,
   theme = 'dark',
   showToolbar = false,
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scriptRef = useRef<HTMLScriptElement | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -40,7 +41,7 @@ function TradingViewWidgetComponent({
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
     script.type = 'text/javascript';
     script.async = true;
-    script.innerHTML = JSON.stringify({
+    const config: Record<string, unknown> = {
       autosize: false,
       width: '100%',
       height: height,
@@ -55,15 +56,18 @@ function TradingViewWidgetComponent({
       save_image: false,
       hide_volume: true,
       support_host: 'https://www.tradingview.com',
-    });
+    };
+    if (range) {
+      config.range = range;
+    }
+    script.innerHTML = JSON.stringify(config);
 
     container.appendChild(script);
-    scriptRef.current = script;
 
     return () => {
       container.innerHTML = '';
     };
-  }, [symbol, height, interval, theme, showToolbar]);
+  }, [symbol, height, interval, range, theme, showToolbar]);
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
