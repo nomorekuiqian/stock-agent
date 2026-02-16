@@ -155,11 +155,43 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
   }
 }
 
+async function recoverSessionFromCookies(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/session');
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    if (data.authenticated && data.accessToken) {
+      insforge.getHttpClient().setAuthToken(data.accessToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const sessionResult = await insforge.auth.getCurrentSession();
     const sessionData = sessionResult?.data;
+
+    // If SDK has no session, try recovering from httpOnly cookies
     if (!sessionData?.session) {
+      const recovered = await recoverSessionFromCookies();
+      if (!recovered) {
+        return null;
+      }
+      // Cookie recovery set the auth token; extract user from session
+      const retryResult = await insforge.auth.getCurrentSession();
+      const retryData = retryResult?.data;
+      if (retryData?.session?.user) {
+        return {
+          id: retryData.session.user.id,
+          email: retryData.session.user.email || '',
+          name: retryData.session.user.profile?.name,
+        };
+      }
       return null;
     }
 
@@ -167,14 +199,22 @@ export async function getCurrentUser(): Promise<User | null> {
       insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
     }
 
-    const { data, error } = await insforge.auth.getCurrentUser();
-
-    if (error || !data?.user) {
+    // Use session user directly if available (avoids extra remote call)
+    if (sessionData.session.user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const u = sessionData.session.user as any;
       return {
-        id: sessionData.session.user.id,
-        email: sessionData.session.user.email || '',
-        name: sessionData.session.user.profile?.name,
+        id: u.id,
+        email: u.email || '',
+        name: u.profile?.name,
+        avatarUrl: u.profile?.avatar_url,
       };
+    }
+
+    // Fallback: fetch user from API
+    const { data, error } = await insforge.auth.getCurrentUser();
+    if (error || !data?.user) {
+      return null;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,6 +240,11 @@ export async function getSession() {
   } catch {
     return null;
   }
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  const result = await insforge.auth.getCurrentSession();
+  return result?.data?.session?.accessToken || null;
 }
 
 // =============================================================================

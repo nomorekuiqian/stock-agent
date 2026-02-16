@@ -3,9 +3,11 @@
 import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export function NavAuth() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
+  const { isPro, openBillingPortal } = useSubscription();
   const [isOpen, setIsOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -41,10 +43,19 @@ export function NavAuth() {
         onMouseLeave={handleMouseLeave}
       >
         {/* Avatar Button */}
-        <button className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border border-emerald-500/30 flex items-center justify-center transition-all duration-200 group-hover:border-emerald-500/50 group-hover:shadow-lg group-hover:shadow-emerald-500/10">
-            <span className="text-xs font-semibold text-emerald-400">{initials}</span>
+        <button className="flex items-center gap-2 group relative">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 group-hover:shadow-lg ${
+            isPro
+              ? 'bg-gradient-to-br from-amber-500/30 to-emerald-500/30 border border-amber-400/50 group-hover:border-amber-400/70 group-hover:shadow-amber-500/10'
+              : 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border border-emerald-500/30 group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/10'
+          }`}>
+            <span className={`text-xs font-semibold ${isPro ? 'text-amber-400' : 'text-emerald-400'}`}>{initials}</span>
           </div>
+          {isPro && (
+            <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-[8px] font-bold tracking-wider bg-amber-500 text-black leading-none">
+              PRO
+            </span>
+          )}
         </button>
 
         {/* Dropdown */}
@@ -55,12 +66,19 @@ export function NavAuth() {
               : 'opacity-0 invisible -translate-y-1'
           }`}
         >
-          <div className="min-w-[200px] py-3 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/10">
+          <div className="min-w-[220px] py-3 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/10">
             {/* User Info */}
             <div className="px-4 pb-3 border-b border-border/50">
-              <p className="text-sm font-medium text-foreground truncate">
-                {user.name || 'User'}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {user.name || 'User'}
+                </p>
+                {isPro && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
+                    PRO
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {user.email}
               </p>
@@ -77,6 +95,32 @@ export function NavAuth() {
                 </svg>
                 我的专属
               </Link>
+
+              {isPro ? (
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    openBillingPortal();
+                  }}
+                  className="flex items-center gap-3 mx-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors w-[calc(100%-16px)]"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                  订阅管理
+                </button>
+              ) : (
+                <Link
+                  href="/for-you"
+                  className="flex items-center gap-3 mx-2 px-3 py-2 rounded-lg text-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Upgrade to Pro
+                </Link>
+              )}
+
               <button
                 onClick={() => {
                   setIsOpen(false);

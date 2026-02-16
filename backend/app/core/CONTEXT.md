@@ -1,0 +1,93 @@
+# Core - 核心基础设施
+
+## 功能概述
+
+提供全局配置、数据库连接和依赖注入三个基础服务，被所有 feature 模块依赖。
+
+## 核心文件
+
+### config.py — 环境变量配置
+
+**API Keys** (全部可选，默认空字符串):
+| 变量 | 用途 |
+|------|------|
+| `GOOGLE_API_KEY` | Google ADK (市场/个股 Agent) |
+| `FMP_API_KEY` | Financial Modeling Prep (新闻/利率/日历) |
+| `OPENAI_API_KEY` | OpenAI (流动性分析, 已弃用) |
+| `FRED_API_KEY` | FRED (流动性/宏观指标) |
+| `RESEND_API_KEY` | Resend (邮件服务) |
+
+**安全**:
+| 变量 | 用途 |
+|------|------|
+| `CRON_SECRET` | 定时任务/管理端点认证 |
+
+**URL**:
+| 变量 | 默认值 | 用途 |
+|------|--------|------|
+| `FRONTEND_URL` | `http://localhost:3000` | 前端地址 (CORS + 邮件链接) |
+| `INSFORGE_BASE_URL` | `https://9wmhxyi4.us-east.insforge.app` | Insforge 数据库 |
+
+**其他配置**:
+- `STOCK_ANALYSIS_CACHE_HOURS = 168` (7 天)
+- CORS: 自动包含 localhost:3000、localhost:3001 + FRONTEND_URL
+- 自动设置 `GOOGLE_GENAI_API_KEY` 环境变量 (google-genai 库需要)
+
+### database.py — Insforge HTTP 客户端
+
+**InsforgeService 类**:
+- 封装 Insforge Edge Function 的 HTTP 调用
+- `httpx.AsyncClient` 连接池 (lazy init, 复用)
+- 30 秒默认超时
+- 自动过滤 None 参数
+
+**核心方法**:
+| 方法 | 说明 |
+|------|------|
+| `function_url(name)` | 构建完整 URL: `{base_url}/functions/{name}` |
+| `call_function(name, method, params, json, timeout)` | 通用 HTTP 调用 (GET/POST/DELETE) |
+| `close()` | 关闭连接池 (应用关闭时调用) |
+
+**单例模式**: `get_insforge_service()` 全局唯一实例
+
+**各 feature 模块的 db.py 使用方式**:
+```python
+from app.core.database import get_insforge_service
+service = get_insforge_service()
+url = service.function_url("market-reports")
+# 然后用 httpx 直接调用，或用 service.call_function()
+```
+
+### deps.py — FastAPI 依赖注入
+
+**verify_cron_secret()**:
+- 从 `X-Cron-Secret` Header 提取认证令牌
+- 使用 `hmac.compare_digest()` 常量时间比较 (防时序攻击)
+- 验证失败返回 401
+
+**使用方式**:
+```python
+@router.post("/generate", dependencies=[Depends(verify_cron_secret)])
+async def generate(): ...
+```
+
+## 架构关系
+
+```
+config.py (环境变量)
+    |
+    +-- database.py (InsforgeService 单例)
+    |       |
+    |       +-- 所有 feature/db.py 使用
+    |
+    +-- deps.py (verify_cron_secret)
+            |
+            +-- 所有需要认证的 router 使用
+```
+
+## 注意事项
+
+- InsforgeService 的 httpx client 是 lazy init，首次调用时创建
+- Timeout 异常会被捕获并返回 408 状态码，不会抛异常
+- CORS origins 列表会动态包含 FRONTEND_URL（如果配置了）
+- config.py 在模块加载时执行 `load_dotenv()`，确保 .env 文件被读取

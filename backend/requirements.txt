@@ -10,4 +10,5 @@ pytest
 python-dotenv
 resend==2.19.0
 uvicorn
+stripe
 yfinance

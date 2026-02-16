@@ -1,0 +1,142 @@
+# Macro Risk - 宏观风险评估
+
+## 功能概述
+
+宏观风险仪表盘，将 30+ 个 FRED 经济指标聚合为 4 个风险维度，计算 0-10 的加权风险评分。提供经济基本面、通胀利率、市场情绪、国债商品等多个子页面的数据。是前端 macro dashboard 的主要数据提供方。
+
+## API 端点
+
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/macro-risk/dashboard` | GET | 完整仪表盘 (4 维度 + 综合评分 + AI 股票 + 流动性) | 无 |
+| `/api/macro-risk/economy` | GET | 经济基本面 (增长/就业/信用 3 子维度) | 无 |
+| `/api/macro-risk/inflation-rates` | GET | 通胀与利率 (通胀/利率 2 子维度) | 无 |
+| `/api/macro-risk/sentiment` | GET | 市场情绪 (CNN 恐贪 + VIX + 广度) | 无 |
+| `/api/macro-risk/cpi-breakdown` | GET | CPI 5 大组件拆解 (YoY% + MoM%) | 无 |
+| `/api/macro-risk/treasury-commodities` | GET | 国债曲线 + 商品 + 美元 | 无 |
+| `/api/macro-risk/history/{series_id}` | GET | FRED 指标历史数据 (图表用) | 无 |
+| `/api/macro-risk/sentiment/history/{symbol}` | GET | VIX/VVIX/SKEW 历史 OHLCV | 无 |
+| `/api/macro-risk/commodity/history/{symbol}` | GET | 商品历史 OHLCV | 无 |
+
+## 数据流
+
+```
+GET /api/macro-risk/dashboard
+  |
+  +-- service.get_macro_risk_dashboard()
+  |   +-- L1: 检查内存缓存 (10min TTL)
+  |   +-- L2: 检查 DB 缓存 (macro_cache try_db_cache)
+  |   +-- L3: 全新获取 FRED + FMP + yfinance
+  |
+  +-- 获取 30+ FRED 指标 (asyncio.gather)
+  +-- _score_indicator() 映射为 0-10 风险分
+  +-- 加权计算 4 个维度分数
+  +-- 综合评分 = 4 维度平均
+  +-- 缓存结果 (内存 + DB)
+  +-- 返回 MacroRiskDashboard
+```
+
+## 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `router.py` | 9 个 GET 端点、series_id/symbol 白名单校验 |
+| `service.py` | 核心逻辑 — 三层缓存、FRED 数据获取、风险评分、请求合并 (最复杂) |
+| `models.py` | MacroRiskDashboard、EconomicFundamentals、CpiBreakdown 等 Pydantic 模型 |
+
+## 依赖关系
+
+**数据源**:
+- `liquidity/fred_service.py` — get_latest_value(), fetch_fred_series(), get_all_liquidity_metrics()
+- `shared/fmp_service.py` — 国债利率、商品报价
+- `shared/yfinance_service.py` — DXY 美元指数、VIX/VVIX/SKEW 历史
+- CNN Fear & Greed API — 恐贪指数
+
+**缓存层**: `macro_cache/db.py` — try_db_cache() 作为 L2
+
+**被依赖**:
+- `weekly_report/data_collector.py` — 调用 dashboard/economy/inflation/sentiment
+- `macro_cache/refresher.py` — 定时刷新时调用
+
+**数据库**: 不直接写表，通过 macro_cache 系统缓存
+
+## 关键业务逻辑
+
+### 风险评分体系
+
+```python
+_score_indicator(value, low_max, mid_max, invert=False) -> 0-10
+```
+- 0-3: 低风险 (绿色)
+- 4-6: 中等风险 (黄色)
+- 7-10: 高风险 (红色)
+
+### Dashboard 4 大维度 (各 25% 权重)
+
+**1. 经济恶化风险**
+- 衰退概率 (35%): RECPROUSM156N
+- 收益率曲线 (30%): T10Y2Y（倒挂=高风险, invert=True）
+- CFNAI (20%): 芝加哥联储活动指数
+- 消费者信心 (15%): UMCSENT（invert=True, 高=低风险）
+
+**2. 信用/违约风险**
+- 高收益 OAS (40%): BAMLH0A0HYM2
+- BBB 利差 (25%): BAMLC0A4CBBB
+- 商业地产拖欠率 (20%): DRCRELEXFACBS
+- 企业贷款拖欠率 (15%): DRBLACBS
+
+**3. 就业风险**
+- Sahm 规则 (35%): SAHMREALTIME
+- 失业率 (25%): UNRATE
+- 初请失业金 (25%): ICSA
+- 非农就业 (15%): PAYEMS（invert=True）
+
+**4. AI 公司健康度**
+- AI 股票篮子日涨跌 (60%): NVDA, MSFT, GOOGL, META, AMD, AVGO, TSM, SMCI, ARM, PLTR
+- 市场广度 (40%)
+
+### 经济基本面 3 子维度
+- **增长** (35%): GDP、衰退概率、CFNAI、零售销售、工业产出、消费者信心
+- **就业** (35%): 失业率、非农、初请、Sahm 规则、续请
+- **信用** (30%): 高收益 OAS、收益率曲线、商业地产拖欠、BBB 利差、企业贷款拖欠
+
+### 通胀与利率 2 子维度
+- **通胀** (60%): CPI、核心 PCE、5 年通胀预期、密歇根通胀预期
+  - CPI/PCE 使用 MoM% 变化的阈值评分，非绝对值
+- **利率** (40%): 联邦基金利率、10Y 国债、10Y 实际利率
+
+### CPI 拆解 5 组件
+CPI 总体、核心 CPI、住房、食品、能源 — 各提供 YoY% 和 MoM%
+
+### 市场情绪
+- **CNN 恐贪指数**: 7 个子指标（股价强度、广度、看跌看涨比、动量、垃圾债、波动率、避险资产）
+- **波动率**: VIX、VVIX、SKEW
+- **广度与期权**: 100 只股票篮子
+
+### 三层缓存 + 请求合并
+```python
+_caches = {
+    "dashboard": {},      # 10min TTL
+    "economy": {},        # 10min TTL
+    "inflation": {},      # 10min TTL
+    "sentiment": {},      # 10min TTL
+    "treasury_rates": {}, # 10min TTL
+    "commodities_realtime": {},  # 2min TTL (实时)
+}
+_locks = {}  # asyncio.Lock 请求合并
+```
+- 多个并发请求到同一端点，只有第一个会实际调用 FRED，其余等待结果
+- 内存 -> macro_cache DB -> FRED API 三层回退
+
+### 安全白名单
+- `/history/{series_id}`: 只允许 dashboard 使用的 FRED 系列
+- `/sentiment/history/{symbol}`: 只允许 VIX, VVIX, SKEW
+- `/commodity/history/{symbol}`: 只允许 GOLD, SILVER, OIL, DXY, COPPER
+
+## 注意事项
+
+- 这是读多写少的模块，数据主要由 macro_cache 定时刷新写入，本模块只做读取和计算
+- CNN Fear & Greed 数据源是直接 HTTP 调用 CNN 的 JSON API，无官方 SDK
+- 国债利率和商品使用不同的缓存 TTL（国债 10min，商品 2min）
+- 所有端点的错误都会返回 `{"detail": "Failed to fetch [resource]"}` + 500
+- service.py 是全模块最复杂的文件，包含 30+ 个 FRED 系列配置和全部评分逻辑

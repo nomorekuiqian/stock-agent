@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import { StockPriceChart } from '@/components/StockPriceChart';
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 // =============================================================================
 // Types
@@ -1016,7 +1017,9 @@ function AIAnalysisSection({
   companyName,
   symbol,
   isAuthenticated,
-  onLoginRequired
+  isPro,
+  onLoginRequired,
+  onUpgradeRequired
 }: {
   analysis: StockAIAnalysis | null;
   loading: boolean;
@@ -1025,12 +1028,18 @@ function AIAnalysisSection({
   companyName: string;
   symbol: string;
   isAuthenticated: boolean;
+  isPro: boolean;
   onLoginRequired: () => void;
+  onUpgradeRequired: () => void;
 }) {
-  // Handle generate click - check auth first
+  // Handle generate click - check auth and pro status
   const handleGenerateClick = () => {
     if (!isAuthenticated) {
       onLoginRequired();
+      return;
+    }
+    if (!isPro) {
+      onUpgradeRequired();
       return;
     }
     onGenerate();
@@ -1059,25 +1068,37 @@ function AIAnalysisSection({
                 onClick={handleGenerateClick}
                 className="group inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all hover:opacity-90"
               >
-                {isAuthenticated ? (
-                  <>
-                    <span>Generate Analysis</span>
-                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </>
-                ) : (
+                {!isAuthenticated ? (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                     <span>Sign in to Analyze</span>
                   </>
+                ) : !isPro ? (
+                  <>
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    <span>Upgrade to Pro</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Generate Analysis</span>
+                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </>
                 )}
               </button>
               {!isAuthenticated && (
                 <p className="mt-4 text-xs text-muted-foreground">
                   AI Analysis is available for registered users
+                </p>
+              )}
+              {isAuthenticated && !isPro && (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  AI Analysis is a Pro feature
                 </p>
               )}
             </div>
@@ -1255,6 +1276,7 @@ export default function StockPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
+  const { isPro, createCheckout } = useSubscription();
   const symbol = (params.symbol as string)?.toUpperCase();
 
   // Progressive loading states
@@ -1509,7 +1531,9 @@ export default function StockPage() {
             companyName={profile?.company_name || symbol}
             symbol={symbol}
             isAuthenticated={isAuthenticated}
+            isPro={isPro}
             onLoginRequired={handleLoginRequired}
+            onUpgradeRequired={createCheckout}
           />
         </section>
 

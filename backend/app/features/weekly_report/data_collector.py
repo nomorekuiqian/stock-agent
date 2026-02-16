@@ -29,9 +29,12 @@ from app.features.weekly_report.models import (
 
 
 MARKET_INDICES = {
-    "SPY": "S&P 500",
-    "QQQ": "Nasdaq 100",
-    "DIA": "Dow Jones",
+    "^GSPC": "S&P 500",
+    "^IXIC": "Nasdaq Composite",
+    "^VIX": "VIX",
+    "GC=F": "Gold",
+    "DX-Y.NYB": "US Dollar Index",
+    "^TNX": "10Y Treasury",
 }
 
 SECTOR_ETFS = {
@@ -90,6 +93,7 @@ def _fetch_weekly_performance() -> MarketPerformance:
                 return {
                     "symbol": symbol,
                     "weekly_change": round(float(weekly_change), 2),
+                    "weekly_change_abs": round(float(last_close - first_close), 4),
                     "last_close": round(float(last_close), 2),
                 }
             except Exception:

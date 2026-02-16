@@ -1,11 +1,11 @@
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Macro Dashboard - TheMarketBrew',
-  description:
-    'Monitor liquidity, economic fundamentals, inflation, and market sentiment in one place.',
-};
+import PaywallGuard from '@/components/PaywallGuard';
 
 export default function MacroLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <PaywallGuard>
+      {children}
+    </PaywallGuard>
+  );
 }

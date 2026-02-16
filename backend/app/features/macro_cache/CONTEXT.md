@@ -1,0 +1,128 @@
+# Macro Cache - 宏观数据缓存系统
+
+## 功能概述
+
+三层分级缓存系统，将频繁访问的宏观经济数据（FRED、FMP、计算指标）按更新频率分为三个层级定时刷新。提供给其他模块（macro_risk、weekly_report、liquidity）作为数据中间层使用，减少外部 API 调用并加速 dashboard 响应。
+
+## API 端点
+
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/macro-cache/refresh?tier=1\|2\|3\|all` | POST | 触发缓存刷新 | X-Cron-Secret |
+| `/api/macro-cache/status` | GET | 查看所有缓存条目状态 | 无 |
+
+## 数据流
+
+```
+[Cron Job] -> POST /api/macro-cache/refresh?tier=X
+  |
+  +-- verify_cron_secret
+  +-- 根据 tier 路由到 refresher.py:
+  |   +-- Tier 1: 获取 FRED/FMP 实时数据
+  |   +-- Tier 2: 基于 Tier 1 计算聚合指标
+  |   +-- Tier 3: 获取长历史数据
+  |
+  +-- _safe_set() -> db.set_cached()
+  |   +-- Edge Function: POST ?action=upsert
+  |   +-- 写入 Insforge macro_data_cache 表
+  |
+  +-- 返回刷新结果摘要 (如 "24/25 keys refreshed")
+
+[读取方] -> try_db_cache("macro:dashboard")
+  |
+  +-- db.get_cached(key)
+  +-- is_cache_valid(row) 检查过期
+  +-- 返回 (data, is_valid) 元组
+```
+
+## 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `router.py` | 2 个端点、tier 路由、刷新结果统计 |
+| `refresher.py` | 三层刷新逻辑、TTL 配置、安全写入、错误记录 |
+| `db.py` | 缓存 CRUD (get/set/batch_get/status/try_db_cache) |
+
+**Edge Function**: `macro-data-cache.js` (Insforge Deno 运行时)
+
+## 依赖关系
+
+**数据源** (refresher.py 调用):
+- `liquidity/fred_service.py` — FRED 流动性指标
+- `liquidity/global_service.py` — 全球流动性指数
+- `macro_risk/service.py` — dashboard、economy、inflation、sentiment
+- `shared/fmp_service.py` — 国债利率
+
+**被依赖** (其他模块调用 db.py):
+- `macro_risk/service.py` — try_db_cache() 作为 L2 缓存
+- `weekly_report/data_collector.py` — 读取 liquidity_percentiles
+- `liquidity/fred_service.py` — try_db_cache() 作为持久缓存
+
+**数据库表**: `macro_data_cache`
+
+## 关键业务逻辑
+
+### 三层刷新策略
+
+| 层级 | 刷新周期 | TTL | 数据内容 |
+|------|----------|-----|----------|
+| Tier 1 | ~4h | 5h | 实时数据: FRED 流动性指标、国债利率、市场情绪 |
+| Tier 2 | ~12h | 14h | 计算指标: dashboard、economy、inflation、CPI、全球流动性、百分位 |
+| Tier 3 | ~24h | 26h | 历史数据: 365 天流动性历史、全球流动性历史 |
+
+TTL 有意设置为刷新周期的 1.2-1.3 倍，确保下次刷新前数据不过期。
+
+### 缓存键命名规范
+
+格式: `{source}:{entity}`
+
+| 键 | 层级 | 数据源 |
+|----|------|--------|
+| `fred:liquidity_metrics` | T1 | FRED API |
+| `macro:treasury_rates` | T1 | FMP API |
+| `macro:sentiment` | T1 | CNN + VIX + 广度 |
+| `macro:dashboard` | T2 | 计算 (基于 T1) |
+| `macro:economy` | T2 | 计算 (基于 T1) |
+| `macro:inflation_rates` | T2 | 计算 (基于 T1) |
+| `fred:cpi_breakdown` | T2 | FRED API |
+| `macro:liquidity_percentiles` | T2 | 计算 (基于 T3 历史) |
+| `fred:global_liquidity` | T2 | FRED API |
+| `fred:liquidity_history` | T3 | FRED API |
+| `fred:global_liquidity_history` | T3 | FRED API |
+
+### 缓存行结构
+```python
+{
+  "data_key": "fred:liquidity_metrics",
+  "data": {},              # JSON 负载
+  "fetched_at": "ISO",     # 获取时间
+  "expires_at": "ISO",     # 过期时间
+  "source": "fred",        # 数据来源标识
+  "error": null             # 上次获取错误 (失败时记录)
+}
+```
+
+### 错误处理策略
+- `_safe_set()`: 写入失败只记录日志，不抛异常
+- `_safe_set_with_error()`: 写入失败时保留旧数据 + 记录 error 字段 + 缩短 TTL 到 1 小时
+- CPI 数据校验: 如果任何组件 yoy_pct 为 null（FRED 限流），跳过缓存写入
+- 读取端: 过期缓存返回 `(data, False)`，调用方可选择使用过期数据作为 fallback
+
+### db.py 核心函数
+| 函数 | 用途 |
+|------|------|
+| `get_cached(key)` | 读取单个缓存条目 |
+| `get_cached_many(keys)` | 批量读取多个键 |
+| `set_cached(key, data, source, ttl_hours, error?)` | 写入/更新缓存 |
+| `is_cache_valid(cache_row)` | 检查是否过期（纯函数） |
+| `get_cache_data(cache_row)` | 提取 data 字段（纯函数） |
+| `try_db_cache(key)` | 读取 + 校验 -> 返回 (data, is_valid) 元组 |
+| `get_all_status()` | 监控用: 列出所有缓存条目状态 |
+
+## 注意事项
+
+- 这是基础设施模块，不直接面向用户，被其他 feature 模块依赖
+- Tier 2 依赖 Tier 1 和 Tier 3 的数据，刷新顺序: T1 -> T3 -> T2
+- `/status` 端点不需要认证，可用于监控告警
+- Edge Function 部署在 Insforge Deno 运行时，支持 upsert/get/batch_get/list_all
+- 请求合并 (request coalescing) 逻辑在 macro_risk/service.py 中实现，不在本模块

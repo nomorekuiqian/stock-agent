@@ -133,7 +133,10 @@ async def generate_digest(request: DigestRequest):
         # No cached digest, generate new one
         print(f"[Digest] No cached digest found for user {request.user_id[:8]}..., generating new...")
         digest_agent = get_personal_digest()
-        result = await digest_agent.generate(symbols=request.symbols)
+        result = await digest_agent.generate(
+            symbols=request.symbols,
+            user_id=request.user_id,
+        )
 
         if not result.get("success"):
             error_msg = result.get("error", "Failed to generate digest")

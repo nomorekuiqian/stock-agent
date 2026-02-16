@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import PaywallGuard from '@/components/PaywallGuard';
 import { api, SectorInfo, SectorDigestData, SectorSubscription, StockQuote, SectorDigestHistoryItem, SectorStockAnalysis, SectorNews, SectorEvent } from '@/lib/api';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, formatDateShort } from '@/lib/timezone';
 import SectorPanel from '@/components/SectorPanel';
@@ -61,7 +62,7 @@ const STOCK_NAMES: Record<string, { en: string; zh: string }> = {
   'ABNB': { en: 'Airbnb', zh: 'Airbnb' },
 };
 
-export default function SectorsPage() {
+function SectorsPageContent() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
@@ -621,5 +622,13 @@ export default function SectorsPage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function SectorsPage() {
+  return (
+    <PaywallGuard>
+      <SectorsPageContent />
+    </PaywallGuard>
   );
 }

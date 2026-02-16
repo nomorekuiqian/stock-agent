@@ -13,9 +13,13 @@ FMP_API_KEY = os.getenv("FMP_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 
 # Security
 CRON_SECRET = os.getenv("CRON_SECRET", "")
+INSFORGE_ANON_KEY = os.getenv("INSFORGE_ANON_KEY", "")
 
 # URLs
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")

@@ -215,7 +215,7 @@ export interface UnsubscribeResponse {
 }
 
 // Subscription Management Types
-export type SubscriptionChannel = 'daily_report' | 'personal_digest';
+export type SubscriptionChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
 
 export interface SubscriptionResponse {
   success: boolean;
@@ -276,6 +276,15 @@ export interface DigestPreviewResponse {
   digest_date: string;
   user_id: string;
   symbols: string[];
+}
+
+export interface WeeklyPreviewResponse {
+  success: boolean;
+  html: string;
+  week_label: string;
+  title: string;
+  report_id: string;
+  generated_at: string;
 }
 
 // Liquidity Monitor Types
@@ -638,6 +647,7 @@ function fetchOhlcvHistory(cachePrefix: string, pathSegment: string) {
 
 // Weekly Macro Report Types
 export interface SectionAnalysis {
+  summary: string;
   data_changes: string;
   trend_interpretation: string;
   market_implication: string;
@@ -660,14 +670,16 @@ export interface WeekAheadEvent {
 export interface WeeklyMacroReport {
   week_label: string;
   generated_at: string;
-  executive_summary: string;
+  title: string;
+  verdict: string;
   signal_lights: SignalLights;
-  market_recap: string;
+  landscape: string;
+  narrative: string;
+  takeaway: string;
   liquidity_analysis: SectionAnalysis;
   economy_analysis: SectionAnalysis;
   inflation_analysis: SectionAnalysis;
   sentiment_analysis: SectionAnalysis;
-  investment_implications: string;
   week_ahead: WeekAheadEvent[];
 }
 
@@ -866,6 +878,33 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to get digest preview' }));
       throw new Error(error.detail || 'Failed to get digest preview');
+    }
+    return response.json();
+  },
+
+  getWeeklyPreview: async (params?: { week?: string; firstName?: string }): Promise<WeeklyPreviewResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.week) searchParams.append('week', params.week);
+    if (params?.firstName) searchParams.append('first_name', params.firstName);
+    const queryString = searchParams.toString();
+    const url = `${API_BASE_URL}/weekly-report/preview${queryString ? `?${queryString}` : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get weekly report preview' }));
+      throw new Error(error.detail || 'Failed to get weekly report preview');
+    }
+    return response.json();
+  },
+
+  sendWeeklyReportEmail: async (email: string): Promise<SendEmailResponse> => {
+    const response = await fetch(`${API_BASE_URL}/weekly-report/send-test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to send weekly report email' }));
+      throw new Error(error.detail || 'Failed to send weekly report email');
     }
     return response.json();
   },

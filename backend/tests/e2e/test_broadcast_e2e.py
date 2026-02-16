@@ -14,6 +14,9 @@ Usage:
 
     # Run only personal digest test
     pytest tests/e2e/test_broadcast_e2e.py::TestBroadcastE2E::test_broadcast_personal_digest -v
+
+    # Run only weekly report test
+    pytest tests/e2e/test_broadcast_e2e.py::TestBroadcastE2E::test_broadcast_weekly_report -v
 """
 
 import os
@@ -163,4 +166,41 @@ class TestBroadcastE2E:
         assert result.get("broadcast_id") is not None, "broadcast_id should be returned"
 
         print(f"[E2E] SUCCESS: Broadcast ID = {result.get('broadcast_id')}")
+        print(f"[E2E] Audience ID = {result.get('audience_id')}")
+
+    @pytest.mark.asyncio
+    async def test_broadcast_weekly_report(self, email_service):
+        """
+        Test weekly macro report broadcast flow:
+        1. Fetch latest weekly report from database (no new generation)
+        2. Call email_service.broadcast_weekly_report()
+        3. Verify broadcast_id is returned
+        """
+        # Wait to avoid Resend rate limiting
+        time.sleep(2)
+
+        # 1. Fetch latest weekly report from database
+        from app.features.weekly_report import db as weekly_db
+
+        report = await weekly_db.get_latest_report()
+        assert report is not None, (
+            "No weekly report found in database. "
+            "Please generate one first via POST /api/weekly-report/generate"
+        )
+
+        print(f"\n[E2E] Using weekly report: {report.get('week_label', 'N/A')}")
+        print(f"[E2E] Title: {report.get('title', '')[:60]}...")
+        print(f"[E2E] Signal lights: {report.get('signal_lights', {})}")
+
+        # 2. Broadcast to Test Broadcast channel
+        result = await email_service.broadcast_weekly_report(
+            report,
+            audience_id=TEST_AUDIENCE_ID,
+        )
+
+        # 3. Verify success
+        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
+        assert result.get("broadcast_id") is not None, "broadcast_id should be returned"
+
+        print(f"[E2E] SUCCESS: Weekly Broadcast ID = {result.get('broadcast_id')}")
         print(f"[E2E] Audience ID = {result.get('audience_id')}")

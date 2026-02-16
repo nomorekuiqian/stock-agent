@@ -195,6 +195,55 @@ async def get_email_preview(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/weekly-report/preview")
+async def get_weekly_report_preview(
+    week: Optional[str] = Query(None),
+    first_name: Optional[str] = Query(None),
+):
+    """
+    Get rendered HTML email preview for a weekly macro report.
+    Uses existing report data only - no AI generation.
+
+    Args:
+        week: Optional week label like '2025.W06'. If not provided, uses latest.
+        first_name: Optional name for greeting personalization.
+    """
+    try:
+        from app.features.weekly_report import db as weekly_db
+
+        if week:
+            report = await weekly_db.get_report_by_week(week)
+        else:
+            report = await weekly_db.get_latest_report()
+
+        if not report:
+            raise HTTPException(status_code=404, detail="No weekly report found")
+
+        email_service = get_email_service()
+        html_content = email_service._format_weekly_report_html(report)
+
+        display_name = first_name or ""
+        html_content = html_content.replace("{{{first_name}}}", display_name)
+
+        from urllib.parse import quote
+        html_content = html_content.replace("{{{email}}}", quote("preview@example.com"))
+
+        return {
+            "success": True,
+            "html": html_content,
+            "week_label": report.get("week_label", ""),
+            "title": report.get("title", ""),
+            "report_id": report.get("id"),
+            "generated_at": report.get("generated_at", ""),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/subscriptions/personal_digest/preview")
 async def get_digest_preview(
     user_id: Optional[str] = Query(None),
@@ -367,6 +416,46 @@ async def send_test_report(request: SendEmailRequest):
             "email_id": email_result.get("email_id"),
             "sent_to": to_email,
             "report_date": report.get("report_date")
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/weekly-report/send-test")
+async def send_test_weekly_report(request: SendEmailRequest):
+    """
+    Send the latest weekly macro report email to a test recipient.
+    """
+    try:
+        to_email = request.email
+        if not to_email:
+            raise HTTPException(status_code=400, detail="Email address is required")
+
+        from app.features.weekly_report import db as weekly_db
+
+        report = await weekly_db.get_latest_report()
+        if not report:
+            raise HTTPException(status_code=404, detail="No weekly report found. Generate one first.")
+
+        email_service = get_email_service()
+        email_result = await email_service.send_weekly_report(
+            data=report,
+            to_email=to_email,
+            first_name=request.first_name,
+        )
+
+        if not email_result.get("success"):
+            raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to send weekly report"))
+
+        return {
+            "success": True,
+            "message": f"Weekly report sent to {to_email}",
+            "email_id": email_result.get("email_id"),
+            "sent_to": to_email,
         }
 
     except HTTPException:
@@ -563,6 +652,45 @@ async def broadcast_newsletter(
             "message": "Newsletter broadcast to all subscribers",
             "broadcast_id": result.get("broadcast_id"),
             "audience_id": result.get("audience_id"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/weekly-report/broadcast")
+async def broadcast_weekly_report(_secret: str = Depends(verify_cron_secret)):
+    """
+    Broadcast the latest weekly macro report to all weekly_report subscribers.
+    Protected by CRON_SECRET for scheduled job authentication.
+    """
+    try:
+        from app.features.weekly_report import db as weekly_db
+
+        # 1. Get the latest weekly report
+        report = await weekly_db.get_latest_report()
+        if not report:
+            raise HTTPException(status_code=404, detail="No weekly report found")
+
+        # 2. Broadcast
+        email_service = get_email_service()
+        result = await email_service.broadcast_weekly_report(report)
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to broadcast weekly report"),
+            )
+
+        return {
+            "success": True,
+            "message": "Weekly report broadcast to all subscribers",
+            "broadcast_id": result.get("broadcast_id"),
+            "audience_id": result.get("audience_id"),
+            "week_label": report.get("week_label"),
         }
 
     except HTTPException:
@@ -834,6 +962,25 @@ async def broadcast_to_channel(
         elif channel == SubscriptionChannel.PERSONAL_DIGEST:
             # Broadcast personal digests (parallel processing)
             broadcast_result = await email_service.broadcast_personal_digests(max_concurrent=5)
+
+            return BroadcastResponse(
+                success=broadcast_result.get("success", False),
+                channel=channel.value,
+                total=broadcast_result.get("total", 0),
+                sent=broadcast_result.get("sent", 0),
+                failed=broadcast_result.get("failed", 0),
+                errors=broadcast_result.get("errors", []),
+            )
+
+        elif channel == SubscriptionChannel.WEEKLY_REPORT:
+            # Broadcast weekly macro report
+            from app.features.weekly_report import db as weekly_db
+
+            report = await weekly_db.get_latest_report()
+            if not report:
+                raise HTTPException(status_code=404, detail="No weekly report found")
+
+            broadcast_result = await email_service.broadcast_weekly_report(report)
 
             return BroadcastResponse(
                 success=broadcast_result.get("success", False),

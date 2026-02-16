@@ -19,7 +19,29 @@ function markAsAutoSubscribed(userId: string): void {
   }
 }
 
+const SYNC_KEY = 'sub_synced';
+const SYNC_TTL = 60 * 60 * 1000; // 1 hour
+
+function needsSync(userId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(SYNC_KEY);
+    if (!raw) return true;
+    const cached = JSON.parse(raw);
+    if (cached.userId !== userId) return true;
+    return Date.now() - cached.ts > SYNC_TTL;
+  } catch { return true; }
+}
+
+function markSynced(userId: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SYNC_KEY, JSON.stringify({ userId, ts: Date.now() }));
+}
+
 async function syncUserWithSubscriptions(user: User): Promise<void> {
+  // Skip if already synced recently
+  if (!needsSync(user.id)) return;
+
   try {
     const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
     if (result.success && result.synced_channels.length > 0) {
@@ -41,6 +63,8 @@ async function syncUserWithSubscriptions(user: User): Promise<void> {
         console.warn('[AuthContext] Auto-subscribe failed:', subError);
       }
     }
+
+    markSynced(user.id);
   } catch (error) {
     console.warn('[AuthContext] Sync subscriptions failed:', error);
   }

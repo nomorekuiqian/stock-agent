@@ -1,0 +1,119 @@
+# Digest - 个性化摘要
+
+## 功能概述
+
+根据用户自选股列表（watchlist）生成个性化每日摘要。与通用市场日报不同，digest 只关注用户关心的股票，新闻和事件都围绕用户持仓筛选。使用 Gemini Flash（成本约 $0.018/次，比 Pro 便宜 75%）。按 user_id + 日期缓存，同一天同一用户重复请求返回缓存。
+
+## API 端点
+
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/digest` | POST | 生成/获取个性化摘要 | 需要 user_id |
+
+**请求参数**:
+```json
+{
+  "symbols": ["AAPL", "MSFT", "NVDA"],
+  "user_id": "uuid"
+}
+```
+
+**响应结构**:
+```json
+{
+  "success": true,
+  "timestamp": "ISO-8601",
+  "symbols_used": ["AAPL", "MSFT", "NVDA"],
+  "greeting": "2026年2月14日 | [钩子]",
+  "one_line_summary": "关键洞察",
+  "stocks": [{"symbol", "name", "price", "daily_change", "week_change", "status", "quick_take"}],
+  "news": {
+    "headlines": [{"title", "related_symbols", "fact_summary", "deep_analysis", "url"}],
+    "briefs": [{"title", "related_symbols", "summary", "analysis", "url"}]
+  },
+  "events": [{"date", "event", "related_symbols", "why_important"}],
+  "summary": {"content": "3段分析"},
+  "from_cache": false
+}
+```
+
+## 数据流
+
+```
+POST /api/digest
+  |
+  +-- 校验 user_id (401) 和 symbols (400)
+  +-- 检查缓存: get_user_digest(user_id, today)
+  |   +-- 命中且 symbols 匹配 -> from_cache=true
+  |   +-- 未命中/symbols 变化 -> 重新生成
+  |
+  +-- PersonalDigest.generate(symbols)
+  |   +-- 并行获取:
+  |   |   +-- get_stock_quotes(symbols) — 用户个股报价
+  |   |   +-- get_combined_market_news(symbols + 宏观) — 过滤新闻
+  |   |   +-- get_economic_calendar(14天)
+  |   |   +-- get_earnings_calendar(14天) — 智能过滤
+  |   |   +-- get_all_market_data() — 宏观背景
+  |   |
+  |   +-- 数据清洗 (新闻50条上限, 财报25条, 日历25条)
+  |   +-- Gemini Flash Agent 生成个性化分析
+  |
+  +-- save_user_digest() 保存到 DB
+  +-- 返回响应
+```
+
+## 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `router.py` | POST 端点、user_id/symbols 校验、缓存逻辑、symbols 变化检测 |
+| `agent.py` | PersonalDigest 类 — 数据获取、智能财报过滤、新闻清洗、Gemini Flash Agent |
+| `models.py` | DigestRequest/Response、Agent 输出模型 (PersonalDigestOutput) |
+| `db.py` | Insforge Edge Function (user_digests + user_watchlists 表) |
+
+## 依赖关系
+
+**数据源**:
+- `shared/data_tools/market_data.py` — get_stock_quotes(), get_all_market_data()
+- `shared/data_tools/news.py` — get_combined_market_news()
+- `shared/data_tools/calendar.py` — get_economic_calendar()
+- `shared/data_tools/earnings.py` — get_earnings_calendar()
+
+**AI**: Google ADK `LlmAgent` + `InMemoryRunner`, 模型 `gemini-3-flash-preview`
+
+**数据库表**:
+- `user_digests` — 用户个性化摘要（按 user_id + digest_date）
+- `user_watchlists` — 用户自选股列表
+
+## 关键业务逻辑
+
+### 缓存策略
+- 缓存键: user_id + digest_date (YYYY-MM-DD)
+- 如果缓存存在但 symbols 列表变了 -> 重新生成
+- symbols 上限 25 个（去重）
+
+### 智能财报过滤 (_filter_earnings)
+- 始终包含科技巨头: NVDA, AAPL, MSFT, GOOGL, META, AMZN, TSLA, AMD
+- 如果用户关注芯片股 -> 额外加入半导体生态链
+- 最多返回 25 条财报
+
+### 与 Market 模块的区别
+| 维度 | Market (日报) | Digest (个性化) |
+|------|--------------|----------------|
+| 视角 | 全市场 | 用户持仓 |
+| 模型 | Gemini Flash | Gemini Flash |
+| 新闻 | 通用市场新闻 | 按用户 symbols 过滤 |
+| 缓存 | 按日期（全局） | 按 user_id + 日期 |
+| 成本 | ~$0.018/次 | ~$0.018/次 |
+
+### Agent 输出要点
+- `stocks` 中每只股票有 `status`（如"连涨四天后首次回调"）和 `quick_take`（3-4 句因果链）
+- `news.headlines` 3-4 条深度分析，`briefs` 8-10 条简评
+- `summary.content` 3 段: 组合回顾(vs SPY/QQQ) + 驱动因素 + 展望(1-2周)
+
+## 注意事项
+
+- 使用单例模式，全局只有一个 PersonalDigest 实例
+- models.py 中 Agent 输出模型和 API 响应模型字段名不同（如 StockSummary vs StockAnalysis），router.py 做了映射
+- DB 中 `bottom_line` 和 `analysis` 是遗留字段，新数据存在 `digest_data` (JSONB)
+- 新闻清洗: 正文截断 500 字、过滤无标题文章

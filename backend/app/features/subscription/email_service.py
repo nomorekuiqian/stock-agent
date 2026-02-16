@@ -155,11 +155,12 @@ class EmailService:
         )
 
         # Different prompt text based on report type
-        prompt_text = (
-            "今天的专属日报对你有帮助吗?"
-            if report_type == "digest"
-            else "今天的日报对你有帮助吗?"
-        )
+        if report_type == "digest":
+            prompt_text = "今天的专属日报对你有帮助吗?"
+        elif report_type == "weekly":
+            prompt_text = "本周的宏观周报对你有帮助吗?"
+        else:
+            prompt_text = "今天的日报对你有帮助吗?"
 
         return f"""
         <div style="background: #f9fafb; padding: 24px; border-top: 1px solid #e5e7eb;">
@@ -941,6 +942,466 @@ class EmailService:
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting digest: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _format_weekly_report_html(
+        self,
+        data: dict,
+        report_date: Optional[str] = None,
+        report_id: Optional[str] = None,
+    ) -> str:
+        """Format weekly macro report data into an HTML email."""
+        generated_at = data.get("generated_at", now_iso())
+        formatted_date = self._format_timestamp(generated_at)
+
+        title = data.get("title", "")
+        verdict = data.get("verdict", "")
+        signal_lights = data.get("signal_lights", {})
+        landscape = data.get("landscape", "")
+        narrative = data.get("narrative", "")
+        takeaway = data.get("takeaway", "")
+        week_ahead = data.get("week_ahead", [])
+
+        # Four-dimension analysis data (for deep-dive section)
+        analyses = {
+            "liquidity": data.get("liquidity_analysis", {}),
+            "economy": data.get("economy_analysis", {}),
+            "inflation": data.get("inflation_analysis", {}),
+            "sentiment": data.get("sentiment_analysis", {}),
+        }
+
+        feedback_report_date = report_date or today_str()
+        feedback_report_id = report_id or data.get("id")
+
+        report_url = f"{self.frontend_url}/macro"
+
+        # Signal light colors and labels
+        signal_color_map = {
+            "green": "#16a34a",
+            "yellow": "#eab308",
+            "red": "#dc2626",
+        }
+        signal_label_map = {
+            "green": "利好",
+            "yellow": "中性",
+            "red": "利空",
+        }
+        signal_name_map = {
+            "liquidity": "流动性",
+            "economy": "经济",
+            "inflation": "通胀",
+            "sentiment": "情绪",
+        }
+
+        # Build signal lights HTML (pill badge style)
+        signal_bg_map = {
+            "green": {"bg": "#dcfce7", "text": "#15803d"},
+            "yellow": {"bg": "#fef3c7", "text": "#92400e"},
+            "red": {"bg": "#fee2e2", "text": "#991b1b"},
+        }
+        signal_cells = []
+        for key in ["liquidity", "economy", "inflation", "sentiment"]:
+            color_key = signal_lights.get(key, "yellow") if isinstance(signal_lights, dict) else "yellow"
+            label = signal_label_map.get(color_key, "中性")
+            name = signal_name_map.get(key, key)
+            colors = signal_bg_map.get(color_key, signal_bg_map["yellow"])
+            signal_cells.append(f"""
+                <td style="width: 25%; padding: 6px 4px; text-align: center;">
+                    <div style="font-size: 11px; font-weight: 600; color: #52525b; margin-bottom: 6px;">{name}</div>
+                    <div style="display: inline-block; padding: 3px 10px; border-radius: 10px; background: {colors['bg']}; color: {colors['text']}; font-size: 11px; font-weight: 600;">{label}</div>
+                </td>
+            """)
+
+        signal_lights_html = f"""
+        <table style="width: 100%; border-collapse: separate; border-spacing: 0;" cellpadding="0" cellspacing="0">
+            <tr>{signal_cells[0]}{signal_cells[1]}{signal_cells[2]}{signal_cells[3]}</tr>
+        </table>
+        """
+
+        card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
+        section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #0a0a0a;"
+
+        # ── Market Performance card (6 key indicators, 2x3 grid) ──
+        market_perf_html = ""
+        raw_data = data.get("raw_data") or {}
+        market_perf = raw_data.get("market_performance") or {}
+        indices = market_perf.get("indices", [])
+
+        if indices:
+            indicator_labels = {
+                "^GSPC": "标普500", "^IXIC": "纳斯达克", "^VIX": "恐慌指数",
+                "GC=F": "黄金", "DX-Y.NYB": "美元指数", "^TNX": "十年美债",
+            }
+            indicator_cells = []
+            for idx in indices[:6]:
+                symbol = idx.get("symbol", "")
+                label = indicator_labels.get(symbol, idx.get("name", symbol))
+                change = idx.get("weekly_change", 0)
+                last = idx.get("last_close", 0)
+                abs_change = idx.get("weekly_change_abs", 0)
+
+                if symbol == "^TNX":
+                    last_str = f"{last:.2f}%"
+                    bps = round(abs_change * 100)
+                    ch_sign = "+" if bps >= 0 else ""
+                    change_str = f"{ch_sign}{bps} bps"
+                else:
+                    last_str = f"{last:,.0f}" if last > 500 else f"{last:,.2f}"
+                    ch_sign = "+" if change >= 0 else ""
+                    change_str = f"{ch_sign}{change:.2f}%"
+
+                color = "#16a34a" if change >= 0 else "#dc2626"
+                indicator_cells.append(f"""
+                    <td style="width: 33.33%; padding: 4px;">
+                        <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
+                            <div style="font-size: 10px; color: #71717a; letter-spacing: 0.05em; margin-bottom: 4px;">{label}</div>
+                            <div style="font-size: 17px; font-weight: 600; color: #0a0a0a;">{last_str}</div>
+                            <div style="font-size: 12px; font-weight: 600; color: {color}; margin-top: 2px;">{change_str}</div>
+                        </div>
+                    </td>
+                """)
+
+            row1 = "".join(indicator_cells[:3])
+            row2_html = ""
+            if len(indicator_cells) > 3:
+                row2 = "".join(indicator_cells[3:6])
+                row2_html = f"""
+                <div style="margin-top: 4px;">
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 4px;" cellpadding="0" cellspacing="0">
+                        <tr>{row2}</tr>
+                    </table>
+                </div>
+                """
+
+            market_perf_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">本周表现</div>
+                <table style="width: 100%; border-collapse: separate; border-spacing: 4px;" cellpadding="0" cellspacing="0">
+                    <tr>{row1}</tr>
+                </table>
+                {row2_html}
+            </div>
+            """
+
+        # ── Landscape section (full content) ──
+        landscape_html = ""
+        if landscape:
+            landscape_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">宏观格局</div>
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                    {self._format_markdown_to_html(landscape)}
+                </div>
+            </div>
+            """
+
+        # ── Narrative section (full content) ──
+        narrative_html = ""
+        if narrative:
+            narrative_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">本周回顾</div>
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                    {self._format_markdown_to_html(narrative)}
+                </div>
+            </div>
+            """
+
+        # ── Takeaway section (full content) ──
+        takeaway_html = ""
+        if takeaway:
+            takeaway_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">策略启示</div>
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                    {self._format_markdown_to_html(takeaway)}
+                </div>
+            </div>
+            """
+
+        # ── Four-dimension deep dive section ──
+        four_dims_html = ""
+        dim_keys = ["liquidity", "economy", "inflation", "sentiment"]
+        dim_names = {"liquidity": "流动性", "economy": "经济", "inflation": "通胀", "sentiment": "情绪"}
+        dim_links = {
+            "liquidity": f"{self.frontend_url}/macro/liquidity",
+            "economy": f"{self.frontend_url}/macro/economy",
+            "inflation": f"{self.frontend_url}/macro/inflation-rates",
+            "sentiment": f"{self.frontend_url}/macro/sentiment",
+        }
+        dim_items = []
+        for key in dim_keys:
+            analysis = analyses.get(key, {})
+            if not isinstance(analysis, dict):
+                continue
+            summary = analysis.get("summary", "")
+            data_changes = analysis.get("data_changes", "")
+            if not summary and not data_changes:
+                continue
+            color_key = signal_lights.get(key, "yellow") if isinstance(signal_lights, dict) else "yellow"
+            dot_color = signal_color_map.get(color_key, "#eab308")
+            label = signal_label_map.get(color_key, "中性")
+            colors = signal_bg_map.get(color_key, signal_bg_map["yellow"])
+            link = dim_links.get(key, report_url)
+            # Summary as lead line
+            summary_html = ""
+            if summary:
+                summary_html = f'<p style="font-size: 13px; color: #3f3f46; line-height: 1.6; margin: 0 0 10px 0; font-weight: 500;">{summary}</p>'
+            # Data changes as structured detail
+            data_html = ""
+            if data_changes:
+                data_html = f"""
+                <div style="font-size: 12.5px; color: #52525b; line-height: 1.75;">
+                    {self._format_markdown_to_html(data_changes)}
+                </div>
+                """
+            dim_items.append(f"""
+            <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px 18px; margin-bottom: 12px;">
+                <a href="{link}" style="text-decoration: none; display: block; margin-bottom: 10px;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {dot_color}; margin-right: 8px; vertical-align: middle;"></span>
+                    <span style="font-size: 14px; font-weight: 600; color: #0a0a0a; margin-right: 8px; vertical-align: middle;">{dim_names.get(key, key)}</span>
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 8px; background: {colors['bg']}; color: {colors['text']}; font-size: 10px; font-weight: 600; vertical-align: middle;">{label}</span>
+                    <span style="font-size: 11px; color: #059669; margin-left: 4px; vertical-align: middle;">&rarr;</span>
+                </a>
+                {summary_html}
+                {data_html}
+            </div>
+            """)
+        if dim_items:
+            four_dims_html = f"""
+            <div style="margin-bottom: 16px;">
+                <div style="{section_header_style}">四维解读</div>
+                {''.join(dim_items)}
+            </div>
+            """
+
+        # ── Week ahead (card-based layout for mobile) ──
+        week_ahead_html = ""
+        if week_ahead:
+            event_cards = ""
+            for event in week_ahead[:5]:
+                if not isinstance(event, dict):
+                    continue
+                evt_date = event.get("date", "")
+                evt_name = event.get("event", "")
+                evt_above = event.get("if_above", "")
+                evt_below = event.get("if_below", "")
+                event_cards += f"""
+                <div style="padding: 14px 0; border-bottom: 1px solid #f0f0f0;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="font-size: 12px; color: #10b981; font-weight: 600;">{evt_date}</span>
+                        <span style="font-size: 13px; color: #0a0a0a; font-weight: 500; margin-left: 8px;">{evt_name}</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td style="width: 50%; padding-right: 8px; vertical-align: top;">
+                                <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px;">高于预期</div>
+                                <div style="font-size: 12px; color: #52525b; line-height: 1.5;">{evt_above}</div>
+                            </td>
+                            <td style="width: 50%; padding-left: 8px; vertical-align: top;">
+                                <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px;">低于预期</div>
+                                <div style="font-size: 12px; color: #52525b; line-height: 1.5;">{evt_below}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                """
+            if event_cards:
+                week_ahead_html = f"""
+                <div style="{card_style}">
+                    <div style="{section_header_style}">下周关注</div>
+                    {event_cards}
+                </div>
+                """
+
+        # CTA button
+        cta_html = f"""
+        <div style="text-align: center; padding: 8px 0 16px 0;">
+            <a href="{report_url}" style="display: inline-block; padding: 12px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                查看完整周报 &rarr;
+            </a>
+        </div>
+        """
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                {self._get_email_header(formatted_date, "Macro Weekly")}
+
+                <!-- Title Card -->
+                <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
+                    <p style="color: #52525b; font-size: 16px; margin: 0 0 8px 0; line-height: 1.5;">
+                        Hi {{{{{{first_name}}}}}}
+                    </p>
+                    <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
+                        又一周过去了，为你准备了本周的宏观全景回顾，一起来看看吧。
+                    </p>
+                    <div style="font-size: 10px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">核心判断</div>
+                    <a href="{report_url}" style="text-decoration: none;">
+                        <h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{title}</h1>
+                    </a>
+                    {f'<p style="color: #52525b; font-size: 14px; margin: 0; line-height: 1.6;">{verdict}</p>' if verdict else ''}
+                </div>
+
+                <!-- Signal Lights -->
+                <div style="background: #ffffff; padding: 12px 20px; border-bottom: 1px solid #e4e4e7;">
+                    {signal_lights_html}
+                </div>
+
+                <!-- Content Area -->
+                <div style="background: #f0f0f0; padding: 16px;">
+                    {market_perf_html}
+                    {landscape_html}
+                    {narrative_html}
+                    {takeaway_html}
+                    {four_dims_html}
+                    {week_ahead_html}
+                    {cta_html}
+                </div>
+
+                {self._get_feedback_section(feedback_report_date, feedback_report_id, "weekly")}
+                {self._get_email_footer()}
+            </div>
+        </body>
+        </html>
+        """
+        return html
+
+    def _truncate_at_paragraph(self, text: str, max_chars: int) -> str:
+        """Truncate text at a paragraph boundary, adding '...' if truncated."""
+        if len(text) <= max_chars:
+            return text
+        # Find the last paragraph break before max_chars
+        truncated = text[:max_chars]
+        last_break = truncated.rfind("\n\n")
+        if last_break > max_chars * 0.3:
+            return truncated[:last_break].rstrip() + "\n\n..."
+        # Fallback: truncate at last sentence
+        last_period = truncated.rfind("。")
+        if last_period > max_chars * 0.3:
+            return truncated[: last_period + 1] + "..."
+        return truncated.rstrip() + "..."
+
+    async def broadcast_weekly_report(
+        self, data: dict, audience_id: Optional[str] = None
+    ) -> dict:
+        """Send the weekly macro report using Resend Broadcasts."""
+        print(f"[EmailService] broadcast_weekly_report called, audience_id={audience_id}")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            if not audience_id:
+                sub_service = get_subscription_service()
+                audience_id = sub_service.ensure_audience(
+                    SubscriptionChannel.WEEKLY_REPORT
+                )
+
+            week_label = data.get("week_label", "")
+            report_id = data.get("id")
+            html_content = self._format_weekly_report_html(data, report_id=report_id)
+
+            title = data.get("title", "")
+            subject = (
+                f"[TheMarketBrew 周报] {title}"
+                if title
+                else f"[TheMarketBrew 周报] {week_label}"
+            )
+
+            create_params: resend.Broadcasts.CreateParams = {
+                "from": self.from_email,
+                "audience_id": audience_id,
+                "subject": subject,
+                "html": html_content,
+                "name": f"Weekly Report {week_label}",
+            }
+
+            broadcast = resend.Broadcasts.create(create_params)
+            broadcast_id = broadcast.get("id")
+            if not broadcast_id:
+                print(f"[EmailService] ERROR: Weekly broadcast create returned no id: {broadcast}")
+                return {"success": False, "error": "Broadcast creation returned no ID"}
+            print(f"[EmailService] Weekly broadcast created: {broadcast_id}")
+
+            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
+            send_result = resend.Broadcasts.send(send_params)
+            send_id = send_result.get("id") if send_result else None
+            print(f"[EmailService] Weekly broadcast send result: {send_result}")
+
+            if not send_id:
+                print(f"[EmailService] WARNING: Weekly send returned unexpected result, verifying status...")
+                import time
+                time.sleep(1)
+                verify = resend.Broadcasts.get(broadcast_id)
+                status = verify.get("status") if verify else None
+                print(f"[EmailService] Weekly broadcast status after send: {status}")
+                if status not in ("sent", "queued"):
+                    return {
+                        "success": False,
+                        "error": f"Weekly broadcast send failed, status: {status}",
+                        "broadcast_id": broadcast_id,
+                    }
+
+            print(f"[EmailService] Weekly broadcast sent successfully: {broadcast_id}")
+
+            return {
+                "success": True,
+                "broadcast_id": broadcast_id,
+                "audience_id": audience_id,
+            }
+
+        except Exception as e:
+            print(f"[EmailService] Error broadcasting weekly report: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def send_weekly_report(
+        self, data: dict, to_email: str, first_name: Optional[str] = None
+    ) -> dict:
+        """Send the weekly macro report email to a single recipient."""
+        print(f"[EmailService] send_weekly_report to={to_email}")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            report_id = data.get("id")
+            html_content = self._format_weekly_report_html(data, report_id=report_id)
+
+            # Replace template variables for single sends
+            from urllib.parse import quote
+
+            display_name = first_name or ""
+            html_content = html_content.replace("{{{first_name}}}", display_name)
+            html_content = html_content.replace("{{{email}}}", quote(to_email))
+
+            title = data.get("title", "")
+            week_label = data.get("week_label", "")
+            subject = (
+                f"[TheMarketBrew 周报] {title}"
+                if title
+                else f"[TheMarketBrew 周报] {week_label}"
+            )
+
+            params = {
+                "from": self.from_email,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            }
+
+            email = resend.Emails.send(params)
+            print(f"[EmailService] Weekly report email sent: {email.get('id')}")
+            return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
+
+        except Exception as e:
+            print(f"[EmailService] Error sending weekly report email: {e}")
             return {"success": False, "error": str(e)}
 
     def _format_newsletter_plaintext(self, data: dict) -> str:

@@ -1,0 +1,73 @@
+# Feedback - 用户反馈
+
+## 功能概述
+
+收集两类用户反馈：1) 邮件内嵌反馈（用户点击日报邮件底部的满意/不满意按钮）；2) 网页表单反馈（用户在联系页面提交评分和留言）。支持重复检测和管理员统计查询。
+
+## API 端点
+
+### 邮件反馈
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/feedback` | GET | 记录邮件反馈 (点击链接触发) | 无 |
+| `/api/feedback/submit` | POST | 异步提交邮件反馈 | 无 |
+| `/api/feedback/stats` | GET | 反馈统计 (日期范围) | X-Cron-Secret |
+
+### 用户反馈
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/feedback/user` | POST | 提交网页反馈 | 无 |
+| `/api/feedback/user/list` | GET | 反馈列表 (分页) | X-Cron-Secret |
+
+## 数据流
+
+```
+邮件反馈 (GET /api/feedback):
+  用户点击邮件中反馈链接
+    -> GET /api/feedback?report_date=X&email=X&rating=satisfied
+    -> save_email_feedback() 保存/检测重复
+    -> 返回 HTML 确认页面 (含表情徽章)
+
+网页反馈 (POST /api/feedback/user):
+  用户在联系页面提交表单
+    -> 校验 email 格式 + rating 枚举
+    -> save_user_feedback() 保存
+    -> 返回 JSON 结果
+```
+
+## 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `router.py` | 5 个端点、HTML 确认页面渲染、重复检测 |
+| `models.py` | UserFeedbackInput (email 正则校验、rating 枚举) |
+| `db.py` | Insforge Edge Function 调用 (email-feedback + user-feedback) |
+
+## 依赖关系
+
+**数据库**: 通过 Insforge Edge Function 操作
+- `email-feedback` — 邮件反馈 (upsert + stats)
+- `user-feedback` — 网页反馈 (submit + list)
+
+**被依赖**: `subscription/email_service.py` 在邮件模板中嵌入反馈链接
+
+## 关键业务逻辑
+
+### 邮件反馈
+- `rating` 只接受: `satisfied` 或 `dissatisfied`
+- 按 report_date + email 检测重复，已提交的显示友好提示
+- GET 端点返回 HTML 页面（不是 JSON），因为是用户直接点击邮件链接触发
+- 统计端点支持日期范围查询，返回满意率和按日分解
+
+### 网页反馈
+- `rating` 只接受: `helpful`、`neutral`、`not_helpful`
+- email 用正则校验并自动转小写
+- message 字段可选
+- 列表端点支持分页 (page + page_size)
+
+## 注意事项
+
+- GET /api/feedback 返回的是 HTML 不是 JSON，这是特殊设计（用户从邮件直接跳转）
+- 两种反馈的 rating 枚举值不同（邮件用 satisfied/dissatisfied，网页用 helpful/neutral/not_helpful）
+- 管理端点 (stats/list) 都需要 X-Cron-Secret 认证
+- 模块代码量很小（总共约 636 行），是最简单的 feature 模块

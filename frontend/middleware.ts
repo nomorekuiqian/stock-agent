@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Auth is handled client-side via AuthContext (Insforge SDK uses localStorage)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function middleware(_request: NextRequest): NextResponse {
-  return NextResponse.next();
+export function middleware(request: NextRequest): NextResponse {
+  const response = NextResponse.next();
+
+  // Check for session cookie and signal to client
+  const hasSession = request.cookies.has('insforge-session');
+  response.headers.set('x-has-session', hasSession ? '1' : '0');
+
+  return response;
 }
 
 export const config = {

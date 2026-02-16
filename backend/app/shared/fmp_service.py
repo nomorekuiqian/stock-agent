@@ -213,17 +213,17 @@ class FMPService:
         self.api_key = os.getenv("FMP_API_KEY")
         if not self.api_key:
             raise ValueError("FMP_API_KEY environment variable is required")
+        self._client = httpx.Client(timeout=30.0)
 
     def _request(self, endpoint: str, params: dict = None) -> dict | list | None:
-        """Send synchronous API request"""
+        """Send synchronous API request (reuses persistent HTTP connection pool)"""
         params = params or {}
         params["apikey"] = self.api_key
 
         try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.get(f"{self.BASE_URL}{endpoint}", params=params)
-                response.raise_for_status()
-                return response.json()
+            response = self._client.get(f"{self.BASE_URL}{endpoint}", params=params)
+            response.raise_for_status()
+            return response.json()
         except httpx.HTTPStatusError as e:
             print(f"FMP API HTTP error: {e.response.status_code} - {e.response.text}")
             return None

@@ -245,5 +245,222 @@ class TestFormatMarkdownToHtml:
         assert email_svc._format_markdown_to_html(None) == ""
 
 
+class TestFormatWeeklyReportHtml:
+    """Test _format_weekly_report_html rendering."""
+
+    @pytest.fixture
+    def mock_weekly_data(self):
+        return {
+            "generated_at": "2025-02-14T10:00:00Z",
+            "title": "Test Weekly Title",
+            "verdict": "Neutral. GDP strong but CPI sticky.",
+            "signal_lights": {
+                "liquidity": "green",
+                "economy": "yellow",
+                "inflation": "red",
+                "sentiment": "green",
+            },
+            "landscape": "Macro landscape paragraph.",
+            "narrative": "Narrative paragraph with **bold** text.",
+            "takeaway": "Takeaway strategy text.",
+            "week_ahead": [
+                {
+                    "date": "2025-02-19",
+                    "event": "CPI (expected +0.2%)",
+                    "if_above": "Hawkish repricing",
+                    "if_below": "Growth rally",
+                },
+            ],
+            "liquidity_analysis": {
+                "summary": "Liquidity is tightening.",
+                "data_changes": "Fed balance sheet shrank.",
+            },
+            "economy_analysis": {
+                "summary": "Economy strong.",
+                "data_changes": "GDP up.",
+            },
+            "inflation_analysis": {
+                "summary": "Inflation sticky.",
+                "data_changes": "CPI hot.",
+            },
+            "sentiment_analysis": {
+                "summary": "Sentiment ok.",
+                "data_changes": "VIX low.",
+            },
+            "raw_data": {
+                "market_performance": {
+                    "indices": [
+                        {
+                            "symbol": "^GSPC",
+                            "name": "S&P 500",
+                            "weekly_change": 1.5,
+                            "weekly_change_abs": 75.0,
+                            "last_close": 5120.0,
+                        },
+                        {
+                            "symbol": "^IXIC",
+                            "name": "Nasdaq",
+                            "weekly_change": -0.5,
+                            "weekly_change_abs": -80.0,
+                            "last_close": 16200.0,
+                        },
+                        {
+                            "symbol": "^VIX",
+                            "name": "VIX",
+                            "weekly_change": -2.3,
+                            "weekly_change_abs": -0.4,
+                            "last_close": 16.5,
+                        },
+                        {
+                            "symbol": "GC=F",
+                            "name": "Gold",
+                            "weekly_change": 0.8,
+                            "weekly_change_abs": 15.0,
+                            "last_close": 2050.0,
+                        },
+                        {
+                            "symbol": "DX-Y.NYB",
+                            "name": "US Dollar",
+                            "weekly_change": -0.3,
+                            "weekly_change_abs": -0.3,
+                            "last_close": 104.2,
+                        },
+                        {
+                            "symbol": "^TNX",
+                            "name": "10Y Treasury",
+                            "weekly_change": 1.2,
+                            "weekly_change_abs": 0.05,
+                            "last_close": 4.25,
+                        },
+                    ],
+                },
+            },
+        }
+
+    def test_returns_valid_html(self, email_svc, mock_weekly_data):
+        """Weekly report data renders valid HTML document."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "<html" in html
+        assert "</html>" in html
+        assert "<!DOCTYPE html>" in html
+
+    def test_title_in_html(self, email_svc, mock_weekly_data):
+        """Report title appears in rendered HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "Test Weekly Title" in html
+
+    def test_verdict_in_html(self, email_svc, mock_weekly_data):
+        """Verdict appears in rendered HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "Neutral" in html
+
+    def test_signal_lights_rendered(self, email_svc, mock_weekly_data):
+        """Signal light labels appear in rendered HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert html.count("text") > 0
+
+    def test_landscape_rendered(self, email_svc, mock_weekly_data):
+        """Landscape content appears in HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "Macro landscape paragraph" in html
+
+    def test_narrative_rendered(self, email_svc, mock_weekly_data):
+        """Narrative content appears in HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "Narrative paragraph" in html
+
+    def test_takeaway_rendered(self, email_svc, mock_weekly_data):
+        """Takeaway content appears in HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "Takeaway strategy text" in html
+
+    def test_week_ahead_rendered(self, email_svc, mock_weekly_data):
+        """Week ahead events appear in HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "CPI" in html
+        assert "2025-02-19" in html
+
+    def test_market_performance_rendered(self, email_svc, mock_weekly_data):
+        """Market performance indices appear in HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "5,120" in html
+
+    def test_treasury_bps_format(self, email_svc, mock_weekly_data):
+        """10Y Treasury shows change in basis points."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "bps" in html
+
+    def test_four_dimensions_rendered(self, email_svc, mock_weekly_data):
+        """Four dimension deep-dive sections appear in HTML."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "Liquidity is tightening" in html or "Fed balance sheet shrank" in html
+
+    def test_cta_button_present(self, email_svc, mock_weekly_data):
+        """CTA button to view full report is present."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "/macro" in html
+
+    def test_feedback_section_weekly_prompt(self, email_svc, mock_weekly_data):
+        """Feedback section uses weekly-specific prompt text."""
+        html = email_svc._format_weekly_report_html(mock_weekly_data)
+        assert "report_type=weekly" in html
+
+    def test_minimal_data_no_crash(self, email_svc):
+        """Minimal weekly data renders without error."""
+        html = email_svc._format_weekly_report_html({"title": "Minimal"})
+        assert "<html" in html
+        assert "Minimal" in html
+
+    def test_empty_signal_lights_no_crash(self, email_svc):
+        """Missing or empty signal_lights does not crash."""
+        html = email_svc._format_weekly_report_html({"title": "No signals"})
+        assert "<html" in html
+
+
+class TestTruncateAtParagraph:
+    """Test _truncate_at_paragraph utility."""
+
+    def test_short_text_unchanged(self, email_svc):
+        """Text shorter than max_chars is returned unchanged."""
+        text = "Short text."
+        assert email_svc._truncate_at_paragraph(text, 100) == text
+
+    def test_truncates_at_paragraph_boundary(self, email_svc):
+        """Long text is truncated at paragraph boundary."""
+        text = "First paragraph.\n\nSecond paragraph.\n\nThird paragraph that is quite long."
+        result = email_svc._truncate_at_paragraph(text, 40)
+        assert result.endswith("...")
+        assert "First paragraph" in result
+
+    def test_truncates_at_sentence(self, email_svc):
+        text = "Some text here" + "x" * 100 + "end of long text."
+        result = email_svc._truncate_at_paragraph(text, 50)
+        assert result.endswith("...")
+
+    def test_exact_length_unchanged(self, email_svc):
+        """Text exactly at max_chars is returned unchanged."""
+        text = "a" * 50
+        assert email_svc._truncate_at_paragraph(text, 50) == text
+
+
+class TestFeedbackSectionReportType:
+    """Test _get_feedback_section with different report types."""
+
+    def test_weekly_prompt_text(self, email_svc):
+        """Weekly report type shows correct Chinese prompt."""
+        html = email_svc._get_feedback_section("2025-02-14", "test-id", "weekly")
+        assert "report_type=weekly" in html
+
+    def test_digest_prompt_text(self, email_svc):
+        """Digest report type shows correct Chinese prompt."""
+        html = email_svc._get_feedback_section("2025-02-14", "test-id", "digest")
+        assert "report_type=digest" in html
+
+    def test_default_prompt_text(self, email_svc):
+        """Default report type shows daily prompt."""
+        html = email_svc._get_feedback_section("2025-02-14", "test-id", "daily")
+        assert "report_type=daily" in html
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -2,7 +2,7 @@
 E2E Tests for Weekly Macro Report API Endpoints
 
 Tests 3 endpoint groups via httpx.AsyncClient + ASGITransport:
-- GET /api/weekly-report          (get latest / by week)
+- GET /api/weekly-report          (get latest / by week, with caching)
 - GET /api/weekly-report/list     (pagination)
 - POST /api/weekly-report/generate (auth protection)
 
@@ -49,17 +49,34 @@ class TestWeeklyReportGet:
 
     @pytest.mark.asyncio
     async def test_get_latest_data_structure(self, client):
-        """When data exists, response contains expected report fields."""
+        """When data exists, response contains new schema fields."""
         resp = await client.get("/api/weekly-report", timeout=30)
         assert resp.status_code == 200
         data = resp.json()
         assert "data" in data
-        # If there's data, verify structure
+        # If there's data, verify new schema structure
         if data["data"] is not None:
             report = data["data"]
             assert "week_label" in report
             assert "signal_lights" in report
-            assert "executive_summary" in report
+            # New schema fields
+            assert "title" in report
+            assert "verdict" in report
+            assert "landscape" in report
+            assert "narrative" in report
+            assert "takeaway" in report
+            # Old fields should not be present
+            assert "executive_summary" not in report
+            assert "investment_implications" not in report
+
+    @pytest.mark.asyncio
+    async def test_get_latest_no_raw_data(self, client):
+        """GET /api/weekly-report strips raw_data from response."""
+        resp = await client.get("/api/weekly-report", timeout=30)
+        assert resp.status_code == 200
+        data = resp.json()
+        if data["data"] is not None:
+            assert "raw_data" not in data["data"]
 
     @pytest.mark.asyncio
     async def test_get_by_week_not_found(self, client):

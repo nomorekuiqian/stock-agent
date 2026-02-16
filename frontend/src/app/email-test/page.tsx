@@ -5,17 +5,18 @@ import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
-type EmailChannel = 'daily_report' | 'personal_digest';
+type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
 
 function EmailTestContent() {
   const searchParams = useSearchParams();
   const reportIdParam = searchParams.get('report_id');
   const digestIdParam = searchParams.get('digest_id');
+  const weekParam = searchParams.get('week');
   const { user } = useAuth();
 
   // Active channel tab
   const [activeChannel, setActiveChannel] = useState<EmailChannel>(
-    digestIdParam ? 'personal_digest' : 'daily_report'
+    weekParam ? 'weekly_report' : digestIdParam ? 'personal_digest' : 'daily_report'
   );
 
   // Daily Report state
@@ -33,6 +34,16 @@ function EmailTestContent() {
   } | null>(null);
   const [digestId, setDigestId] = useState(digestIdParam || '');
 
+  // Weekly Report state
+  const [weeklyHtml, setWeeklyHtml] = useState<string>('');
+  const [weeklyInfo, setWeeklyInfo] = useState<{
+    weekLabel: string;
+    title: string;
+    reportId: string;
+    generatedAt: string;
+  } | null>(null);
+  const [weekLabel, setWeekLabel] = useState(weekParam || '');
+
   // Common state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +57,12 @@ function EmailTestContent() {
   useEffect(() => {
     if (activeChannel === 'daily_report') {
       loadEmailPreview(reportIdParam || undefined, user?.name);
-    } else {
-      // Use logged-in user's ID for personal digest, or digestId if specified
+    } else if (activeChannel === 'personal_digest') {
       loadDigestPreview({ userId: user?.id, digestId: digestIdParam || undefined });
+    } else {
+      loadWeeklyPreview({ week: weekParam || undefined, firstName: user?.name });
     }
-  }, [reportIdParam, digestIdParam, activeChannel, user?.name, user?.id]);
+  }, [reportIdParam, digestIdParam, weekParam, activeChannel, user?.name, user?.id]);
 
   const loadEmailPreview = async (id?: string, firstName?: string) => {
     setLoading(true);
@@ -87,6 +99,26 @@ function EmailTestContent() {
     }
   };
 
+  const loadWeeklyPreview = async (params?: { week?: string; firstName?: string }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.getWeeklyPreview(params);
+      setWeeklyHtml(result.html);
+      setWeeklyInfo({
+        weekLabel: result.week_label,
+        title: result.title,
+        reportId: result.report_id,
+        generatedAt: result.generated_at,
+      });
+      setWeekLabel(result.week_label);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load weekly report preview');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendTestEmail = async () => {
     if (!email) {
       setSendResult({ success: false, message: 'Please enter an email address' });
@@ -104,9 +136,15 @@ function EmailTestContent() {
             ? `Email sent successfully to ${result.sent_to}`
             : result.message || 'Failed to send email',
         });
+      } else if (activeChannel === 'weekly_report') {
+        const result = await api.sendWeeklyReportEmail(email);
+        setSendResult({
+          success: result.success,
+          message: result.success
+            ? `Weekly report sent to ${result.sent_to}`
+            : result.message || 'Failed to send weekly report',
+        });
       } else {
-        // For personal digest, use the broadcast endpoint with test email
-        // This would require a separate test endpoint
         setSendResult({
           success: false,
           message: 'Send test for personal digest not yet implemented. Use broadcast instead.',
@@ -128,13 +166,36 @@ function EmailTestContent() {
     setSendResult(null);
     if (channel === 'daily_report') {
       loadEmailPreview(reportId || undefined, user?.name);
-    } else {
-      // Use logged-in user's ID for personal digest
+    } else if (channel === 'personal_digest') {
       loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
+    } else {
+      loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name });
     }
   };
 
-  const currentHtml = activeChannel === 'daily_report' ? emailHtml : digestHtml;
+  const handleRefresh = () => {
+    if (activeChannel === 'daily_report') {
+      loadEmailPreview(reportId || undefined, user?.name);
+    } else if (activeChannel === 'personal_digest') {
+      loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
+    } else {
+      loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name });
+    }
+  };
+
+  const currentHtml =
+    activeChannel === 'daily_report'
+      ? emailHtml
+      : activeChannel === 'personal_digest'
+        ? digestHtml
+        : weeklyHtml;
+
+  const channelLabel =
+    activeChannel === 'daily_report'
+      ? 'Daily Report'
+      : activeChannel === 'personal_digest'
+        ? 'Personal Digest'
+        : 'Weekly Report';
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -144,18 +205,8 @@ function EmailTestContent() {
           <div className="flex items-center justify-between">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium mb-2">
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 Email Testing
               </div>
@@ -165,29 +216,12 @@ function EmailTestContent() {
               </p>
             </div>
             <button
-              onClick={() => {
-                if (activeChannel === 'daily_report') {
-                  loadEmailPreview(reportId || undefined, user?.name);
-                } else {
-                  // Use logged-in user's ID for personal digest
-                  loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
-                }
-              }}
+              onClick={handleRefresh}
               disabled={loading}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              <svg
-                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
             </button>
@@ -225,6 +259,21 @@ function EmailTestContent() {
                 Personal Digest
               </div>
             </button>
+            <button
+              onClick={() => handleChannelChange('weekly_report')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeChannel === 'weekly_report'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Weekly Report
+              </div>
+            </button>
           </div>
         </div>
       </section>
@@ -256,35 +305,15 @@ function EmailTestContent() {
                 >
                   {sending ? (
                     <>
-                      <svg
-                        className="w-4 h-4 animate-spin"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                       Sending...
                     </>
                   ) : (
                     <>
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                        />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                       </svg>
                       Send Test Email
                     </>
@@ -305,10 +334,10 @@ function EmailTestContent() {
               </div>
             </div>
 
-            {/* Report/Digest Info Card */}
+            {/* Info Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                {activeChannel === 'daily_report' ? 'Report Info' : 'Digest Info'}
+                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : 'Weekly Report Info'}
               </h2>
               {loading ? (
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
@@ -366,11 +395,36 @@ function EmailTestContent() {
                     </div>
                   </div>
                 </div>
+              ) : activeChannel === 'weekly_report' && weeklyInfo ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Week</span>
+                    <span className="text-gray-900 font-medium">{weeklyInfo.weekLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Title</span>
+                    <span className="text-gray-900 font-medium text-xs">{weeklyInfo.title}</span>
+                  </div>
+                  {weeklyInfo.reportId && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Report ID</span>
+                      <span className="text-gray-900 font-medium font-mono text-xs">
+                        {weeklyInfo.reportId.slice(0, 8)}...
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Generated</span>
+                    <span className="text-gray-900 font-medium text-xs">
+                      {weeklyInfo.generatedAt ? new Date(weeklyInfo.generatedAt).toLocaleString('zh-CN') : '-'}
+                    </span>
+                  </div>
+                </div>
               ) : (
                 <p className="text-sm text-gray-400">No data available</p>
               )}
 
-              {/* Load Specific Report/Digest */}
+              {/* Load Specific Report/Digest/Weekly */}
               <div className="mt-4 pt-4 border-t border-gray-100">
                 {activeChannel === 'daily_report' ? (
                   <>
@@ -394,7 +448,7 @@ function EmailTestContent() {
                       </button>
                     </div>
                   </>
-                ) : (
+                ) : activeChannel === 'personal_digest' ? (
                   <>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">
                       Logged-in User
@@ -423,6 +477,28 @@ function EmailTestContent() {
                       <button
                         onClick={() => loadDigestPreview({ userId: user?.id, digestId: digestId || undefined })}
                         disabled={loading || !digestId}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        Load
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Load Specific Week
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={weekLabel}
+                        onChange={(e) => setWeekLabel(e.target.value)}
+                        placeholder="e.g. 2025.W06"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <button
+                        onClick={() => loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name })}
+                        disabled={loading}
                         className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
                       >
                         Load
@@ -473,9 +549,7 @@ function EmailTestContent() {
                     <div className="w-3 h-3 rounded-full bg-green-400" />
                   </div>
                   <span className="text-xs text-gray-500">
-                    {viewMode === 'preview'
-                      ? `${activeChannel === 'daily_report' ? 'Daily Report' : 'Personal Digest'} Preview`
-                      : 'HTML Source'}
+                    {viewMode === 'preview' ? `${channelLabel} Preview` : 'HTML Source'}
                   </span>
                 </div>
                 {viewMode === 'html' && currentHtml && (
@@ -486,18 +560,8 @@ function EmailTestContent() {
                     }}
                     className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     Copy
                   </button>
@@ -520,7 +584,9 @@ function EmailTestContent() {
                     <p className="text-xs text-gray-400 mt-1">
                       {activeChannel === 'personal_digest'
                         ? 'Make sure you have generated a digest for this user'
-                        : 'Make sure the backend is running'}
+                        : activeChannel === 'weekly_report'
+                          ? 'Make sure a weekly report has been generated'
+                          : 'Make sure the backend is running'}
                     </p>
                   </div>
                 ) : viewMode === 'preview' ? (

@@ -47,14 +47,16 @@ async def save_weekly_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
         db_report = {
             "week_label": week_label,
             "generated_at": report_data.get("generated_at", utc_now_iso()),
-            "executive_summary": report_data.get("executive_summary", ""),
+            "title": report_data.get("title", ""),
+            "verdict": report_data.get("verdict", ""),
             "signal_lights": report_data.get("signal_lights"),
-            "market_recap": report_data.get("market_recap", ""),
+            "landscape": report_data.get("landscape", ""),
+            "narrative": report_data.get("narrative", ""),
+            "takeaway": report_data.get("takeaway", ""),
             "liquidity_analysis": report_data.get("liquidity_analysis"),
             "economy_analysis": report_data.get("economy_analysis"),
             "inflation_analysis": report_data.get("inflation_analysis"),
             "sentiment_analysis": report_data.get("sentiment_analysis"),
-            "investment_implications": report_data.get("investment_implications", ""),
             "week_ahead": report_data.get("week_ahead", []),
             "raw_data": report_data.get("raw_data"),
         }
@@ -102,21 +104,34 @@ async def get_latest_report() -> Optional[Dict[str, Any]]:
         Report data or None if not found
     """
     try:
+        url = f"{_function_url()}?latest=true"
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{_function_url()}?latest=true",
+                url,
                 headers=_headers(),
                 timeout=30.0,
             )
 
+            print(f"[WeeklyReportDB] get_latest_report: status={response.status_code}")
+
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    return data.get("data")
+                    report = data.get("data")
+                    if report:
+                        print(f"[WeeklyReportDB] Got latest report: week={report.get('week_label')}")
+                    else:
+                        print("[WeeklyReportDB] get_latest_report: success=true but data is None")
+                    return report
+                else:
+                    print(f"[WeeklyReportDB] get_latest_report failed: {data.get('error')}")
+            else:
+                print(f"[WeeklyReportDB] get_latest_report HTTP {response.status_code}: {response.text[:200]}")
             return None
 
     except Exception as e:
-        print(f"[WeeklyReportDB] Exception getting latest report: {e}")
+        print(f"[WeeklyReportDB] Exception getting latest report: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return None
 
 

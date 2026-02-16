@@ -12,11 +12,18 @@ from pydantic import BaseModel, Field
 class SectionAnalysis(BaseModel):
     """Analysis for a single macro section (liquidity, economy, inflation, sentiment)."""
 
+    summary: str = Field(
+        description=(
+            "1-2句维度总结: 判断 + 证据 + 对股市的含义。"
+            "不是描述维度本身，而是回答这个维度对买股票意味着什么。"
+        )
+    )
     data_changes: str = Field(
         description=(
             "当前状况：首句为定性判断+关键数据(如'流动性环境整体偏紧，净流动性$5.7T处于较低水平')。"
             "然后按预定义的子维度逐一覆盖，每个子维度用**粗体标题**分隔。"
-            "每个指标用'大白话翻译(专业名 数据值)'格式。"
+            "每个指标用通俗解释加括号标注的格式，如'借钱变得更容易了(NFCI -0.56)'、'经济增速远超长期均值(GDP 4.4%)'。"
+            "禁止在输出中出现'大白话'或'但是尽量'这几个字。"
             "只描述数据中实际存在的信息，不编造历史分位或历史定位。"
         )
     )
@@ -31,7 +38,7 @@ class SectionAnalysis(BaseModel):
         description=(
             "未来展望：基于当前数据和趋势，分析该维度在未来1-2周可能的走向。"
             "说明需要关注的关键变量和可能的转折点。"
-            "不要给出具体的投资建议或ETF推荐，投资建议统一在investment_implications中给出。"
+            "不要给出具体的投资建议或ETF推荐，投资建议统一在takeaway中给出。"
         )
     )
 
@@ -57,43 +64,49 @@ class WeekAheadEvent(BaseModel):
 class WeeklyReportOutput(BaseModel):
     """AI output schema - only fields the LLM generates (no week_label/generated_at)."""
 
-    executive_summary: str = Field(
+    title: str = Field(
         description=(
-            "宏观深度解读 -- 用连贯叙事解释本周市场为什么这样走。"
-            "3-4 段, 直接说清楚发生了什么, 不要用比喻或类比。"
-            "第1段: 本周最重要的1-2个宏观变化, 用大白话讲清楚。"
-            "第2段: 不同市场(股/债/商品/汇率)在讲同一个故事吗? 用具体数据。"
-            "第3段: 历史上出现过类似情况吗? 那次之后发生了什么? (自然融入叙事)"
-            "第4段: 市场可能忽视了什么风险或机会?"
+            "报告标题: 6-12个字，概括本周宏观核心主题。"
+            "格式: 名词短语或判断句，不带标点。"
+            "好例子: '通胀退烧遇上就业降温' / '流动性拐点初现' / '强经济撞上高利率'"
         )
+    )
+    verdict: str = Field(
+        description="一句话判断: 立场(进攻/防守/中性偏X) + 核心原因 + 最需关注的变量。"
     )
     signal_lights: SignalLights = Field(
         description="四维度信号灯，基于数据给出 green/yellow/red 判断"
     )
-    market_recap: str = Field(
+    landscape: str = Field(
         description=(
-            "本周市场速览 -- 用最直白的语言, 3-4句话讲清楚本周发生了什么。"
-            "包含: 主要指数涨跌幅、板块领涨领跌、资金流向方向。"
+            "宏观格局 -- 当前宏观环境的核心矛盾和主导力量。2-3段: "
+            "第1段: 当前主导力量和核心矛盾; "
+            "第2段: 这种环境历史上有利于什么方向; "
+            "第3段: 什么会改变当前格局 + 3-6个月展望。"
         )
     )
-
-    liquidity_analysis: SectionAnalysis = Field(description="流动性环境分析")
-    economy_analysis: SectionAnalysis = Field(description="经济基本面分析")
-    inflation_analysis: SectionAnalysis = Field(description="通胀与利率分析")
-    sentiment_analysis: SectionAnalysis = Field(description="市场情绪分析")
-
-    investment_implications: str = Field(
+    narrative: str = Field(
         description=(
-            "宏观策略展望 -- 全篇最重要的部分，是前面分析的自然结论。3段:\n"
-            "1. 定调: 综合四个维度，当前宏观环境偏进攻/防守/中性，并说明为什么\n"
-            "2. 方向性倾向+失效条件: 风格和板块的方向性判断(用ETF ticker)，每个判断附带具体的失效条件\n"
-            "3. 市场可能忽视了什么: 一个反共识观点，用大白话说清楚\n"
-            "可以给方向性判断如'当前环境更有利于X'，但必须附带失效条件，禁止无条件的超配/低配/买入/卖出"
+            "本周回顾 -- 报告主体。把四个维度(流动性/经济/通胀/情绪)的变化"
+            "编织成一个连贯故事，按因果逻辑而非维度分类组织。5-7段叙事。"
+        )
+    )
+    takeaway: str = Field(
+        description=(
+            "策略启示 -- 策略判断。3段:\n"
+            "1. 定调: 偏进攻/防守/中性，为什么\n"
+            "2. 方向性倾向+失效条件\n"
+            "3. 市场可能忽视了什么"
         )
     )
     week_ahead: list[WeekAheadEvent] = Field(
-        description="下周关注: 4-5 个关键事件(宏观数据+重要财报+政策动向)"
+        description="下周关注: 3-5 个关键事件"
     )
+
+    liquidity_analysis: SectionAnalysis = Field(description="流动性环境分析(详情页)")
+    economy_analysis: SectionAnalysis = Field(description="经济基本面分析(详情页)")
+    inflation_analysis: SectionAnalysis = Field(description="通胀与利率分析(详情页)")
+    sentiment_analysis: SectionAnalysis = Field(description="市场情绪分析(详情页)")
 
 
 class WeeklyMacroReport(BaseModel):
@@ -102,17 +115,18 @@ class WeeklyMacroReport(BaseModel):
     week_label: str = Field(description="周标签，如 '2025.W06'")
     generated_at: str = Field(description="生成时间 ISO 8601")
 
-    executive_summary: str = Field(description="宏观深度解读")
+    title: str = Field(description="报告标题")
+    verdict: str = Field(description="一句话判断")
     signal_lights: SignalLights = Field(description="四维度信号灯")
-    market_recap: str = Field(description="本周市场回顾")
+    landscape: str = Field(description="宏观格局")
+    narrative: str = Field(description="本周回顾")
+    takeaway: str = Field(description="策略启示")
+    week_ahead: list[WeekAheadEvent] = Field(description="下周关注")
 
     liquidity_analysis: SectionAnalysis = Field(description="流动性环境分析")
     economy_analysis: SectionAnalysis = Field(description="经济基本面分析")
     inflation_analysis: SectionAnalysis = Field(description="通胀与利率分析")
     sentiment_analysis: SectionAnalysis = Field(description="市场情绪分析")
-
-    investment_implications: str = Field(description="宏观策略展望")
-    week_ahead: list[WeekAheadEvent] = Field(description="下周关注")
 
 
 class MarketPerformance(BaseModel):

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import PaywallGuard from '@/components/PaywallGuard';
 import { api, DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, StockSearchResult, StockQuote } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort, marketTodayStr } from '@/lib/timezone';
@@ -13,7 +14,7 @@ import { STOCK_NAMES } from '@/lib/stock-names';
 // Watchlist limit
 const MAX_WATCHLIST_SIZE = 25;
 
-export default function ForYouPage() {
+function ForYouPageContent() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
@@ -828,5 +829,13 @@ export default function ForYouPage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function ForYouPage() {
+  return (
+    <PaywallGuard>
+      <ForYouPageContent />
+    </PaywallGuard>
   );
 }

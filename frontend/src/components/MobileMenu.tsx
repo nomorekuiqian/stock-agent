@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
+  const { isPro } = useSubscription();
 
   const navSections = [
     {
@@ -117,9 +119,23 @@ export function MobileMenu() {
                 </div>
               ) : isAuthenticated && user ? (
                 <>
-                  <div className="px-4 py-2 text-xs text-muted-foreground">
-                    {user.name || user.email}
+                  <div className="px-4 py-2 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{user.name || user.email}</span>
+                    {isPro && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
+                        PRO
+                      </span>
+                    )}
                   </div>
+                  {!isPro && (
+                    <Link
+                      href="/for-you"
+                      onClick={() => setIsOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-emerald-400 font-medium hover:bg-emerald-500/10 rounded-lg transition-colors"
+                    >
+                      Upgrade to Pro
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       signOut();

@@ -1,0 +1,109 @@
+# Weekly Report - 宏观周报
+
+## 功能概述
+
+每周生成一份 AI 驱动的宏观分析周报，面向有 1-5 年经验的中文美股散户。聚合 9 个数据源（流动性、经济、通胀、情绪、CPI、市场表现、经济日历、财报日历），通过 Gemini Pro 生成结构化的四维分析报告。按 week_label（如 2025.W06）做幂等存储。
+
+## API 端点
+
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/weekly-report` | GET | 获取最新周报，或按 `?week=2025.W06` 查询 | 无 |
+| `/api/weekly-report/list` | GET | 历史周报列表（支持 limit/offset 分页） | 无 |
+| `/api/weekly-report/generate` | POST | 生成周报（`?force=true` 强制重新生成） | X-Cron-Secret |
+
+## 数据流
+
+```
+POST /api/weekly-report/generate
+  |
+  +-- verify_cron_secret (X-Cron-Secret)
+  +-- 幂等检查 (week_label 已存在则跳过, 除非 force=true)
+  |
+  +-- collect_weekly_data()  并行获取 9 个数据源:
+  |   +-- macro_risk/service: dashboard, economy, inflation_rates, sentiment
+  |   +-- liquidity/fred_service: 流动性指标
+  |   +-- macro_cache/db: 流动性百分位统计
+  |   +-- shared/data_tools: 经济日历(14天), 财报日历(14天)
+  |   +-- yfinance: 周涨跌幅 (指数+板块+风格)
+  |
+  +-- WeeklyReportAgent.generate(raw_data)
+  |   +-- _prepare_data_for_agent() 序列化清洗
+  |   +-- Gemini Pro 生成四维分析
+  |
+  +-- save_weekly_report() 保存到 DB (含 raw_data 审计)
+  +-- 返回完整周报
+```
+
+## 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `router.py` | 3 个端点、认证、幂等检查、lazy import 避免启动时加载重依赖 |
+| `data_collector.py` | collect_weekly_data() 并行聚合 9 个数据源、周涨跌幅计算 |
+| `agent.py` | WeeklyReportAgent — Gemini Pro 四维分析、290+ 行 prompt |
+| `models.py` | WeeklyRawData（输入）、WeeklyReportOutput（输出）、信号灯、子维度模型 |
+| `db.py` | Insforge Edge Function (weekly_macro_reports 表 CRUD) |
+
+## 依赖关系
+
+**数据源**:
+- `macro_risk/service.py` — dashboard, economy, inflation_rates, sentiment（4 个函数）
+- `liquidity/fred_service.py` — get_all_liquidity_metrics()
+- `macro_cache/db.py` — try_db_cache("macro:liquidity_percentiles") 百分位统计
+- `shared/data_tools/calendar.py` — 经济日历
+- `shared/data_tools/earnings.py` — 财报日历
+- `yfinance` — 周涨跌幅（SPY/QQQ/DIA + 11 板块 ETF + 风格 ETF）
+
+**AI**: Google ADK `LlmAgent` + `InMemoryRunner`, 模型 `gemini-3-pro-preview`
+
+**数据库表**: `weekly_macro_reports`（按 week_label 做 upsert）
+
+## 关键业务逻辑
+
+### 输出结构（四维分析）
+
+```
+executive_summary    — 3-4 段宏观叙事总结
+signal_lights        — 信号灯 {liquidity, economy, inflation, sentiment} -> green/yellow/red
+market_recap         — 3-4 句大白话市场回顾
+
+liquidity_analysis   — {data_changes, trend_interpretation, market_implication}
+economy_analysis     — 同上结构
+inflation_analysis   — 同上结构
+sentiment_analysis   — 同上结构
+
+investment_implications — 3 段: 攻守姿态 + 方向偏好 + 逆向观点
+week_ahead           — 4-5 个关键事件 {date, event, if_above, if_below}
+```
+
+### 每个维度的子维度覆盖要求
+- **流动性**: 净流动性、资产负债表组成、金融条件
+- **经济**: 增长、就业、信用
+- **通胀**: 通胀率、利率、商品信号
+- **情绪**: 恐贪指数、波动率、广度、信用利差
+
+### Agent 指令 4 条铁律
+1. **结论先行**: 每段开头必须是定性判断 + 关键数据点
+2. **覆盖所有子维度**: 每个预定义子维度都必须涉及
+3. **翻译每个指标**: "大白话翻译(专业名 数据值)" 格式
+4. **交叉验证**: 用其他市场信号验证趋势判断
+
+### 周涨跌幅计算
+- 指数: SPY, QQQ, DIA（5 天价格变化 %）
+- 板块: XLK, XLC, XLY, XLP, XLE, XLF, XLV, XLI, XLB, XLRE, XLU
+- 风格: IWF(成长), IWD(价值), IWM(小盘)
+
+### 流动性百分位上下文
+从 macro_cache 读取 `macro:liquidity_percentiles`，提供每个流动性指标的:
+- 1 年百分位排名 (0-100)
+- 52 周高低点
+- 1m/3m/6m/1y 变化
+
+## 注意事项
+
+- router.py 使用 lazy import（`from ... import ...` 在函数内部），避免启动时加载 ADK 等重依赖
+- data_collector 使用 `return_exceptions=True`，单个数据源失败不阻塞整体
+- 生成时会把完整 raw_data 存入 DB 作为审计记录
+- Agent 禁止使用比喻、引号术语、无解释的专业术语
+- 风格要求: 具体数字 + ETF 代码 + 特定数据触发条件

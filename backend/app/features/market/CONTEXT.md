@@ -1,0 +1,109 @@
+# Market - 市场日报
+
+## 功能概述
+
+每日生成一份 AI 驱动的市场分析报告，面向美股散户投资者（偏重科技股）。使用 Gemini Flash 分析当日市场数据、新闻、经济日历，输出结构化中文报告。按日缓存，同一天重复请求直接返回缓存。
+
+## API 端点
+
+| 端点 | 方法 | 描述 | 认证 |
+|------|------|------|------|
+| `/api/market` | POST | 生成/获取当日市场报告 | 无 |
+
+**请求参数**: `{ "force": false }` — `force=true` 强制重新生成
+
+**响应结构**:
+```json
+{
+  "indices": [{"name", "value", "change_percent", "change_unit?"}],
+  "title": "15-30字中文标题",
+  "summary": "2-3句摘要",
+  "intro": "2-3段开场白",
+  "news": {
+    "headlines": [{"title", "fact_summary", "deep_analysis", "url"}],
+    "briefs": [{"title", "summary", "analysis", "url"}]
+  },
+  "report_summary": [{"title", "content"}],
+  "calendar": [{"date", "event", "analysis"}],
+  "market_data": {},
+  "from_cache": true,
+  "report_id": "uuid",
+  "timestamp": "ISO-8601"
+}
+```
+
+## 数据流
+
+```
+POST /api/market
+  |
+  +-- 检查缓存 (DB 按日期查询, Pacific 时区)
+  |   +-- 命中且当天 -> 直接返回
+  |   +-- 未命中/force=true -> 生成新报告
+  |
+  +-- MarketAgent.analyze()
+  |   +-- 并行获取: 市场数据 + 新闻 + 经济日历 + 财报日历
+  |   +-- 加载最近 5 篇历史报告 (叙事连续性)
+  |   +-- 数据清洗 (减少 45% token)
+  |   +-- Gemini Flash 生成结构化报告
+  |   +-- 后处理: article_id -> 真实 URL
+  |
+  +-- transform_market_data_to_indices() 转换前端格式
+  +-- 保存到 DB (按日期 upsert)
+  +-- 返回响应
+```
+
+## 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `router.py` | POST 端点、缓存逻辑、market_data->indices 转换、响应标准化 |
+| `agent.py` | MarketAgent 类、数据获取与清洗、Gemini Agent 调用、URL 解析 |
+| `models.py` | Pydantic 输出模型 (MarketReportOutput 及子模型) |
+| `db.py` | Insforge Edge Function 调用 (market_reports 表 CRUD) |
+
+## 依赖关系
+
+**数据源**:
+- `shared/data_tools/market_data.py` — 指数、利率、商品报价 (yfinance + FMP)
+- `shared/data_tools/news.py` — 市场新闻 (FMP)
+- `shared/data_tools/calendar.py` — 经济日历
+- `shared/data_tools/earnings.py` — 财报日历
+
+**AI**: Google ADK `LlmAgent` + `InMemoryRunner`, 模型 `gemini-3-flash-preview`
+
+**数据库表**: `market_reports` (按 report_date 做每日 upsert)
+
+## 关键业务逻辑
+
+### Agent 指令核心规则
+- **叙事连续性**: 如果有 previous_reports，需将今日分析放入过去一周的叙事脉络中
+- **情绪校准**: 大涨时也要说明上涨何时可能停止；大跌时提供背景（如"距年内高点仅 3%"）
+- **标题风格**: 像经济学人，不像小报。15-30 字，有观点但克制
+- **新闻筛选**: headlines 2-4 条（必须是 CNBC/Bloomberg 级别大事件），briefs 8-12 条
+- **输出语言**: 全中文
+
+### URL 解析机制
+Agent 输出的 `url` 字段可能是三种情况:
+1. article_id（如 "5"）-> 映射回原始新闻 URL
+2. 真实 URL -> 保留
+3. 伪造 URL -> 清空，避免死链
+
+### 缓存策略
+- 按 Pacific 时区判断"今天"
+- 同一天内只生成一次（除非 force=true）
+- 缓存键: report_date (YYYY-MM-DD)
+
+### 数据清洗 (_prepare_data_for_analyst)
+- 新闻: 只保留 article_id, title, text, source, url, publishedDate
+- 过滤垃圾新闻 (集体诉讼广告等)
+- 日历: 删除冗余数字字段
+- 市场数据: 删除 month_change 字段
+- 效果: 减少约 45% token 消耗
+
+## 注意事项
+
+- indices 转换中，国债利率变动用 bps 而非百分比
+- 响应中的换行符需要做 double-escaped newline 修复
+- Agent 是单例模式，模块生命周期内复用同一个 MarketAgent 实例
+- DB 操作全部走 Edge Function HTTP 调用，不是直接 SQL

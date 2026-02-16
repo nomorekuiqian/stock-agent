@@ -1,0 +1,147 @@
+# Data Tools - 数据获取工具层
+
+## 功能概述
+
+为 AI Agent 提供结构化市场数据的获取工具。所有函数返回 JSON 兼容的字典，不做分析解读，纯数据获取层。被 market、stock、sector、digest、weekly_report 等 Agent 模块调用。
+
+## 模块一览
+
+| 文件 | 职责 | 数据源 |
+|------|------|--------|
+| `market_data.py` | 市场指数、利率、商品、汇率、个股报价 | yfinance + FMP |
+| `news.py` | 市场新闻聚合 (3 源合并去重) | FMP API |
+| `calendar.py` | 经济日历 (高影响力美国事件) | FMP API |
+| `earnings.py` | 财报日历 (大盘股) | FMP API |
+
+---
+
+## market_data.py
+
+### get_all_market_data() -> dict
+一次调用获取全部市场数据，供 Agent 分析使用。
+
+**返回结构**:
+```python
+{
+  "status": "success",
+  "equities": {
+    "S&P 500": {value, daily_change, week_change, month_change, trend, position_in_range},
+    "Nasdaq": {...}, "Dow Jones": {...}, "Russell 2000": {...}, "S&P 400": {...}
+  },
+  "volatility": {"VIX": {...}},
+  "rates": {
+    "yield_curve": {"3M": {rate, daily_change_bps}, "5Y": {...}, "10Y": {...}, "30Y": {...}},
+    "spreads": {"10y_3m", "10y_5y", "30y_10y"},
+    "source": "fmp|yfinance",
+    "yield_curve_shape": "normal|inverted|flat"
+  },
+  "credit": {"HYG": {...}, "LQD": {...}, "hyg_lqd_spread": float},
+  "financials": {"XLF": {...}, "KRE": {...}},
+  "commodities": {"Gold": {...}, "Oil": {...}},
+  "currencies": {"US Dollar": {...}},
+  "report_date": {date, weekday, time, formatted}
+}
+```
+
+**数据源优先级**:
+- 国债利率: FMP (12 期限点 + 日变化 bps) -> yfinance 降级 (4 期限点)
+- 商品: FMP 现货 (当前价+日变化) + yfinance 期货 (周/月趋势) 合并
+- 其他: yfinance (1 个月历史数据下载)
+
+**每个资产的通用字段**:
+```python
+{
+  "value": float,          # 当前价/值
+  "previous_close": float,
+  "daily_change": float,   # 百分比
+  "week_change": float,    # 百分比
+  "month_change": float,   # 百分比
+  "trend": "up|down|flat", # 基于 week_change
+  "position_in_range": float  # 0-100, 在 1 月区间中的位置
+}
+```
+
+### get_stock_quotes(symbols) -> dict
+用户自选股报价（最多 20 只）。
+
+**返回**: 每只股票包含 price, daily/week/month_change, pe_ratio, market_cap, 52_week_high/low
+
+---
+
+## news.py
+
+### get_combined_market_news(days=1, symbols=None) -> dict
+**主入口**，合并 3 个新闻源并去重排序。
+
+**3 个新闻源**:
+1. `fmp_ticker`: 个股新闻（Mag7 + 半导体 + 指数 + 用户 symbols）
+2. `fmp_general`: 宏观/政策/经济新闻
+3. `fmp_latest`: 广泛市场新闻
+
+**去重逻辑**: 标题前 50 字符（去特殊字符）作为 key，相同 key 只保留第一条
+
+**时间过滤**: 工作日按 24 小时滚动；周末/周一包含上周五的新闻
+
+**返回**:
+```python
+{
+  "news_count": int,
+  "news": [{symbol, headline, text, publishedDate, url, ...}],
+  "source": "fmp_combined",
+  "sources": {"ticker_news": n, "general_news": n, "latest_news": n}
+}
+```
+
+---
+
+## calendar.py
+
+### get_economic_calendar(days=14) -> dict
+获取未来 N 天高影响力美国经济事件（最多 90 天）。
+
+**过滤条件**: `impact == "High" AND country == "US"`
+
+**关键事件标记**: Fed 利率决议、FOMC、CPI/PPI、非农、GDP 等
+
+**返回**:
+```python
+{
+  "events_count": int,
+  "events": [{date, event, previous, estimate, actual, impact, is_key_event}],
+  "filter": "US High Impact only"
+}
+```
+
+---
+
+## earnings.py
+
+### get_earnings_calendar(days=14) -> dict
+获取未来 N 天大盘股财报日程。
+
+**返回**:
+```python
+{
+  "earnings_count": int,
+  "earnings": [{symbol, date, epsEstimated, epsActual, revenueEstimated, revenueActual, is_ai_related}]
+}
+```
+
+---
+
+## __init__.py 导出
+
+```python
+from .market_data import get_all_market_data, get_stock_quotes, safe_float
+from .market_data import EQUITY_TICKERS, VOLATILITY_TICKERS, ...
+from .news import get_combined_market_news
+```
+
+## 注意事项
+
+- 所有函数返回 `{"status": "error", "error": str}` 格式的错误响应
+- 所有函数打印 `[TOOL] function_name()` 日志便于调试
+- 时间全部使用 Pacific 时区（FMP 返回 UTC，内部转换）
+- `safe_float()` 辅助函数处理 NaN/None -> 默认值
+- 提取资产数据至少需要 5 个数据点，否则返回 None
+- 这是纯数据层，不做任何分析或解读，解读由 Agent 完成

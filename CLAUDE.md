@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 模块文档
+
+每个 feature 模块目录下有 `CONTEXT.md`，修改代码前先阅读以了解模块的功能逻辑、数据流、依赖关系和注意事项。
+
+已有文档:
+- `backend/app/features/market/CONTEXT.md` — 市场日报
+- `backend/app/features/stock/CONTEXT.md` — 个股投研
+- `backend/app/features/liquidity/CONTEXT.md` — 流动性监控
+- `backend/app/features/weekly_report/CONTEXT.md` — 宏观周报
+- `backend/app/features/sector/CONTEXT.md` — 板块分析
+- `backend/app/features/digest/CONTEXT.md` — 个性化摘要
+- `backend/app/features/macro_cache/CONTEXT.md` — 宏观数据缓存系统
+- `backend/app/features/macro_risk/CONTEXT.md` — 宏观风险评估
+- `backend/app/shared/CONTEXT.md` — 跨模块共享服务
+- `backend/app/shared/data_tools/CONTEXT.md` — 数据获取工具层
+- `backend/app/features/subscription/CONTEXT.md` — 邮件订阅与推送
+- `backend/app/features/feedback/CONTEXT.md` — 用户反馈
+- `backend/app/core/CONTEXT.md` — 核心基础设施
+- `frontend/docs/pages.md` — 前端页面路由
+- `frontend/docs/components.md` — 前端组件与库文件
+- `frontend/docs/auth.md` — 认证流程
+
 ## 重要规则
 
 - **禁止自动 Git 操作**: 不要自动执行 `git commit` 或 `git push`，所有 Git 提交和推送操作需要用户手动确认后再执行

@@ -33,6 +33,7 @@ class SubscriptionChannel(str, Enum):
 
     DAILY_REPORT = "daily_report"
     PERSONAL_DIGEST = "personal_digest"
+    WEEKLY_REPORT = "weekly_report"
 
 
 # Channel configuration
@@ -46,6 +47,11 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
         "audience_name": "Personal Digest Daily",
         "metadata_fields": ["first_name", "user_id", "symbols"],
         "requires_auth": True,
+    },
+    SubscriptionChannel.WEEKLY_REPORT: {
+        "audience_name": "MarketBrew Weekly",
+        "metadata_fields": ["first_name"],
+        "requires_auth": False,
     },
 }
 
