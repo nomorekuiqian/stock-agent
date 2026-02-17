@@ -950,21 +950,31 @@ async def broadcast_to_channel(
             # Broadcast daily report
             broadcast_result = await email_service.broadcast_daily_report(report_data)
 
+            if not broadcast_result.get("success"):
+                error_msg = broadcast_result.get("error", "Failed to broadcast daily report")
+                print(f"[broadcast_to_channel] Daily report broadcast failed: {error_msg}")
+                raise HTTPException(status_code=500, detail=error_msg)
+
             return BroadcastResponse(
-                success=broadcast_result.get("success", False),
+                success=True,
                 channel=channel.value,
                 total=broadcast_result.get("total", 0),
                 sent=broadcast_result.get("sent", 0),
                 failed=broadcast_result.get("failed", 0),
-                errors=broadcast_result.get("errors", []),
+                errors=[],
             )
 
         elif channel == SubscriptionChannel.PERSONAL_DIGEST:
             # Broadcast personal digests (parallel processing)
             broadcast_result = await email_service.broadcast_personal_digests(max_concurrent=5)
 
+            if not broadcast_result.get("success"):
+                error_msg = broadcast_result.get("error", "Failed to broadcast personal digests")
+                print(f"[broadcast_to_channel] Personal digest broadcast failed: {error_msg}")
+                raise HTTPException(status_code=500, detail=error_msg)
+
             return BroadcastResponse(
-                success=broadcast_result.get("success", False),
+                success=True,
                 channel=channel.value,
                 total=broadcast_result.get("total", 0),
                 sent=broadcast_result.get("sent", 0),
@@ -982,8 +992,13 @@ async def broadcast_to_channel(
 
             broadcast_result = await email_service.broadcast_weekly_report(report)
 
+            if not broadcast_result.get("success"):
+                error_msg = broadcast_result.get("error", "Failed to broadcast weekly report")
+                print(f"[broadcast_to_channel] Weekly report broadcast failed: {error_msg}")
+                raise HTTPException(status_code=500, detail=error_msg)
+
             return BroadcastResponse(
-                success=broadcast_result.get("success", False),
+                success=True,
                 channel=channel.value,
                 total=broadcast_result.get("total", 0),
                 sent=broadcast_result.get("sent", 0),

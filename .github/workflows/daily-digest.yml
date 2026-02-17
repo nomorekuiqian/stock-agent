@@ -25,7 +25,13 @@ jobs:
           echo "HTTP Code: $http_code"
 
           if [ "$http_code" != "200" ]; then
-            echo "Failed to send personal digests"
+            echo "Failed to send personal digests (HTTP $http_code)"
+            exit 1
+          fi
+
+          # Also check success field in response body
+          if echo "$body" | grep -q '"success":false'; then
+            echo "Digest API returned success:false"
             exit 1
           fi
 
