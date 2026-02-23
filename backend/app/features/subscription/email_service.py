@@ -41,7 +41,6 @@ class EmailService:
             return now_pacific().strftime("%B %d, %Y")
 
     def _get_time_greeting(self) -> str:
-        """Get time-based greeting in Chinese (Pacific timezone)."""
         hour = now_pacific().hour
         if 5 <= hour < 12:
             return "早上好"
@@ -234,6 +233,42 @@ class EmailService:
                 <tr>
                     <td style="text-align: center;">
                         <a href="{unsubscribe_url}" style="color: #10b981; font-size: 11px; text-decoration: none; font-weight: 500;">Unsubscribe</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    def _get_digest_cta_section(self) -> str:
+        """CTA block promoting personal digest, shown only in daily report emails."""
+        setup_url = f"{self.frontend_url}/for-you/setup"
+        return f"""
+        <div style="background: #ffffff; padding: 28px 24px; border-top: 1px solid #e5e7eb;">
+            <table style="width: 100%;" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td style="text-align: center; padding-bottom: 14px;">
+                        <span style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 4px; text-transform: uppercase;">NEW</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: center; padding-bottom: 6px;">
+                        <p style="margin: 0; font-size: 17px; font-weight: 600; color: #0a0a0a;">
+                            没看到你最关心的股票?
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: center; padding-bottom: 18px;">
+                        <p style="margin: 0; font-size: 13px; color: #71717a; line-height: 1.6;">
+                            添加你的持仓到 Watchlist，每天收到一份只分析你的股票的专属日报。
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: center;">
+                        <a href="{setup_url}" style="display: inline-block; padding: 12px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                            获取我的专属日报
+                        </a>
                     </td>
                 </tr>
             </table>
@@ -475,6 +510,7 @@ class EmailService:
                 </div>
 
                 {self._get_feedback_section(feedback_report_date, feedback_report_id)}
+                {self._get_digest_cta_section()}
                 {self._get_email_footer()}
             </div>
         </body>
@@ -788,24 +824,85 @@ class EmailService:
             print(f"[EmailService] Error sending digest email: {e}")
             return {"success": False, "error": str(e)}
 
+    def _resolve_audience(
+        self,
+        audience_id: Optional[str],
+        channel: SubscriptionChannel,
+    ) -> str:
+        """Return the given audience_id, or look up the default for the channel."""
+        if audience_id:
+            return audience_id
+        sub_service = get_subscription_service()
+        return sub_service.ensure_audience(channel)
+
+    def _create_and_send_broadcast(
+        self,
+        label: str,
+        audience_id: str,
+        subject: str,
+        broadcast_name: str,
+        html: Optional[str] = None,
+        text: Optional[str] = None,
+        from_email: Optional[str] = None,
+    ) -> dict:
+        """Create a Resend broadcast, send it, and verify delivery.
+
+        Returns {"success": True, "broadcast_id": ..., "audience_id": ...}
+        or {"success": False, "error": ...}.
+        """
+        create_params: resend.Broadcasts.CreateParams = {
+            "from": from_email or self.from_email,
+            "audience_id": audience_id,
+            "subject": subject,
+            "name": broadcast_name,
+        }
+        if html:
+            create_params["html"] = html
+        if text:
+            create_params["text"] = text
+
+        broadcast = resend.Broadcasts.create(create_params)
+        broadcast_id = broadcast.get("id")
+        if not broadcast_id:
+            print(f"[EmailService] ERROR: {label} broadcast create returned no id: {broadcast}")
+            return {"success": False, "error": "Broadcast creation returned no ID"}
+        print(f"[EmailService] {label} broadcast created: {broadcast_id}")
+
+        send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
+        send_result = resend.Broadcasts.send(send_params)
+        send_id = send_result.get("id") if send_result else None
+        print(f"[EmailService] {label} broadcast send result: {send_result}")
+
+        if not send_id:
+            print(f"[EmailService] WARNING: {label} send returned unexpected result, verifying status...")
+            import time
+            time.sleep(1)
+            verify = resend.Broadcasts.get(broadcast_id)
+            status = verify.get("status") if verify else None
+            print(f"[EmailService] {label} broadcast status after send: {status}")
+            if status not in ("sent", "queued"):
+                return {
+                    "success": False,
+                    "error": f"{label} broadcast send failed, status: {status}",
+                    "broadcast_id": broadcast_id,
+                }
+
+        print(f"[EmailService] {label} broadcast sent successfully: {broadcast_id}")
+        return {
+            "success": True,
+            "broadcast_id": broadcast_id,
+            "audience_id": audience_id,
+        }
+
     async def broadcast_daily_report(self, data: dict, audience_id: Optional[str] = None) -> dict:
         """Send the daily market report using Resend Broadcasts."""
-        print(
-            f"[EmailService] broadcast_daily_report called, audience_id={audience_id}"
-        )
+        print(f"[EmailService] broadcast_daily_report called, audience_id={audience_id}")
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            # Use provided audience_id or get default
-            if not audience_id:
-                sub_service = get_subscription_service()
-                audience_id = sub_service.ensure_audience(
-                    SubscriptionChannel.DAILY_REPORT
-                )
-
-            # Get report_date and report_id for feedback URL
+            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
             today = today_str()
             report_date = data.get("report_date") or today
             report_id = data.get("report_id")
@@ -818,48 +915,13 @@ class EmailService:
                 else f"[TheMarketBrew] {today}"
             )
 
-            create_params: resend.Broadcasts.CreateParams = {
-                "from": self.from_email,
-                "audience_id": audience_id,
-                "subject": subject,
-                "html": html_content,
-                "name": f"Daily Report {today}",
-            }
-
-            broadcast = resend.Broadcasts.create(create_params)
-            broadcast_id = broadcast.get("id")
-            if not broadcast_id:
-                print(f"[EmailService] ERROR: Broadcast create returned no id: {broadcast}")
-                return {"success": False, "error": "Broadcast creation returned no ID"}
-            print(f"[EmailService] Broadcast created: {broadcast_id}")
-
-            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-            send_result = resend.Broadcasts.send(send_params)
-            send_id = send_result.get("id") if send_result else None
-            print(f"[EmailService] Broadcast send result: {send_result}")
-
-            if not send_id:
-                print(f"[EmailService] WARNING: Send returned unexpected result, verifying status...")
-                # Verify broadcast was actually sent by checking its status
-                import time
-                time.sleep(1)  # Brief wait for status update
-                verify = resend.Broadcasts.get(broadcast_id)
-                status = verify.get("status") if verify else None
-                print(f"[EmailService] Broadcast status after send: {status}")
-                if status not in ("sent", "queued"):
-                    return {
-                        "success": False,
-                        "error": f"Broadcast send failed, status: {status}",
-                        "broadcast_id": broadcast_id,
-                    }
-
-            print(f"[EmailService] Broadcast sent successfully: {broadcast_id}")
-
-            return {
-                "success": True,
-                "broadcast_id": broadcast_id,
-                "audience_id": audience_id,
-            }
+            return self._create_and_send_broadcast(
+                label="Daily",
+                audience_id=audience_id,
+                subject=subject,
+                broadcast_name=f"Daily Report {today}",
+                html=html_content,
+            )
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting: {e}")
@@ -869,21 +931,13 @@ class EmailService:
         self, data: dict, audience_id: Optional[str] = None, first_name: str = ""
     ) -> dict:
         """Broadcast a personal digest using Resend Broadcasts."""
-        print(
-            f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}"
-        )
+        print(f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}")
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            # Use provided audience_id or get default
-            if not audience_id:
-                sub_service = get_subscription_service()
-                audience_id = sub_service.ensure_audience(
-                    SubscriptionChannel.PERSONAL_DIGEST
-                )
-
+            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.PERSONAL_DIGEST)
             today = today_str()
             digest_date = data.get("digest_date") or today
             digest_id = data.get("digest_id")
@@ -898,47 +952,13 @@ class EmailService:
                 else f"[TheMarketBrew专属日报] {today}"
             )
 
-            create_params: resend.Broadcasts.CreateParams = {
-                "from": self.from_email,
-                "audience_id": audience_id,
-                "subject": subject,
-                "html": html_content,
-                "name": f"Personal Digest {today}",
-            }
-
-            broadcast = resend.Broadcasts.create(create_params)
-            broadcast_id = broadcast.get("id")
-            if not broadcast_id:
-                print(f"[EmailService] ERROR: Digest broadcast create returned no id: {broadcast}")
-                return {"success": False, "error": "Broadcast creation returned no ID"}
-            print(f"[EmailService] Digest broadcast created: {broadcast_id}")
-
-            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-            send_result = resend.Broadcasts.send(send_params)
-            send_id = send_result.get("id") if send_result else None
-            print(f"[EmailService] Digest broadcast send result: {send_result}")
-
-            if not send_id:
-                print(f"[EmailService] WARNING: Digest send returned unexpected result, verifying status...")
-                import time
-                time.sleep(1)
-                verify = resend.Broadcasts.get(broadcast_id)
-                status = verify.get("status") if verify else None
-                print(f"[EmailService] Digest broadcast status after send: {status}")
-                if status not in ("sent", "queued"):
-                    return {
-                        "success": False,
-                        "error": f"Digest broadcast send failed, status: {status}",
-                        "broadcast_id": broadcast_id,
-                    }
-
-            print(f"[EmailService] Digest broadcast sent successfully: {broadcast_id}")
-
-            return {
-                "success": True,
-                "broadcast_id": broadcast_id,
-                "audience_id": audience_id,
-            }
+            return self._create_and_send_broadcast(
+                label="Digest",
+                audience_id=audience_id,
+                subject=subject,
+                broadcast_name=f"Personal Digest {today}",
+                html=html_content,
+            )
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting digest: {e}")
@@ -1298,12 +1318,7 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            if not audience_id:
-                sub_service = get_subscription_service()
-                audience_id = sub_service.ensure_audience(
-                    SubscriptionChannel.WEEKLY_REPORT
-                )
-
+            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
             week_label = data.get("week_label", "")
             report_id = data.get("id")
             html_content = self._format_weekly_report_html(data, report_id=report_id)
@@ -1315,47 +1330,13 @@ class EmailService:
                 else f"[TheMarketBrew 周报] {week_label}"
             )
 
-            create_params: resend.Broadcasts.CreateParams = {
-                "from": self.from_email,
-                "audience_id": audience_id,
-                "subject": subject,
-                "html": html_content,
-                "name": f"Weekly Report {week_label}",
-            }
-
-            broadcast = resend.Broadcasts.create(create_params)
-            broadcast_id = broadcast.get("id")
-            if not broadcast_id:
-                print(f"[EmailService] ERROR: Weekly broadcast create returned no id: {broadcast}")
-                return {"success": False, "error": "Broadcast creation returned no ID"}
-            print(f"[EmailService] Weekly broadcast created: {broadcast_id}")
-
-            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-            send_result = resend.Broadcasts.send(send_params)
-            send_id = send_result.get("id") if send_result else None
-            print(f"[EmailService] Weekly broadcast send result: {send_result}")
-
-            if not send_id:
-                print(f"[EmailService] WARNING: Weekly send returned unexpected result, verifying status...")
-                import time
-                time.sleep(1)
-                verify = resend.Broadcasts.get(broadcast_id)
-                status = verify.get("status") if verify else None
-                print(f"[EmailService] Weekly broadcast status after send: {status}")
-                if status not in ("sent", "queued"):
-                    return {
-                        "success": False,
-                        "error": f"Weekly broadcast send failed, status: {status}",
-                        "broadcast_id": broadcast_id,
-                    }
-
-            print(f"[EmailService] Weekly broadcast sent successfully: {broadcast_id}")
-
-            return {
-                "success": True,
-                "broadcast_id": broadcast_id,
-                "audience_id": audience_id,
-            }
+            return self._create_and_send_broadcast(
+                label="Weekly",
+                audience_id=audience_id,
+                subject=subject,
+                broadcast_name=f"Weekly Report {week_label}",
+                html=html_content,
+            )
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting weekly report: {e}")
@@ -1491,56 +1472,18 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            if not audience_id:
-                sub_service = get_subscription_service()
-                audience_id = sub_service.ensure_audience(
-                    SubscriptionChannel.DAILY_REPORT
-                )
-
+            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
             text_content = self._format_newsletter_plaintext(data)
             today = today_str()
 
-            create_params: resend.Broadcasts.CreateParams = {
-                "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
-                "audience_id": audience_id,
-                "subject": subject,
-                "text": text_content,
-                "name": f"Newsletter {today}",
-            }
-
-            broadcast = resend.Broadcasts.create(create_params)
-            broadcast_id = broadcast.get("id")
-            if not broadcast_id:
-                print(f"[EmailService] ERROR: Newsletter broadcast create returned no id: {broadcast}")
-                return {"success": False, "error": "Broadcast creation returned no ID"}
-            print(f"[EmailService] Newsletter broadcast created: {broadcast_id}")
-
-            send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-            send_result = resend.Broadcasts.send(send_params)
-            send_id = send_result.get("id") if send_result else None
-            print(f"[EmailService] Newsletter broadcast send result: {send_result}")
-
-            if not send_id:
-                print(f"[EmailService] WARNING: Newsletter send returned unexpected result, verifying status...")
-                import asyncio as _asyncio
-                await _asyncio.sleep(1)
-                verify = resend.Broadcasts.get(broadcast_id)
-                status = verify.get("status") if verify else None
-                print(f"[EmailService] Newsletter broadcast status after send: {status}")
-                if status not in ("sent", "queued"):
-                    return {
-                        "success": False,
-                        "error": f"Newsletter broadcast send failed, status: {status}",
-                        "broadcast_id": broadcast_id,
-                    }
-
-            print(f"[EmailService] Newsletter broadcast sent successfully: {broadcast_id}")
-
-            return {
-                "success": True,
-                "broadcast_id": broadcast_id,
-                "audience_id": audience_id,
-            }
+            return self._create_and_send_broadcast(
+                label="Newsletter",
+                audience_id=audience_id,
+                subject=subject,
+                broadcast_name=f"Newsletter {today}",
+                text=text_content,
+                from_email="Golden from TheMarketBrew <hello@themarketbrew.com>",
+            )
 
         except Exception as e:
             print(f"[EmailService] Error broadcasting newsletter: {e}")
@@ -1889,12 +1832,10 @@ class EmailService:
             return {"success": False, "error": str(e)}
 
 
-# Singleton instance
 _email_service: Optional[EmailService] = None
 
 
 def get_email_service() -> EmailService:
-    """Get or create the email service singleton."""
     global _email_service
     if _email_service is None:
         _email_service = EmailService()

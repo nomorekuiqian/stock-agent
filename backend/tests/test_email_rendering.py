@@ -462,5 +462,60 @@ class TestFeedbackSectionReportType:
         assert "report_type=daily" in html
 
 
+class TestDigestCtaSection:
+    """Tests for _get_digest_cta_section() -- generated from git diff."""
+
+    def test_returns_html(self, email_svc):
+        """CTA section returns HTML string."""
+        html = email_svc._get_digest_cta_section()
+        assert "<div" in html
+        assert "</div>" in html
+
+    def test_contains_setup_link(self, email_svc):
+        """CTA links to /for-you/setup."""
+        html = email_svc._get_digest_cta_section()
+        assert "/for-you/setup" in html
+        assert "themarketbrew.com/for-you/setup" in html
+
+    def test_contains_cta_text(self, email_svc):
+        html = email_svc._get_digest_cta_section()
+        assert "NEW" in html
+
+    def test_included_in_daily_report(self, email_svc, mock_report_data):
+        """Digest CTA section is included in daily report HTML."""
+        html = email_svc._format_html_report(mock_report_data)
+        assert "/for-you/setup" in html
+
+
+class TestBroadcastWeeklyUsesDaily:
+    """Test that broadcast_weekly_report uses DAILY_REPORT audience -- generated from git diff."""
+
+    @pytest.mark.asyncio
+    async def test_uses_daily_report_audience(self, email_svc):
+        """broadcast_weekly_report should call ensure_audience with DAILY_REPORT."""
+        from unittest.mock import patch, MagicMock
+
+        mock_sub_service = MagicMock()
+        mock_sub_service.ensure_audience.return_value = "test-audience-id"
+
+        with patch(
+            "app.features.subscription.email_service.get_subscription_service",
+            return_value=mock_sub_service,
+        ), patch("app.features.subscription.email_service.resend") as mock_resend:
+            mock_resend.Broadcasts.create.return_value = {"id": "broadcast-123"}
+            mock_resend.Broadcasts.send.return_value = {"id": "send-123"}
+
+            # Need api_key for broadcast to proceed
+            email_svc.api_key = "test-key"
+            result = await email_svc.broadcast_weekly_report({"week_label": "2025.W08", "title": "Test"})
+
+            # Verify ensure_audience was called with DAILY_REPORT
+            from app.features.subscription.service import SubscriptionChannel
+            mock_sub_service.ensure_audience.assert_called_once_with(
+                SubscriptionChannel.DAILY_REPORT
+            )
+            assert result["success"] is True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

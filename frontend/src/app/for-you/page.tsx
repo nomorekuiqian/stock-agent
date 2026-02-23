@@ -1,106 +1,99 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
-import { api, DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent, StockSearchResult, StockQuote } from '@/lib/api';
+import { api, StockQuote, DigestResponse } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
-import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific, formatDateShort, marketTodayStr } from '@/lib/timezone';
-import WatchlistPanel from '@/components/WatchlistPanel';
-import { STOCK_NAMES } from '@/lib/stock-names';
-
-// Watchlist limit
-const MAX_WATCHLIST_SIZE = 25;
+import { marketTodayStr } from '@/lib/timezone';
+import { userDigestToResponse } from '@/lib/digest-utils';
+import OnboardingSection from '@/components/for-you/OnboardingSection';
+import PortfolioSnapshotBar from '@/components/for-you/PortfolioSnapshotBar';
+import DigestInlineReport from '@/components/for-you/DigestInlineReport';
+import RecentReports from '@/components/for-you/RecentReports';
 
 function ForYouPageContent() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
+  // Core state
   const [symbols, setSymbols] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [digest, setDigest] = useState<DigestResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<UserDigest[]>([]);
   const [totalHistory, setTotalHistory] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  // Email subscription state
+  // Dashboard state
+  const [generating, setGenerating] = useState(false);
+  const [displayDigest, setDisplayDigest] = useState<DigestResponse | null>(null);
+
+  // Subscription state
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
 
-  // Email send state
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-
-  // Stock quotes state
+  // Stock quotes
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [loadingQuotes, setLoadingQuotes] = useState(false);
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const extraNamesRef = useRef<Record<string, { en: string; zh: string }>>({});
+  // Today's digest detection
+  const todayDigest = useMemo(() => {
+    if (history.length === 0) return null;
+    return history[0].digest_date === marketTodayStr() ? history[0] : null;
+  }, [history]);
 
-  // Debounced search
-  const handleSearch = useCallback(async (query: string) => {
-    if (query.length < 1) {
-      setSearchResults([]);
-      setShowSearchDropdown(false);
-      return;
-    }
+  // History items to show in RecentReports, skipping the one already displayed inline
+  const filteredHistory = useMemo(() => {
+    if (!displayDigest || history.length === 0) return history;
+    // Skip the first item if it's the one being displayed inline
+    const displayId = todayDigest?.id || history[0]?.id;
+    return history.filter(item => item.id !== displayId);
+  }, [history, displayDigest, todayDigest]);
 
-    setIsSearching(true);
-    try {
-      const result = await api.searchStocks(query, 8);
-      const filtered = result.stocks.filter(s => !symbols.includes(s.symbol));
-      setSearchResults(filtered);
-      setShowSearchDropdown(true);
-    } catch (err) {
-      console.error('Search failed:', err);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [symbols]);
-
-  const handleSearchInputChange = (value: string) => {
-    setSearchQuery(value.toUpperCase());
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      handleSearch(value);
-    }, 300);
-  };
+  // --- Effects ---
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setShowSearchDropdown(false);
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login?redirect=/for-you');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!user?.id) return;
+
+      setLoadingWatchlist(true);
+      try {
+        const watchlist = await getUserWatchlist(user.id);
+        if (watchlist?.symbols) {
+          const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
+          setSymbols(uniqueSymbols);
+        }
+
+        const historyResult = await getUserDigests(user.id, 10, 0);
+        if (historyResult.data) {
+          setHistory(historyResult.data);
+          setTotalHistory(historyResult.total);
+
+          // Set display digest: today's or latest
+          if (historyResult.data.length > 0) {
+            const latest = historyResult.data[0];
+            setDisplayDigest(userDigestToResponse(latest));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user data:', err);
+      } finally {
+        setLoadingWatchlist(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
+    if (user?.id) {
+      loadUserData();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchQuotes = async () => {
@@ -128,46 +121,6 @@ function ForYouPageContent() {
   }, [symbols]);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login?redirect=/for-you');
-    }
-  }, [authLoading, isAuthenticated, router]);
-
-  useEffect(() => {
-    const loadUserData = async () => {
-      if (!user?.id) return;
-
-      setLoadingWatchlist(true);
-      try {
-        const watchlist = await getUserWatchlist(user.id);
-        if (watchlist?.symbols) {
-          // Deduplicate symbols
-          const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
-          setSymbols(uniqueSymbols);
-        }
-
-        const historyResult = await getUserDigests(user.id, 10, 0);
-        if (historyResult.data) {
-          setHistory(historyResult.data);
-          setTotalHistory(historyResult.total);
-
-          if (historyResult.data.length > 0) {
-            loadHistoricalDigest(historyResult.data[0]);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load user data:', err);
-      } finally {
-        setLoadingWatchlist(false);
-      }
-    };
-
-    if (user?.id) {
-      loadUserData();
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
     const checkSubscription = async () => {
       if (!user?.email) return;
 
@@ -186,6 +139,34 @@ function ForYouPageContent() {
       checkSubscription();
     }
   }, [user?.email]);
+
+  // Refetch watchlist + quotes when returning from watchlist page
+  const refetchWatchlist = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const watchlist = await getUserWatchlist(user.id);
+      if (watchlist?.symbols) {
+        const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
+        setSymbols(uniqueSymbols);
+      } else {
+        setSymbols([]);
+      }
+    } catch (err) {
+      console.error('Failed to refetch watchlist:', err);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchWatchlist();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refetchWatchlist]);
+
+  // --- Handlers ---
 
   const handleSubscription = async () => {
     if (!user?.email) return;
@@ -214,115 +195,73 @@ function ForYouPageContent() {
     }
   };
 
-  const handleAddSymbol = (symbol: string, name?: string) => {
-    if (symbols.length >= MAX_WATCHLIST_SIZE) {
-      return; // Already at limit
-    }
-    const sym = symbol.trim().toUpperCase();
-    if (sym && !symbols.includes(sym)) {
-      const newSymbols = [...symbols, sym];
-      setSymbols(newSymbols);
-      if (name && !STOCK_NAMES[sym] && !extraNamesRef.current[sym]) {
-        extraNamesRef.current[sym] = { en: name, zh: '' };
-      }
-      if (user?.id) {
-        saveUserWatchlist(user.id, newSymbols);
-      }
-    }
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowSearchDropdown(false);
-  };
-
-  const handleRemoveSymbol = (symbolToRemove: string) => {
-    const newSymbols = symbols.filter((s) => s !== symbolToRemove);
-    setSymbols(newSymbols);
-    if (user?.id) {
-      saveUserWatchlist(user.id, newSymbols);
-    }
-  };
-
-  async function handleSendEmail() {
-    if (!user?.email) {
-      router.push('/login?redirect=/for-you');
-      return;
-    }
-
-    setSendingEmail(true);
-    setEmailSent(false);
-    try {
-      await api.sendReportEmail(user.email);
-      setEmailSent(true);
-      // Reset after 3 seconds
-      setTimeout(() => setEmailSent(false), 3000);
-    } catch (err) {
-      console.error('Failed to send email:', err);
-      setError('Failed to send email. Please try again.');
-    } finally {
-      setSendingEmail(false);
-    }
-  }
-
   const handleGenerateDigest = async () => {
-    setLoading(true);
+    if (!user?.id) return;
+
+    setGenerating(true);
     setError(null);
     try {
-      const result = await api.generateDigest(symbols, user?.id);
-      setDigest(result);
+      await api.generateDigest(symbols, user.id);
 
-      if (user?.id) {
-        const historyResult = await getUserDigests(user.id, 10, 0);
-        if (historyResult.data) {
-          setHistory(historyResult.data);
-          setTotalHistory(historyResult.total);
+      // Refresh history and update display digest in-place
+      const historyResult = await getUserDigests(user.id, 10, 0);
+      if (historyResult.data) {
+        setHistory(historyResult.data);
+        setTotalHistory(historyResult.total);
+        if (historyResult.data.length > 0) {
+          setDisplayDigest(userDigestToResponse(historyResult.data[0]));
         }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate digest');
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
-  const loadHistoricalDigest = (historyItem: UserDigest) => {
-    const digestData = historyItem.digest_data || {};
-    const digestFromHistory: DigestResponse = {
-      success: true,
-      timestamp: historyItem.created_at || historyItem.digest_date || '',
-      symbols_used: historyItem.symbols,
-      greeting: historyItem.greeting || '',
-      one_line_summary: historyItem.one_line_summary || '',
-      stocks: digestData.stocks || [],
-      news: digestData.news || { headlines: [], briefs: [] },
-      events: digestData.events || [],
-      summary: digestData.summary || {
-        content: historyItem.bottom_line || historyItem.analysis || '',
-      },
-    };
-    setDigest(digestFromHistory);
-  };
+  const handleSelectTemplate = async (newSymbols: string[]) => {
+    if (!user?.id) throw new Error('Not authenticated');
 
-  const getStatusColor = (status: string) => {
-    if (status.includes('up') || status.includes('strong') || status.includes('rise')) {
-      return 'text-emerald-400 bg-emerald-500/10';
-    } else if (status.includes('down') || status.includes('weak') || status.includes('fall')) {
-      return 'text-red-400 bg-red-500/10';
-    }
-    return 'text-muted-foreground bg-card';
-  };
+    // 1. Save watchlist
+    await saveUserWatchlist(user.id, newSymbols);
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
-      e.preventDefault();
-      if (searchResults.length > 0) {
-        handleAddSymbol(searchResults[0].symbol, searchResults[0].name);
-      } else {
-        handleAddSymbol(searchQuery);
+    // 2. Subscribe to email (non-blocking)
+    if (user.email) {
+      try {
+        await api.subscriptions.subscribe('personal_digest', {
+          email: user.email,
+          user_id: user.id,
+          symbols: newSymbols,
+        });
+      } catch {
+        // Subscription failure should not block onboarding
       }
-    } else if (e.key === 'Escape') {
-      setShowSearchDropdown(false);
+    }
+
+    // 3. Update local state
+    setSymbols(newSymbols);
+    setIsSubscribed(true);
+
+    // 4. Generate digest
+    setGenerating(true);
+    try {
+      await api.generateDigest(newSymbols, user.id);
+
+      // 5. Refresh history and display inline
+      const historyResult = await getUserDigests(user.id, 10, 0);
+      if (historyResult.data) {
+        setHistory(historyResult.data);
+        setTotalHistory(historyResult.total);
+        if (historyResult.data.length > 0) {
+          setDisplayDigest(userDigestToResponse(historyResult.data[0]));
+        }
+      }
+    } finally {
+      setGenerating(false);
     }
   };
+
+  // --- Auth loading / unauthenticated ---
 
   if (authLoading) {
     return (
@@ -341,492 +280,155 @@ function ForYouPageContent() {
     return null;
   }
 
+  // --- Three-state rendering ---
+
+  const isOnboarding = !loadingWatchlist && symbols.length === 0;
+  const subscriptionLoading = subscribing || checkingSubscription;
+
   return (
     <main className="min-h-screen bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            {/* Title Section */}
-            <div className="space-y-3">
-              {/* Section Label */}
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">FOR YOU</span>
-                {symbols.length > 0 && (
-                  <span className="text-muted-foreground text-xs font-medium tracking-[0.15em] ml-2">/ {symbols.length} STOCKS</span>
-                )}
-              </div>
-
-              {/* Main Title */}
-              <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
-                专属日报
-              </h1>
-
-              {/* Subtitle */}
-              <p className="text-muted-foreground text-sm md:text-base max-w-lg">
-                根据你的关注列表定制的市场洞察
-              </p>
-            </div>
-
-            {/* Action Buttons */}
+          <div className="space-y-4">
             <div className="flex items-center gap-3">
-              {/* Subscribe button */}
-              <button
-                onClick={handleSubscription}
-                disabled={subscribing || checkingSubscription || symbols.length === 0}
-                className={`px-4 py-2.5 rounded-lg font-medium text-sm border transition-all flex items-center gap-2 group ${
-                  isSubscribed
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
-                    : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {subscribing || checkingSubscription ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  </>
-                ) : isSubscribed ? (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>已订阅</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    <span>订阅</span>
-                  </>
-                )}
-              </button>
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">FOR YOU</span>
+              {symbols.length > 0 && (
+                <span className="text-muted-foreground text-xs font-medium tracking-[0.15em] ml-2">/ {symbols.length} STOCKS</span>
+              )}
+            </div>
+            <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
+              {isOnboarding ? '专属日报' : '你的专属日报'}
+            </h1>
+            <p className="text-muted-foreground text-sm md:text-base max-w-lg">
+              {isOnboarding
+                ? '根据你的关注列表定制的市场洞察'
+                : '基于你的持仓定制的每日市场洞察'}
+            </p>
 
-              {/* Send to Email button (requires login) */}
-              {user && (
+            {/* Toolbar buttons - only show for dashboard state */}
+            {!isOnboarding && symbols.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                {/* Manage watchlist */}
+                <Link
+                  href="/for-you/watchlist"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border/50 bg-card hover:border-emerald-500/30 hover:bg-card/80 text-sm text-foreground transition-all"
+                >
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  管理持仓
+                </Link>
+
+                {/* Subscription toggle */}
                 <button
-                  onClick={handleSendEmail}
-                  disabled={sendingEmail || loading || !digest || emailSent}
-                  className={`px-4 py-2.5 rounded-lg font-medium text-sm border transition-all disabled:cursor-not-allowed flex items-center gap-2 ${
-                    emailSent
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30 disabled:opacity-50'
+                  onClick={handleSubscription}
+                  disabled={subscriptionLoading}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isSubscribed
+                      ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:border-red-500/20 hover:text-red-400'
+                      : 'border-border/50 bg-card text-muted-foreground hover:border-emerald-500/30 hover:text-foreground'
                   }`}
                 >
-                  {sendingEmail ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      <span>发送中...</span>
-                    </>
-                  ) : emailSent ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>已发送</span>
-                    </>
+                  {subscriptionLoading ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-current/20 border-t-current animate-spin" />
                   ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <span>发送邮件</span>
-                    </>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   )}
+                  {isSubscribed ? '已订阅邮件' : '订阅邮件'}
                 </button>
-              )}
 
-              {/* Generate/View Digest button */}
-              {(() => {
-                const hasTodayDigest = history.length > 0 && history[0].digest_date === marketTodayStr();
-                return (
+                {/* Generate today's digest - only when no today digest */}
+                {!todayDigest && !generating && (
                   <button
                     onClick={handleGenerateDigest}
-                    disabled={loading || symbols.length === 0}
-                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 cursor-pointer"
                   >
-                    {loading ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        <span>加载中...</span>
-                      </>
-                    ) : hasTodayDigest ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>查看今日日报</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span>生成今日日报</span>
-                      </>
-                    )}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    生成今日日报
                   </button>
-                );
-              })()}
-            </div>
+                )}
+
+                {/* Generating spinner */}
+                {generating && (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/50 text-white text-sm font-medium">
+                    <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                    生成中...
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Watchlist Panel - Premium Redesign */}
-      <WatchlistPanel
-        symbols={symbols}
-        quotes={quotes}
-        stockNames={{ ...STOCK_NAMES, ...extraNamesRef.current }}
-        maxSize={MAX_WATCHLIST_SIZE}
-        isLoading={loadingWatchlist}
-        isLoadingQuotes={loadingQuotes}
-        searchQuery={searchQuery}
-        searchResults={searchResults}
-        isSearching={isSearching}
-        showSearchDropdown={showSearchDropdown}
-        onSearchChange={handleSearchInputChange}
-        onSearchKeyDown={handleSearchKeyDown}
-        onSearchFocus={() => searchQuery && setShowSearchDropdown(true)}
-        onAddSymbol={handleAddSymbol}
-        onRemoveSymbol={handleRemoveSymbol}
-        searchContainerRef={searchContainerRef}
-        searchInputRef={searchInputRef}
-      />
-
-      {/* Error */}
-      {error && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
-            {error}
-          </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
+      {/* Loading Watchlist */}
+      {loadingWatchlist && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">分析你的关注列表...</p>
+            <p className="text-muted-foreground text-sm">加载你的数据...</p>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
-      {!loading && digest && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          {/* Report Header */}
-          <section className="animate-fade-in-up">
-            {/* Date & Time */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm font-data text-foreground">{formatDateChinese(digest.timestamp)}</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm font-data text-muted-foreground">{formatTimePacific(digest.timestamp)}</span>
-              </div>
-            </div>
-
-            {/* Greeting */}
-            <h2 className="text-2xl md:text-3xl font-editorial text-foreground leading-tight">
-              {digest.greeting}
-            </h2>
-
-            {/* Summary */}
-            {digest.one_line_summary && (
-              <p className="text-muted-foreground mt-3 leading-relaxed">
-                {digest.one_line_summary}
-              </p>
-            )}
-          </section>
-
-          {/* Watchlist Overview */}
-          {digest.stocks.length > 0 && (
-            <section className="terminal-card p-6 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
-              </div>
-              <div className="divide-y divide-border/30">
-                {digest.stocks.map((stock: StockAnalysis, index: number) => (
-                  <div key={`${stock.symbol}-${index}`} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold font-data text-foreground">{stock.symbol}</span>
-                        <span className="text-sm text-muted-foreground">{stock.name}</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(stock.status)}`}>
-                        {stock.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm mb-2">
-                      <span className="text-foreground font-medium font-data">${stock.price.toFixed(2)}</span>
-                      <span className={`font-data ${stock.daily_change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {stock.daily_change}
-                      </span>
-                      <span className="text-muted-foreground/50">|</span>
-                      <span className={`font-data ${stock.week_change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {stock.week_change} (周)
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{stock.quick_take}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Headlines News */}
-          {digest.news?.headlines?.length > 0 && (
-            <section className="terminal-card p-6 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">头条新闻</h3>
-              </div>
-              <div className="divide-y divide-border/30">
-                {digest.news.headlines.map((item: DigestHeadlineNews, index: number) => (
-                  <div key={index} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-foreground hover:text-emerald-400 transition-colors text-sm"
-                      >
-                        {item.title}
-                      </a>
-                      {item.related_symbols?.length > 0 && (
-                        <div className="flex gap-1 shrink-0">
-                          {item.related_symbols.map((sym: string) => (
-                            <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
-                              {sym}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm text-foreground/90 mb-2">{item.fact_summary}</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{item.deep_analysis}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Brief News */}
-          {digest.news?.briefs?.length > 0 && (
-            <section className="terminal-card p-6 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">更多新闻</h3>
-              </div>
-              <div className="divide-y divide-border/30">
-                {digest.news.briefs.map((item: DigestBriefNews, index: number) => (
-                  <div key={index} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-foreground hover:text-emerald-400 transition-colors text-sm"
-                      >
-                        {item.title}
-                      </a>
-                      {item.related_symbols?.length > 0 && (
-                        <div className="flex gap-1 shrink-0">
-                          {item.related_symbols.map((sym: string) => (
-                            <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
-                              {sym}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{item.summary}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed mt-1">{item.analysis}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Key Events */}
-          {digest.events.length > 0 && (
-            <section className="terminal-card p-6 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">重要事件</h3>
-              </div>
-              <div className="space-y-4">
-                {digest.events.map((event: DigestEvent, index: number) => {
-                  const dateStr = event.date.split('T')[0];
-                  const calendarDate = formatCalendarDate(dateStr);
-                  const isToday = isTodayPacific(dateStr);
-
-                  return (
-                    <div key={index} className="flex gap-4">
-                      <div className={`flex-shrink-0 w-14 rounded-lg p-2 text-center border ${
-                        isToday
-                          ? 'bg-emerald-500/10 border-emerald-500/20'
-                          : 'bg-card border-border/30'
-                      }`}>
-                        <p className={`text-xs font-data uppercase ${isToday ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                          {calendarDate.month}
-                        </p>
-                        <p className={`text-xl font-semibold font-data ${isToday ? 'text-emerald-400' : 'text-foreground'}`}>
-                          {calendarDate.day}
-                        </p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <span className="font-semibold text-foreground text-sm">{event.event}</span>
-                          {event.related_symbols.length > 0 && (
-                            <div className="flex gap-1 shrink-0">
-                              {event.related_symbols.map((sym: string) => (
-                                <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
-                                  {sym}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{event.why_important}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Summary */}
-          {digest.summary?.content && (
-            <section className="terminal-card p-6 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">总结</h3>
-              </div>
-              <div className="space-y-4">
-                {digest.summary.content.split('\n\n').map((paragraph, index) => (
-                  paragraph.trim() && (
-                    <p key={index} className="text-sm text-muted-foreground leading-relaxed">
-                      {paragraph.trim()}
-                    </p>
-                  )
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Disclaimer */}
-          <div className="text-center pt-4 border-t border-border/30">
-            <p className="text-xs text-muted-foreground/60">
-              AI 生成的报告仅供参考,不构成投资建议
-            </p>
-          </div>
-        </div>
+      {/* State A: Onboarding */}
+      {!loadingWatchlist && isOnboarding && user && (
+        <OnboardingSection
+          onSelectTemplate={handleSelectTemplate}
+          userId={user.id}
+          userEmail={user.email}
+        />
       )}
 
-      {/* Empty State */}
-      {!loading && !digest && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
-          <div className="text-center space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center">
-              <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+      {/* State B/C: Dashboard */}
+      {!loadingWatchlist && symbols.length > 0 && (
+        <>
+          {/* Portfolio Snapshot Bar */}
+          <PortfolioSnapshotBar
+            symbols={symbols}
+            quotes={quotes}
+            isLoading={loadingQuotes}
+          />
+
+          {/* Error */}
+          {error && (
+            <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+                {error}
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-medium text-foreground mb-2">创建你的个性化报告</h3>
-              <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
-                {symbols.length === 0
-                  ? '在上方添加股票到关注列表,然后生成你的个性化摘要'
-                  : '根据你的关注列表生成定制化的市场分析报告'}
-              </p>
-              {symbols.length > 0 && (
-                <button
-                  onClick={handleGenerateDigest}
-                  disabled={loading}
-                  className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none inline-flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          )}
+
+          {/* Inline Digest Report */}
+          {displayDigest ? (
+            <DigestInlineReport digest={displayDigest} />
+          ) : (
+            /* Empty state when no reports exist yet */
+            <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
+              <div className="flex flex-col items-center justify-center gap-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span>生成今日日报</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Historical Reports Section */}
-      {history.length > 0 && (
-        <section className="border-t border-border/50 mt-12">
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
-            {/* Section Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-                  <h3 className="text-xl font-medium text-foreground">往期报告</h3>
                 </div>
-                <p className="text-sm text-muted-foreground pl-3">{totalHistory} 份报告存档</p>
+                <h3 className="text-lg font-medium text-foreground">还没有日报</h3>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  点击上方"生成今日日报"按钮，AI 将基于你的 {symbols.length} 只持仓生成专属市场分析
+                </p>
               </div>
-              <Link
-                href="/for-you/archive"
-                className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 group"
-              >
-                查看全部
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
             </div>
+          )}
 
-            {/* Report Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {history.slice(0, 6).map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/for-you/${item.id}`}
-                  className="group terminal-card p-6 hover:border-emerald-500/30 hover:bg-card/80 transition-all"
-                >
-                  {/* Title first - more prominent */}
-                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-relaxed mb-4">
-                    {item.greeting || formatDateChinese(item.digest_date)}
-                  </h4>
+          {/* Recent Reports */}
+          <RecentReports history={filteredHistory} totalHistory={totalHistory} />
 
-                  {/* Date and arrow at bottom - less prominent */}
-                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
-                    <span className="text-xs font-data text-muted-foreground">
-                      {formatDateShort(item.digest_date)}
-                    </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
+        </>
       )}
     </main>
   );
