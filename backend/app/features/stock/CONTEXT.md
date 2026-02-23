@@ -2,7 +2,7 @@
 
 ## 功能概述
 
-个股研究模块，提供公司资料、实时报价、财务数据、估值对比和 AI 基本面分析。数据来自 OpenBB、yfinance、FMP 三个源，通过三级缓存（内存 -> DB -> API）减少外部调用。AI 分析使用 Gemini Pro 生成中文投研报告。
+个股研究模块，提供公司资料、实时报价、财务数据、估值对比、AI 基本面分析和 AI 技术分析。数据来自 OpenBB、yfinance、FMP、tvscreener、pandas-ta 多个源，通过三级缓存（内存 -> DB -> API）减少外部调用。AI 分析使用 Gemini Pro 生成中文投研报告。
 
 ## API 端点
 
@@ -15,6 +15,7 @@
 | `/api/stock/{symbol}/history?days=365` | GET | 历史 OHLCV 价格 | 无 |
 | `/api/stock/{symbol}/valuation` | GET | 估值对比 (同行+行业+历史) | 无 |
 | `/api/stock/{symbol}/analysis?force=false` | POST | AI 基本面分析 | 无 |
+| `/api/stock/{symbol}/technical?force=false` | POST | AI 技术分析 | 无 |
 
 **Symbol 校验**: 正则 `^[A-Z0-9.\-]{1,10}$`
 
@@ -57,9 +58,9 @@
 
 | 文件 | 职责 |
 |------|------|
-| `router.py` | 6 个 API 端点、Symbol 校验、价格历史内存缓存、批量报价 |
+| `router.py` | 7 个 API 端点、Symbol 校验、价格历史内存缓存、批量报价 |
 | `service.py` | StockService 核心类 — 三级缓存、数据聚合、指标计算 (732行, 最复杂) |
-| `agent.py` | StockAnalysisAgent — Gemini Pro 分析、数据精简、输出模型定义 |
+| `agent.py` | StockAnalysisAgent + TechnicalAnalysisAgent — Gemini Pro 基本面/技术分析 |
 | `models.py` | 全部 Pydantic 模型 (报价、资料、财报、指标、API 响应) |
 | `db.py` | Insforge Edge Function (stock_profiles, stock_financials, stock_analyses 三张表) |
 
@@ -69,6 +70,7 @@
 - `shared/openbb_service.py` — 公司资料、财务报表、价格历史
 - `shared/yfinance_service.py` — 实时报价 (批量)
 - `shared/fmp_service.py` — 股票搜索、同行对比、行业 PE、历史估值
+- `shared/data_tools/technical.py` — 技术指标 (tvscreener + pandas-ta)
 
 **AI**: Google ADK `LlmAgent` + `InMemoryRunner`, 模型 `gemini-3-pro-preview`
 
@@ -85,7 +87,10 @@
 | Profile | 30min, LRU 500 | 30天 | OpenBB | 30min / 30天 |
 | Financials | 30min, LRU 500 | 按季度 | OpenBB | 30min / 45天窗口 |
 | Quote | 不缓存 | 不缓存 | yfinance | 实时 |
-| Analysis | 不缓存 | 24小时 | Gemini Agent | 24小时 |
+| Analysis (基本面) | 不缓存 | 24小时 | Gemini Agent | 24小时 |
+| Analysis (技术面) | 不缓存 | 24小时 | Gemini Agent | 24小时 |
+| tvscreener 快照 | 15min | 不缓存 | tvscreener API | 15min |
+| pandas-ta 趋势 | 30min | 不缓存 | yfinance + pandas-ta | 30min |
 | Price History | 30min (router层) | 不缓存 | OpenBB | 30min |
 | Industry PE | 6小时 | 不缓存 | FMP | 6小时 |
 
@@ -95,7 +100,26 @@
 - LRU 淘汰: 内存缓存上限 500 条，超出时删除最旧的
 - DB 异步写入: 获取新数据后异步写入 DB 缓存，不阻塞响应
 
-### AI 分析输出结构 (7 段式)
+### AI 技术分析 (POST /stock/{symbol}/technical)
+```
+请求
+  |
+  +-- 检查缓存 (DB, analysis_type="technical", 24小时过期)
+  |   +-- 命中且未过期 -> 直接返回
+  |   +-- 未命中/force=true -> 生成新分析
+  |
+  +-- 获取技术指标数据:
+  |   +-- tvscreener (primary): 当前指标快照 + TV 评级 (15min 内存缓存)
+  |   +-- pandas-ta (secondary): 历史趋势 + 支撑阻力 (30min 内存缓存)
+  |   +-- tvscreener 失败时降级为纯 pandas-ta
+  |
+  +-- _prepare_technical_data_for_agent() 精简数据
+  +-- Gemini Pro Agent 生成 4 段式技术分析
+  +-- 保存到 DB (24小时过期, analysis_type="technical")
+  +-- 返回分析结果
+```
+
+### AI 基本面分析输出结构 (7 段式)
 1. `title` — 有观点的中文标题 (15-40字)
 2. `fundamentals_analysis` — 估值 + 成长性 + 盈利能力 (600-1000字)
 3. `financials_analysis` — 营收/盈利质量 + 资产负债表 + 趋势 (600-1000字)
@@ -103,6 +127,13 @@
 5. `opportunities` — 短/中/长期催化剂 (400-600字)
 6. `risks` — 业务/财务/估值风险 (400-600字)
 7. `investment_summary` — 核心论点 + 多空观点 + 关键 KPI (300-500字)
+
+### AI 技术分析输出结构 (4 段式)
+1. `title` — 有观点的技术面中文标题 (15-40字)
+2. `trend_analysis` — 趋势方向 + 动能状态 + 多周期共振 + TV 评级 (600-1000字)
+3. `entry_exit_signals` — 支撑阻力位 + 交易信号条件 (400-600字)
+4. `pattern_analysis` — 均线交叉 + BB 形态 + 量价分析 + 指标背离 (400-600字)
+5. `technical_summary` — 技术评级 + 关键价位 + 情景推演 (300-500字)
 
 ### 数据精简 (_prepare_stock_data_for_analyst)
 - 财报只保留最近 4 个季度

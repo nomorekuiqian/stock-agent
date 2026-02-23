@@ -10,6 +10,9 @@ interface TradingViewWidgetProps {
   range?: string;
   theme?: 'light' | 'dark';
   showToolbar?: boolean;
+  style?: '1' | '2'; // '1' = candlestick, '2' = line
+  studies?: string[];  // TradingView study IDs to preload
+  hideVolume?: boolean;
 }
 
 function TradingViewWidgetComponent({
@@ -20,6 +23,9 @@ function TradingViewWidgetComponent({
   range,
   theme = 'dark',
   showToolbar = false,
+  style = '2',
+  studies,
+  hideVolume = true,
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -49,16 +55,19 @@ function TradingViewWidgetComponent({
       interval: interval,
       timezone: 'America/New_York',
       theme: theme,
-      style: '2', // Line chart
+      style: style,
       locale: 'en',
       hide_top_toolbar: !showToolbar,
       hide_legend: false,
       save_image: false,
-      hide_volume: true,
+      hide_volume: hideVolume,
       support_host: 'https://www.tradingview.com',
     };
     if (range) {
       config.range = range;
+    }
+    if (studies && studies.length > 0) {
+      config.studies = studies;
     }
     script.innerHTML = JSON.stringify(config);
 
@@ -67,7 +76,7 @@ function TradingViewWidgetComponent({
     return () => {
       container.innerHTML = '';
     };
-  }, [symbol, height, interval, range, theme, showToolbar]);
+  }, [symbol, height, interval, range, theme, showToolbar, style, studies, hideVolume]);
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">

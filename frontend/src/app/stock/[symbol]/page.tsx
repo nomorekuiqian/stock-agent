@@ -7,6 +7,9 @@ import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import { StockPriceChart } from '@/components/StockPriceChart';
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
+import { TechnicalSignalDashboard, type TechnicalSnapshot, type Timeframe } from '@/components/technical/TechnicalSignalDashboard';
+import { TechnicalChart } from '@/components/technical/TechnicalChart';
+import { TechnicalAnalysisContent } from '@/components/technical/TechnicalAnalysisContent';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 
@@ -119,6 +122,14 @@ interface StockData {
     symbol: string;
     quote_fetched_at: string;
   };
+}
+
+interface StockTechnicalAnalysis {
+  title: string;
+  trend_analysis: string;
+  entry_exit_signals: string;
+  pattern_analysis: string;
+  technical_summary: string;
 }
 
 interface PriceHistoryData {
@@ -436,6 +447,33 @@ async function fetchStockAnalysis(symbol: string, force: boolean = false): Promi
   }
   const result = await response.json();
   return result.success ? result.analysis : null;
+}
+
+async function fetchTechnicalAnalysis(
+  symbol: string,
+  force: boolean = false,
+  timeframe: string = 'daily'
+): Promise<StockTechnicalAnalysis | null> {
+  const response = await fetch(
+    `${API_BASE_URL}/stock/${symbol}/technical?force=${force}&timeframe=${timeframe}`,
+    { method: 'POST' }
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch technical analysis: ${response.status}`);
+  }
+  const result = await response.json();
+  return result.success ? result.analysis : null;
+}
+
+async function fetchTechnicalSnapshot(symbol: string): Promise<TechnicalSnapshot | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/${symbol}/technical-snapshot`);
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result.success ? result : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchValuationComparison(symbol: string): Promise<ValuationComparisonData | null> {
@@ -1009,29 +1047,97 @@ function ValuationComparisonSection({
   );
 }
 
+function AnalysisTabBar({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: 'fundamental' | 'technical';
+  onTabChange: (tab: 'fundamental' | 'technical') => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 rounded-xl overflow-hidden border border-border/40">
+      <button
+        onClick={() => onTabChange('fundamental')}
+        className={`relative px-5 py-3.5 text-left transition-all cursor-pointer border-r border-border/40 ${
+          activeTab === 'fundamental'
+            ? 'bg-amber-500/[0.07]'
+            : 'bg-card/30 hover:bg-card/60'
+        }`}
+      >
+        {activeTab === 'fundamental' && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-amber-500" />
+        )}
+        <div className={`text-sm font-semibold ${
+          activeTab === 'fundamental' ? 'text-amber-400 light:text-amber-600' : 'text-muted-foreground'
+        }`}>
+          基本面
+          <span className="ml-1.5 text-xs font-normal opacity-60">Fundamentals</span>
+        </div>
+        <div className="text-[11px] text-muted-foreground/50 mt-1">
+          财务数据 / 估值对比 / AI 投资分析
+        </div>
+      </button>
+      <button
+        onClick={() => onTabChange('technical')}
+        className={`relative px-5 py-3.5 text-left transition-all cursor-pointer ${
+          activeTab === 'technical'
+            ? 'bg-emerald-500/[0.07]'
+            : 'bg-card/30 hover:bg-card/60'
+        }`}
+      >
+        {activeTab === 'technical' && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500" />
+        )}
+        <div className={`text-sm font-semibold ${
+          activeTab === 'technical' ? 'text-emerald-400 light:text-emerald-600' : 'text-muted-foreground'
+        }`}>
+          技术面
+          <span className="ml-1.5 text-xs font-normal opacity-60">Technical</span>
+        </div>
+        <div className="text-[11px] text-muted-foreground/50 mt-1">
+          趋势信号 / 关键价位 / AI 技术分析
+        </div>
+      </button>
+    </div>
+  );
+}
+
 function AIAnalysisSection({
   analysis,
   loading,
   onGenerate,
   onRegenerate,
+  technicalAnalysis,
+  technicalLoading,
+  onGenerateTechnical,
+  onRegenerateTechnical,
   companyName,
   symbol,
   isAuthenticated,
   isPro,
   onLoginRequired,
-  onUpgradeRequired
+  onUpgradeRequired,
+  activeTab,
 }: {
   analysis: StockAIAnalysis | null;
   loading: boolean;
   onGenerate: () => void;
   onRegenerate: () => void;
+  technicalAnalysis: StockTechnicalAnalysis | null;
+  technicalLoading: boolean;
+  onGenerateTechnical: () => void;
+  onRegenerateTechnical: () => void;
   companyName: string;
   symbol: string;
   isAuthenticated: boolean;
   isPro: boolean;
   onLoginRequired: () => void;
   onUpgradeRequired: () => void;
+  activeTab: 'fundamental' | 'technical';
 }) {
+  const currentAnalysis = activeTab === 'fundamental' ? analysis : technicalAnalysis;
+  const currentLoading = activeTab === 'fundamental' ? loading : technicalLoading;
+
   // Handle generate click - check auth and pro status
   const handleGenerateClick = () => {
     if (!isAuthenticated) {
@@ -1042,27 +1148,50 @@ function AIAnalysisSection({
       onUpgradeRequired();
       return;
     }
-    onGenerate();
+    if (activeTab === 'fundamental') {
+      onGenerate();
+    } else {
+      onGenerateTechnical();
+    }
+  };
+
+  const handleRegenerateClick = () => {
+    if (activeTab === 'fundamental') {
+      onRegenerate();
+    } else {
+      onRegenerateTechnical();
+    }
   };
 
   // State A: Not analyzed yet - show CTA
-  if (!analysis && !loading) {
+  if (!currentAnalysis && !currentLoading) {
     return (
       <div className="relative">
         <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-          <div className="px-6 py-10 md:px-10 md:py-14">
+          <div className="px-6 py-8 md:px-10 md:py-10">
             <div className="max-w-2xl mx-auto text-center">
               <p className="text-xs uppercase tracking-[0.2em] text-amber-500/80 light:text-amber-600 mb-4">
-                Investment Research
+                {activeTab === 'fundamental' ? 'Investment Research' : 'Technical Analysis'}
               </p>
               <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
-                Unlock Insights for{' '}
-                <span className="text-amber-400 light:text-amber-600">{symbol}</span>
+                {activeTab === 'fundamental' ? (
+                  <>
+                    Unlock Insights for{' '}
+                    <span className="text-amber-400 light:text-amber-600">{symbol}</span>
+                  </>
+                ) : (
+                  <>
+                    Technical View of{' '}
+                    <span className="text-emerald-400 light:text-emerald-600">{symbol}</span>
+                  </>
+                )}
               </h3>
               <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-8 max-w-lg mx-auto">
-                Generate a comprehensive analysis of {companyName}&apos;s fundamentals,
-                financials, opportunities and risks.
+                {activeTab === 'fundamental'
+                  ? `Generate a comprehensive analysis of ${companyName}'s fundamentals, financials, opportunities and risks.`
+                  : `Analyze ${companyName}'s technical indicators, trend signals, support/resistance levels, and chart patterns.`
+                }
               </p>
               <button
                 onClick={handleGenerateClick}
@@ -1084,7 +1213,7 @@ function AIAnalysisSection({
                   </>
                 ) : (
                   <>
-                    <span>Generate Analysis</span>
+                    <span>{activeTab === 'fundamental' ? 'Generate Analysis' : 'Generate Technical Analysis'}</span>
                     <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
@@ -1110,12 +1239,12 @@ function AIAnalysisSection({
   }
 
   // State B: Loading - show progress
-  if (loading) {
+  if (currentLoading) {
     return (
       <div className="relative">
         <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-          <div className="px-6 py-12 md:px-10 md:py-16">
+          <div className="px-6 py-10 md:px-10 md:py-12">
             <div className="max-w-md mx-auto text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 mb-6">
                 <svg className="animate-spin w-8 h-8 text-amber-500/70" fill="none" viewBox="0 0 24 24">
@@ -1124,7 +1253,10 @@ function AIAnalysisSection({
                 </svg>
               </div>
               <p className="text-sm text-muted-foreground">
-                Analyzing {companyName}...
+                {activeTab === 'fundamental'
+                  ? `Analyzing ${companyName}...`
+                  : `Analyzing ${symbol} technicals...`
+                }
               </p>
             </div>
           </div>
@@ -1135,8 +1267,7 @@ function AIAnalysisSection({
   }
 
   // State C: Analysis complete - show results
-  // TypeScript narrow: at this point analysis is not null (checked above)
-  if (!analysis) return null;
+  if (!currentAnalysis) return null;
 
   return (
     <div className="relative">
@@ -1145,14 +1276,16 @@ function AIAnalysisSection({
         <div className="px-5 py-4 border-b border-border/30 bg-card/40">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <div className="w-1 h-5 bg-amber-500 rounded-full" />
-              <span>投资分析</span>
+              <div className={`w-1 h-5 rounded-full ${activeTab === 'fundamental' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+              <span>{activeTab === 'fundamental' ? '投资分析' : '技术分析'}</span>
               <span className="text-muted-foreground text-sm font-normal font-data">{symbol}</span>
             </h2>
             <button
-              onClick={onRegenerate}
-              disabled={loading}
-              className="p-2 text-muted-foreground hover:text-amber-400 transition-colors disabled:opacity-50"
+              onClick={handleRegenerateClick}
+              disabled={currentLoading}
+              className={`p-2 text-muted-foreground transition-colors disabled:opacity-50 ${
+                activeTab === 'fundamental' ? 'hover:text-amber-400' : 'hover:text-emerald-400'
+              }`}
               title="重新生成"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1164,75 +1297,131 @@ function AIAnalysisSection({
 
         {/* Content */}
         <div className="p-5 space-y-6">
-          {/* Investment Summary - Most prominent */}
-          {analysis.investment_summary && (
-            <div>
-              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                <span className="text-amber-400">投资总结</span>
-              </h3>
-              <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
-                <MarkdownContent content={analysis.investment_summary} />
-              </div>
-            </div>
-          )}
+          {activeTab === 'fundamental' && analysis ? (
+            <>
+              {/* Investment Summary - Most prominent */}
+              {analysis.investment_summary && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                    <span className="text-amber-400">投资总结</span>
+                  </h3>
+                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                    <MarkdownContent content={analysis.investment_summary} />
+                  </div>
+                </div>
+              )}
 
-          {/* Opportunities & Risks - Side by side */}
-          {(analysis.opportunities || analysis.risks) && (
-            <div className="grid md:grid-cols-2 gap-4">
-              {analysis.opportunities && (
+              {/* Opportunities & Risks - Side by side */}
+              {(analysis.opportunities || analysis.risks) && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {analysis.opportunities && (
+                    <div>
+                      <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                        <span className="text-emerald-400">投资机会</span>
+                      </h3>
+                      <MarkdownContent content={analysis.opportunities} />
+                    </div>
+                  )}
+                  {analysis.risks && (
+                    <div>
+                      <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400/80" />
+                        <span className="text-red-400">风险因素</span>
+                      </h3>
+                      <MarkdownContent content={analysis.risks} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Fundamentals Analysis */}
+              {analysis.fundamentals_analysis && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                    <span className="text-amber-400">基本面分析</span>
+                  </h3>
+                  <MarkdownContent content={analysis.fundamentals_analysis} />
+                </div>
+              )}
+
+              {/* Financials Analysis */}
+              {analysis.financials_analysis && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                    <span className="text-amber-400">财务分析</span>
+                  </h3>
+                  <MarkdownContent content={analysis.financials_analysis} />
+                </div>
+              )}
+
+              {/* Company Overview */}
+              {analysis.company_overview && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                    <span className="text-amber-400">公司概述</span>
+                  </h3>
+                  <MarkdownContent content={analysis.company_overview} />
+                </div>
+              )}
+            </>
+          ) : activeTab === 'technical' && technicalAnalysis ? (
+            <>
+              {/* Technical Summary - Most prominent */}
+              {technicalAnalysis.technical_summary && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">投资机会</span>
+                    <span className="text-emerald-400">技术总结</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Summary</span>
                   </h3>
-                  <MarkdownContent content={analysis.opportunities} />
+                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                    <TechnicalAnalysisContent content={technicalAnalysis.technical_summary} />
+                  </div>
                 </div>
               )}
-              {analysis.risks && (
+
+              {/* Trend Analysis */}
+              {technicalAnalysis.trend_analysis && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400/80" />
-                    <span className="text-red-400">风险因素</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                    <span className="text-emerald-400">趋势分析</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Trend</span>
                   </h3>
-                  <MarkdownContent content={analysis.risks} />
+                  <TechnicalAnalysisContent content={technicalAnalysis.trend_analysis} />
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Fundamentals Analysis */}
-          {analysis.fundamentals_analysis && (
-            <div>
-              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                <span className="text-amber-400">基本面分析</span>
-              </h3>
-              <MarkdownContent content={analysis.fundamentals_analysis} />
-            </div>
-          )}
+              {/* Entry/Exit Signals */}
+              {technicalAnalysis.entry_exit_signals && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                    <span className="text-emerald-400">关键价位</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Key Levels</span>
+                  </h3>
+                  <TechnicalAnalysisContent content={technicalAnalysis.entry_exit_signals} />
+                </div>
+              )}
 
-          {/* Financials Analysis */}
-          {analysis.financials_analysis && (
-            <div>
-              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                <span className="text-amber-400">财务分析</span>
-              </h3>
-              <MarkdownContent content={analysis.financials_analysis} />
-            </div>
-          )}
-
-          {/* Company Overview */}
-          {analysis.company_overview && (
-            <div>
-              <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                <span className="text-amber-400">公司概述</span>
-              </h3>
-              <MarkdownContent content={analysis.company_overview} />
-            </div>
-          )}
+              {/* Pattern Analysis */}
+              {technicalAnalysis.pattern_analysis && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                    <span className="text-emerald-400">信号与风险</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Signals & Risk</span>
+                  </h3>
+                  <TechnicalAnalysisContent content={technicalAnalysis.pattern_analysis} />
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
       </div>
     </div>
@@ -1295,6 +1484,20 @@ export default function StockPage() {
   const [analysis, setAnalysis] = useState<StockAIAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Technical Analysis state (separate per timeframe)
+  const [dailyTechnicalAnalysis, setDailyTechnicalAnalysis] = useState<StockTechnicalAnalysis | null>(null);
+  const [weeklyTechnicalAnalysis, setWeeklyTechnicalAnalysis] = useState<StockTechnicalAnalysis | null>(null);
+  const [technicalLoading, setTechnicalLoading] = useState(false);
+  const [technicalError, setTechnicalError] = useState<string | null>(null);
+
+  // Active analysis tab (synced from AIAnalysisSection to control chart)
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'fundamental' | 'technical'>('fundamental');
+
+  // Technical Snapshot state (instant signal dashboard)
+  const [technicalSnapshot, setTechnicalSnapshot] = useState<TechnicalSnapshot | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [technicalTimeframe, setTechnicalTimeframe] = useState<Timeframe>('daily');
 
   // Valuation Comparison state
   const [valuationData, setValuationData] = useState<ValuationComparisonData | null>(null);
@@ -1360,6 +1563,43 @@ export default function StockPage() {
       setAnalysisError(err instanceof Error ? err.message : 'Failed to generate analysis');
     } finally {
       setAnalysisLoading(false);
+    }
+  };
+
+  const handleGenerateTechnical = async (force: boolean = false) => {
+    setTechnicalLoading(true);
+    setTechnicalError(null);
+
+    try {
+      const result = await fetchTechnicalAnalysis(symbol, force, technicalTimeframe);
+      if (result) {
+        if (technicalTimeframe === 'daily') {
+          setDailyTechnicalAnalysis(result);
+        } else {
+          setWeeklyTechnicalAnalysis(result);
+        }
+      } else {
+        setTechnicalError('Failed to generate technical analysis');
+      }
+    } catch (err) {
+      console.error('Technical analysis error:', err);
+      setTechnicalError(err instanceof Error ? err.message : 'Failed to generate technical analysis');
+    } finally {
+      setTechnicalLoading(false);
+    }
+  };
+
+  // Computed: current timeframe's technical analysis
+  const technicalAnalysis = technicalTimeframe === 'daily' ? dailyTechnicalAnalysis : weeklyTechnicalAnalysis;
+
+  // Handle analysis tab change (fetch snapshot on first technical tab visit)
+  const handleAnalysisTabChange = (tab: 'fundamental' | 'technical') => {
+    setActiveAnalysisTab(tab);
+    if (tab === 'technical' && !technicalSnapshot && !snapshotLoading) {
+      setSnapshotLoading(true);
+      fetchTechnicalSnapshot(symbol)
+        .then(setTechnicalSnapshot)
+        .finally(() => setSnapshotLoading(false));
     }
   };
 
@@ -1506,17 +1746,59 @@ export default function StockPage() {
         </header>
 
         {/* ================================================================== */}
+        {/* ANALYSIS TAB SWITCHER - fixed position between header and chart */}
+        {/* ================================================================== */}
+        <div className="mb-5">
+          <AnalysisTabBar activeTab={activeAnalysisTab} onTabChange={handleAnalysisTabChange} />
+        </div>
+
+        {/* ================================================================== */}
+        {/* TIMEFRAME SWITCHER (technical tab only) */}
+        {/* ================================================================== */}
+        {activeAnalysisTab === 'technical' && (
+          <div className="mb-4 flex items-center gap-3">
+            <span className="text-xs text-muted-foreground/60 uppercase tracking-wider">Timeframe</span>
+            <div className="flex gap-0.5 p-0.5 bg-muted/40 rounded-lg border border-border/30">
+              <button
+                onClick={() => setTechnicalTimeframe('daily')}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  technicalTimeframe === 'daily'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground border border-transparent'
+                }`}
+              >
+                日线 Daily
+              </button>
+              <button
+                onClick={() => setTechnicalTimeframe('weekly')}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  technicalTimeframe === 'weekly'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground border border-transparent'
+                }`}
+              >
+                周线 Weekly
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================== */}
         {/* CHART */}
         {/* ================================================================== */}
         <section className="mb-5">
-          <div className="terminal-card overflow-hidden rounded-xl">
-            <StockPriceChart
-              symbol={symbol}
-              data={priceHistory}
-              loading={priceHistoryLoading}
-              height={280}
-            />
-          </div>
+          {activeAnalysisTab === 'technical' ? (
+            <TechnicalChart symbol={symbol} interval={technicalTimeframe === 'weekly' ? 'W' : 'D'} />
+          ) : (
+            <div className="terminal-card overflow-hidden rounded-xl">
+              <StockPriceChart
+                symbol={symbol}
+                data={priceHistory}
+                loading={priceHistoryLoading}
+                height={280}
+              />
+            </div>
+          )}
         </section>
 
         {/* ================================================================== */}
@@ -1528,18 +1810,62 @@ export default function StockPage() {
             loading={analysisLoading}
             onGenerate={() => handleGenerateAnalysis(false)}
             onRegenerate={() => handleGenerateAnalysis(true)}
+            technicalAnalysis={technicalAnalysis}
+            technicalLoading={technicalLoading}
+            onGenerateTechnical={() => handleGenerateTechnical(false)}
+            onRegenerateTechnical={() => handleGenerateTechnical(true)}
             companyName={profile?.company_name || symbol}
             symbol={symbol}
             isAuthenticated={isAuthenticated}
             isPro={isPro}
             onLoginRequired={handleLoginRequired}
             onUpgradeRequired={createCheckout}
+            activeTab={activeAnalysisTab}
           />
         </section>
 
         {/* ================================================================== */}
-        {/* FUNDAMENTALS */}
+        {/* SIGNAL DASHBOARD (technical tab only) */}
         {/* ================================================================== */}
+        {activeAnalysisTab === 'technical' && (
+          <section className="mb-5">
+            <div className="relative bg-card/50 border border-border/40 rounded-xl overflow-hidden">
+              {/* Header */}
+              <div className="px-5 py-3 border-b border-border/30 bg-card/40">
+                <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <div className="w-1 h-4 rounded-full bg-emerald-500" />
+                  <span>技术信号</span>
+                  <span className="text-muted-foreground/40 text-xs font-normal">Signals</span>
+                </h3>
+              </div>
+              {/* Content */}
+              {snapshotLoading ? (
+                <div className="px-5 py-4 animate-pulse space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted/30 rounded-lg" />)}
+                  </div>
+                  <div className="h-16 bg-muted/30 rounded-lg" />
+                  <div className="grid grid-cols-2 gap-2">
+                    {[1, 2].map(i => <div key={i} className="h-20 bg-muted/30 rounded-lg" />)}
+                  </div>
+                </div>
+              ) : technicalSnapshot ? (
+                <div className="px-5 py-4">
+                  <TechnicalSignalDashboard snapshot={technicalSnapshot} timeframe={technicalTimeframe} />
+                </div>
+              ) : (
+                <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                  加载中...
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ================================================================== */}
+        {/* FUNDAMENTALS (only visible on fundamental tab) */}
+        {/* ================================================================== */}
+        {activeAnalysisTab === 'fundamental' && (<>
         <section className="mb-5">
           <SectionCard
             title="基本面分析"
@@ -1741,6 +2067,7 @@ export default function StockPage() {
             </SectionCard>
           </section>
         )}
+        </>)}
 
         {/* Analysis Error Display */}
         {analysisError && (

@@ -11,4 +11,6 @@ python-dotenv
 resend==2.19.0
 uvicorn
 stripe
+tvscreener>=0.2.0
+pandas-ta>=0.4.71b
 yfinance

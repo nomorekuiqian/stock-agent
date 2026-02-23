@@ -1,12 +1,5 @@
 """
 Stock feature router - All stock-related API endpoints.
-
-Endpoints:
-- GET  /api/stocks/search           - Search stocks by symbol or name
-- GET  /api/stocks/quotes           - Get batch stock quotes
-- GET  /api/stock/{symbol}          - Get comprehensive stock data
-- GET  /api/stock/{symbol}/history  - Get historical price data
-- POST /api/stock/{symbol}/analysis - Generate AI stock analysis
 """
 
 from __future__ import annotations
@@ -21,23 +14,17 @@ from fastapi import APIRouter, HTTPException, Query
 from app.shared.fmp_service import get_fmp_service
 from app.shared.yfinance_service import get_yfinance_service
 from app.features.stock.service import get_stock_service
-from app.features.stock.agent import get_stock_analysis_agent
+from app.features.stock.agent import get_stock_analysis_agent, get_technical_analysis_agent
 from app.features.stock.db import get_stock_analysis, save_stock_analysis
 
 router = APIRouter(prefix="/api", tags=["stock"])
 
-
-# =============================================================================
-# In-memory cache for historical prices (avoids repeated FMP calls)
-# =============================================================================
-
-_price_history_cache: dict = {}  # key: (symbol, days) -> {"data": ..., "expires": datetime}
+_price_history_cache: dict = {}
 _price_history_lock = threading.Lock()
 PRICE_HISTORY_TTL_MINUTES = 30
 
 
 def _get_cached_history(symbol: str, days: int):
-    """Get cached price history if fresh."""
     key = (symbol.upper(), days)
     with _price_history_lock:
         entry = _price_history_cache.get(key)
@@ -47,7 +34,6 @@ def _get_cached_history(symbol: str, days: int):
 
 
 def _set_cached_history(symbol: str, days: int, data: dict):
-    """Cache price history with TTL."""
     key = (symbol.upper(), days)
     with _price_history_lock:
         _price_history_cache[key] = {
@@ -55,10 +41,6 @@ def _set_cached_history(symbol: str, days: int, data: dict):
             "expires": datetime.now() + timedelta(minutes=PRICE_HISTORY_TTL_MINUTES),
         }
 
-
-# =============================================================================
-# Stock Search API (using FMP for faster response)
-# =============================================================================
 
 
 @router.get("/stocks/search")
@@ -127,10 +109,6 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# =============================================================================
-# Individual Stock Research API (OpenBB)
-# =============================================================================
 
 
 @router.get("/stock/{symbol}/profile")
@@ -441,4 +419,207 @@ async def generate_stock_analysis_endpoint(
         raise HTTPException(
             status_code=500,
             detail="Failed to generate stock analysis. Please try again later.",
+        )
+
+
+
+@router.get("/stock/{symbol}/technical-snapshot")
+async def get_technical_snapshot_endpoint(symbol: str):
+    """
+    Get pre-computed technical indicator snapshot for instant signal display.
+
+    Returns TradingView ratings, key oscillators, support/resistance,
+    and Bollinger bands. Served from 15-minute in-memory cache.
+
+    Response time: <100ms (cache hit) or <2s (cache miss)
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        from app.shared.data_tools.technical import get_technical_snapshot, get_technical_trends
+
+        snapshot = get_technical_snapshot(symbol)
+
+        if snapshot.get("error"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to fetch technical snapshot: {snapshot.get('error')}",
+            )
+
+        # Also fetch support/resistance from pandas-ta trends (cached 30min)
+        trends = get_technical_trends(symbol)
+        support_resistance = trends.get("support_resistance", {}) if "error" not in trends else {}
+
+        osc = snapshot.get("oscillators", {})
+        trend_data = snapshot.get("trend", {})
+        derived = snapshot.get("derived", {})
+
+        # Extract pandas-ta trend context and pattern signals
+        trends_ok = "error" not in trends
+        trends_data = trends.get("trends", {}) if trends_ok else {}
+        pattern_sigs = trends.get("pattern_signals", {}) if trends_ok else {}
+
+        macd_trend = trends_data.get("macd", {})
+        rsi_trend = trends_data.get("rsi_14", {})
+        volume_data = trends_data.get("volume", {})
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "ratings": snapshot.get("ratings", {}),
+            "oscillators": {
+                "rsi_14": osc.get("rsi_14"),
+                "macd_histogram": osc.get("macd_histogram"),
+                "rsi_14_weekly": osc.get("rsi_14_weekly"),
+                "macd_histogram_weekly": osc.get("macd_histogram_weekly"),
+                "macd_level": osc.get("macd_level"),
+                "macd_signal": osc.get("macd_signal"),
+            },
+            "trend": {
+                "adx_14": trend_data.get("adx_14"),
+                "adx_14_weekly": trend_data.get("adx_14_weekly"),
+                "adx_plus_di": trend_data.get("adx_plus_di"),
+                "adx_minus_di": trend_data.get("adx_minus_di"),
+            },
+            "moving_averages": snapshot.get("moving_averages", {}),
+            "volatility": snapshot.get("volatility", {}),
+            "price_volume": snapshot.get("price_volume", {}),
+            "support_resistance": support_resistance,
+            "trend_context": {
+                "macd_cross": macd_trend.get("cross"),
+                "macd_histogram_direction": macd_trend.get("histogram_direction"),
+                "rsi_direction": rsi_trend.get("direction"),
+                "rsi_recently_overbought": rsi_trend.get("recently_overbought"),
+                "rsi_recently_oversold": rsi_trend.get("recently_oversold"),
+                "volume_ratio": volume_data.get("ratio"),
+                "volume_trend": volume_data.get("trend"),
+            },
+            "pattern_signals": {
+                "bb_squeeze": pattern_sigs.get("bb_squeeze"),
+                "bb_position": pattern_sigs.get("bb_position"),
+                "volume_confirmation": pattern_sigs.get("volume_confirmation"),
+                "ma_alignment": pattern_sigs.get("ma_alignment"),
+                "sma_cross": pattern_sigs.get("sma_cross"),
+            },
+            "derived": {
+                "above_sma_20": derived.get("above_sma_20"),
+                "rsi_zone": derived.get("rsi_zone"),
+            },
+            "fetched_at": datetime.now().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch technical snapshot.",
+        )
+
+
+
+@router.post("/stock/{symbol}/technical")
+async def generate_technical_analysis_endpoint(
+    symbol: str,
+    force: bool = Query(default=False, description="Force regenerate even if cached"),
+    timeframe: str = Query(default="daily", pattern="^(daily|weekly)$", description="Analysis timeframe"),
+):
+    """
+    Generate AI technical analysis for a stock.
+
+    Returns structured technical analysis covering trend, signals,
+    patterns, and outlook based on technical indicators.
+
+    Args:
+        symbol: Stock ticker symbol (e.g., 'NVDA', 'AAPL')
+        force: If True, regenerate analysis even if cached version exists
+        timeframe: 'daily' or 'weekly' - determines which indicators to analyze
+
+    Returns:
+        Structured technical analysis with trend, signals, patterns, summary
+    """
+    symbol = symbol.upper()
+    analysis_type = f"technical_{timeframe}"
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        # Check cache first (unless force=True)
+        if not force:
+            cached = await get_stock_analysis(symbol, analysis_type=analysis_type)
+            if cached:
+                print(f"[TechnicalAnalysis] Using cached {timeframe} analysis for {symbol}")
+                return {
+                    "success": True,
+                    "analysis": cached.get("content"),
+                    "meta": {
+                        "symbol": symbol,
+                        "model": cached.get("model", "gemini-3-pro-preview"),
+                        "generated_at": cached.get("generated_at"),
+                        "from_cache": True,
+                        "timeframe": timeframe,
+                    },
+                }
+
+        # Fetch technical data
+        print(f"[TechnicalAnalysis] Fetching technical data for {symbol} ({timeframe})")
+        from app.shared.data_tools.technical import get_technical_data
+
+        technical_data = get_technical_data(symbol)
+
+        if technical_data.get("error"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to fetch technical data: {technical_data.get('error')}",
+            )
+
+        # Generate analysis
+        print(f"[TechnicalAnalysis] Generating AI {timeframe} analysis for {symbol}")
+        agent = get_technical_analysis_agent()
+        result = await agent.analyze(symbol, technical_data, timeframe=timeframe)
+
+        analysis = result.get("analysis", {})
+        meta = result.get("meta", {})
+
+        if meta.get("error"):
+            print(f"[TechnicalAnalysis] Agent returned error for {symbol}: {meta['error']}")
+            raise HTTPException(
+                status_code=500,
+                detail="Technical analysis generation failed. Please try again later.",
+            )
+
+        # Save to cache with timeframe-specific key (8h TTL for technical analysis)
+        save_result = await save_stock_analysis(
+            symbol=symbol,
+            analysis_type=analysis_type,
+            content=analysis,
+            data_snapshot=technical_data,
+            model=meta.get("model", "gemini-3-pro-preview"),
+            expires_hours=8,
+        )
+        print(f"[TechnicalAnalysis] Save result: {save_result}")
+
+        return {
+            "success": True,
+            "analysis": analysis,
+            "meta": {
+                **meta,
+                "from_cache": False,
+                "timeframe": timeframe,
+                "sources": technical_data.get("sources", []),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate technical analysis. Please try again later.",
         )

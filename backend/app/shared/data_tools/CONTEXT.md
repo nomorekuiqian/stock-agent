@@ -12,6 +12,7 @@
 | `news.py` | 市场新闻聚合 (3 源合并去重) | FMP API |
 | `calendar.py` | 经济日历 (高影响力美国事件) | FMP API |
 | `earnings.py` | 财报日历 (大盘股) | FMP API |
+| `technical.py` | 技术分析指标 (30+ 指标 + 趋势) | tvscreener + pandas-ta |
 
 ---
 
@@ -126,6 +127,51 @@
   "earnings": [{symbol, date, epsEstimated, epsActual, revenueEstimated, revenueActual, is_ai_related}]
 }
 ```
+
+---
+
+## technical.py
+
+### get_technical_data(symbol) -> dict
+**主入口**，整合 tvscreener 快照 + pandas-ta 历史趋势，供技术分析 Agent 使用。
+
+**数据源**:
+- **tvscreener** (主): TradingView Screener API，获取 30+ 实时技术指标 + 每日/每周评级
+- **pandas-ta** (辅): 基于 yfinance OHLCV 数据计算历史趋势、支撑/阻力位
+
+**返回结构**:
+```python
+{
+  "symbol": "AAPL",
+  "snapshot": {  # tvscreener 实时快照
+    "oscillators": {rsi, stochastic_k/d, cci, adx, awesome_oscillator, momentum, macd/signal, williams_r},
+    "moving_averages": {ema_10/20/50/100/200, sma_10/20/50/100/200},
+    "volatility": {atr, bollinger_upper/middle/lower},
+    "trend": {adx, parabolic_sar, ichimoku_base},
+    "ratings": {
+      "daily": {overall, moving_averages, oscillators},  # STRONG_BUY/BUY/NEUTRAL/SELL/STRONG_SELL
+      "weekly": {overall, rsi, macd, adx}
+    }
+  },
+  "trends": {  # pandas-ta 历史趋势
+    "rsi": {current, previous, direction, overbought/oversold},
+    "macd": {macd, signal, histogram, cross_detected, cross_type},
+    "volume": {current, average_20d, ratio, trend},
+    "support_resistance": {support_levels, resistance_levels},
+    "bollinger": {upper, middle, lower, bandwidth, squeeze},
+    "ma_alignment": {sma_20, sma_50, sma_200, golden_cross, death_cross, alignment}
+  },
+  "metadata": {exchange, tv_symbol, snapshot_time, trend_period}
+}
+```
+
+**缓存策略**:
+- tvscreener 快照: 15 分钟 TTL
+- pandas-ta 趋势: 30 分钟 TTL
+
+**交易所检测**: 内置 NASDAQ/NYSE 常见股票映射，未知股票默认查询两个交易所
+
+**容错机制**: tvscreener 失败时降级为 pandas-ta only，核心振荡器字段从 pandas-ta 趋势数据填充
 
 ---
 
