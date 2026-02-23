@@ -109,7 +109,6 @@ function addRecentStock(symbol: string, name: string): void {
 
 export default function StockResearchPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [recentStocks, setRecentStocks] = useState<RecentStock[]>([]);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(true);
@@ -123,9 +122,7 @@ export default function StockResearchPage() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isComposingRef = useRef(false);
 
-  // Initialize
   useEffect(() => {
-    setMounted(true);
     setRecentStocks(getRecentStocks());
   }, []);
 
@@ -244,11 +241,7 @@ export default function StockResearchPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/[0.02] to-transparent pointer-events-none" />
 
         <div className="relative max-w-5xl mx-auto px-4 md:px-6 pt-16 pb-10 md:pt-24 md:pb-14">
-          <div
-            className={`transition-all duration-700 ${
-              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-          >
+          <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
               <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">STOCK RESEARCH</span>
@@ -264,9 +257,7 @@ export default function StockResearchPage() {
           {/* Search Bar */}
           <div
             ref={searchContainerRef}
-            className={`relative max-w-xl transition-all duration-700 delay-100 ${
-              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
+            className="relative max-w-xl"
             style={{ zIndex: 50 }}
           >
             <div className="relative group">
@@ -356,14 +347,8 @@ export default function StockResearchPage() {
           </section>
         )}
 
-        {STOCK_TRACKS.map((track, trackIdx) => (
-          <section
-            key={track.id}
-            className={`transition-all duration-700 ${
-              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-            style={{ transitionDelay: mounted ? `${200 + trackIdx * 80}ms` : '0ms' }}
-          >
+        {STOCK_TRACKS.map((track) => (
+          <section key={track.id}>
             {/* Subsection Header (amber dot pattern) */}
             <div className="mb-4">
               <h3 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide">

@@ -13,11 +13,11 @@
    ============================================ */
 
 @theme {
-  /* Editorial headlines: LXGW WenKai for Chinese, Instrument Serif for English */
-  --font-serif: 'LXGW WenKai', 'Instrument Serif', 'Songti SC', Georgia, serif;
-  /* Body text: HarmonyOS Sans SC for Chinese (professional, clean), DM Sans for English */
-  --font-sans: 'HarmonyOS Sans SC', 'DM Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* Editorial headlines: LXGW WenKai (async CDN) for Chinese, Instrument Serif (next/font) for English */
+  --font-serif: 'LXGW WenKai', var(--font-instrument-serif), 'Songti SC', Georgia, serif;
+  /* Body text: HarmonyOS Sans SC (async CDN) for Chinese, DM Sans (next/font) for English */
+  --font-sans: 'HarmonyOS Sans SC', var(--font-dm-sans), 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 
   /* Dark-First Premium Theme */
   --color-background: #050506;
@@ -200,9 +200,9 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.15;
 }
 
-/* Elegant numerals for data - using sans-serif with tabular figures */
+/* Monospace numerals for data display (prices, percentages, codes) */
 .font-data {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-feature-settings: "tnum", "ss01";
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -386,11 +386,11 @@ h1, h2, h3, h4, h5, h6 {
    ANIMATIONS - Sophisticated & Purposeful
    ============================================ */
 
-/* Fade In Up - Primary entrance */
+/* Fade In Up - Primary entrance (reduced translateY to minimize visual jank) */
 @keyframes fade-in-up {
   0% {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(8px);
   }
   100% {
     opacity: 1;
@@ -399,7 +399,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   opacity: 0;
 }
 

@@ -6,33 +6,7 @@ import { usePathname } from 'next/navigation';
 import { NavAuth } from '@/components/NavAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileMenu } from '@/components/MobileMenu';
-
-function Logo({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <defs>
-        <linearGradient id="emerald-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#10B981" />
-          <stop offset="50%" stopColor="#34D399" />
-          <stop offset="100%" stopColor="#6EE7B7" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
-        stroke="url(#emerald-gradient)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
+import { Logo } from '@/components/Logo';
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -49,7 +23,7 @@ export function Navbar() {
   }, []);
 
   const navBase = 'fixed top-0 left-0 right-0 z-50 transition-all duration-500';
-  const navScrolled = 'bg-background/80 backdrop-blur-2xl border-b border-border/40 shadow-sm shadow-black/5';
+  const navScrolled = 'bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm shadow-black/5';
   const navTransparentHome = 'bg-transparent border-b border-transparent hero-dark';
 
   return (

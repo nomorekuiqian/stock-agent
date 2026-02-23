@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { X } from 'lucide-react';
 
 export interface StockQuoteData {
@@ -25,13 +26,14 @@ function CompanyLogo({ symbol }: { symbol: string }) {
   }
 
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
+    <Image
       src={`${LOGO_BASE}/${symbol}.png`}
       alt={symbol}
       width={36}
       height={36}
+      unoptimized
       className="w-9 h-9 rounded-xl bg-muted/50 object-contain shrink-0"
+      loading="lazy"
       onError={() => setError(true)}
     />
   );
@@ -66,7 +68,7 @@ export default function StockCard({
       style={{ animationDelay: `${index * 40}ms` }}
       onClick={onClick}
     >
-      <div className="relative bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-emerald-500/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
+      <div className="relative bg-card border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-emerald-500/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
         {/* Remove button - visible on mobile, hover-controlled on desktop */}
         {onRemove && (
           <button
@@ -111,7 +113,7 @@ export default function StockCard({
 
         {/* Loading overlay */}
         {isLoading && !quote && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/95 rounded-xl flex items-center justify-center">
             <div className="w-5 h-5 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
           </div>
         )}

@@ -1,13 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
+import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
+import { Logo } from "@/components/Logo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-instrument-serif",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-dm-sans",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  variable: "--font-jetbrains-mono",
+});
+
 export const metadata: Metadata = {
-  // Google Search Console 验证 - 替换为你的验证码
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
   },
@@ -68,53 +91,15 @@ export const metadata: Metadata = {
   },
 };
 
-// Abstract M Logo with emerald gradient
-function Logo({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <defs>
-        <linearGradient id="emerald-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#10B981" />
-          <stop offset="50%" stopColor="#34D399" />
-          <stop offset="100%" stopColor="#6EE7B7" />
-        </linearGradient>
-      </defs>
-      {/* Abstract M shape - three ascending lines forming M */}
-      <path
-        d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
-        stroke="url(#emerald-gradient)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning className={`${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* English fonts from Google Fonts */}
-        <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-        {/* LXGW WenKai - Chinese editorial font for headlines */}
-        <link href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" rel="stylesheet" />
-        {/* HarmonyOS Sans SC - Professional Chinese body font */}
-        <link href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Regular.css" rel="stylesheet" />
-        <link href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Medium.css" rel="stylesheet" />
-        <link href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Bold.css" rel="stylesheet" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
@@ -124,7 +109,6 @@ export default function RootLayout({
 
           {children}
 
-          {/* Footer - Minimal & Elegant */}
           <footer className="border-t border-border/50 mt-16">
             <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -160,7 +144,6 @@ export default function RootLayout({
 
                 {/* Social & Tagline */}
                 <div className="flex items-center gap-4">
-                  {/* Xiaohongshu Icon */}
                   <a
                     href="https://xiaohongshu.com"
                     target="_blank"
@@ -181,6 +164,21 @@ export default function RootLayout({
             </div>
           </footer>
         </Providers>
+        <Script id="load-chinese-fonts" strategy="afterInteractive">
+          {`
+            [
+              'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css',
+              'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Regular.css',
+              'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Medium.css',
+              'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Bold.css'
+            ].forEach(function(href) {
+              var link = document.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = href;
+              document.head.appendChild(link);
+            });
+          `}
+        </Script>
         <Analytics />
         <SpeedInsights />
       </body>
