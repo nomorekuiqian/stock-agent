@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, getCurrentUser, signIn, signUp, signOut, signInWithGoogle } from '@/lib/auth';
+import { User, getCurrentUser, signIn, signUp, signOut, signInWithGoogle, updateProfile } from '@/lib/auth';
 import { api } from '@/lib/api';
 
 function getAutoSubscribedKey(userId: string): string {
@@ -74,10 +74,11 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (profile: { name?: string }) => Promise<{ success: boolean; error?: string }>;
   refreshUser: () => Promise<void>;
 }
 
@@ -148,8 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  async function handleSignIn(email: string, password: string) {
-    const result = await signIn(email, password);
+  async function handleSignIn(email: string, password: string, rememberMe?: boolean) {
+    const result = await signIn(email, password, rememberMe);
     if (result.success && result.user) {
       setUser(result.user);
       syncUserWithSubscriptions(result.user);
@@ -174,6 +175,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }
 
+  async function handleUpdateProfile(profile: { name?: string }) {
+    const result = await updateProfile(profile);
+    if (result.success && result.user && user) {
+      const updatedUser = { ...user, name: result.user.name };
+      setUser(updatedUser);
+      // Sync the new name to Resend contacts
+      api.subscriptions.syncUser(updatedUser.id, updatedUser.email, updatedUser.name).catch(() => {});
+    }
+    return { success: result.success, error: result.error };
+  }
+
   async function handleSignInWithGoogle() {
     return signInWithGoogle();
   }
@@ -188,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp: handleSignUp,
         signOut: handleSignOut,
         signInWithGoogle: handleSignInWithGoogle,
+        updateProfile: handleUpdateProfile,
         refreshUser,
       }}
     >

@@ -5,7 +5,7 @@
 | 分类 | 数量 | 说明 |
 |------|------|------|
 | UI 基础 | 7 | shadcn/ui 组件 (Button, Card, Badge 等) |
-| 导航布局 | 5 | Navbar, NavDropdown, NavAuth, MobileMenu, ThemeToggle |
+| 导航布局 | 4 | Navbar, NavAuth, MobileMenu, ThemeToggle |
 | 数据展示 | 3 | ReportContent, InsightBanner, MacroPageHeader |
 | 图表 | 8 | 各类金融图表 (基于 Lightweight Charts) |
 | 风险指标 | 4 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |

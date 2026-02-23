@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { NavAuth } from '@/components/NavAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileMenu } from '@/components/MobileMenu';
-import { NavDropdown } from '@/components/NavDropdown';
 
 function Logo({ className = '' }: { className?: string }) {
   return (
@@ -80,20 +79,8 @@ export function Navbar() {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-stretch h-16 gap-1">
-            <NavDropdown
-              label="日报"
-              items={[
-                { href: '/today', label: '今日日报' },
-                { href: '/today/archive', label: '往期归档' },
-              ]}
-            />
-            <NavDropdown
-              label="专属"
-              items={[
-                { href: '/for-you', label: '今日专属' },
-                { href: '/for-you/archive', label: '往期归档' },
-              ]}
-            />
+            <NavLink href="/today">日报</NavLink>
+            <NavLink href="/for-you">专属</NavLink>
             {process.env.NODE_ENV === 'development' && (
               <NavLink href="/sectors">板块</NavLink>
             )}

@@ -48,7 +48,7 @@ export async function signUp(
   }
 }
 
-export async function signIn(email: string, password: string): Promise<AuthResult> {
+export async function signIn(email: string, password: string, rememberMe: boolean = true): Promise<AuthResult> {
   try {
     const { data, error } = await insforge.auth.signInWithPassword({ email, password });
 
@@ -66,6 +66,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
               action: 'sync-token',
               accessToken: data.accessToken,
               refreshToken: data.refreshToken || '',
+              rememberMe,
             }),
           });
           if (!syncResponse.ok) {
@@ -128,6 +129,38 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
   }
 }
 
+export async function updateProfile(profile: { name?: string }): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.setProfile(profile);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Get session first to ensure we have user identity
+    const session = await insforge.auth.getCurrentSession();
+    const sessionUser = session?.data?.session?.user;
+
+    if (!sessionUser) {
+      return { success: false, error: 'Session expired. Please sign in again.' };
+    }
+
+    const updatedUser: User = {
+      id: sessionUser.id,
+      email: sessionUser.email || '',
+      name: data?.profile?.name,
+      avatarUrl: data?.profile?.avatar_url,
+    };
+
+    return { success: true, user: updatedUser };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await insforge.auth.signOut();
@@ -155,7 +188,7 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
   }
 }
 
-async function recoverSessionFromCookies(): Promise<boolean> {
+async function recoverSessionFromCookies(): Promise<User | false> {
   try {
     const res = await fetch('/api/auth/session');
     if (!res.ok) return false;
@@ -163,7 +196,15 @@ async function recoverSessionFromCookies(): Promise<boolean> {
     const data = await res.json();
     if (data.authenticated && data.accessToken) {
       insforge.getHttpClient().setAuthToken(data.accessToken);
-      return true;
+      if (data.user) {
+        return {
+          id: data.user.id,
+          email: data.user.email || '',
+          name: data.user.profile?.name,
+          avatarUrl: data.user.profile?.avatar_url,
+        };
+      }
+      return false;
     }
     return false;
   } catch {
@@ -182,15 +223,9 @@ export async function getCurrentUser(): Promise<User | null> {
       if (!recovered) {
         return null;
       }
-      // Cookie recovery set the auth token; extract user from session
-      const retryResult = await insforge.auth.getCurrentSession();
-      const retryData = retryResult?.data;
-      if (retryData?.session?.user) {
-        return {
-          id: retryData.session.user.id,
-          email: retryData.session.user.email || '',
-          name: retryData.session.user.profile?.name,
-        };
+      // Cookie recovery returned user data directly (may include refreshed token)
+      if (typeof recovered === 'object') {
+        return recovered;
       }
       return null;
     }

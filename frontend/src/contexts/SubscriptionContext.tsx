@@ -60,7 +60,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     new URLSearchParams(window.location.search).get('checkout') === 'success';
 
   const refreshSubscription = useCallback(async () => {
-    if (!user?.id) {
+    if (!PAYWALL_ENABLED || !user?.id) {
       setPlan('free');
       setStatus('none');
       setCurrentPeriodEnd(null);
@@ -97,7 +97,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Poll until subscription is active (for checkout return)
   const pollForProStatus = useCallback(async () => {
-    if (!user?.id) return;
+    if (!PAYWALL_ENABLED || !user?.id) return;
     const maxAttempts = 10;
     const interval = 1000; // 1 second between polls
 
@@ -142,6 +142,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Wait for auth to finish loading before making any decisions
     if (authLoading) return;
+
+    if (!PAYWALL_ENABLED) {
+      setIsLoading(false);
+      return;
+    }
 
     if (isAuthenticated && user?.id) {
       if (isCheckoutReturn) {

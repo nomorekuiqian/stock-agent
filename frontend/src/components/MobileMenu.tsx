@@ -15,14 +15,12 @@ export function MobileMenu() {
       title: '日报',
       links: [
         { href: '/today', label: '今日日报' },
-        { href: '/today/archive', label: '往期归档' },
       ],
     },
     {
       title: '专属',
       links: [
-        { href: '/for-you', label: '今日专属' },
-        { href: '/for-you/archive', label: '往期归档' },
+        { href: '/for-you', label: '专属日报' },
       ],
     },
     ...(process.env.NODE_ENV === 'development' ? [{
@@ -127,6 +125,13 @@ export function MobileMenu() {
                       </span>
                     )}
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+                  >
+                    个人资料
+                  </Link>
                   {!isPro && (
                     <Link
                       href="/for-you"

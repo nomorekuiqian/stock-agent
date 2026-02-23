@@ -16,25 +16,34 @@ export async function POST(request: NextRequest) {
     // Handle sync-token action for OAuth callback
     if (body.action === 'sync-token' && body.accessToken) {
       const cookieStore = await cookies();
+      const rememberMe = body.rememberMe !== false; // default true
 
-      // Set the session cookie (matches what middleware checks)
-      cookieStore.set('insforge-session', body.accessToken, {
+      // When rememberMe is false, omit maxAge so cookies expire when browser closes
+      const sessionCookieOptions: Record<string, unknown> = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      });
+      };
+      if (rememberMe) {
+        sessionCookieOptions.maxAge = 60 * 60 * 24 * 7; // 7 days
+      }
+
+      cookieStore.set('insforge-session', body.accessToken, sessionCookieOptions);
 
       // Also set refresh token cookie
       if (body.refreshToken) {
-        cookieStore.set('insforge-refresh', body.refreshToken, {
+        const refreshCookieOptions: Record<string, unknown> = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           path: '/',
-          maxAge: 60 * 60 * 24 * 30, // 30 days
-        });
+        };
+        if (rememberMe) {
+          refreshCookieOptions.maxAge = 60 * 60 * 24 * 30; // 30 days
+        }
+
+        cookieStore.set('insforge-refresh', body.refreshToken, refreshCookieOptions);
       }
 
       return NextResponse.json({ success: true });

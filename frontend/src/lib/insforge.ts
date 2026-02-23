@@ -176,11 +176,29 @@ export interface UserWatchlist {
 
 export async function getUserWatchlist(userId: string): Promise<UserWatchlist | null> {
   try {
-    // Check session before querying
+    // Ensure auth token is set before querying RLS-protected table
     const { data: sessionData } = await insforge.auth.getCurrentSession();
-    const hasSession = !!sessionData?.session;
-    console.log('[Insforge] getUserWatchlist - Session:', hasSession ? 'Active' : 'None');
-    console.log('[Insforge] getUserWatchlist - Querying for user:', userId);
+
+    if (!sessionData?.session) {
+      // Try recovering session from cookies (handles page refresh)
+      try {
+        const res = await fetch('/api/auth/session');
+        if (res.ok) {
+          const cookieData = await res.json();
+          if (cookieData.authenticated && cookieData.accessToken) {
+            insforge.getHttpClient().setAuthToken(cookieData.accessToken);
+          } else {
+            return null;
+          }
+        } else {
+          return null;
+        }
+      } catch {
+        return null;
+      }
+    } else if (sessionData.session.accessToken) {
+      insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+    }
 
     const { data, error } = await insforge.database
       .from('user_watchlists')
@@ -190,11 +208,9 @@ export async function getUserWatchlist(userId: string): Promise<UserWatchlist | 
 
     if (error) {
       console.error('[Insforge] Error fetching watchlist:', error);
-      console.error('[Insforge] Error details:', JSON.stringify(error, null, 2));
       return null;
     }
 
-    console.log('[Insforge] getUserWatchlist - Result:', data ? `Found ${data.symbols?.length || 0} symbols` : 'No data');
     return data as UserWatchlist | null;
   } catch (error) {
     console.error('[Insforge] Exception fetching watchlist:', error);
@@ -437,6 +453,29 @@ export async function getUserDigests(
 
 export async function getUserDigestById(id: string): Promise<UserDigest | null> {
   try {
+    // Ensure auth token is set before querying RLS-protected table
+    const { data: sessionData } = await insforge.auth.getCurrentSession();
+
+    if (!sessionData?.session) {
+      try {
+        const res = await fetch('/api/auth/session');
+        if (res.ok) {
+          const cookieData = await res.json();
+          if (cookieData.authenticated && cookieData.accessToken) {
+            insforge.getHttpClient().setAuthToken(cookieData.accessToken);
+          } else {
+            return null;
+          }
+        } else {
+          return null;
+        }
+      } catch {
+        return null;
+      }
+    } else if (sessionData.session.accessToken) {
+      insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+    }
+
     const { data, error } = await insforge.database
       .from('personal_digests')
       .select('*')
