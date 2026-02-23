@@ -97,7 +97,40 @@ def _normalize_report_data(data: dict) -> dict:
 
 
 class MarketAnalysisRequest(BaseModel):
-    force: bool = False  # Force regenerate even if cached
+    force: bool = False
+
+
+def _report_to_response(report: dict) -> dict:
+    """Build a normalized API response dict from a DB report row."""
+    return _normalize_report_data({
+        "report_id": report.get("id"),
+        "indices": report.get("indices", []),
+        "timestamp": report.get("timestamp", now_iso()),
+        "title": report.get("title", ""),
+        "summary": report.get("summary", ""),
+        "intro": report.get("intro", ""),
+        "news": report.get("news"),
+        "report_summary": report.get("report_summary", []),
+        "calendar": report.get("calendar", []),
+        "market_data": report.get("market_data", {}),
+        "from_cache": True,
+    })
+
+
+@router.get("/market/latest")
+async def get_latest_report():
+    """Read-only endpoint: return today's cached report or 404."""
+    today = today_str()
+    report = await market_db.get_report_by_date(today)
+
+    if not report:
+        raise HTTPException(status_code=404, detail="No report available for today")
+
+    timestamp = report.get("timestamp", "")
+    if timestamp[:10] != today:
+        raise HTTPException(status_code=404, detail="No report available for today")
+
+    return _report_to_response(report)
 
 
 @router.post("/market")
@@ -105,48 +138,27 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
     try:
         force = request.force if request else False
 
-        # Check if today's report already exists in database (Pacific timezone)
         today = today_str()
         existing_report = await market_db.get_report_by_date(today)
 
-        # Validate that the cached report's timestamp is actually from today (local time)
-        # This handles timezone issues where report_date might be stored in UTC
         if existing_report and not force:
             report_timestamp = existing_report.get("timestamp", "")
             report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
 
             if report_date_from_timestamp == today:
                 print(f"[API] Found existing report for {today}, returning cached data")
-                # Return existing report from database
-                cached = {
-                    "report_id": existing_report.get("id"),
-                    "indices": existing_report.get("indices", []),
-                    "timestamp": existing_report.get("timestamp", now_iso()),
-                    "title": existing_report.get("title", ""),
-                    "summary": existing_report.get("summary", ""),
-                    "intro": existing_report.get("intro", ""),
-                    "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary", []),
-                    "calendar": existing_report.get("calendar", []),
-                    "market_data": existing_report.get("market_data", {}),
-                    "from_cache": True,
-                }
-                return _normalize_report_data(cached)
+                return _report_to_response(existing_report)
             else:
                 print(f"[API] Found report but timestamp ({report_date_from_timestamp}) doesn't match today ({today}), regenerating...")
 
-        # Force regeneration requested
         if force:
             print(f"[API] Force regeneration requested, generating new report...")
-
-        # No existing report, generate new one
-        if not force:
+        else:
             print(f"[API] No report found for {today}, generating new analysis...")
         result = await market_agent.analyze()
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate market analysis")
 
-        # Transform market_data to frontend expected format
         market_data = result.get("market_data", {})
         indices = transform_market_data_to_indices(market_data)
 
@@ -163,10 +175,8 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
             "from_cache": False,
         }
 
-        # Normalize data before saving (fix double-escaped newlines, ensure correct types)
         response_data = _normalize_report_data(response_data)
 
-        # Save new report to database (field names match DB schema directly)
         save_result = await market_db.save_market_report(response_data)
         if save_result.get("success"):
             print(f"[API] Report saved to database for {today}")

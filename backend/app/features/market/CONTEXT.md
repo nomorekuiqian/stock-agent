@@ -9,8 +9,11 @@
 | 端点 | 方法 | 描述 | 认证 |
 |------|------|------|------|
 | `/api/market` | POST | 生成/获取当日市场报告 | 无 |
+| `/api/market/latest` | GET | 只读获取当日缓存日报，无缓存返回 404 | 无 |
 
-**请求参数**: `{ "force": false }` — `force=true` 强制重新生成
+**POST 请求参数**: `{ "force": false }` — `force=true` 强制重新生成
+
+**GET /api/market/latest**: 无参数，纯读取当天缓存。适用于外部 agent 或服务拉取日报，不会触发 AI 生成。
 
 **响应结构**:
 ```json
@@ -57,7 +60,7 @@ POST /api/market
 
 | 文件 | 职责 |
 |------|------|
-| `router.py` | POST 端点、缓存逻辑、market_data->indices 转换、响应标准化 |
+| `router.py` | GET/POST 端点、缓存逻辑、market_data->indices 转换、响应标准化 |
 | `agent.py` | MarketAgent 类、数据获取与清洗、Gemini Agent 调用、URL 解析 |
 | `models.py` | Pydantic 输出模型 (MarketReportOutput 及子模型) |
 | `db.py` | Insforge Edge Function 调用 (market_reports 表 CRUD) |

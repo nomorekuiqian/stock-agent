@@ -1,0 +1,42 @@
+name: Weekly Macro Report
+
+on:
+  schedule:
+    # Run at 12:00 PM US Eastern Time every Sunday
+    # UTC 17:00 = 12:00 PM EST (winter) / 1:00 PM EDT (summer)
+    - cron: '0 17 * * 0'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Weekly Macro Report
+        run: |
+          response=$(curl -s -w "\n%{http_code}" --max-time 300 -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/weekly-report/generate")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Failed to generate weekly report (HTTP $http_code)"
+            exit 1
+          fi
+
+          if echo "$body" | grep -q '"success":false'; then
+            echo "Weekly report API returned success:false"
+            exit 1
+          fi
+
+          # Check if it was from cache (already generated)
+          if echo "$body" | grep -q '"from_cache":true'; then
+            echo "Weekly report already exists for this week (cached)"
+          else
+            echo "Weekly report generated successfully!"
+          fi

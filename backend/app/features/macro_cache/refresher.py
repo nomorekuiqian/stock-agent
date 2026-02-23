@@ -364,9 +364,13 @@ async def refresh_tier3() -> dict:
 
 
 async def refresh_all() -> dict:
-    """Refresh all tiers sequentially."""
+    """Refresh all tiers sequentially: T1 -> T3 -> T2.
+
+    T3 must run before T2 because T2's _refresh_liquidity_percentiles()
+    reads from the fred:liquidity_history cache key populated by T3.
+    """
     results = {}
     results["tier1"] = await refresh_tier1()
-    results["tier2"] = await refresh_tier2()
     results["tier3"] = await refresh_tier3()
+    results["tier2"] = await refresh_tier2()
     return results
