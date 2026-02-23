@@ -173,7 +173,18 @@
       "WebFetch(domain:www.originfinancial.com)",
       "WebFetch(domain:fred.stlouisfed.org)",
       "WebFetch(domain:www.tradingview.com)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "WebFetch(domain:docs.stripe.com)",
+      "mcp__stripe__list_subscriptions",
+      "mcp__stripe__list_customers",
+      "mcp__stripe__fetch_stripe_resources",
+      "mcp__stripe__cancel_subscription",
+      "Bash(stripe events list:*)",
+      "Bash(gh run view:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git stash:*)",
+      "WebFetch(domain:themarketbrew.com)",
+      "Bash(TZ='America/New_York' date:*)"
     ],
     "deny": [],
     "ask": []

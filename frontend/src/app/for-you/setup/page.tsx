@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, StockSearchResult } from '@/lib/api';
@@ -10,7 +10,7 @@ import { PORTFOLIO_TEMPLATES, PortfolioTemplate } from '@/lib/portfolio-template
 
 type Step = 'choose' | 'customize';
 
-export default function SetupPage() {
+function SetupPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -365,5 +365,17 @@ export default function SetupPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function SetupPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+      </div>
+    }>
+      <SetupPageContent />
+    </Suspense>
   );
 }
