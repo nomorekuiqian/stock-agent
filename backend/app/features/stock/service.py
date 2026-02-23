@@ -23,6 +23,7 @@ from typing import Any, Optional
 
 from app.shared.openbb_service import get_openbb_service
 from app.shared.fmp_service import get_fmp_service
+from app.shared.yfinance_service import get_yfinance_service
 from app.features.stock.db import (
     get_stock_profile,
     upsert_stock_profile,
@@ -132,8 +133,12 @@ class StockService:
         return cls._instance
 
     def __init__(self):
+        if hasattr(self, '_initialized'):
+            return
+        self._initialized = True
         self.openbb = get_openbb_service()
         self.fmp = get_fmp_service()
+        self.yfinance = get_yfinance_service()
 
     async def get_stock_data(self, symbol: str, include_financials: bool = True) -> dict[str, Any]:
         """
@@ -149,36 +154,45 @@ class StockService:
         symbol = symbol.upper()
         print(f"[StockService] Fetching data for {symbol}")
 
-        # Parallel fetch: profile (cached), quote (real-time), financials (cached)
+        # Parallel fetch: profile (cached), quote (real-time), financials (cached),
+        # yfinance ticker metrics (TTM + valuation + forward + profitability + growth)
+        task_names = ["profile", "quote"]
         tasks = [
             self._get_or_fetch_profile(symbol),
             self.openbb.get_realtime_quote(symbol),
         ]
 
         if include_financials:
+            task_names.append("financials")
             tasks.append(self._get_or_fetch_financials(symbol))
+
+        # One call replaces FMP TTM + old forward metrics
+        task_names.append("yf_metrics")
+        tasks.append(asyncio.to_thread(self.yfinance.get_ticker_metrics, symbol))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Extract results
-        profile = results[0] if not isinstance(results[0], Exception) else {}
-        quote = results[1] if not isinstance(results[1], Exception) else {}
-        financials = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else []
+        # Extract results by name using index mapping
+        result_map = {}
+        for i, name in enumerate(task_names):
+            result_map[name] = results[i] if not isinstance(results[i], Exception) else None
+
+        profile = result_map.get("profile") or {}
+        quote = result_map.get("quote") or {}
+        financials = result_map.get("financials") or []
+        yf_metrics = result_map.get("yf_metrics") or {}
 
         # Log any errors
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                print(f"[StockService] Error in task {i} for {symbol}: {result}")
+                print(f"[StockService] Error in task {i} ({task_names[i]}) for {symbol}: {result}")
 
-        # Fetch FMP key metrics for dividend_yield (run in thread to avoid blocking)
-        fmp_metrics = await asyncio.to_thread(self.fmp.get_key_metrics_ttm, symbol)
-        fmp_valuation = fmp_metrics.get("metrics", {}) if fmp_metrics.get("status") == "success" else {}
-
-        # Calculate derived metrics
-        ttm = self._calculate_ttm_metrics(financials) if financials else {}
-        valuation = self._calculate_valuation(quote, ttm, financials, fmp_valuation) if quote else {}
-        growth = self._calculate_growth(financials) if financials else {}
-        profitability = self._calculate_profitability(financials) if financials else {}
+        # Extract metrics directly from yfinance
+        ttm = yf_metrics.get("ttm", {})
+        valuation = yf_metrics.get("valuation", {})
+        forward_val = self._build_forward_valuation(yf_metrics.get("forward", {}))
+        profitability = yf_metrics.get("profitability", {})
+        growth = self._build_growth(yf_metrics.get("growth", {}), financials)
 
         return {
             "profile": profile,
@@ -186,6 +200,7 @@ class StockService:
             "fundamentals": {
                 "ttm": ttm,
                 "valuation": valuation,
+                "forward_valuation": forward_val if forward_val else None,
                 "growth": growth,
                 "profitability": profitability,
             },
@@ -198,6 +213,8 @@ class StockService:
                 "quote_fetched_at": datetime.now(timezone.utc).isoformat(),
                 "profile_from_cache": bool(profile.get("_from_cache")),
                 "financials_from_cache": bool(financials and financials[0].get("_from_cache") if financials else False),
+                "latest_quarter": financials[0].get("period") if financials else None,
+                "forward_valuation_available": bool(forward_val),
             }
         }
 
@@ -374,158 +391,70 @@ class StockService:
 
         return result
 
-    def _calculate_ttm_metrics(self, financials: list[dict[str, Any]]) -> dict[str, Any]:
-        """Calculate Trailing Twelve Months (TTM) metrics from last 4 quarters."""
-        if len(financials) < 4:
-            # Not enough data for TTM, use available
-            quarters = financials
-        else:
-            quarters = financials[:4]
-
-        def safe_sum(items, key):
-            """Safely sum a key across items."""
-            total = 0
-            for item in items:
-                inc = item.get("income_statement", {})
-                cf = item.get("cash_flow", {})
-                val = inc.get(key) or cf.get(key)
-                if val is not None:
-                    total += val
-            return total if total else None
-
-        return {
-            "revenue": safe_sum(quarters, "revenue"),
-            "net_income": safe_sum(quarters, "net_income"),
-            "eps": safe_sum(quarters, "eps"),
-            "ebitda": safe_sum(quarters, "ebitda"),
-            "operating_cash_flow": safe_sum(quarters, "operating_cash_flow"),
-            "free_cash_flow": safe_sum(quarters, "free_cash_flow"),
-        }
-
-    def _calculate_valuation(
+    def _build_forward_valuation(
         self,
-        quote: dict[str, Any],
-        ttm: dict[str, Any],
-        financials: list[dict[str, Any]],
-        fmp_metrics: dict[str, Any] = None,
+        forward: dict[str, Any],
     ) -> dict[str, Any]:
-        """Calculate valuation multiples (P/E, P/S, P/B, EV/EBITDA, dividend_yield, peg)."""
-        price = quote.get("price")
-        market_cap = quote.get("market_cap")
+        """
+        Build forward valuation from yfinance forward data.
 
-        if not price:
+        Returns dict with forward_pe, implied_eps_growth.
+        Empty dict if no data.
+        """
+        if not forward:
             return {}
 
-        valuation = {}
+        forward_pe = forward.get("forward_pe")
+        forward_eps = forward.get("forward_eps")
+        trailing_eps = forward.get("trailing_eps")
 
-        # P/E ratio
-        eps = ttm.get("eps")
-        if eps and eps > 0:
-            valuation["pe"] = round(price / eps, 2)
-
-        # Use market cap for other ratios
-        if market_cap:
-            # P/S ratio
-            revenue = ttm.get("revenue")
-            if revenue and revenue > 0:
-                valuation["ps"] = round(market_cap / revenue, 2)
-
-            # EV/EBITDA (simplified, ignoring debt for now)
-            ebitda = ttm.get("ebitda")
-            if ebitda and ebitda > 0:
-                valuation["ev_to_ebitda"] = round(market_cap / ebitda, 2)
-
-        # P/B ratio (using latest balance sheet)
-        if financials and market_cap:
-            latest_bs = financials[0].get("balance_sheet", {})
-            equity = latest_bs.get("total_equity")
-            if equity and equity > 0:
-                valuation["pb"] = round(market_cap / equity, 2)
-
-        # Add FMP metrics: dividend_yield
-        if fmp_metrics:
-            dividend_yield = fmp_metrics.get("dividend_yield")
-            if dividend_yield is not None:
-                valuation["dividend_yield"] = round(dividend_yield, 2)
-
-        return valuation
-
-    def _calculate_growth(self, financials: list[dict[str, Any]]) -> dict[str, Any]:
-        """Calculate YoY and QoQ growth rates."""
-        if len(financials) < 2:
+        if forward_pe is None:
             return {}
 
-        growth = {}
+        result: dict[str, Any] = {"forward_pe": forward_pe}
 
-        # Current quarter
-        current = financials[0].get("income_statement", {})
-        current_rev = current.get("revenue")
-        current_ni = current.get("net_income")
-        current_eps = current.get("eps")
+        # Implied EPS Growth = (forward_eps - trailing_eps) / abs(trailing_eps)
+        if forward_eps is not None and trailing_eps and trailing_eps != 0:
+            result["implied_eps_growth"] = round(
+                (forward_eps - trailing_eps) / abs(trailing_eps), 4
+            )
 
-        # QoQ (previous quarter)
-        if len(financials) >= 2:
+        return result
+
+    def _build_growth(
+        self,
+        yf_growth: dict[str, Any],
+        financials: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """
+        Build growth metrics: YoY from yfinance + QoQ from financials.
+
+        yfinance provides revenueGrowth and earningsQuarterlyGrowth (YoY).
+        QoQ is still calculated from financial statements (yfinance lacks QoQ).
+        """
+        growth: dict[str, Any] = {}
+
+        # YoY from yfinance
+        rev_yoy = yf_growth.get("revenue_yoy")
+        if rev_yoy is not None:
+            growth["revenue_yoy"] = rev_yoy
+
+        earnings_yoy = yf_growth.get("earnings_yoy")
+        if earnings_yoy is not None:
+            growth["net_income_yoy"] = earnings_yoy
+
+        # QoQ from financials (need at least 2 quarters)
+        if financials and len(financials) >= 2:
+            current = financials[0].get("income_statement", {})
             prev_q = financials[1].get("income_statement", {})
+            current_rev = current.get("revenue")
             prev_rev = prev_q.get("revenue")
             if current_rev and prev_rev and prev_rev != 0:
-                growth["revenue_qoq"] = round((current_rev - prev_rev) / abs(prev_rev), 4)
-
-        # YoY (4 quarters ago)
-        if len(financials) >= 5:
-            yoy = financials[4].get("income_statement", {})
-            yoy_rev = yoy.get("revenue")
-            yoy_ni = yoy.get("net_income")
-            yoy_eps = yoy.get("eps")
-
-            if current_rev and yoy_rev and yoy_rev != 0:
-                growth["revenue_yoy"] = round((current_rev - yoy_rev) / abs(yoy_rev), 4)
-
-            if current_ni and yoy_ni and yoy_ni != 0:
-                growth["net_income_yoy"] = round((current_ni - yoy_ni) / abs(yoy_ni), 4)
-
-            if current_eps and yoy_eps and yoy_eps != 0:
-                growth["eps_yoy"] = round((current_eps - yoy_eps) / abs(yoy_eps), 4)
+                growth["revenue_qoq"] = round(
+                    (current_rev - prev_rev) / abs(prev_rev), 4
+                )
 
         return growth
-
-    def _calculate_profitability(self, financials: list[dict[str, Any]]) -> dict[str, Any]:
-        """Calculate profitability metrics from latest quarter."""
-        if not financials:
-            return {}
-
-        latest = financials[0].get("income_statement", {})
-        revenue = latest.get("revenue")
-
-        if not revenue or revenue == 0:
-            return {}
-
-        def safe_margin(value):
-            """Calculate margin percentage."""
-            if value is None:
-                return None
-            return round(value / revenue, 4)
-
-        profitability = {
-            "gross_margin": safe_margin(latest.get("gross_profit")),
-            "operating_margin": safe_margin(latest.get("operating_income")),
-            "net_margin": safe_margin(latest.get("net_income")),
-        }
-
-        # ROE and ROA require balance sheet
-        if financials:
-            bs = financials[0].get("balance_sheet", {})
-            net_income = latest.get("net_income")
-
-            if net_income:
-                equity = bs.get("total_equity")
-                assets = bs.get("total_assets")
-
-                if equity and equity != 0:
-                    profitability["roe"] = round(net_income / equity, 4)
-                if assets and assets != 0:
-                    profitability["roa"] = round(net_income / assets, 4)
-
-        return profitability
 
     async def get_valuation_comparison(self, symbol: str, industry: str = None, sector: str = None) -> dict[str, Any]:
         """

@@ -97,8 +97,9 @@ class YFQuoteCache:
             }
 
 
-# Global cache instance
+# Global cache instances
 _yf_quote_cache = YFQuoteCache(ttl_seconds=600)  # 10 minutes
+_yf_ticker_info_cache = YFQuoteCache(ttl_seconds=600)  # 10 minutes for Ticker.info
 
 
 class YFinanceService:
@@ -324,14 +325,137 @@ class YFinanceService:
         except (TypeError, ValueError):
             return True
 
+    def get_ticker_metrics(self, symbol: str) -> dict:
+        """
+        Get all fundamental metrics from yf.Ticker(symbol).info in one call.
+
+        Replaces FMP TTM API + manual calculations. Data matches Yahoo Finance page.
+        Results cached for 10 minutes.
+
+        Returns:
+            {
+                "ttm": { revenue, net_income, eps, ebitda, operating_cash_flow, free_cash_flow },
+                "valuation": { pe, ps, pb, ev_to_ebitda, dividend_yield, peg },
+                "forward": { forward_pe, forward_eps, trailing_eps },
+                "profitability": { gross_margin, operating_margin, net_margin, roe, roa },
+                "growth": { revenue_yoy, earnings_yoy },
+                "source": "yfinance"
+            }
+        """
+        symbol = symbol.upper()
+
+        cached = _yf_ticker_info_cache.get(symbol)
+        if cached is not None:
+            print(f"[YFinance] get_ticker_metrics({symbol}) - cache hit")
+            return cached
+
+        print(f"[YFinance] get_ticker_metrics({symbol}) - fetching")
+
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                info = yf.Ticker(symbol).info
+        except Exception as e:
+            print(f"[YFinance] Error fetching ticker info for {symbol}: {e}")
+            return {"ttm": {}, "valuation": {}, "forward": {}, "profitability": {}, "growth": {}, "source": "yfinance"}
+
+        def _get(key):
+            return info.get(key)
+
+        def _positive_or_none(val):
+            """Return val only if positive, else None."""
+            if val is not None and val > 0:
+                return val
+            return None
+
+        def _round(val, decimals=4):
+            return round(val, decimals) if val is not None else None
+
+        # TTM metrics
+        ttm = {
+            "revenue": _get("totalRevenue"),
+            "net_income": _get("netIncomeToCommon"),
+            "eps": _round(_get("trailingEps")),
+            "ebitda": _get("ebitda"),
+            "operating_cash_flow": _get("operatingCashflow"),
+            "free_cash_flow": _get("freeCashflow"),
+        }
+
+        # Valuation
+        valuation = {}
+        pe = _positive_or_none(_get("trailingPE"))
+        if pe is not None:
+            valuation["pe"] = _round(pe, 2)
+        ps = _get("priceToSalesTrailing12Months")
+        if ps is not None:
+            valuation["ps"] = _round(ps, 2)
+        pb = _get("priceToBook")
+        if pb is not None:
+            valuation["pb"] = _round(pb, 2)
+        ev_to_ebitda = _positive_or_none(_get("enterpriseToEbitda"))
+        if ev_to_ebitda is not None:
+            valuation["ev_to_ebitda"] = _round(ev_to_ebitda, 2)
+        dividend_yield = _get("dividendYield")
+        if dividend_yield is not None:
+            valuation["dividend_yield"] = _round(dividend_yield * 100, 4)
+        peg = _positive_or_none(_get("trailingPegRatio"))
+        if peg is not None:
+            valuation["peg"] = _round(peg, 2)
+
+        # Forward
+        forward_pe = _positive_or_none(_get("forwardPE"))
+        forward = {
+            "forward_pe": _round(forward_pe, 2),
+            "forward_eps": _round(_get("forwardEps"), 4),
+            "trailing_eps": _round(_get("trailingEps"), 4),
+        }
+
+        # Profitability
+        profitability = {}
+        for key, yf_key in [
+            ("gross_margin", "grossMargins"),
+            ("operating_margin", "operatingMargins"),
+            ("net_margin", "profitMargins"),
+            ("roe", "returnOnEquity"),
+            ("roa", "returnOnAssets"),
+        ]:
+            val = _get(yf_key)
+            if val is not None:
+                profitability[key] = _round(val)
+
+        # Growth
+        growth = {}
+        rev_growth = _get("revenueGrowth")
+        if rev_growth is not None:
+            growth["revenue_yoy"] = _round(rev_growth)
+        earnings_growth = _get("earningsQuarterlyGrowth")
+        if earnings_growth is not None:
+            growth["earnings_yoy"] = _round(earnings_growth)
+
+        result = {
+            "ttm": ttm,
+            "valuation": valuation,
+            "forward": forward,
+            "profitability": profitability,
+            "growth": growth,
+            "source": "yfinance",
+        }
+
+        _yf_ticker_info_cache.set(symbol, result)
+        return result
+
     def clear_cache(self) -> None:
-        """Clear the quote cache"""
+        """Clear all caches"""
         _yf_quote_cache.clear()
-        print("[YFinance] Quote cache cleared")
+        _yf_ticker_info_cache.clear()
+        print("[YFinance] All caches cleared")
 
     def cache_stats(self) -> dict:
         """Get cache statistics"""
-        return _yf_quote_cache.stats()
+        return {
+            "quotes": _yf_quote_cache.stats(),
+            "ticker_info": _yf_ticker_info_cache.stats(),
+        }
 
 
 # Singleton instance

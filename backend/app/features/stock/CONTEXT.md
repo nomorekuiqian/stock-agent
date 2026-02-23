@@ -26,15 +26,19 @@
 请求
   |
   +-- StockService.get_stock_data()  并行获取:
-  |   +-- Profile  (内存 30min -> DB 30天 -> OpenBB API)
-  |   +-- Quote    (实时, yfinance, 不缓存)
+  |   +-- Profile    (内存 30min -> DB 30天 -> OpenBB API)
+  |   +-- Quote      (实时, OpenBB, 不缓存)
   |   +-- Financials (内存 30min -> DB 按季度 -> OpenBB API)
+  |   +-- yf_metrics (yfinance Ticker.info, 10min 缓存, 一次调用)
   |
-  +-- 计算衍生指标:
-  |   +-- TTM 指标 (近4季度求和: 营收, EPS, FCF)
+  +-- yf_metrics 直接提供:
+  |   +-- TTM 指标 (营收, 净利, EPS, EBITDA, OCF, FCF)
   |   +-- 估值指标 (P/E, P/S, P/B, EV/EBITDA, PEG, 股息率)
-  |   +-- 增长指标 (YoY, QoQ 增长率)
-  |   +-- 盈利能力 (毛利率, 净利率, ROE, ROA)
+  |   +-- 远期估值 (Forward PE, 隐含EPS增速)
+  |   +-- 盈利能力 (毛利率, 营业利润率, 净利率, ROE, ROA)
+  |   +-- YoY 增长 (营收增速, 盈利增速)
+  |
+  +-- QoQ 增长 (营收环比) 仍从 Financials 手算
   |
   +-- 返回 StockDataResponse
 ```
@@ -68,7 +72,7 @@
 
 **数据源**:
 - `shared/openbb_service.py` — 公司资料、财务报表、价格历史
-- `shared/yfinance_service.py` — 实时报价 (批量)
+- `shared/yfinance_service.py` — 实时报价 (批量) + 全部基本面指标 (Ticker.info)
 - `shared/fmp_service.py` — 股票搜索、同行对比、行业 PE、历史估值
 - `shared/data_tools/technical.py` — 技术指标 (tvscreener + pandas-ta)
 
@@ -142,10 +146,10 @@
 - 同行对比保留前 5 名
 - 目的: 减少 token 消耗
 
-### 指标计算
-- **TTM**: 最近 4 季度求和 (营收、EPS、自由现金流)
-- **估值**: P/E = 股价/TTM EPS, P/S = 市值/TTM 营收, 等
-- **增长**: YoY = (本季-去年同季)/去年同季, QoQ = (本季-上季)/上季
+### 指标来源
+- **TTM/估值/盈利能力/YoY增长**: 全部来自 `yfinance Ticker.info` (一次调用)
+- **远期估值**: Forward PE 来自 yfinance, implied_eps_growth 由 forward_eps 和 trailing_eps 计算
+- **QoQ 增长**: 从 OpenBB 财报数据手算 (yfinance 不提供环比)
 
 ## 注意事项
 

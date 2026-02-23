@@ -1573,8 +1573,9 @@ class FMPService:
 
     def get_key_metrics_ttm(self, symbol: str) -> dict:
         """
-        Get key metrics for a stock using stable API.
-        Includes P/E, P/B, P/S, EV/EBITDA, ROE, ROA, etc.
+        Get TTM key metrics for a stock using stable API.
+        Uses /stable/ratios-ttm and /stable/key-metrics-ttm for real-time TTM data.
+        Falls back to annual endpoints if TTM data is unavailable.
 
         Args:
             symbol: Stock ticker symbol
@@ -1594,17 +1595,68 @@ class FMPService:
                     "dividend_yield": 0.005,
                     ...
                 },
-                "source": "fmp"
+                "source": "fmp_ttm" | "fmp_annual"
             }
         """
         print(f"[FMP] get_key_metrics_ttm(symbol={symbol})")
 
-        # Fetch both ratios and key-metrics from stable endpoints
+        # Try TTM endpoints first (real-time trailing 12 months)
+        ratios_data = self._request("/stable/ratios-ttm", {"symbol": symbol})
+        metrics_data = self._request("/stable/key-metrics-ttm", {"symbol": symbol})
+
+        def _extract_first(data):
+            if not data:
+                return {}
+            if isinstance(data, list) and len(data) > 0:
+                return data[0]
+            if isinstance(data, dict):
+                return data
+            return {}
+
+        ratios = _extract_first(ratios_data)
+        metrics_raw = _extract_first(metrics_data)
+
+        # If TTM endpoints returned data, use TTM field names
+        if ratios or metrics_raw:
+            metrics = {
+                # From ratios-ttm
+                "pe_ratio": self._safe_float(ratios.get("priceToEarningsRatioTTM")),
+                "pb_ratio": self._safe_float(ratios.get("priceToBookRatioTTM")),
+                "ps_ratio": self._safe_float(ratios.get("priceToSalesRatioTTM")),
+                "peg_ratio": self._safe_float(ratios.get("priceToEarningsGrowthRatioTTM")),
+                "gross_margin": self._safe_float(ratios.get("grossProfitMarginTTM")),
+                "operating_margin": self._safe_float(ratios.get("operatingProfitMarginTTM")),
+                "net_margin": self._safe_float(ratios.get("netProfitMarginTTM")),
+                "current_ratio": self._safe_float(ratios.get("currentRatioTTM")),
+                "quick_ratio": self._safe_float(ratios.get("quickRatioTTM")),
+                "dividend_yield": self._safe_float(ratios.get("dividendYieldTTM")),
+                # From key-metrics-ttm
+                "ev_to_ebitda": self._safe_float(metrics_raw.get("evToEBITDATTM")),
+                "ev_to_revenue": self._safe_float(metrics_raw.get("evToSalesTTM")),
+                "roe": self._safe_float(metrics_raw.get("returnOnEquityTTM")),
+                "roa": self._safe_float(metrics_raw.get("returnOnAssetsTTM")),
+                "roic": self._safe_float(metrics_raw.get("returnOnInvestedCapitalTTM")),
+            }
+            # dividendYieldTTM is a decimal (e.g. 0.0002), convert to percentage to match annual format
+            if metrics["dividend_yield"] is not None:
+                metrics["dividend_yield"] = round(metrics["dividend_yield"] * 100, 4)
+
+            return {
+                "status": "success",
+                "symbol": symbol,
+                "metrics": metrics,
+                "source": "fmp_ttm",
+            }
+
+        # Fallback: annual endpoints
+        print(f"[FMP] TTM endpoints empty for {symbol}, falling back to annual")
         ratios_data = self._request("/stable/ratios", {"symbol": symbol})
         metrics_data = self._request("/stable/key-metrics", {"symbol": symbol})
 
-        if (not ratios_data or not isinstance(ratios_data, list) or len(ratios_data) == 0) and \
-           (not metrics_data or not isinstance(metrics_data, list) or len(metrics_data) == 0):
+        ratios = _extract_first(ratios_data)
+        metrics_raw = _extract_first(metrics_data)
+
+        if not ratios and not metrics_raw:
             return {
                 "status": "error",
                 "symbol": symbol,
@@ -1613,12 +1665,8 @@ class FMPService:
                 "error": "No key metrics data returned",
             }
 
-        # Get the most recent data (first item)
-        ratios = ratios_data[0] if ratios_data and len(ratios_data) > 0 else {}
-        metrics_raw = metrics_data[0] if metrics_data and len(metrics_data) > 0 else {}
-
         metrics = {
-            # From ratios
+            # From ratios (annual)
             "pe_ratio": self._safe_float(ratios.get("priceToEarningsRatio")),
             "pb_ratio": self._safe_float(ratios.get("priceToBookRatio")),
             "ps_ratio": self._safe_float(ratios.get("priceToSalesRatio")),
@@ -1628,8 +1676,8 @@ class FMPService:
             "net_margin": self._safe_float(ratios.get("netProfitMargin")),
             "current_ratio": self._safe_float(ratios.get("currentRatio")),
             "quick_ratio": self._safe_float(ratios.get("quickRatio")),
-            "dividend_yield": self._safe_float(ratios.get("dividendYieldPercentage")),  # In percentage (e.g., 0.34 = 0.34%)
-            # From key-metrics
+            "dividend_yield": self._safe_float(ratios.get("dividendYieldPercentage")),
+            # From key-metrics (annual)
             "ev_to_ebitda": self._safe_float(metrics_raw.get("evToEBITDA")),
             "ev_to_revenue": self._safe_float(metrics_raw.get("evToSales")),
             "roe": self._safe_float(metrics_raw.get("returnOnEquity")),
@@ -1641,7 +1689,7 @@ class FMPService:
             "status": "success",
             "symbol": symbol,
             "metrics": metrics,
-            "source": "fmp",
+            "source": "fmp_annual",
         }
 
     def get_historical_key_metrics(self, symbol: str, period: str = "annual", limit: int = 20) -> dict:

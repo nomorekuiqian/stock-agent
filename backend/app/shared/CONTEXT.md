@@ -44,23 +44,26 @@
 
 ---
 
-## yfinance_service.py (347 行)
+## yfinance_service.py
 
 ### 核心能力
-- **YFQuoteCache 类**: 线程安全，TTL 缓存
+- **YFQuoteCache 类**: 线程安全，TTL 缓存 (用于报价和 Ticker.info)
 - **批量报价**: 一次 `yfinance.download()` 获取 70+ 只股票
+- **全量指标**: 一次 `yf.Ticker(symbol).info` 获取 TTM、估值、盈利能力、增长、远期估值
 - 自动计算日涨跌幅
 
 ### 关键函数
 | 函数 | 说明 |
 |------|------|
-| `get_batch_quotes(symbols)` | 批量报价 (高效单次调用) |
-| `clear_cache()` | 清空缓存 |
+| `get_stock_quotes(symbols)` | 批量报价 (高效单次调用) |
+| `get_ticker_metrics(symbol)` | 全量基本面指标 (TTM/估值/盈利/增长/远期, 10min 缓存) |
+| `clear_cache()` | 清空所有缓存 |
 
 ### 使用模式
 ```python
 yf_service = get_yfinance_service()  # 单例
-quotes = await yf_service.get_batch_quotes(["AAPL", "MSFT", ...])
+quotes = yf_service.get_stock_quotes(["AAPL", "MSFT", ...])
+metrics = yf_service.get_ticker_metrics("NVDA")  # {ttm, valuation, forward, profitability, growth}
 ```
 
 ---

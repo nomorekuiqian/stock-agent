@@ -3,10 +3,8 @@ StockService Unit Tests
 
 Tests for pure logic functions in app/features/stock/service.py:
 - _merge_financials
-- _calculate_ttm_metrics
-- _calculate_valuation
-- _calculate_growth
-- _calculate_profitability
+- _build_forward_valuation
+- _build_growth
 - _is_profile_fresh
 - _has_recent_quarter
 
@@ -141,238 +139,103 @@ class TestMergeFinancials:
 
 
 # ===========================================================================
-# TestCalculateTTMMetrics
+# TestBuildForwardValuation
 # ===========================================================================
 
 
-class TestCalculateTTMMetrics:
-    """Tests for StockService._calculate_ttm_metrics."""
+class TestBuildForwardValuation:
+    """Tests for StockService._build_forward_valuation."""
 
-    def test_normal_4_quarters(self, service, sample_financials):
-        """TTM sums first 4 quarters correctly."""
-        result = service._calculate_ttm_metrics(sample_financials)
-        # revenue: 30B + 28B + 26B + 24B = 108B
-        assert result["revenue"] == 108_000_000_000
-        # net_income: 10B + 9B + 8B + 7B = 34B
-        assert result["net_income"] == 34_000_000_000
-        # eps: 5.0 + 4.5 + 4.0 + 3.5 = 17.0
-        assert result["eps"] == 17.0
-        # ebitda: 15B + 14B + 13B + 12B = 54B
-        assert result["ebitda"] == 54_000_000_000
+    def test_normal(self, service):
+        """Forward PE and implied EPS growth calculated correctly."""
+        forward = {"forward_pe": 24.5, "forward_eps": 7.0, "trailing_eps": 5.0}
+        result = service._build_forward_valuation(forward)
+        assert result["forward_pe"] == 24.5
+        assert result["implied_eps_growth"] == round((7.0 - 5.0) / 5.0, 4)
 
-    def test_less_than_4_quarters(self, service, sample_financials):
-        """With < 4 quarters, uses available data."""
-        two_q = sample_financials[:2]
-        result = service._calculate_ttm_metrics(two_q)
-        # revenue: 30B + 28B = 58B
-        assert result["revenue"] == 58_000_000_000
+    def test_no_forward_pe(self, service):
+        """Missing forward_pe returns empty dict."""
+        forward = {"forward_pe": None, "forward_eps": 7.0, "trailing_eps": 5.0}
+        assert service._build_forward_valuation(forward) == {}
 
-    def test_all_none_values(self, service):
-        """All None values return None."""
-        financials = [
-            {"income_statement": {}, "cash_flow": {}}
-            for _ in range(4)
-        ]
-        result = service._calculate_ttm_metrics(financials)
-        assert result["revenue"] is None
-        assert result["net_income"] is None
-        assert result["eps"] is None
+    def test_empty_forward(self, service):
+        """Empty dict returns empty dict."""
+        assert service._build_forward_valuation({}) == {}
 
-    def test_mixed_sources(self, service):
-        """operating_cash_flow comes from cash_flow dict, revenue from income_statement."""
-        financials = [
-            {
-                "income_statement": {"revenue": 1000},
-                "cash_flow": {"operating_cash_flow": 500, "free_cash_flow": 300},
-            }
-            for _ in range(4)
-        ]
-        result = service._calculate_ttm_metrics(financials)
-        assert result["revenue"] == 4000
-        assert result["operating_cash_flow"] == 2000
-        assert result["free_cash_flow"] == 1200
+    def test_no_trailing_eps(self, service):
+        """Missing trailing_eps skips implied_eps_growth."""
+        forward = {"forward_pe": 24.5, "forward_eps": 7.0, "trailing_eps": None}
+        result = service._build_forward_valuation(forward)
+        assert result["forward_pe"] == 24.5
+        assert "implied_eps_growth" not in result
 
-    def test_empty_list(self, service):
-        """Empty list returns all None metrics."""
-        result = service._calculate_ttm_metrics([])
-        assert result["revenue"] is None
-        assert result["net_income"] is None
-        assert result["eps"] is None
-        assert result["ebitda"] is None
-        assert result["operating_cash_flow"] is None
-        assert result["free_cash_flow"] is None
+    def test_trailing_eps_zero(self, service):
+        """Trailing EPS = 0 skips implied_eps_growth (division by zero)."""
+        forward = {"forward_pe": 24.5, "forward_eps": 7.0, "trailing_eps": 0}
+        result = service._build_forward_valuation(forward)
+        assert result["forward_pe"] == 24.5
+        assert "implied_eps_growth" not in result
+
+    def test_negative_trailing_eps(self, service):
+        """Negative trailing EPS uses abs() for growth calc."""
+        forward = {"forward_pe": 24.5, "forward_eps": 2.0, "trailing_eps": -1.0}
+        result = service._build_forward_valuation(forward)
+        # (2.0 - (-1.0)) / abs(-1.0) = 3.0
+        assert result["implied_eps_growth"] == 3.0
 
 
 # ===========================================================================
-# TestCalculateValuation
+# TestBuildGrowth
 # ===========================================================================
 
 
-class TestCalculateValuation:
-    """Tests for StockService._calculate_valuation."""
+class TestBuildGrowth:
+    """Tests for StockService._build_growth."""
 
-    def test_normal_calculation(self, service, sample_financials):
-        """PE, PS, EV/EBITDA, PB calculated correctly."""
-        quote = {"price": 170.0, "market_cap": 2_000_000_000_000}
-        ttm = {"eps": 17.0, "revenue": 108_000_000_000, "ebitda": 54_000_000_000}
-        result = service._calculate_valuation(quote, ttm, sample_financials)
-        assert result["pe"] == round(170.0 / 17.0, 2)
-        assert result["ps"] == round(2_000_000_000_000 / 108_000_000_000, 2)
-        assert result["ev_to_ebitda"] == round(2_000_000_000_000 / 54_000_000_000, 2)
-        # PB: market_cap / total_equity of first quarter
-        assert result["pb"] == round(2_000_000_000_000 / 50_000_000_000, 2)
+    def test_yoy_only(self, service):
+        """YoY from yfinance without financials."""
+        yf_growth = {"revenue_yoy": 0.35, "earnings_yoy": 0.50}
+        result = service._build_growth(yf_growth, [])
+        assert result["revenue_yoy"] == 0.35
+        assert result["net_income_yoy"] == 0.50
+        assert "eps_yoy" not in result
+        assert "revenue_qoq" not in result
 
-    def test_no_price(self, service):
-        """No price returns empty dict."""
-        quote = {"market_cap": 1_000_000_000}
-        ttm = {"eps": 5.0}
-        result = service._calculate_valuation(quote, ttm, [])
-        assert result == {}
-
-    def test_negative_eps(self, service):
-        """Negative EPS skips PE calculation."""
-        quote = {"price": 100.0, "market_cap": 500_000_000_000}
-        ttm = {"eps": -2.0, "revenue": 50_000_000_000, "ebitda": 10_000_000_000}
-        result = service._calculate_valuation(quote, ttm, [])
-        assert "pe" not in result
-        assert "ps" in result
-        assert "ev_to_ebitda" in result
-
-    def test_no_market_cap(self, service):
-        """No market_cap only calculates PE."""
-        quote = {"price": 100.0}
-        ttm = {"eps": 5.0, "revenue": 50_000_000_000}
-        result = service._calculate_valuation(quote, ttm, [])
-        assert result["pe"] == 20.0
-        assert "ps" not in result
-        assert "ev_to_ebitda" not in result
-
-    def test_no_equity(self, service):
-        """No equity in balance sheet skips PB."""
-        quote = {"price": 100.0, "market_cap": 500_000_000_000}
-        ttm = {"eps": 5.0, "revenue": 50_000_000_000, "ebitda": 10_000_000_000}
-        financials = [{"balance_sheet": {}}]
-        result = service._calculate_valuation(quote, ttm, financials)
-        assert "pb" not in result
-        assert result["pe"] == 20.0
-
-
-# ===========================================================================
-# TestCalculateGrowth
-# ===========================================================================
-
-
-class TestCalculateGrowth:
-    """Tests for StockService._calculate_growth."""
-
-    def test_qoq_with_2_quarters(self, service, sample_financials):
-        """QoQ calculated with 2 quarters."""
-        two_q = sample_financials[:2]
-        result = service._calculate_growth(two_q)
-        # current_rev=30B, prev_rev=28B, qoq=(30-28)/28
+    def test_qoq_from_financials(self, service, sample_financials):
+        """QoQ calculated from financials when available."""
+        yf_growth = {"revenue_yoy": 0.35}
+        result = service._build_growth(yf_growth, sample_financials)
+        # current_rev=30B, prev_rev=28B
         expected_qoq = round((30_000_000_000 - 28_000_000_000) / 28_000_000_000, 4)
         assert result["revenue_qoq"] == expected_qoq
 
-    def test_yoy_with_5_quarters(self, service, sample_financials):
-        """YoY calculated with 5 quarters."""
-        result = service._calculate_growth(sample_financials)
-        # current (index 0): rev=30B, ni=10B, eps=5.0
-        # yoy (index 4): rev=22B, ni=6B, eps=3.0
-        expected_rev_yoy = round((30_000_000_000 - 22_000_000_000) / 22_000_000_000, 4)
-        expected_ni_yoy = round((10_000_000_000 - 6_000_000_000) / 6_000_000_000, 4)
-        expected_eps_yoy = round((5.0 - 3.0) / 3.0, 4)
-        assert result["revenue_yoy"] == expected_rev_yoy
-        assert result["net_income_yoy"] == expected_ni_yoy
-        assert result["eps_yoy"] == expected_eps_yoy
+    def test_empty_yf_growth(self, service, sample_financials):
+        """Empty yfinance growth still calculates QoQ from financials."""
+        result = service._build_growth({}, sample_financials)
+        assert "revenue_yoy" not in result
+        expected_qoq = round((30_000_000_000 - 28_000_000_000) / 28_000_000_000, 4)
+        assert result["revenue_qoq"] == expected_qoq
 
-    def test_less_than_2_quarters(self, service, sample_financials):
-        """< 2 quarters returns empty dict."""
-        result = service._calculate_growth(sample_financials[:1])
+    def test_no_data(self, service):
+        """No yfinance growth and no financials returns empty dict."""
+        result = service._build_growth({}, [])
         assert result == {}
 
-    def test_prev_value_zero(self, service):
-        """Previous value 0 does not crash (division by zero protection)."""
+    def test_prev_revenue_zero(self, service):
+        """Previous quarter revenue = 0 skips QoQ."""
         financials = [
-            {"income_statement": {"revenue": 1000, "net_income": 100, "eps": 1.0}},
-            {"income_statement": {"revenue": 0, "net_income": 0, "eps": 0}},
+            {"income_statement": {"revenue": 1000}},
+            {"income_statement": {"revenue": 0}},
         ]
-        result = service._calculate_growth(financials)
-        # prev_rev=0, should not have revenue_qoq
+        result = service._build_growth({}, financials)
         assert "revenue_qoq" not in result
 
-    def test_negative_growth(self, service):
-        """Negative growth is calculated correctly."""
-        financials = [
-            {"income_statement": {"revenue": 80, "net_income": None, "eps": None}},
-            {"income_statement": {"revenue": 100, "net_income": None, "eps": None}},
-        ]
-        result = service._calculate_growth(financials)
-        expected = round((80 - 100) / 100, 4)
-        assert result["revenue_qoq"] == expected
-        assert result["revenue_qoq"] < 0
-
-
-# ===========================================================================
-# TestCalculateProfitability
-# ===========================================================================
-
-
-class TestCalculateProfitability:
-    """Tests for StockService._calculate_profitability."""
-
-    def test_normal(self, service, sample_financials):
-        """All margins calculated correctly from latest quarter."""
-        result = service._calculate_profitability(sample_financials)
-        # latest: revenue=30B, gross_profit=20B, operating_income=12B, net_income=10B
-        assert result["gross_margin"] == round(20_000_000_000 / 30_000_000_000, 4)
-        assert result["operating_margin"] == round(12_000_000_000 / 30_000_000_000, 4)
-        assert result["net_margin"] == round(10_000_000_000 / 30_000_000_000, 4)
-        # balance_sheet: equity=50B, assets=100B
-        assert result["roe"] == round(10_000_000_000 / 50_000_000_000, 4)
-        assert result["roa"] == round(10_000_000_000 / 100_000_000_000, 4)
-
-    def test_revenue_zero(self, service):
-        """Revenue = 0 returns empty dict."""
-        financials = [{"income_statement": {"revenue": 0}, "balance_sheet": {}}]
-        result = service._calculate_profitability(financials)
-        assert result == {}
-
-    def test_no_balance_sheet(self, service):
-        """No balance sheet means no ROE/ROA but margins still calculated."""
-        financials = [{
-            "income_statement": {
-                "revenue": 1000,
-                "gross_profit": 600,
-                "operating_income": 400,
-                "net_income": 300,
-            },
-            "balance_sheet": {},
-        }]
-        result = service._calculate_profitability(financials)
-        assert result["gross_margin"] == round(600 / 1000, 4)
-        assert result["net_margin"] == round(300 / 1000, 4)
-        assert "roe" not in result
-        assert "roa" not in result
-
-    def test_equity_zero(self, service):
-        """Equity = 0 skips ROE, still calculates ROA."""
-        financials = [{
-            "income_statement": {
-                "revenue": 1000,
-                "gross_profit": 600,
-                "operating_income": 400,
-                "net_income": 300,
-            },
-            "balance_sheet": {"total_equity": 0, "total_assets": 5000},
-        }]
-        result = service._calculate_profitability(financials)
-        assert "roe" not in result
-        assert result["roa"] == round(300 / 5000, 4)
-
-    def test_empty_financials(self, service):
-        """Empty list returns empty dict."""
-        result = service._calculate_profitability([])
-        assert result == {}
+    def test_single_quarter(self, service):
+        """Single quarter financials skips QoQ."""
+        financials = [{"income_statement": {"revenue": 1000}}]
+        result = service._build_growth({"revenue_yoy": 0.2}, financials)
+        assert result["revenue_yoy"] == 0.2
+        assert "revenue_qoq" not in result
 
 
 # ===========================================================================
