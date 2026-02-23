@@ -73,9 +73,12 @@ interface StockFundamentals {
     dividend_yield?: number;
     peg?: number;
   };
+  forward_valuation?: {
+    forward_pe?: number;
+    implied_eps_growth?: number;
+  };
   growth: {
     revenue_yoy?: number;
-    eps_yoy?: number;
     revenue_qoq?: number;
     net_income_yoy?: number;
   };
@@ -121,6 +124,8 @@ interface StockData {
   meta: {
     symbol: string;
     quote_fetched_at: string;
+    latest_quarter?: string;
+    forward_valuation_available?: boolean;
   };
 }
 
@@ -228,6 +233,17 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     en: 'Div Yield',
     tip: '年度股息与股价的比率。反映持有股票的现金回报，收益型投资者关注。',
   },
+  // Forward Valuation
+  forward_pe: {
+    zh: '远期市盈率',
+    en: 'Fwd P/E',
+    tip: '基于分析师一致预期 EPS 计算。反映市场对未来盈利的定价，通常低于 Trailing PE 表示预期增长。',
+  },
+  implied_eps_growth: {
+    zh: 'EPS 增速 (YoY)',
+    en: 'EPS Growth',
+    tip: '分析师预期的 EPS 同比增速。正值表示盈利增长，负值表示盈利下滑。',
+  },
   // Growth
   revenue_yoy: {
     zh: '营收同比',
@@ -238,11 +254,6 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     zh: '净利润同比',
     en: 'Net Income YoY',
     tip: '净利润同比增长率。反映盈利能力的变化趋势。',
-  },
-  eps_yoy: {
-    zh: 'EPS 同比',
-    en: 'EPS YoY',
-    tip: '每股收益同比增长率。直接影响股东回报，对估值至关重要。',
   },
   revenue_qoq: {
     zh: '营收环比',
@@ -1923,11 +1934,42 @@ export default function StockPage() {
                 {/* Valuation */}
                 <div className="mb-5 pb-5 border-b border-border/40">
                   <SubsectionHeader title="估值指标" titleEn="Valuation" />
+
+                  {/* Trailing (TTM) */}
+                  <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Trailing (TTM)</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
                     <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
                     <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
                   </div>
+                  <p className="text-xs text-muted-foreground/60 mt-1.5">
+                    {data?.meta.latest_quarter
+                      ? `TTM (latest: ${data.meta.latest_quarter})`
+                      : 'TTM (yfinance)'}
+                  </p>
+
+                  {/* Forward (Consensus) */}
+                  {fundamentals.forward_valuation?.forward_pe && (
+                    <>
+                      <div className="border-t border-border/30 my-4" />
+                      <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Forward (Consensus)</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <MetricCard metricKey="forward_pe" value={formatNumber(fundamentals.forward_valuation.forward_pe)} />
+                        <MetricCard
+                          metricKey="implied_eps_growth"
+                          value={fundamentals.forward_valuation.implied_eps_growth != null
+                            ? formatNumber(fundamentals.forward_valuation.implied_eps_growth, { style: 'percent' })
+                            : '--'}
+                          trend={fundamentals.forward_valuation.implied_eps_growth != null
+                            ? (fundamentals.forward_valuation.implied_eps_growth > 0 ? 'up' : 'down')
+                            : undefined}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground/60 mt-1.5">
+                        NTM consensus (yfinance)
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Growth */}
@@ -1943,11 +1985,6 @@ export default function StockPage() {
                       metricKey="net_income_yoy"
                       value={formatNumber(fundamentals.growth.net_income_yoy, { style: 'percent' })}
                       trend={fundamentals.growth.net_income_yoy ? (fundamentals.growth.net_income_yoy > 0 ? 'up' : 'down') : 'neutral'}
-                    />
-                    <StatRow
-                      metricKey="eps_yoy"
-                      value={formatNumber(fundamentals.growth.eps_yoy, { style: 'percent' })}
-                      trend={fundamentals.growth.eps_yoy ? (fundamentals.growth.eps_yoy > 0 ? 'up' : 'down') : 'neutral'}
                     />
                     <StatRow
                       metricKey="revenue_qoq"

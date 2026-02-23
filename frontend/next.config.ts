@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         hostname: 'images.financialmodelingprep.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'assets.parqet.com',
+        pathname: '/logos/**',
+      },
     ],
   },
 };
