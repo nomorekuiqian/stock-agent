@@ -21,6 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `backend/app/features/notification/CONTEXT.md` — 邮件发送与广播
 - `backend/app/features/feedback/CONTEXT.md` — 用户反馈
 - `backend/app/core/CONTEXT.md` — 核心基础设施
+- `backend/docs/reliability.md` — 工程可靠性 (错误处理/速率限制/日志/前端健壮性)
 - `frontend/docs/pages.md` — 前端页面路由
 - `frontend/docs/components.md` — 前端组件与库文件
 - `frontend/docs/auth.md` — 认证流程
@@ -88,6 +89,42 @@ NEXT_PUBLIC_INSFORGE_URL=https://9wmhxyi4.us-east.insforge.app
 NEXT_PUBLIC_INSFORGE_ANON_KEY=xxx
 ```
 
+## 工程可靠性
+
+> 完整文档: `backend/docs/reliability.md`
+
+系统内置的可靠性机制，修改前请先阅读完整文档。
+
+**后端 (`main.py`)**:
+- **全局错误处理**: `Exception` → 500 (不泄露 stack trace), `RequestValidationError` → 422
+- **速率限制**: slowapi, AI 端点 5/min, 搜索 20/min, 报价 30/min (按 IP)
+- **健康检查**: `GET /health` (存活), `GET /ready` (依赖就绪, 检查 Insforge + API keys)
+- **启动/关闭**: API key 缺失 warning, shutdown 关闭 Insforge HTTP client
+
+**日志系统 (`core/logging.py`)**:
+- 所有模块使用 `get_logger(__name__)`, 不使用 `print()`
+- 环境变量 `LOG_LEVEL` 控制级别 (默认 INFO)
+- 请求中间件记录 method/path/status/耗时, 慢请求 (>5s) 自动 WARNING
+- logger 使用 `%s` lazy 格式化, 不使用 f-string
+
+**前端**:
+- `error.tsx` — 全局错误边界, 防止白屏
+- `not-found.tsx` — 自定义 404 页面
+- Chart 组件用 `next/dynamic` + `ssr: false` 懒加载, 减少首屏 JS 体积
+
+**添加速率限制到新端点**:
+```python
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+limiter = Limiter(key_func=get_remote_address)
+
+@router.post("/endpoint")
+@limiter.limit("10/minute")
+async def handler(request: Request, body: YourModel): ...
+```
+
+**添加新模块日志**: 文件顶部加 `from app.core.logging import get_logger` + `logger = get_logger(__name__)`
+
 ## 后端架构 (Feature-based)
 
 重构后采用 Feature 模块化架构，每个功能领域独立封装：
@@ -97,7 +134,8 @@ backend/app/
 ├── main.py                    # FastAPI 入口，注册所有 feature routers
 ├── core/                      # 核心基础设施
 │   ├── config.py              # 环境变量配置
-│   └── database.py            # InsforgeService 基类 (HTTP client)
+│   ├── database.py            # InsforgeService 基类 (HTTP client)
+│   └── logging.py             # 结构化日志 (setup_logging + get_logger)
 ├── features/                  # 功能模块
 │   ├── daily_report/          # 市场日报 (原 market/)
 │   │   ├── router.py          # POST /api/market

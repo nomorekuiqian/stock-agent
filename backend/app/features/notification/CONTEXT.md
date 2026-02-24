@@ -1,0 +1,44 @@
+# Notification 模块
+
+邮件发送、广播和预览服务。从 `subscription/` 模块拆分而来，专注于"发送"职责。
+
+## 功能概述
+
+| 类别 | 端点 | 说明 |
+|------|------|------|
+| 日报广播 | `POST /api/report/send` | Cron 触发，向所有订阅者广播日报邮件 |
+| 日报预览 | `GET /api/report/preview` | 渲染日报 HTML 邮件预览 |
+| 日报测试 | `POST /api/report/send-test` | 向指定邮箱发送测试日报 |
+| 广播测试 | `POST /api/report/broadcast-test` | 测试广播流程 |
+| 周报预览 | `GET /api/weekly-report/preview` | 渲染周报 HTML 邮件预览 |
+| 周报测试 | `POST /api/weekly-report/send-test` | 向指定邮箱发送测试周报 |
+| 周报广播 | `POST /api/weekly-report/broadcast` | Cron 触发，向所有订阅者广播周报 |
+| 摘要预览 | `GET /api/subscriptions/personal_digest/preview` | 渲染个性化摘要预览 |
+| 简报生成 | `POST /api/newsletter/generate` | AI 生成 Newsletter 内容 |
+| 简报预览 | `POST /api/newsletter/preview` | 渲染 Newsletter 预览 |
+| 简报测试 | `POST /api/newsletter/send-test` | 向指定邮箱发送测试简报 |
+| 简报广播 | `POST /api/newsletter/broadcast` | 向所有订阅者广播简报 |
+| 欢迎邮件 | `POST /api/welcome/send-test` | 向指定邮箱发送欢迎邮件 |
+
+## 文件结构
+
+| 文件 | 说明 |
+|------|------|
+| `router.py` | 13 个 API 端点 + `_report_data_from_db()` 辅助函数 |
+
+## 依赖关系
+
+**内部依赖**:
+- `features/daily_report/` — market db (报告查询)、MarketAgent (日报生成)、transform 函数
+- `features/macro/weekly/` — weekly db (周报查询)、WeeklyAgent (周报生成)
+- `features/brew/` — DigestAgent (个性化摘要生成)
+- `features/subscription/email_service.py` — Resend 邮件发送服务
+- `features/subscription/models.py` — 请求/响应 Pydantic 模型
+- `core/deps.py` — `verify_cron_secret` (Cron 认证)
+
+**环境变量**: CRON_SECRET (广播端点认证)
+
+## 与 subscription 模块的分工
+
+- **notification**: 负责邮件的"发送" — 广播、预览、测试发送
+- **subscription**: 负责订阅的"状态" — 订阅/退订/状态查询/频道管理

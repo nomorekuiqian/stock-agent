@@ -51,7 +51,7 @@ GET /api/liquidity/*
 
 **数据源**: FRED API (`api.stlouisfed.org`) — 需要 `FRED_API_KEY`
 
-**缓存层**: `features/macro_cache/db.py` 的 `try_db_cache()` 函数
+**缓存层**: `features/macro/cache/db.py` 的 `try_db_cache()` 函数
 
 **无 AI Agent, 无独立数据库表** (通过 macro_cache 共享缓存表)
 

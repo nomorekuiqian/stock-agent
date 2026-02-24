@@ -101,8 +101,8 @@ POST /api/subscriptions/{channel}/subscribe
 - Resend API Key: `RESEND_API_KEY`
 
 **内部依赖**:
-- `features/market/` — MarketAgent (日报生成)、market db (报告查询)
-- `features/digest/` — DigestAgent (个性化摘要生成)、digest db (摘要保存)
+- `features/daily_report/` — MarketAgent (日报生成)、market db (报告查询)
+- `features/brew/` — DigestAgent (个性化摘要生成)、digest db (摘要保存)
 - Google ADK — Newsletter Agent (gemini-3-pro-preview)
 
 **环境变量**: RESEND_API_KEY, GOOGLE_API_KEY, FRONTEND_URL, CRON_SECRET

@@ -180,23 +180,21 @@ features/payment/             →   features/payment/          (不变)
 最高优先级，因为 M2 会大幅改造这个模块：
 
 - [x] 后端 `features/digest/` → `features/brew/`
-- [x] API `/api/digest` → `/api/brew`
-- [x] 前端 `/for-you` → `/brew`（保留 `/for-you` 重定向）
-- [x] 数据库表名迁移
+- [ ] API `/api/digest` → `/api/brew`（暂未执行，API 路径保持 `/api/digest` 不变）
+- [ ] 前端 `/for-you` → `/brew`（暂未执行，前端路由保持 `/for-you` 不变）
+- [ ] 数据库表名迁移（暂未执行，表名保持不变）
 - [x] 更新 CLAUDE.md 和 CONTEXT.md
 
 ### Phase 2: market → daily_report
 
 - [x] 后端 `features/market/` → `features/daily_report/`
-- [x] API `/api/market` → `/api/daily-report`
+- [ ] API `/api/market` → `/api/daily-report`（暂未执行，API 路径保持 `/api/market` 不变）
 - [x] 前端路由 `/today` 不变，只更新 API 调用
-- [x] 保留 `/api/market` 重定向兼容
 
 ### Phase 3: macro 体系整合
 
 - [x] `macro_risk/` + `liquidity/` + `weekly_report/` + `macro_cache/` → `macro/` 下的子模块
-- [x] 统一 API 前缀为 `/api/macro/*`
-- [x] 保留旧路由重定向兼容
+- [ ] 统一 API 前缀为 `/api/macro/*`（暂未执行，API 路径保持原样）
 
 ### Phase 4: subscription 拆分
 
