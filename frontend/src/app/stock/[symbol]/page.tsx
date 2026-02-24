@@ -422,7 +422,7 @@ function translateIndustry(industry: string | undefined): string {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 async function fetchStockData(symbol: string): Promise<StockData> {
-  const response = await fetch(`${API_BASE_URL}/stock/${symbol}`);
+  const response = await fetch(`${API_BASE_URL}/stocks/${symbol}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch stock data: ${response.status}`);
   }
@@ -431,7 +431,7 @@ async function fetchStockData(symbol: string): Promise<StockData> {
 
 async function fetchStockProfileQuick(symbol: string): Promise<StockProfile | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/stock/${symbol}/profile`);
+    const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/profile`);
     if (!response.ok) return null;
     const result = await response.json();
     return result.success && result.profile ? result.profile : null;
@@ -441,7 +441,7 @@ async function fetchStockProfileQuick(symbol: string): Promise<StockProfile | nu
 }
 
 async function fetchPriceHistory(symbol: string, days: number = 365): Promise<PriceHistoryData[]> {
-  const response = await fetch(`${API_BASE_URL}/stock/${symbol}/history?days=${days}`);
+  const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/history?days=${days}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch price history: ${response.status}`);
   }
@@ -450,7 +450,7 @@ async function fetchPriceHistory(symbol: string, days: number = 365): Promise<Pr
 }
 
 async function fetchStockAnalysis(symbol: string, force: boolean = false): Promise<StockAIAnalysis | null> {
-  const response = await fetch(`${API_BASE_URL}/stock/${symbol}/analysis?force=${force}`, {
+  const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analysis?force=${force}`, {
     method: 'POST',
   });
   if (!response.ok) {
@@ -466,7 +466,7 @@ async function fetchTechnicalAnalysis(
   timeframe: string = 'daily'
 ): Promise<StockTechnicalAnalysis | null> {
   const response = await fetch(
-    `${API_BASE_URL}/stock/${symbol}/technical?force=${force}&timeframe=${timeframe}`,
+    `${API_BASE_URL}/stocks/${symbol}/technical?force=${force}&timeframe=${timeframe}`,
     { method: 'POST' }
   );
   if (!response.ok) {
@@ -478,7 +478,7 @@ async function fetchTechnicalAnalysis(
 
 async function fetchTechnicalSnapshot(symbol: string): Promise<TechnicalSnapshot | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/stock/${symbol}/technical-snapshot`);
+    const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/technical-snapshot`);
     if (!response.ok) return null;
     const result = await response.json();
     return result.success ? result : null;
@@ -489,7 +489,7 @@ async function fetchTechnicalSnapshot(symbol: string): Promise<TechnicalSnapshot
 
 async function fetchValuationComparison(symbol: string): Promise<ValuationComparisonData | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/stock/${symbol}/valuation`);
+    const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/valuation`);
     if (!response.ok) {
       return null;
     }

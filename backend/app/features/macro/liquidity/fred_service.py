@@ -18,7 +18,7 @@ import httpx
 from dotenv import load_dotenv
 
 from app.utils.timezone import today_str, days_ago
-from app.features.macro_cache.db import try_db_cache
+from app.features.macro.cache.db import try_db_cache
 
 load_dotenv()
 

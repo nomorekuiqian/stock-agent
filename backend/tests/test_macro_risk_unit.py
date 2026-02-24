@@ -24,7 +24,7 @@ import time
 import pytest
 from unittest.mock import patch
 
-from app.features.macro_risk.service import (
+from app.features.macro.risk.service import (
     _score_indicator,
     _compute_economic_deterioration,
     _compute_credit_risk,
@@ -41,7 +41,7 @@ from app.features.macro_risk.service import (
     _dashboard_cache,
     _CACHE_TTL,
 )
-from app.features.macro_risk.models import (
+from app.features.macro.risk.models import (
     MacroRiskDashboard,
     AIStockInfo,
 )

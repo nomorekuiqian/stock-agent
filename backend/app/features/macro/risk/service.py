@@ -7,14 +7,14 @@ Fetches FRED data, yfinance AI basket quotes, and computes risk scores.
 import asyncio
 import time
 import httpx
-from app.features.liquidity.fred_service import (
+from app.features.macro.liquidity.fred_service import (
     get_latest_value,
     get_all_liquidity_metrics,
     fetch_fred_series,
 )
 from app.shared.yfinance_service import get_yfinance_service
 from app.shared.fmp_service import get_fmp_service
-from app.features.macro_risk.models import (
+from app.features.macro.risk.models import (
     RiskIndicator,
     CategoryRiskScore,
     AIStockInfo,
@@ -25,7 +25,7 @@ from app.features.macro_risk.models import (
     CpiBreakdown,
 )
 from app.utils.timezone import now_iso
-from app.features.macro_cache.db import try_db_cache
+from app.features.macro.cache.db import try_db_cache
 
 MACRO_RISK_FRED_SERIES = {
     # Economic Deterioration

@@ -146,7 +146,7 @@ export function StockAnalysisCard({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/stock/${symbol}/analysis?force=${force}`, {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analysis?force=${force}`, {
         method: 'POST',
       });
 

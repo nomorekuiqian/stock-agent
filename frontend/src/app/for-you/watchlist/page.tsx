@@ -39,6 +39,7 @@ function WatchlistPageContent() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const extraNamesRef = useRef<Record<string, { en: string; zh: string }>>({});
 
   // Sector expand
@@ -62,20 +63,23 @@ function WatchlistPageContent() {
       if (!user?.id) return;
       setLoading(true);
       try {
-        const [watchlist, sectorList] = await Promise.all([
-          getUserWatchlist(user.id),
-          api.sectors.list(),
-        ]);
+        // Load watchlist independently from sectors so a sectors failure
+        // does not prevent displaying the user's existing watchlist
+        const watchlist = await getUserWatchlist(user.id);
         if (watchlist?.symbols) {
           const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
           setSymbols(uniqueSymbols);
         }
+      } catch (err) {
+        console.error('Failed to load watchlist:', err);
+      }
+      try {
+        const sectorList = await api.sectors.list();
         setSectors(sectorList);
       } catch (err) {
-        console.error('Failed to load watchlist data:', err);
-      } finally {
-        setLoading(false);
+        console.error('Failed to load sectors:', err);
       }
+      setLoading(false);
     };
     if (user?.id) loadData();
   }, [user?.id]);
@@ -116,6 +120,7 @@ function WatchlistPageContent() {
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, []);
 
@@ -126,7 +131,13 @@ function WatchlistPageContent() {
   };
 
   const persist = useCallback((newSymbols: string[]) => {
-    if (user?.id) saveUserWatchlist(user.id, newSymbols);
+    if (!user?.id) return;
+    // Debounce saves to avoid race conditions when rapid add/remove operations
+    // fire concurrent requests that can overwrite each other
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveUserWatchlist(user.id, newSymbols);
+    }, 500);
   }, [user?.id]);
 
   // --- Search ---
@@ -528,24 +539,29 @@ function WatchlistPageContent() {
                               return (
                                 <button
                                   key={sym}
-                                  onClick={() => !inList && handleAddSymbol(sym)}
-                                  disabled={inList || atLimit}
-                                  className={`flex flex-col items-center gap-1 p-2.5 rounded-lg text-center transition-all border ${
+                                  onClick={() => inList ? handleRemoveSymbol(sym) : handleAddSymbol(sym)}
+                                  disabled={!inList && atLimit}
+                                  className={`group flex flex-col items-center gap-1 p-2.5 rounded-lg text-center transition-all border ${
                                     inList
-                                      ? 'border-border/30 bg-muted/20 cursor-default'
-                                      : 'border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/40 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
+                                      ? 'border-emerald-500/30 bg-emerald-500/10 hover:border-red-400/40 hover:bg-red-500/10 cursor-pointer'
+                                      : 'border-border/40 bg-muted/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
                                   }`}
                                 >
-                                  <span className={`font-mono text-xs font-semibold ${inList ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                  <span className={`font-mono text-xs font-semibold flex items-center gap-0.5 ${inList ? 'text-emerald-400 group-hover:text-red-400' : 'text-muted-foreground hover:text-foreground'}`}>
                                     {inList && (
-                                      <svg className="w-3 h-3 inline mr-0.5 -mt-0.5 text-emerald-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                      </svg>
+                                      <>
+                                        <svg className="w-3 h-3 shrink-0 group-hover:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <svg className="w-3 h-3 shrink-0 hidden group-hover:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </>
                                     )}
                                     {sym}
                                   </span>
                                   {name && (
-                                    <span className="text-[10px] text-muted-foreground truncate w-full">{name.zh || name.en}</span>
+                                    <span className={`text-[10px] truncate w-full ${inList ? 'text-emerald-400/60 group-hover:text-red-400/60' : 'text-muted-foreground'}`}>{name.zh || name.en}</span>
                                   )}
                                 </button>
                               );

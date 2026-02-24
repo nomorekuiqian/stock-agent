@@ -7,17 +7,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 每个 feature 模块目录下有 `CONTEXT.md`，修改代码前先阅读以了解模块的功能逻辑、数据流、依赖关系和注意事项。
 
 已有文档:
-- `backend/app/features/market/CONTEXT.md` — 市场日报
+- `backend/app/features/daily_report/CONTEXT.md` — 市场日报
 - `backend/app/features/stock/CONTEXT.md` — 个股投研
-- `backend/app/features/liquidity/CONTEXT.md` — 流动性监控
-- `backend/app/features/weekly_report/CONTEXT.md` — 宏观周报
+- `backend/app/features/macro/liquidity/CONTEXT.md` — 流动性监控
+- `backend/app/features/macro/weekly/CONTEXT.md` — 宏观周报
 - `backend/app/features/sector/CONTEXT.md` — 板块分析
-- `backend/app/features/digest/CONTEXT.md` — 个性化摘要
-- `backend/app/features/macro_cache/CONTEXT.md` — 宏观数据缓存系统
-- `backend/app/features/macro_risk/CONTEXT.md` — 宏观风险评估
+- `backend/app/features/brew/CONTEXT.md` — 个性化摘要 (Brew)
+- `backend/app/features/macro/cache/CONTEXT.md` — 宏观数据缓存系统
+- `backend/app/features/macro/risk/CONTEXT.md` — 宏观风险评估
 - `backend/app/shared/CONTEXT.md` — 跨模块共享服务
 - `backend/app/shared/data_tools/CONTEXT.md` — 数据获取工具层
-- `backend/app/features/subscription/CONTEXT.md` — 邮件订阅与推送
+- `backend/app/features/subscription/CONTEXT.md` — 邮件订阅管理
+- `backend/app/features/notification/CONTEXT.md` — 邮件发送与广播
 - `backend/app/features/feedback/CONTEXT.md` — 用户反馈
 - `backend/app/core/CONTEXT.md` — 核心基础设施
 - `frontend/docs/pages.md` — 前端页面路由
@@ -97,28 +98,35 @@ backend/app/
 ├── core/                      # 核心基础设施
 │   ├── config.py              # 环境变量配置
 │   └── database.py            # InsforgeService 基类 (HTTP client)
-├── features/                  # 功能模块 (每个模块独立)
-│   ├── market/                # 市场日报
-│   │   ├── router.py          # API 端点 POST /api/market
+├── features/                  # 功能模块
+│   ├── daily_report/          # 市场日报 (原 market/)
+│   │   ├── router.py          # POST /api/market
 │   │   ├── agent.py           # MarketAgent (Google ADK)
 │   │   ├── models.py          # MarketReportOutput (Pydantic)
 │   │   └── db.py              # market_reports 表操作
+│   ├── brew/                  # 个性化摘要 (原 digest/)
+│   │   ├── router.py          # POST /api/digest
+│   │   ├── agent.py           # PersonalDigest (Google ADK)
+│   │   ├── models.py          # DigestOutput (Pydantic)
+│   │   └── db.py              # personal_digests 表操作
 │   ├── stock/                 # 个股调研
-│   │   ├── router.py          # /api/stock/{symbol}, /api/stocks/search
+│   │   ├── router.py          # /api/stocks/* (统一复数)
 │   │   ├── agent.py           # StockAnalysisAgent (Google ADK)
 │   │   ├── service.py         # StockService (数据聚合+计算)
 │   │   └── db.py              # stock_analyses, stock_profiles 表操作
-│   ├── liquidity/             # 流动性分析
-│   │   ├── router.py          # /api/liquidity/*
-│   │   ├── agent.py           # LiquidityAgent (OpenAI + web search)
-│   │   ├── fred_service.py    # FRED API 流动性指标
-│   │   └── db.py              # liquidity_analyses 表操作
+│   ├── macro/                 # 宏观体系 (整合 4 个模块)
+│   │   ├── risk/              # 宏观风险 (原 macro_risk/)
+│   │   ├── liquidity/         # 流动性 (原 liquidity/)
+│   │   ├── weekly/            # 宏观周报 (原 weekly_report/)
+│   │   └── cache/             # 数据缓存 (原 macro_cache/)
 │   ├── sector/                # 板块分析
-│   ├── digest/                # 个性化摘要
-│   ├── subscription/          # 邮件订阅
-│   │   ├── email_service.py   # Resend 邮件发送
-│   │   └── service.py         # 订阅管理
-│   └── feedback/              # 用户反馈
+│   ├── subscription/          # 订阅管理
+│   │   ├── service.py         # 订阅 CRUD
+│   │   └── email_service.py   # Resend 邮件渲染
+│   ├── notification/          # 邮件发送与广播 (从 subscription 拆出)
+│   │   └── router.py          # /api/report/*, /api/newsletter/*
+│   ├── feedback/              # 用户反馈
+│   └── payment/               # 支付
 ├── shared/                    # 跨模块共享服务
 │   ├── fmp_service.py         # FMP API (新闻、国债利率)
 │   ├── yfinance_service.py    # yfinance (股票报价)
@@ -162,15 +170,21 @@ Python 数据获取层 (shared/data_tools)
 | 端点 | 方法 | 描述 |
 |------|------|------|
 | `/api/market` | POST | 生成/获取市场日报 |
+| `/api/digest` | POST | 生成个性化摘要 |
 | `/api/stocks/search` | GET | 搜索股票 |
 | `/api/stocks/quotes` | GET | 批量报价 (yfinance) |
-| `/api/stock/{symbol}` | GET | 个股完整数据 |
-| `/api/stock/{symbol}/history` | GET | 价格历史 |
-| `/api/stock/{symbol}/analysis` | POST | AI 个股分析 |
+| `/api/stocks/{symbol}` | GET | 个股完整数据 |
+| `/api/stocks/{symbol}/history` | GET | 价格历史 |
+| `/api/stocks/{symbol}/analysis` | POST | AI 个股分析 |
+| `/api/stocks/{symbol}/technical` | POST | AI 技术分析 |
+| `/api/stocks/{symbol}/technical-snapshot` | GET | 技术指标快照 |
+| `/api/stocks/{symbol}/valuation` | GET | 估值对比 |
 | `/api/liquidity/metrics` | GET | 流动性指标 |
-| `/api/liquidity/analysis` | POST | AI 流动性分析 |
-| `/api/subscribe` | POST | 订阅邮件 |
-| `/api/report/send` | POST | 广播邮件 (需 X-Cron-Secret) |
+| `/api/macro-risk/dashboard` | GET | 宏观风险仪表盘 |
+| `/api/weekly-report` | GET | 宏观周报 |
+| `/api/subscriptions/{channel}/subscribe` | POST | 订阅频道 |
+| `/api/report/send` | POST | 广播日报 (需 X-Cron-Secret) |
+| `/api/newsletter/broadcast` | POST | 广播简报 (需 X-Cron-Secret) |
 
 ## 测试架构
 

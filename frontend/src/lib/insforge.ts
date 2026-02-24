@@ -225,20 +225,35 @@ export async function saveUserWatchlist(
   try {
     console.log('[Insforge] Saving watchlist for user:', userId);
 
-    // Debug: Check current session
+    // Ensure auth token is set before writing to RLS-protected table
     const { data: sessionData } = await insforge.auth.getCurrentSession();
-    console.log('[Insforge] Current session:', sessionData?.session ? 'Active' : 'None');
-    console.log('[Insforge] Session user ID:', sessionData?.session?.user?.id);
-    console.log('[Insforge] Requested user ID:', userId);
 
     if (!sessionData?.session) {
-      console.error('[Insforge] No active session - RLS will block this operation');
-      return { success: false, error: 'Not authenticated. Please sign in again.' };
-    }
-
-    if (sessionData.session.user.id !== userId) {
-      console.error('[Insforge] User ID mismatch - session:', sessionData.session.user.id, 'requested:', userId);
-      return { success: false, error: 'User ID mismatch. Please sign in again.' };
+      // Try recovering session from cookies (handles page refresh / expired SDK session)
+      try {
+        const res = await fetch('/api/auth/session');
+        if (res.ok) {
+          const cookieData = await res.json();
+          if (cookieData.authenticated && cookieData.accessToken) {
+            insforge.getHttpClient().setAuthToken(cookieData.accessToken);
+          } else {
+            console.error('[Insforge] No active session - cannot save watchlist');
+            return { success: false, error: 'Not authenticated. Please sign in again.' };
+          }
+        } else {
+          return { success: false, error: 'Not authenticated. Please sign in again.' };
+        }
+      } catch {
+        return { success: false, error: 'Not authenticated. Please sign in again.' };
+      }
+    } else {
+      if (sessionData.session.user.id !== userId) {
+        console.error('[Insforge] User ID mismatch');
+        return { success: false, error: 'User ID mismatch. Please sign in again.' };
+      }
+      if (sessionData.session.accessToken) {
+        insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+      }
     }
 
     // Check if watchlist exists for this user
@@ -253,8 +268,8 @@ export async function saveUserWatchlist(
       return { success: false, error: `Select failed: ${selectError.message}` };
     }
 
-    // Get user email from session for debugging purposes
-    const userEmail = sessionData.session.user.email || '';
+    // Get user email from session if available
+    const userEmail = sessionData?.session?.user?.email || '';
 
     const watchlistData: Record<string, unknown> = {
       user_id: userId,

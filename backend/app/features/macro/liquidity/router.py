@@ -5,12 +5,12 @@ import traceback
 from fastapi import APIRouter, HTTPException, Query
 
 from app.utils.timezone import now_iso, today_str, days_ago
-from app.features.liquidity.fred_service import (
+from app.features.macro.liquidity.fred_service import (
     get_all_liquidity_metrics,
     get_liquidity_history,
     fetch_fred_series,
 )
-from app.features.liquidity.global_service import (
+from app.features.macro.liquidity.global_service import (
     get_global_liquidity_metrics,
     get_global_liquidity_history,
 )

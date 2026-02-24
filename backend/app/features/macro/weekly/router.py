@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import verify_cron_secret
-from app.features.weekly_report import db as weekly_db
+from app.features.macro.weekly import db as weekly_db
 from app.utils.timezone import market_week_label, utc_now_iso
 
 router = APIRouter(prefix="/api/weekly-report", tags=["weekly-report"])
@@ -114,8 +114,8 @@ async def generate_weekly_report(
                 return {"success": True, "data": existing, "from_cache": True}
 
         # Lazy imports to avoid loading heavy deps on every request
-        from app.features.weekly_report.data_collector import collect_weekly_data
-        from app.features.weekly_report.agent import WeeklyReportAgent
+        from app.features.macro.weekly.data_collector import collect_weekly_data
+        from app.features.macro.weekly.agent import WeeklyReportAgent
 
         # Step 1: Collect raw data
         print(f"[WeeklyReport] Generating report for {week_label}...")

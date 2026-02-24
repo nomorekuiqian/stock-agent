@@ -1061,7 +1061,7 @@ export const api = {
   // Sector APIs
   sectors: {
     list: async (): Promise<SectorInfo[]> => {
-      const response = await fetch(`${API_BASE_URL}/sectors`);
+      const response = await fetch(`${API_BASE_URL}/sectors/`);
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: 'Failed to fetch sectors' }));
         throw new Error(error.detail || 'Failed to fetch sectors');

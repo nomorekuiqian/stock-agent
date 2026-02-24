@@ -13,6 +13,37 @@ export interface AuthResult {
   error?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Session persistence helpers
+// The Insforge SDK enters "memory mode" when the server returns a csrfToken,
+// which actively deletes localStorage data. We re-save the session under the
+// SDK's own keys so that getCurrentSession() can recover it after a browser
+// restart without relying on third-party cookies for refresh.
+// ---------------------------------------------------------------------------
+const SDK_TOKEN_KEY = 'insforge-auth-token';
+const SDK_USER_KEY = 'insforge-auth-user';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function persistSessionToStorage(accessToken: string, user: any): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SDK_TOKEN_KEY, accessToken);
+    localStorage.setItem(SDK_USER_KEY, JSON.stringify(user));
+  } catch {
+    // localStorage might be full or disabled
+  }
+}
+
+function clearSessionFromStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(SDK_TOKEN_KEY);
+    localStorage.removeItem(SDK_USER_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export async function signUp(
   email: string,
   password: string,
@@ -77,6 +108,14 @@ export async function signIn(email: string, password: string, rememberMe: boolea
         }
 
         insforge.getHttpClient().setAuthToken(data.accessToken);
+
+        // Re-persist session to localStorage after SDK memory mode clears it.
+        // When Insforge returns csrfToken, SDK enters memory mode and deletes
+        // localStorage data. We re-save so getCurrentSession() can recover
+        // the session after browser restart.
+        if (rememberMe) {
+          persistSessionToStorage(data.accessToken, data.user);
+        }
       }
 
       return {
@@ -165,6 +204,8 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await insforge.auth.signOut();
 
+    clearSessionFromStorage();
+
     try {
       await fetch('/api/auth', {
         method: 'POST',
@@ -197,6 +238,8 @@ async function recoverSessionFromCookies(): Promise<User | false> {
     if (data.authenticated && data.accessToken) {
       insforge.getHttpClient().setAuthToken(data.accessToken);
       if (data.user) {
+        // Persist recovered session so SDK can find it on next restart
+        persistSessionToStorage(data.accessToken, data.user);
         return {
           id: data.user.id,
           email: data.user.email || '',
@@ -232,6 +275,12 @@ export async function getCurrentUser(): Promise<User | null> {
 
     if (sessionData.session.accessToken) {
       insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+
+      // Keep localStorage in sync so the SDK can recover the session
+      // after a browser restart (memory mode clears localStorage).
+      if (sessionData.session.user) {
+        persistSessionToStorage(sessionData.session.accessToken, sessionData.session.user);
+      }
     }
 
     // Use session user directly if available (avoids extra remote call)

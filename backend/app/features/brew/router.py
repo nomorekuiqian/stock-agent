@@ -11,9 +11,9 @@ import traceback
 from fastapi import APIRouter, HTTPException
 
 from app.utils.timezone import today_str, now_iso
-from app.features.digest.agent import get_personal_digest
-from app.features.digest.db import save_user_digest, get_user_digest
-from app.features.digest.models import (
+from app.features.brew.agent import get_personal_digest
+from app.features.brew.db import save_user_digest, get_user_digest
+from app.features.brew.models import (
     DigestRequest,
     DigestResponse,
     StockAnalysis,
@@ -24,7 +24,7 @@ from app.features.digest.models import (
     DigestSummary,
 )
 
-router = APIRouter(prefix="/api", tags=["digest"])
+router = APIRouter(prefix="/api", tags=["brew"])
 
 
 @router.post("/digest", response_model=DigestResponse)

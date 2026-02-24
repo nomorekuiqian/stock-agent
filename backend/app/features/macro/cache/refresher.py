@@ -12,7 +12,7 @@ import bisect
 import traceback
 from typing import Any
 
-from app.features.macro_cache.db import set_cached, get_cached, get_cache_data
+from app.features.macro.cache.db import set_cached, get_cached, get_cache_data
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ async def refresh_tier1() -> dict:
 
     # 1. Liquidity metrics (FRED)
     try:
-        from app.features.liquidity.fred_service import (
+        from app.features.macro.liquidity.fred_service import (
             get_latest_value, LIQUIDITY_SERIES, fetch_fred_series,
         )
 
@@ -126,7 +126,7 @@ async def refresh_tier1() -> dict:
         fmp = get_fmp_service()
         treasury_data = fmp.get_treasury_rates_with_change()
 
-        from app.features.macro_risk.service import _get_cache, _set_cached
+        from app.features.macro.risk.service import _get_cache, _set_cached
         _set_cached(_get_cache("treasury_rates"), treasury_data)
 
         ok = await _safe_set("macro:treasury_rates", treasury_data, "fmp", TTL_T1)
@@ -139,7 +139,7 @@ async def refresh_tier1() -> dict:
 
     # 3. Market Sentiment (CNN + VIX/breadth/credit)
     try:
-        from app.features.macro_risk.service import get_market_sentiment, _get_cache
+        from app.features.macro.risk.service import get_market_sentiment, _get_cache
         _get_cache("sentiment").clear()
 
         data = await get_market_sentiment(skip_db_cache=True)
@@ -249,28 +249,28 @@ async def refresh_tier2() -> dict:
 
 
 async def _refresh_dashboard() -> bool:
-    from app.features.macro_risk.service import get_macro_risk_dashboard, _get_cache
+    from app.features.macro.risk.service import get_macro_risk_dashboard, _get_cache
     _get_cache("dashboard").clear()
     data = await get_macro_risk_dashboard(skip_db_cache=True)
     return await _safe_set("macro:dashboard", data.model_dump(), "computed", TTL_T2)
 
 
 async def _refresh_economy() -> bool:
-    from app.features.macro_risk.service import get_economic_fundamentals, _get_cache
+    from app.features.macro.risk.service import get_economic_fundamentals, _get_cache
     _get_cache("economy").clear()
     data = await get_economic_fundamentals(skip_db_cache=True)
     return await _safe_set("macro:economy", data.model_dump(), "computed", TTL_T2)
 
 
 async def _refresh_inflation_rates() -> bool:
-    from app.features.macro_risk.service import get_inflation_rates, _get_cache
+    from app.features.macro.risk.service import get_inflation_rates, _get_cache
     _get_cache("inflation").clear()
     data = await get_inflation_rates(skip_db_cache=True)
     return await _safe_set("macro:inflation_rates", data.model_dump(), "computed", TTL_T2)
 
 
 async def _refresh_cpi_breakdown() -> bool:
-    from app.features.macro_risk.service import get_cpi_breakdown, _get_cache
+    from app.features.macro.risk.service import get_cpi_breakdown, _get_cache
     _get_cache("cpi").clear()
     data = await get_cpi_breakdown(skip_db_cache=True)
     payload = data.model_dump()
@@ -310,7 +310,7 @@ async def _refresh_liquidity_percentiles() -> bool:
 
 async def _refresh_global_liquidity() -> bool:
     """Fetch current global M2 + central bank metrics and cache."""
-    from app.features.liquidity.global_service import fetch_and_compute_global_m2
+    from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
     data = await fetch_and_compute_global_m2()
     if not data or not data.get("us_m2", {}).get("value"):
         print("[Refresher] Global liquidity: no valid US M2 data")
@@ -321,7 +321,7 @@ async def _refresh_global_liquidity() -> bool:
 
 async def _refresh_global_liquidity_history() -> bool:
     """Fetch 365-day global M2 history and cache."""
-    from app.features.liquidity.global_service import get_global_liquidity_history
+    from app.features.macro.liquidity.global_service import get_global_liquidity_history
     data = await get_global_liquidity_history(days=365)
     obs = data.get("observations", [])
     if not obs:
@@ -340,7 +340,7 @@ async def refresh_tier3() -> dict:
 
     # Liquidity history (365 days)
     try:
-        from app.features.liquidity.fred_service import get_liquidity_history
+        from app.features.macro.liquidity.fred_service import get_liquidity_history
         data = await get_liquidity_history(days=365)
         ok = await _safe_set("fred:liquidity_history", data, "fred", TTL_T3)
         results["fred:liquidity_history"] = ok

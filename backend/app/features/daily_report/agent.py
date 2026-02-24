@@ -26,8 +26,8 @@ from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
 # Import Pydantic models from the models module
-from app.features.market.models import MarketReportOutput
-from app.features.market import db as market_db
+from app.features.daily_report.models import MarketReportOutput
+from app.features.daily_report import db as market_db
 
 # Import data fetching tools
 from app.shared.data_tools import get_all_market_data

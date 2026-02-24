@@ -122,22 +122,22 @@ DB_WRITE_FUNCTIONS = [
     # Feedback
     ("app.features.feedback.db", "save_email_feedback"),
     ("app.features.feedback.db", "save_user_feedback"),
-    # Market reports
-    ("app.features.market.db", "save_market_report"),
+    # Daily reports (formerly market)
+    ("app.features.daily_report.db", "save_market_report"),
     # Stock
     ("app.features.stock.db", "upsert_stock_profile"),
     ("app.features.stock.db", "upsert_stock_financial"),
     ("app.features.stock.db", "save_stock_analysis"),
-    # Digest
-    ("app.features.digest.db", "save_user_digest"),
-    ("app.features.digest.db", "save_user_watchlist"),
+    # Brew (formerly digest)
+    ("app.features.brew.db", "save_user_digest"),
+    ("app.features.brew.db", "save_user_watchlist"),
     # Subscription (Resend operations)
     ("app.features.subscription.service", "add_subscriber"),
     ("app.features.subscription.service", "remove_subscriber"),
-    # Weekly Report
-    ("app.features.weekly_report.db", "save_weekly_report"),
-    # Macro Cache
-    ("app.features.macro_cache.db", "set_cached"),
+    # Weekly Report (now under macro/)
+    ("app.features.macro.weekly.db", "save_weekly_report"),
+    # Macro Cache (now under macro/)
+    ("app.features.macro.cache.db", "set_cached"),
     # Insforge service write operations
     ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
 ]

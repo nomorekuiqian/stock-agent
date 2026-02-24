@@ -6,7 +6,7 @@ Pure data transformation logic - no network calls, no database access.
 """
 
 import pytest
-from app.features.market.router import transform_market_data_to_indices
+from app.features.daily_report.router import transform_market_data_to_indices
 
 
 @pytest.fixture

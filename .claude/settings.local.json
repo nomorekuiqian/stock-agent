@@ -184,7 +184,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(git stash:*)",
       "WebFetch(domain:themarketbrew.com)",
-      "Bash(TZ='America/New_York' date:*)"
+      "Bash(TZ='America/New_York' date:*)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []

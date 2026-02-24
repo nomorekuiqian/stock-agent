@@ -20,7 +20,7 @@ import time
 import pytest
 from unittest.mock import patch, AsyncMock
 
-from app.features.liquidity.global_service import (
+from app.features.macro.liquidity.global_service import (
     _get_cached_global,
     _global_cache,
     _CACHE_TTL,
@@ -129,12 +129,12 @@ class TestFetchAndComputeGlobalM2:
             return key, mock_raw_metrics.get(key, {"value": None})
 
         with patch(
-            "app.features.liquidity.global_service.get_latest_value",
+            "app.features.macro.liquidity.global_service.get_latest_value",
             new=AsyncMock(side_effect=lambda sid: mock_raw_metrics[
                 next(k for k, v in {**GLOBAL_M2_SERIES, **CENTRAL_BANK_SERIES, **DRAIN_SERIES, **FX_SERIES}.items() if v == sid)
             ]),
         ):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         assert "global_liquidity" in result
@@ -151,8 +151,8 @@ class TestFetchAndComputeGlobalM2:
             key = next(k for k, v in {**GLOBAL_M2_SERIES, **CENTRAL_BANK_SERIES, **DRAIN_SERIES, **FX_SERIES}.items() if v == sid)
             return mock_raw_metrics[key]
 
-        with patch("app.features.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+        with patch("app.features.macro.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         # 7,000,000 millions / 1000 = 7000 billions
@@ -165,8 +165,8 @@ class TestFetchAndComputeGlobalM2:
             key = next(k for k, v in {**GLOBAL_M2_SERIES, **CENTRAL_BANK_SERIES, **DRAIN_SERIES, **FX_SERIES}.items() if v == sid)
             return mock_raw_metrics[key]
 
-        with patch("app.features.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+        with patch("app.features.macro.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         # 6,500,000 * 1.08 / 1000 = 7020.0
@@ -179,8 +179,8 @@ class TestFetchAndComputeGlobalM2:
             key = next(k for k, v in {**GLOBAL_M2_SERIES, **CENTRAL_BANK_SERIES, **DRAIN_SERIES, **FX_SERIES}.items() if v == sid)
             return mock_raw_metrics[key]
 
-        with patch("app.features.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+        with patch("app.features.macro.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         # 7,500,000 * 1e8 / 150.0 / 1e9 = 5000.0
@@ -193,8 +193,8 @@ class TestFetchAndComputeGlobalM2:
             key = next(k for k, v in {**GLOBAL_M2_SERIES, **CENTRAL_BANK_SERIES, **DRAIN_SERIES, **FX_SERIES}.items() if v == sid)
             return mock_raw_metrics[key]
 
-        with patch("app.features.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+        with patch("app.features.macro.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         fed = 7000.0     # 7,000,000 / 1000
@@ -224,8 +224,8 @@ class TestFetchAndComputeGlobalM2:
             key = next(k for k, v in {**GLOBAL_M2_SERIES, **CENTRAL_BANK_SERIES, **DRAIN_SERIES, **FX_SERIES}.items() if v == sid)
             return raw[key]
 
-        with patch("app.features.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+        with patch("app.features.macro.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         assert result["ecb_assets"]["value"] is None
@@ -240,8 +240,8 @@ class TestFetchAndComputeGlobalM2:
                 raise Exception("FRED timeout")
             return {"value": 1000.0, "date": "2025-01-01"}
 
-        with patch("app.features.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
-            from app.features.liquidity.global_service import fetch_and_compute_global_m2
+        with patch("app.features.macro.liquidity.global_service.get_latest_value", new=AsyncMock(side_effect=mock_get_latest)):
+            from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
             result = await fetch_and_compute_global_m2()
 
         assert result["us_m2"]["value"] is None
@@ -279,9 +279,9 @@ class TestGetGlobalLiquidityHistory:
         async def mock_fetch(series_id, start_date, end_date, limit=500):
             return mock_fred_responses.get(series_id, {"series_id": series_id, "observations": []})
 
-        with patch("app.features.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
-            with patch("app.features.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(None, False))):
-                from app.features.liquidity.global_service import get_global_liquidity_history
+        with patch("app.features.macro.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
+            with patch("app.features.macro.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(None, False))):
+                from app.features.macro.liquidity.global_service import get_global_liquidity_history
                 result = await get_global_liquidity_history(days=365)
 
         assert result["series_id"] == "GLOBAL_LIQUIDITY_INDEX"
@@ -296,9 +296,9 @@ class TestGetGlobalLiquidityHistory:
         async def mock_fetch(series_id, start_date, end_date, limit=500):
             return mock_fred_responses.get(series_id, {"series_id": series_id, "observations": []})
 
-        with patch("app.features.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
-            with patch("app.features.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(None, False))):
-                from app.features.liquidity.global_service import get_global_liquidity_history
+        with patch("app.features.macro.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
+            with patch("app.features.macro.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(None, False))):
+                from app.features.macro.liquidity.global_service import get_global_liquidity_history
                 result = await get_global_liquidity_history(days=365)
 
         obs0 = result["observations"][0]
@@ -319,9 +319,9 @@ class TestGetGlobalLiquidityHistory:
                 return {"observations": [{"date": "2024-06-01", "value": 7000000.0}]}
             return {"observations": []}  # No data for other series
 
-        with patch("app.features.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
-            with patch("app.features.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(None, False))):
-                from app.features.liquidity.global_service import get_global_liquidity_history
+        with patch("app.features.macro.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
+            with patch("app.features.macro.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(None, False))):
+                from app.features.macro.liquidity.global_service import get_global_liquidity_history
                 result = await get_global_liquidity_history(days=365)
 
         assert len(result["observations"]) == 1
@@ -335,8 +335,8 @@ class TestGetGlobalLiquidityHistory:
             "observations": [{"time": "2024-01-01", "value": 15000.0}],
         }
 
-        with patch("app.features.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(cached_data, True))):
-            from app.features.liquidity.global_service import get_global_liquidity_history
+        with patch("app.features.macro.liquidity.global_service.try_db_cache", new=AsyncMock(return_value=(cached_data, True))):
+            from app.features.macro.liquidity.global_service import get_global_liquidity_history
             result = await get_global_liquidity_history(days=365)
 
         assert result == cached_data
@@ -347,8 +347,8 @@ class TestGetGlobalLiquidityHistory:
         async def mock_fetch(series_id, start_date, end_date, limit=500):
             return {"observations": []}
 
-        with patch("app.features.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
-            from app.features.liquidity.global_service import get_global_liquidity_history
+        with patch("app.features.macro.liquidity.global_service.fetch_fred_series", new=AsyncMock(side_effect=mock_fetch)):
+            from app.features.macro.liquidity.global_service import get_global_liquidity_history
             result = await get_global_liquidity_history(days=90)
 
         assert result["series_id"] == "GLOBAL_LIQUIDITY_INDEX"

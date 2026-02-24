@@ -180,7 +180,7 @@ class TestBroadcastE2E:
         time.sleep(2)
 
         # 1. Fetch latest weekly report from database
-        from app.features.weekly_report import db as weekly_db
+        from app.features.macro.weekly import db as weekly_db
 
         report = await weekly_db.get_latest_report()
         assert report is not None, (

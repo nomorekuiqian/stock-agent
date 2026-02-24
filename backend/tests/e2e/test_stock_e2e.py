@@ -4,9 +4,9 @@ E2E Tests for Stock Research API Endpoints
 Tests 5 endpoints via httpx.AsyncClient + ASGITransport:
 - GET  /api/stocks/search
 - GET  /api/stocks/quotes
-- GET  /api/stock/{symbol}
-- GET  /api/stock/{symbol}/history
-- POST /api/stock/{symbol}/analysis
+- GET  /api/stocks/{symbol}
+- GET  /api/stocks/{symbol}/history
+- POST /api/stocks/{symbol}/analysis
 
 Usage:
     cd backend
@@ -103,12 +103,12 @@ class TestStockQuotes:
 
 @pytest.mark.e2e
 class TestStockData:
-    """Tests for GET /api/stock/{symbol}."""
+    """Tests for GET /api/stocks/{symbol}."""
 
     @pytest.mark.asyncio
     async def test_get_stock_data(self, client):
-        """GET /api/stock/AAPL returns complete stock data."""
-        resp = await client.get("/api/stock/AAPL")
+        """GET /api/stocks/AAPL returns complete stock data."""
+        resp = await client.get("/api/stocks/AAPL")
         assert resp.status_code == 200
         data = resp.json()
         # Verify top-level structure
@@ -123,7 +123,7 @@ class TestStockData:
     async def test_get_stock_data_no_financials(self, client):
         """include_financials=false returns empty quarters."""
         resp = await client.get(
-            "/api/stock/AAPL",
+            "/api/stocks/AAPL",
             params={"include_financials": "false"},
         )
         assert resp.status_code == 200
@@ -138,12 +138,12 @@ class TestStockData:
 
 @pytest.mark.e2e
 class TestStockHistory:
-    """Tests for GET /api/stock/{symbol}/history."""
+    """Tests for GET /api/stocks/{symbol}/history."""
 
     @pytest.mark.asyncio
     async def test_history_30_days(self, client):
         """30-day history returns non-empty data."""
-        resp = await client.get("/api/stock/AAPL/history", params={"days": 30})
+        resp = await client.get("/api/stocks/AAPL/history", params={"days": 30})
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -155,10 +155,10 @@ class TestStockHistory:
     async def test_history_cache_hit(self, client):
         """Second request for same symbol+days hits cache."""
         # First request populates cache
-        resp1 = await client.get("/api/stock/MSFT/history", params={"days": 30})
+        resp1 = await client.get("/api/stocks/MSFT/history", params={"days": 30})
         assert resp1.status_code == 200
         # Second request should return same data from cache
-        resp2 = await client.get("/api/stock/MSFT/history", params={"days": 30})
+        resp2 = await client.get("/api/stocks/MSFT/history", params={"days": 30})
         assert resp2.status_code == 200
         assert resp2.json()["data"] == resp1.json()["data"]
 
@@ -170,14 +170,14 @@ class TestStockHistory:
 
 @pytest.mark.e2e
 class TestStockAnalysis:
-    """Tests for POST /api/stock/{symbol}/analysis."""
+    """Tests for POST /api/stocks/{symbol}/analysis."""
 
     @pytest.mark.generate
     @pytest.mark.asyncio
     async def test_generate_analysis(self, client):
         """Generate analysis for NVDA returns all ANALYSIS_FIELDS."""
         resp = await client.post(
-            "/api/stock/NVDA/analysis",
+            "/api/stocks/NVDA/analysis",
             params={"force": "true"},
         )
         assert resp.status_code == 200
@@ -193,17 +193,17 @@ class TestStockAnalysis:
     async def test_analysis_cache(self, client):
         """Second request without force reads from cache."""
         # First: generate (or use existing)
-        resp1 = await client.post("/api/stock/NVDA/analysis")
+        resp1 = await client.post("/api/stocks/NVDA/analysis")
         assert resp1.status_code == 200
         # Second: should be from cache
-        resp2 = await client.post("/api/stock/NVDA/analysis")
+        resp2 = await client.post("/api/stocks/NVDA/analysis")
         assert resp2.status_code == 200
         assert resp2.json()["meta"]["from_cache"] is True
 
     @pytest.mark.asyncio
     async def test_invalid_symbol(self, client):
         """Invalid symbol format returns 400."""
-        resp = await client.post("/api/stock/!!!/analysis")
+        resp = await client.post("/api/stocks/!!!/analysis")
         assert resp.status_code == 400
 
 

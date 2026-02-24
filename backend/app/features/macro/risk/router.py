@@ -10,8 +10,8 @@ import warnings as _warnings
 from fastapi import APIRouter, HTTPException, Query
 
 from app.utils.timezone import now_iso, days_ago, today_str
-from app.features.liquidity.fred_service import fetch_fred_series, LIQUIDITY_SERIES
-from app.features.macro_risk.service import (
+from app.features.macro.liquidity.fred_service import fetch_fred_series, LIQUIDITY_SERIES
+from app.features.macro.risk.service import (
     get_macro_risk_dashboard,
     get_economic_fundamentals,
     get_inflation_rates,

@@ -17,7 +17,7 @@ from app.features.stock.service import get_stock_service
 from app.features.stock.agent import get_stock_analysis_agent, get_technical_analysis_agent
 from app.features.stock.db import get_stock_analysis, save_stock_analysis
 
-router = APIRouter(prefix="/api", tags=["stock"])
+router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 
 _price_history_cache: dict = {}
 _price_history_lock = threading.Lock()
@@ -43,7 +43,7 @@ def _set_cached_history(symbol: str, days: int, data: dict):
 
 
 
-@router.get("/stocks/search")
+@router.get("/search")
 async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8, ge=1, le=20)):
     """
     Search stocks by symbol or company name using FMP API.
@@ -64,7 +64,7 @@ async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8,
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/stocks/quotes")
+@router.get("/quotes")
 async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-separated stock symbols")):
     """
     Get current quotes for multiple stocks using yfinance batch API with 10-minute caching.
@@ -111,7 +111,7 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
 
 
 
-@router.get("/stock/{symbol}/profile")
+@router.get("/{symbol}/profile")
 async def get_stock_profile_quick(symbol: str):
     """
     Get stock profile from cache (fast endpoint for progressive loading).
@@ -166,7 +166,7 @@ async def get_stock_profile_quick(symbol: str):
         return {"success": False, "profile": None, "source": "error"}
 
 
-@router.get("/stock/{symbol}")
+@router.get("/{symbol}")
 async def get_stock_data(
     symbol: str,
     include_financials: bool = Query(True, description="Include historical financials"),
@@ -198,7 +198,7 @@ async def get_stock_data(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/stock/{symbol}/history")
+@router.get("/{symbol}/history")
 async def get_stock_price_history(
     symbol: str,
     days: int = Query(default=365, ge=7, le=1825, description="Number of days of history"),
@@ -254,7 +254,7 @@ async def get_stock_price_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/stock/{symbol}/valuation")
+@router.get("/{symbol}/valuation")
 async def get_stock_valuation_comparison(symbol: str):
     """
     Get valuation comparison data for a stock.
@@ -306,7 +306,7 @@ async def get_stock_valuation_comparison(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/stock/{symbol}/analysis")
+@router.post("/{symbol}/analysis")
 async def generate_stock_analysis_endpoint(
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
@@ -423,7 +423,7 @@ async def generate_stock_analysis_endpoint(
 
 
 
-@router.get("/stock/{symbol}/technical-snapshot")
+@router.get("/{symbol}/technical-snapshot")
 async def get_technical_snapshot_endpoint(symbol: str):
     """
     Get pre-computed technical indicator snapshot for instant signal display.
@@ -522,7 +522,7 @@ async def get_technical_snapshot_endpoint(symbol: str):
 
 
 
-@router.post("/stock/{symbol}/technical")
+@router.post("/{symbol}/technical")
 async def generate_technical_analysis_endpoint(
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
@@ -623,3 +623,47 @@ async def generate_technical_analysis_endpoint(
             status_code=500,
             detail="Failed to generate technical analysis. Please try again later.",
         )
+
+
+# =============================================================================
+# Legacy routes: redirect /api/stock/* -> /api/stocks/*
+# =============================================================================
+
+from fastapi.responses import RedirectResponse
+
+legacy_router = APIRouter(prefix="/api/stock", tags=["stock-legacy"], include_in_schema=False)
+
+
+@legacy_router.get("/{symbol}/profile")
+async def legacy_profile(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}/profile", status_code=307)
+
+
+@legacy_router.get("/{symbol}")
+async def legacy_stock(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}", status_code=307)
+
+
+@legacy_router.get("/{symbol}/history")
+async def legacy_history(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}/history", status_code=307)
+
+
+@legacy_router.get("/{symbol}/valuation")
+async def legacy_valuation(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}/valuation", status_code=307)
+
+
+@legacy_router.post("/{symbol}/analysis")
+async def legacy_analysis(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}/analysis", status_code=307)
+
+
+@legacy_router.get("/{symbol}/technical-snapshot")
+async def legacy_technical_snapshot(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}/technical-snapshot", status_code=307)
+
+
+@legacy_router.post("/{symbol}/technical")
+async def legacy_technical(symbol: str):
+    return RedirectResponse(url=f"/api/stocks/{symbol}/technical", status_code=307)

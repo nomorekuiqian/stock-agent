@@ -24,7 +24,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
-from app.features.weekly_report.models import WeeklyRawData, WeeklyReportOutput
+from app.features.macro.weekly.models import WeeklyRawData, WeeklyReportOutput
 
 
 WEEKLY_ANALYST_INSTRUCTION = """

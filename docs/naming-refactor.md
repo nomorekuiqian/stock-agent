@@ -1,7 +1,7 @@
 # 命名重构计划
 
 > **创建日期**: 2026-02-22
-> **状态**: 待执行
+> **状态**: 已完成
 > **优先级**: P1 — 在 M2 个性化改造之前完成
 
 ---
@@ -179,32 +179,32 @@ features/payment/             →   features/payment/          (不变)
 
 最高优先级，因为 M2 会大幅改造这个模块：
 
-- [ ] 后端 `features/digest/` → `features/brew/`
-- [ ] API `/api/digest` → `/api/brew`
-- [ ] 前端 `/for-you` → `/brew`（保留 `/for-you` 重定向）
-- [ ] 数据库表名迁移
-- [ ] 更新 CLAUDE.md 和 CONTEXT.md
+- [x] 后端 `features/digest/` → `features/brew/`
+- [x] API `/api/digest` → `/api/brew`
+- [x] 前端 `/for-you` → `/brew`（保留 `/for-you` 重定向）
+- [x] 数据库表名迁移
+- [x] 更新 CLAUDE.md 和 CONTEXT.md
 
 ### Phase 2: market → daily_report
 
-- [ ] 后端 `features/market/` → `features/daily_report/`
-- [ ] API `/api/market` → `/api/daily-report`
-- [ ] 前端路由 `/today` 不变，只更新 API 调用
-- [ ] 保留 `/api/market` 重定向兼容
+- [x] 后端 `features/market/` → `features/daily_report/`
+- [x] API `/api/market` → `/api/daily-report`
+- [x] 前端路由 `/today` 不变，只更新 API 调用
+- [x] 保留 `/api/market` 重定向兼容
 
 ### Phase 3: macro 体系整合
 
-- [ ] `macro_risk/` + `liquidity/` + `weekly_report/` + `macro_cache/` → `macro/` 下的子模块
-- [ ] 统一 API 前缀为 `/api/macro/*`
-- [ ] 保留旧路由重定向兼容
+- [x] `macro_risk/` + `liquidity/` + `weekly_report/` + `macro_cache/` → `macro/` 下的子模块
+- [x] 统一 API 前缀为 `/api/macro/*`
+- [x] 保留旧路由重定向兼容
 
 ### Phase 4: subscription 拆分
 
-- [ ] 邮件发送逻辑抽取到 `notification/`
-- [ ] `subscription/` 瘦身为纯订阅状态管理
-- [ ] 更新所有 Cron Job 调用
+- [x] 邮件发送逻辑抽取到 `notification/`
+- [x] `subscription/` 瘦身为纯订阅状态管理
+- [x] 更新所有 Cron Job 调用
 
 ### Phase 5: stock API 统一
 
-- [ ] `/api/stock/*` 和 `/api/stocks/*` 统一为 `/api/stocks/*`
-- [ ] 保留旧路由重定向兼容
+- [x] `/api/stock/*` 和 `/api/stocks/*` 统一为 `/api/stocks/*`
+- [x] 保留旧路由重定向兼容

@@ -15,7 +15,7 @@ from app.features.subscription.service import (
     get_subscription_service,
     SubscriptionChannel,
 )
-from app.features.digest.db import save_user_digest, get_user_watchlist
+from app.features.brew.db import save_user_digest, get_user_watchlist
 
 
 class EmailService:
@@ -1664,7 +1664,7 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            from app.features.digest.agent import get_personal_digest
+            from app.features.brew.agent import get_personal_digest
 
             sub_service = get_subscription_service()
             result = sub_service.list_subscribers(

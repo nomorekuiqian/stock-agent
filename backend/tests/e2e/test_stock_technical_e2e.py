@@ -2,8 +2,8 @@
 E2E Tests for Stock Technical Analysis API Endpoints -- generated from git diff
 
 Tests new endpoints via httpx.AsyncClient + ASGITransport:
-- GET  /api/stock/{symbol}/technical-snapshot
-- POST /api/stock/{symbol}/technical
+- GET  /api/stocks/{symbol}/technical-snapshot
+- POST /api/stocks/{symbol}/technical
 
 Usage:
     cd backend
@@ -37,12 +37,12 @@ async def client(transport):
 
 @pytest.mark.e2e
 class TestTechnicalSnapshot:
-    """Tests for GET /api/stock/{symbol}/technical-snapshot."""
+    """Tests for GET /api/stocks/{symbol}/technical-snapshot."""
 
     @pytest.mark.asyncio
     async def test_success_aapl(self, client):
         """AAPL snapshot returns 200 with success=True."""
-        resp = await client.get("/api/stock/AAPL/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/AAPL/technical-snapshot", timeout=30)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -51,7 +51,7 @@ class TestTechnicalSnapshot:
     @pytest.mark.asyncio
     async def test_response_structure(self, client):
         """Response contains expected top-level keys."""
-        resp = await client.get("/api/stock/AAPL/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/AAPL/technical-snapshot", timeout=30)
         assert resp.status_code == 200
         data = resp.json()
 
@@ -67,7 +67,7 @@ class TestTechnicalSnapshot:
     @pytest.mark.asyncio
     async def test_ratings_structure(self, client):
         """Ratings contain expected fields."""
-        resp = await client.get("/api/stock/MSFT/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/MSFT/technical-snapshot", timeout=30)
         assert resp.status_code == 200
         ratings = resp.json().get("ratings", {})
         assert isinstance(ratings, dict)
@@ -75,7 +75,7 @@ class TestTechnicalSnapshot:
     @pytest.mark.asyncio
     async def test_oscillators_have_rsi(self, client):
         """Oscillators include rsi_14."""
-        resp = await client.get("/api/stock/AAPL/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/AAPL/technical-snapshot", timeout=30)
         assert resp.status_code == 200
         osc = resp.json().get("oscillators", {})
         assert "rsi_14" in osc
@@ -83,13 +83,13 @@ class TestTechnicalSnapshot:
     @pytest.mark.asyncio
     async def test_invalid_symbol_format(self, client):
         """Overly long symbol returns 400."""
-        resp = await client.get("/api/stock/TOOLONGSYMBOL/technical-snapshot", timeout=10)
+        resp = await client.get("/api/stocks/TOOLONGSYMBOL/technical-snapshot", timeout=10)
         assert resp.status_code == 400
 
     @pytest.mark.asyncio
     async def test_case_insensitive_symbol(self, client):
         """Lowercase symbol is accepted and uppercased."""
-        resp = await client.get("/api/stock/aapl/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/aapl/technical-snapshot", timeout=30)
         assert resp.status_code == 200
         assert resp.json()["symbol"] == "AAPL"
 
@@ -101,14 +101,14 @@ class TestTechnicalSnapshot:
 
 @pytest.mark.e2e
 class TestTechnicalAnalysisGeneration:
-    """Tests for POST /api/stock/{symbol}/technical (AI generation)."""
+    """Tests for POST /api/stocks/{symbol}/technical (AI generation)."""
 
     @pytest.mark.asyncio
     @pytest.mark.generate
     async def test_generate_daily_analysis(self, client):
         """Generate daily technical analysis for AAPL."""
         resp = await client.post(
-            "/api/stock/AAPL/technical",
+            "/api/stocks/AAPL/technical",
             params={"timeframe": "daily"},
             timeout=120,
         )
@@ -129,7 +129,7 @@ class TestTechnicalAnalysisGeneration:
     async def test_invalid_timeframe(self, client):
         """Invalid timeframe returns 422."""
         resp = await client.post(
-            "/api/stock/AAPL/technical",
+            "/api/stocks/AAPL/technical",
             params={"timeframe": "monthly"},
             timeout=10,
         )
@@ -138,7 +138,7 @@ class TestTechnicalAnalysisGeneration:
     @pytest.mark.asyncio
     async def test_invalid_symbol(self, client):
         """Overly long symbol returns 400."""
-        resp = await client.post("/api/stock/TOOLONGSYMBOL/technical", timeout=10)
+        resp = await client.post("/api/stocks/TOOLONGSYMBOL/technical", timeout=10)
         assert resp.status_code == 400
 
 

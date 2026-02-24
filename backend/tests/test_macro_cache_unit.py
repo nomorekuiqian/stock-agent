@@ -21,12 +21,12 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, AsyncMock
 
-from app.features.macro_cache.db import (
+from app.features.macro.cache.db import (
     is_cache_valid,
     get_cache_data,
 )
-from app.features.macro_cache.router import _flatten_results
-from app.features.macro_cache.refresher import _compute_liquidity_context
+from app.features.macro.cache.router import _flatten_results
+from app.features.macro.cache.refresher import _compute_liquidity_context
 
 
 # ===========================================================================
@@ -237,31 +237,31 @@ class TestGetCachedWithTTL:
 
     def test_default_ttl_returns_cached(self):
         """Within default TTL (600s), returns cached data."""
-        from app.features.macro_risk.service import _get_cached
+        from app.features.macro.risk.service import _get_cached
         store = {"data": "test", "ts": time.time()}
         assert _get_cached(store) == "test"
 
     def test_default_ttl_expired(self):
         """Past default TTL, returns None."""
-        from app.features.macro_risk.service import _get_cached
+        from app.features.macro.risk.service import _get_cached
         store = {"data": "test", "ts": time.time() - 700}
         assert _get_cached(store) is None
 
     def test_custom_short_ttl(self):
         """Custom TTL=120s, data from 100s ago is still valid."""
-        from app.features.macro_risk.service import _get_cached
+        from app.features.macro.risk.service import _get_cached
         store = {"data": "test", "ts": time.time() - 100}
         assert _get_cached(store, ttl=120) == "test"
 
     def test_custom_short_ttl_expired(self):
         """Custom TTL=120s, data from 200s ago is expired."""
-        from app.features.macro_risk.service import _get_cached
+        from app.features.macro.risk.service import _get_cached
         store = {"data": "test", "ts": time.time() - 200}
         assert _get_cached(store, ttl=120) is None
 
     def test_empty_store(self):
         """Empty store returns None."""
-        from app.features.macro_risk.service import _get_cached
+        from app.features.macro.risk.service import _get_cached
         assert _get_cached({}) is None
 
 
@@ -275,12 +275,12 @@ class TestSeriesCache:
 
     def setup_method(self):
         """Clear series cache before each test."""
-        from app.features.liquidity import fred_service
+        from app.features.macro.liquidity import fred_service
         fred_service._series_cache.clear()
 
     def test_cache_key_format(self):
         """Cache key includes series_id, units, limit, start_date."""
-        from app.features.liquidity.fred_service import _series_cache, _SERIES_CACHE_TTL
+        from app.features.macro.liquidity.fred_service import _series_cache, _SERIES_CACHE_TTL
         # Manually populate to verify structure
         key = "WALCL:None:5:2024-01-01"
         _series_cache[key] = {"data": {"test": True}, "ts": time.time()}
@@ -289,7 +289,7 @@ class TestSeriesCache:
 
     def test_cache_ttl_check(self):
         """Expired cache entries should not be returned."""
-        from app.features.liquidity.fred_service import _series_cache, _SERIES_CACHE_TTL
+        from app.features.macro.liquidity.fred_service import _series_cache, _SERIES_CACHE_TTL
         key = "WALCL:None:5:2024-01-01"
         _series_cache[key] = {"data": {"test": True}, "ts": time.time() - _SERIES_CACHE_TTL - 10}
         # Entry exists but is expired
@@ -299,7 +299,7 @@ class TestSeriesCache:
 
     def teardown_method(self):
         """Clear series cache after each test."""
-        from app.features.liquidity import fred_service
+        from app.features.macro.liquidity import fred_service
         fred_service._series_cache.clear()
 
 
@@ -319,8 +319,8 @@ class TestTryDbCache:
             "data": {"key": "value"},
             "expires_at": future,
         }
-        with patch("app.features.macro_cache.db.get_cached", new=AsyncMock(return_value=mock_row)):
-            from app.features.macro_cache.db import try_db_cache
+        with patch("app.features.macro.cache.db.get_cached", new=AsyncMock(return_value=mock_row)):
+            from app.features.macro.cache.db import try_db_cache
             data, valid = await try_db_cache("test:key")
             assert data == {"key": "value"}
             assert valid is True
@@ -333,8 +333,8 @@ class TestTryDbCache:
             "data": {"key": "stale"},
             "expires_at": past,
         }
-        with patch("app.features.macro_cache.db.get_cached", new=AsyncMock(return_value=mock_row)):
-            from app.features.macro_cache.db import try_db_cache
+        with patch("app.features.macro.cache.db.get_cached", new=AsyncMock(return_value=mock_row)):
+            from app.features.macro.cache.db import try_db_cache
             data, valid = await try_db_cache("test:key")
             assert data == {"key": "stale"}
             assert valid is False
@@ -342,8 +342,8 @@ class TestTryDbCache:
     @pytest.mark.asyncio
     async def test_missing_key_returns_none_and_false(self):
         """Missing key returns (None, False)."""
-        with patch("app.features.macro_cache.db.get_cached", new=AsyncMock(return_value=None)):
-            from app.features.macro_cache.db import try_db_cache
+        with patch("app.features.macro.cache.db.get_cached", new=AsyncMock(return_value=None)):
+            from app.features.macro.cache.db import try_db_cache
             data, valid = await try_db_cache("nonexistent:key")
             assert data is None
             assert valid is False

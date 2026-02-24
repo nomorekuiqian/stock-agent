@@ -11,8 +11,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.utils.timezone import today_str, now_iso
-from app.features.market.agent import MarketAgent
-from app.features.market import db as market_db
+from app.features.daily_report.agent import MarketAgent
+from app.features.daily_report import db as market_db
 
 
 router = APIRouter(prefix="/api", tags=["market"])

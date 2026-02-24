@@ -12,7 +12,7 @@ Usage:
 import pytest
 from pydantic import ValidationError
 
-from app.features.weekly_report.models import (
+from app.features.macro.weekly.models import (
     SectionAnalysis,
     SignalLights,
     WeekAheadEvent,
@@ -20,7 +20,7 @@ from app.features.weekly_report.models import (
     WeeklyRawData,
     MarketPerformance,
 )
-from app.features.weekly_report.agent import (
+from app.features.macro.weekly.agent import (
     _prepare_data_for_agent,
     WeeklyReportAgent,
 )
@@ -476,7 +476,7 @@ class TestStripRawData:
 
     def test_removes_raw_data(self):
         """raw_data key is removed from report dict."""
-        from app.features.weekly_report.router import _strip_raw_data
+        from app.features.macro.weekly.router import _strip_raw_data
 
         report = {"week_label": "2025.W07", "title": "Test", "raw_data": {"big": "payload"}}
         result = _strip_raw_data(report)
@@ -486,7 +486,7 @@ class TestStripRawData:
 
     def test_no_raw_data_passthrough(self):
         """Report without raw_data passes through unchanged."""
-        from app.features.weekly_report.router import _strip_raw_data
+        from app.features.macro.weekly.router import _strip_raw_data
 
         report = {"week_label": "2025.W07", "title": "Test"}
         result = _strip_raw_data(report)
@@ -494,13 +494,13 @@ class TestStripRawData:
 
     def test_none_like_input(self):
         """Falsy input passes through."""
-        from app.features.weekly_report.router import _strip_raw_data
+        from app.features.macro.weekly.router import _strip_raw_data
 
         assert _strip_raw_data({}) == {}
 
     def test_empty_dict_passthrough(self):
         """Empty dict passes through unchanged."""
-        from app.features.weekly_report.router import _strip_raw_data
+        from app.features.macro.weekly.router import _strip_raw_data
 
         assert _strip_raw_data({}) == {}
 

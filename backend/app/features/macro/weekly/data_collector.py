@@ -11,18 +11,18 @@ import traceback
 import yfinance as yf
 
 from app.utils.timezone import utc_now_iso, market_week_label
-from app.features.macro_risk.service import (
+from app.features.macro.risk.service import (
     get_macro_risk_dashboard,
     get_economic_fundamentals,
     get_inflation_rates,
     get_market_sentiment,
     get_cpi_breakdown,
 )
-from app.features.liquidity.fred_service import get_all_liquidity_metrics
-from app.features.macro_cache.db import try_db_cache
+from app.features.macro.liquidity.fred_service import get_all_liquidity_metrics
+from app.features.macro.cache.db import try_db_cache
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
-from app.features.weekly_report.models import (
+from app.features.macro.weekly.models import (
     WeeklyRawData,
     MarketPerformance,
 )

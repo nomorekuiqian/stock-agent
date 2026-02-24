@@ -10,11 +10,11 @@ import bisect
 import time
 from typing import Optional
 
-from app.features.liquidity.fred_service import (
+from app.features.macro.liquidity.fred_service import (
     fetch_fred_series,
     get_latest_value,
 )
-from app.features.macro_cache.db import try_db_cache
+from app.features.macro.cache.db import try_db_cache
 from app.utils.timezone import days_ago, today_str
 
 

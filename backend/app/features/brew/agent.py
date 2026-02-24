@@ -25,8 +25,8 @@ from app.shared.data_tools import get_stock_quotes, get_all_market_data
 from app.shared.data_tools import get_combined_market_news
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
-from app.features.digest.models import PersonalDigestOutput
-from app.features.digest import db as digest_db
+from app.features.brew.models import PersonalDigestOutput
+from app.features.brew import db as digest_db
 
 
 # =============================================================================

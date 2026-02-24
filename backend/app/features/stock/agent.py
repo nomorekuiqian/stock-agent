@@ -93,6 +93,7 @@ Write a deep fundamentals analysis covering these four dimensions:
 
 **1. 估值解读** (重点使用 valuation_comparison 数据)
 - 当前 P/E、P/S、P/B、EV/EBITDA、股息率等核心估值指标
+- **远期估值**：如果 forward_valuation 数据存在，必须分析 Forward PE 与 Trailing PE 的差异（如"Forward PE 20x vs Trailing PE 25x，隐含市场预期盈利增长 25%"），并结合 implied_eps_growth 判断市场预期是否合理
 - **纵向对比（历史）**：必须使用 valuation_comparison.historical_valuation 数据，明确指出当前估值处于历史什么水平（如"当前 P/E 25x vs 2023年 20x vs 2022年 18x"）
 - **横向对比（同行）**：必须使用 valuation_comparison.peer_comparison 数据，与具体同行公司对比（如"相比 GOOGL 的 22x，META 目前溢价 15%"）
 - **行业对比**：使用 valuation_comparison.industry_averages 数据，对比行业/板块平均估值
@@ -236,9 +237,12 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
         "week_52_low": quote.get("week_52_low"),
     }
 
+    forward_val = fundamentals.get("forward_valuation")
+
     clean_fundamentals = {
         "ttm": fundamentals.get("ttm", {}),
         "valuation": fundamentals.get("valuation", {}),
+        "forward_valuation": forward_val if forward_val else None,
         "growth": fundamentals.get("growth", {}),
         "profitability": fundamentals.get("profitability", {}),
     }

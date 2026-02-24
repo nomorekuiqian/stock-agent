@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.deps import verify_cron_secret
 from app.utils.timezone import now_iso
-from app.features.macro_cache.db import get_all_status
+from app.features.macro.cache.db import get_all_status
 
 router = APIRouter(prefix="/api/macro-cache", tags=["macro-cache"])
 
@@ -32,7 +32,7 @@ async def refresh_cache(
       3 - Low-frequency (24h): liquidity history
       all - All tiers sequentially
     """
-    from app.features.macro_cache.refresher import (
+    from app.features.macro.cache.refresher import (
         refresh_tier1,
         refresh_tier2,
         refresh_tier3,
