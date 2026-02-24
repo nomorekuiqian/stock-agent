@@ -47,12 +47,16 @@ def _report_data_from_db(report: dict) -> dict:
 
 
 @router.post("/report/send")
-async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
+async def send_daily_report(
+    force: bool = Query(False, description="Force regenerate report even if cached. Use true for production cron jobs."),
+    _secret: str = Depends(verify_cron_secret),
+):
     """
     Generate and send daily market report via email.
     Protected by CRON_SECRET for scheduled job authentication.
 
-    If today's report already exists, use it instead of generating a new one.
+    - force=false (default): use cached report if available (for testing)
+    - force=true: always regenerate with latest market data (for cron jobs)
     """
 
     try:
@@ -63,23 +67,27 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
         from_cache = False
         save_result = {"success": True}
 
-        # Check if today's report already exists
-        existing_report = await market_db.get_report_by_date(today)
+        # Use cached report only when not forcing regeneration
+        if not force:
+            existing_report = await market_db.get_report_by_date(today)
 
-        if existing_report:
-            report_timestamp = existing_report.get("timestamp", "")
-            report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
+            if existing_report:
+                report_timestamp = existing_report.get("timestamp", "")
+                report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
 
-            if report_date_from_timestamp == today:
-                logger.info("Found existing report for %s, using cached data for email", today)
-                from_cache = True
-                report_data = _report_data_from_db(existing_report)
-                report_data["market_data"] = existing_report.get("market_data", {})
-                save_result["report_id"] = existing_report.get("id")
+                if report_date_from_timestamp == today:
+                    logger.info("Found existing report for %s, using cached data for email", today)
+                    from_cache = True
+                    report_data = _report_data_from_db(existing_report)
+                    report_data["market_data"] = existing_report.get("market_data", {})
+                    save_result["report_id"] = existing_report.get("id")
 
-        # Generate new report if no cache found
+        # Generate new report if no cache or force=true
         if not from_cache:
-            logger.info("No existing report for %s, generating new analysis...", today)
+            if force:
+                logger.info("Force regeneration for %s broadcast...", today)
+            else:
+                logger.info("No existing report for %s, generating new analysis...", today)
             market_agent = MarketAgent()
             result = await market_agent.analyze()
             if not result:
@@ -91,7 +99,6 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
             indices = transform_market_data_to_indices(market_data)
 
             # Build complete report data for email and database
-            # Field names match DB schema directly (intro, report_summary)
             report_data = {
                 "report_date": today,
                 "indices": indices,
@@ -105,12 +112,11 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
                 "market_data": market_data,
             }
 
-            # Save report to database
+            # Save report to database (upsert overwrites any stale report for today)
             save_result = await market_db.save_market_report(report_data)
             if not save_result.get("success"):
                 logger.warning("Failed to save report to database: %s", save_result.get("error"))
             else:
-                # Add report_id to report_data for email feedback links
                 report_data["report_id"] = save_result.get("report_id")
 
         # Broadcast to all subscribers

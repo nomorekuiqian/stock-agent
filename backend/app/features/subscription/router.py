@@ -211,6 +211,7 @@ async def list_channel_subscribers(
 @router.post("/subscriptions/{channel}/broadcast", response_model=BroadcastResponse)
 async def broadcast_to_channel(
     channel: SubscriptionChannel,
+    force: bool = Query(False, description="Force regenerate report. Use true for production cron jobs."),
     _secret: str = Depends(verify_cron_secret),
 ):
     """
@@ -218,6 +219,8 @@ async def broadcast_to_channel(
     Protected by CRON_SECRET for scheduled job authentication.
 
     - daily_report: Sends the daily market report
+      - force=false (default): use cached report if available (for testing)
+      - force=true: always regenerate with latest market data (for cron jobs)
     - personal_digest: Generates and sends personalized digests (parallel processing)
     """
 
@@ -225,27 +228,36 @@ async def broadcast_to_channel(
         email_service = get_email_service()
 
         if channel == SubscriptionChannel.DAILY_REPORT:
-            # Generate or get today's report
             today = today_str()
+            report_data = None
 
-            existing_report = await market_db.get_report_by_date(today)
+            # Use cached report only when not forcing regeneration
+            if not force:
+                existing_report = await market_db.get_report_by_date(today)
 
-            if existing_report:
-                report_data = {
-                    "report_id": existing_report.get("id"),
-                    "report_date": existing_report.get("report_date", today),
-                    "indices": existing_report.get("indices", []),
-                    "timestamp": existing_report.get("timestamp", now_iso()),
-                    "title": existing_report.get("title", ""),
-                    "summary": existing_report.get("summary", ""),
-                    "intro": existing_report.get("intro", ""),
-                    "macro": existing_report.get("macro"),
-                    "news": existing_report.get("news"),
-                    "report_summary": existing_report.get("report_summary", ""),
-                    "calendar": existing_report.get("calendar", []),
-                }
-            else:
-                # Generate new report
+                if existing_report:
+                    logger.info("Using cached report for %s broadcast", today)
+                    report_data = {
+                        "report_id": existing_report.get("id"),
+                        "report_date": existing_report.get("report_date", today),
+                        "indices": existing_report.get("indices", []),
+                        "timestamp": existing_report.get("timestamp", now_iso()),
+                        "title": existing_report.get("title", ""),
+                        "summary": existing_report.get("summary", ""),
+                        "intro": existing_report.get("intro", ""),
+                        "macro": existing_report.get("macro"),
+                        "news": existing_report.get("news"),
+                        "report_summary": existing_report.get("report_summary", ""),
+                        "calendar": existing_report.get("calendar", []),
+                    }
+
+            # Generate new report if no cache or force=true
+            if report_data is None:
+                if force:
+                    logger.info("Force regenerating report for %s broadcast...", today)
+                else:
+                    logger.info("No cached report for %s, generating new...", today)
+
                 from app.features.daily_report.agent import MarketAgent
                 market_agent = MarketAgent()
                 result = await market_agent.analyze()
@@ -269,7 +281,7 @@ async def broadcast_to_channel(
                     "calendar": result.get("calendar", []),
                 }
 
-                # Save to database
+                # Save to database (upsert overwrites any stale report for today)
                 save_result = await market_db.save_market_report({
                     **report_data,
                     "economic_calendar": result.get("economic_calendar", {}),
@@ -278,7 +290,6 @@ async def broadcast_to_channel(
                     "market_data": market_data,
                 })
 
-                # Add report_id to report_data for feedback links
                 if save_result.get("success"):
                     report_data["report_id"] = save_result.get("report_id")
 
