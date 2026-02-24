@@ -7,6 +7,7 @@ Fetches FRED data, yfinance AI basket quotes, and computes risk scores.
 import asyncio
 import time
 import httpx
+from app.core.logging import get_logger
 from app.features.macro.liquidity.fred_service import (
     get_latest_value,
     get_all_liquidity_metrics,
@@ -26,6 +27,8 @@ from app.features.macro.risk.models import (
 )
 from app.utils.timezone import now_iso
 from app.features.macro.cache.db import try_db_cache
+
+logger = get_logger(__name__)
 
 MACRO_RISK_FRED_SERIES = {
     # Economic Deterioration
@@ -459,31 +462,31 @@ async def get_macro_risk_dashboard(
     """
     cached = _get_cached(_get_cache("dashboard"))
     if cached:
-        print("[MacroRisk] Returning cached dashboard")
+        logger.info("Returning cached dashboard")
         return cached
 
     async with _get_lock("dashboard"):
         cached = _get_cached(_get_cache("dashboard"))
         if cached:
-            print("[MacroRisk] Returning cached dashboard (coalesced)")
+            logger.info("Returning cached dashboard (coalesced)")
             return cached
 
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("macro:dashboard")
             if db_valid and db_data:
-                print("[MacroRisk] Returning DB-cached dashboard")
+                logger.info("Returning DB-cached dashboard")
                 dashboard = MacroRiskDashboard(**db_data)
                 _set_cached(_get_cache("dashboard"), dashboard)
                 return dashboard
 
-        print("[MacroRisk] Fetching fresh dashboard data...")
+        logger.info("Fetching fresh dashboard data...")
 
         async def fetch_indicator(key: str, series_id: str):
             try:
                 return key, await get_latest_value(series_id)
             except Exception as e:
-                print(f"[MacroRisk] Error fetching {series_id}: {e}")
+                logger.error("Error fetching %s: %s", series_id, e)
                 return key, {"value": None, "error": str(e)}
 
         fred_tasks = [
@@ -529,7 +532,7 @@ async def get_macro_risk_dashboard(
                 },
             }
         except Exception as e:
-            print(f"[MacroRisk] Error fetching liquidity summary: {e}")
+            logger.error("Error fetching liquidity summary: %s", e)
 
         dashboard = MacroRiskDashboard(
             timestamp=now_iso(),
@@ -541,7 +544,7 @@ async def get_macro_risk_dashboard(
         )
 
         _set_cached(_get_cache("dashboard"), dashboard)
-        print(f"[MacroRisk] Dashboard ready: composite={composite} ({composite_level})")
+        logger.info("Dashboard ready: composite=%s (%s)", composite, composite_level)
 
         return dashboard
 
@@ -811,25 +814,25 @@ async def get_economic_fundamentals(
     """
     cached = _get_cached(_get_cache("economy"))
     if cached:
-        print("[Economy] Returning cached data")
+        logger.info("Returning cached economy data")
         return cached
 
     async with _get_lock("economy"):
         cached = _get_cached(_get_cache("economy"))
         if cached:
-            print("[Economy] Returning cached data (coalesced)")
+            logger.info("Returning cached economy data (coalesced)")
             return cached
 
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("macro:economy")
             if db_valid and db_data:
-                print("[Economy] Returning DB-cached data")
+                logger.info("Returning DB-cached economy data")
                 result = EconomicFundamentals(**db_data)
                 _set_cached(_get_cache("economy"), result)
                 return result
 
-        print("[Economy] Fetching fresh economic fundamentals data...")
+        logger.info("Fetching fresh economic fundamentals data...")
 
         needed_keys = {
             defn[0]
@@ -844,7 +847,7 @@ async def get_economic_fundamentals(
             try:
                 return key, await get_latest_value(series_id)
             except Exception as e:
-                print(f"[Economy] Error fetching {series_id}: {e}")
+                logger.error("Error fetching %s: %s", series_id, e)
                 return key, {"value": None, "error": str(e)}
 
         results_raw = await asyncio.gather(
@@ -872,7 +875,7 @@ async def get_economic_fundamentals(
         )
 
         _set_cached(_get_cache("economy"), result)
-        print(f"[Economy] Ready: overall={overall} ({overall_level})")
+        logger.info("Economy ready: overall=%s (%s)", overall, overall_level)
 
         return result
 
@@ -899,25 +902,25 @@ async def get_inflation_rates(
     """
     cached = _get_cached(_get_cache("inflation"))
     if cached:
-        print("[InflationRates] Returning cached data")
+        logger.info("Returning cached inflation rates data")
         return cached
 
     async with _get_lock("inflation"):
         cached = _get_cached(_get_cache("inflation"))
         if cached:
-            print("[InflationRates] Returning cached data (coalesced)")
+            logger.info("Returning cached inflation rates data (coalesced)")
             return cached
 
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("macro:inflation_rates")
             if db_valid and db_data:
-                print("[InflationRates] Returning DB-cached data")
+                logger.info("Returning DB-cached inflation rates data")
                 result = EconomicFundamentals(**db_data)
                 _set_cached(_get_cache("inflation"), result)
                 return result
 
-        print("[InflationRates] Fetching fresh data...")
+        logger.info("Fetching fresh inflation rates data...")
 
         needed_keys = {
             defn[0]
@@ -932,7 +935,7 @@ async def get_inflation_rates(
             try:
                 return key, await get_latest_value(series_id)
             except Exception as e:
-                print(f"[InflationRates] Error fetching {series_id}: {e}")
+                logger.error("Error fetching %s: %s", series_id, e)
                 return key, {"value": None, "error": str(e)}
 
         results_raw = await asyncio.gather(
@@ -959,7 +962,7 @@ async def get_inflation_rates(
         )
 
         _set_cached(_get_cache("inflation"), result)
-        print(f"[InflationRates] Ready: overall={overall} ({overall_level})")
+        logger.info("Inflation rates ready: overall=%s (%s)", overall, overall_level)
 
         return result
 
@@ -988,25 +991,25 @@ async def get_cpi_breakdown(
     """
     cached = _get_cached(_get_cache("cpi"))
     if cached:
-        print("[CPI] Returning cached data")
+        logger.info("Returning cached CPI data")
         return cached
 
     async with _get_lock("cpi"):
         cached = _get_cached(_get_cache("cpi"))
         if cached:
-            print("[CPI] Returning cached data (coalesced)")
+            logger.info("Returning cached CPI data (coalesced)")
             return cached
 
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("fred:cpi_breakdown")
             if db_valid and db_data:
-                print("[CPI] Returning DB-cached data")
+                logger.info("Returning DB-cached CPI data")
                 result = CpiBreakdown(**db_data)
                 _set_cached(_get_cache("cpi"), result)
                 return result
 
-        print("[CPI] Fetching fresh CPI breakdown data...")
+        logger.info("Fetching fresh CPI breakdown data...")
 
         async def fetch_one(series_id: str, units: str):
             try:
@@ -1023,7 +1026,7 @@ async def get_cpi_breakdown(
                     return series_id, units, obs[0]["date"], parsed_val
                 return series_id, units, None, None
             except Exception as e:
-                print(f"[CPI] Error fetching {series_id} ({units}): {e}")
+                logger.error("Error fetching %s (%s): %s", series_id, units, e)
                 return series_id, units, None, None
 
         tasks = []
@@ -1063,7 +1066,7 @@ async def get_cpi_breakdown(
         )
 
         _set_cached(_get_cache("cpi"), result)
-        print(f"[CPI] Ready: {len(components)} components")
+        logger.info("CPI ready: %d components", len(components))
 
         return result
 
@@ -1122,7 +1125,7 @@ async def _fetch_cnn_fear_greed() -> dict | None:
             resp.raise_for_status()
             return resp.json()
     except Exception as e:
-        print(f"[Sentiment] Error fetching CNN Fear & Greed: {e}")
+        logger.error("Error fetching CNN Fear & Greed: %s", e)
         return None
 
 
@@ -1213,25 +1216,25 @@ async def get_market_sentiment(
     """
     cached = _get_cached(_get_cache("sentiment"))
     if cached:
-        print("[Sentiment] Returning cached data")
+        logger.info("Returning cached sentiment data")
         return cached
 
     async with _get_lock("sentiment"):
         cached = _get_cached(_get_cache("sentiment"))
         if cached:
-            print("[Sentiment] Returning cached data (coalesced)")
+            logger.info("Returning cached sentiment data (coalesced)")
             return cached
 
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("macro:sentiment")
             if db_valid and db_data:
-                print("[Sentiment] Returning DB-cached data")
+                logger.info("Returning DB-cached sentiment data")
                 result = EconomicFundamentals(**db_data)
                 _set_cached(_get_cache("sentiment"), result)
                 return result
 
-        print("[Sentiment] Fetching fresh sentiment data...")
+        logger.info("Fetching fresh sentiment data...")
 
         cnn_data, market_groups = await asyncio.gather(
             _fetch_cnn_fear_greed(),
@@ -1340,7 +1343,7 @@ async def get_market_sentiment(
         )
 
         _set_cached(_get_cache("sentiment"), result)
-        print(f"[Sentiment] Ready: overall={overall_score:.0f} ({overall_rating})")
+        logger.info("Sentiment ready: overall=%.0f (%s)", overall_score, overall_rating)
 
         return result
 
@@ -1391,23 +1394,23 @@ async def get_treasury_and_commodities() -> dict:
     # --- Treasury rates (3-layer: memory -> DB -> API) ---
     treasury_result = _get_cached(_get_cache("treasury_rates"))
     if treasury_result:
-        print("[Treasury] Returning memory-cached data")
+        logger.info("Returning memory-cached treasury data")
     else:
         async with _get_lock("treasury_rates"):
             treasury_result = _get_cached(_get_cache("treasury_rates"))
             if treasury_result:
-                print("[Treasury] Returning memory-cached data (coalesced)")
+                logger.info("Returning memory-cached treasury data (coalesced)")
             else:
                 db_data, db_valid = await try_db_cache("macro:treasury_rates")
                 if db_valid and db_data:
                     treasury_result = db_data
                     _set_cached(_get_cache("treasury_rates"), treasury_result)
-                    print("[Treasury] Returning DB-cached data")
+                    logger.info("Returning DB-cached treasury data")
                 else:
                     fmp = get_fmp_service()
                     treasury_result = await asyncio.to_thread(fmp.get_treasury_rates_with_change)
                     _set_cached(_get_cache("treasury_rates"), treasury_result)
-                    print(f"[Treasury] Fetched fresh: {len(treasury_result.get('rates', {}))} tenors")
+                    logger.info("Fetched fresh treasury: %d tenors", len(treasury_result.get('rates', {})))
 
     # --- Commodities & Dollar (short memory cache -> API, no DB cache) ---
     realtime_cache = _get_cached(
@@ -1416,7 +1419,7 @@ async def get_treasury_and_commodities() -> dict:
     if realtime_cache:
         commodities_map = realtime_cache["commodities"]
         dollar_result = realtime_cache["dollar"]
-        print("[Commodities] Returning short-cached real-time data")
+        logger.info("Returning short-cached real-time commodities data")
     else:
         async with _get_lock("commodities_realtime"):
             realtime_cache = _get_cached(
@@ -1439,7 +1442,7 @@ async def get_treasury_and_commodities() -> dict:
                     _get_cache("commodities_realtime"),
                     {"commodities": commodities_map, "dollar": dollar_result},
                 )
-                print("[Commodities] Fetched real-time data")
+                logger.info("Fetched real-time commodities data")
 
     return {
         "treasury": treasury_result,

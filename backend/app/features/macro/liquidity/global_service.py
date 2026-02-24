@@ -10,12 +10,15 @@ import bisect
 import time
 from typing import Optional
 
+from app.core.logging import get_logger
 from app.features.macro.liquidity.fred_service import (
     fetch_fred_series,
     get_latest_value,
 )
 from app.features.macro.cache.db import try_db_cache
 from app.utils.timezone import days_ago, today_str
+
+logger = get_logger(__name__)
 
 
 GLOBAL_M2_SERIES = {
@@ -74,7 +77,7 @@ async def fetch_and_compute_global_m2() -> dict:
         try:
             return key, await get_latest_value(series_id)
         except Exception as e:
-            print(f"[GlobalLiquidity] Failed to fetch {series_id}: {e}")
+            logger.error("Failed to fetch %s: %s", series_id, e)
             return key, {"value": None, "error": str(e)}
 
     raw = await asyncio.gather(
@@ -185,7 +188,7 @@ async def get_global_liquidity_metrics() -> dict:
         # DB cache layer
         db_data, db_valid = await try_db_cache("fred:global_liquidity")
         if db_valid and db_data:
-            print("[GlobalLiquidity] Returning DB-cached metrics")
+            logger.info("Returning DB-cached metrics")
             _global_cache["data"] = db_data
             _global_cache["ts"] = time.time()
             return db_data
@@ -194,7 +197,7 @@ async def get_global_liquidity_metrics() -> dict:
         metrics = await fetch_and_compute_global_m2()
         _global_cache["data"] = metrics
         _global_cache["ts"] = time.time()
-        print(f"[GlobalLiquidity] Cached {len(metrics)} metrics")
+        logger.info("Cached %d metrics", len(metrics))
         return metrics
 
 
@@ -208,7 +211,7 @@ async def get_global_liquidity_history(days: int = 365) -> dict:
     if days == 365:
         db_data, db_valid = await try_db_cache("fred:global_liquidity_history")
         if db_valid and db_data:
-            print("[GlobalLiquidity] Returning DB-cached history")
+            logger.info("Returning DB-cached history")
             return db_data
 
     start_date = days_ago(days)
@@ -218,7 +221,7 @@ async def get_global_liquidity_history(days: int = 365) -> dict:
         try:
             return await fetch_fred_series(series_id, start_date, end_date, limit=500)
         except Exception as e:
-            print(f"[GlobalLiquidity] Failed to fetch {series_id}: {e}")
+            logger.error("Failed to fetch %s: %s", series_id, e)
             return {"series_id": series_id, "observations": []}
 
     # Fetch all series in parallel (WALCL as backbone + components)

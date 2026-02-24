@@ -5,7 +5,10 @@ Provides news fetching functions using FMP API.
 
 from datetime import datetime, timedelta, timezone
 
+from app.core.logging import get_logger
 from app.utils.timezone import PACIFIC_TZ, now_pacific
+
+logger = get_logger(__name__)
 
 
 def _get_last_trading_day_cutoff() -> datetime:
@@ -58,7 +61,7 @@ def _is_within_time_range(pub_date_str: str, days: int = 1) -> bool:
 
         return pub_date >= cutoff
     except (ValueError, TypeError):
-        print(f"[NEWS] Skipping article with unparseable date: {pub_date_str!r}")
+        logger.warning("Skipping article with unparseable date: %r", pub_date_str)
         return False
 
 
@@ -92,7 +95,7 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
     Returns:
         Dictionary with news articles from FMP (filtered by date only)
     """
-    print(f"[TOOL] get_fmp_news(days={days}, symbols={symbols})")
+    logger.info("get_fmp_news(days=%d, symbols=%s)", days, symbols)
 
     try:
         from app.shared.fmp_service import get_fmp_service
@@ -104,7 +107,7 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
         result = fmp.get_stock_news(symbols=symbols, limit=50, from_date=from_date)
 
         if result.get("status") == "error":
-            print(f"FMP news error: {result.get('error')}")
+            logger.error("FMP news error: %s", result.get('error'))
             return result
 
         news = result.get("news", [])
@@ -119,7 +122,7 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
         # Get date range for display
         start_date, end_date, is_weekend = _get_effective_date_range()
 
-        print(f"Fetched {len(filtered_news)} FMP news (from {len(news)} total)")
+        logger.info("Fetched %d FMP news (from %d total)", len(filtered_news), len(news))
 
         return {
             "status": "success",
@@ -135,7 +138,7 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
 
     except ValueError as e:
         # FMP_API_KEY not configured
-        print(f"FMP news unavailable: {e}")
+        logger.error("FMP news unavailable: %s", e)
         return {
             "status": "error",
             "error": str(e),
@@ -144,7 +147,7 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
             "source": "fmp",
         }
     except Exception as e:
-        print(f"Error fetching FMP news: {e}")
+        logger.error("Error fetching FMP news: %s", e)
         return {
             "status": "error",
             "error": str(e),
@@ -173,7 +176,7 @@ def _get_general_news(days: int = 1) -> list:
         result = fmp.get_general_news(limit=50, from_date=from_date)
 
         if result.get("status") == "error":
-            print(f"FMP general news error: {result.get('error')}")
+            logger.error("FMP general news error: %s", result.get('error'))
             return []
 
         news = result.get("news", [])
@@ -185,11 +188,11 @@ def _get_general_news(days: int = 1) -> list:
             item["_source"] = "fmp_general"
             filtered_news.append(item)
 
-        print(f"Fetched {len(filtered_news)} general news (from {len(news)} total)")
+        logger.info("Fetched %d general news (from %d total)", len(filtered_news), len(news))
         return filtered_news
 
     except Exception as e:
-        print(f"Error fetching general news: {e}")
+        logger.error("Error fetching general news: %s", e)
         return []
 
 
@@ -214,7 +217,7 @@ def _get_latest_stock_news(days: int = 1) -> list:
         result = fmp.get_latest_news(limit=30, from_date=from_date)
 
         if result.get("status") == "error":
-            print(f"FMP latest news error: {result.get('error')}")
+            logger.error("FMP latest news error: %s", result.get('error'))
             return []
 
         news = result.get("news", [])
@@ -226,11 +229,11 @@ def _get_latest_stock_news(days: int = 1) -> list:
             item["_source"] = "fmp_latest"
             filtered_news.append(item)
 
-        print(f"Fetched {len(filtered_news)} latest stock news (from {len(news)} total)")
+        logger.info("Fetched %d latest stock news (from %d total)", len(filtered_news), len(news))
         return filtered_news
 
     except Exception as e:
-        print(f"Error fetching latest stock news: {e}")
+        logger.error("Error fetching latest stock news: %s", e)
         return []
 
 
@@ -273,7 +276,7 @@ def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
     Returns:
         Dictionary with combined news from both sources
     """
-    print(f"[TOOL] get_combined_market_news(days={days}, symbols={symbols})")
+    logger.info("get_combined_market_news(days=%d, symbols=%s)", days, symbols)
 
     # Fetch ticker-based news
     ticker_result = get_fmp_news(days=days, symbols=symbols)
@@ -300,9 +303,8 @@ def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
     # Get date range for display
     start_date, end_date, is_weekend = _get_effective_date_range()
 
-    print(f"Market news: {len(unique_news)} articles "
-          f"(ticker: {len(ticker_news)}, general: {len(general_news)}, "
-          f"latest: {len(latest_news)}, after dedup: {len(unique_news)})")
+    logger.info("Market news: %d articles (ticker: %d, general: %d, latest: %d, after dedup: %d)",
+                len(unique_news), len(ticker_news), len(general_news), len(latest_news), len(unique_news))
 
     return {
         "status": "success",

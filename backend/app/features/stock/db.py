@@ -17,6 +17,9 @@ from typing import Any, Optional
 
 from app.core.config import STOCK_ANALYSIS_CACHE_HOURS
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def _parse_jsonb_fields(data: dict[str, Any], fields: list[str]) -> dict[str, Any]:
@@ -61,7 +64,7 @@ async def get_stock_profile(symbol: str) -> Optional[dict[str, Any]]:
         return None
 
     except Exception as e:
-        print(f"[StockDB] Exception getting stock profile: {type(e).__name__}: {e}")
+        logger.error("Exception getting stock profile: %s: %s", type(e).__name__, e)
         return None
 
 
@@ -90,7 +93,7 @@ async def upsert_stock_profile(symbol: str, profile_data: dict[str, Any]) -> dic
             "data_source": profile_data.get("data_source", "openbb_fmp"),
         }
 
-        print(f"[StockDB] Upserting stock profile for {symbol}")
+        logger.info("Upserting stock profile for %s", symbol)
 
         result = await db.call_function(
             "stock-data",
@@ -103,19 +106,19 @@ async def upsert_stock_profile(symbol: str, profile_data: dict[str, Any]) -> dic
         if result["status_code"] in (200, 201):
             data = result.get("data", {})
             if data.get("success"):
-                print(f"[StockDB] Stock profile saved for {symbol}")
+                logger.info("Stock profile saved for %s", symbol)
                 return {"success": True, "data": data.get("data")}
             else:
                 error_msg = data.get("error", "Unknown error")
-                print(f"[StockDB] Profile save failed: {error_msg}")
+                logger.error("Profile save failed: %s", error_msg)
                 return {"success": False, "error": error_msg}
         else:
             error_msg = result.get("text", "")
-            print(f"[StockDB] Profile save failed: {result['status_code']}")
+            logger.error("Profile save failed: %s", result['status_code'])
             return {"success": False, "error": f"HTTP {result['status_code']}: {error_msg}"}
 
     except Exception as e:
-        print(f"[StockDB] Exception upserting stock profile: {type(e).__name__}: {e}")
+        logger.error("Exception upserting stock profile: %s: %s", type(e).__name__, e)
         return {"success": False, "error": str(e)}
 
 
@@ -156,7 +159,7 @@ async def get_stock_financials(symbol: str, limit: int = 8) -> list[dict[str, An
         return []
 
     except Exception as e:
-        print(f"[StockDB] Exception getting stock financials: {type(e).__name__}: {e}")
+        logger.error("Exception getting stock financials: %s: %s", type(e).__name__, e)
         return []
 
 
@@ -221,7 +224,7 @@ async def upsert_stock_financial(symbol: str, financial_data: dict[str, Any]) ->
             return {"success": False, "error": f"HTTP {result['status_code']}"}
 
     except Exception as e:
-        print(f"[StockDB] Exception upserting stock financial: {type(e).__name__}: {e}")
+        logger.error("Exception upserting stock financial: %s: %s", type(e).__name__, e)
         return {"success": False, "error": str(e)}
 
 
@@ -263,7 +266,7 @@ async def get_stock_analysis(
         return None
 
     except Exception as e:
-        print(f"[StockDB] Exception getting stock analysis: {type(e).__name__}: {e}")
+        logger.error("Exception getting stock analysis: %s: %s", type(e).__name__, e)
         return None
 
 
@@ -306,7 +309,7 @@ async def save_stock_analysis(
             "expires_at": expires_at.isoformat(),
         }
 
-        print(f"[StockDB] Saving stock analysis for {symbol} ({analysis_type})")
+        logger.info("Saving stock analysis for %s (%s)", symbol, analysis_type)
 
         result = await db.call_function(
             "stock-analyses",
@@ -319,17 +322,17 @@ async def save_stock_analysis(
             data = result.get("data", {})
             if data.get("success") and data.get("data"):
                 analysis_id = data["data"].get("id")
-                print(f"[StockDB] Stock analysis saved, ID: {analysis_id}")
+                logger.info("Stock analysis saved, ID: %s", analysis_id)
                 return {"success": True, "analysis_id": analysis_id}
             else:
                 error_msg = data.get("error", "Unknown error")
-                print(f"[StockDB] Analysis save failed: {error_msg}")
+                logger.error("Analysis save failed: %s", error_msg)
                 return {"success": False, "error": error_msg}
         else:
             error_msg = result.get("text", "")
-            print(f"[StockDB] Analysis save failed: {result['status_code']} - {error_msg}")
+            logger.error("Analysis save failed: %s - %s", result['status_code'], error_msg)
             return {"success": False, "error": f"HTTP {result['status_code']}: {error_msg}"}
 
     except Exception as e:
-        print(f"[StockDB] Exception saving stock analysis: {type(e).__name__}: {e}")
+        logger.error("Exception saving stock analysis: %s: %s", type(e).__name__, e)
         return {"success": False, "error": str(e)}

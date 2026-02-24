@@ -4,13 +4,15 @@ Digest database operations using Insforge Edge Functions.
 Provides save and retrieve operations for personalized user digests.
 """
 
-import traceback
 from typing import Optional, Dict, Any, List
 
 import httpx
 
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
 from app.utils.timezone import today_str
+
+logger = get_logger(__name__)
 
 
 async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -50,7 +52,7 @@ async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
             },
         }
 
-        print(f"[InsforgeService] Saving user digest for user: {db_digest.get('user_id')}, date: {db_digest.get('digest_date')}")
+        logger.info("Saving user digest for user: %s, date: %s", db_digest.get('user_id'), db_digest.get('digest_date'))
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -65,7 +67,7 @@ async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
                 if data.get("success"):
                     digest_id = data.get("data", {}).get("id")
                     action = data.get("action", "saved")
-                    print(f"[InsforgeService] User digest {action}, ID: {digest_id}")
+                    logger.info("User digest %s, ID: %s", action, digest_id)
                     return {
                         "success": True,
                         "digest_id": digest_id,
@@ -73,16 +75,15 @@ async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 else:
                     error_msg = data.get("error", "Unknown error")
-                    print(f"[InsforgeService] Save failed: {error_msg}")
+                    logger.error("Save failed: %s", error_msg)
                     return {"success": False, "error": error_msg}
             else:
                 error_msg = response.text
-                print(f"[InsforgeService] Save failed: {response.status_code} - {error_msg}")
+                logger.error("Save failed: %s - %s", response.status_code, error_msg)
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception saving user digest: {e}")
-        traceback.print_exc()
+        logger.exception("Exception saving user digest")
         return {"success": False, "error": str(e)}
 
 
@@ -114,7 +115,7 @@ async def get_user_watchlist(user_id: str) -> Optional[Dict[str, Any]]:
             return None
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting user watchlist: {e}")
+        logger.error("Exception getting user watchlist: %s", e)
         return None
 
 
@@ -147,7 +148,7 @@ async def get_user_digest(user_id: str, digest_date: str) -> Optional[Dict[str, 
             return None
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting user digest: {e}")
+        logger.error("Exception getting user digest: %s", e)
         return None
 
 
@@ -180,5 +181,5 @@ async def list_user_digests(user_id: str, limit: int = 20) -> List[Dict[str, Any
             return []
 
     except Exception as e:
-        print(f"[InsforgeService] Exception listing user digests: {e}")
+        logger.error("Exception listing user digests: %s", e)
         return []

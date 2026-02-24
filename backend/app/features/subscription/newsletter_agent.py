@@ -19,7 +19,10 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
+from app.core.logging import get_logger
 from app.features.subscription.models import NewsletterOutput
+
+logger = get_logger(__name__)
 
 
 NEWSLETTER_INSTRUCTION = """
@@ -69,7 +72,7 @@ class NewsletterAgent:
     async def generate(self, intent: str, tone: str = "warm", language: str = "zh") -> dict:
         """Generate newsletter content from user intent."""
         try:
-            print(f"[NewsletterAgent] Generating newsletter, tone={tone}, lang={language}")
+            logger.info("Generating newsletter, tone=%s, lang=%s", tone, language)
 
             prompt_data = {
                 "intent": intent,
@@ -112,13 +115,11 @@ class NewsletterAgent:
                         newsletter_data = {}
 
                 if isinstance(newsletter_data, dict) and newsletter_data.get("subject"):
-                    print(f"[NewsletterAgent] Generated: {newsletter_data.get('subject', '')[:50]}")
+                    logger.info("Generated: %s", newsletter_data.get("subject", "")[:50])
                     return {"success": True, **newsletter_data}
 
             return {"success": False, "error": "Agent did not produce structured output"}
 
         except Exception as e:
-            import traceback
-            print(f"[NewsletterAgent] Error: {e}")
-            traceback.print_exc()
+            logger.exception("Error generating newsletter")
             return {"success": False, "error": str(e)}

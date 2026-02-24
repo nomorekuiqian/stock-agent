@@ -21,6 +21,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from app.core.logging import get_logger
 from app.shared.openbb_service import get_openbb_service
 from app.shared.fmp_service import get_fmp_service
 from app.shared.yfinance_service import get_yfinance_service
@@ -30,6 +31,8 @@ from app.features.stock.db import (
     get_stock_financials,
     upsert_stock_financial,
 )
+
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -152,7 +155,7 @@ class StockService:
             Dict with profile, quote, fundamentals, financials, and meta
         """
         symbol = symbol.upper()
-        print(f"[StockService] Fetching data for {symbol}")
+        logger.info("Fetching data for %s", symbol)
 
         # Parallel fetch: profile (cached), quote (real-time), financials (cached),
         # yfinance ticker metrics (TTM + valuation + forward + profitability + growth)
@@ -185,7 +188,7 @@ class StockService:
         # Log any errors
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                print(f"[StockService] Error in task {i} ({task_names[i]}) for {symbol}: {result}")
+                logger.error("Error in task %d (%s) for %s: %s", i, task_names[i], symbol, result)
 
         # Extract metrics directly from yfinance
         ttm = yf_metrics.get("ttm", {})
@@ -224,7 +227,7 @@ class StockService:
         memory_cached = _get_cached_profile(symbol)
         if memory_cached:
             memory_cached["_from_cache"] = True
-            print(f"[StockService] Using in-memory cached profile for {symbol}")
+            logger.info("Using in-memory cached profile for %s", symbol)
             return memory_cached
 
         # 2. Check Insforge DB cache
@@ -233,11 +236,11 @@ class StockService:
             db_cached["_from_cache"] = True
             # Store in memory for faster subsequent access
             _set_cached_profile(symbol, db_cached)
-            print(f"[StockService] Using DB cached profile for {symbol}")
+            logger.info("Using DB cached profile for %s", symbol)
             return db_cached
 
         # 3. Fetch from OpenBB API
-        print(f"[StockService] Fetching profile from OpenBB for {symbol}")
+        logger.info("Fetching profile from OpenBB for %s", symbol)
         profile = await self.openbb.get_company_profile(symbol)
 
         if profile:
@@ -245,7 +248,7 @@ class StockService:
             _set_cached_profile(symbol, profile)
             task = asyncio.create_task(upsert_stock_profile(symbol, profile))
             task.add_done_callback(
-                lambda t: print(f"[StockService] DB write error: {t.exception()}")
+                lambda t: logger.error("DB write error: %s", t.exception())
                 if t.exception() else None
             )
             profile["_from_cache"] = False
@@ -261,7 +264,7 @@ class StockService:
                 item["_from_cache"] = True
             # Ensure sorted by date descending (newest first)
             memory_cached.sort(key=lambda x: x.get("period") or "", reverse=True)
-            print(f"[StockService] Using in-memory cached financials for {symbol}")
+            logger.info("Using in-memory cached financials for %s", symbol)
             return memory_cached
 
         # 2. Check Insforge DB cache
@@ -276,11 +279,11 @@ class StockService:
             db_cached.sort(key=lambda x: x.get("period") or x.get("period_end_date") or "", reverse=True)
             # Store in memory for faster subsequent access
             _set_cached_financials(symbol, db_cached)
-            print(f"[StockService] Using DB cached financials for {symbol}")
+            logger.info("Using DB cached financials for %s", symbol)
             return db_cached
 
         # 3. Fetch from OpenBB API (parallel for speed)
-        print(f"[StockService] Fetching financials from OpenBB for {symbol}")
+        logger.info("Fetching financials from OpenBB for %s", symbol)
         income, balance, cash = await asyncio.gather(
             self.openbb.get_income_statements(symbol),
             self.openbb.get_balance_sheets(symbol),
@@ -288,7 +291,7 @@ class StockService:
         )
 
         if not income:
-            print(f"[StockService] No income statement data for {symbol}")
+            logger.warning("No income statement data for %s", symbol)
             return db_cached or []
 
         # 4. Merge financial statements
@@ -299,7 +302,7 @@ class StockService:
         for f in financials:
             task = asyncio.create_task(upsert_stock_financial(symbol, f))
             task.add_done_callback(
-                lambda t: print(f"[StockService] DB write error: {t.exception()}")
+                lambda t: logger.error("DB write error: %s", t.exception())
                 if t.exception() else None
             )
 
@@ -327,7 +330,7 @@ class StockService:
             return updated_dt > cutoff
 
         except (ValueError, TypeError) as e:
-            print(f"[StockService] Error parsing updated_at: {e}")
+            logger.warning("Error parsing updated_at: %s", e)
             return False
 
     def _has_recent_quarter(self, cached: list[dict[str, Any]]) -> bool:
@@ -359,7 +362,7 @@ class StockService:
             return period_dt > cutoff
 
         except (ValueError, TypeError) as e:
-            print(f"[StockService] Error parsing period_end_date: {e}")
+            logger.warning("Error parsing period_end_date: %s", e)
             return False
 
     def _merge_financials(
@@ -474,7 +477,7 @@ class StockService:
             Dict with peer_comparison, industry_valuation, and historical_valuation
         """
         symbol = symbol.upper()
-        print(f"[StockService] Getting valuation comparison for {symbol}")
+        logger.info("Getting valuation comparison for %s", symbol)
 
         # Parallel fetch all valuation data
         tasks = [
@@ -492,7 +495,7 @@ class StockService:
         # Log errors
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                print(f"[StockService] Error in valuation task {i} for {symbol}: {result}")
+                logger.error("Error in valuation task %d for %s: %s", i, symbol, result)
 
         return {
             "peer_comparison": peer_comparison,
@@ -536,7 +539,7 @@ class StockService:
                         "metrics": metrics.get("metrics", {}),
                     }
             except Exception as e:
-                print(f"[StockService] Error fetching metrics for peer {peer_symbol}: {e}")
+                logger.error("Error fetching metrics for peer %s: %s", peer_symbol, e)
             return None
 
         # Fetch all peer metrics concurrently (limited by asyncio.to_thread's thread pool)
@@ -565,7 +568,7 @@ class StockService:
             cached = _get_cached_industry_pe(cache_key)
             if cached:
                 industry_pe = cached.get("pe")
-                print(f"[StockService] Using cached industry P/E for {industry}")
+                logger.info("Using cached industry P/E for %s", industry)
             else:
                 industry_data = await asyncio.to_thread(self.fmp.get_industry_pe)
                 if industry_data.get("status") == "success":
@@ -581,7 +584,7 @@ class StockService:
             cached = _get_cached_industry_pe(cache_key)
             if cached:
                 sector_pe = cached.get("pe")
-                print(f"[StockService] Using cached sector P/E for {sector}")
+                logger.info("Using cached sector P/E for %s", sector)
             else:
                 sector_data = await asyncio.to_thread(self.fmp.get_sector_pe)
                 if sector_data.get("status") == "success":

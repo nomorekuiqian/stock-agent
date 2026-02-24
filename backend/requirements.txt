@@ -9,6 +9,7 @@ openbb-fmp>=1.0.0
 pytest
 python-dotenv
 resend==2.19.0
+slowapi
 uvicorn
 stripe
 tvscreener>=0.2.0

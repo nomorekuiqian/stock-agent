@@ -18,8 +18,11 @@ from app.features.payment.models import (
     SubscriptionStatusResponse,
     PortalSessionResponse,
 )
+from app.core.logging import get_logger
 from app.features.payment.service import create_checkout_session, create_portal_session
 from app.features.payment.db import get_subscription, upsert_subscription
+
+logger = get_logger(__name__)
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -65,7 +68,7 @@ async def api_create_checkout(
         url = await create_checkout_session(req.user_id, req.email, req.return_path)
         return CheckoutSessionResponse(checkout_url=url)
     except Exception as e:
-        print(f"[Payment] Checkout session error: {e}")
+        logger.error("Checkout session error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
 
@@ -91,7 +94,7 @@ async def api_portal_session(user_id: str = Depends(verify_user_token)):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        print(f"[Payment] Portal session error: {e}")
+        logger.error("Portal session error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create portal session")
 
 
@@ -131,7 +134,7 @@ async def api_sync_subscription(
             current_period_start=period_start,
             current_period_end=period_end,
         )
-        print(f"[Payment] Manual sync: subscription {sub['id']} for user {user_id}")
+        logger.info("Manual sync: subscription %s for user %s", sub["id"], user_id)
         return {"synced": True, "subscription_id": sub["id"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -152,15 +155,15 @@ async def stripe_webhook(request: Request):
 
     event_type = event["type"]
     obj = event["data"]["object"]
-    print(f"[Payment] Webhook received: {event_type}")
+    logger.info("Webhook received: %s", event_type)
 
     if event_type == "checkout.session.completed":
         # CRITICAL: no try/except - let failures propagate so Stripe retries
         user_id = obj.get("metadata", {}).get("user_id")
         sub_id = obj.get("subscription")
-        print(f"[Payment] checkout.session.completed: user_id={user_id}, subscription={sub_id}, customer={obj.get('customer')}")
+        logger.info("checkout.session.completed: user_id=%s, subscription=%s, customer=%s", user_id, sub_id, obj.get("customer"))
         if not user_id or not sub_id:
-            print(f"[Payment] WARNING: checkout.session.completed missing metadata: user_id={user_id}, sub_id={sub_id}")
+            logger.warning("checkout.session.completed missing metadata: user_id=%s, sub_id=%s", user_id, sub_id)
         if user_id and sub_id:
             stripe_sub = await asyncio.to_thread(stripe.Subscription.retrieve, sub_id)
             period_start, period_end = _get_period(stripe_sub)
@@ -173,7 +176,7 @@ async def stripe_webhook(request: Request):
                 current_period_start=period_start,
                 current_period_end=period_end,
             )
-            print(f"[Payment] Subscription activated for user {user_id}")
+            logger.info("Subscription activated for user %s", user_id)
 
     elif event_type == "customer.subscription.updated":
         try:
@@ -188,9 +191,9 @@ async def stripe_webhook(request: Request):
                     status=status,
                     current_period_end=period_end,
                 )
-                print(f"[Payment] Subscription updated for user {user_id}: {status}")
+                logger.info("Subscription updated for user %s: %s", user_id, status)
         except Exception as e:
-            print(f"[Payment] WARNING: subscription.updated handler failed: {e}")
+            logger.warning("subscription.updated handler failed: %s", e)
 
     elif event_type == "customer.subscription.deleted":
         try:
@@ -201,7 +204,7 @@ async def stripe_webhook(request: Request):
                 stored_sub_id = existing.get("stripe_subscription_id") if existing else None
 
                 if stored_sub_id and stored_sub_id != deleted_sub_id:
-                    print(f"[Payment] Ignored deletion of old sub {deleted_sub_id} for user {user_id} (current: {stored_sub_id})")
+                    logger.info("Ignored deletion of old sub %s for user %s (current: %s)", deleted_sub_id, user_id, stored_sub_id)
                 else:
                     customer_id = obj.get("customer")
                     has_active = False
@@ -223,7 +226,7 @@ async def stripe_webhook(request: Request):
                                 current_period_start=period_start,
                                 current_period_end=period_end,
                             )
-                            print(f"[Payment] Sub {deleted_sub_id} deleted but user {user_id} has active sub {active_sub['id']}, synced pro")
+                            logger.info("Sub %s deleted but user %s has active sub %s, synced pro", deleted_sub_id, user_id, active_sub["id"])
 
                     if not has_active:
                         await upsert_subscription(
@@ -231,8 +234,8 @@ async def stripe_webhook(request: Request):
                             plan="free",
                             status="canceled",
                         )
-                        print(f"[Payment] Subscription {deleted_sub_id} canceled for user {user_id}, no active subs remain")
+                        logger.info("Subscription %s canceled for user %s, no active subs remain", deleted_sub_id, user_id)
         except Exception as e:
-            print(f"[Payment] WARNING: subscription.deleted handler failed: {e}")
+            logger.warning("subscription.deleted handler failed: %s", e)
 
     return {"received": True}

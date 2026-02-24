@@ -4,13 +4,15 @@ Macro data cache database operations using Insforge Edge Functions.
 Provides get/set operations for the macro_data_cache table.
 """
 
-import traceback
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Any
 
 import httpx
 
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 _FUNCTION_NAME = "macro-data-cache"
@@ -44,7 +46,7 @@ async def get_cached(key: str) -> Optional[dict]:
                     return result.get("data")
         return None
     except Exception as e:
-        print(f"[MacroCache] Error reading key={key}: {e}")
+        logger.error("Error reading key=%s: %s", key, e)
         return None
 
 
@@ -71,7 +73,7 @@ async def get_cached_many(keys: list[str]) -> dict[str, Optional[dict]]:
                     for row in result.get("data", []):
                         result_map[row["data_key"]] = row
     except Exception as e:
-        print(f"[MacroCache] Error batch reading keys={keys}: {e}")
+        logger.error("Error batch reading keys=%s: %s", keys, e)
 
     return result_map
 
@@ -117,13 +119,12 @@ async def set_cached(
                 result = response.json()
                 if result.get("success"):
                     return True
-                print(f"[MacroCache] Upsert failed for key={key}: {result.get('error')}")
+                logger.error("Upsert failed for key=%s: %s", key, result.get('error'))
             else:
-                print(f"[MacroCache] Upsert HTTP {response.status_code} for key={key}")
+                logger.error("Upsert HTTP %s for key=%s", response.status_code, key)
         return False
     except Exception as e:
-        print(f"[MacroCache] Error upserting key={key}: {e}")
-        traceback.print_exc()
+        logger.exception("Error upserting key=%s", key)
         return False
 
 
@@ -142,7 +143,7 @@ async def get_all_status() -> list[dict]:
                     return result.get("data", [])
         return []
     except Exception as e:
-        print(f"[MacroCache] Error fetching status: {e}")
+        logger.error("Error fetching status: %s", e)
         return []
 
 

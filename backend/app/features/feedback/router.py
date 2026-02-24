@@ -2,9 +2,11 @@
 Feedback router - Feedback endpoints for daily reports and contact page.
 """
 
-import traceback
-
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 from fastapi.responses import RedirectResponse
 
 from app.core.config import FRONTEND_URL
@@ -175,7 +177,7 @@ async def record_email_feedback(
             )
 
     except Exception as e:
-        print(f"[Feedback] Exception: {e}")
+        logger.exception("Error recording email feedback")
         return RedirectResponse(
             url=f"{FRONTEND_URL}/feedback?status=error&error=server_error",
             status_code=302,
@@ -219,7 +221,7 @@ async def submit_email_feedback(
             return {"success": False, "error": result.get("error", "save_failed")}
 
     except Exception as e:
-        print(f"[Feedback Submit] Exception: {e}")
+        logger.exception("Error submitting email feedback")
         return {"success": False, "error": "server_error"}
 
 
@@ -267,7 +269,7 @@ async def get_feedback_stats_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in get_feedback_stats_endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -311,7 +313,7 @@ async def submit_user_feedback_endpoint(feedback: UserFeedbackInput):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in submit_user_feedback_endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -352,5 +354,5 @@ async def list_user_feedback_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in list_user_feedback_endpoint")
         raise HTTPException(status_code=500, detail=str(e))

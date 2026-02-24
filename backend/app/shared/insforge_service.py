@@ -7,7 +7,10 @@ import os
 from typing import Optional, Dict, Any, List
 import httpx
 
+from app.core.logging import get_logger
 from app.utils.timezone import today_str, now_iso
+
+logger = get_logger(__name__)
 
 # Cache TTL constants (hours)
 STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days
@@ -57,7 +60,7 @@ class InsforgeService:
                 "market_data": report_data.get("market_data", {}),
             }
 
-            print(f"[InsforgeService] Saving report for date: {report_date}")
+            logger.info("Saving report for date: %s", report_date)
 
             async with httpx.AsyncClient() as client:
                 # Use upsert to avoid duplicates for same date
@@ -72,7 +75,7 @@ class InsforgeService:
                     data = response.json()
                     if data.get("success"):
                         report_id = data.get("data", {}).get("id")
-                        print(f"[InsforgeService] Report saved successfully, ID: {report_id}")
+                        logger.info("Report saved successfully, ID: %s", report_id)
                         return {
                             "success": True,
                             "report_id": report_id,
@@ -80,17 +83,15 @@ class InsforgeService:
                         }
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Save failed: {error_msg}")
+                        logger.error("Save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Save failed: {response.status_code} - {error_msg}")
+                    logger.error("Save failed: %s - %s", response.status_code, error_msg)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception saving report: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception saving report: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_latest_report(self) -> Optional[Dict[str, Any]]:
@@ -115,7 +116,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting latest report: {e}")
+            logger.error("Exception getting latest report: %s", e)
             return None
 
     async def get_report_by_id(self, report_id: str) -> Optional[Dict[str, Any]]:
@@ -130,7 +131,7 @@ class InsforgeService:
         """
         try:
             url = f"{self.function_url}?id={report_id}"
-            print(f"[InsforgeService] get_report_by_id: {report_id}")
+            logger.info("get_report_by_id: %s", report_id)
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
@@ -139,23 +140,21 @@ class InsforgeService:
                     timeout=30.0,
                 )
 
-                print(f"[InsforgeService] Response status: {response.status_code}")
+                logger.info("Response status: %s", response.status_code)
 
                 if response.status_code == 200:
                     result = response.json()
                     if result.get("success") and result.get("data"):
                         report = result["data"]
-                        print(f"[InsforgeService] Found report: {report.get('title', 'No title')[:50]}")
+                        logger.info("Found report: %s", report.get('title', 'No title')[:50])
                         return report
-                    print(f"[InsforgeService] No report found with ID: {report_id}")
+                    logger.info("No report found with ID: %s", report_id)
                 else:
-                    print(f"[InsforgeService] Error response: {response.text}")
+                    logger.error("Error response: %s", response.text)
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting report by ID: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception getting report by ID: %s", e)
             return None
 
     async def get_report_by_date(self, date: str) -> Optional[Dict[str, Any]]:
@@ -170,8 +169,8 @@ class InsforgeService:
         """
         try:
             url = f"{self.function_url}?date={date}"
-            print(f"[InsforgeService] get_report_by_date: {date}")
-            print(f"[InsforgeService] Fetching from: {url}")
+            logger.info("get_report_by_date: %s", date)
+            logger.info("Fetching from: %s", url)
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
@@ -180,21 +179,19 @@ class InsforgeService:
                     timeout=30.0,
                 )
 
-                print(f"[InsforgeService] Response status: {response.status_code}")
+                logger.info("Response status: %s", response.status_code)
 
                 if response.status_code == 200:
                     data = response.json()
-                    print(f"[InsforgeService] Success: {data.get('success')}, Data: {data.get('data') is not None}")
+                    logger.info("Success: %s, Data: %s", data.get('success'), data.get('data') is not None)
                     if data.get("success"):
                         return data.get("data")
                 else:
-                    print(f"[InsforgeService] Error: {response.text}")
+                    logger.error("Error: %s", response.text)
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting report by date: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception getting report by date: %s", e)
             return None
 
     # =========================================================================
@@ -222,7 +219,7 @@ class InsforgeService:
                 "model": analysis_data.get("model", ""),
             }
 
-            print(f"[InsforgeService] Saving liquidity analysis...")
+            logger.info("Saving liquidity analysis...")
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -236,24 +233,22 @@ class InsforgeService:
                     data = response.json()
                     if data.get("success"):
                         analysis_id = data.get("data", {}).get("id")
-                        print(f"[InsforgeService] Liquidity analysis saved, ID: {analysis_id}")
+                        logger.info("Liquidity analysis saved, ID: %s", analysis_id)
                         return {
                             "success": True,
                             "analysis_id": analysis_id,
                         }
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Save failed: {error_msg}")
+                        logger.error("Save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Save failed: {response.status_code} - {error_msg}")
+                    logger.error("Save failed: %s - %s", response.status_code, error_msg)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception saving liquidity analysis: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception saving liquidity analysis: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_latest_liquidity_analysis(self) -> Optional[Dict[str, Any]]:
@@ -280,7 +275,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting latest liquidity analysis: {e}")
+            logger.error("Exception getting latest liquidity analysis: %s", e)
             return None
 
     # =========================================================================
@@ -314,7 +309,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting user watchlist: {e}")
+            logger.error("Exception getting user watchlist: %s", e)
             return None
 
     # =========================================================================
@@ -357,7 +352,7 @@ class InsforgeService:
                 },
             }
 
-            print(f"[InsforgeService] Saving user digest for user: {db_digest.get('user_id')}, date: {db_digest.get('digest_date')}")
+            logger.info("Saving user digest for user: %s, date: %s", db_digest.get('user_id'), db_digest.get('digest_date'))
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -372,7 +367,7 @@ class InsforgeService:
                     if data.get("success"):
                         digest_id = data.get("data", {}).get("id")
                         action = data.get("action", "saved")
-                        print(f"[InsforgeService] User digest {action}, ID: {digest_id}")
+                        logger.info("User digest %s, ID: %s", action, digest_id)
                         return {
                             "success": True,
                             "digest_id": digest_id,
@@ -380,17 +375,15 @@ class InsforgeService:
                         }
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Save failed: {error_msg}")
+                        logger.error("Save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Save failed: {response.status_code} - {error_msg}")
+                    logger.error("Save failed: %s - %s", response.status_code, error_msg)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception saving user digest: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception saving user digest: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_user_digest(self, user_id: str, digest_date: str) -> Optional[Dict[str, Any]]:
@@ -421,7 +414,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting user digest: {e}")
+            logger.error("Exception getting user digest: %s", e)
             return None
 
     async def list_user_digests(self, user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
@@ -452,7 +445,7 @@ class InsforgeService:
                 return []
 
         except Exception as e:
-            print(f"[InsforgeService] Exception listing user digests: {e}")
+            logger.error("Exception listing user digests: %s", e)
             return []
 
     # =========================================================================
@@ -489,7 +482,8 @@ class InsforgeService:
             if report_id:
                 db_feedback["report_id"] = report_id
 
-            print(f"[InsforgeService] Saving email feedback: {email} -> {rating} for {report_date}")
+            masked_email = email[:2] + "***" + email[email.index("@"):] if "@" in email else "***"
+            logger.info("Saving email feedback: %s -> %s for %s", masked_email, rating, report_date)
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -503,7 +497,7 @@ class InsforgeService:
                     data = response.json()
                     if data.get("success"):
                         is_duplicate = data.get("isDuplicate", False)
-                        print(f"[InsforgeService] Feedback saved (duplicate: {is_duplicate})")
+                        logger.info("Feedback saved (duplicate: %s)", is_duplicate)
                         return {
                             "success": True,
                             "is_duplicate": is_duplicate,
@@ -511,17 +505,15 @@ class InsforgeService:
                         }
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Feedback save failed: {error_msg}")
+                        logger.error("Feedback save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Feedback save failed: {response.status_code} - {error_msg}")
+                    logger.error("Feedback save failed: %s - %s", response.status_code, error_msg)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception saving email feedback: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception saving email feedback: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_feedback_stats(
@@ -542,7 +534,7 @@ class InsforgeService:
         try:
             feedback_url = f"{self.base_url}/functions/email-feedback"
 
-            print(f"[InsforgeService] Getting feedback stats: {start_date} to {end_date}")
+            logger.info("Getting feedback stats: %s to %s", start_date, end_date)
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -574,7 +566,7 @@ class InsforgeService:
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting feedback stats: {e}")
+            logger.error("Exception getting feedback stats: %s", e)
             return {"success": False, "error": str(e)}
 
     # =========================================================================
@@ -608,7 +600,7 @@ class InsforgeService:
                 "digest_data": digest_data,  # Full digest data as JSON
             }
 
-            print(f"[InsforgeService] Saving sector digest: {sector_id} for {digest_date}")
+            logger.info("Saving sector digest: %s for %s", sector_id, digest_date)
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -622,24 +614,22 @@ class InsforgeService:
                     data = response.json()
                     if data.get("success"):
                         digest_id = data.get("data", {}).get("id")
-                        print(f"[InsforgeService] Sector digest saved, ID: {digest_id}")
+                        logger.info("Sector digest saved, ID: %s", digest_id)
                         return {
                             "success": True,
                             "digest_id": digest_id,
                         }
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Sector digest save failed: {error_msg}")
+                        logger.error("Sector digest save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Sector digest save failed: {response.status_code} - {error_msg}")
+                    logger.error("Sector digest save failed: %s - %s", response.status_code, error_msg)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception saving sector digest: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Exception saving sector digest: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_latest_sector_digest(self, sector_id: str) -> Optional[Dict[str, Any]]:
@@ -670,7 +660,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting latest sector digest: {e}")
+            logger.error("Exception getting latest sector digest: %s", e)
             return None
 
     async def subscribe_to_sector(
@@ -714,7 +704,7 @@ class InsforgeService:
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception subscribing to sector: {e}")
+            logger.error("Exception subscribing to sector: %s", e)
             return {"success": False, "error": str(e)}
 
     async def unsubscribe_from_sector(
@@ -755,7 +745,7 @@ class InsforgeService:
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception unsubscribing from sector: {e}")
+            logger.error("Exception unsubscribing from sector: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_user_sector_subscriptions(self, user_id: str) -> Dict[str, Any]:
@@ -794,7 +784,7 @@ class InsforgeService:
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}", "subscriptions": []}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting sector subscriptions: {e}")
+            logger.error("Exception getting sector subscriptions: %s", e)
             return {"success": False, "error": str(e), "subscriptions": []}
 
     async def get_sector_digest_history(
@@ -841,7 +831,7 @@ class InsforgeService:
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}", "digests": []}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting sector digest history: {e}")
+            logger.error("Exception getting sector digest history: %s", e)
             return {"success": False, "error": str(e), "digests": []}
 
     # =========================================================================
@@ -876,7 +866,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting stock profile: {e}")
+            logger.error("Exception getting stock profile: %s", e)
             return None
 
     async def upsert_stock_profile(self, symbol: str, profile_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -904,7 +894,7 @@ class InsforgeService:
                 "data_source": profile_data.get("data_source", "openbb_fmp"),
             }
 
-            print(f"[InsforgeService] Upserting stock profile for {symbol}")
+            logger.info("Upserting stock profile for %s", symbol)
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -917,19 +907,19 @@ class InsforgeService:
                 if response.status_code in (200, 201):
                     data = response.json()
                     if data.get("success"):
-                        print(f"[InsforgeService] Stock profile saved for {symbol}")
+                        logger.info("Stock profile saved for %s", symbol)
                         return {"success": True, "data": data.get("data")}
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Profile save failed: {error_msg}")
+                        logger.error("Profile save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Profile save failed: {response.status_code}")
+                    logger.error("Profile save failed: %s", response.status_code)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception upserting stock profile: {e}")
+            logger.error("Exception upserting stock profile: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_stock_financials(self, symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
@@ -961,7 +951,7 @@ class InsforgeService:
                 return []
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting stock financials: {e}")
+            logger.error("Exception getting stock financials: %s", e)
             return []
 
     async def upsert_stock_financial(self, symbol: str, financial_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -1025,7 +1015,7 @@ class InsforgeService:
                     return {"success": False, "error": f"HTTP {response.status_code}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception upserting stock financial: {e}")
+            logger.error("Exception upserting stock financial: %s", e)
             return {"success": False, "error": str(e)}
 
     async def get_stock_analysis(
@@ -1072,7 +1062,7 @@ class InsforgeService:
                 return None
 
         except Exception as e:
-            print(f"[InsforgeService] Exception getting stock analysis: {e}")
+            logger.error("Exception getting stock analysis: %s", e)
             return None
 
     async def save_stock_analysis(
@@ -1115,7 +1105,7 @@ class InsforgeService:
                 "expires_at": expires_at.isoformat(),
             }
 
-            print(f"[InsforgeService] Saving stock analysis for {symbol} ({analysis_type})")
+            logger.info("Saving stock analysis for %s (%s)", symbol, analysis_type)
 
             # Use Edge Function to save analysis
             function_url = f"{self.base_url}/functions/stock-analyses"
@@ -1132,19 +1122,19 @@ class InsforgeService:
                     data = response.json()
                     if data.get("success") and data.get("data"):
                         analysis_id = data["data"].get("id")
-                        print(f"[InsforgeService] Stock analysis saved, ID: {analysis_id}")
+                        logger.info("Stock analysis saved, ID: %s", analysis_id)
                         return {"success": True, "analysis_id": analysis_id}
                     else:
                         error_msg = data.get("error", "Unknown error")
-                        print(f"[InsforgeService] Analysis save failed: {error_msg}")
+                        logger.error("Analysis save failed: %s", error_msg)
                         return {"success": False, "error": error_msg}
                 else:
                     error_msg = response.text
-                    print(f"[InsforgeService] Analysis save failed: {response.status_code} - {error_msg}")
+                    logger.error("Analysis save failed: %s - %s", response.status_code, error_msg)
                     return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
         except Exception as e:
-            print(f"[InsforgeService] Exception saving stock analysis: {e}")
+            logger.error("Exception saving stock analysis: %s", e)
             return {"success": False, "error": str(e)}
 
 

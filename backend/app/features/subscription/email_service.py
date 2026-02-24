@@ -10,12 +10,15 @@ from typing import Optional
 import resend
 
 from app.core.config import RESEND_API_KEY
+from app.core.logging import get_logger
 from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
 from app.features.subscription.service import (
     get_subscription_service,
     SubscriptionChannel,
 )
 from app.features.brew.db import save_user_digest, get_user_watchlist
+
+logger = get_logger(__name__)
 
 
 class EmailService:
@@ -719,7 +722,7 @@ class EmailService:
         self, data: dict, to_email: Optional[str] = None, first_name: Optional[str] = None
     ) -> dict:
         """Send the daily market report email to a single recipient."""
-        print(f"[EmailService] send_daily_report to={to_email}")
+        logger.info("send_daily_report to=%s", to_email)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -766,11 +769,11 @@ class EmailService:
             }
 
             email = resend.Emails.send(params)
-            print(f"[EmailService] Email sent: {email.get('id')}")
+            logger.info("Email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": recipient}
 
         except Exception as e:
-            print(f"[EmailService] Error sending email: {e}")
+            logger.error("Error sending email: %s", e)
             return {"success": False, "error": str(e)}
 
     async def send_personal_digest(
@@ -782,7 +785,7 @@ class EmailService:
         digest_id: Optional[str] = None,
     ) -> dict:
         """Send a personal digest email to a single recipient."""
-        print(f"[EmailService] send_personal_digest to={to_email}")
+        logger.info("send_personal_digest to=%s", to_email)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -817,11 +820,11 @@ class EmailService:
             }
 
             email = resend.Emails.send(params)
-            print(f"[EmailService] Digest email sent: {email.get('id')}")
+            logger.info("Digest email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
         except Exception as e:
-            print(f"[EmailService] Error sending digest email: {e}")
+            logger.error("Error sending digest email: %s", e)
             return {"success": False, "error": str(e)}
 
     def _resolve_audience(
@@ -864,22 +867,22 @@ class EmailService:
         broadcast = resend.Broadcasts.create(create_params)
         broadcast_id = broadcast.get("id")
         if not broadcast_id:
-            print(f"[EmailService] ERROR: {label} broadcast create returned no id: {broadcast}")
+            logger.error("%s broadcast create returned no id: %s", label, broadcast)
             return {"success": False, "error": "Broadcast creation returned no ID"}
-        print(f"[EmailService] {label} broadcast created: {broadcast_id}")
+        logger.info("%s broadcast created: %s", label, broadcast_id)
 
         send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
         send_result = resend.Broadcasts.send(send_params)
         send_id = send_result.get("id") if send_result else None
-        print(f"[EmailService] {label} broadcast send result: {send_result}")
+        logger.info("%s broadcast send result: %s", label, send_result)
 
         if not send_id:
-            print(f"[EmailService] WARNING: {label} send returned unexpected result, verifying status...")
+            logger.warning("%s send returned unexpected result, verifying status...", label)
             import time
             time.sleep(1)
             verify = resend.Broadcasts.get(broadcast_id)
             status = verify.get("status") if verify else None
-            print(f"[EmailService] {label} broadcast status after send: {status}")
+            logger.info("%s broadcast status after send: %s", label, status)
             if status not in ("sent", "queued"):
                 return {
                     "success": False,
@@ -887,7 +890,7 @@ class EmailService:
                     "broadcast_id": broadcast_id,
                 }
 
-        print(f"[EmailService] {label} broadcast sent successfully: {broadcast_id}")
+        logger.info("%s broadcast sent successfully: %s", label, broadcast_id)
         return {
             "success": True,
             "broadcast_id": broadcast_id,
@@ -896,7 +899,7 @@ class EmailService:
 
     async def broadcast_daily_report(self, data: dict, audience_id: Optional[str] = None) -> dict:
         """Send the daily market report using Resend Broadcasts."""
-        print(f"[EmailService] broadcast_daily_report called, audience_id={audience_id}")
+        logger.info("broadcast_daily_report called, audience_id=%s", audience_id)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -924,14 +927,14 @@ class EmailService:
             )
 
         except Exception as e:
-            print(f"[EmailService] Error broadcasting: {e}")
+            logger.error("Error broadcasting: %s", e)
             return {"success": False, "error": str(e)}
 
     async def broadcast_personal_digest(
         self, data: dict, audience_id: Optional[str] = None, first_name: str = ""
     ) -> dict:
         """Broadcast a personal digest using Resend Broadcasts."""
-        print(f"[EmailService] broadcast_personal_digest called, audience_id={audience_id}")
+        logger.info("broadcast_personal_digest called, audience_id=%s", audience_id)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -961,7 +964,7 @@ class EmailService:
             )
 
         except Exception as e:
-            print(f"[EmailService] Error broadcasting digest: {e}")
+            logger.error("Error broadcasting digest: %s", e)
             return {"success": False, "error": str(e)}
 
     def _format_weekly_report_html(
@@ -1312,7 +1315,7 @@ class EmailService:
         self, data: dict, audience_id: Optional[str] = None
     ) -> dict:
         """Send the weekly macro report using Resend Broadcasts."""
-        print(f"[EmailService] broadcast_weekly_report called, audience_id={audience_id}")
+        logger.info("broadcast_weekly_report called, audience_id=%s", audience_id)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -1339,14 +1342,14 @@ class EmailService:
             )
 
         except Exception as e:
-            print(f"[EmailService] Error broadcasting weekly report: {e}")
+            logger.error("Error broadcasting weekly report: %s", e)
             return {"success": False, "error": str(e)}
 
     async def send_weekly_report(
         self, data: dict, to_email: str, first_name: Optional[str] = None
     ) -> dict:
         """Send the weekly macro report email to a single recipient."""
-        print(f"[EmailService] send_weekly_report to={to_email}")
+        logger.info("send_weekly_report to=%s", to_email)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -1378,11 +1381,11 @@ class EmailService:
             }
 
             email = resend.Emails.send(params)
-            print(f"[EmailService] Weekly report email sent: {email.get('id')}")
+            logger.info("Weekly report email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
         except Exception as e:
-            print(f"[EmailService] Error sending weekly report email: {e}")
+            logger.error("Error sending weekly report email: %s", e)
             return {"success": False, "error": str(e)}
 
     def _format_newsletter_plaintext(self, data: dict) -> str:
@@ -1438,7 +1441,7 @@ class EmailService:
         self, data: dict, subject: str, to_email: str, first_name: str = ""
     ) -> dict:
         """Send a newsletter as plain text email to a single recipient."""
-        print(f"[EmailService] send_newsletter to={to_email}")
+        logger.info("send_newsletter to=%s", to_email)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -1455,18 +1458,18 @@ class EmailService:
             }
 
             email = resend.Emails.send(params)
-            print(f"[EmailService] Newsletter sent: {email.get('id')}")
+            logger.info("Newsletter sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
         except Exception as e:
-            print(f"[EmailService] Error sending newsletter: {e}")
+            logger.error("Error sending newsletter: %s", e)
             return {"success": False, "error": str(e)}
 
     async def broadcast_newsletter(
         self, data: dict, subject: str, audience_id: Optional[str] = None
     ) -> dict:
         """Broadcast newsletter to all daily report subscribers."""
-        print(f"[EmailService] broadcast_newsletter called, audience_id={audience_id}")
+        logger.info("broadcast_newsletter called, audience_id=%s", audience_id)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -1486,7 +1489,7 @@ class EmailService:
             )
 
         except Exception as e:
-            print(f"[EmailService] Error broadcasting newsletter: {e}")
+            logger.error("Error broadcasting newsletter: %s", e)
             return {"success": False, "error": str(e)}
 
     def _format_welcome_html(self, first_name: str = "") -> str:
@@ -1628,7 +1631,7 @@ class EmailService:
 
     async def send_welcome_email(self, to_email: str, first_name: Optional[str] = None) -> dict:
         """Send welcome email to new subscriber."""
-        print(f"[EmailService] send_welcome_email to={to_email}")
+        logger.info("send_welcome_email to=%s", to_email)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -1644,11 +1647,11 @@ class EmailService:
             }
 
             email = resend.Emails.send(params)
-            print(f"[EmailService] Welcome email sent: {email.get('id')}")
+            logger.info("Welcome email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
         except Exception as e:
-            print(f"[EmailService] Error sending welcome email: {e}")
+            logger.error("Error sending welcome email: %s", e)
             return {"success": False, "error": str(e)}
 
     async def broadcast_personal_digests(self, max_concurrent: int = 5) -> dict:
@@ -1658,7 +1661,7 @@ class EmailService:
         Uses asyncio.gather with semaphore for controlled concurrency.
         Each subscriber gets a personalized digest based on their watchlist.
         """
-        print("[EmailService] broadcast_personal_digests called")
+        logger.info("broadcast_personal_digests called")
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -1688,7 +1691,7 @@ class EmailService:
                     "errors": [],
                 }
 
-            print(f"[EmailService] Broadcasting to {len(subscribers)} subscribers")
+            logger.info("Broadcasting to %d subscribers", len(subscribers))
 
             semaphore = asyncio.Semaphore(max_concurrent)
             digest_agent = get_personal_digest()
@@ -1711,9 +1714,9 @@ class EmailService:
                         "summary": digest_result.get("summary", {}),
                     }
                     await save_user_digest(save_data)
-                    print(f"[EmailService] Saved digest to DB for {email}")
+                    logger.info("Saved digest to DB for %s", email)
                 except Exception as db_err:
-                    print(f"[EmailService] DB save failed for {email}: {db_err}")
+                    logger.error("DB save failed for %s: %s", email, db_err)
 
             async def generate_and_send(
                 email: str, first_name: str, user_id: str, symbols: list
@@ -1737,18 +1740,16 @@ class EmailService:
             async def get_symbols_for_user(user_id: str, email: str) -> list:
                 """Get symbols from Insforge user_watchlists table only."""
                 if not user_id:
-                    print(f"[EmailService] No user_id for {email}, skipping")
+                    logger.info("No user_id for %s, skipping", email)
                     return []
 
                 watchlist = await get_user_watchlist(user_id)
                 if watchlist and watchlist.get("symbols"):
                     symbols = watchlist.get("symbols", [])
-                    print(
-                        f"[EmailService] Loaded {len(symbols)} symbols from Insforge for {email}"
-                    )
+                    logger.info("Loaded %d symbols from Insforge for %s", len(symbols), email)
                     return symbols
 
-                print(f"[EmailService] No watchlist found in Insforge for {email}")
+                logger.info("No watchlist found in Insforge for %s", email)
                 return []
 
             async def process_subscriber(sub: dict) -> dict:
@@ -1772,7 +1773,7 @@ class EmailService:
                             email, first_name, user_id, symbols
                         )
                     except Exception as e:
-                        print(f"[EmailService] First attempt failed for {email}: {e}")
+                        logger.warning("First attempt failed for %s: %s", email, e)
 
                     await asyncio.sleep(2)
                     try:
@@ -1780,9 +1781,7 @@ class EmailService:
                             email, first_name, user_id, symbols
                         )
                     except Exception as retry_error:
-                        print(
-                            f"[EmailService] Retry failed for {email}: {retry_error}"
-                        )
+                        logger.error("Retry failed for %s: %s", email, retry_error)
                         return {
                             "email": email,
                             "success": False,
@@ -1811,9 +1810,7 @@ class EmailService:
                             {"email": result.get("email"), "error": result.get("error")}
                         )
 
-            print(
-                f"[EmailService] Broadcast complete: {sent_count} sent, {failed_count} failed"
-            )
+            logger.info("Broadcast complete: %d sent, %d failed", sent_count, failed_count)
 
             return {
                 "success": True,
@@ -1825,10 +1822,7 @@ class EmailService:
             }
 
         except Exception as e:
-            print(f"[EmailService] Error in broadcast_personal_digests: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Error in broadcast_personal_digests")
             return {"success": False, "error": str(e)}
 
 

@@ -9,7 +9,10 @@ import time
 import stripe
 
 from app.core.config import STRIPE_SECRET_KEY, STRIPE_PRO_PRICE_ID, FRONTEND_URL
+from app.core.logging import get_logger
 from app.features.payment.db import get_subscription, upsert_subscription
+
+logger = get_logger(__name__)
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -22,12 +25,12 @@ async def get_or_create_stripe_customer(user_id: str, email: str) -> str:
     t0 = time.time()
     sub = await get_subscription(user_id)
     if sub and sub.get("stripe_customer_id"):
-        print(f"[Payment] get_customer: cache hit {time.time()-t0:.2f}s")
+        logger.info("get_customer: cache hit %.2fs", time.time() - t0)
         return sub["stripe_customer_id"]
 
     t1 = time.time()
     existing = await asyncio.to_thread(stripe.Customer.list, email=email, limit=1)
-    print(f"[Payment] Customer.list: {time.time()-t1:.2f}s")
+    logger.info("Customer.list: %.2fs", time.time() - t1)
 
     if existing.data:
         customer_id = existing.data[0].id
@@ -36,13 +39,13 @@ async def get_or_create_stripe_customer(user_id: str, email: str) -> str:
         customer = await asyncio.to_thread(
             stripe.Customer.create, email=email, metadata={"user_id": user_id}
         )
-        print(f"[Payment] Customer.create: {time.time()-t2:.2f}s")
+        logger.info("Customer.create: %.2fs", time.time() - t2)
         customer_id = customer.id
 
     t3 = time.time()
     await upsert_subscription(user_id, stripe_customer_id=customer_id)
-    print(f"[Payment] upsert customer_id: {time.time()-t3:.2f}s")
-    print(f"[Payment] get_or_create total: {time.time()-t0:.2f}s")
+    logger.info("upsert customer_id: %.2fs", time.time() - t3)
+    logger.info("get_or_create total: %.2fs", time.time() - t0)
     return customer_id
 
 
@@ -69,8 +72,8 @@ async def create_checkout_session(
         metadata={"user_id": user_id},
         subscription_data={"metadata": {"user_id": user_id}},
     )
-    print(f"[Payment] Session.create: {time.time()-t1:.2f}s")
-    print(f"[Payment] checkout total: {time.time()-t0:.2f}s")
+    logger.info("Session.create: %.2fs", time.time() - t1)
+    logger.info("checkout total: %.2fs", time.time() - t0)
     return session.url
 
 

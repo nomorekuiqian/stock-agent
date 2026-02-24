@@ -5,13 +5,15 @@ Provides save and retrieve operations for market reports (market_reports table).
 Each function is standalone async, using the shared InsforgeService for base URL/headers.
 """
 
-import traceback
 from typing import Optional, Dict, Any, List
 
 import httpx
 
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
 from app.utils.timezone import today_str, now_iso
+
+logger = get_logger(__name__)
 
 
 # Edge function name for market reports
@@ -59,7 +61,7 @@ async def save_market_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
             "market_data": report_data.get("market_data", {}),
         }
 
-        print(f"[InsforgeService] Saving report for date: {report_date}")
+        logger.info("Saving report for date: %s", report_date)
 
         async with httpx.AsyncClient() as client:
             # Use upsert to avoid duplicates for same date
@@ -74,7 +76,7 @@ async def save_market_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
                 data = response.json()
                 if data.get("success"):
                     report_id = data.get("data", {}).get("id")
-                    print(f"[InsforgeService] Report saved successfully, ID: {report_id}")
+                    logger.info("Report saved successfully, ID: %s", report_id)
                     return {
                         "success": True,
                         "report_id": report_id,
@@ -82,16 +84,15 @@ async def save_market_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 else:
                     error_msg = data.get("error", "Unknown error")
-                    print(f"[InsforgeService] Save failed: {error_msg}")
+                    logger.error("Save failed: %s", error_msg)
                     return {"success": False, "error": error_msg}
             else:
                 error_msg = response.text
-                print(f"[InsforgeService] Save failed: {response.status_code} - {error_msg}")
+                logger.error("Save failed: %s - %s", response.status_code, error_msg)
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception saving report: {e}")
-        traceback.print_exc()
+        logger.exception("Exception saving report")
         return {"success": False, "error": str(e)}
 
 
@@ -117,7 +118,7 @@ async def get_latest_report() -> Optional[Dict[str, Any]]:
             return None
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting latest report: {e}")
+        logger.error("Exception getting latest report: %s", e)
         return None
 
 
@@ -133,7 +134,7 @@ async def get_report_by_id(report_id: str) -> Optional[Dict[str, Any]]:
     """
     try:
         url = f"{_function_url()}?id={report_id}"
-        print(f"[InsforgeService] get_report_by_id: {report_id}")
+        logger.info("get_report_by_id: %s", report_id)
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -142,22 +143,21 @@ async def get_report_by_id(report_id: str) -> Optional[Dict[str, Any]]:
                 timeout=30.0,
             )
 
-            print(f"[InsforgeService] Response status: {response.status_code}")
+            logger.info("Response status: %s", response.status_code)
 
             if response.status_code == 200:
                 result = response.json()
                 if result.get("success") and result.get("data"):
                     report = result["data"]
-                    print(f"[InsforgeService] Found report: {report.get('title', 'No title')[:50]}")
+                    logger.info("Found report: %s", report.get('title', 'No title')[:50])
                     return report
-                print(f"[InsforgeService] No report found with ID: {report_id}")
+                logger.info("No report found with ID: %s", report_id)
             else:
-                print(f"[InsforgeService] Error response: {response.text}")
+                logger.error("Error response: %s", response.text)
             return None
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting report by ID: {e}")
-        traceback.print_exc()
+        logger.exception("Exception getting report by ID")
         return None
 
 
@@ -173,8 +173,8 @@ async def get_report_by_date(date: str) -> Optional[Dict[str, Any]]:
     """
     try:
         url = f"{_function_url()}?date={date}"
-        print(f"[InsforgeService] get_report_by_date: {date}")
-        print(f"[InsforgeService] Fetching from: {url}")
+        logger.info("get_report_by_date: %s", date)
+        logger.info("Fetching from: %s", url)
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -183,20 +183,19 @@ async def get_report_by_date(date: str) -> Optional[Dict[str, Any]]:
                 timeout=30.0,
             )
 
-            print(f"[InsforgeService] Response status: {response.status_code}")
+            logger.info("Response status: %s", response.status_code)
 
             if response.status_code == 200:
                 data = response.json()
-                print(f"[InsforgeService] Success: {data.get('success')}, Data: {data.get('data') is not None}")
+                logger.info("Success: %s, Data: %s", data.get('success'), data.get('data') is not None)
                 if data.get("success"):
                     return data.get("data")
             else:
-                print(f"[InsforgeService] Error: {response.text}")
+                logger.error("Error: %s", response.text)
             return None
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting report by date: {e}")
-        traceback.print_exc()
+        logger.exception("Exception getting report by date")
         return None
 
 
@@ -213,7 +212,7 @@ async def list_reports(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]
     """
     try:
         url = f"{_function_url()}?limit={limit}&offset={offset}"
-        print(f"[InsforgeService] list_reports: limit={limit}, offset={offset}")
+        logger.info("list_reports: limit=%d, offset=%d", limit, offset)
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -229,6 +228,5 @@ async def list_reports(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]
             return []
 
     except Exception as e:
-        print(f"[InsforgeService] Exception listing reports: {e}")
-        traceback.print_exc()
+        logger.exception("Exception listing reports")
         return []

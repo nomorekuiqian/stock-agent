@@ -6,9 +6,10 @@ This is the input for the AI Agent (M2) to generate the weekly macro report.
 """
 
 import asyncio
-import traceback
 
 import yfinance as yf
+
+from app.core.logging import get_logger
 
 from app.utils.timezone import utc_now_iso, market_week_label
 from app.features.macro.risk.service import (
@@ -26,6 +27,8 @@ from app.features.macro.weekly.models import (
     WeeklyRawData,
     MarketPerformance,
 )
+
+logger = get_logger(__name__)
 
 
 MARKET_INDICES = {
@@ -72,7 +75,7 @@ def _fetch_weekly_performance() -> MarketPerformance:
         )
 
         if data.empty:
-            print("[WeeklyCollector] yf.download returned empty data")
+            logger.warning("yf.download returned empty data")
             return MarketPerformance()
 
         def _calc_change(symbol: str) -> dict | None:
@@ -115,8 +118,7 @@ def _fetch_weekly_performance() -> MarketPerformance:
         )
 
     except Exception as e:
-        print(f"[WeeklyCollector] Error fetching weekly performance: {e}")
-        traceback.print_exc()
+        logger.exception("Error fetching weekly performance")
         return MarketPerformance()
 
 
@@ -131,7 +133,7 @@ def _safe_calendar(result, key: str) -> list:
 
 async def collect_weekly_data() -> WeeklyRawData:
     """Collect all data needed for the weekly macro report in parallel."""
-    print("[WeeklyCollector] Starting weekly data collection...")
+    logger.info("Starting weekly data collection...")
 
     dashboard_task = get_macro_risk_dashboard()
     economy_task = get_economic_fundamentals()
@@ -164,7 +166,7 @@ async def collect_weekly_data() -> WeeklyRawData:
 
     def _safe_dump(result, label: str):
         if isinstance(result, Exception):
-            print(f"[WeeklyCollector] Error fetching {label}: {result}")
+            logger.error("Error fetching %s: %s", label, result)
             return None
         if hasattr(result, "model_dump"):
             return result.model_dump()
@@ -172,15 +174,15 @@ async def collect_weekly_data() -> WeeklyRawData:
 
     liq_context = None
     if isinstance(liq_cache_result, Exception):
-        print(f"[WeeklyCollector] Error reading liquidity percentiles cache: {liq_cache_result}")
+        logger.error("Error reading liquidity percentiles cache: %s", liq_cache_result)
     elif isinstance(liq_cache_result, tuple):
         cached_data, is_valid = liq_cache_result
         if cached_data:
             liq_context = cached_data
             status = "valid" if is_valid else "stale"
-            print(f"[WeeklyCollector] Liquidity percentiles from cache ({status}): {list(liq_context.keys())}")
+            logger.info("Liquidity percentiles from cache (%s): %s", status, list(liq_context.keys()))
         else:
-            print("[WeeklyCollector] No liquidity percentiles in cache")
+            logger.info("No liquidity percentiles in cache")
 
     raw_data = WeeklyRawData(
         week_label=market_week_label(),
@@ -200,5 +202,5 @@ async def collect_weekly_data() -> WeeklyRawData:
         earnings_calendar=_safe_calendar(earn_cal, "earnings"),
     )
 
-    print(f"[WeeklyCollector] Data collection complete for {raw_data.week_label}")
+    logger.info("Data collection complete for %s", raw_data.week_label)
     return raw_data

@@ -3,7 +3,7 @@ Weekly Report Agent - AI-powered weekly macro report generation.
 
 Architecture: WeeklyRawData (from data_collector) -> LlmAgent -> WeeklyMacroReport
 
-Follows the same pattern as features/market/agent.py:
+Follows the same pattern as features/daily_report/agent.py:
 - Class wrapper with InMemoryRunner
 - Structured output via output_schema + output_key
 - Data cleaning to reduce token usage
@@ -15,6 +15,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from app.core.logging import get_logger
+
 load_dotenv()
 
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
@@ -25,6 +27,8 @@ from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
 from app.features.macro.weekly.models import WeeklyRawData, WeeklyReportOutput
+
+logger = get_logger(__name__)
 
 
 WEEKLY_ANALYST_INSTRUCTION = """
@@ -370,7 +374,7 @@ class WeeklyReportAgent:
         Returns:
             dict matching WeeklyMacroReport fields
         """
-        print("[WeeklyReportAgent] Preparing data for agent...")
+        logger.info("Preparing data for agent...")
         data_for_agent = _prepare_data_for_agent(raw_data)
 
         session = await self.runner.session_service.create_session(
@@ -395,7 +399,7 @@ class WeeklyReportAgent:
             role="user",
         )
 
-        print("[WeeklyReportAgent] Running agent (this may take 30-60s)...")
+        logger.info("Running agent (this may take 30-60s)...")
 
         async for event in self.runner.run_async(
             user_id="weekly_analyst",
@@ -412,10 +416,10 @@ class WeeklyReportAgent:
 
         result = self._extract_report(session_data)
 
-        print(
-            f"[WeeklyReportAgent] Generation complete. "
-            f"Title: {result.get('title', '')}, "
-            f"Signal lights: {result.get('signal_lights', {})}"
+        logger.info(
+            "Generation complete. Title: %s, Signal lights: %s",
+            result.get('title', ''),
+            result.get('signal_lights', {}),
         )
 
         return result
@@ -446,7 +450,7 @@ class WeeklyReportAgent:
     def _extract_report(self, session_data) -> dict:
         """Extract WeeklyMacroReport fields from session state."""
         if not session_data or not hasattr(session_data, "state"):
-            print("[WeeklyReportAgent] No session state found")
+            logger.warning("No session state found")
             return self._empty_report()
 
         state = session_data.state or {}
@@ -456,11 +460,11 @@ class WeeklyReportAgent:
             try:
                 report_data = json.loads(report_data)
             except json.JSONDecodeError:
-                print("[WeeklyReportAgent] Failed to parse report as JSON")
+                logger.error("Failed to parse report as JSON")
                 return self._empty_report()
 
         if not isinstance(report_data, dict):
-            print(f"[WeeklyReportAgent] Unexpected report type: {type(report_data)}")
+            logger.error("Unexpected report type: %s", type(report_data))
             return self._empty_report()
 
         def _safe_section(key: str) -> dict:

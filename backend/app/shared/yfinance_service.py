@@ -12,6 +12,10 @@ from typing import Optional
 
 import yfinance as yf
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 # =============================================================================
 # Cache for Stock Quotes
 # =============================================================================
@@ -147,7 +151,7 @@ class YFinanceService:
             return {"status": "success", "quotes": [], "from_cache": 0, "source": "yfinance"}
 
         symbols_upper = [s.upper() for s in symbols]
-        print(f"[YFinance] get_stock_quotes({len(symbols_upper)} symbols, use_cache={use_cache})")
+        logger.info("get_stock_quotes(%d symbols, use_cache=%s)", len(symbols_upper), use_cache)
 
         # Step 1: Check cache for existing quotes
         quotes_dict: dict[str, dict] = {}
@@ -205,7 +209,7 @@ class YFinanceService:
         if not symbols:
             return []
 
-        print(f"[YFinance] Batch fetching {len(symbols)} symbols...")
+        logger.info("Batch fetching %d symbols...", len(symbols))
         start_time = time.time()
 
         fetched_quotes = []
@@ -226,7 +230,7 @@ class YFinanceService:
                 )
 
             if df.empty:
-                print("[YFinance] No data returned from yfinance")
+                logger.warning("No data returned from yfinance")
                 return []
 
             # Handle both single and multiple symbols
@@ -262,7 +266,7 @@ class YFinanceService:
                 for symbol in symbols:
                     try:
                         if ("Close", symbol) not in df.columns:
-                            print(f"[YFinance] No data for {symbol}")
+                            logger.warning("No data for %s", symbol)
                             continue
 
                         close_series = df[("Close", symbol)]
@@ -272,7 +276,7 @@ class YFinanceService:
                             yesterday_close = close_series.iloc[-2] if len(close_series) >= 2 else close_series.iloc[-1]
 
                             if self._is_nan(today_close):
-                                print(f"[YFinance] No close price for {symbol}")
+                                logger.warning("No close price for %s", symbol)
                                 continue
 
                             price = float(today_close)
@@ -306,15 +310,15 @@ class YFinanceService:
                             })
 
                     except (KeyError, IndexError) as e:
-                        print(f"[YFinance] Error processing {symbol}: {e}")
+                        logger.error("Error processing %s: %s", symbol, e)
                         continue
 
         except Exception as e:
-            print(f"[YFinance] Batch download error: {e}")
+            logger.error("Batch download error: %s", e)
             return []
 
         elapsed = time.time() - start_time
-        print(f"[YFinance] Fetched {len(fetched_quotes)} quotes in {elapsed:.2f}s (1 request)")
+        logger.info("Fetched %d quotes in %.2fs (1 request)", len(fetched_quotes), elapsed)
 
         return fetched_quotes
 
@@ -346,17 +350,17 @@ class YFinanceService:
 
         cached = _yf_ticker_info_cache.get(symbol)
         if cached is not None:
-            print(f"[YFinance] get_ticker_metrics({symbol}) - cache hit")
+            logger.info("get_ticker_metrics(%s) - cache hit", symbol)
             return cached
 
-        print(f"[YFinance] get_ticker_metrics({symbol}) - fetching")
+        logger.info("get_ticker_metrics(%s) - fetching", symbol)
 
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 info = yf.Ticker(symbol).info
         except Exception as e:
-            print(f"[YFinance] Error fetching ticker info for {symbol}: {e}")
+            logger.error("Error fetching ticker info for %s: %s", symbol, e)
             return {"ttm": {}, "valuation": {}, "forward": {}, "profitability": {}, "growth": {}, "source": "yfinance"}
 
         def _get(key):
@@ -448,7 +452,7 @@ class YFinanceService:
         """Clear all caches"""
         _yf_quote_cache.clear()
         _yf_ticker_info_cache.clear()
-        print("[YFinance] All caches cleared")
+        logger.info("All caches cleared")
 
     def cache_stats(self) -> dict:
         """Get cache statistics"""

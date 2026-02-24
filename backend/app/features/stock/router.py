@@ -6,16 +6,18 @@ from __future__ import annotations
 
 import re
 import threading
-import traceback
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
-
+from fastapi import APIRouter, HTTPException, Query, Request
+from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.shared.fmp_service import get_fmp_service
 from app.shared.yfinance_service import get_yfinance_service
 from app.features.stock.service import get_stock_service
 from app.features.stock.agent import get_stock_analysis_agent, get_technical_analysis_agent
 from app.features.stock.db import get_stock_analysis, save_stock_analysis
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 
@@ -44,7 +46,8 @@ def _set_cached_history(symbol: str, days: int, data: dict):
 
 
 @router.get("/search")
-async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8, ge=1, le=20)):
+@limiter.limit("20/minute")
+async def search_stocks(request: Request, q: str = Query(..., min_length=1), limit: int = Query(8, ge=1, le=20)):
     """
     Search stocks by symbol or company name using FMP API.
 
@@ -60,12 +63,13 @@ async def search_stocks(q: str = Query(..., min_length=1), limit: int = Query(8,
         return {"stocks": result.get("stocks", [])}
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error searching stocks")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/quotes")
-async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-separated stock symbols")):
+@limiter.limit("30/minute")
+async def get_stock_quotes_api(request: Request, symbols: str = Query(..., description="Comma-separated stock symbols")):
     """
     Get current quotes for multiple stocks using yfinance batch API with 10-minute caching.
 
@@ -101,12 +105,12 @@ async def get_stock_quotes_api(symbols: str = Query(..., description="Comma-sepa
                 "daily_change": quote.get("daily_change", 0),
             })
 
-        print(f"[API] get_stock_quotes (yfinance): {len(quotes)} quotes, {result.get('from_cache', 0)} from cache")
+        logger.info("get_stock_quotes (yfinance): %d quotes, %s from cache", len(quotes), result.get('from_cache', 0))
 
         return {"success": True, "quotes": quotes}
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error getting stock quotes")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -133,7 +137,7 @@ async def get_stock_profile_quick(symbol: str):
         # 1. Check in-memory cache first (instant)
         cached = _get_cached_profile(upper_symbol)
         if cached:
-            print(f"[API] Profile quick: memory cache HIT for {upper_symbol}")
+            logger.info("Profile quick: memory cache HIT for %s", upper_symbol)
             return {
                 "success": True,
                 "profile": cached,
@@ -143,7 +147,7 @@ async def get_stock_profile_quick(symbol: str):
         # 2. Check DB cache (fast)
         db_cached = await db_get_profile(upper_symbol)
         if db_cached:
-            print(f"[API] Profile quick: DB cache HIT for {upper_symbol}")
+            logger.info("Profile quick: DB cache HIT for %s", upper_symbol)
             # Also warm up memory cache
             from app.features.stock.service import _set_cached_profile
             _set_cached_profile(upper_symbol, db_cached)
@@ -154,7 +158,7 @@ async def get_stock_profile_quick(symbol: str):
             }
 
         # 3. No cache - return minimal placeholder
-        print(f"[API] Profile quick: cache MISS for {upper_symbol}")
+        logger.info("Profile quick: cache MISS for %s", upper_symbol)
         return {
             "success": True,
             "profile": None,
@@ -162,7 +166,7 @@ async def get_stock_profile_quick(symbol: str):
         }
 
     except Exception:
-        traceback.print_exc()
+        logger.exception("Error getting stock profile quick")
         return {"success": False, "profile": None, "source": "error"}
 
 
@@ -194,7 +198,7 @@ async def get_stock_data(
         return data
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error getting stock data for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -219,7 +223,7 @@ async def get_stock_price_history(
         # Check in-memory cache first
         cached = _get_cached_history(upper_symbol, days)
         if cached:
-            print(f"[API] Price history cache HIT for {upper_symbol} ({days}d)")
+            logger.info("Price history cache HIT for %s (%dd)", upper_symbol, days)
             return cached
 
         from app.shared.openbb_service import get_openbb_service
@@ -245,12 +249,12 @@ async def get_stock_price_history(
 
         # Cache for subsequent requests
         _set_cached_history(upper_symbol, days, result)
-        print(f"[API] Price history fetched and cached for {upper_symbol} ({days}d, {len(history)} points)")
+        logger.info("Price history fetched and cached for %s (%dd, %d points)", upper_symbol, days, len(history))
 
         return result
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error getting price history for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -302,12 +306,14 @@ async def get_stock_valuation_comparison(symbol: str):
         }
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error getting valuation comparison for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{symbol}/analysis")
+@limiter.limit("5/minute")
 async def generate_stock_analysis_endpoint(
+    request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
 ):
@@ -335,7 +341,7 @@ async def generate_stock_analysis_endpoint(
         if not force:
             cached = await get_stock_analysis(symbol, analysis_type="comprehensive")
             if cached:
-                print(f"[StockAnalysis] Using cached analysis for {symbol}")
+                logger.info("Using cached analysis for %s", symbol)
                 return {
                     "success": True,
                     "analysis": cached.get("content"),
@@ -348,7 +354,7 @@ async def generate_stock_analysis_endpoint(
                 }
 
         # Fetch stock data and valuation comparison
-        print(f"[StockAnalysis] Fetching data for {symbol}")
+        logger.info("Fetching data for %s", symbol)
         stock_service = get_stock_service()
 
         # Get stock data first to know industry/sector for valuation comparison
@@ -369,13 +375,13 @@ async def generate_stock_analysis_endpoint(
                 sector=sector,
             )
             stock_data["valuation_comparison"] = valuation_comparison
-            print(f"[StockAnalysis] Valuation comparison data added for {symbol}")
+            logger.info("Valuation comparison data added for %s", symbol)
         except Exception as e:
-            print(f"[StockAnalysis] Failed to get valuation comparison: {e}")
+            logger.warning("Failed to get valuation comparison: %s", e)
             stock_data["valuation_comparison"] = {}
 
         # Generate analysis
-        print(f"[StockAnalysis] Generating AI analysis for {symbol}")
+        logger.info("Generating AI analysis for %s", symbol)
         agent = get_stock_analysis_agent()
         result = await agent.analyze(stock_data)
 
@@ -384,7 +390,7 @@ async def generate_stock_analysis_endpoint(
 
         # Check if analysis generation failed (agent returns empty fields with error)
         if meta.get("error"):
-            print(f"[StockAnalysis] Agent returned error for {symbol}: {meta['error']}")
+            logger.error("Agent returned error for %s: %s", symbol, meta['error'])
             raise HTTPException(
                 status_code=500,
                 detail="Analysis generation failed. Please try again later.",
@@ -401,7 +407,7 @@ async def generate_stock_analysis_endpoint(
             },
             model=meta.get("model", "gemini-3-pro-preview"),
         )
-        print(f"[StockAnalysis] Save result: {save_result}")
+        logger.info("Save result: %s", save_result)
 
         return {
             "success": True,
@@ -415,7 +421,7 @@ async def generate_stock_analysis_endpoint(
     except HTTPException:
         raise
     except Exception:
-        traceback.print_exc()
+        logger.exception("Failed to generate stock analysis for %s", symbol)
         raise HTTPException(
             status_code=500,
             detail="Failed to generate stock analysis. Please try again later.",
@@ -514,7 +520,7 @@ async def get_technical_snapshot_endpoint(symbol: str):
     except HTTPException:
         raise
     except Exception:
-        traceback.print_exc()
+        logger.exception("Failed to fetch technical snapshot for %s", symbol)
         raise HTTPException(
             status_code=500,
             detail="Failed to fetch technical snapshot.",
@@ -523,7 +529,9 @@ async def get_technical_snapshot_endpoint(symbol: str):
 
 
 @router.post("/{symbol}/technical")
+@limiter.limit("5/minute")
 async def generate_technical_analysis_endpoint(
+    request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
     timeframe: str = Query(default="daily", pattern="^(daily|weekly)$", description="Analysis timeframe"),
@@ -553,7 +561,7 @@ async def generate_technical_analysis_endpoint(
         if not force:
             cached = await get_stock_analysis(symbol, analysis_type=analysis_type)
             if cached:
-                print(f"[TechnicalAnalysis] Using cached {timeframe} analysis for {symbol}")
+                logger.info("Using cached %s analysis for %s", timeframe, symbol)
                 return {
                     "success": True,
                     "analysis": cached.get("content"),
@@ -567,7 +575,7 @@ async def generate_technical_analysis_endpoint(
                 }
 
         # Fetch technical data
-        print(f"[TechnicalAnalysis] Fetching technical data for {symbol} ({timeframe})")
+        logger.info("Fetching technical data for %s (%s)", symbol, timeframe)
         from app.shared.data_tools.technical import get_technical_data
 
         technical_data = get_technical_data(symbol)
@@ -579,7 +587,7 @@ async def generate_technical_analysis_endpoint(
             )
 
         # Generate analysis
-        print(f"[TechnicalAnalysis] Generating AI {timeframe} analysis for {symbol}")
+        logger.info("Generating AI %s analysis for %s", timeframe, symbol)
         agent = get_technical_analysis_agent()
         result = await agent.analyze(symbol, technical_data, timeframe=timeframe)
 
@@ -587,7 +595,7 @@ async def generate_technical_analysis_endpoint(
         meta = result.get("meta", {})
 
         if meta.get("error"):
-            print(f"[TechnicalAnalysis] Agent returned error for {symbol}: {meta['error']}")
+            logger.error("Agent returned error for %s: %s", symbol, meta['error'])
             raise HTTPException(
                 status_code=500,
                 detail="Technical analysis generation failed. Please try again later.",
@@ -602,7 +610,7 @@ async def generate_technical_analysis_endpoint(
             model=meta.get("model", "gemini-3-pro-preview"),
             expires_hours=8,
         )
-        print(f"[TechnicalAnalysis] Save result: {save_result}")
+        logger.info("Save result: %s", save_result)
 
         return {
             "success": True,
@@ -618,7 +626,7 @@ async def generate_technical_analysis_endpoint(
     except HTTPException:
         raise
     except Exception:
-        traceback.print_exc()
+        logger.exception("Failed to generate technical analysis for %s", symbol)
         raise HTTPException(
             status_code=500,
             detail="Failed to generate technical analysis. Please try again later.",
@@ -634,36 +642,41 @@ from fastapi.responses import RedirectResponse
 legacy_router = APIRouter(prefix="/api/stock", tags=["stock-legacy"], include_in_schema=False)
 
 
+def _legacy_redirect(path: str, request: Request, status_code: int = 307):
+    qs = f"?{request.query_params}" if request.query_params else ""
+    return RedirectResponse(url=f"{path}{qs}", status_code=status_code)
+
+
 @legacy_router.get("/{symbol}/profile")
-async def legacy_profile(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}/profile", status_code=307)
+async def legacy_profile(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}/profile", request)
 
 
 @legacy_router.get("/{symbol}")
-async def legacy_stock(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}", status_code=307)
+async def legacy_stock(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}", request)
 
 
 @legacy_router.get("/{symbol}/history")
-async def legacy_history(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}/history", status_code=307)
+async def legacy_history(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}/history", request)
 
 
 @legacy_router.get("/{symbol}/valuation")
-async def legacy_valuation(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}/valuation", status_code=307)
+async def legacy_valuation(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}/valuation", request)
 
 
 @legacy_router.post("/{symbol}/analysis")
-async def legacy_analysis(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}/analysis", status_code=307)
+async def legacy_analysis(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}/analysis", request)
 
 
 @legacy_router.get("/{symbol}/technical-snapshot")
-async def legacy_technical_snapshot(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}/technical-snapshot", status_code=307)
+async def legacy_technical_snapshot(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}/technical-snapshot", request)
 
 
 @legacy_router.post("/{symbol}/technical")
-async def legacy_technical(symbol: str):
-    return RedirectResponse(url=f"/api/stocks/{symbol}/technical", status_code=307)
+async def legacy_technical(symbol: str, request: Request):
+    return _legacy_redirect(f"/api/stocks/{symbol}/technical", request)

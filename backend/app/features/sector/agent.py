@@ -9,6 +9,8 @@ import json
 import os
 from dotenv import load_dotenv
 
+from app.core.logging import get_logger
+
 load_dotenv()
 
 _google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -29,6 +31,8 @@ from app.shared.data_tools.market_data import get_stock_quotes, get_all_market_d
 from app.shared.data_tools.news import get_combined_market_news
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
+
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -173,25 +177,25 @@ class SectorDigest:
                 return {"success": False, "error": f"Sector '{sector_id}' is disabled"}
 
             symbols = sector.symbols
-            print(f"[SectorDigest] Generating digest for sector: {sector.name_zh} ({sector_id})")
-            print(f"[SectorDigest] Symbols: {symbols}")
+            logger.info("Generating digest for sector: %s (%s)", sector.name_zh, sector_id)
+            logger.info("Symbols: %s", symbols)
 
             # Step 1: Fetch sector stock data
-            print("[SectorDigest] Fetching stock quotes...")
+            logger.info("Fetching stock quotes...")
             stock_data = get_stock_quotes(symbols)
 
             # Step 2: Fetch news filtered by sector symbols + macro
-            print("[SectorDigest] Fetching news...")
+            logger.info("Fetching news...")
             news_symbols = symbols + self.DEFAULT_MACRO_SYMBOLS
             news_result = get_combined_market_news(days=1, symbols=news_symbols)
 
             # Step 3: Fetch calendars
-            print("[SectorDigest] Fetching calendars...")
+            logger.info("Fetching calendars...")
             calendar_result = get_economic_calendar(days=7)
             earnings_result = get_earnings_calendar(days=7)
 
             # Step 4: Get macro context
-            print("[SectorDigest] Fetching macro context...")
+            logger.info("Fetching macro context...")
             market_data = get_all_market_data()
             macro_summary = self._extract_macro_summary(market_data)
 
@@ -215,7 +219,7 @@ class SectorDigest:
             }
 
             # Step 6: Run agent
-            print("[SectorDigest] Running agent...")
+            logger.info("Running agent...")
 
             session = await self._runner.session_service.create_session(
                 app_name="sector_digest", user_id="sector"
@@ -250,11 +254,11 @@ class SectorDigest:
                     except json.JSONDecodeError:
                         digest_output = {}
 
-            print(
-                f"[SectorDigest] Generation complete. "
-                f"Stocks: {len(digest_output.get('stocks', []))}, "
-                f"News: {len(digest_output.get('news', []))}, "
-                f"Events: {len(digest_output.get('events', []))}"
+            logger.info(
+                "Generation complete. Stocks: %d, News: %d, Events: %d",
+                len(digest_output.get('stocks', [])),
+                len(digest_output.get('news', [])),
+                len(digest_output.get('events', [])),
             )
 
             return {
@@ -266,9 +270,7 @@ class SectorDigest:
             }
 
         except Exception as e:
-            print(f"[SectorDigest] Error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Error generating sector digest")
             return {
                 "success": False,
                 "error": str(e),

@@ -7,8 +7,11 @@ import math
 import yfinance as yf
 import pandas as pd
 
+from app.core.logging import get_logger
 from app.shared.fmp_service import get_fmp_service
 from app.utils.timezone import now_pacific, format_date, format_date_chinese
+
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -146,7 +149,7 @@ def _extract_asset_data(data: pd.DataFrame, name: str, symbol: str) -> dict | No
             "position_in_range": position_in_range,
         }
     except Exception as e:
-        print(f"Error extracting {name}: {e}")
+        logger.error("Error extracting %s: %s", name, e)
         return None
 
 
@@ -169,7 +172,7 @@ def get_all_market_data() -> dict:
     - commodities: Gold, Oil
     - currencies: US Dollar Index
     """
-    print("🔧 [TOOL CALLED] get_all_market_data()")
+    logger.info("get_all_market_data()")
 
     try:
         # Single download for all tickers - 1 month for trend analysis
@@ -226,12 +229,12 @@ def get_all_market_data() -> dict:
 
                 # Use FMP's pre-calculated spreads
                 result["rates"]["spreads"] = fmp_rates.get("spreads", {})
-                print(f"[FMP] Treasury rates loaded: {len(fmp_rates['rates'])} maturities, prev_date={fmp_rates.get('prev_date')}")
+                logger.info("Treasury rates loaded: %d maturities, prev_date=%s", len(fmp_rates['rates']), fmp_rates.get('prev_date'))
             else:
                 raise ValueError("FMP returned empty or error response")
 
         except Exception as e:
-            print(f"⚠️ FMP Treasury rates failed, falling back to yfinance: {e}")
+            logger.warning("FMP Treasury rates failed, falling back to yfinance: %s", e)
             # Fallback to yfinance
             rates = {}
             for name, symbol in YIELD_TICKERS.items():
@@ -309,7 +312,7 @@ def get_all_market_data() -> dict:
                     if asset_data:
                         yf_historical[name] = asset_data
             except Exception as yf_err:
-                print(f"[yfinance] Commodity historical error: {yf_err}")
+                logger.error("Commodity historical error: %s", yf_err)
 
             # 3. Combine FMP spot price with yfinance historical data
             for name in ["Gold", "Oil"]:
@@ -356,10 +359,10 @@ def get_all_market_data() -> dict:
                     yf_data["source"] = "yfinance_futures"
                     result["commodities"][name] = yf_data
 
-            print(f"[Commodities] Loaded: {list(result['commodities'].keys())}")
+            logger.info("Commodities loaded: %s", list(result['commodities'].keys()))
 
         except Exception as e:
-            print(f"[Commodities] Error: {e}")
+            logger.error("Commodities error: %s", e)
             # Full fallback to yfinance futures
             try:
                 yf_commodities = {"Gold": "GC=F", "Oil": "BZ=F"}
@@ -373,9 +376,9 @@ def get_all_market_data() -> dict:
                     if asset_data:
                         asset_data["source"] = "yfinance_futures_fallback"
                         result["commodities"][name] = asset_data
-                print(f"[yfinance fallback] Commodities loaded: {list(result['commodities'].keys())}")
+                logger.info("yfinance fallback commodities loaded: %s", list(result['commodities'].keys()))
             except Exception as yf_err:
-                print(f"[yfinance fallback] Commodities error: {yf_err}")
+                logger.error("yfinance fallback commodities error: %s", yf_err)
 
         # === Currencies ===
         for name, symbol in CURRENCY_TICKERS.items():
@@ -396,9 +399,7 @@ def get_all_market_data() -> dict:
         return result
 
     except Exception as e:
-        print(f"Error fetching market data: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error fetching market data: %s", e)
         return {
             "status": "error",
             "error": str(e),
@@ -449,7 +450,7 @@ def get_stock_quotes(symbols: list[str]) -> dict:
             }
         }
     """
-    print(f"[TOOL CALLED] get_stock_quotes({symbols})")
+    logger.info("get_stock_quotes(%s)", symbols)
 
     if not symbols:
         return {"status": "error", "error": "No symbols provided", "stocks": {}}
@@ -542,14 +543,12 @@ def get_stock_quotes(symbols: list[str]) -> dict:
                 }
 
             except Exception as e:
-                print(f"Error processing {symbol}: {e}")
+                logger.error("Error processing %s: %s", symbol, e)
                 continue
 
-        print(f"[get_stock_quotes] Loaded {len(result['stocks'])} stocks: {list(result['stocks'].keys())}")
+        logger.info("Loaded %d stocks: %s", len(result['stocks']), list(result['stocks'].keys()))
         return result
 
     except Exception as e:
-        print(f"Error fetching stock quotes: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error fetching stock quotes: %s", e)
         return {"status": "error", "error": str(e), "stocks": {}}

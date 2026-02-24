@@ -7,12 +7,15 @@ Endpoints:
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-
+from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
 from app.features.daily_report.agent import MarketAgent
 from app.features.daily_report import db as market_db
+
+logger = get_logger(__name__)
 
 
 router = APIRouter(prefix="/api", tags=["market"])
@@ -134,9 +137,10 @@ async def get_latest_report():
 
 
 @router.post("/market")
-async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
+@limiter.limit("5/minute")
+async def analyze_market(request: Request, body: Optional[MarketAnalysisRequest] = None):
     try:
-        force = request.force if request else False
+        force = body.force if body else False
 
         today = today_str()
         existing_report = await market_db.get_report_by_date(today)
@@ -146,15 +150,15 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
             report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
 
             if report_date_from_timestamp == today:
-                print(f"[API] Found existing report for {today}, returning cached data")
+                logger.info("Found existing report for %s, returning cached data", today)
                 return _report_to_response(existing_report)
             else:
-                print(f"[API] Found report but timestamp ({report_date_from_timestamp}) doesn't match today ({today}), regenerating...")
+                logger.info("Found report but timestamp (%s) doesn't match today (%s), regenerating...", report_date_from_timestamp, today)
 
         if force:
-            print(f"[API] Force regeneration requested, generating new report...")
+            logger.info("Force regeneration requested, generating new report...")
         else:
-            print(f"[API] No report found for {today}, generating new analysis...")
+            logger.info("No report found for %s, generating new analysis...", today)
         result = await market_agent.analyze()
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate market analysis")
@@ -179,13 +183,12 @@ async def analyze_market(request: Optional[MarketAnalysisRequest] = None):
 
         save_result = await market_db.save_market_report(response_data)
         if save_result.get("success"):
-            print(f"[API] Report saved to database for {today}")
+            logger.info("Report saved to database for %s", today)
             response_data["report_id"] = save_result.get("report_id")
         else:
-            print(f"[API] Failed to save report: {save_result.get('error')}")
+            logger.error("Failed to save report: %s", save_result.get('error'))
 
         return response_data
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error in analyze_market")
         raise HTTPException(status_code=500, detail=str(e))

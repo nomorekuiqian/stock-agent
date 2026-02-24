@@ -5,11 +5,14 @@ Sector Digest API Router - endpoints for sector digests and subscriptions.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from app.core.logging import get_logger
 from app.features.sector.models import get_enabled_sectors, get_sector_by_id
 from app.features.sector.agent import get_sector_digest
 from app.features.sector import db
 from app.core.deps import verify_cron_secret
 from app.utils.timezone import today_str
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/sectors", tags=["sector"])
 
@@ -56,8 +59,7 @@ async def list_sectors():
             ],
         }
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to list sectors")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -94,7 +96,7 @@ async def generate_sector_digest(sector_id: str):
             result["saved"] = save_result.get("success", False)
             result["digest_id"] = save_result.get("digest_id")
         except Exception as save_error:
-            print(f"[Warning] Failed to save sector digest: {save_error}")
+            logger.warning("Failed to save sector digest: %s", save_error)
             result["saved"] = False
 
         return result
@@ -102,8 +104,7 @@ async def generate_sector_digest(sector_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to generate sector digest")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -137,8 +138,7 @@ async def get_latest_sector_digest(sector_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to get latest sector digest")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -173,8 +173,7 @@ async def subscribe_to_sector(request: SectorSubscribeRequest):
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to subscribe to sector")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -211,8 +210,7 @@ async def get_sector_subscriptions(user_id: str = Query(..., description="User I
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to get sector subscriptions")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -239,8 +237,7 @@ async def unsubscribe_from_sector(sector_id: str, user_id: str = Query(..., desc
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to unsubscribe from sector")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -279,8 +276,7 @@ async def get_sector_digest_history(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to get sector digest history")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -303,7 +299,7 @@ async def generate_all_sector_digests(
         digest_date = today_str()
 
         for sector in sectors:
-            print(f"[GenerateAll] Generating digest for: {sector.name_zh} ({sector.id})")
+            logger.info("Generating digest for: %s (%s)", sector.name_zh, sector.id)
             try:
                 # Generate digest
                 digest_result = await digest_agent.generate(sector.id)
@@ -331,7 +327,7 @@ async def generate_all_sector_digests(
                     })
 
             except Exception as e:
-                print(f"[GenerateAll] Error generating {sector.id}: {e}")
+                logger.error("Error generating %s: %s", sector.id, e)
                 results.append({
                     "sector_id": sector.id,
                     "sector_name": sector.name_zh,
@@ -350,6 +346,5 @@ async def generate_all_sector_digests(
         }
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Failed to generate all sector digests")
         raise HTTPException(status_code=500, detail=str(e))

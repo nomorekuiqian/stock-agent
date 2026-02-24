@@ -6,11 +6,12 @@ Uses PersonalDigest agent (gemini-3-flash) to generate structured digest
 with sections: stocks, news (headlines + briefs), events, summary.
 """
 
-import traceback
-
-from fastapi import APIRouter, HTTPException
-
+from fastapi import APIRouter, HTTPException, Request
+from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
+
+logger = get_logger(__name__)
 from app.features.brew.agent import get_personal_digest
 from app.features.brew.db import save_user_digest, get_user_digest
 from app.features.brew.models import (
@@ -28,7 +29,8 @@ router = APIRouter(prefix="/api", tags=["brew"])
 
 
 @router.post("/digest", response_model=DigestResponse)
-async def generate_digest(request: DigestRequest):
+@limiter.limit("5/minute")
+async def generate_digest(request: Request, body: DigestRequest):
     """
     Generate a personalized daily digest based on user's stock watchlist.
 
@@ -38,26 +40,26 @@ async def generate_digest(request: DigestRequest):
     Personalization is based on user's watchlist stocks.
     """
     try:
-        if not request.user_id:
+        if not body.user_id:
             raise HTTPException(status_code=401, detail="Authentication required. Please sign in to generate personalized digest.")
 
-        if not request.symbols:
+        if not body.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
         today = today_str()
 
         # Check if today's digest already exists
-        existing_digest = await get_user_digest(request.user_id, today)
+        existing_digest = await get_user_digest(body.user_id, today)
         if existing_digest:
             # Verify symbols match - regenerate if user changed their watchlist
             cached_symbols = set(s.upper() for s in existing_digest.get("symbols", []))
-            request_symbols = set(s.upper() for s in request.symbols)
+            request_symbols = set(s.upper() for s in body.symbols)
 
             if cached_symbols != request_symbols:
-                print(f"[Digest] Symbols changed for user {request.user_id[:8]}..., regenerating...")
+                logger.info("Symbols changed for user %s..., regenerating...", body.user_id[:8])
                 existing_digest = None  # Force regeneration
             else:
-                print(f"[Digest] Found cached digest for user {request.user_id[:8]}..., date: {today}")
+                logger.info("Found cached digest for user %s..., date: %s", body.user_id[:8], today)
 
         if existing_digest:
             digest_data = existing_digest.get("digest_data", {})
@@ -131,11 +133,11 @@ async def generate_digest(request: DigestRequest):
             )
 
         # No cached digest, generate new one
-        print(f"[Digest] No cached digest found for user {request.user_id[:8]}..., generating new...")
+        logger.info("No cached digest found for user %s..., generating new...", body.user_id[:8])
         digest_agent = get_personal_digest()
         result = await digest_agent.generate(
-            symbols=request.symbols,
-            user_id=request.user_id,
+            symbols=body.symbols,
+            user_id=body.user_id,
         )
 
         if not result.get("success"):
@@ -201,7 +203,7 @@ async def generate_digest(request: DigestRequest):
 
         # Save to database (always save, user_id is required)
         save_data = {
-            "user_id": request.user_id,
+            "user_id": body.user_id,
             "digest_date": today_str(),
             "timestamp": result.get("timestamp", now_iso()),
             "symbols": result.get("symbols_used", []),
@@ -214,9 +216,9 @@ async def generate_digest(request: DigestRequest):
         }
         save_result = await save_user_digest(save_data)
         if save_result.get("success"):
-            print(f"[Digest] Saved digest for user {request.user_id[:8]}..., ID: {save_result.get('digest_id')}")
+            logger.info("Saved digest for user %s..., ID: %s", body.user_id[:8], save_result.get('digest_id'))
         else:
-            print(f"[Digest] Failed to save: {save_result.get('error')}")
+            logger.error("Failed to save: %s", save_result.get('error'))
 
         return DigestResponse(
             success=True,
@@ -233,5 +235,5 @@ async def generate_digest(request: DigestRequest):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error generating digest")
         raise HTTPException(status_code=500, detail=str(e))

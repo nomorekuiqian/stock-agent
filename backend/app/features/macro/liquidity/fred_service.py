@@ -17,8 +17,11 @@ from typing import Optional
 import httpx
 from dotenv import load_dotenv
 
+from app.core.logging import get_logger
 from app.utils.timezone import today_str, days_ago
 from app.features.macro.cache.db import try_db_cache
+
+logger = get_logger(__name__)
 
 load_dotenv()
 
@@ -187,13 +190,13 @@ async def get_all_liquidity_metrics() -> dict:
     async with _get_liquidity_lock():
         cached = _get_cached_liquidity()
         if cached:
-            print("[Liquidity] Returning cached data (coalesced)")
+            logger.info("Returning cached data (coalesced)")
             return cached
 
         # DB cache layer
         db_data, db_valid = await try_db_cache("fred:liquidity_metrics")
         if db_valid and db_data:
-            print("[Liquidity] Returning DB-cached metrics")
+            logger.info("Returning DB-cached metrics")
             _liquidity_cache["data"] = db_data
             _liquidity_cache["ts"] = time.time()
             return db_data
@@ -202,7 +205,7 @@ async def get_all_liquidity_metrics() -> dict:
             try:
                 return key, await get_latest_value(series_id)
             except Exception as e:
-                print(f"Error fetching {series_id}: {e}")
+                logger.error("Error fetching %s: %s", series_id, e)
                 return key, {"value": None, "error": str(e)}
 
         results = await asyncio.gather(
@@ -250,12 +253,12 @@ async def get_all_liquidity_metrics() -> dict:
                 metrics["net_liquidity"] = {"value": None, "error": "Missing component data"}
 
         except Exception as e:
-            print(f"Error calculating net liquidity: {e}")
+            logger.error("Error calculating net liquidity: %s", e)
             metrics["net_liquidity"] = {"value": None, "error": str(e)}
 
         _liquidity_cache["data"] = metrics
         _liquidity_cache["ts"] = time.time()
-        print(f"[Liquidity] Cached {len(metrics)} metrics")
+        logger.info("Cached %d metrics", len(metrics))
 
         return metrics
 
@@ -266,7 +269,7 @@ async def get_liquidity_history(days: int = 365) -> dict:
     if days == 365:
         db_data, db_valid = await try_db_cache("fred:liquidity_history")
         if db_valid and db_data:
-            print("[Liquidity] Returning DB-cached history")
+            logger.info("Returning DB-cached history")
             return db_data
 
     start_date = days_ago(days)
@@ -276,7 +279,7 @@ async def get_liquidity_history(days: int = 365) -> dict:
         try:
             return await fetch_fred_series(series_id, start_date, end_date, limit=500)
         except Exception as e:
-            print(f"[Liquidity] Failed to fetch {series_id}: {e}")
+            logger.error("Failed to fetch %s: %s", series_id, e)
             return {"series_id": series_id, "title": "", "units": "", "frequency": "", "last_updated": "", "observations": []}
 
     fed_data, tga_data, rrp_data, reserves_data, sofr_data, effr_data, nfci_data = await asyncio.gather(

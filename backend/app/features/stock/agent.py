@@ -7,7 +7,6 @@ structured analysis (V3 flat string fields).
 
 import json
 import os
-import traceback
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
@@ -22,7 +21,10 @@ from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 from pydantic import BaseModel, Field
 
+from app.core.logging import get_logger
 from app.utils.timezone import now_iso
+
+logger = get_logger(__name__)
 
 ANALYSIS_FIELDS = (
     "title",
@@ -384,7 +386,7 @@ class StockAnalysisAgent:
         symbol = stock_data.get("meta", {}).get("symbol", "UNKNOWN")
 
         try:
-            print(f"[StockAnalysisAgent] Starting analysis for {symbol}")
+            logger.info("Starting analysis for %s", symbol)
             data_for_analyst = _prepare_stock_data_for_analyst(stock_data)
 
             prompt = (
@@ -398,9 +400,10 @@ class StockAnalysisAgent:
 
             result = {field: analysis_data.get(field, "") for field in ANALYSIS_FIELDS}
 
-            print(
-                f"[StockAnalysisAgent] Analysis complete for {symbol}. "
-                f"Title: {result['title'][:30] if result['title'] else 'N/A'}..."
+            logger.info(
+                "Analysis complete for %s. Title: %s...",
+                symbol,
+                result['title'][:30] if result['title'] else 'N/A',
             )
 
             return {
@@ -413,8 +416,7 @@ class StockAnalysisAgent:
             }
 
         except Exception as e:
-            print(f"[StockAnalysisAgent] Error analyzing stock: {e}")
-            traceback.print_exc()
+            logger.exception("Error analyzing stock %s", symbol)
 
             return {
                 "analysis": _empty_analysis(),
@@ -655,7 +657,7 @@ class TechnicalAnalysisAgent:
         """Generate AI technical analysis. Returns dict with analysis and metadata."""
         try:
             timeframe_label = "日线" if timeframe == "daily" else "周线"
-            print(f"[TechnicalAgent] Starting {timeframe} analysis for {symbol}")
+            logger.info("Starting %s analysis for %s", timeframe, symbol)
             data_for_agent = _prepare_technical_data_for_agent(technical_data, timeframe=timeframe)
 
             prompt = (
@@ -670,9 +672,10 @@ class TechnicalAnalysisAgent:
 
             result = {field: analysis_data.get(field, "") for field in TECHNICAL_FIELDS}
 
-            print(
-                f"[TechnicalAgent] Analysis complete for {symbol}. "
-                f"Title: {result['title'][:30] if result['title'] else 'N/A'}..."
+            logger.info(
+                "Analysis complete for %s. Title: %s...",
+                symbol,
+                result['title'][:30] if result['title'] else 'N/A',
             )
 
             return {
@@ -685,8 +688,7 @@ class TechnicalAnalysisAgent:
             }
 
         except Exception as e:
-            print(f"[TechnicalAgent] Error analyzing {symbol}: {e}")
-            traceback.print_exc()
+            logger.exception("Error analyzing %s", symbol)
 
             return {
                 "analysis": _empty_technical_analysis(),

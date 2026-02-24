@@ -9,10 +9,12 @@ Tier 3 (every 24h): Calendars, liquidity history (365 days)
 
 import asyncio
 import bisect
-import traceback
 from typing import Any
 
+from app.core.logging import get_logger
 from app.features.macro.cache.db import set_cached, get_cached, get_cache_data
+
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -28,12 +30,12 @@ async def _safe_set(key: str, data: Any, source: str, ttl: float) -> bool:
     try:
         ok = await set_cached(key, data, source, ttl)
         if ok:
-            print(f"[Refresher] Cached {key}")
+            logger.info("Cached %s", key)
         else:
-            print(f"[Refresher] FAILED to cache {key}")
+            logger.error("FAILED to cache %s", key)
         return ok
     except Exception as e:
-        print(f"[Refresher] Error caching {key}: {e}")
+        logger.error("Error caching %s: %s", key, e)
         return False
 
 
@@ -115,8 +117,7 @@ async def refresh_tier1() -> dict:
         ok = await _safe_set("fred:liquidity_metrics", metrics, "fred", TTL_T1)
         results["fred:liquidity_metrics"] = ok
     except Exception as e:
-        print(f"[Refresher] T1 liquidity_metrics error: {e}")
-        traceback.print_exc()
+        logger.exception("T1 liquidity_metrics error")
         await _safe_set_with_error("fred:liquidity_metrics", "fred", TTL_T1, str(e))
         results["fred:liquidity_metrics"] = False
 
@@ -132,8 +133,7 @@ async def refresh_tier1() -> dict:
         ok = await _safe_set("macro:treasury_rates", treasury_data, "fmp", TTL_T1)
         results["macro:treasury_rates"] = ok
     except Exception as e:
-        print(f"[Refresher] T1 treasury_rates error: {e}")
-        traceback.print_exc()
+        logger.exception("T1 treasury_rates error")
         await _safe_set_with_error("macro:treasury_rates", "fmp", TTL_T1, str(e))
         results["macro:treasury_rates"] = False
 
@@ -146,8 +146,7 @@ async def refresh_tier1() -> dict:
         ok = await _safe_set("macro:sentiment", data.model_dump(), "computed", TTL_T1)
         results["macro:sentiment"] = ok
     except Exception as e:
-        print(f"[Refresher] T1 sentiment error: {e}")
-        traceback.print_exc()
+        logger.exception("T1 sentiment error")
         await _safe_set_with_error("macro:sentiment", "computed", TTL_T1, str(e))
         results["macro:sentiment"] = False
 
@@ -239,8 +238,7 @@ async def refresh_tier2() -> dict:
             ok = await fn()
             results[key] = ok
         except Exception as e:
-            print(f"[Refresher] T2 {key} error: {e}")
-            traceback.print_exc()
+            logger.exception("T2 %s error", key)
             results[key] = False
         # Small delay between tasks to avoid FRED API rate limiting
         await asyncio.sleep(2)
@@ -280,7 +278,7 @@ async def _refresh_cpi_breakdown() -> bool:
         if c.get("yoy_pct") is None
     ]
     if null_components:
-        print(f"[Refresher] CPI breakdown has null components: {null_components}, skipping DB cache")
+        logger.warning("CPI breakdown has null components: %s, skipping DB cache", null_components)
         await _safe_set_with_error(
             "fred:cpi_breakdown", "computed", TTL_T2,
             f"Null components: {', '.join(null_components)}",
@@ -297,12 +295,12 @@ async def _refresh_liquidity_percentiles() -> bool:
     row = await get_cached("fred:liquidity_history")
     history = get_cache_data(row)
     if not history:
-        print("[Refresher] No liquidity history in cache, skipping percentiles")
+        logger.warning("No liquidity history in cache, skipping percentiles")
         return False
 
     context = _compute_liquidity_context(history)
     if not context:
-        print("[Refresher] Could not compute liquidity context (insufficient data)")
+        logger.warning("Could not compute liquidity context (insufficient data)")
         return False
 
     return await _safe_set("macro:liquidity_percentiles", context, "computed", TTL_T2)
@@ -313,7 +311,7 @@ async def _refresh_global_liquidity() -> bool:
     from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
     data = await fetch_and_compute_global_m2()
     if not data or not data.get("us_m2", {}).get("value"):
-        print("[Refresher] Global liquidity: no valid US M2 data")
+        logger.warning("Global liquidity: no valid US M2 data")
         await _safe_set_with_error("fred:global_liquidity", "fred", TTL_T2, "No valid US M2")
         return False
     return await _safe_set("fred:global_liquidity", data, "fred", TTL_T2)
@@ -325,7 +323,7 @@ async def _refresh_global_liquidity_history() -> bool:
     data = await get_global_liquidity_history(days=365)
     obs = data.get("observations", [])
     if not obs:
-        print("[Refresher] Global liquidity history: no observations")
+        logger.warning("Global liquidity history: no observations")
         await _safe_set_with_error("fred:global_liquidity_history", "fred", TTL_T3, "No observations")
         return False
     return await _safe_set("fred:global_liquidity_history", data, "fred", TTL_T3)
@@ -345,8 +343,7 @@ async def refresh_tier3() -> dict:
         ok = await _safe_set("fred:liquidity_history", data, "fred", TTL_T3)
         results["fred:liquidity_history"] = ok
     except Exception as e:
-        print(f"[Refresher] T3 liquidity_history error: {e}")
-        traceback.print_exc()
+        logger.exception("T3 liquidity_history error")
         await _safe_set_with_error("fred:liquidity_history", "fred", TTL_T3, str(e))
         results["fred:liquidity_history"] = False
 
@@ -355,8 +352,7 @@ async def refresh_tier3() -> dict:
         ok = await _refresh_global_liquidity_history()
         results["fred:global_liquidity_history"] = ok
     except Exception as e:
-        print(f"[Refresher] T3 global_liquidity_history error: {e}")
-        traceback.print_exc()
+        logger.exception("T3 global_liquidity_history error")
         await _safe_set_with_error("fred:global_liquidity_history", "fred", TTL_T3, str(e))
         results["fred:global_liquidity_history"] = False
 

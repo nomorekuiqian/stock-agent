@@ -8,7 +8,10 @@ import time
 from typing import Optional
 from datetime import timedelta
 
+from app.core.logging import get_logger
 from app.utils.timezone import now_pacific, today_str, days_from_now
+
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -225,13 +228,13 @@ class FMPService:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            print(f"FMP API HTTP error: {e.response.status_code} - {e.response.text}")
+            logger.error("FMP API HTTP error: %s - %s", e.response.status_code, e.response.text)
             return None
         except httpx.RequestError as e:
-            print(f"FMP API request error: {e}")
+            logger.error("FMP API request error: %s", e)
             return None
         except Exception as e:
-            print(f"FMP API unexpected error: {e}")
+            logger.error("FMP API unexpected error: %s", e)
             return None
 
     def get_treasury_rates(self, date: Optional[str] = None) -> dict:
@@ -259,7 +262,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print("[FMP] get_treasury_rates()")
+        logger.info("get_treasury_rates()")
 
         params = {}
         if date:
@@ -268,7 +271,7 @@ class FMPService:
         data = self._request("/stable/treasury-rates", params)
 
         if not data or not isinstance(data, list) or len(data) == 0:
-            print("FMP Treasury Rates API returned empty data")
+            logger.warning("FMP Treasury Rates API returned empty data")
             return self._empty_treasury_response()
 
         raw = data[0]
@@ -384,13 +387,13 @@ class FMPService:
                 ...
             }
         """
-        print("[FMP] get_treasury_rates_with_change()")
+        logger.info("get_treasury_rates_with_change()")
 
         # Fetch treasury rates - API returns multiple days by default
         data = self._request("/stable/treasury-rates", {})
 
         if not data or not isinstance(data, list) or len(data) == 0:
-            print("FMP Treasury Rates API returned empty data")
+            logger.warning("FMP Treasury Rates API returned empty data")
             return self._empty_treasury_response()
 
         # data[0] is today (or most recent), data[1] is previous trading day
@@ -442,7 +445,7 @@ class FMPService:
             "source": "fmp",
         }
 
-        print(f"[FMP] Treasury rates with change: today={today_date}, prev={prev_date}")
+        logger.info("Treasury rates with change: today=%s, prev=%s", today_date, prev_date)
         return result
 
     def get_stock_news(self, symbols: list[str] = None, limit: int = 80, from_date: str = None) -> dict:
@@ -468,7 +471,7 @@ class FMPService:
 
         # Batch into groups of 20 (FMP API limit per request)
         batches = [symbols[i:i + 20] for i in range(0, len(symbols), 20)]
-        print(f"[FMP] get_stock_news(symbols={len(symbols)}, batches={len(batches)}, limit={limit}, from={from_date})")
+        logger.info("get_stock_news(symbols=%d, batches=%d, limit=%d, from=%s)", len(symbols), len(batches), limit, from_date)
 
         all_news = []
         for batch in batches:
@@ -500,7 +503,7 @@ class FMPService:
         Returns:
             Standardized news response dict
         """
-        print(f"[FMP] get_latest_news(limit={limit}, from={from_date})")
+        logger.info("get_latest_news(limit=%d, from=%s)", limit, from_date)
 
         params = {"limit": limit}
         if from_date:
@@ -536,7 +539,7 @@ class FMPService:
         Returns:
             Standardized news response dict
         """
-        print(f"[FMP] get_general_news(limit={limit}, from={from_date})")
+        logger.info("get_general_news(limit=%d, from=%s)", limit, from_date)
 
         params = {"limit": limit}
         if from_date:
@@ -624,7 +627,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print(f"[FMP] get_economic_calendar(days={days}, country={country})")
+        logger.info("get_economic_calendar(days=%d, country=%s)", days, country)
 
         from_date = today_str()  # Pacific timezone
         to_date = days_from_now(min(days, 90))
@@ -698,7 +701,7 @@ class FMPService:
         Returns:
             Filtered calendar with only High and Medium impact events
         """
-        print(f"[FMP] get_high_impact_events(days={days})")
+        logger.info("get_high_impact_events(days=%d)", days)
 
         countries = countries or ["US", "EU", "CN", "JP", "GB"]
         calendar = self.get_economic_calendar(days=days)
@@ -778,7 +781,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print(f"[FMP] get_earnings_calendar(days={days})")
+        logger.info("get_earnings_calendar(days=%d)", days)
 
         from_date = today_str()  # Pacific timezone
         to_date = days_from_now(min(days, 90))
@@ -834,7 +837,7 @@ class FMPService:
         Returns:
             Filtered earnings with only major companies
         """
-        print(f"[FMP] get_major_earnings(days={days})")
+        logger.info("get_major_earnings(days=%d)", days)
 
         # Major tickers - Tech worker focused
         major_tickers = {
@@ -923,7 +926,7 @@ class FMPService:
         # Use BZUSD (Brent Crude) instead of CLUSD (WTI) - CLUSD requires higher subscription
         symbols = symbols or ["GCUSD", "BZUSD"]
 
-        print(f"[FMP] get_commodity_quotes(symbols={symbols})")
+        logger.info("get_commodity_quotes(symbols=%s)", symbols)
 
         # Fetch each symbol individually (stable API may not support comma-separated)
         all_data = []
@@ -998,7 +1001,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print(f"[FMP] get_commodity_historical(symbol={symbol}, days={days})")
+        logger.info("get_commodity_historical(symbol=%s, days=%d)", symbol, days)
 
         # FMP stable API endpoint (migrated from legacy v3)
         data = self._request(f"/stable/historical-price-eod/full", params={"symbol": symbol})
@@ -1051,7 +1054,7 @@ class FMPService:
         Returns:
             Quote data or None
         """
-        print(f"[FMP] get_index_quote(symbol={symbol})")
+        logger.info("get_index_quote(symbol=%s)", symbol)
 
         # Use stable API endpoint with symbol parameter
         data = self._request("/stable/quote", {"symbol": symbol})
@@ -1088,12 +1091,12 @@ class FMPService:
                 return data
 
         # Fetch from FMP stable endpoint
-        print("[FMP] Fetching stock list from /stable/stock-list...")
+        logger.info("Fetching stock list from /stable/stock-list...")
         data = self._request("/stable/stock-list")
 
         if data and isinstance(data, list):
             _stock_list_cache["list"] = (data, time.time())
-            print(f"[FMP] Cached {len(data)} stocks")
+            logger.info("Cached %d stocks", len(data))
             return data
 
         return []
@@ -1121,7 +1124,7 @@ class FMPService:
                 ]
             }
         """
-        print(f"[FMP] search_stocks(query={query}, limit={limit})")
+        logger.info("search_stocks(query=%s, limit=%d)", query, limit)
 
         # Get stock list (cached)
         stock_list = self._get_stock_list()
@@ -1213,7 +1216,7 @@ class FMPService:
             return {"status": "success", "quotes": [], "from_cache": 0}
 
         symbols_upper = [s.upper() for s in symbols]
-        print(f"[FMP] get_stock_quotes(symbols={len(symbols_upper)} symbols, use_cache={use_cache})")
+        logger.info("get_stock_quotes(symbols=%d symbols, use_cache=%s)", len(symbols_upper), use_cache)
 
         # Step 1: Check cache for existing quotes
         quotes_dict: dict[str, dict] = {}
@@ -1263,7 +1266,7 @@ class FMPService:
                     _quote_cache.release_fetch_lock(batch_key)
             else:
                 # Another request is fetching - wait for it
-                print(f"[FMP] Waiting for concurrent request to complete...")
+                logger.info("Waiting for concurrent request to complete...")
                 event.wait(timeout=30)  # Wait up to 30 seconds
 
                 # Now get from cache (the leader should have populated it)
@@ -1311,10 +1314,10 @@ class FMPService:
                     "cached": False,
                 }
                 fetched_quotes.append(quote)
-            print(f"[FMP] Batch fetched {len(fetched_quotes)} quotes in one request")
+            logger.info("Batch fetched %d quotes in one request", len(fetched_quotes))
         else:
             # Fallback: fetch individually (for lower-tier API plans)
-            print(f"[FMP] Batch API unavailable, fetching {len(symbols)} quotes individually")
+            logger.info("Batch API unavailable, fetching %d quotes individually", len(symbols))
             for symbol in symbols:
                 item = self._request(f"/stable/quote", {"symbol": symbol})
                 if item and isinstance(item, list) and len(item) > 0:
@@ -1330,14 +1333,14 @@ class FMPService:
                         "cached": False,
                     }
                     fetched_quotes.append(quote)
-            print(f"[FMP] Fetched {len(fetched_quotes)} quotes individually")
+            logger.info("Fetched %d quotes individually", len(fetched_quotes))
 
         return fetched_quotes
 
     def clear_quote_cache(self) -> None:
         """Clear the quote cache"""
         _quote_cache.clear()
-        print("[FMP] Quote cache cleared")
+        logger.info("Quote cache cleared")
 
     # =========================================================================
     # Peer Comparison & Industry Valuation
@@ -1358,7 +1361,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print(f"[FMP] get_stock_peers(symbol={symbol})")
+        logger.info("get_stock_peers(symbol=%s)", symbol)
 
         data = self._request("/stable/stock-peers", {"symbol": symbol})
 
@@ -1409,7 +1412,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print(f"[FMP] get_industry_peers(industry={industry}, exclude={exclude_symbol})")
+        logger.info("get_industry_peers(industry=%s, exclude=%s)", industry, exclude_symbol)
 
         # Use company screener with industry filter and minimum market cap
         params = {
@@ -1487,7 +1490,7 @@ class FMPService:
             from datetime import datetime, timedelta
             date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-        print(f"[FMP] get_industry_pe(date={date})")
+        logger.info("get_industry_pe(date=%s)", date)
 
         params = {"date": date}
 
@@ -1541,7 +1544,7 @@ class FMPService:
             from datetime import datetime, timedelta
             date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-        print(f"[FMP] get_sector_pe(date={date})")
+        logger.info("get_sector_pe(date=%s)", date)
 
         params = {"date": date}
 
@@ -1598,7 +1601,7 @@ class FMPService:
                 "source": "fmp_ttm" | "fmp_annual"
             }
         """
-        print(f"[FMP] get_key_metrics_ttm(symbol={symbol})")
+        logger.info("get_key_metrics_ttm(symbol=%s)", symbol)
 
         # Try TTM endpoints first (real-time trailing 12 months)
         ratios_data = self._request("/stable/ratios-ttm", {"symbol": symbol})
@@ -1649,7 +1652,7 @@ class FMPService:
             }
 
         # Fallback: annual endpoints
-        print(f"[FMP] TTM endpoints empty for {symbol}, falling back to annual")
+        logger.info("TTM endpoints empty for %s, falling back to annual", symbol)
         ratios_data = self._request("/stable/ratios", {"symbol": symbol})
         metrics_data = self._request("/stable/key-metrics", {"symbol": symbol})
 
@@ -1719,7 +1722,7 @@ class FMPService:
                 "source": "fmp"
             }
         """
-        print(f"[FMP] get_historical_key_metrics(symbol={symbol}, period={period}, limit={limit})")
+        logger.info("get_historical_key_metrics(symbol=%s, period=%s, limit=%d)", symbol, period, limit)
 
         # Use stable/ratios endpoint (returns historical data by default)
         data = self._request("/stable/ratios", {"symbol": symbol})

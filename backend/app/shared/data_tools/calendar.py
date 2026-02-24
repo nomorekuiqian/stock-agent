@@ -3,6 +3,10 @@ Economic Calendar Tools for Market Agent
 Provides economic calendar fetching functions using FMP API.
 """
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_economic_calendar(days: int = 14) -> dict:
     """
@@ -36,7 +40,7 @@ def get_economic_calendar(days: int = 14) -> dict:
             "source": "fmp"
         }
     """
-    print(f"[TOOL] get_economic_calendar(days={days})")
+    logger.info("get_economic_calendar(days=%d)", days)
 
     try:
         from app.shared.fmp_service import get_fmp_service
@@ -68,7 +72,7 @@ def get_economic_calendar(days: int = 14) -> dict:
                 for keyword in key_event_keywords
             )
 
-        print(f"Economic calendar: {len(us_high_impact)} US high-impact events")
+        logger.info("Economic calendar: %d US high-impact events", len(us_high_impact))
 
         return {
             "status": "success",
@@ -80,7 +84,7 @@ def get_economic_calendar(days: int = 14) -> dict:
         }
 
     except ValueError as e:
-        print(f"Economic calendar unavailable: {e}")
+        logger.error("Economic calendar unavailable: %s", e)
         return {
             "status": "error",
             "error": str(e),
@@ -89,7 +93,7 @@ def get_economic_calendar(days: int = 14) -> dict:
             "source": "fmp",
         }
     except Exception as e:
-        print(f"Error fetching economic calendar: {e}")
+        logger.error("Error fetching economic calendar: %s", e)
         return {
             "status": "error",
             "error": str(e),

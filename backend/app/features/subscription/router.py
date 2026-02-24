@@ -5,9 +5,11 @@ Handles:
 - Subscription management (subscribe, unsubscribe, status, update, list, broadcast, sync)
 """
 
-import traceback
-
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 from app.core.deps import verify_cron_secret
 from app.utils.timezone import today_str, now_iso
@@ -76,9 +78,9 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
                 first_name=request.first_name
             )
             if welcome_result.get("success"):
-                print(f"[API] Welcome email sent to {request.email}")
+                logger.info("Welcome email sent to %s", request.email)
             else:
-                print(f"[API] Failed to send welcome email: {welcome_result.get('error')}")
+                logger.warning("Failed to send welcome email: %s", welcome_result.get("error"))
 
         return SubscriptionResponse(
             success=result.get("success", False),
@@ -90,7 +92,7 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
         )
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in subscribe_to_channel")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -111,7 +113,7 @@ async def unsubscribe_from_channel(channel: SubscriptionChannel, request: Unsubs
         )
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in unsubscribe_from_channel")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -137,7 +139,7 @@ async def get_subscription_status(
         )
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in get_subscription_status")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -171,7 +173,7 @@ async def update_subscription(channel: SubscriptionChannel, request: Subscriptio
         )
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in update_subscription")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -202,7 +204,7 @@ async def list_channel_subscribers(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in list_channel_subscribers")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -285,7 +287,7 @@ async def broadcast_to_channel(
 
             if not broadcast_result.get("success"):
                 error_msg = broadcast_result.get("error", "Failed to broadcast daily report")
-                print(f"[broadcast_to_channel] Daily report broadcast failed: {error_msg}")
+                logger.error("Daily report broadcast failed: %s", error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
 
             return BroadcastResponse(
@@ -303,7 +305,7 @@ async def broadcast_to_channel(
 
             if not broadcast_result.get("success"):
                 error_msg = broadcast_result.get("error", "Failed to broadcast personal digests")
-                print(f"[broadcast_to_channel] Personal digest broadcast failed: {error_msg}")
+                logger.error("Personal digest broadcast failed: %s", error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
 
             return BroadcastResponse(
@@ -327,7 +329,7 @@ async def broadcast_to_channel(
 
             if not broadcast_result.get("success"):
                 error_msg = broadcast_result.get("error", "Failed to broadcast weekly report")
-                print(f"[broadcast_to_channel] Weekly report broadcast failed: {error_msg}")
+                logger.error("Weekly report broadcast failed: %s", error_msg)
                 raise HTTPException(status_code=500, detail=error_msg)
 
             return BroadcastResponse(
@@ -345,7 +347,7 @@ async def broadcast_to_channel(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in broadcast_to_channel")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -382,5 +384,5 @@ async def sync_user_subscriptions(request: SyncUserRequest):
         )
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in sync_user_subscriptions")
         raise HTTPException(status_code=500, detail=str(e))

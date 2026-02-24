@@ -6,14 +6,16 @@ POST /generate endpoint for AI generation (protected by X-Cron-Secret).
 """
 
 import time
-import traceback
 from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import verify_cron_secret
+from app.core.logging import get_logger
 from app.features.macro.weekly import db as weekly_db
 from app.utils.timezone import market_week_label, utc_now_iso
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/weekly-report", tags=["weekly-report"])
 
@@ -63,7 +65,7 @@ async def get_weekly_report(
         }
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch weekly report")
         raise HTTPException(status_code=500, detail="Failed to fetch weekly report")
 
 
@@ -84,7 +86,7 @@ async def list_weekly_reports(
         }
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to list weekly reports")
         raise HTTPException(status_code=500, detail="Failed to list weekly reports")
 
 
@@ -118,7 +120,7 @@ async def generate_weekly_report(
         from app.features.macro.weekly.agent import WeeklyReportAgent
 
         # Step 1: Collect raw data
-        print(f"[WeeklyReport] Generating report for {week_label}...")
+        logger.info("Generating report for %s...", week_label)
         raw_data = await collect_weekly_data()
 
         # Step 2: AI generation
@@ -150,11 +152,11 @@ async def generate_weekly_report(
                 result = await get_email_service().broadcast_weekly_report(saved_report)
                 broadcast_result = result
                 if result.get("success"):
-                    print(f"[WeeklyReport] Broadcast sent: {result.get('broadcast_id')}")
+                    logger.info("Broadcast sent: %s", result.get('broadcast_id'))
                 else:
-                    print(f"[WeeklyReport] Broadcast failed: {result.get('error')}")
+                    logger.error("Broadcast failed: %s", result.get('error'))
         except Exception as e:
-            print(f"[WeeklyReport] Broadcast failed (non-fatal): {e}")
+            logger.error("Broadcast failed (non-fatal): %s", e)
 
         return {
             "success": True,
@@ -165,7 +167,7 @@ async def generate_weekly_report(
         }
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to generate weekly report")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate weekly report: {str(e)[:200]}",

@@ -3,6 +3,10 @@ Earnings Calendar Tools for Market Agent
 Provides earnings calendar fetching functions using FMP API.
 """
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_earnings_calendar(days: int = 14) -> dict:
     """
@@ -35,7 +39,7 @@ def get_earnings_calendar(days: int = 14) -> dict:
             "source": "fmp"
         }
     """
-    print(f"[TOOL] get_earnings_calendar(days={days})")
+    logger.info("get_earnings_calendar(days=%d)", days)
 
     try:
         from app.shared.fmp_service import get_fmp_service
@@ -44,15 +48,15 @@ def get_earnings_calendar(days: int = 14) -> dict:
         result = fmp.get_major_earnings(days=days)
 
         if result.get("status") == "error":
-            print(f"Earnings calendar error: {result.get('error')}")
+            logger.error("Earnings calendar error: %s", result.get('error'))
             return result
 
-        print(f"Earnings calendar: {result.get('earnings_count', 0)} major company earnings")
+        logger.info("Earnings calendar: %d major company earnings", result.get('earnings_count', 0))
 
         return result
 
     except ValueError as e:
-        print(f"Earnings calendar unavailable: {e}")
+        logger.error("Earnings calendar unavailable: %s", e)
         return {
             "status": "error",
             "error": str(e),
@@ -61,7 +65,7 @@ def get_earnings_calendar(days: int = 14) -> dict:
             "source": "fmp",
         }
     except Exception as e:
-        print(f"Error fetching earnings calendar: {e}")
+        logger.error("Error fetching earnings calendar: %s", e)
         return {
             "status": "error",
             "error": str(e),

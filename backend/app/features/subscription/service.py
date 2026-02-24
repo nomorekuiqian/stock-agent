@@ -11,6 +11,9 @@ from typing import Optional, List, Dict, Any
 import resend
 
 from app.core.config import RESEND_API_KEY
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 # Rate limit handling for Resend API (2 requests/second)
@@ -113,9 +116,7 @@ class SubscriptionService:
                 if aud.get("name") == audience_name:
                     audience_id = aud["id"]
                     self._audience_ids[channel] = audience_id
-                    print(
-                        f"[SubscriptionService] Found audience for {channel}: {audience_id}"
-                    )
+                    logger.info("Found audience for %s: %s", channel, audience_id)
                     return audience_id
 
             # Create new audience if not found
@@ -123,13 +124,11 @@ class SubscriptionService:
             audience = resend.Audiences.create({"name": audience_name})
             audience_id = audience["id"]
             self._audience_ids[channel] = audience_id
-            print(
-                f"[SubscriptionService] Created audience for {channel}: {audience_id}"
-            )
+            logger.info("Created audience for %s: %s", channel, audience_id)
             return audience_id
 
         except Exception as e:
-            print(f"[SubscriptionService] Error ensuring audience for {channel}: {e}")
+            logger.error("Error ensuring audience for %s: %s", channel, e)
             raise
 
     # =========================================================================
@@ -187,9 +186,7 @@ class SubscriptionService:
 
             _rate_limit_wait()
             contact = resend.Contacts.create(params)
-            print(
-                f"[SubscriptionService] Subscribed {email} to {channel}: {contact.get('id')}"
-            )
+            logger.info("Subscribed %s to %s: %s", email, channel, contact.get("id"))
 
             return {
                 "success": True,
@@ -205,7 +202,7 @@ class SubscriptionService:
             if "already exists" in error_msg.lower():
                 # Try to update instead
                 return self.update(channel, email, metadata)
-            print(f"[SubscriptionService] Error subscribing {email} to {channel}: {e}")
+            logger.error("Error subscribing %s to %s: %s", email, channel, e)
             return {"success": False, "error": error_msg}
 
     def unsubscribe(self, channel: SubscriptionChannel, email: str) -> Dict[str, Any]:
@@ -230,7 +227,7 @@ class SubscriptionService:
             }
             _rate_limit_wait()
             resend.Contacts.update(update_params)
-            print(f"[SubscriptionService] Unsubscribed {email} from {channel}")
+            logger.info("Unsubscribed %s from %s", email, channel)
             return {
                 "success": True,
                 "channel": channel.value,
@@ -238,9 +235,7 @@ class SubscriptionService:
             }
 
         except Exception as e:
-            print(
-                f"[SubscriptionService] Error unsubscribing {email} from {channel}: {e}"
-            )
+            logger.error("Error unsubscribing %s from %s: %s", email, channel, e)
             return {"success": False, "error": str(e)}
 
     def update(
@@ -287,7 +282,7 @@ class SubscriptionService:
 
             _rate_limit_wait()
             resend.Contacts.update(update_params)
-            print(f"[SubscriptionService] Updated {email} in {channel}")
+            logger.info("Updated %s in %s", email, channel)
 
             return {
                 "success": True,
@@ -297,7 +292,7 @@ class SubscriptionService:
             }
 
         except Exception as e:
-            print(f"[SubscriptionService] Error updating {email} in {channel}: {e}")
+            logger.error("Error updating %s in %s: %s", email, channel, e)
             return {"success": False, "error": str(e)}
 
     def get_status(self, channel: SubscriptionChannel, email: str) -> Dict[str, Any]:
@@ -349,9 +344,7 @@ class SubscriptionService:
             }
 
         except Exception as e:
-            print(
-                f"[SubscriptionService] Error getting status for {email} in {channel}: {e}"
-            )
+            logger.error("Error getting status for %s in %s: %s", email, channel, e)
             return {"success": False, "error": str(e)}
 
     def list_subscribers(
@@ -411,7 +404,7 @@ class SubscriptionService:
             }
 
         except Exception as e:
-            print(f"[SubscriptionService] Error listing subscribers for {channel}: {e}")
+            logger.error("Error listing subscribers for %s: %s", channel, e)
             return {"success": False, "error": str(e)}
 
     def remove_subscriber(
@@ -433,7 +426,7 @@ class SubscriptionService:
             audience_id = self.ensure_audience(channel)
             _rate_limit_wait()
             resend.Contacts.remove(audience_id=audience_id, email=email)
-            print(f"[SubscriptionService] Removed {email} from {channel}")
+            logger.info("Removed %s from %s", email, channel)
             return {
                 "success": True,
                 "channel": channel.value,
@@ -441,7 +434,7 @@ class SubscriptionService:
             }
 
         except Exception as e:
-            print(f"[SubscriptionService] Error removing {email} from {channel}: {e}")
+            logger.error("Error removing %s from %s: %s", email, channel, e)
             return {"success": False, "error": str(e)}
 
     # =========================================================================
@@ -528,15 +521,13 @@ class SubscriptionService:
                             }
                         )
 
-                        print(
-                            f"[SubscriptionService] Synced user {user_id} with {channel}"
-                        )
+                        logger.info("Synced user %s with %s", user_id, channel)
                         break
 
             except Exception as e:
                 error_msg = f"Error syncing {channel}: {str(e)}"
                 results["errors"].append(error_msg)
-                print(f"[SubscriptionService] {error_msg}")
+                logger.error("%s", error_msg)
 
         if results["errors"]:
             results["success"] = len(results["synced_channels"]) > 0
@@ -603,9 +594,7 @@ class SubscriptionService:
 
             _rate_limit_wait()
             contact = resend.Contacts.create(params)
-            print(
-                f"[SubscriptionService] New subscription {email} to {channel}: {contact.get('id')}"
-            )
+            logger.info("New subscription %s to %s: %s", email, channel, contact.get("id"))
 
             return {
                 "success": True,
@@ -621,7 +610,7 @@ class SubscriptionService:
 
             # Handle duplicate contact - this is a re-subscribe
             if "already exists" in error_msg.lower():
-                print(f"[SubscriptionService] {email} already exists in {channel}, updating")
+                logger.info("%s already exists in %s, updating", email, channel)
 
                 # Just re-enable subscription, don't send welcome again
                 try:
@@ -646,10 +635,10 @@ class SubscriptionService:
                         "metadata": metadata,
                     }
                 except Exception as update_error:
-                    print(f"[SubscriptionService] Error updating {email}: {update_error}")
+                    logger.error("Error updating %s: %s", email, update_error)
                     return {"success": False, "is_new": False, "error": str(update_error)}
 
-            print(f"[SubscriptionService] Error subscribing {email} to {channel}: {e}")
+            logger.error("Error subscribing %s to %s: %s", email, channel, e)
             return {"success": False, "is_new": False, "error": error_msg}
 
 

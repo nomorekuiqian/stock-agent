@@ -7,6 +7,9 @@ from typing import Dict, Any, Optional
 import httpx
 
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 async def save_sector_digest(
@@ -36,7 +39,7 @@ async def save_sector_digest(
             "digest_data": digest_data,  # Full digest data as JSON
         }
 
-        print(f"[InsforgeService] Saving sector digest: {sector_id} for {digest_date}")
+        logger.info("Saving sector digest: %s for %s", sector_id, digest_date)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -50,24 +53,22 @@ async def save_sector_digest(
                 data = response.json()
                 if data.get("success"):
                     digest_id = data.get("data", {}).get("id")
-                    print(f"[InsforgeService] Sector digest saved, ID: {digest_id}")
+                    logger.info("Sector digest saved, ID: %s", digest_id)
                     return {
                         "success": True,
                         "digest_id": digest_id,
                     }
                 else:
                     error_msg = data.get("error", "Unknown error")
-                    print(f"[InsforgeService] Sector digest save failed: {error_msg}")
+                    logger.error("Sector digest save failed: %s", error_msg)
                     return {"success": False, "error": error_msg}
             else:
                 error_msg = response.text
-                print(f"[InsforgeService] Sector digest save failed: {response.status_code} - {error_msg}")
+                logger.error("Sector digest save failed: %s - %s", response.status_code, error_msg)
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception saving sector digest: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Exception saving sector digest")
         return {"success": False, "error": str(e)}
 
 
@@ -100,7 +101,7 @@ async def get_latest_sector_digest(sector_id: str) -> Optional[Dict[str, Any]]:
             return None
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting latest sector digest: {e}")
+        logger.error("Exception getting latest sector digest: %s", e)
         return None
 
 
@@ -145,7 +146,7 @@ async def subscribe_to_sector(
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception subscribing to sector: {e}")
+        logger.error("Exception subscribing to sector: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -187,7 +188,7 @@ async def unsubscribe_from_sector(
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception unsubscribing from sector: {e}")
+        logger.error("Exception unsubscribing from sector: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -228,7 +229,7 @@ async def get_user_sector_subscriptions(user_id: str) -> Dict[str, Any]:
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}", "subscriptions": []}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting sector subscriptions: {e}")
+        logger.error("Exception getting sector subscriptions: %s", e)
         return {"success": False, "error": str(e), "subscriptions": []}
 
 
@@ -276,5 +277,5 @@ async def get_sector_digest_history(
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}", "digests": []}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting sector digest history: {e}")
+        logger.error("Exception getting sector digest history: %s", e)
         return {"success": False, "error": str(e), "digests": []}

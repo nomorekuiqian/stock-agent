@@ -8,19 +8,14 @@ Handles:
 - Newsletter generation and broadcasting
 """
 
-import traceback
-
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 
 from app.core.deps import verify_cron_secret
+from app.core.logging import get_logger
 from app.utils.timezone import today_str, now_iso
 from app.features.daily_report import db as market_db
-from app.features.subscription.service import (
-    get_subscription_service,
-    SubscriptionChannel,
-)
 from app.features.subscription.email_service import get_email_service
 from app.features.subscription.models import (
     SendEmailRequest,
@@ -29,6 +24,8 @@ from app.features.subscription.models import (
     NewsletterSendRequest,
     NewsletterBroadcastRequest,
 )
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["notification"])
 
@@ -74,7 +71,7 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
             report_date_from_timestamp = report_timestamp[:10] if report_timestamp else ""
 
             if report_date_from_timestamp == today:
-                print(f"[API] Found existing report for {today}, using cached data for email")
+                logger.info("Found existing report for %s, using cached data for email", today)
                 from_cache = True
                 report_data = _report_data_from_db(existing_report)
                 report_data["market_data"] = existing_report.get("market_data", {})
@@ -82,7 +79,7 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
 
         # Generate new report if no cache found
         if not from_cache:
-            print(f"[API] No existing report for {today}, generating new analysis...")
+            logger.info("No existing report for %s, generating new analysis...", today)
             market_agent = MarketAgent()
             result = await market_agent.analyze()
             if not result:
@@ -111,7 +108,7 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
             # Save report to database
             save_result = await market_db.save_market_report(report_data)
             if not save_result.get("success"):
-                print(f"[Warning] Failed to save report to database: {save_result.get('error')}")
+                logger.warning("Failed to save report to database: %s", save_result.get("error"))
             else:
                 # Add report_id to report_data for email feedback links
                 report_data["report_id"] = save_result.get("report_id")
@@ -136,7 +133,7 @@ async def send_daily_report(_secret: str = Depends(verify_cron_secret)):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in send_daily_report")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -181,7 +178,7 @@ async def get_email_preview(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in get_email_preview")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -230,7 +227,7 @@ async def get_weekly_report_preview(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in get_weekly_report_preview")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -321,7 +318,7 @@ async def get_digest_preview(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in get_digest_preview")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -332,12 +329,12 @@ async def broadcast_test_report(request: BroadcastTestRequest):
     This avoids generating a new report each time, saving API calls.
     """
     try:
-        print(f"[broadcast-test] Fetching report: {request.report_id}")
+        logger.info("Fetching report: %s", request.report_id)
 
         # Fetch report from Insforge
         report = await market_db.get_report_by_id(request.report_id)
 
-        print(f"[broadcast-test] Report fetched: {report is not None}")
+        logger.info("Report fetched: %s", report is not None)
 
         if not report:
             raise HTTPException(status_code=404, detail=f"Report not found: {request.report_id}")
@@ -363,7 +360,7 @@ async def broadcast_test_report(request: BroadcastTestRequest):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in broadcast_test_report")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -411,7 +408,7 @@ async def send_test_report(request: SendEmailRequest):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in send_test_report")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -451,7 +448,7 @@ async def send_test_weekly_report(request: SendEmailRequest):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in send_test_weekly_report")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -485,7 +482,7 @@ async def send_test_welcome_email(request: SendEmailRequest):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in send_test_welcome_email")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -520,7 +517,7 @@ async def generate_newsletter(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in generate_newsletter")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -554,7 +551,7 @@ async def preview_newsletter(request: NewsletterSendRequest):
         }
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in preview_newsletter")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -601,7 +598,7 @@ async def send_test_newsletter(request: NewsletterSendRequest):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in send_test_newsletter")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -646,7 +643,7 @@ async def broadcast_newsletter(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in broadcast_newsletter_endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -685,5 +682,5 @@ async def broadcast_weekly_report(_secret: str = Depends(verify_cron_secret)):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Error in broadcast_weekly_report")
         raise HTTPException(status_code=500, detail=str(e))

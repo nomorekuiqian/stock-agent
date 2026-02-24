@@ -14,6 +14,10 @@ import asyncio
 from typing import Optional, List, Dict, Any
 from functools import partial
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 # Fix SSL certificate issue on macOS by using certifi
 try:
     import certifi
@@ -46,15 +50,15 @@ class OpenBBService:
             fmp_key = os.getenv("FMP_API_KEY")
             if fmp_key:
                 obb.user.credentials.fmp_api_key = fmp_key
-                print("[OpenBBService] FMP API key configured")
+                logger.info("FMP API key configured")
 
             OpenBBService._obb = obb
             OpenBBService._initialized = True
-            print("[OpenBBService] Initialized successfully")
+            logger.info("Initialized successfully")
         except ImportError as e:
-            print(f"[OpenBBService] Warning: OpenBB not installed - {e}")
+            logger.warning("OpenBB not installed - %s", e)
         except Exception as e:
-            print(f"[OpenBBService] Warning: Failed to initialize - {e}")
+            logger.warning("Failed to initialize - %s", e)
 
     def _run_sync(self, func, *args, **kwargs):
         """Run a synchronous OpenBB call."""
@@ -117,7 +121,7 @@ class OpenBBService:
             return {}
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching profile for {symbol}: {e}")
+            logger.error("Error fetching profile for %s: %s", symbol, e)
             return {}
 
     async def get_income_statements(self, symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
@@ -149,7 +153,7 @@ class OpenBBService:
             return items
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching income statements for {symbol}: {e}")
+            logger.error("Error fetching income statements for %s: %s", symbol, e)
             return []
 
     async def get_balance_sheets(self, symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
@@ -181,7 +185,7 @@ class OpenBBService:
             return items
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching balance sheets for {symbol}: {e}")
+            logger.error("Error fetching balance sheets for %s: %s", symbol, e)
             return []
 
     async def get_cash_flows(self, symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
@@ -213,7 +217,7 @@ class OpenBBService:
             return items
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching cash flows for {symbol}: {e}")
+            logger.error("Error fetching cash flows for %s: %s", symbol, e)
             return []
 
     async def get_key_metrics(self, symbol: str, limit: int = 8) -> List[Dict[str, Any]]:
@@ -245,7 +249,7 @@ class OpenBBService:
             return items
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching key metrics for {symbol}: {e}")
+            logger.error("Error fetching key metrics for %s: %s", symbol, e)
             return []
 
     async def get_realtime_quote(self, symbol: str) -> Dict[str, Any]:
@@ -287,7 +291,7 @@ class OpenBBService:
             return {}
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching quote for {symbol}: {e}")
+            logger.error("Error fetching quote for %s: %s", symbol, e)
             return {}
 
     async def get_historical_prices(
@@ -329,7 +333,7 @@ class OpenBBService:
             ]
 
         except Exception as e:
-            print(f"[OpenBBService] Error fetching historical prices for {symbol}: {e}")
+            logger.error("Error fetching historical prices for %s: %s", symbol, e)
             return []
 
     # =========================================================================

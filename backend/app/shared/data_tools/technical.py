@@ -12,14 +12,16 @@ Usage:
 
 import math
 import threading
-import traceback
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import pandas as pd
 import yfinance as yf
 
+from app.core.logging import get_logger
 from app.shared.data_tools.market_data import safe_float
+
+logger = get_logger(__name__)
 
 
 _tv_snapshot_cache: dict = {}
@@ -111,7 +113,7 @@ def get_technical_snapshot(symbol: str, exchange: Optional[str] = None) -> dict:
     cache_key = symbol
     cached = _get_cached(_tv_snapshot_cache, _tv_snapshot_lock, cache_key)
     if cached:
-        print(f"[Technical] tvscreener cache HIT for {symbol}")
+        logger.info("tvscreener cache HIT for %s", symbol)
         return cached
 
     try:
@@ -194,7 +196,7 @@ def get_technical_snapshot(symbol: str, exchange: Optional[str] = None) -> dict:
             row_df = df[df["Symbol"] == tv_symbol]
 
         if row_df.empty:
-            print(f"[Technical] tvscreener: {symbol} not found in any exchange")
+            logger.warning("tvscreener: %s not found in any exchange", symbol)
             return {"source": "tvscreener", "error": "symbol_not_found", "symbol": symbol}
 
         row = row_df.iloc[0]
@@ -322,12 +324,11 @@ def get_technical_snapshot(symbol: str, exchange: Optional[str] = None) -> dict:
                 result["derived"]["bb_position"] = "lower_half"
 
         _set_cached(_tv_snapshot_cache, _tv_snapshot_lock, cache_key, result, TV_SNAPSHOT_TTL_MINUTES)
-        print(f"[Technical] tvscreener OK for {tv_symbol}: price={price}, RSI={rsi}")
+        logger.info("tvscreener OK for %s: price=%s, RSI=%s", tv_symbol, price, rsi)
         return result
 
     except Exception as e:
-        print(f"[Technical] tvscreener error for {symbol}: {e}")
-        traceback.print_exc()
+        logger.exception("tvscreener error for %s: %s", symbol, e)
         return {"source": "tvscreener", "error": str(e), "symbol": symbol}
 
 
@@ -382,7 +383,7 @@ def _find_support_resistance(df: pd.DataFrame, window: int = 10) -> dict:
 
         return result
     except Exception as e:
-        print(f"[Technical] Support/resistance error: {e}")
+        logger.error("Support/resistance error: %s", e)
         return {}
 
 
@@ -398,7 +399,7 @@ def get_technical_trends(symbol: str, days: int = 180) -> dict:
     cache_key = f"{symbol}_{days}"
     cached = _get_cached(_trends_cache, _trends_lock, cache_key)
     if cached:
-        print(f"[Technical] trends cache HIT for {symbol}")
+        logger.info("trends cache HIT for %s", symbol)
         return cached
 
     try:
@@ -409,7 +410,7 @@ def get_technical_trends(symbol: str, days: int = 180) -> dict:
         df = yf.download(symbol, period=period, progress=False)
 
         if df.empty or len(df) < 30:
-            print(f"[Technical] Insufficient data for {symbol}: {len(df)} rows")
+            logger.warning("Insufficient data for %s: %d rows", symbol, len(df))
             return {"source": "pandas-ta", "error": "insufficient_data", "symbol": symbol}
 
         # Flatten MultiIndex columns if present (yfinance sometimes returns multi-level)
@@ -573,12 +574,11 @@ def get_technical_trends(symbol: str, days: int = 180) -> dict:
         }
 
         _set_cached(_trends_cache, _trends_lock, cache_key, result, TRENDS_TTL_MINUTES)
-        print(f"[Technical] pandas-ta OK for {symbol}: {len(df)} data points")
+        logger.info("pandas-ta OK for %s: %d data points", symbol, len(df))
         return result
 
     except Exception as e:
-        print(f"[Technical] pandas-ta error for {symbol}: {e}")
-        traceback.print_exc()
+        logger.exception("pandas-ta error for %s: %s", symbol, e)
         return {"source": "pandas-ta", "error": str(e), "symbol": symbol}
 
 
@@ -591,7 +591,7 @@ def get_technical_data(symbol: str, exchange: Optional[str] = None) -> dict:
     Returns merged dict with all data needed for the Technical Agent.
     """
     symbol = symbol.upper()
-    print(f"[Technical] Fetching technical data for {symbol}")
+    logger.info("Fetching technical data for %s", symbol)
 
     # 1. tvscreener snapshot (current indicators + ratings)
     snapshot = get_technical_snapshot(symbol, exchange)

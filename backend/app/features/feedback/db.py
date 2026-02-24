@@ -6,12 +6,14 @@ Includes:
 - User feedback: General feedback from contact page
 """
 
-import traceback
 from typing import Any, Dict, Optional
 
 import httpx
 
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 async def save_email_feedback(
@@ -44,7 +46,7 @@ async def save_email_feedback(
         if report_id:
             db_feedback["report_id"] = report_id
 
-        print(f"[InsforgeService] Saving email feedback: {email} -> {rating} for {report_date}")
+        logger.info("Saving email feedback: %s -> %s for %s", email, rating, report_date)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -58,7 +60,7 @@ async def save_email_feedback(
                 data = response.json()
                 if data.get("success"):
                     is_duplicate = data.get("isDuplicate", False)
-                    print(f"[InsforgeService] Feedback saved (duplicate: {is_duplicate})")
+                    logger.info("Feedback saved (duplicate: %s)", is_duplicate)
                     return {
                         "success": True,
                         "is_duplicate": is_duplicate,
@@ -66,16 +68,15 @@ async def save_email_feedback(
                     }
                 else:
                     error_msg = data.get("error", "Unknown error")
-                    print(f"[InsforgeService] Feedback save failed: {error_msg}")
+                    logger.error("Feedback save failed: %s", error_msg)
                     return {"success": False, "error": error_msg}
             else:
                 error_msg = response.text
-                print(f"[InsforgeService] Feedback save failed: {response.status_code} - {error_msg}")
+                logger.error("Feedback save failed: %s - %s", response.status_code, error_msg)
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception saving email feedback: {e}")
-        traceback.print_exc()
+        logger.exception("Exception saving email feedback")
         return {"success": False, "error": str(e)}
 
 
@@ -97,7 +98,7 @@ async def get_feedback_stats(
         service = get_insforge_service()
         feedback_url = f"{service.base_url}/functions/email-feedback"
 
-        print(f"[InsforgeService] Getting feedback stats: {start_date} to {end_date}")
+        logger.info("Getting feedback stats: %s to %s", start_date, end_date)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -129,7 +130,7 @@ async def get_feedback_stats(
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting feedback stats: {e}")
+        logger.exception("Exception getting feedback stats")
         return {"success": False, "error": str(e)}
 
 
@@ -165,7 +166,7 @@ async def save_user_feedback(
         if message:
             db_feedback["message"] = message
 
-        print(f"[InsforgeService] Saving user feedback: {email} -> {rating}")
+        logger.info("Saving user feedback: %s -> %s", email, rating)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -178,23 +179,22 @@ async def save_user_feedback(
             if response.status_code in (200, 201):
                 data = response.json()
                 if data.get("success"):
-                    print("[InsforgeService] User feedback saved successfully")
+                    logger.info("User feedback saved successfully")
                     return {
                         "success": True,
                         "data": data.get("data"),
                     }
                 else:
                     error_msg = data.get("error", "Unknown error")
-                    print(f"[InsforgeService] User feedback save failed: {error_msg}")
+                    logger.error("User feedback save failed: %s", error_msg)
                     return {"success": False, "error": error_msg}
             else:
                 error_msg = response.text
-                print(f"[InsforgeService] User feedback save failed: {response.status_code} - {error_msg}")
+                logger.error("User feedback save failed: %s - %s", response.status_code, error_msg)
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception saving user feedback: {e}")
-        traceback.print_exc()
+        logger.exception("Exception saving user feedback")
         return {"success": False, "error": str(e)}
 
 
@@ -216,7 +216,7 @@ async def get_user_feedback_list(
         service = get_insforge_service()
         feedback_url = f"{service.base_url}/functions/user-feedback"
 
-        print(f"[InsforgeService] Getting user feedback list: page={page}, size={page_size}")
+        logger.info("Getting user feedback list: page=%d, size=%d", page, page_size)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -248,5 +248,5 @@ async def get_user_feedback_list(
                 return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
 
     except Exception as e:
-        print(f"[InsforgeService] Exception getting user feedback list: {e}")
+        logger.exception("Exception getting user feedback list")
         return {"success": False, "error": str(e)}
