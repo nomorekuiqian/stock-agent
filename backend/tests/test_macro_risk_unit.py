@@ -1,7 +1,7 @@
 """
 Macro Risk Service Unit Tests
 
-Tests for pure scoring/compute logic in app/features/macro_risk/service.py:
+Tests for pure scoring/compute logic in app/features/macro/risk/service.py:
 - _score_indicator
 - _compute_economic_deterioration
 - _compute_credit_risk
