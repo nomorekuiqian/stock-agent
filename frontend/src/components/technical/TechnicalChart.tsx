@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { TradingViewWidget } from '@/components/TradingViewWidget';
+import dynamic from 'next/dynamic';
+
+const TradingViewWidget = dynamic(
+  () => import('@/components/TradingViewWidget').then(mod => mod.TradingViewWidget),
+  { ssr: false, loading: () => <div className="h-[500px] bg-card animate-pulse rounded-lg" /> },
+);
 
 interface TechnicalChartProps {
   symbol: string;

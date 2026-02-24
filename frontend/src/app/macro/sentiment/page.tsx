@@ -2,8 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { TradingViewWidget } from '@/components/TradingViewWidget';
-import { IndexAreaChart } from '@/components/IndexAreaChart';
+import dynamic from 'next/dynamic';
+
+const TradingViewWidget = dynamic(
+  () => import('@/components/TradingViewWidget').then(mod => mod.TradingViewWidget),
+  { ssr: false, loading: () => <div className="h-[400px] bg-card animate-pulse rounded-lg" /> },
+);
+const IndexAreaChart = dynamic(
+  () => import('@/components/IndexAreaChart').then(mod => mod.IndexAreaChart),
+  { ssr: false, loading: () => <div className="h-[250px] bg-card animate-pulse rounded-lg" /> },
+);
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
   api,

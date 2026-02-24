@@ -2,9 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { TradingViewWidget } from '@/components/TradingViewWidget';
-import { NetLiquidityChart } from '@/components/NetLiquidityChart';
-import { GlobalLiquidityChart } from '@/components/GlobalLiquidityChart';
+import dynamic from 'next/dynamic';
+
+const TradingViewWidget = dynamic(
+  () => import('@/components/TradingViewWidget').then(mod => mod.TradingViewWidget),
+  { ssr: false, loading: () => <div className="h-[400px] bg-card animate-pulse rounded-lg" /> },
+);
+const NetLiquidityChart = dynamic(
+  () => import('@/components/NetLiquidityChart').then(mod => mod.NetLiquidityChart),
+  { ssr: false, loading: () => <div className="h-[350px] bg-card animate-pulse rounded-lg" /> },
+);
+const GlobalLiquidityChart = dynamic(
+  () => import('@/components/GlobalLiquidityChart').then(mod => mod.GlobalLiquidityChart),
+  { ssr: false, loading: () => <div className="h-[350px] bg-card animate-pulse rounded-lg" /> },
+);
 import { NFCIGauge } from '@/components/NFCIGauge';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {

@@ -5,7 +5,12 @@ import { useParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
-import { StockPriceChart } from '@/components/StockPriceChart';
+import dynamic from 'next/dynamic';
+
+const StockPriceChart = dynamic(
+  () => import('@/components/StockPriceChart').then(mod => mod.StockPriceChart),
+  { ssr: false, loading: () => <div className="h-[400px] bg-card animate-pulse rounded-lg" /> },
+);
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
 import { TechnicalSignalDashboard, type TechnicalSnapshot, type Timeframe } from '@/components/technical/TechnicalSignalDashboard';
 import { TechnicalChart } from '@/components/technical/TechnicalChart';

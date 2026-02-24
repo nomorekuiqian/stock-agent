@@ -2,9 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { TradingViewWidget } from '@/components/TradingViewWidget';
+import dynamic from 'next/dynamic';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
-import { CommodityAreaChart } from '@/components/CommodityAreaChart';
+
+const TradingViewWidget = dynamic(
+  () => import('@/components/TradingViewWidget').then(mod => mod.TradingViewWidget),
+  { ssr: false, loading: () => <div className="h-[400px] bg-card animate-pulse rounded-lg" /> },
+);
+const CommodityAreaChart = dynamic(
+  () => import('@/components/CommodityAreaChart').then(mod => mod.CommodityAreaChart),
+  { ssr: false, loading: () => <div className="h-[250px] bg-card animate-pulse rounded-lg" /> },
+);
 import {
   api,
   invalidateCache,
@@ -16,7 +24,10 @@ import {
   TreasuryCommoditiesResponse,
 } from '@/lib/api';
 import { InsightBanner } from '@/components/InsightBanner';
-import { YieldCurveChart } from '@/components/YieldCurveChart';
+const YieldCurveChart = dynamic(
+  () => import('@/components/YieldCurveChart').then(mod => mod.YieldCurveChart),
+  { ssr: false, loading: () => <div className="h-[300px] bg-card animate-pulse rounded-lg" /> },
+);
 import { formatTimestamp } from '@/lib/timezone';
 import { DollarSign, Percent, BarChart3, type LucideIcon } from 'lucide-react';
 
