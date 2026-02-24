@@ -10,7 +10,11 @@ and produces the final structured report.
 
 import json
 import os
+
+from app.core.logging import get_logger
 from app.utils.timezone import now_iso, format_report_date
+
+logger = get_logger(__name__)
 
 # Load environment variables FIRST before any other imports
 from dotenv import load_dotenv
@@ -193,7 +197,7 @@ content: 1-2段，150-250字。回答一个问题：接下来最值得关注的2
 
 analyst_agent = LlmAgent(
     name="market_analyst",
-    model="gemini-3-flash-preview",
+    model="gemini-3.1-pro-preview",
     description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,
@@ -337,7 +341,7 @@ class MarketAgent:
     async def analyze(self) -> dict:
         """Fetch all data and run the analyst agent with structured output."""
         try:
-            print("[MarketAgent] Fetching market data...")
+            logger.info("Fetching market data...")
 
             # Step 1: Fetch all data directly (no LLM needed)
             market_data = get_all_market_data()
@@ -345,10 +349,11 @@ class MarketAgent:
             calendar_result = get_economic_calendar(days=14)
             earnings_result = get_earnings_calendar(days=14)
 
-            print(
-                f"[MarketAgent] Data fetched. News: {news_result.get('news_count', 0)}, "
-                f"Calendar: {calendar_result.get('events_count', 0)}, "
-                f"Earnings: {earnings_result.get('earnings_count', 0)}"
+            logger.info(
+                "Data fetched. News: %d, Calendar: %d, Earnings: %d",
+                news_result.get('news_count', 0),
+                calendar_result.get('events_count', 0),
+                earnings_result.get('earnings_count', 0),
             )
 
             # Step 2: Prepare and clean data for the analyst (reduce token usage)
@@ -373,15 +378,15 @@ class MarketAgent:
                         "title": r.get("title", ""),
                         "report_summary": r.get("report_summary", ""),
                     })
-                print(f"[MarketAgent] Loaded {len(previous_reports)} previous reports for context")
+                logger.info("Loaded %d previous reports for context", len(previous_reports))
             except Exception as e:
-                print(f"[MarketAgent] Could not load previous reports: {e}")
+                logger.warning("Could not load previous reports: %s", e)
 
             if previous_reports:
                 data_for_analyst["previous_reports"] = previous_reports
 
             # Step 4: Create session and run the analyst agent
-            print("[MarketAgent] Running analyst agent with structured output...")
+            logger.info("Running analyst agent with structured output...")
 
             session = await self.runner.session_service.create_session(
                 app_name="stock_agent", user_id="analyst"
@@ -439,11 +444,12 @@ class MarketAgent:
             # Resolve article_id references to real URLs
             news = self._resolve_article_urls(news, raw_news)
 
-            print(
-                f"[MarketAgent] Analysis complete. Title: {title[:30] if title else 'N/A'}, "
-                f"Headlines: {len(news.get('headlines', []))}, "
-                f"Briefs: {len(news.get('briefs', []))}, "
-                f"Calendar: {len(calendar)} events"
+            logger.info(
+                "Analysis complete. Title: %s, Headlines: %d, Briefs: %d, Calendar: %d events",
+                title[:30] if title else 'N/A',
+                len(news.get('headlines', [])),
+                len(news.get('briefs', [])),
+                len(calendar),
             )
 
             return {
@@ -474,10 +480,7 @@ class MarketAgent:
             }
 
         except Exception as e:
-            print(f"Error in market analysis: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Error in market analysis")
 
             # Fallback - return data without analysis
             market_data = get_all_market_data()
@@ -541,6 +544,6 @@ class MarketAgent:
                 if url_field:
                     cleared += 1
 
-        print(f"[URLResolve] {resolved} resolved from ID, {kept} valid URLs kept, {cleared} cleared")
+        logger.info("%d resolved from ID, %d valid URLs kept, %d cleared", resolved, kept, cleared)
         return news
 

@@ -2,14 +2,16 @@
 PersonalDigest - Daily Digest for User Watchlist
 
 Architecture:
-    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3-flash) -> Structured output
-
-Cost: ~$0.018/request (vs MarketAgent $0.07 - saves 75%)
+    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3.1-pro-preview) -> Structured output
 """
 
 import json
 import os
+
+from app.core.logging import get_logger
 from dotenv import load_dotenv
+
+logger = get_logger(__name__)
 
 load_dotenv()
 
@@ -45,6 +47,8 @@ DIGEST_INSTRUCTION = """
 - 解释因果链: 发生了什么 -> 为什么重要 -> 对这些股票意味着什么
 - 数据来自输入JSON，价格和涨跌幅必须准确，不编造
 - 所有内容使用中文
+- 回答"所以呢": 每条分析都要落脚到"用户接下来该关注什么条件/事件"，不能只停留在"发生了什么"
+- 宏观落地: 宏观和行业趋势必须翻译成对用户具体关注股票的影响，不说空话
 
 ## 语言风格规则（重要！）
 用大白话写，像在跟一个聪明但不是金融专业的朋友聊天。
@@ -121,13 +125,13 @@ DIGEST_INSTRUCTION = """
 - daily_change: 日涨跌幅，带+/-号（如"+2.35%"或"-1.20%"）
 - week_change: 周涨跌幅，带+/-号
 - status: 用自然语言描述当前状态，不要用固定分类
-  好的示例: "连涨四天后首次回调"、"财报后持续消化中"、"跟随板块反弹"、"创一个月新高"
-  不好的示例: "强势上涨"、"小幅回调"（太模板化）
+  好的示例: "连涨四天后首次回调，但AI需求逻辑没变"、"跟随板块下跌，关注周五PCE数据能否止跌"、"财报后持续消化中，下周指引日会是关键节点"
+  不好的示例: "强势上涨"、"小幅回调"（太模板化，没有前因后果）
 - quick_take: 3-4句深度分析，包含清晰的逻辑链条:
-  1) 今天发生了什么（股价表现）
-  2) 为什么会这样（新闻催化剂、情绪变化、板块轮动）
-  3) 市场如何解读（机构行为、叙事变化）
-  4) 这意味着什么（后续影响）
+  1) 今天发生了什么（股价表现 + 触发原因）
+  2) 为什么会这样（新闻催化剂、宏观环境、板块趋势——把大图景和这只股票连起来）
+  3) 所以呢（对这只股票的中期逻辑有没有影响？是强化了还是削弱了买入/持有的理由？）
+  4) 接下来关注什么（具体的后续条件、日期、数据，什么情况下需要重新评估）
   注意: 聚焦新闻、情绪、叙事分析，不要做技术面分析（不提支撑位/阻力位）
 
 ### news（与我相关的新闻）
@@ -161,12 +165,13 @@ DIGEST_INSTRUCTION = """
 - title: 中文新闻标题
 - related_symbols: 影响哪些关注股票（如 ["NVDA", "AMD"]）
 - fact_summary: 一句话事实总结（必须是事件，不是观点）
-- deep_analysis: 5-6句深度分析:
+- deep_analysis: 6-7句深度分析:
   1) 背景上下文
   2) 为什么这条新闻重要
   3) 对市场/板块的影响
   4) 对用户关注股票的具体影响
   5) 后续需要关注什么
+  6) 用户该怎么想这件事（这个事件改变了什么？用户需要因此调整关注重点吗？如果不需要，为什么可以放心？如果需要，该关注什么后续条件？）
 - url: 原文链接
 
 #### briefs（其他新闻，8-10条）
@@ -223,6 +228,9 @@ DIGEST_INSTRUCTION = """
 第二段: 波动归因
 解释为什么今天这些股票会这样表现，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。
 示例: "今日上涨主要受两个因素驱动：1) 美联储会议纪要偏鸽，市场降息预期升温，推动成长股估值修复；2) NVDA财报余温延续，带动整个AI/半导体板块轮动。AAPL的下跌则是因为早盘彭博报道中国市场份额被华为蚕食。"
+关键要求：宏观因素不能悬在空中，必须落地到具体股票。
+不要写: "美联储偏鸽推动成长股反弹"（太笼统）
+应该写: "美联储偏鸽直接利好你关注的高估值标的——AMD（PE 79倍）和META（PE 28倍）对利率预期最敏感，这解释了它们今天领涨；而AAPL估值相对低，反应就小得多"
 
 第三段: 未来展望
 用"未来N个关键场景需要预演"的编号框架，每个场景必须包含：具体日期 + 具体触发条件（带数字阈值）+ 对你关注列表的具体后果。场景之间要有清晰的分隔，不要写成一段连续的文字流。
@@ -235,7 +243,7 @@ DIGEST_INSTRUCTION = """
 
 personal_digest_agent = LlmAgent(
     name="personal_digest",
-    model="gemini-3-flash-preview",
+    model="gemini-3.1-pro-preview",
     description="Generates personalized daily digest based on user's watchlist",
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,
@@ -286,24 +294,24 @@ class PersonalDigest:
                     seen.add(s_upper)
                     unique_symbols.append(s_upper)
             symbols = unique_symbols[:25]
-            print(f"[PersonalDigest] Generating digest for: {symbols}")
+            logger.info("Generating digest for: %s", symbols)
 
             # Step 1: Fetch user-specific stock data
-            print("[PersonalDigest] Fetching stock quotes...")
+            logger.info("Fetching stock quotes...")
             stock_data = get_stock_quotes(symbols)
 
             # Step 2: Fetch news filtered by user's symbols + macro symbols
-            print("[PersonalDigest] Fetching news...")
+            logger.info("Fetching news...")
             news_symbols = symbols + self.DEFAULT_MACRO_SYMBOLS
             news_result = get_combined_market_news(days=1, symbols=news_symbols)
 
             # Step 3: Fetch calendars (14 days for more comprehensive coverage)
-            print("[PersonalDigest] Fetching calendars...")
+            logger.info("Fetching calendars...")
             calendar_result = get_economic_calendar(days=14)
             earnings_result = get_earnings_calendar(days=14)
 
             # Step 4: Get macro context (simplified)
-            print("[PersonalDigest] Fetching macro context...")
+            logger.info("Fetching macro context...")
             market_data = get_all_market_data()
             macro_summary = self._extract_macro_summary(market_data)
 
@@ -324,9 +332,9 @@ class PersonalDigest:
                             "one_line_summary": d.get("one_line_summary", ""),
                             "summary": summary_content,
                         })
-                    print(f"[PersonalDigest] Loaded {len(previous_digests)} previous digests")
+                    logger.info("Loaded %d previous digests", len(previous_digests))
                 except Exception as e:
-                    print(f"[PersonalDigest] Could not load previous digests: {e}")
+                    logger.warning("Could not load previous digests: %s", e)
 
             # Step 5: Prepare data for agent
             report_date = format_report_date()
@@ -347,7 +355,7 @@ class PersonalDigest:
                 data_for_agent["previous_digests"] = previous_digests
 
             # Step 6: Run agent
-            print("[PersonalDigest] Running agent...")
+            logger.info("Running agent...")
 
             session = await self._runner.session_service.create_session(
                 app_name="personal_digest", user_id="digest"
@@ -388,11 +396,11 @@ class PersonalDigest:
                 news_count = len(news_data.get("headlines", [])) + len(
                     news_data.get("briefs", [])
                 )
-            print(
-                f"[PersonalDigest] Generation complete. "
-                f"Stocks: {len(digest_output.get('stocks', []))}, "
-                f"News: {news_count}, "
-                f"Events: {len(digest_output.get('events', []))}"
+            logger.info(
+                "Generation complete. Stocks: %d, News: %d, Events: %d",
+                len(digest_output.get('stocks', [])),
+                news_count,
+                len(digest_output.get('events', [])),
             )
 
             return {
@@ -403,10 +411,7 @@ class PersonalDigest:
             }
 
         except Exception as e:
-            print(f"[PersonalDigest] Error: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Error generating personal digest")
             return {
                 "success": False,
                 "error": str(e),
