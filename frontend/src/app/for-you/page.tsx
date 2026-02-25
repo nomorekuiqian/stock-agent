@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
-import { api, StockQuote, DigestResponse } from '@/lib/api';
+import { api, DigestResponse } from '@/lib/api';
 import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
 import { marketTodayStr } from '@/lib/timezone';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import OnboardingSection from '@/components/for-you/OnboardingSection';
-import PortfolioSnapshotBar from '@/components/for-you/PortfolioSnapshotBar';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
 import RecentReports from '@/components/for-you/RecentReports';
 
@@ -34,9 +33,6 @@ function ForYouPageContent() {
   const [subscribing, setSubscribing] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
 
-  // Stock quotes
-  const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
-  const [loadingQuotes, setLoadingQuotes] = useState(false);
 
   // Today's digest detection
   const todayDigest = useMemo(() => {
@@ -95,30 +91,6 @@ function ForYouPageContent() {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      if (symbols.length === 0) {
-        setQuotes({});
-        return;
-      }
-
-      setLoadingQuotes(true);
-      try {
-        const result = await api.getStockQuotes(symbols);
-        const quotesMap: Record<string, StockQuote> = {};
-        result.quotes.forEach((q) => {
-          quotesMap[q.symbol] = q;
-        });
-        setQuotes(quotesMap);
-      } catch (err) {
-        console.error('Failed to fetch quotes:', err);
-      } finally {
-        setLoadingQuotes(false);
-      }
-    };
-
-    fetchQuotes();
-  }, [symbols]);
 
   useEffect(() => {
     const checkSubscription = async () => {
@@ -293,18 +265,18 @@ function ForYouPageContent() {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">FOR YOU</span>
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">MYBREW</span>
               {symbols.length > 0 && (
                 <span className="text-muted-foreground text-xs font-medium tracking-[0.15em] ml-2">/ {symbols.length} STOCKS</span>
               )}
             </div>
             <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
-              {isOnboarding ? '专属日报' : '你的专属日报'}
+              {isOnboarding ? 'MyBrew' : '持仓总览'}
             </h1>
             <p className="text-muted-foreground text-sm md:text-base max-w-lg">
               {isOnboarding
-                ? '根据你的关注列表定制的市场洞察'
-                : '基于你的持仓定制的每日市场洞察'}
+                ? '选择一个模板，快速开始你的个性化投资日报'
+                : '你的持仓和市场动态，一目了然'}
             </p>
 
             {/* Toolbar buttons - only show for dashboard state */}
@@ -389,13 +361,6 @@ function ForYouPageContent() {
       {/* State B/C: Dashboard */}
       {!loadingWatchlist && symbols.length > 0 && (
         <>
-          {/* Portfolio Snapshot Bar */}
-          <PortfolioSnapshotBar
-            symbols={symbols}
-            quotes={quotes}
-            isLoading={loadingQuotes}
-          />
-
           {/* Error */}
           {error && (
             <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
@@ -405,29 +370,13 @@ function ForYouPageContent() {
             </div>
           )}
 
-          {/* Inline Digest Report */}
-          {displayDigest ? (
+          {/* Full Digest Report */}
+          {displayDigest && (
             <DigestInlineReport digest={displayDigest} />
-          ) : (
-            /* Empty state when no reports exist yet */
-            <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
-              <div className="flex flex-col items-center justify-center gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-foreground">还没有日报</h3>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  点击上方"生成今日日报"按钮，AI 将基于你的 {symbols.length} 只持仓生成专属市场分析
-                </p>
-              </div>
-            </div>
           )}
 
           {/* Recent Reports */}
           <RecentReports history={filteredHistory} totalHistory={totalHistory} />
-
         </>
       )}
     </main>

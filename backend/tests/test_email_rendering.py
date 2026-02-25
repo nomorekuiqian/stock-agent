@@ -471,11 +471,11 @@ class TestDigestCtaSection:
         assert "<div" in html
         assert "</div>" in html
 
-    def test_contains_setup_link(self, email_svc):
-        """CTA links to /for-you/setup."""
+    def test_contains_watchlist_link(self, email_svc):
+        """CTA links to /for-you/watchlist."""
         html = email_svc._get_digest_cta_section()
-        assert "/for-you/setup" in html
-        assert "themarketbrew.com/for-you/setup" in html
+        assert "/for-you/watchlist" in html
+        assert "themarketbrew.com/for-you/watchlist" in html
 
     def test_contains_cta_text(self, email_svc):
         html = email_svc._get_digest_cta_section()
@@ -484,7 +484,7 @@ class TestDigestCtaSection:
     def test_included_in_daily_report(self, email_svc, mock_report_data):
         """Digest CTA section is included in daily report HTML."""
         html = email_svc._format_html_report(mock_report_data)
-        assert "/for-you/setup" in html
+        assert "/for-you/watchlist" in html
 
 
 class TestBroadcastWeeklyUsesDaily:

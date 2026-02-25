@@ -62,19 +62,6 @@ function formatDateForSEO(dateStr: string): string {
   }
 }
 
-function formatTimePacific(timestamp: string): string {
-  try {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('zh-CN', {
-      timeZone: 'America/Los_Angeles',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
-}
-
 function generateJsonLd(report: MarketReport, id: string) {
   return {
     '@context': 'https://schema.org',
@@ -156,11 +143,6 @@ export default async function ReportDetailPage({ params }: PageProps) {
                 {report.summary}
               </p>
             )}
-            {report.timestamp && (
-              <p className="text-sm text-muted-foreground">
-                Generated at {formatTimePacific(report.timestamp)}
-              </p>
-            )}
           </section>
 
           <ReportContent
@@ -169,8 +151,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
             news={report.news}
             report_summary={report.report_summary}
             calendar={report.calendar}
-            timestamp={report.timestamp}
-            showTimestamp={true}
+            showDisclaimer={true}
           />
         </div>
       </main>

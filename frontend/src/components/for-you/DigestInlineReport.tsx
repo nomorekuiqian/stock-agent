@@ -1,7 +1,7 @@
 'use client';
 
 import { DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent } from '@/lib/api';
-import { formatDateChinese, formatTimePacific, formatCalendarDate, isTodayPacific } from '@/lib/timezone';
+import { formatReportDate, formatCalendarDate, isMarketToday } from '@/lib/timezone';
 import { getStatusColor } from '@/lib/digest-utils';
 
 interface DigestInlineReportProps {
@@ -13,19 +13,13 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
     <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
       {/* Report Header */}
       <section className="animate-fade-in-up">
-        {/* Date & Time */}
+        {/* Date */}
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
             <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-sm font-data text-foreground">{formatDateChinese(digest.timestamp)}</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-            <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-sm font-data text-muted-foreground">{formatTimePacific(digest.timestamp)}</span>
+            <span className="text-sm font-data text-foreground">{formatReportDate(digest.timestamp.split('T')[0])}</span>
           </div>
         </div>
 
@@ -172,7 +166,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
             {digest.events.map((event: DigestEvent, index: number) => {
               const dateStr = event.date.split('T')[0];
               const calendarDate = formatCalendarDate(dateStr);
-              const isToday = isTodayPacific(dateStr);
+              const isToday = isMarketToday(dateStr);
 
               return (
                 <div key={index} className="flex gap-4">

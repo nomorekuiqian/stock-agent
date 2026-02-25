@@ -193,7 +193,7 @@ class StockService:
         # Extract metrics directly from yfinance
         ttm = yf_metrics.get("ttm", {})
         valuation = yf_metrics.get("valuation", {})
-        forward_val = self._build_forward_valuation(yf_metrics.get("forward", {}))
+        forward_data = yf_metrics.get("forward", {})
         profitability = yf_metrics.get("profitability", {})
         growth = self._build_growth(yf_metrics.get("growth", {}), financials)
 
@@ -203,9 +203,10 @@ class StockService:
             "fundamentals": {
                 "ttm": ttm,
                 "valuation": valuation,
-                "forward_valuation": forward_val if forward_val else None,
                 "growth": growth,
                 "profitability": profitability,
+                "analyst_targets": yf_metrics.get("analyst_targets", {}),
+                "forward_eps": forward_data.get("forward_eps"),
             },
             "financials": {
                 "latest_quarter": financials[0].get("period") if financials else None,
@@ -217,7 +218,6 @@ class StockService:
                 "profile_from_cache": bool(profile.get("_from_cache")),
                 "financials_from_cache": bool(financials and financials[0].get("_from_cache") if financials else False),
                 "latest_quarter": financials[0].get("period") if financials else None,
-                "forward_valuation_available": bool(forward_val),
             }
         }
 
@@ -391,36 +391,6 @@ class StockService:
 
         # Sort by date descending (newest first) to ensure consistent order
         result.sort(key=lambda x: x.get("period") or "", reverse=True)
-
-        return result
-
-    def _build_forward_valuation(
-        self,
-        forward: dict[str, Any],
-    ) -> dict[str, Any]:
-        """
-        Build forward valuation from yfinance forward data.
-
-        Returns dict with forward_pe, implied_eps_growth.
-        Empty dict if no data.
-        """
-        if not forward:
-            return {}
-
-        forward_pe = forward.get("forward_pe")
-        forward_eps = forward.get("forward_eps")
-        trailing_eps = forward.get("trailing_eps")
-
-        if forward_pe is None:
-            return {}
-
-        result: dict[str, Any] = {"forward_pe": forward_pe}
-
-        # Implied EPS Growth = (forward_eps - trailing_eps) / abs(trailing_eps)
-        if forward_eps is not None and trailing_eps and trailing_eps != 0:
-            result["implied_eps_growth"] = round(
-                (forward_eps - trailing_eps) / abs(trailing_eps), 4
-            )
 
         return result
 

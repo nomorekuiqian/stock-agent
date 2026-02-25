@@ -139,52 +139,6 @@ class TestMergeFinancials:
 
 
 # ===========================================================================
-# TestBuildForwardValuation
-# ===========================================================================
-
-
-class TestBuildForwardValuation:
-    """Tests for StockService._build_forward_valuation."""
-
-    def test_normal(self, service):
-        """Forward PE and implied EPS growth calculated correctly."""
-        forward = {"forward_pe": 24.5, "forward_eps": 7.0, "trailing_eps": 5.0}
-        result = service._build_forward_valuation(forward)
-        assert result["forward_pe"] == 24.5
-        assert result["implied_eps_growth"] == round((7.0 - 5.0) / 5.0, 4)
-
-    def test_no_forward_pe(self, service):
-        """Missing forward_pe returns empty dict."""
-        forward = {"forward_pe": None, "forward_eps": 7.0, "trailing_eps": 5.0}
-        assert service._build_forward_valuation(forward) == {}
-
-    def test_empty_forward(self, service):
-        """Empty dict returns empty dict."""
-        assert service._build_forward_valuation({}) == {}
-
-    def test_no_trailing_eps(self, service):
-        """Missing trailing_eps skips implied_eps_growth."""
-        forward = {"forward_pe": 24.5, "forward_eps": 7.0, "trailing_eps": None}
-        result = service._build_forward_valuation(forward)
-        assert result["forward_pe"] == 24.5
-        assert "implied_eps_growth" not in result
-
-    def test_trailing_eps_zero(self, service):
-        """Trailing EPS = 0 skips implied_eps_growth (division by zero)."""
-        forward = {"forward_pe": 24.5, "forward_eps": 7.0, "trailing_eps": 0}
-        result = service._build_forward_valuation(forward)
-        assert result["forward_pe"] == 24.5
-        assert "implied_eps_growth" not in result
-
-    def test_negative_trailing_eps(self, service):
-        """Negative trailing EPS uses abs() for growth calc."""
-        forward = {"forward_pe": 24.5, "forward_eps": 2.0, "trailing_eps": -1.0}
-        result = service._build_forward_valuation(forward)
-        # (2.0 - (-1.0)) / abs(-1.0) = 3.0
-        assert result["implied_eps_growth"] == 3.0
-
-
-# ===========================================================================
 # TestBuildGrowth
 # ===========================================================================
 

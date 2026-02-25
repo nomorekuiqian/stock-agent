@@ -1,6 +1,6 @@
 /**
  * Pre-built portfolio templates for quick onboarding.
- * Used by /for-you/setup page.
+ * Used by OnboardingSection component.
  */
 
 export interface PortfolioTemplate {

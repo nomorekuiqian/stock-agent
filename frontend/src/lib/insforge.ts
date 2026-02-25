@@ -174,31 +174,40 @@ export interface UserWatchlist {
   updated_at?: string;
 }
 
+/**
+ * Ensure Insforge HTTP client has a valid auth token.
+ * Tries SDK session first, then recovers from httpOnly cookies.
+ * Returns the session data if available, or null.
+ */
+async function ensureAuth(): Promise<{ accessToken: string; session: unknown } | null> {
+  // 1. Try SDK in-memory session
+  const { data: sessionData } = await insforge.auth.getCurrentSession();
+
+  if (sessionData?.session?.accessToken) {
+    insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+    return { accessToken: sessionData.session.accessToken, session: sessionData.session };
+  }
+
+  // 2. Recover from httpOnly cookies
+  try {
+    const res = await fetch('/api/auth/session');
+    if (res.ok) {
+      const cookieData = await res.json();
+      if (cookieData.authenticated && cookieData.accessToken) {
+        insforge.getHttpClient().setAuthToken(cookieData.accessToken);
+        return { accessToken: cookieData.accessToken, session: cookieData };
+      }
+    }
+  } catch {
+    // cookie recovery failed
+  }
+
+  return null;
+}
+
 export async function getUserWatchlist(userId: string): Promise<UserWatchlist | null> {
   try {
-    // Ensure auth token is set before querying RLS-protected table
-    const { data: sessionData } = await insforge.auth.getCurrentSession();
-
-    if (!sessionData?.session) {
-      // Try recovering session from cookies (handles page refresh)
-      try {
-        const res = await fetch('/api/auth/session');
-        if (res.ok) {
-          const cookieData = await res.json();
-          if (cookieData.authenticated && cookieData.accessToken) {
-            insforge.getHttpClient().setAuthToken(cookieData.accessToken);
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      } catch {
-        return null;
-      }
-    } else if (sessionData.session.accessToken) {
-      insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
-    }
+    if (!await ensureAuth()) return null;
 
     const { data, error } = await insforge.database
       .from('user_watchlists')
@@ -225,35 +234,10 @@ export async function saveUserWatchlist(
   try {
     console.log('[Insforge] Saving watchlist for user:', userId);
 
-    // Ensure auth token is set before writing to RLS-protected table
-    const { data: sessionData } = await insforge.auth.getCurrentSession();
-
-    if (!sessionData?.session) {
-      // Try recovering session from cookies (handles page refresh / expired SDK session)
-      try {
-        const res = await fetch('/api/auth/session');
-        if (res.ok) {
-          const cookieData = await res.json();
-          if (cookieData.authenticated && cookieData.accessToken) {
-            insforge.getHttpClient().setAuthToken(cookieData.accessToken);
-          } else {
-            console.error('[Insforge] No active session - cannot save watchlist');
-            return { success: false, error: 'Not authenticated. Please sign in again.' };
-          }
-        } else {
-          return { success: false, error: 'Not authenticated. Please sign in again.' };
-        }
-      } catch {
-        return { success: false, error: 'Not authenticated. Please sign in again.' };
-      }
-    } else {
-      if (sessionData.session.user.id !== userId) {
-        console.error('[Insforge] User ID mismatch');
-        return { success: false, error: 'User ID mismatch. Please sign in again.' };
-      }
-      if (sessionData.session.accessToken) {
-        insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
-      }
+    const authResult = await ensureAuth();
+    if (!authResult) {
+      console.error('[Insforge] No active session - cannot save watchlist');
+      return { success: false, error: 'Not authenticated. Please sign in again.' };
     }
 
     // Check if watchlist exists for this user
@@ -269,7 +253,8 @@ export async function saveUserWatchlist(
     }
 
     // Get user email from session if available
-    const userEmail = sessionData?.session?.user?.email || '';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userEmail = (authResult.session as any)?.user?.email || '';
 
     const watchlistData: Record<string, unknown> = {
       user_id: userId,
@@ -468,28 +453,7 @@ export async function getUserDigests(
 
 export async function getUserDigestById(id: string): Promise<UserDigest | null> {
   try {
-    // Ensure auth token is set before querying RLS-protected table
-    const { data: sessionData } = await insforge.auth.getCurrentSession();
-
-    if (!sessionData?.session) {
-      try {
-        const res = await fetch('/api/auth/session');
-        if (res.ok) {
-          const cookieData = await res.json();
-          if (cookieData.authenticated && cookieData.accessToken) {
-            insforge.getHttpClient().setAuthToken(cookieData.accessToken);
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      } catch {
-        return null;
-      }
-    } else if (sessionData.session.accessToken) {
-      insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
-    }
+    if (!await ensureAuth()) return null;
 
     const { data, error } = await insforge.database
       .from('personal_digests')

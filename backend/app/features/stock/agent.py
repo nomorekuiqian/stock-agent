@@ -7,6 +7,7 @@ structured analysis (V3 flat string fields).
 
 import json
 import os
+import statistics
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
@@ -31,6 +32,7 @@ ANALYSIS_FIELDS = (
     "fundamentals_analysis",
     "financials_analysis",
     "company_overview",
+    "valuation_range",
     "opportunities",
     "risks",
     "investment_summary",
@@ -48,8 +50,8 @@ class StockAnalysisOutput(BaseModel):
         description="Opinionated Chinese title, 15-40 chars, clear investment stance."
     )
     fundamentals_analysis: str = Field(
-        description="Deep fundamentals analysis in Markdown, 600-1000 chars. "
-        "Cover: valuation vs peers/history, growth quality, profitability, core judgment."
+        description="Deep fundamentals analysis in Markdown, 500-800 chars. "
+        "Cover: valuation vs peers/history, growth quality, profitability."
     )
     financials_analysis: str = Field(
         description="Deep financial statements analysis in Markdown, 600-1000 chars. "
@@ -58,6 +60,17 @@ class StockAnalysisOutput(BaseModel):
     company_overview: str = Field(
         description="Company and competitive analysis in Markdown, 400-600 chars. "
         "Cover: business model, competitive moat, market positioning."
+    )
+    valuation_range: str = Field(
+        description="Target price range narrative in Markdown, 300-500 chars. "
+        "Bear/Base/Bull prices with plain-language explanation, "
+        "upside/downside from current price, data source description, "
+        "and what this means for the investor. "
+        "Adapt tone based on target_price_inputs.source: "
+        "analyst_consensus -> Wall Street consensus; "
+        "analyst_consensus_thin -> analyst view with thin coverage caveat; "
+        "multiples_fallback -> multiples-based estimate. "
+        "If target_price_inputs unavailable, briefly explain why."
     )
     opportunities: str = Field(
         description="Investment opportunities in Markdown, 400-600 chars. "
@@ -74,7 +87,7 @@ class StockAnalysisOutput(BaseModel):
 
 
 STOCK_ANALYST_INSTRUCTION = """
-You are a senior equity research analyst at a top investment bank, writing insightful analysis for retail investors.
+You are a senior equity research analyst at a top investment bank, writing insightful analysis for retail investors who may not be familiar with financial terminology.
 
 ## Core Rules
 
@@ -84,117 +97,162 @@ You are a senior equity research analyst at a top investment bank, writing insig
 4. **Be opinionated**: Give clear judgments (expensive/cheap, strong/weak, improving/deteriorating).
 5. **Use Markdown formatting**: Use **bold** for emphasis, bullet points for lists. Keep formatting clean and readable.
 
+## Writing Style: Clear, Accessible, Opinionated
+
+1. Conclusion first, data as evidence: state your judgment before supporting with numbers.
+   Bad: "P/E is 35x, above industry average of 25x"
+   Good: "Valuation is clearly expensive -- current P/E (price-to-earnings ratio) at 35x is 40% above peers"
+
+2. Explain financial terms on first use with parenthetical definitions:
+   "P/E (price-to-earnings ratio, how much investors pay per dollar of profit)"
+   "ROE (return on equity, how efficiently the company generates profit from shareholders' money)"
+   "FCF (free cash flow, the cash a company truly has at its disposal)"
+   "EV/EBITDA (enterprise value multiple, commonly used to compare across companies)"
+
+3. Control number density: cite 2-3 key metrics per subsection, pick the most telling ones.
+
+4. Follow every fact with "this means":
+   "Gross margin rose from 60% to 65% -- meaning the company's pricing power is strengthening, keeping more of every dollar earned"
+
+5. Chinese is the primary language; keep financial acronyms in English (P/E, ROE, EPS, FCF, etc.).
+
 ## Output Field Guidelines
 
 ### title
 One opinionated sentence, 15-40 Chinese characters. Must convey a clear investment stance.
-Example: "英伟达：AI浪潮的最大赢家，但估值已透支未来三年增长"
+Example: "NVDA: AI浪潮的最大赢家，但估值已透支未来三年增长"
 
-### fundamentals_analysis (600-1000 chars, Markdown)
-Write a deep fundamentals analysis covering these four dimensions:
+### fundamentals_analysis (500-800 chars, Markdown)
+Write a deep fundamentals analysis covering these three dimensions:
 
-**1. 估值解读** (重点使用 valuation_comparison 数据)
-- 当前 P/E、P/S、P/B、EV/EBITDA、股息率等核心估值指标
-- **远期估值**：如果 forward_valuation 数据存在，必须分析 Forward PE 与 Trailing PE 的差异（如"Forward PE 20x vs Trailing PE 25x，隐含市场预期盈利增长 25%"），并结合 implied_eps_growth 判断市场预期是否合理
-- **纵向对比（历史）**：必须使用 valuation_comparison.historical_valuation 数据，明确指出当前估值处于历史什么水平（如"当前 P/E 25x vs 2023年 20x vs 2022年 18x"）
-- **横向对比（同行）**：必须使用 valuation_comparison.peer_comparison 数据，与具体同行公司对比（如"相比 GOOGL 的 22x，META 目前溢价 15%"）
-- **行业对比**：使用 valuation_comparison.industry_averages 数据，对比行业/板块平均估值
+**1. Valuation Interpretation** (focus on valuation_comparison data)
+- Current P/E, P/S, P/B, EV/EBITDA and other core valuation metrics (explain on first mention)
+- **Historical comparison**: use valuation_comparison.historical_valuation data, state where current valuation sits historically
+- **Peer comparison**: use valuation_comparison.peer_comparison data, compare with specific peer companies
+- **Industry comparison**: use valuation_comparison.industry_averages data
 
-**2. 增长质量**
-- 收入增速、EPS 增速的绝对水平和趋势
-- 增长是否可持续？是一次性还是结构性的？
-- 增长的驱动因素是什么？
+**2. Growth Quality**
+- Revenue and EPS growth rates and trends
+- Is growth sustainable? One-time or structural?
+- What drives the growth?
 
-**3. 盈利能力**
-- 毛利率、净利率、ROE、ROA 等盈利指标
-- 盈利能力是在改善还是恶化？
-- 与同行相比处于什么水平？
-
-**4. 核心判断**
-- 综合以上三点，给出明确的基本面判断
-- 估值是否合理？增长能否支撑当前估值？
+**3. Profitability**
+- Gross margin, net margin, ROE, ROA (explain on first mention)
+- Is profitability improving or deteriorating?
+- How does it compare to peers?
 
 ### financials_analysis (600-1000 chars, Markdown)
 Write a deep financial statements analysis covering these four dimensions:
 
-**1. 收入质量**
-- TTM 收入规模和同比变化
-- 收入增长是否健康？是否依赖大客户或一次性订单？
-- 季度收入趋势：加速、减速还是稳定？
+**1. Revenue Quality**
+- TTM revenue scale and YoY change
+- Is revenue growth healthy?
+- Quarterly revenue trend: accelerating, decelerating, or stable?
 
-**2. 盈利质量**
-- 净利润与经营现金流的匹配度（现金流/净利润比率）
-- 是否存在应收账款堆积、存货积压等问题？
-- 盈利是否主要来自核心业务？
+**2. Earnings Quality**
+- Match between net income and operating cash flow
+- Any receivables buildup or inventory issues?
+- Are earnings mainly from core business?
 
-**3. 资产负债表健康度**
-- 负债率水平和趋势
-- 现金储备是否充足？
-- 是否存在商誉减值、资产质量问题？
+**3. Balance Sheet Health**
+- Debt ratio level and trend
+- Are cash reserves sufficient?
+- Any goodwill impairment or asset quality issues?
 
-**4. 季度趋势解读**
-- 最近 2-4 个季度的关键指标变化趋势
-- 是否出现拐点？收入加速/减速、利润率扩张/收缩？
-- 管理层指引与实际业绩的对比
+**4. Quarterly Trend**
+- Key metrics trends over recent 2-4 quarters
+- Any inflection points? Revenue acceleration/deceleration, margin expansion/contraction?
 
 ### company_overview (400-600 chars, Markdown)
 Write a company and competitive analysis covering:
 
-**商业模式**
-- 用通俗语言解释公司做什么、怎么赚钱
-- 收入来源构成和利润驱动因素
+**Business Model**
+- Explain what the company does and how it makes money in plain language
+- Revenue sources and profit drivers
 
-**护城河分析**
-- 公司的核心竞争优势是什么？（品牌、技术、网络效应、规模、转换成本等）
-- 这些优势是否可持续？
+**Moat Analysis**
+- Core competitive advantages (brand, technology, network effects, scale, switching costs, etc.)
+- Are these advantages sustainable?
 
-**竞争格局**
-- 主要竞争对手是谁？
-- 公司在行业中的地位如何？市场份额趋势？
+**Competitive Landscape**
+- Who are the main competitors?
+- Company's position in the industry? Market share trends?
+
+### valuation_range (300-500 chars, Markdown)
+
+Based on the provided target_price_inputs data, write an accessible target price analysis.
+Adapt your framing based on `target_price_inputs.source`:
+
+**When source is "analyst_consensus"** (>= 5 sell-side analysts):
+- Frame as Wall Street consensus: "Based on N analysts covering this stock..."
+- Mention the recommendation (buy/hold/sell) if available
+- Note sell-side optimism bias: analysts tend to skew 10-15% bullish
+- Bear = lowest analyst target, Base = median, Bull = highest
+
+**When source is "analyst_consensus_thin"** (2-4 analysts):
+- Same structure but note limited coverage: "Only N analysts cover this stock, so targets carry more uncertainty"
+
+**When source is "multiples_fallback"** (no analyst coverage):
+- Frame as multiples-based estimate: "Based on peer comparison and historical valuation..."
+- Explain these are model-derived, not analyst opinions
+
+**Structure (all sources)**:
+1. One-sentence conclusion: "[stock] currently looks [expensive/fair/cheap] relative to [analyst targets / multiples]"
+2. Three price levels:
+   - Bear case $X (explain what scenario leads to this price)
+   - Base case $Y (explain what this represents)
+   - Bull case $Z (explain what conditions could reach this price)
+3. Distance from current price: "Current price $W, [X% upside/downside] to base target"
+4. Simple action guidance: "This means [current price has/lacks] margin of safety"
+
+**If target_price_inputs is not available**:
+Briefly explain why (e.g., "the company is not yet profitable, standard valuation methods don't apply"), and point to qualitative judgments in other sections.
+
+**Important**: You MUST use the pre-computed numbers provided. Do NOT calculate your own target prices.
 
 ### opportunities (400-600 chars, Markdown)
 Write an investment opportunity analysis covering three time horizons:
 
-**短期催化剂（0-6个月）**
-- 即将发布的财报、产品发布、政策变化等
-- 可能触发股价重估的具体事件
+**Near-term Catalysts (0-6 months)**
+- Upcoming earnings, product launches, policy changes
+- Specific events that could trigger stock re-rating
 
-**中期驱动（6-18个月）**
-- 业务拓展、市场份额提升、新产品周期等
-- 基本面改善的具体路径
+**Medium-term Drivers (6-18 months)**
+- Business expansion, market share gains, new product cycles
+- Concrete paths to fundamental improvement
 
-**长期趋势（1-3年）**
-- 行业结构性增长机会
-- 公司战略布局和长期竞争力提升
+**Long-term Trends (1-3 years)**
+- Structural industry growth opportunities
+- Company strategic positioning and long-term competitiveness
 
 ### risks (400-600 chars, Markdown)
 Write a risk analysis covering three categories:
 
-**业务风险**
-- 竞争加剧、客户流失、技术替代等
-- 对核心业务的具体威胁
+**Business Risks**
+- Intensifying competition, customer loss, technology disruption
+- Specific threats to core business
 
-**财务风险**
-- 现金流压力、债务到期、融资困难等
-- 资产负债表的潜在隐患
+**Financial Risks**
+- Cash flow pressure, debt maturity, financing difficulty
+- Potential balance sheet concerns
 
-**估值风险**
-- 当前估值隐含了多高的增长预期？
-- 如果增长不达预期，估值回调空间有多大？
+**Valuation Risks**
+- How much growth is priced into current valuation?
+- How much downside if growth disappoints?
 
 ### investment_summary (300-500 chars, Markdown)
 Write a balanced investment summary covering:
 
-**一句话核心逻辑**
-- 用一句话概括投资这只股票的核心理由或核心担忧
+**One-sentence Core Logic**
+- Summarize the core reason or concern for investing in this stock in one sentence
 
-**多头观点 vs 空头观点**
-- 看多的主要理由（2-3点）
-- 看空的主要理由（2-3点）
+**Bull vs Bear**
+- Main bull arguments (2-3 points)
+- Main bear arguments (2-3 points)
 
-**关键监控指标**
-- 投资者应该重点关注哪些指标来验证投资逻辑？
-- 什么信号会改变投资观点？
+**Key Metrics to Monitor**
+- Which metrics should investors watch to validate the thesis?
+- What signals would change the investment view?
 """
 
 stock_analyst_agent = LlmAgent(
@@ -205,6 +263,146 @@ stock_analyst_agent = LlmAgent(
     output_schema=StockAnalysisOutput,
     output_key="analysis",
 )
+
+
+def _compute_target_price_inputs(
+    fundamentals: Dict[str, Any],
+    valuation_comparison: Dict[str, Any],
+    current_price: float | None,
+) -> Dict[str, Any] | None:
+    """
+    Pre-compute Bear/Base/Bull target prices using a tiered approach.
+
+    Tier 1 (analysts >= 5): Use analyst consensus targets directly.
+    Tier 2 (analysts 2-4): Use analyst targets, flag thin coverage.
+    Tier 3 (analysts 0-1): Improved multiples fallback (peer + historical + industry P/E).
+
+    Returns None if no method produces valid results.
+    """
+    analyst_targets = fundamentals.get("analyst_targets") or {}
+    num_analysts = analyst_targets.get("number_of_analysts", 0) or 0
+    target_median = analyst_targets.get("target_median")
+    target_low = analyst_targets.get("target_low")
+    target_high = analyst_targets.get("target_high")
+
+    # --- Tier 1 & 2: Analyst consensus ---
+    has_analyst_data = (
+        num_analysts >= 2
+        and target_median is not None
+        and target_low is not None
+        and target_high is not None
+        and target_low > 0
+    )
+
+    if has_analyst_data:
+        source = "analyst_consensus" if num_analysts >= 5 else "analyst_consensus_thin"
+        result: Dict[str, Any] = {
+            "source": source,
+            "bear": round(target_low, 2),
+            "base": round(target_median, 2),
+            "bull": round(target_high, 2),
+            "number_of_analysts": num_analysts,
+        }
+        rec = analyst_targets.get("recommendation")
+        if rec:
+            result["recommendation"] = rec
+        if source == "analyst_consensus_thin":
+            result["coverage_note"] = "only %d analysts cover this stock" % num_analysts
+
+        if current_price and current_price > 0:
+            result["current_price"] = round(current_price, 2)
+            result["upside_to_base"] = round(
+                (target_median - current_price) / current_price * 100, 1
+            )
+            result["upside_to_bull"] = round(
+                (target_high - current_price) / current_price * 100, 1
+            )
+            result["downside_to_bear"] = round(
+                (target_low - current_price) / current_price * 100, 1
+            )
+
+        return result
+
+    # --- Tier 3: Multiples fallback ---
+    forward_eps = fundamentals.get("forward_eps")
+    if not isinstance(forward_eps, (int, float)) or forward_eps <= 0:
+        return None
+
+    implied_pe_values: list[float] = []
+    method_details: list[Dict[str, Any]] = []
+
+    # Method 1: Peer median P/E
+    peer_data = valuation_comparison.get("peer_comparison", {})
+    peers = peer_data.get("peers", [])
+    peer_pes = [
+        p.get("metrics", {}).get("pe_ratio")
+        for p in peers
+        if p.get("metrics", {}).get("pe_ratio") and p["metrics"]["pe_ratio"] > 0
+    ]
+    if peer_pes:
+        peer_median_pe = statistics.median(peer_pes)
+        implied_pe_values.append(peer_median_pe)
+        method_details.append({
+            "method": "peer_median_pe",
+            "pe": round(peer_median_pe, 1),
+            "target": round(peer_median_pe * forward_eps, 2),
+            "peer_count": len(peer_pes),
+        })
+
+    # Method 2: 5-year historical median P/E
+    historical = valuation_comparison.get("historical_valuation", {})
+    years = historical.get("years", [])
+    hist_pes = [
+        y.get("pe") for y in years if y.get("pe") and y["pe"] > 0
+    ]
+    if hist_pes:
+        hist_median_pe = statistics.median(hist_pes)
+        implied_pe_values.append(hist_median_pe)
+        method_details.append({
+            "method": "historical_median_pe",
+            "pe": round(hist_median_pe, 1),
+            "target": round(hist_median_pe * forward_eps, 2),
+            "years_used": len(hist_pes),
+        })
+
+    # Method 3: Industry average P/E (replaces PEG=1)
+    industry_val = valuation_comparison.get("industry_valuation", {})
+    industry_pe = industry_val.get("industry_pe")
+    if industry_pe and industry_pe > 0:
+        implied_pe_values.append(industry_pe)
+        method_details.append({
+            "method": "industry_avg_pe",
+            "pe": round(industry_pe, 1),
+            "target": round(industry_pe * forward_eps, 2),
+            "industry": industry_val.get("industry", ""),
+        })
+
+    if len(implied_pe_values) < 2:
+        return None
+
+    # Compute Bear / Base / Bull using discount/premium on base
+    targets = [pe * forward_eps for pe in implied_pe_values]
+    base = statistics.median(targets)
+    bear = round(base * 0.85, 2)
+    bull = round(base * 1.20, 2)
+
+    result = {
+        "source": "multiples_fallback",
+        "bear": bear,
+        "base": round(base, 2),
+        "bull": bull,
+        "forward_eps": round(forward_eps, 4),
+        "methods_used": len(method_details),
+        "methods": method_details,
+    }
+
+    if current_price and current_price > 0:
+        result["current_price"] = round(current_price, 2)
+        result["upside_to_base"] = round((base - current_price) / current_price * 100, 1)
+        result["upside_to_bull"] = round((bull - current_price) / current_price * 100, 1)
+        result["downside_to_bear"] = round((bear - current_price) / current_price * 100, 1)
+
+    return result
 
 
 def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -239,14 +437,14 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
         "week_52_low": quote.get("week_52_low"),
     }
 
-    forward_val = fundamentals.get("forward_valuation")
+    analyst_targets = fundamentals.get("analyst_targets", {})
 
     clean_fundamentals = {
         "ttm": fundamentals.get("ttm", {}),
         "valuation": fundamentals.get("valuation", {}),
-        "forward_valuation": forward_val if forward_val else None,
         "growth": fundamentals.get("growth", {}),
         "profitability": fundamentals.get("profitability", {}),
+        "analyst_targets": analyst_targets if analyst_targets else None,
     }
 
     clean_quarters = []
@@ -321,6 +519,15 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
 
     if clean_valuation_comparison:
         result["valuation_comparison"] = clean_valuation_comparison
+
+    # Pre-compute target price inputs for the Agent
+    target_price_inputs = _compute_target_price_inputs(
+        fundamentals=stock_data.get("fundamentals", {}),
+        valuation_comparison=valuation_comparison,
+        current_price=quote.get("price"),
+    )
+    if target_price_inputs:
+        result["target_price_inputs"] = target_price_inputs
 
     return result
 

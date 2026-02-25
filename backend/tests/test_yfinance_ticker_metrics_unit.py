@@ -110,8 +110,8 @@ class TestGetTickerMetrics:
         assert result["valuation"]["dividend_yield"] == 0.005
         assert result["valuation"]["peg"] == 2.1
 
-        # Forward
-        assert result["forward"]["forward_pe"] == 28.0
+        # Forward (forward_pe removed, only forward_eps and trailing_eps kept)
+        assert "forward_pe" not in result["forward"]
         assert result["forward"]["forward_eps"] == 7.5
         assert result["forward"]["trailing_eps"] == 6.13
 
@@ -226,15 +226,17 @@ class TestGetTickerMetrics:
         assert result["growth"] == {}
 
     @patch("app.shared.yfinance_service.yf")
-    def test_forward_pe_zero_excluded(self, mock_yf, service):
-        """Forward PE of 0 is excluded via _positive_or_none."""
+    def test_forward_pe_not_extracted(self, mock_yf, service):
+        """forward_pe is no longer extracted (unreliable data)."""
         mock_ticker = MagicMock()
-        mock_ticker.info = {"forwardPE": 0, "forwardEps": 5.0, "trailingEps": 4.0}
+        mock_ticker.info = {"forwardPE": 28.0, "forwardEps": 5.0, "trailingEps": 4.0}
         mock_yf.Ticker.return_value = mock_ticker
 
-        result = service.get_ticker_metrics("ZERO")
+        result = service.get_ticker_metrics("TEST")
 
-        assert result["forward"]["forward_pe"] is None
+        assert "forward_pe" not in result["forward"]
+        assert result["forward"]["forward_eps"] == 5.0
+        assert result["forward"]["trailing_eps"] == 4.0
 
 
 class TestCacheStats:

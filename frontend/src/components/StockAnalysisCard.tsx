@@ -7,6 +7,7 @@ interface StockAIAnalysis {
   fundamentals_analysis: string;
   financials_analysis: string;
   company_overview: string;
+  valuation_range?: string;
   opportunities: string;
   risks: string;
   investment_summary: string;

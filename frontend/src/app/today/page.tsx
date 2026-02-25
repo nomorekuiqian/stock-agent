@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getReportByDate, getLatestReport, getReportsList } from '@/lib/insforge';
 import { ReportContent } from '@/components/ReportContent';
-import { marketTodayStr, formatDateChinese, formatTimePacific, formatDateShort } from '@/lib/timezone';
+import { marketTodayStr, formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { TodayActions } from './_components/TodayActions';
 
 // ISR: revalidate every 5 minutes
@@ -74,14 +74,6 @@ export default async function TodayPage() {
                 </svg>
                 <span className="text-sm font-data text-foreground">{formatDateChinese(report.report_date)}</span>
               </div>
-              {report.timestamp && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                  <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-data text-muted-foreground">{formatTimePacific(report.timestamp)}</span>
-                </div>
-              )}
             </div>
 
             {report.title && (
@@ -103,7 +95,7 @@ export default async function TodayPage() {
             news={report.news}
             report_summary={report.report_summary}
             calendar={report.calendar}
-            showTimestamp={false}
+            showDisclaimer={false}
           />
         </div>
       ) : (

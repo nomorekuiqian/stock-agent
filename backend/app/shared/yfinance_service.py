@@ -340,7 +340,7 @@ class YFinanceService:
             {
                 "ttm": { revenue, net_income, eps, ebitda, operating_cash_flow, free_cash_flow },
                 "valuation": { pe, ps, pb, ev_to_ebitda, dividend_yield, peg },
-                "forward": { forward_pe, forward_eps, trailing_eps },
+                "forward": { forward_eps, trailing_eps },
                 "profitability": { gross_margin, operating_margin, net_margin, roe, roa },
                 "growth": { revenue_yoy, earnings_yoy },
                 "source": "yfinance"
@@ -406,10 +406,8 @@ class YFinanceService:
         if peg is not None:
             valuation["peg"] = _round(peg, 2)
 
-        # Forward
-        forward_pe = _positive_or_none(_get("forwardPE"))
+        # Forward EPS (used for target price multiples fallback, not displayed)
         forward = {
-            "forward_pe": _round(forward_pe, 2),
             "forward_eps": _round(_get("forwardEps"), 4),
             "trailing_eps": _round(_get("trailingEps"), 4),
         }
@@ -436,12 +434,34 @@ class YFinanceService:
         if earnings_growth is not None:
             growth["earnings_yoy"] = _round(earnings_growth)
 
+        # Analyst consensus targets (from Refinitiv via Yahoo Finance)
+        analyst_targets = {}
+        target_mean = _get("targetMeanPrice")
+        if target_mean is not None:
+            analyst_targets["target_mean"] = _round(target_mean, 2)
+        target_median = _get("targetMedianPrice")
+        if target_median is not None:
+            analyst_targets["target_median"] = _round(target_median, 2)
+        target_high = _get("targetHighPrice")
+        if target_high is not None:
+            analyst_targets["target_high"] = _round(target_high, 2)
+        target_low = _get("targetLowPrice")
+        if target_low is not None:
+            analyst_targets["target_low"] = _round(target_low, 2)
+        num_analysts = _get("numberOfAnalystOpinions")
+        if num_analysts is not None:
+            analyst_targets["number_of_analysts"] = num_analysts
+        rec_key = _get("recommendationKey")
+        if rec_key is not None:
+            analyst_targets["recommendation"] = rec_key
+
         result = {
             "ttm": ttm,
             "valuation": valuation,
             "forward": forward,
             "profitability": profitability,
             "growth": growth,
+            "analyst_targets": analyst_targets,
             "source": "yfinance",
         }
 

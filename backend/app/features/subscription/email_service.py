@@ -4,8 +4,10 @@ Subscription management is handled by SubscriptionService.
 """
 
 import asyncio
+import time
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 
 import resend
 
@@ -244,7 +246,7 @@ class EmailService:
 
     def _get_digest_cta_section(self) -> str:
         """CTA block promoting personal digest, shown only in daily report emails."""
-        setup_url = f"{self.frontend_url}/for-you/setup"
+        watchlist_url = f"{self.frontend_url}/for-you/watchlist"
         return f"""
         <div style="background: #ffffff; padding: 28px 24px; border-top: 1px solid #e5e7eb;">
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
@@ -269,7 +271,7 @@ class EmailService:
                 </tr>
                 <tr>
                     <td style="text-align: center;">
-                        <a href="{setup_url}" style="display: inline-block; padding: 12px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                        <a href="{watchlist_url}" style="display: inline-block; padding: 12px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
                             获取我的专属日报
                         </a>
                     </td>
@@ -738,8 +740,6 @@ class EmailService:
             html_content = self._format_html_report(data, report_date, report_id)
 
             # Replace template variables for single sends (not broadcast)
-            from urllib.parse import quote
-
             # Get first_name if not provided
             display_name = first_name
             if not display_name:
@@ -800,8 +800,6 @@ class EmailService:
             )
 
             # Replace email template variable for single sends (not broadcast)
-            from urllib.parse import quote
-
             html_content = html_content.replace("{{{email}}}", quote(to_email))
 
             today = today_str()
@@ -864,21 +862,48 @@ class EmailService:
         if text:
             create_params["text"] = text
 
-        broadcast = resend.Broadcasts.create(create_params)
-        broadcast_id = broadcast.get("id")
+        max_retries = 3
+        broadcast = None
+        for attempt in range(max_retries):
+            try:
+                broadcast = resend.Broadcasts.create(create_params)
+                break
+            except Exception as e:
+                if "Too many requests" in str(e) and attempt < max_retries - 1:
+                    wait = (attempt + 1) * 2
+                    logger.warning("%s broadcast create rate limited, retry in %ds...", label, wait)
+                    time.sleep(wait)
+                else:
+                    raise
+
+        broadcast_id = broadcast.get("id") if broadcast else None
         if not broadcast_id:
             logger.error("%s broadcast create returned no id: %s", label, broadcast)
             return {"success": False, "error": "Broadcast creation returned no ID"}
         logger.info("%s broadcast created: %s", label, broadcast_id)
 
-        send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
-        send_result = resend.Broadcasts.send(send_params)
+        # Resend rate limit is 2 req/s, wait to avoid hitting it
+        time.sleep(1)
+
+        send_result = None
+        for attempt in range(max_retries):
+            try:
+                send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
+                send_result = resend.Broadcasts.send(send_params)
+                break
+            except Exception as e:
+                if "Too many requests" in str(e) and attempt < max_retries - 1:
+                    wait = (attempt + 1) * 2
+                    logger.warning("%s broadcast send rate limited, retry in %ds...", label, wait)
+                    time.sleep(wait)
+                else:
+                    raise
+
         send_id = send_result.get("id") if send_result else None
         logger.info("%s broadcast send result: %s", label, send_result)
 
         if not send_id:
             logger.warning("%s send returned unexpected result, verifying status...", label)
-            import time
             time.sleep(1)
             verify = resend.Broadcasts.get(broadcast_id)
             status = verify.get("status") if verify else None
@@ -1359,8 +1384,6 @@ class EmailService:
             html_content = self._format_weekly_report_html(data, report_id=report_id)
 
             # Replace template variables for single sends
-            from urllib.parse import quote
-
             display_name = first_name or ""
             html_content = html_content.replace("{{{first_name}}}", display_name)
             html_content = html_content.replace("{{{email}}}", quote(to_email))
@@ -1656,10 +1679,10 @@ class EmailService:
 
     async def broadcast_personal_digests(self, max_concurrent: int = 5) -> dict:
         """
-        Generate and send personal digests to all subscribers in parallel.
+        Generate and batch-send personal digests to all subscribers.
 
-        Uses asyncio.gather with semaphore for controlled concurrency.
-        Each subscriber gets a personalized digest based on their watchlist.
+        Phase 1: Parallel generation with semaphore-controlled concurrency.
+        Phase 2: Batch send via resend.Batch.send() (up to 100 emails per call).
         """
         logger.info("broadcast_personal_digests called")
 
@@ -1718,24 +1741,38 @@ class EmailService:
                 except Exception as db_err:
                     logger.error("DB save failed for %s: %s", email, db_err)
 
-            async def generate_and_send(
+            async def prepare_digest_email(
                 email: str, first_name: str, user_id: str, symbols: list
             ) -> dict:
-                """Generate digest and send email. Returns success dict."""
+                """Generate digest, format HTML, save DB. Return email params (no send)."""
                 digest_result = await digest_agent.generate(symbols)
                 if not digest_result.get("success"):
                     raise Exception(digest_result.get("error", "Generation failed"))
 
-                send_result = await self.send_personal_digest(
-                    digest_result, email, first_name
+                html_content = self._format_digest_html(digest_result, first_name or "")
+                html_content = html_content.replace("{{{email}}}", quote(email))
+
+                today = today_str()
+                one_line = digest_result.get("one_line_summary", "")[:50]
+                subject = (
+                    f"[TheMarketBrew专属日报] {one_line}"
+                    if one_line
+                    else f"[TheMarketBrew专属日报] {today}"
                 )
-                if not send_result.get("success"):
-                    raise Exception(send_result.get("error", "Send failed"))
 
                 if user_id:
                     await save_digest_to_db(user_id, email, digest_result, symbols)
 
-                return {"email": email, "success": True}
+                return {
+                    "email": email,
+                    "success": True,
+                    "params": {
+                        "from": self.from_email,
+                        "to": [email],
+                        "subject": subject,
+                        "html": html_content,
+                    },
+                }
 
             async def get_symbols_for_user(user_id: str, email: str) -> list:
                 """Get symbols from Insforge user_watchlists table only."""
@@ -1769,7 +1806,7 @@ class EmailService:
 
                 async with semaphore:
                     try:
-                        return await generate_and_send(
+                        return await prepare_digest_email(
                             email, first_name, user_id, symbols
                         )
                     except Exception as e:
@@ -1777,7 +1814,7 @@ class EmailService:
 
                     await asyncio.sleep(2)
                     try:
-                        return await generate_and_send(
+                        return await prepare_digest_email(
                             email, first_name, user_id, symbols
                         )
                     except Exception as retry_error:
@@ -1788,29 +1825,83 @@ class EmailService:
                             "error": str(retry_error),
                         }
 
+            # --- Phase 1: parallel generation ---
             results = await asyncio.gather(
                 *[process_subscriber(sub) for sub in subscribers],
                 return_exceptions=True,
             )
 
-            sent_count = 0
-            failed_count = 0
-            errors = []
+            email_params_list: list[dict] = []
+            errors: list[dict] = []
 
-            for result in results:
-                if isinstance(result, Exception):
-                    failed_count += 1
-                    errors.append({"error": str(result)})
-                elif isinstance(result, dict):
-                    if result.get("success"):
-                        sent_count += 1
+            for r in results:
+                if isinstance(r, Exception):
+                    errors.append({"error": str(r)})
+                elif isinstance(r, dict):
+                    if r.get("success") and r.get("params"):
+                        email_params_list.append(r["params"])
                     else:
-                        failed_count += 1
                         errors.append(
-                            {"email": result.get("email"), "error": result.get("error")}
+                            {"email": r.get("email"), "error": r.get("error")}
                         )
 
-            logger.info("Broadcast complete: %d sent, %d failed", sent_count, failed_count)
+            gen_failed = len(errors)
+            logger.info(
+                "Phase 1 complete: %d emails prepared, %d generation failures",
+                len(email_params_list),
+                gen_failed,
+            )
+
+            # --- Phase 2: batch send ---
+            sent_count = 0
+            send_errors: list[dict] = []
+            batch_size = 100
+
+            for i in range(0, len(email_params_list), batch_size):
+                chunk = email_params_list[i : i + batch_size]
+                batch_num = i // batch_size + 1
+
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        # Resend Batch.send() uses strict mode by default:
+                        # success = all emails accepted, failure = exception thrown.
+                        resend.Batch.send(chunk)
+                        sent_count += len(chunk)
+                        logger.info("Batch %d sent: %d ok", batch_num, len(chunk))
+                        break
+                    except Exception as e:
+                        err_str = str(e)
+                        if "Too many requests" in err_str and attempt < max_retries - 1:
+                            wait = (attempt + 1) * 3
+                            logger.warning(
+                                "Batch %d rate limited, retry in %ds...",
+                                batch_num,
+                                wait,
+                            )
+                            time.sleep(wait)
+                        else:
+                            logger.error("Batch %d send failed: %s", batch_num, e)
+                            for p in chunk:
+                                send_errors.append(
+                                    {"email": p["to"][0], "error": err_str}
+                                )
+                            break
+
+                # pause between batches to respect rate limits
+                if i + batch_size < len(email_params_list):
+                    time.sleep(1)
+
+            all_errors = errors + send_errors
+            failed_count = gen_failed + len(send_errors)
+
+            logger.info(
+                "Broadcast complete: %d sent, %d failed (gen=%d, send=%d)",
+                sent_count,
+                failed_count,
+                gen_failed,
+                len(send_errors),
+            )
 
             return {
                 "success": True,
@@ -1818,7 +1909,7 @@ class EmailService:
                 "total": len(subscribers),
                 "sent": sent_count,
                 "failed": failed_count,
-                "errors": errors[:10],
+                "errors": all_errors[:10],
             }
 
         except Exception as e:

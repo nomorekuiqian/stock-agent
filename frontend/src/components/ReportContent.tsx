@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { CalendarEvent, NewsSection, SummarySection } from '@/lib/api';
-import { formatDateChinese, formatTimePacific, isTodayPacific, formatCalendarDate } from '@/lib/timezone';
+import { isTodayPacific, formatCalendarDate } from '@/lib/timezone';
 
 interface IndexData {
   name: string;
@@ -17,8 +17,7 @@ interface ReportContentProps {
   news?: NewsSection;
   report_summary?: SummarySection[] | string;
   calendar?: CalendarEvent[];
-  timestamp?: string;
-  showTimestamp?: boolean;
+  showDisclaimer?: boolean;
 }
 
 // Key indices to display (matching email format)
@@ -57,12 +56,8 @@ export function ReportContent({
   news,
   report_summary,
   calendar,
-  timestamp,
-  showTimestamp = true,
+  showDisclaimer = true,
 }: ReportContentProps) {
-  const formatDate = (dateString: string) => formatDateChinese(dateString);
-  const formatTime = (dateString: string) => formatTimePacific(dateString);
-
   // Filter to key indices only
   const keyIndices = useMemo(() => {
     if (!indices) return [];
@@ -288,14 +283,11 @@ export function ReportContent({
         </section>
       )}
 
-      {/* Timestamp */}
-      {showTimestamp && timestamp && (
+      {/* Disclaimer */}
+      {showDisclaimer && (
         <div className="text-center pt-4 border-t border-border animate-fade-in">
           <p className="text-xs text-muted-foreground">
             AI-generated report for informational purposes only. Not financial advice.
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Generated at {formatDate(timestamp)} {formatTime(timestamp)}
           </p>
         </div>
       )}

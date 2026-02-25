@@ -78,10 +78,6 @@ interface StockFundamentals {
     dividend_yield?: number;
     peg?: number;
   };
-  forward_valuation?: {
-    forward_pe?: number;
-    implied_eps_growth?: number;
-  };
   growth: {
     revenue_yoy?: number;
     revenue_qoq?: number;
@@ -130,7 +126,6 @@ interface StockData {
     symbol: string;
     quote_fetched_at: string;
     latest_quarter?: string;
-    forward_valuation_available?: boolean;
   };
 }
 
@@ -237,17 +232,6 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     zh: '股息率',
     en: 'Div Yield',
     tip: '年度股息与股价的比率。反映持有股票的现金回报，收益型投资者关注。',
-  },
-  // Forward Valuation
-  forward_pe: {
-    zh: '远期市盈率',
-    en: 'Fwd P/E',
-    tip: '基于分析师一致预期 EPS 计算。反映市场对未来盈利的定价，通常低于 Trailing PE 表示预期增长。',
-  },
-  implied_eps_growth: {
-    zh: 'EPS 增速 (YoY)',
-    en: 'EPS Growth',
-    tip: '分析师预期的 EPS 同比增速。正值表示盈利增长，负值表示盈利下滑。',
   },
   // Growth
   revenue_yoy: {
@@ -1328,6 +1312,19 @@ function AIAnalysisSection({
                 </div>
               )}
 
+              {/* Valuation Range */}
+              {analysis.valuation_range && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+                    <span className="text-blue-400">目标价格区间</span>
+                  </h3>
+                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                    <MarkdownContent content={analysis.valuation_range} />
+                  </div>
+                </div>
+              )}
+
               {/* Opportunities & Risks - Side by side */}
               {(analysis.opportunities || analysis.risks) && (
                 <div className="grid md:grid-cols-2 gap-4">
@@ -1953,28 +1950,6 @@ export default function StockPage() {
                       : 'TTM (yfinance)'}
                   </p>
 
-                  {/* Forward (Consensus) */}
-                  {fundamentals.forward_valuation?.forward_pe && (
-                    <>
-                      <div className="border-t border-border/30 my-4" />
-                      <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Forward (Consensus)</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        <MetricCard metricKey="forward_pe" value={formatNumber(fundamentals.forward_valuation.forward_pe)} />
-                        <MetricCard
-                          metricKey="implied_eps_growth"
-                          value={fundamentals.forward_valuation.implied_eps_growth != null
-                            ? formatNumber(fundamentals.forward_valuation.implied_eps_growth, { style: 'percent' })
-                            : '--'}
-                          trend={fundamentals.forward_valuation.implied_eps_growth != null
-                            ? (fundamentals.forward_valuation.implied_eps_growth > 0 ? 'up' : 'down')
-                            : undefined}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground/60 mt-1.5">
-                        NTM consensus (yfinance)
-                      </p>
-                    </>
-                  )}
                 </div>
 
                 {/* Growth */}
