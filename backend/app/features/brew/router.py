@@ -2,18 +2,27 @@
 Personalized Digest API Router
 
 Endpoint for generating personalized daily digests based on user watchlists.
-Uses PersonalDigest agent (gemini-3-flash) to generate structured digest
-with sections: stocks, news (headlines + briefs), events, summary.
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Dict, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
+from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
 
 logger = get_logger(__name__)
 from app.features.brew.agent import get_personal_digest
-from app.features.brew.db import save_user_digest, get_user_digest
+from app.features.brew.db import (
+    save_user_digest,
+    get_user_digest,
+    get_user_watchlist,
+    save_user_watchlist,
+    get_user_digest_by_id,
+    list_user_digests,
+)
 from app.features.brew.models import (
     DigestRequest,
     DigestResponse,
@@ -26,6 +35,133 @@ from app.features.brew.models import (
 )
 
 router = APIRouter(prefix="/api", tags=["brew"])
+
+
+def _transform_digest_sections(data: Dict[str, Any]) -> tuple:
+    """Transform raw digest data dict into (stocks, news, events, summary) model objects.
+
+    Used for both cached database records and fresh agent results to avoid duplication.
+    """
+    stocks = [
+        StockAnalysis(
+            symbol=s.get("symbol", ""),
+            name=s.get("name", ""),
+            price=s.get("price", 0),
+            daily_change=s.get("daily_change", ""),
+            week_change=s.get("week_change", ""),
+            status=s.get("status", ""),
+            quick_take=s.get("quick_take", ""),
+        )
+        for s in data.get("stocks", [])
+    ]
+
+    news_data = data.get("news", {})
+    if isinstance(news_data, dict):
+        headlines = [
+            DigestHeadlineNews(
+                title=n.get("title", ""),
+                related_symbols=n.get("related_symbols", []),
+                fact_summary=n.get("fact_summary", ""),
+                deep_analysis=n.get("deep_analysis", ""),
+                url=n.get("url", ""),
+            )
+            for n in news_data.get("headlines", [])
+        ]
+        briefs = [
+            DigestBriefNews(
+                title=n.get("title", ""),
+                related_symbols=n.get("related_symbols", []),
+                summary=n.get("summary", ""),
+                analysis=n.get("analysis", ""),
+                url=n.get("url", ""),
+            )
+            for n in news_data.get("briefs", [])
+        ]
+        news = DigestNewsSection(headlines=headlines, briefs=briefs)
+    else:
+        news = DigestNewsSection(headlines=[], briefs=[])
+
+    events = [
+        DigestEvent(
+            date=e.get("date", ""),
+            event=e.get("event", ""),
+            related_symbols=e.get("related_symbols", []),
+            why_important=e.get("why_important", ""),
+        )
+        for e in data.get("events", [])
+    ]
+
+    summary_data = data.get("summary", {})
+    summary = DigestSummary(
+        content=summary_data.get("content", "") if isinstance(summary_data, dict) else "",
+    )
+
+    return stocks, news, events, summary
+
+
+# --- Watchlist endpoints ---
+
+class WatchlistSaveRequest(BaseModel):
+    symbols: list[str]
+    email: str = ""
+
+
+@router.get("/watchlist")
+async def get_watchlist(user_id: str = Depends(verify_user_token)):
+    """Get the authenticated user's watchlist."""
+    watchlist = await get_user_watchlist(user_id)
+    return {
+        "success": True,
+        "data": watchlist,
+    }
+
+
+@router.put("/watchlist")
+async def save_watchlist(
+    body: WatchlistSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Save (upsert) the authenticated user's watchlist."""
+    result = await save_user_watchlist(
+        user_id=user_id,
+        symbols=body.symbols,
+        email=body.email,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to save watchlist"))
+    return result
+
+
+# --- Digest read endpoints ---
+
+@router.get("/digests")
+async def list_digests(
+    user_id: str = Depends(verify_user_token),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """List the authenticated user's digests with pagination."""
+    # Fetch enough records to handle offset + limit
+    fetch_limit = offset + limit
+    digests = await list_user_digests(user_id, limit=fetch_limit)
+    sliced = digests[offset:offset + limit]
+    return {
+        "success": True,
+        "data": sliced,
+        "total": len(digests),
+    }
+
+
+@router.get("/digests/{digest_id}")
+async def get_digest_by_id(
+    digest_id: str,
+    user_id: str = Depends(verify_user_token),
+):
+    """Get a specific digest by its UUID. Requires authentication and ownership."""
+    digest = await get_user_digest_by_id(digest_id)
+    if not digest or digest.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Digest not found")
+    return {"success": True, "data": digest}
 
 
 @router.post("/digest", response_model=DigestResponse)
@@ -63,61 +199,7 @@ async def generate_digest(request: Request, body: DigestRequest):
 
         if existing_digest:
             digest_data = existing_digest.get("digest_data", {})
-
-            # Transform cached data to response model
-            stocks = [
-                StockAnalysis(
-                    symbol=s.get("symbol", ""),
-                    name=s.get("name", ""),
-                    price=s.get("price", 0),
-                    daily_change=s.get("daily_change", ""),
-                    week_change=s.get("week_change", ""),
-                    status=s.get("status", ""),
-                    quick_take=s.get("quick_take", ""),
-                )
-                for s in digest_data.get("stocks", [])
-            ]
-
-            news_data = digest_data.get("news", {})
-            if isinstance(news_data, dict):
-                headlines = [
-                    DigestHeadlineNews(
-                        title=n.get("title", ""),
-                        related_symbols=n.get("related_symbols", []),
-                        fact_summary=n.get("fact_summary", ""),
-                        deep_analysis=n.get("deep_analysis", ""),
-                        url=n.get("url", ""),
-                    )
-                    for n in news_data.get("headlines", [])
-                ]
-                briefs = [
-                    DigestBriefNews(
-                        title=n.get("title", ""),
-                        related_symbols=n.get("related_symbols", []),
-                        summary=n.get("summary", ""),
-                        analysis=n.get("analysis", ""),
-                        url=n.get("url", ""),
-                    )
-                    for n in news_data.get("briefs", [])
-                ]
-                news = DigestNewsSection(headlines=headlines, briefs=briefs)
-            else:
-                news = DigestNewsSection(headlines=[], briefs=[])
-
-            events = [
-                DigestEvent(
-                    date=e.get("date", ""),
-                    event=e.get("event", ""),
-                    related_symbols=e.get("related_symbols", []),
-                    why_important=e.get("why_important", ""),
-                )
-                for e in digest_data.get("events", [])
-            ]
-
-            summary_data = digest_data.get("summary", {})
-            summary = DigestSummary(
-                content=summary_data.get("content", "") if isinstance(summary_data, dict) else "",
-            )
+            stocks, news, events, summary = _transform_digest_sections(digest_data)
 
             return DigestResponse(
                 success=True,
@@ -144,62 +226,7 @@ async def generate_digest(request: Request, body: DigestRequest):
             error_msg = result.get("error", "Failed to generate digest")
             raise HTTPException(status_code=500, detail=error_msg)
 
-        # Transform to response model
-        stocks = [
-            StockAnalysis(
-                symbol=s.get("symbol", ""),
-                name=s.get("name", ""),
-                price=s.get("price", 0),
-                daily_change=s.get("daily_change", ""),
-                week_change=s.get("week_change", ""),
-                status=s.get("status", ""),
-                quick_take=s.get("quick_take", ""),
-            )
-            for s in result.get("stocks", [])
-        ]
-
-        # Transform news section (headlines + briefs)
-        news_data = result.get("news", {})
-        if isinstance(news_data, dict):
-            headlines = [
-                DigestHeadlineNews(
-                    title=n.get("title", ""),
-                    related_symbols=n.get("related_symbols", []),
-                    fact_summary=n.get("fact_summary", ""),
-                    deep_analysis=n.get("deep_analysis", ""),
-                    url=n.get("url", ""),
-                )
-                for n in news_data.get("headlines", [])
-            ]
-            briefs = [
-                DigestBriefNews(
-                    title=n.get("title", ""),
-                    related_symbols=n.get("related_symbols", []),
-                    summary=n.get("summary", ""),
-                    analysis=n.get("analysis", ""),
-                    url=n.get("url", ""),
-                )
-                for n in news_data.get("briefs", [])
-            ]
-            news = DigestNewsSection(headlines=headlines, briefs=briefs)
-        else:
-            news = DigestNewsSection(headlines=[], briefs=[])
-
-        events = [
-            DigestEvent(
-                date=e.get("date", ""),
-                event=e.get("event", ""),
-                related_symbols=e.get("related_symbols", []),
-                why_important=e.get("why_important", ""),
-            )
-            for e in result.get("events", [])
-        ]
-
-        # Transform summary
-        summary_data = result.get("summary", {})
-        summary = DigestSummary(
-            content=summary_data.get("content", "") if isinstance(summary_data, dict) else "",
-        )
+        stocks, news, events, summary = _transform_digest_sections(result)
 
         # Save to database (always save, user_id is required)
         save_data = {

@@ -152,6 +152,84 @@ async def get_user_digest(user_id: str, digest_date: str) -> Optional[Dict[str, 
         return None
 
 
+async def save_user_watchlist(user_id: str, symbols: List[str], email: str = "") -> Dict[str, Any]:
+    """
+    Save (upsert) a user's watchlist via Edge Function.
+
+    Args:
+        user_id: User UUID
+        symbols: List of stock symbols
+        email: User email (optional)
+
+    Returns:
+        dict with success status
+    """
+    try:
+        service = get_insforge_service()
+        watchlist_url = f"{service.base_url}/functions/user-watchlists"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                watchlist_url,
+                headers=service.headers,
+                json={
+                    "user_id": user_id,
+                    "symbols": symbols,
+                    "email": email,
+                },
+                timeout=30.0,
+            )
+
+            if response.status_code in (200, 201):
+                data = response.json()
+                if data.get("success"):
+                    return {"success": True, "data": data.get("data")}
+                else:
+                    error_msg = data.get("error", "Unknown error")
+                    logger.error("Save watchlist failed: %s", error_msg)
+                    return {"success": False, "error": error_msg}
+            else:
+                error_msg = response.text
+                logger.error("Save watchlist failed: %s - %s", response.status_code, error_msg)
+                return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+
+    except Exception as e:
+        logger.exception("Exception saving user watchlist")
+        return {"success": False, "error": str(e)}
+
+
+async def get_user_digest_by_id(digest_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a user digest by its ID.
+
+    Args:
+        digest_id: UUID of the digest
+
+    Returns:
+        Digest data or None if not found
+    """
+    try:
+        service = get_insforge_service()
+        digest_url = f"{service.base_url}/functions/user-digests"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{digest_url}?digest_id={digest_id}",
+                headers=service.headers,
+                timeout=30.0,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    return data.get("data")
+            return None
+
+    except Exception as e:
+        logger.error("Exception getting user digest by ID: %s", e)
+        return None
+
+
 async def list_user_digests(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
     """
     List digests for a user.
