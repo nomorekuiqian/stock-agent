@@ -6,12 +6,13 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
-import { api, SectorInfo, StockSearchResult, StockQuote } from '@/lib/api';
+import StockSearchDropdown from '@/components/StockSearchDropdown';
+import { api, SectorInfo, StockQuote } from '@/lib/api';
 import { STOCK_NAMES } from '@/lib/stock-names';
+import { useStockSearch } from '@/hooks/useStockSearch';
 
 const MAX_WATCHLIST_SIZE = 25;
 
-// Sector category grouping (display-only, keyed by sector id)
 const SECTOR_CATEGORIES: { label: string; ids: string[] }[] = [
   { label: '核心科技', ids: ['mag7', 'ai', 'chips', 'software'] },
   { label: '金融消费', ids: ['finance', 'payments', 'consumer'] },
@@ -23,7 +24,6 @@ function WatchlistPageContent() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
-  // Core
   const [symbols, setSymbols] = useState<string[]>([]);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [sectors, setSectors] = useState<SectorInfo[]>([]);
@@ -31,44 +31,29 @@ function WatchlistPageContent() {
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  // Guard: only allow saves after watchlist has been successfully loaded
   const watchlistLoadedRef = useRef(false);
-
-  // Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const extraNamesRef = useRef<Record<string, { en: string; zh: string }>>({});
 
-  // Sector expand
   const [expandedSector, setExpandedSector] = useState<string | null>(null);
-
-  // Clear confirm
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [confirmingSectorRemove, setConfirmingSectorRemove] = useState<string | null>(null);
+  const sectorRemoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
 
-  // --- Auth redirect ---
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login?redirect=/for-you/watchlist');
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // --- Load data ---
   useEffect(() => {
     const loadData = async () => {
       if (!user?.id) return;
       setLoading(true);
       setLoadFailed(false);
       try {
-        // Load watchlist independently from sectors so a sectors failure
-        // does not prevent displaying the user's existing watchlist
         const watchlist = await api.watchlist.get(user.id);
         if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
           const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
@@ -90,7 +75,6 @@ function WatchlistPageContent() {
     if (user?.id) loadData();
   }, [user?.id]);
 
-  // --- Fetch quotes when symbols change ---
   useEffect(() => {
     const fetchQuotes = async () => {
       if (symbols.length === 0) {
@@ -112,25 +96,13 @@ function WatchlistPageContent() {
     fetchQuotes();
   }, [symbols]);
 
-  // --- Click outside search ---
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setShowSearchDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   useEffect(() => {
     return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (sectorRemoveTimerRef.current) clearTimeout(sectorRemoveTimerRef.current);
     };
   }, []);
 
-  // --- Helpers ---
   const getDisplayName = (symbol: string) => {
     const names = STOCK_NAMES[symbol] || extraNamesRef.current[symbol];
     return names?.zh || names?.en || symbol;
@@ -138,46 +110,22 @@ function WatchlistPageContent() {
 
   const persist = useCallback((newSymbols: string[]) => {
     if (!user?.id) return;
-    // CRITICAL: Never save unless we confirmed the initial load succeeded.
-    // Without this guard, a failed load (auth/network issue) leaves symbols=[],
-    // and any subsequent save would overwrite the user's real watchlist with empty data.
+    // Never save before initial load succeeds -- a failed load leaves symbols=[],
+    // which would overwrite the user's real watchlist with empty data.
     if (!watchlistLoadedRef.current) return;
-    // Debounce saves to avoid race conditions when rapid add/remove operations
-    // fire concurrent requests that can overwrite each other
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       api.watchlist.save(user.id, newSymbols);
     }, 500);
   }, [user?.id]);
 
-  // --- Search ---
-  const handleSearch = useCallback(async (query: string) => {
-    if (query.length < 1) {
-      setSearchResults([]);
-      setShowSearchDropdown(false);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const result = await api.searchStocks(query, 8);
-      const filtered = result.stocks.filter(s => !symbols.includes(s.symbol));
-      setSearchResults(filtered);
-      setShowSearchDropdown(true);
-    } catch (err) {
-      console.error('Search failed:', err);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [symbols]);
+  const handleRemoveSymbol = useCallback((symbolToRemove: string) => {
+    const newSymbols = symbols.filter(s => s !== symbolToRemove);
+    setSymbols(newSymbols);
+    persist(newSymbols);
+  }, [symbols, persist]);
 
-  const handleSearchInputChange = (value: string) => {
-    setSearchQuery(value.toUpperCase());
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => handleSearch(value), 300);
-  };
-
-  const handleAddSymbol = useCallback((symbol: string, name?: string) => {
+  const addSymbol = useCallback((symbol: string, name?: string) => {
     if (symbols.length >= MAX_WATCHLIST_SIZE) return;
     const sym = symbol.trim().toUpperCase();
     if (sym && !symbols.includes(sym)) {
@@ -188,31 +136,32 @@ function WatchlistPageContent() {
       }
       persist(newSymbols);
     }
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowSearchDropdown(false);
   }, [symbols, persist]);
 
-  const handleRemoveSymbol = useCallback((symbolToRemove: string) => {
-    const newSymbols = symbols.filter(s => s !== symbolToRemove);
-    setSymbols(newSymbols);
-    persist(newSymbols);
-  }, [symbols, persist]);
+  const handleSearchNavigate = useCallback((result: { symbol: string; name: string }) => {
+    router.push(`/stock/${result.symbol}`);
+  }, [router]);
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
-      e.preventDefault();
-      if (searchResults.length > 0) {
-        handleAddSymbol(searchResults[0].symbol, searchResults[0].name);
-      } else {
-        handleAddSymbol(searchQuery);
-      }
-    } else if (e.key === 'Escape') {
-      setShowSearchDropdown(false);
-    }
-  };
+  const handleSearchAdd = useCallback((result: { symbol: string; name: string }) => {
+    addSymbol(result.symbol, result.name);
+  }, [addSymbol]);
 
-  // --- Sector actions ---
+  const handleEnterRaw = useCallback((query: string) => {
+    addSymbol(query);
+  }, [addSymbol]);
+
+  const {
+    results: searchResults,
+    isSearching,
+    showDropdown: showSearchDropdown,
+    highlightedIndex,
+    containerRef: searchContainerRef,
+    inputProps: searchInputProps,
+  } = useStockSearch({
+    onSelect: handleSearchAdd,
+    onEnterRaw: handleEnterRaw,
+  });
+
   const handleAddSectorSymbols = (sectorSymbols: string[]) => {
     const toAdd = sectorSymbols.filter(s => !symbols.includes(s));
     if (toAdd.length === 0) return;
@@ -223,7 +172,6 @@ function WatchlistPageContent() {
     persist(newSymbols);
   };
 
-  // --- Clear all ---
   const handleClearAll = () => {
     setSymbols([]);
     setQuotes({});
@@ -231,7 +179,6 @@ function WatchlistPageContent() {
     setShowClearConfirm(false);
   };
 
-  // --- Auth loading ---
   if (authLoading) {
     return (
       <main className="min-h-screen bg-background">
@@ -249,7 +196,6 @@ function WatchlistPageContent() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Back link */}
       <div className="max-w-5xl mx-auto px-4 md:px-6 pt-6">
         <Link
           href="/for-you"
@@ -262,7 +208,6 @@ function WatchlistPageContent() {
         </Link>
       </div>
 
-      {/* Header */}
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-10">
           <div className="space-y-3">
@@ -309,7 +254,6 @@ function WatchlistPageContent() {
         </div>
       ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-10">
-          {/* Search */}
           <div ref={searchContainerRef} className="relative">
             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
               atLimit ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/80 focus-within:border-emerald-500/40'
@@ -318,15 +262,10 @@ function WatchlistPageContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
-                ref={searchInputRef}
                 type="text"
-                value={searchQuery}
-                onChange={e => handleSearchInputChange(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                placeholder={atLimit ? '已达上限' : '搜索股票代码或公司名称...'}
-                disabled={atLimit}
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none disabled:cursor-not-allowed"
+                {...searchInputProps}
+                placeholder="搜索股票代码或公司名称..."
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
               />
               <span className={`text-xs font-mono tabular-nums shrink-0 ${
                 atLimit ? 'text-amber-400' : 'text-muted-foreground'
@@ -335,36 +274,21 @@ function WatchlistPageContent() {
               </span>
             </div>
 
-            {/* Search dropdown */}
             {showSearchDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-border/50 bg-card shadow-xl overflow-hidden">
-                {isSearching ? (
-                  <div className="px-4 py-3 text-sm text-muted-foreground text-center">搜索中...</div>
-                ) : searchResults.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-muted-foreground text-center">无结果</div>
-                ) : (
-                  searchResults.map(stock => (
-                    <button
-                      key={stock.symbol}
-                      onClick={() => handleAddSymbol(stock.symbol, stock.name)}
-                      disabled={atLimit}
-                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors text-left cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono text-sm font-medium text-foreground">{stock.symbol}</span>
-                        <span className="text-xs text-muted-foreground truncate">{stock.name}</span>
-                      </div>
-                      <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </button>
-                  ))
-                )}
-              </div>
+              <StockSearchDropdown
+                results={searchResults}
+                highlightedIndex={highlightedIndex}
+                isSearching={isSearching}
+                showEmpty={true}
+                mode="watchlist"
+                inListSymbols={symbols}
+                onSelect={handleSearchNavigate}
+                onAdd={handleSearchAdd}
+                atLimit={atLimit}
+              />
             )}
           </div>
 
-          {/* Current holdings */}
           <section>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -433,7 +357,6 @@ function WatchlistPageContent() {
             )}
           </section>
 
-          {/* Sector quick-add */}
           {sectors.length > 0 && (
             <section className="space-y-8">
               <div className="flex items-center gap-3">
@@ -442,7 +365,6 @@ function WatchlistPageContent() {
                 <span className="text-xs text-muted-foreground font-data">{sectors.length} 个板块</span>
               </div>
 
-              {/* Category groups */}
               {SECTOR_CATEGORIES.map(category => {
                 const categorySectors = category.ids
                   .map(id => sectors.find(s => s.id === id))
@@ -451,14 +373,12 @@ function WatchlistPageContent() {
 
                 return (
                   <div key={category.label}>
-                    {/* Category label */}
                     <div className="flex items-center gap-3 mb-3">
                       <div className="h-px flex-1 max-w-[40px] bg-border/50" />
                       <span className="text-xs text-muted-foreground tracking-widest uppercase">{category.label}</span>
                       <div className="h-px flex-1 bg-border/30" />
                     </div>
 
-                    {/* Sector cards in this category */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                       {categorySectors.map((sector, idx) => {
                         const inWatchlist = sector.symbols.filter(s => symbols.includes(s)).length;
@@ -472,7 +392,6 @@ function WatchlistPageContent() {
                             className="group relative animate-fade-in-up"
                             style={{ animationDelay: `${idx * 40}ms` }}
                           >
-                            {/* Glow */}
                             <div className={`absolute -inset-0.5 rounded-xl transition-opacity duration-500 blur-sm ${
                               isExpanded
                                 ? 'opacity-100 bg-emerald-500/25'
@@ -482,7 +401,14 @@ function WatchlistPageContent() {
                             }`} />
 
                             <button
-                              onClick={() => setExpandedSector(isExpanded ? null : sector.id)}
+                              onClick={() => {
+                                setExpandedSector(isExpanded ? null : sector.id);
+                                setConfirmingSectorRemove(null);
+                                if (sectorRemoveTimerRef.current) {
+                                  clearTimeout(sectorRemoveTimerRef.current);
+                                  sectorRemoveTimerRef.current = null;
+                                }
+                              }}
                               className={`relative w-full text-left bg-card/80 backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 cursor-pointer ${
                                 isExpanded
                                   ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10'
@@ -491,7 +417,6 @@ function WatchlistPageContent() {
                                     : 'border-border/50 group-hover:border-emerald-500/30 group-hover:translate-y-[-2px] group-hover:shadow-lg group-hover:shadow-black/10'
                               }`}
                             >
-                              {/* All-added badge */}
                               {allAdded && (
                                 <div className="absolute top-2 right-2 p-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
                                   <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -500,11 +425,9 @@ function WatchlistPageContent() {
                                 </div>
                               )}
 
-                              {/* Name */}
                               <div className="font-semibold text-sm text-foreground mb-0.5 pr-6">{sector.name_zh}</div>
                               <div className="text-xs text-muted-foreground mb-3 group-hover:text-foreground/70 transition-colors">{sector.name_en}</div>
 
-                              {/* Stats row */}
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs text-muted-foreground font-data">{sector.symbol_count} 只股票</span>
                                 {inWatchlist > 0 && !allAdded && (
@@ -512,7 +435,6 @@ function WatchlistPageContent() {
                                 )}
                               </div>
 
-                              {/* Progress bar */}
                               <div className="h-1 rounded-full bg-border/50 overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${
@@ -527,7 +449,6 @@ function WatchlistPageContent() {
                       })}
                     </div>
 
-                    {/* Expanded sector detail panel (render within its category) */}
                     {expandedSector && categorySectors.some(s => s.id === expandedSector) && (() => {
                       const sector = sectors.find(s => s.id === expandedSector);
                       if (!sector) return null;
@@ -538,7 +459,6 @@ function WatchlistPageContent() {
 
                       return (
                         <div className="mt-3 rounded-xl border border-emerald-500/20 bg-card/60 backdrop-blur-sm p-5 animate-fade-in-up">
-                          {/* Header */}
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                               <div className="w-1 h-4 bg-emerald-500 rounded-full" />
@@ -561,40 +481,60 @@ function WatchlistPageContent() {
                             )}
                           </div>
 
-                          {/* Description */}
                           <p className="text-xs text-muted-foreground mb-4 ml-3 leading-relaxed">{sector.description}</p>
 
-                          {/* Stock grid */}
                           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-2">
                             {sector.symbols.map(sym => {
                               const inList = symbols.includes(sym);
+                              const isConfirming = confirmingSectorRemove === sym;
                               const name = STOCK_NAMES[sym];
+
+                              const handleSectorStockClick = () => {
+                                if (inList) {
+                                  if (isConfirming) {
+                                    if (sectorRemoveTimerRef.current) clearTimeout(sectorRemoveTimerRef.current);
+                                    setConfirmingSectorRemove(null);
+                                    handleRemoveSymbol(sym);
+                                  } else {
+                                    setConfirmingSectorRemove(sym);
+                                    sectorRemoveTimerRef.current = setTimeout(() => {
+                                      setConfirmingSectorRemove(null);
+                                    }, 3000);
+                                  }
+                                } else {
+                                  addSymbol(sym);
+                                }
+                              };
+
                               return (
                                 <button
                                   key={sym}
-                                  onClick={() => inList ? handleRemoveSymbol(sym) : handleAddSymbol(sym)}
+                                  onClick={handleSectorStockClick}
                                   disabled={!inList && atLimit}
                                   className={`group flex flex-col items-center gap-1 p-2.5 rounded-lg text-center transition-all border ${
-                                    inList
-                                      ? 'border-emerald-500/30 bg-emerald-500/10 hover:border-red-400/40 hover:bg-red-500/10 cursor-pointer'
-                                      : 'border-border/40 bg-muted/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
+                                    isConfirming
+                                      ? 'border-red-400/40 bg-red-500/10 cursor-pointer'
+                                      : inList
+                                        ? 'border-emerald-500/30 bg-emerald-500/10 cursor-pointer'
+                                        : 'border-border/40 bg-muted/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
                                   }`}
                                 >
-                                  <span className={`font-mono text-xs font-semibold flex items-center gap-0.5 ${inList ? 'text-emerald-400 group-hover:text-red-400' : 'text-muted-foreground hover:text-foreground'}`}>
-                                    {inList && (
-                                      <>
-                                        <svg className="w-3 h-3 shrink-0 group-hover:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        <svg className="w-3 h-3 shrink-0 hidden group-hover:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                      </>
-                                    )}
-                                    {sym}
+                                  <span className={`font-mono text-xs font-semibold flex items-center gap-0.5 ${
+                                    isConfirming ? 'text-red-400' : inList ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground'
+                                  }`}>
+                                    {isConfirming ? (
+                                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    ) : inList ? (
+                                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : null}
+                                    {isConfirming ? '移除?' : sym}
                                   </span>
-                                  {name && (
-                                    <span className={`text-[10px] truncate w-full ${inList ? 'text-emerald-400/60 group-hover:text-red-400/60' : 'text-muted-foreground'}`}>{name.zh || name.en}</span>
+                                  {!isConfirming && name && (
+                                    <span className={`text-[10px] truncate w-full ${inList ? 'text-emerald-400/60' : 'text-muted-foreground'}`}>{name.zh || name.en}</span>
                                   )}
                                 </button>
                               );

@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Plus } from 'lucide-react';
-import { api, StockQuote, StockSearchResult } from '@/lib/api';
+import { Search } from 'lucide-react';
+import { api, StockQuote } from '@/lib/api';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import StockCard from '@/components/StockCard';
+import StockSearchDropdown from '@/components/StockSearchDropdown';
+import { useStockSearch } from '@/hooks/useStockSearch';
 
 // =============================================================================
 // Types & Data
@@ -113,15 +115,6 @@ export default function StockResearchPage() {
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(true);
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isComposingRef = useRef(false);
-
   useEffect(() => {
     setRecentStocks(getRecentStocks());
   }, []);
@@ -150,69 +143,20 @@ export default function StockResearchPage() {
       });
   }, []);
 
-  // Debounced search - skip during IME composition (CJK input support)
-  const handleSearchInput = useCallback((value: string, forceSearch = false) => {
-    setSearchQuery(value.toUpperCase());
+  // Search hook
+  const handleSearchSelect = useCallback((result: { symbol: string; name: string }) => {
+    addRecentStock(result.symbol, result.name);
+    router.push(`/stock/${result.symbol}`);
+  }, [router]);
 
-    // Skip search during IME composition (iOS Safari Chinese input fix)
-    if (isComposingRef.current && !forceSearch) {
-      return;
-    }
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (value.length < 1) {
-      setSearchResults([]);
-      setShowSearchDropdown(false);
-      return;
-    }
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const result = await api.searchStocks(value, 8);
-        setSearchResults(result.stocks);
-        setShowSearchDropdown(true);
-      } catch (err) {
-        console.error('Search failed:', err);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-  }, []);
-
-  // IME composition handlers (fixes iOS Safari Chinese input bug)
-  const handleCompositionStart = useCallback(() => {
-    isComposingRef.current = true;
-  }, []);
-
-  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
-    isComposingRef.current = false;
-    handleSearchInput(e.currentTarget.value, true);
-  }, [handleSearchInput]);
-
-  // Cleanup search timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        setShowSearchDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  const {
+    results: searchResults,
+    isSearching,
+    showDropdown: showSearchDropdown,
+    highlightedIndex,
+    containerRef: searchContainerRef,
+    inputProps: searchInputProps,
+  } = useStockSearch({ onSelect: handleSearchSelect });
 
   // Navigation helpers
   const handleStockClick = useCallback((symbol: string) => {
@@ -221,13 +165,6 @@ export default function StockResearchPage() {
     addRecentStock(symbol, name);
     router.push(`/stock/${symbol}`);
   }, [router, quotes]);
-
-  const handleSearchResultClick = useCallback((result: StockSearchResult) => {
-    addRecentStock(result.symbol, result.name);
-    setShowSearchDropdown(false);
-    setSearchQuery('');
-    router.push(`/stock/${result.symbol}`);
-  }, [router]);
 
   const getDisplayName = (symbol: string): string => {
     const info = STOCK_NAMES[symbol];
@@ -266,16 +203,9 @@ export default function StockResearchPage() {
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-emerald-500 transition-colors" />
                 <input
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchInput(e.target.value)}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
-                  onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
+                  {...searchInputProps}
                   placeholder="搜索股票代码或公司名称..."
                   className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-emerald-500/50 focus:bg-card/60 transition-all font-data tracking-wider"
-                  autoComplete="off"
-                  autoCapitalize="characters"
-                  spellCheck="false"
                 />
                 {isSearching && (
                   <div className="absolute right-5 top-1/2 -translate-y-1/2">
@@ -285,35 +215,14 @@ export default function StockResearchPage() {
               </div>
             </div>
 
-            {/* Search dropdown */}
-            {showSearchDropdown && searchResults.length > 0 && (
-              <div
-                className="absolute left-0 right-0 mt-2 rounded-xl overflow-hidden border border-border shadow-2xl"
-                style={{
-                  zIndex: 9999,
-                  backgroundColor: 'var(--popover)',
-                }}
-              >
-                <div
-                  className="max-h-[400px] overflow-y-auto"
-                  style={{ backgroundColor: 'var(--popover)' }}
-                >
-                  {searchResults.map((result) => (
-                    <button
-                      key={result.symbol}
-                      onClick={() => handleSearchResultClick(result)}
-                      className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 group/item hover:bg-accent transition-colors"
-                      style={{ backgroundColor: 'var(--popover)' }}
-                    >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <span className="font-mono font-semibold text-sm text-foreground shrink-0">{result.symbol}</span>
-                        <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/80">{result.name}</span>
-                      </div>
-                      <Plus className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100" />
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {showSearchDropdown && (
+              <StockSearchDropdown
+                results={searchResults}
+                highlightedIndex={highlightedIndex}
+                isSearching={isSearching}
+                mode="navigate"
+                onSelect={handleSearchSelect}
+              />
             )}
           </div>
         </div>
