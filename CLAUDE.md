@@ -4,32 +4,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 模块文档
 
-每个 feature 模块目录下有 `CONTEXT.md`，修改代码前先阅读以了解模块的功能逻辑、数据流、依赖关系和注意事项。
+每个模块目录下有 `.context.md`，修改代码前先阅读以了解模块的功能逻辑、数据流、依赖关系和注意事项。
 
-已有文档:
-- `backend/app/features/daily_report/CONTEXT.md` — 市场日报
-- `backend/app/features/stock/CONTEXT.md` — 个股投研
-- `backend/app/features/macro/liquidity/CONTEXT.md` — 流动性监控
-- `backend/app/features/macro/weekly/CONTEXT.md` — 宏观周报
-- `backend/app/features/sector/CONTEXT.md` — 板块分析
-- `backend/app/features/brew/CONTEXT.md` — 个性化摘要 (Brew)
-- `backend/app/features/macro/cache/CONTEXT.md` — 宏观数据缓存系统
-- `backend/app/features/macro/risk/CONTEXT.md` — 宏观风险评估
-- `backend/app/shared/CONTEXT.md` — 跨模块共享服务
-- `backend/app/shared/data_tools/CONTEXT.md` — 数据获取工具层
-- `backend/app/features/subscription/CONTEXT.md` — 邮件订阅管理
-- `backend/app/features/notification/CONTEXT.md` — 邮件发送与广播
-- `backend/app/features/feedback/CONTEXT.md` — 用户反馈
-- `backend/app/core/CONTEXT.md` — 核心基础设施
-- `backend/docs/reliability.md` — 工程可靠性 (错误处理/速率限制/日志/前端健壮性)
+**后端**:
+- `backend/app/core/.context.md` — 核心基础设施
+- `backend/app/features/daily_report/.context.md` — 市场日报
+- `backend/app/features/brew/.context.md` — 个性化摘要 (Brew)
+- `backend/app/features/stock/.context.md` — 个股投研
+- `backend/app/features/macro/liquidity/.context.md` — 流动性监控
+- `backend/app/features/macro/weekly/.context.md` — 宏观周报
+- `backend/app/features/macro/cache/.context.md` — 宏观数据缓存系统
+- `backend/app/features/macro/risk/.context.md` — 宏观风险评估
+- `backend/app/features/sector/.context.md` — 板块分析
+- `backend/app/features/subscription/.context.md` — 邮件订阅管理
+- `backend/app/features/notification/.context.md` — 邮件发送与广播
+- `backend/app/features/feedback/.context.md` — 用户反馈
+- `backend/app/shared/.context.md` — 跨模块共享服务
+- `backend/app/shared/data_tools/.context.md` — 数据获取工具层
+
+**前端**:
+- `frontend/src/app/today/.context.md` — 市场日报页面
+- `frontend/src/app/for-you/.context.md` — 个性化 Brew 页面
+- `frontend/src/app/stock/.context.md` — 个股研究页面
+- `frontend/src/app/macro/.context.md` — 宏观仪表盘页面
+- `frontend/src/lib/.context.md` — 共享工具库 (api/auth/insforge)
+
+**其他文档**:
+- `backend/docs/reliability.md` — 工程可靠性
+- `frontend/docs/auth.md` — 认证流程
 - `frontend/docs/pages.md` — 前端页面路由
 - `frontend/docs/components.md` — 前端组件与库文件
-- `frontend/docs/auth.md` — 认证流程
 
 ## 重要规则
 
 - **禁止自动 Git 操作**: 不要自动执行 `git commit` 或 `git push`，所有 Git 提交和推送操作需要用户手动确认后再执行
 - **前端测试使用 Chrome DevTools MCP**: 进行浏览器交互测试和调试时，优先使用 Chrome DevTools MCP 工具
+- **邮件广播安全**: 当 `FRONTEND_URL` 不是生产域名时，所有 broadcast 自动路由到 Resend 测试 segment (`1c300c45-49a7-479e-a4c2-1ed5cfccda1e`)，可以正常调用广播端点模拟生产流程。**Claude 在开发环境调用广播 API 后，必须检查返回的 `audience_id` 确认是测试 segment。**
+
+### Context 自动维护
+
+任务完成后，根据变更类型自动更新相关文档：
+
+| 变更类型 | 更新目标 | 触发条件 |
+|----------|----------|----------|
+| 新增/修改 API 端点 | CLAUDE.md API 端点表 + 对应 `.context.md` | router.py 有增删改 |
+| 认证变更 | `frontend/docs/auth.md` 已认证端点清单 | verify_user_token 使用变化 |
+| 修复 bug / 踩坑 | memory/MEMORY.md 的"经验总结" | 修复了非显而易见的问题 |
+| 新增 feature 模块 | CLAUDE.md 模块文档列表 | 新建了 `.context.md` |
+| 数据库表/Edge Function 变更 | 对应 feature 的 `.context.md` | db.py 或 edge function 有改动 |
+| 前端页面逻辑变更 | 对应页面的 `.context.md` | page.tsx 的数据流/状态管理有变化 |
+
+**执行方式**: 不需要用户提醒。完成任务后，静默检查上表，有匹配则自动更新对应文档。更新时只改变化的部分，不重写整个文件。
 
 ## 测试账号
 
@@ -205,24 +230,31 @@ Python 数据获取层 (shared/data_tools)
 
 ## API 端点
 
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/market` | POST | 生成/获取市场日报 |
-| `/api/digest` | POST | 生成个性化摘要 |
-| `/api/stocks/search` | GET | 搜索股票 |
-| `/api/stocks/quotes` | GET | 批量报价 (yfinance) |
-| `/api/stocks/{symbol}` | GET | 个股完整数据 |
-| `/api/stocks/{symbol}/history` | GET | 价格历史 |
-| `/api/stocks/{symbol}/analysis` | POST | AI 个股分析 |
-| `/api/stocks/{symbol}/technical` | POST | AI 技术分析 |
-| `/api/stocks/{symbol}/technical-snapshot` | GET | 技术指标快照 |
-| `/api/stocks/{symbol}/valuation` | GET | 估值对比 |
-| `/api/liquidity/metrics` | GET | 流动性指标 |
-| `/api/macro-risk/dashboard` | GET | 宏观风险仪表盘 |
-| `/api/weekly-report` | GET | 宏观周报 |
-| `/api/subscriptions/{channel}/subscribe` | POST | 订阅频道 |
-| `/api/report/send` | POST | 广播日报 (需 X-Cron-Secret) |
-| `/api/newsletter/broadcast` | POST | 广播简报 (需 X-Cron-Secret) |
+| 端点 | 方法 | 认证 | 描述 |
+|------|------|------|------|
+| `/api/market` | POST | - | 生成/获取市场日报 |
+| `/api/market/reports` | GET | - | 列出历史日报 (分页) |
+| `/api/market/reports/latest` | GET | - | 最新日报 |
+| `/api/market/reports/{id}` | GET | - | 按 ID 获取日报 |
+| `/api/digest` | POST | - | 生成个性化摘要 (body 中传 user_id) |
+| `/api/watchlist` | GET | Bearer | 获取用户自选股 |
+| `/api/watchlist` | PUT | Bearer | 保存用户自选股 |
+| `/api/digests` | GET | Bearer | 列出用户摘要历史 |
+| `/api/digests/{id}` | GET | Bearer | 获取特定摘要 |
+| `/api/stocks/search` | GET | - | 搜索股票 |
+| `/api/stocks/quotes` | GET | - | 批量报价 (yfinance) |
+| `/api/stocks/{symbol}` | GET | - | 个股完整数据 |
+| `/api/stocks/{symbol}/analysis` | POST | - | AI 个股分析 |
+| `/api/stocks/{symbol}/technical` | POST | - | AI 技术分析 |
+| `/api/liquidity/metrics` | GET | - | 流动性指标 |
+| `/api/macro-risk/dashboard` | GET | - | 宏观风险仪表盘 |
+| `/api/weekly-report` | GET | - | 宏观周报 |
+| `/api/subscriptions/{channel}/subscribe` | POST | - | 订阅频道 |
+| `/api/report/send` | POST | Cron | 广播日报 (需 X-Cron-Secret) |
+| `/api/newsletter/broadcast` | POST | Cron | 广播简报 (需 X-Cron-Secret) |
+
+> **认证类型**: Bearer = 用户 JWT (`verify_user_token`), Cron = 管理密钥 (`verify_cron_secret`), - = 公开
+> **添加认证的标准做法**: 见 `frontend/docs/auth.md` 的"添加认证到新端点的标准流程"
 
 ## 测试架构
 

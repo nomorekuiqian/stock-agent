@@ -93,9 +93,100 @@
   -> 重定向到登录页
 ```
 
+## Token 生命周期
+
+| Token 类型 | 有效期 | 存储位置 | 刷新方式 |
+|------------|--------|----------|----------|
+| Access Token | 1 小时 | SDK 内存 + localStorage + httpOnly Cookie | SDK 自动刷新 |
+| Refresh Token | 30 天 | httpOnly Cookie | 用于获取新 Access Token |
+
+**Token 恢复链** (优先级从高到低):
+1. SDK 内存 session (`insforge.auth.getCurrentSession()`)
+2. httpOnly Cookie (`/api/auth/session` 端点)
+3. localStorage (`insforge-auth-token` key)
+
+## 后端 API 认证
+
+### verify_user_token (Bearer Token 验证)
+
+**位置**: `backend/app/core/deps.py`
+
+**机制**:
+- 从 `Authorization: Bearer {token}` Header 提取 JWT
+- 调用 Insforge Auth API (`/auth/v1/user`) 验证 token 有效性
+- 验证结果缓存 60 秒（内存 dict，避免重复调用 Insforge API）
+- 返回 `user_id` 字符串
+
+**使用方式**:
+```python
+from app.core.deps import verify_user_token
+
+@router.get("/my-endpoint")
+async def handler(user_id: str = Depends(verify_user_token)):
+    # user_id 已验证，可以安全使用
+    ...
+```
+
+### 前端发送 Token
+
+**位置**: `frontend/src/lib/api.ts` — `_authHeaders()` 函数
+
+```typescript
+import { getAccessToken } from './auth';
+
+async function _authHeaders(base = {}): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (token) {
+    return { ...base, Authorization: `Bearer ${token}` };
+  }
+  return base;
+}
+```
+
+**使用方式**:
+```typescript
+// GET 请求
+const headers = await _authHeaders();
+const response = await fetch(`${API_BASE_URL}/watchlist`, { headers });
+
+// POST/PUT 请求
+const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+const response = await fetch(`${API_BASE_URL}/watchlist`, {
+  method: 'PUT',
+  headers,
+  body: JSON.stringify({ symbols }),
+});
+```
+
+### 添加认证到新端点的标准流程
+
+**后端**:
+1. 在 router.py 中 import: `from app.core.deps import verify_user_token`
+2. 给端点参数加 `user_id: str = Depends(verify_user_token)`
+3. body/query 中不要传 user_id，从 token 提取
+
+**前端**:
+1. 在 api.ts 中使用 `await _authHeaders()` 获取包含 Bearer token 的 headers
+2. 传入 fetch 的 headers 参数
+3. 不要在 URL query 或 body 中传 user_id
+
+### 已认证端点清单
+
+| 端点 | 认证方式 | 说明 |
+|------|----------|------|
+| `GET /api/watchlist` | Bearer Token | 获取用户自选股 |
+| `PUT /api/watchlist` | Bearer Token | 保存用户自选股 |
+| `GET /api/digests` | Bearer Token | 列出用户摘要 |
+| `GET /api/digests/{id}` | Bearer Token | 获取特定摘要 |
+| `POST /api/payments/*` | Bearer Token | 支付相关 |
+| `POST /api/report/send` | X-Cron-Secret | 广播日报 (管理端点) |
+| `POST /api/newsletter/broadcast` | X-Cron-Secret | 广播简报 (管理端点) |
+
 ## 注意事项
 
 - Google OAuth 的回调 URL 需要在 Insforge 控制台配置
 - httpOnly Cookie 确保 token 不暴露给 JavaScript (XSS 防护)
 - `has_auto_subscribed` localStorage key 用于避免每次登录都重复订阅
 - Insforge Auth 本质上是 Supabase Auth 的封装，API 兼容
+- `verify_user_token` 验证结果有 60 秒内存缓存，高频请求不会反复调用 Insforge API
+- 前端 `getAccessToken()` 依赖 SDK session，需要 AuthContext 先初始化（页面加载时 `getCurrentUser()` 会设置）
