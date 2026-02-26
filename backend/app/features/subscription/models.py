@@ -1,6 +1,4 @@
-"""
-Subscription feature models - Pydantic request/response models for subscription management.
-"""
+"""Subscription feature models."""
 
 from pydantic import BaseModel, Field
 from typing import Dict, Optional, Any, List
@@ -12,7 +10,6 @@ class SubscribeRequest(BaseModel):
     first_name: Optional[str] = Field(None, description="Subscriber first name")
     # Channel-specific fields (for personal_digest)
     user_id: Optional[str] = Field(None, description="User ID for personal digest")
-    symbols: Optional[List[str]] = Field(None, description="Watchlist symbols for personal digest")
 
     class Config:
         json_schema_extra = {
@@ -24,8 +21,7 @@ class SubscribeRequest(BaseModel):
                 {
                     "email": "user@example.com",
                     "first_name": "John",
-                    "user_id": "12345678-1234-5678-90ab-cdef12345678",
-                    "symbols": ["AAPL", "MSFT", "NVDA"]
+                    "user_id": "12345678-1234-5678-90ab-cdef12345678"
                 }
             ]
         }
@@ -47,25 +43,12 @@ class SubscriptionUpdateRequest(BaseModel):
     """Request model for updating subscription metadata"""
     email: str = Field(..., description="Subscriber email address")
     first_name: Optional[str] = Field(None, description="Updated first name")
-    symbols: Optional[List[str]] = Field(None, description="Updated watchlist symbols")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "email": "user@example.com",
-                "symbols": ["AAPL", "GOOGL", "AMZN"]
-            }
-        }
-
-
-class SubscriptionStatusRequest(BaseModel):
-    """Request model for checking subscription status"""
-    email: str = Field(..., description="Email address to check")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "email": "user@example.com"
+                "first_name": "John"
             }
         }
 

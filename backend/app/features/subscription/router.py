@@ -40,7 +40,7 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
     """
     Subscribe to a specific channel (daily_report or personal_digest).
 
-    For personal_digest channel, user_id and symbols are required.
+    For personal_digest channel, user_id is required.
     Sends welcome email for new daily_report subscribers.
 
     Optimized flow (2-3 API calls vs old 6-7):
@@ -57,8 +57,6 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
             metadata["first_name"] = request.first_name
         if request.user_id:
             metadata["user_id"] = request.user_id
-        if request.symbols:
-            metadata["symbols"] = request.symbols
 
         # Single optimized call that handles subscribe + welcome tracking
         result = subscription_service.subscribe_with_welcome(
@@ -146,7 +144,7 @@ async def get_subscription_status(
 @router.put("/subscriptions/{channel}/update", response_model=SubscriptionResponse)
 async def update_subscription(channel: SubscriptionChannel, request: SubscriptionUpdateRequest):
     """
-    Update subscription metadata (e.g., watchlist symbols for personal_digest).
+    Update subscription metadata (e.g., first_name for personal_digest).
     """
     try:
         subscription_service = get_subscription_service()
@@ -155,8 +153,6 @@ async def update_subscription(channel: SubscriptionChannel, request: Subscriptio
         metadata = {}
         if request.first_name:
             metadata["first_name"] = request.first_name
-        if request.symbols:
-            metadata["symbols"] = request.symbols
 
         result = subscription_service.update(
             channel=channel,

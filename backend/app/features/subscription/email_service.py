@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 import resend
 
-from app.core.config import RESEND_API_KEY
+from app.core.config import RESEND_API_KEY, FRONTEND_URL
 from app.core.logging import get_logger
 from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
 from app.features.subscription.service import (
@@ -33,8 +33,9 @@ class EmailService:
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-        self.frontend_url = self.PRODUCTION_URL
-        self.logo_url = f"{self.frontend_url}/logo-avatar.png"
+        self.frontend_url = FRONTEND_URL if FRONTEND_URL else self.PRODUCTION_URL
+        self.is_production = self.frontend_url == self.PRODUCTION_URL
+        self.logo_url = f"{self.PRODUCTION_URL}/logo-avatar.png"
 
     def _format_timestamp(self, timestamp: str) -> str:
         """Format ISO timestamp to human-readable format (Pacific timezone)."""
@@ -825,12 +826,27 @@ class EmailService:
             logger.error("Error sending digest email: %s", e)
             return {"success": False, "error": str(e)}
 
+    # Test Broadcast audience - used automatically in non-production environments
+    TEST_AUDIENCE_ID = "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
+
     def _resolve_audience(
         self,
         audience_id: Optional[str],
         channel: SubscriptionChannel,
     ) -> str:
-        """Return the given audience_id, or look up the default for the channel."""
+        """Return the given audience_id, or look up the default for the channel.
+
+        In non-production environments, always routes to TEST_AUDIENCE_ID
+        to prevent accidentally emailing real subscribers.
+        """
+        if not self.is_production:
+            forced = audience_id or self.TEST_AUDIENCE_ID
+            logger.info(
+                "[EmailService] Non-production: routing %s broadcast "
+                "to test audience %s",
+                channel.value, forced,
+            )
+            return forced
         if audience_id:
             return audience_id
         sub_service = get_subscription_service()
@@ -1635,6 +1651,22 @@ class EmailService:
                         </table>
                     </div>
 
+                    <!-- Community QR Code -->
+                    <div style="{card_style}">
+                        <div style="{section_header_style}">
+                            加入社群
+                        </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
+                            扫码加入 TheMarketBrew 微信交流群，和其他投资者一起交流市场观点。
+                        </p>
+                        <div style="text-align: center;">
+                            <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr.jpg"
+                                 alt="TheMarketBrew WeChat Group QR Code"
+                                 style="width: 100%; max-width: 360px; border-radius: 8px; border: 1px solid #e4e4e7;"
+                            />
+                        </div>
+                    </div>
+
                     <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 24px 0 0 0;">
                         如果在使用中有任何想法或建议，欢迎直接回复这封邮件，我会亲自查看每一封。
                     </p>
@@ -1692,18 +1724,44 @@ class EmailService:
         try:
             from app.features.brew.agent import get_personal_digest
 
-            sub_service = get_subscription_service()
-            result = sub_service.list_subscribers(
-                SubscriptionChannel.PERSONAL_DIGEST, limit=500
-            )
+            if not self.is_production:
+                # Dev environment: use test segment contacts instead of production subscribers
+                logger.info(
+                    "[EmailService] Non-production: "
+                    "loading contacts from test segment %s",
+                    self.TEST_AUDIENCE_ID,
+                )
+                import json
+                contacts = resend.Contacts.list(audience_id=self.TEST_AUDIENCE_ID)
+                active = [c for c in contacts.get("data", []) if not c.get("unsubscribed")]
+                subscribers = []
+                for c in active:
+                    metadata = {}
+                    if c.get("last_name"):
+                        try:
+                            metadata = json.loads(c["last_name"])
+                        except Exception:
+                            pass
+                    subscribers.append({
+                        "email": c.get("email", ""),
+                        "metadata": {
+                            "first_name": c.get("first_name", ""),
+                            "user_id": metadata.get("user_id"),
+                        },
+                    })
+            else:
+                sub_service = get_subscription_service()
+                result = sub_service.list_subscribers(
+                    SubscriptionChannel.PERSONAL_DIGEST, limit=500
+                )
 
-            if not result.get("success"):
-                return {
-                    "success": False,
-                    "error": result.get("error", "Failed to list subscribers"),
-                }
+                if not result.get("success"):
+                    return {
+                        "success": False,
+                        "error": result.get("error", "Failed to list subscribers"),
+                    }
 
-            subscribers = result.get("subscribers", [])
+                subscribers = result.get("subscribers", [])
             if not subscribers:
                 return {
                     "success": True,

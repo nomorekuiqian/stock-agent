@@ -1,12 +1,9 @@
-"""
-Subscription Service - Unified subscription management for multiple channels.
-Supports daily_report and personal_digest channels using Resend Audiences API.
-"""
+"""Subscription Service - Unified subscription management for multiple channels."""
 
 import json
 import time
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
 import resend
 
@@ -48,7 +45,7 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     SubscriptionChannel.PERSONAL_DIGEST: {
         "audience_name": "Personal Digest Daily",
-        "metadata_fields": ["first_name", "user_id", "symbols"],
+        "metadata_fields": ["first_name", "user_id"],
         "requires_auth": True,
     },
     SubscriptionChannel.WEEKLY_REPORT: {
@@ -84,6 +81,18 @@ class SubscriptionService:
         """Validate that API key is configured."""
         if not self.api_key:
             raise ValueError("RESEND_API_KEY not configured")
+
+    @staticmethod
+    def _parse_contact_metadata(contact: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse first_name and JSON-encoded extra data from a Resend contact."""
+        metadata: Dict[str, Any] = {"first_name": contact.get("first_name")}
+        last_name = contact.get("last_name")
+        if last_name:
+            try:
+                metadata.update(json.loads(last_name))
+            except json.JSONDecodeError:
+                pass
+        return metadata
 
     # =========================================================================
     # Audience Management
@@ -147,7 +156,7 @@ class SubscriptionService:
         Args:
             channel: The subscription channel
             email: Subscriber's email address
-            metadata: Channel-specific metadata (first_name, user_id, symbols, etc.)
+            metadata: Channel-specific metadata (first_name, user_id, etc.)
 
         Returns:
             dict with success status and contact info
@@ -157,7 +166,6 @@ class SubscriptionService:
 
         try:
             audience_id = self.ensure_audience(channel)
-            config = self._get_channel_config(channel)
 
             # Build contact params
             params: resend.Contacts.CreateParams = {
@@ -170,15 +178,12 @@ class SubscriptionService:
             if "first_name" in metadata:
                 params["first_name"] = metadata["first_name"]
 
-            # For personal_digest, store user_id and symbols in contact data
-            # Resend doesn't have custom fields, so we store in first_name field as JSON
+            # For personal_digest, store user_id in contact data
+            # Resend doesn't have custom fields, so we store in last_name field as JSON
             if channel == SubscriptionChannel.PERSONAL_DIGEST:
-                # Create a structured data string for the contact
                 extra_data = {}
                 if "user_id" in metadata:
                     extra_data["user_id"] = metadata["user_id"]
-                if "symbols" in metadata:
-                    extra_data["symbols"] = metadata["symbols"]
 
                 # Store extra data as JSON in last_name field (Resend workaround)
                 if extra_data:
@@ -275,8 +280,6 @@ class SubscriptionService:
                 extra_data = {}
                 if "user_id" in metadata:
                     extra_data["user_id"] = metadata["user_id"]
-                if "symbols" in metadata:
-                    extra_data["symbols"] = metadata["symbols"]
                 if extra_data:
                     update_params["last_name"] = json.dumps(extra_data)
 
@@ -315,18 +318,7 @@ class SubscriptionService:
 
             for contact in result.get("data", []):
                 if contact.get("email", "").lower() == email.lower():
-                    # Parse stored metadata
-                    metadata = {"first_name": contact.get("first_name")}
-
-                    # Parse extra data from last_name field
-                    last_name = contact.get("last_name")
-                    if last_name:
-                        try:
-                            extra_data = json.loads(last_name)
-                            metadata.update(extra_data)
-                        except json.JSONDecodeError:
-                            pass
-
+                    metadata = self._parse_contact_metadata(contact)
                     return {
                         "success": True,
                         "channel": channel.value,
@@ -374,18 +366,7 @@ class SubscriptionService:
                 if contact.get("unsubscribed", False):
                     continue
 
-                # Parse metadata
-                metadata = {"first_name": contact.get("first_name")}
-
-                # Parse extra data from last_name field
-                last_name = contact.get("last_name")
-                if last_name:
-                    try:
-                        extra_data = json.loads(last_name)
-                        metadata.update(extra_data)
-                    except json.JSONDecodeError:
-                        pass
-
+                metadata = self._parse_contact_metadata(contact)
                 subscribers.append(
                     {
                         "email": contact.get("email"),
@@ -494,11 +475,6 @@ class SubscriptionService:
 
                         # Update metadata with user_id
                         existing_metadata["user_id"] = user_id
-                        if (
-                            "symbols" not in existing_metadata
-                            and channel == SubscriptionChannel.PERSONAL_DIGEST
-                        ):
-                            existing_metadata["symbols"] = []
 
                         update_params: resend.Contacts.UpdateParams = {
                             "audience_id": audience_id,
@@ -552,7 +528,7 @@ class SubscriptionService:
         Args:
             channel: The subscription channel
             email: Subscriber's email address
-            metadata: Channel-specific metadata (first_name, user_id, symbols, etc.)
+            metadata: Channel-specific metadata (first_name, user_id, etc.)
 
         Returns:
             dict with:
@@ -583,11 +559,6 @@ class SubscriptionService:
             # Include user_id if provided
             if "user_id" in metadata:
                 extra_data["user_id"] = metadata["user_id"]
-
-            # For personal_digest, also include symbols
-            if channel == SubscriptionChannel.PERSONAL_DIGEST:
-                if "symbols" in metadata:
-                    extra_data["symbols"] = metadata["symbols"]
 
             if extra_data:
                 params["last_name"] = json.dumps(extra_data)
