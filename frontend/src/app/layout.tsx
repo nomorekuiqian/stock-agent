@@ -35,14 +35,14 @@ export const metadata: Metadata = {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
   },
   title: {
-    default: "TheMarketBrew - AI Market Intelligence",
+    default: "TheMarketBrew - AI 美股分析 | 每日行情、宏观研究、个股投研",
     template: "%s | TheMarketBrew",
   },
-  description: "AI 驱动的美股每日分析报告。获取智能市场洞察、流动性监控、宏观经济日历，助力投资决策。每日更新，中文解读。",
+  description: "AI 驱动的美股分析平台。每日市场日报、宏观经济周报、个股深度投研、估值对比，中文解读助力投资决策。",
   keywords: [
-    "AI 美股分析", "美股每日报告", "美股日报", "市场分析工具",
-    "流动性监控", "美联储资产负债表", "宏观经济分析",
-    "stock market analysis", "daily market report", "AI market intelligence"
+    "AI 美股分析", "美股每日报告", "美股日报", "美股投研",
+    "个股分析", "美股宏观分析", "流动性监控", "美联储",
+    "宏观经济分析", "美股估值", "市场情绪",
   ],
   authors: [{ name: "TheMarketBrew" }],
   creator: "TheMarketBrew",
@@ -53,21 +53,21 @@ export const metadata: Metadata = {
     locale: "zh_CN",
     url: "https://themarketbrew.com",
     siteName: "TheMarketBrew",
-    title: "TheMarketBrew - AI Market Intelligence",
-    description: "AI-powered daily market analysis and insights for smart investors.",
+    title: "TheMarketBrew - AI 美股分析平台",
+    description: "AI 驱动的美股分析平台。每日市场日报、宏观经济周报、个股深度投研，中文解读助力投资决策。",
     images: [
       {
         url: "/logo-avatar.png",
         width: 400,
         height: 400,
-        alt: "TheMarketBrew - AI Market Intelligence",
+        alt: "TheMarketBrew - AI 美股分析平台",
       },
     ],
   },
   twitter: {
     card: "summary",
-    title: "TheMarketBrew - AI Market Intelligence",
-    description: "AI-powered daily market analysis and insights for smart investors.",
+    title: "TheMarketBrew - AI 美股分析平台",
+    description: "AI 驱动的美股分析平台。每日市场日报、宏观经济周报、个股深度投研，中文解读助力投资决策。",
     images: ["/logo-avatar.png"],
   },
   robots: {
