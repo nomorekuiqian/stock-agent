@@ -38,7 +38,7 @@ async def verify_user_token(
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
-                f"{INSFORGE_BASE_URL}/auth/v1/user",
+                f"{INSFORGE_BASE_URL}/api/auth/sessions/current",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "apikey": INSFORGE_ANON_KEY,
@@ -52,8 +52,14 @@ async def verify_user_token(
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    data = resp.json()
-    user_id = data.get("id")
+    try:
+        data = resp.json()
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=502, detail="Auth service returned invalid response")
+
+    # Insforge returns { user: { id, email, ... } }
+    user_obj = data.get("user", data)
+    user_id = user_obj.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token: no user ID")
 
