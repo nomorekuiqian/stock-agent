@@ -1,4 +1,4 @@
-import { insforge } from './insforge';
+import { insforge, setAuthCache } from './insforge';
 
 export interface User {
   id: string;
@@ -205,6 +205,7 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
     const { error } = await insforge.auth.signOut();
 
     clearSessionFromStorage();
+    setAuthCache(null);
 
     try {
       await fetch('/api/auth', {
@@ -237,6 +238,7 @@ async function recoverSessionFromCookies(): Promise<User | false> {
     const data = await res.json();
     if (data.authenticated && data.accessToken) {
       insforge.getHttpClient().setAuthToken(data.accessToken);
+      setAuthCache(data.accessToken);
       if (data.user) {
         // Persist recovered session so SDK can find it on next restart
         persistSessionToStorage(data.accessToken, data.user);
@@ -275,6 +277,9 @@ export async function getCurrentUser(): Promise<User | null> {
 
     if (sessionData.session.accessToken) {
       insforge.getHttpClient().setAuthToken(sessionData.session.accessToken);
+      // Share token with ensureAuth() so DB operations don't re-call
+      // getCurrentSession() which can trigger a failed refresh.
+      setAuthCache(sessionData.session.accessToken);
 
       // Keep localStorage in sync so the SDK can recover the session
       // after a browser restart (memory mode clears localStorage).
@@ -327,6 +332,12 @@ export async function getSession() {
 }
 
 export async function getAccessToken(): Promise<string | null> {
+  // Use cached token first to avoid redundant getCurrentSession() calls
+  // that can trigger failed token refreshes clearing SDK state
+  const { getAuthCache } = await import('./insforge');
+  const cached = getAuthCache();
+  if (cached) return cached;
+
   const result = await insforge.auth.getCurrentSession();
   return result?.data?.session?.accessToken || null;
 }

@@ -1,3 +1,5 @@
+import { getAccessToken } from './auth';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -110,6 +112,7 @@ export interface SummarySection {
 // MarketData from backend API - matches database schema (snake_case)
 export interface MarketData {
   report_id?: string;
+  report_date?: string;
   indices: MarketIndex[];
   timestamp: string;
   title?: string;
@@ -245,7 +248,6 @@ export interface SubscribeData {
 export interface UpdateSubscriptionData {
   email: string;
   first_name?: string;
-  symbols?: string[];
 }
 
 export interface SyncedChannelInfo {
@@ -686,6 +688,51 @@ export interface WeeklyMacroReport {
 export interface WeeklyReportResponse {
   success: boolean;
   data: WeeklyMacroReport | null;
+}
+
+// --- Data types for backend-proxied reads ---
+
+export interface ReportListItem {
+  id: string;
+  report_date: string;
+  timestamp: string;
+  title?: string;
+  summary?: string;
+  created_at?: string;
+}
+
+export interface WatchlistData {
+  user_id: string;
+  email?: string;
+  symbols: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserDigestItem {
+  id?: string;
+  user_id: string;
+  digest_date: string;
+  symbols: string[];
+  analysis: string;
+  greeting?: string;
+  one_line_summary?: string;
+  bottom_line?: string;
+  digest_data?: {
+    stocks?: StockAnalysis[];
+    news?: DigestNewsSection;
+    events?: DigestEvent[];
+    summary?: DigestSummary;
+  };
+  created_at?: string;
+}
+
+async function _authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (token) {
+    return { ...base, Authorization: `Bearer ${token}` };
+  }
+  return base;
 }
 
 export const api = {
@@ -1139,6 +1186,109 @@ export const api = {
         throw new Error(error.detail || 'Failed to fetch digest history');
       }
       return response.json();
+    },
+  },
+
+  // --- Backend-proxied data reads (replaces direct Insforge SDK queries) ---
+
+  reports: {
+    getLatest: async (): Promise<MarketData | null> => {
+      return cachedFetch('report-latest', async () => {
+        const response = await fetch(`${API_BASE_URL}/market/reports/latest`);
+        if (!response.ok) {
+          if (response.status === 404) return null;
+          throw new Error('Failed to fetch latest report');
+        }
+        const json = await response.json();
+        return json.data as MarketData;
+      });
+    },
+
+    getByDate: async (date: string): Promise<MarketData | null> => {
+      return cachedFetch(`report-date-${date}`, async () => {
+        const response = await fetch(`${API_BASE_URL}/market/reports/date/${date}`);
+        if (!response.ok) {
+          if (response.status === 404) return null;
+          throw new Error('Failed to fetch report');
+        }
+        const json = await response.json();
+        return json.data as MarketData;
+      });
+    },
+
+    getById: async (id: string): Promise<MarketData | null> => {
+      return cachedFetch(`report-${id}`, async () => {
+        const response = await fetch(`${API_BASE_URL}/market/reports/${id}`);
+        if (!response.ok) {
+          if (response.status === 404) return null;
+          throw new Error('Failed to fetch report');
+        }
+        const json = await response.json();
+        return json.data as MarketData;
+      }, 60 * 60 * 1000); // 1 hour TTL for individual reports
+    },
+
+    list: async (limit = 20, offset = 0): Promise<{ data: ReportListItem[]; total: number }> => {
+      return cachedFetch(`reports-list-${limit}-${offset}`, async () => {
+        const response = await fetch(`${API_BASE_URL}/market/reports?limit=${limit}&offset=${offset}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch reports');
+        }
+        const json = await response.json();
+        return { data: json.data || [], total: json.total ?? json.data?.length ?? 0 };
+      });
+    },
+  },
+
+  watchlist: {
+    get: async (_userId?: string): Promise<WatchlistData | null> => {
+      const headers = await _authHeaders();
+      const response = await fetch(`${API_BASE_URL}/watchlist`, { headers });
+      if (!response.ok) {
+        throw new Error('Failed to fetch watchlist');
+      }
+      const json = await response.json();
+      return json.data || null;
+    },
+
+    save: async (_userId: string, symbols: string[], email: string = ''): Promise<{ success: boolean; error?: string }> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const response = await fetch(`${API_BASE_URL}/watchlist`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ symbols, email }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to save watchlist' }));
+        return { success: false, error: error.detail || 'Failed to save watchlist' };
+      }
+      return response.json();
+    },
+  },
+
+  digests: {
+    list: async (_userId: string, limit = 10, offset = 0): Promise<{ data: UserDigestItem[]; total: number }> => {
+      const headers = await _authHeaders();
+      const response = await fetch(
+        `${API_BASE_URL}/digests?limit=${limit}&offset=${offset}`,
+        { headers }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch digests');
+      }
+      const json = await response.json();
+      return { data: json.data || [], total: json.total || 0 };
+    },
+
+    getById: async (id: string): Promise<UserDigestItem | null> => {
+      const headers = await _authHeaders();
+      const response = await fetch(`${API_BASE_URL}/digests/${id}`, { headers });
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch digest');
+      }
+      const json = await response.json();
+      return json.data || null;
     },
   },
 

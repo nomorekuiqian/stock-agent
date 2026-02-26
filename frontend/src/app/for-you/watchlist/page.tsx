@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
 import { api, SectorInfo, StockSearchResult, StockQuote } from '@/lib/api';
-import { getUserWatchlist, saveUserWatchlist } from '@/lib/insforge';
 import { STOCK_NAMES } from '@/lib/stock-names';
 
 const MAX_WATCHLIST_SIZE = 25;
@@ -30,6 +29,10 @@ function WatchlistPageContent() {
   const [sectors, setSectors] = useState<SectorInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // Guard: only allow saves after watchlist has been successfully loaded
+  const watchlistLoadedRef = useRef(false);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,16 +65,19 @@ function WatchlistPageContent() {
     const loadData = async () => {
       if (!user?.id) return;
       setLoading(true);
+      setLoadFailed(false);
       try {
         // Load watchlist independently from sectors so a sectors failure
         // does not prevent displaying the user's existing watchlist
-        const watchlist = await getUserWatchlist(user.id);
-        if (watchlist?.symbols) {
-          const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
+        const watchlist = await api.watchlist.get(user.id);
+        if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
+          const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
           setSymbols(uniqueSymbols);
         }
+        watchlistLoadedRef.current = true;
       } catch (err) {
         console.error('Failed to load watchlist:', err);
+        setLoadFailed(true);
       }
       try {
         const sectorList = await api.sectors.list();
@@ -132,11 +138,15 @@ function WatchlistPageContent() {
 
   const persist = useCallback((newSymbols: string[]) => {
     if (!user?.id) return;
+    // CRITICAL: Never save unless we confirmed the initial load succeeded.
+    // Without this guard, a failed load (auth/network issue) leaves symbols=[],
+    // and any subsequent save would overwrite the user's real watchlist with empty data.
+    if (!watchlistLoadedRef.current) return;
     // Debounce saves to avoid race conditions when rapid add/remove operations
     // fire concurrent requests that can overwrite each other
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      saveUserWatchlist(user.id, newSymbols);
+      api.watchlist.save(user.id, newSymbols);
     }, 500);
   }, [user?.id]);
 
@@ -272,6 +282,29 @@ function WatchlistPageContent() {
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
             <p className="text-muted-foreground text-sm">加载中...</p>
+          </div>
+        </div>
+      ) : loadFailed ? (
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
+          <div className="flex flex-col items-center justify-center gap-4 py-16 rounded-xl border border-dashed border-red-500/30 bg-red-500/5">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-sm text-red-400 font-medium">加载持仓数据失败</p>
+            <p className="text-xs text-muted-foreground text-center max-w-xs">
+              无法连接到服务器，请刷新页面重试。为保护你的数据，在加载成功前无法编辑持仓。
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border/50 text-sm text-foreground hover:border-emerald-500/30 transition-colors cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              刷新页面
+            </button>
           </div>
         </div>
       ) : (
