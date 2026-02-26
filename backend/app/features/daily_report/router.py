@@ -7,7 +7,7 @@ Endpoints:
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
@@ -107,6 +107,7 @@ def _report_to_response(report: dict) -> dict:
     """Build a normalized API response dict from a DB report row."""
     return _normalize_report_data({
         "report_id": report.get("id"),
+        "report_date": report.get("report_date", ""),
         "indices": report.get("indices", []),
         "timestamp": report.get("timestamp", now_iso()),
         "title": report.get("title", ""),
@@ -118,6 +119,51 @@ def _report_to_response(report: dict) -> dict:
         "market_data": report.get("market_data", {}),
         "from_cache": True,
     })
+
+
+@router.get("/market/reports")
+@limiter.limit("20/minute")
+async def list_market_reports(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """List historical market reports with pagination."""
+    result = await market_db.list_reports(limit=limit, offset=offset)
+    return {
+        "success": True,
+        "data": result["data"],
+        "total": result["total"],
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/market/reports/latest")
+async def get_latest_report_data():
+    """Get the most recent market report regardless of date."""
+    report = await market_db.get_latest_report()
+    if not report:
+        raise HTTPException(status_code=404, detail="No reports found")
+    return {"success": True, "data": _report_to_response(report)}
+
+
+@router.get("/market/reports/date/{date}")
+async def get_report_by_date(date: str):
+    """Get a market report by date (YYYY-MM-DD)."""
+    report = await market_db.get_report_by_date(date)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"No report found for date {date}")
+    return {"success": True, "data": _report_to_response(report)}
+
+
+@router.get("/market/reports/{report_id}")
+async def get_report_by_id(report_id: str):
+    """Get a market report by its UUID."""
+    report = await market_db.get_report_by_id(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"success": True, "data": _report_to_response(report)}
 
 
 @router.get("/market/latest")

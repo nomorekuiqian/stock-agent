@@ -199,7 +199,7 @@ async def get_report_by_date(date: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def list_reports(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+async def list_reports(limit: int = 20, offset: int = 0) -> Dict[str, Any]:
     """
     List historical market reports, ordered by report_date DESC.
 
@@ -208,7 +208,7 @@ async def list_reports(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]
         offset: Number of reports to skip (for pagination)
 
     Returns:
-        List of report summary dicts
+        Dict with 'data' (list of report summaries) and 'total' (total count)
     """
     try:
         url = f"{_function_url()}?limit={limit}&offset={offset}"
@@ -224,9 +224,12 @@ async def list_reports(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    return data.get("data", [])
-            return []
+                    return {
+                        "data": data.get("data", []),
+                        "total": data.get("total", 0),
+                    }
+            return {"data": [], "total": 0}
 
     except Exception as e:
         logger.exception("Exception listing reports")
-        return []
+        return {"data": [], "total": 0}
