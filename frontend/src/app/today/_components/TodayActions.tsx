@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { getCurrentUser, User } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface StatusMessage {
   type: 'success' | 'error';
@@ -46,8 +46,8 @@ function StatusBadge({ status }: { status: StatusMessage }) {
 export function TodayActions({ reportExists }: TodayActionsProps) {
   const router = useRouter();
   const isDev = process.env.NODE_ENV === 'development';
+  const { user } = useAuth();
 
-  const [user, setUser] = useState<User | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<StatusMessage | null>(null);
@@ -65,11 +65,8 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
   }, []);
 
   useEffect(() => {
-    getCurrentUser().then((u) => {
-      setUser(u);
-      if (u?.email) checkSubscriptionStatus(u.email);
-    });
-  }, [checkSubscriptionStatus]);
+    if (user?.email) checkSubscriptionStatus(user.email);
+  }, [user?.email, checkSubscriptionStatus]);
 
   async function handleSubscribe() {
     if (!user?.email) {

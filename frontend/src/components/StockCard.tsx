@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X } from 'lucide-react';
 
@@ -11,7 +11,6 @@ export interface StockQuoteData {
   name?: string;
 }
 
-// Company Logo - uses FMP image-stock CDN, fallback to initials
 const LOGO_BASE = 'https://financialmodelingprep.com/image-stock';
 
 function CompanyLogo({ symbol }: { symbol: string }) {
@@ -62,6 +61,29 @@ export default function StockCard({
   const dailyChange = quote?.daily_change;
   const isPositive = dailyChange !== undefined && dailyChange >= 0;
 
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    };
+  }, []);
+
+  const handleRemoveClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirmingRemove) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      setConfirmingRemove(false);
+      onRemove?.();
+    } else {
+      setConfirmingRemove(true);
+      confirmTimerRef.current = setTimeout(() => {
+        setConfirmingRemove(false);
+      }, 3000);
+    }
+  };
+
   return (
     <div
       className={`group relative animate-fade-in-up ${onClick ? 'cursor-pointer' : ''}`}
@@ -69,18 +91,24 @@ export default function StockCard({
       onClick={onClick}
     >
       <div className="relative bg-card border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-emerald-500/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
-        {/* Remove button - visible on mobile, hover-controlled on desktop */}
         {onRemove && (
           <button
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="absolute top-2 right-2 p-1.5 rounded-lg bg-muted/80 sm:bg-muted/50 border border-border/50 text-muted-foreground sm:text-muted-foreground/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-200 z-10"
-            aria-label={`Remove ${symbol}`}
+            onClick={handleRemoveClick}
+            className={`absolute top-2 right-2 rounded-lg border transition-all duration-200 z-10 ${
+              confirmingRemove
+                ? 'px-2 py-1 bg-red-500/10 border-red-500/30 text-red-500 opacity-100'
+                : 'p-1.5 bg-muted/80 sm:bg-muted/50 border-border/50 text-muted-foreground sm:text-muted-foreground/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30'
+            }`}
+            aria-label={confirmingRemove ? `Confirm remove ${symbol}` : `Remove ${symbol}`}
           >
-            <X className="w-3 h-3" />
+            {confirmingRemove ? (
+              <span className="text-[11px] font-medium leading-none">确认?</span>
+            ) : (
+              <X className="w-3 h-3" />
+            )}
           </button>
         )}
 
-        {/* Logo + Ticker + Name */}
         <div className="flex items-center gap-3 mb-3">
           <CompanyLogo symbol={symbol} />
           <div className="min-w-0">
@@ -89,7 +117,6 @@ export default function StockCard({
           </div>
         </div>
 
-        {/* Price + Change */}
         <div className="flex items-baseline gap-2">
           {price !== undefined ? (
             <>
@@ -111,7 +138,6 @@ export default function StockCard({
           )}
         </div>
 
-        {/* Loading overlay */}
         {isLoading && !quote && (
           <div className="absolute inset-0 bg-background/95 rounded-xl flex items-center justify-center">
             <div className="w-5 h-5 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
