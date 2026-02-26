@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx}": [
+      "bash -c 'cd frontend && npx eslint --fix --no-warn-ignored --max-warnings=-1 \"$@\"' --",
+      "bash -c 'cd frontend && npx tsc --noEmit'"
+    ],
+    "backend/**/*.py": [
+      "bash -c 'cd backend && source venv/bin/activate && python -c \"import ast, sys; [ast.parse(open(f).read()) for f in sys.argv[1:]]\" \"$@\"' --"
+    ]
+  },
+  "scripts": {
+    "prepare": "husky"
+  }
+}

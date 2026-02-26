@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_PARAM_file_path\" | grep -qE '\\.(ts|tsx)$'; then cd frontend && npx eslint --no-warn-ignored --max-warnings=-1 \"$CLAUDE_TOOL_PARAM_file_path\" 2>&1 | tail -5; fi",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}
