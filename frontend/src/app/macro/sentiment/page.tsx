@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -14,13 +15,12 @@ const IndexAreaChart = dynamic(
 );
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
-  api,
-  invalidateCache,
-  EconomicFundamentals,
   SubDimension,
   RiskIndicator,
-  WeeklyMacroReport,
 } from '@/lib/api';
+import { useMarketSentiment } from '@/hooks/queries/use-macro-data';
+import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
+import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatTimestamp } from '@/lib/timezone';
 import { ShieldAlert, Activity, BarChart3, type LucideIcon } from 'lucide-react';
@@ -622,13 +622,10 @@ function DeepDiveSection({
 
 export default function SentimentPage() {
   const [theme] = useState<'light' | 'dark'>('dark');
-  const [data, setData] = useState<EconomicFundamentals | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedDim, setSelectedDim] = useState<string>('cnn_indicators');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     return () => {
@@ -636,38 +633,13 @@ export default function SentimentPage() {
     };
   }, []);
 
-  // Weekly report state
-  const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
-  const [weeklyLoading, setWeeklyLoading] = useState(true);
+  const { data: sentimentResponse, isLoading: loading, error: sentimentError } = useMarketSentiment();
+  const { data: weeklyResponse, isLoading: weeklyLoading } = useWeeklyReport();
 
-  const fetchData = useCallback(async (bypassCache = false) => {
-    if (bypassCache) invalidateCache('market-sentiment');
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.getMarketSentiment();
-      if (response.success) {
-        setData(response.data);
-        setLastUpdated(response.timestamp);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      console.error('Error fetching market sentiment:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    api.weeklyReport
-      .getLatest()
-      .then((res) => {
-        if (res.success) setWeeklyReport(res.data);
-      })
-      .catch(() => {})
-      .finally(() => setWeeklyLoading(false));
-  }, [fetchData]);
+  const data = sentimentResponse?.success ? sentimentResponse.data : null;
+  const lastUpdated = sentimentResponse?.timestamp ?? null;
+  const error = sentimentError ? (sentimentError instanceof Error ? sentimentError.message : 'Failed to fetch data') : null;
+  const weeklyReport = weeklyResponse?.success ? weeklyResponse.data : null;
 
   const overallScore = data?.overall_score ?? 50;
 
@@ -686,7 +658,7 @@ export default function SentimentPage() {
         question="市场恐慌还是贪婪? 恐慌指数怎么看?"
         lastUpdated={lastUpdated ? formatTimestamp(lastUpdated) : null}
         loading={loading}
-        onRefresh={() => fetchData(true)}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.macro.sentiment() })}
       />
 
       {/* Error */}

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -19,15 +20,15 @@ const GlobalLiquidityChart = dynamic(
 import { NFCIGauge } from '@/components/NFCIGauge';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
-  api,
-  invalidateCache,
   LiquidityMetrics,
   LiquidityMetric,
   LiquidityHistoryObservation,
-  WeeklyMacroReport,
   GlobalLiquidityMetrics,
   GlobalLiquidityHistoryObservation,
 } from '@/lib/api';
+import { useLiquidityHistory, useGlobalLiquidity, useGlobalLiquidityHistory } from '@/hooks/queries/use-liquidity-data';
+import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
+import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatCompareDateLabel, formatDateTimePacific } from '@/lib/timezone';
 import { Droplets, Layers, Gauge, Globe, Banknote } from 'lucide-react';
@@ -197,19 +198,14 @@ function interpretChange(change: number | null): string {
 
 function useInView(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 
   useEffect(() => {
+    if (isVisible) return;
     const el = ref.current;
     if (!el) return;
-
-    const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
-    if (prefersReducedMotion) {
-      setIsVisible(true);
-      return;
-    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -222,7 +218,7 @@ function useInView(threshold = 0.1) {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [threshold]);
+  }, [threshold, isVisible]);
 
   return { ref, isVisible };
 }
@@ -1093,113 +1089,40 @@ export default function LiquidityPage() {
     '1M' | '3M' | '6M' | '1Y' | 'ALL'
   >('6M');
   const [theme] = useState<'light' | 'dark'>('dark');
-  const [metrics, setMetrics] = useState<LiquidityMetrics | null>(null);
-  const [historyData, setHistoryData] = useState<
-    LiquidityHistoryObservation[]
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   // Tab state
   const [selectedTab, setSelectedTab] = useState<TabId>('us_liquidity');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Weekly report state
-  const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
-  const [weeklyLoading, setWeeklyLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: historyResponse, isLoading: historyLoading, error: historyError } = useLiquidityHistory(365);
+  const { data: globalResponse, isLoading: globalLoading } = useGlobalLiquidity();
+  const { data: globalHistoryResponse, isLoading: globalHistoryLoading, error: globalHistoryErr } = useGlobalLiquidityHistory(365);
+  const { data: weeklyResponse, isLoading: weeklyLoading } = useWeeklyReport();
 
-  // Whether FRED data source is temporarily unavailable
-  const [dataUnavailable, setDataUnavailable] = useState(false);
+  // Derived state from query results
+  const loading = historyLoading;
+  const error = historyError ? 'Failed to fetch liquidity data' : null;
+  const weeklyReport = weeklyResponse?.success ? weeklyResponse.data : null;
 
-  // Global liquidity state
-  const [globalMetrics, setGlobalMetrics] = useState<GlobalLiquidityMetrics | null>(null);
-  const [globalLoading, setGlobalLoading] = useState(false);
-  const [globalHistoryData, setGlobalHistoryData] = useState<GlobalLiquidityHistoryObservation[]>([]);
-  const [globalHistoryLoading, setGlobalHistoryLoading] = useState(false);
-  const [globalHistoryError, setGlobalHistoryError] = useState<string | null>(null);
-  const globalFetchedRef = useRef(false);
-
-  const fetchData = useCallback(async (bypassCache = false) => {
-    if (bypassCache) invalidateCache('liquidity-history-365');
-    setLoading(true);
-    setError(null);
-    setDataUnavailable(false);
-    try {
-      const response = await api.getLiquidityHistory(365);
-      if (response.success && response.data) {
-        setHistoryData(response.data.observations);
-        setLastUpdated(response.timestamp);
-        if (response.data.metrics) {
-          setMetrics(response.data.metrics);
-        } else {
-          setMetrics(EMPTY_METRICS);
-          setDataUnavailable(true);
-        }
-        if (!response.data.observations || response.data.observations.length === 0) {
-          setDataUnavailable(true);
-          if (!response.data.metrics) {
-            setMetrics(EMPTY_METRICS);
-          }
-        }
+  const { metrics, historyData, lastUpdated, dataUnavailable } = useMemo(() => {
+    const res = historyResponse;
+    if (!res?.success || !res?.data) {
+      if (historyError) {
+        return { metrics: EMPTY_METRICS as LiquidityMetrics, historyData: [] as LiquidityHistoryObservation[], lastUpdated: null as string | null, dataUnavailable: true };
       }
-    } catch (err) {
-      setMetrics(EMPTY_METRICS);
-      setDataUnavailable(true);
-      console.error('Error fetching liquidity data:', err);
-    } finally {
-      setLoading(false);
+      return { metrics: null as LiquidityMetrics | null, historyData: [] as LiquidityHistoryObservation[], lastUpdated: null as string | null, dataUnavailable: false };
     }
-  }, []);
+    const obs = res.data.observations ?? [];
+    const m = res.data.metrics ?? EMPTY_METRICS;
+    const unavailable = !res.data.metrics || obs.length === 0;
+    return { metrics: m, historyData: obs, lastUpdated: res.timestamp, dataUnavailable: unavailable };
+  }, [historyResponse, historyError]);
 
-  const fetchGlobalData = useCallback(async () => {
-    if (globalFetchedRef.current) return;
-    globalFetchedRef.current = true;
-    setGlobalLoading(true);
-    setGlobalHistoryLoading(true);
-    setGlobalHistoryError(null);
-    try {
-      const [metricsResult, historyResult] = await Promise.allSettled([
-        api.getGlobalLiquidity(),
-        api.getGlobalLiquidityHistory(365),
-      ]);
-      if (metricsResult.status === 'fulfilled') {
-        const metricsRes = metricsResult.value;
-        if (metricsRes.success && metricsRes.data) {
-          setGlobalMetrics(metricsRes.data);
-        }
-      } else {
-        console.error('Error fetching global metrics:', metricsResult.reason);
-      }
-      if (historyResult.status === 'fulfilled') {
-        const historyRes = historyResult.value;
-        if (historyRes.success && historyRes.data) {
-          setGlobalHistoryData(historyRes.data.observations);
-        }
-      } else {
-        console.error('Error fetching global history:', historyResult.reason);
-        setGlobalHistoryError('Failed to load global liquidity history');
-      }
-    } catch (err) {
-      console.error('Error fetching global liquidity:', err);
-      setGlobalHistoryError('Failed to load global liquidity history');
-    } finally {
-      setGlobalLoading(false);
-      setGlobalHistoryLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    fetchGlobalData();
-    api.weeklyReport
-      .getLatest()
-      .then((res) => {
-        if (res.success) setWeeklyReport(res.data);
-      })
-      .catch(() => {})
-      .finally(() => setWeeklyLoading(false));
-  }, [fetchData, fetchGlobalData]);
+  const globalMetrics: GlobalLiquidityMetrics | null = globalResponse?.success ? globalResponse.data : null;
+  const globalHistoryData: GlobalLiquidityHistoryObservation[] = globalHistoryResponse?.success ? globalHistoryResponse.data.observations : [];
+  const globalHistoryError: string | null = globalHistoryErr ? 'Failed to load global liquidity history' : null;
 
   const INTERVAL_MAP: Record<string, string> = {
     '1M': 'D', '3M': 'D', '6M': 'W', '1Y': 'W', 'ALL': 'M',
@@ -1262,7 +1185,7 @@ export default function LiquidityPage() {
         question="市场上的钱是多了还是少了?"
         lastUpdated={lastUpdated ? formatDateTimePacific(lastUpdated) : null}
         loading={loading}
-        onRefresh={() => fetchData(true)}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.liquidity.all })}
       />
 
       {/* Error Message */}
@@ -1336,7 +1259,7 @@ export default function LiquidityPage() {
               historyData={historyData}
               historyLoading={loading}
               historyError={error}
-              onRetry={fetchData}
+              onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.liquidity.all })}
               timeRange={timeRange}
               onTimeRangeChange={(r) =>
                 setTimeRange(r as typeof timeRange)
@@ -1353,10 +1276,7 @@ export default function LiquidityPage() {
               globalHistoryData={globalHistoryData}
               globalHistoryLoading={globalHistoryLoading}
               globalHistoryError={globalHistoryError}
-              onRetryHistory={() => {
-                globalFetchedRef.current = false;
-                fetchGlobalData();
-              }}
+              onRetryHistory={() => queryClient.invalidateQueries({ queryKey: queryKeys.liquidity.all })}
               timeRange={timeRange}
               onTimeRangeChange={(r) =>
                 setTimeRange(r as typeof timeRange)

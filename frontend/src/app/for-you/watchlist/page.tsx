@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
-import { api, SectorInfo, StockQuote } from '@/lib/api';
+import { api, SectorInfo } from '@/lib/api';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import { useStockSearch } from '@/hooks/useStockSearch';
+import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
+import { useStockQuotes } from '@/hooks/queries/use-stock-data';
 
 const MAX_WATCHLIST_SIZE = 25;
 
@@ -24,16 +26,38 @@ function WatchlistPageContent() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
-  const [symbols, setSymbols] = useState<string[]>([]);
-  const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
-  const [sectors, setSectors] = useState<SectorInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingQuotes, setLoadingQuotes] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
+  // --- TanStack Query hooks ---
+  const { data: watchlistData, isLoading: watchlistLoading, isError: loadFailed, isSuccess: watchlistLoaded } = useWatchlist(!!user?.id);
+  const saveWatchlistMutation = useSaveWatchlist();
 
-  const watchlistLoadedRef = useRef(false);
+  // Local editing state seeded from query (setState during render is the
+  // React 19 recommended pattern for "adjusting state based on props/state").
+  const [symbols, setSymbols] = useState<string[]>([]);
+  const [symbolsSeeded, setSymbolsSeeded] = useState(false);
+
+  if (watchlistData && !symbolsSeeded) {
+    setSymbolsSeeded(true);
+    if (watchlistData.symbols && watchlistData.symbols.length > 0) {
+      setSymbols([...new Set(watchlistData.symbols.map((s: string) => s.toUpperCase()))]);
+    }
+  }
+
+  const { data: quotesResponse, isLoading: loadingQuotes } = useStockQuotes(symbols);
+  const quotes = useMemo(() => {
+    const map: Record<string, import('@/lib/api').StockQuote> = {};
+    if (quotesResponse?.quotes) {
+      for (const q of quotesResponse.quotes) {
+        map[q.symbol] = q;
+      }
+    }
+    return map;
+  }, [quotesResponse]);
+
+  const [sectors, setSectors] = useState<SectorInfo[]>([]);
+  const loading = watchlistLoading;
+
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const extraNamesRef = useRef<Record<string, { en: string; zh: string }>>({});
+  const [extraNames, setExtraNames] = useState<Record<string, { en: string; zh: string }>>({});
 
   const [expandedSector, setExpandedSector] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -48,53 +72,18 @@ function WatchlistPageContent() {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Load sectors (no TanStack Query hook for this)
   useEffect(() => {
-    const loadData = async () => {
-      if (!user?.id) return;
-      setLoading(true);
-      setLoadFailed(false);
-      try {
-        const watchlist = await api.watchlist.get(user.id);
-        if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
-          const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
-          setSymbols(uniqueSymbols);
-        }
-        watchlistLoadedRef.current = true;
-      } catch (err) {
-        console.error('Failed to load watchlist:', err);
-        setLoadFailed(true);
-      }
+    const loadSectors = async () => {
       try {
         const sectorList = await api.sectors.list();
         setSectors(sectorList);
       } catch (err) {
         console.error('Failed to load sectors:', err);
       }
-      setLoading(false);
     };
-    if (user?.id) loadData();
+    if (user?.id) loadSectors();
   }, [user?.id]);
-
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      if (symbols.length === 0) {
-        setQuotes({});
-        return;
-      }
-      setLoadingQuotes(true);
-      try {
-        const result = await api.getStockQuotes(symbols);
-        const map: Record<string, StockQuote> = {};
-        result.quotes.forEach(q => { map[q.symbol] = q; });
-        setQuotes(map);
-      } catch (err) {
-        console.error('Failed to fetch quotes:', err);
-      } finally {
-        setLoadingQuotes(false);
-      }
-    };
-    fetchQuotes();
-  }, [symbols]);
 
   useEffect(() => {
     return () => {
@@ -104,7 +93,7 @@ function WatchlistPageContent() {
   }, []);
 
   const getDisplayName = (symbol: string) => {
-    const names = STOCK_NAMES[symbol] || extraNamesRef.current[symbol];
+    const names = STOCK_NAMES[symbol] || extraNames[symbol];
     return names?.zh || names?.en || symbol;
   };
 
@@ -112,12 +101,12 @@ function WatchlistPageContent() {
     if (!user?.id) return;
     // Never save before initial load succeeds -- a failed load leaves symbols=[],
     // which would overwrite the user's real watchlist with empty data.
-    if (!watchlistLoadedRef.current) return;
+    if (!watchlistLoaded) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      api.watchlist.save(user.id, newSymbols);
+      saveWatchlistMutation.mutate({ userId: user.id, symbols: newSymbols });
     }, 500);
-  }, [user?.id]);
+  }, [user, watchlistLoaded, saveWatchlistMutation]);
 
   const handleRemoveSymbol = useCallback((symbolToRemove: string) => {
     const newSymbols = symbols.filter(s => s !== symbolToRemove);
@@ -131,12 +120,12 @@ function WatchlistPageContent() {
     if (sym && !symbols.includes(sym)) {
       const newSymbols = [...symbols, sym];
       setSymbols(newSymbols);
-      if (name && !STOCK_NAMES[sym] && !extraNamesRef.current[sym]) {
-        extraNamesRef.current[sym] = { en: name, zh: '' };
+      if (name && !STOCK_NAMES[sym] && !extraNames[sym]) {
+        setExtraNames(prev => ({ ...prev, [sym]: { en: name, zh: '' } }));
       }
       persist(newSymbols);
     }
-  }, [symbols, persist]);
+  }, [symbols, persist, extraNames]);
 
   const handleSearchNavigate = useCallback((result: { symbol: string; name: string }) => {
     router.push(`/stock/${result.symbol}`);
@@ -174,7 +163,6 @@ function WatchlistPageContent() {
 
   const handleClearAll = () => {
     setSymbols([]);
-    setQuotes({});
     persist([]);
     setShowClearConfirm(false);
   };

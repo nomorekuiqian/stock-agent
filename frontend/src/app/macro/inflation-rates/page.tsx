@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
@@ -14,15 +15,13 @@ const CommodityAreaChart = dynamic(
   { ssr: false, loading: () => <div className="h-[250px] bg-card animate-pulse rounded-lg" /> },
 );
 import {
-  api,
-  invalidateCache,
-  EconomicFundamentals,
   SubDimension,
   RiskIndicator,
   CpiComponent,
-  WeeklyMacroReport,
-  TreasuryCommoditiesResponse,
 } from '@/lib/api';
+import { useInflationRates, useCpiBreakdown, useTreasuryCommodities } from '@/hooks/queries/use-macro-data';
+import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
+import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
 const YieldCurveChart = dynamic(
   () => import('@/components/YieldCurveChart').then(mod => mod.YieldCurveChart),
@@ -206,17 +205,14 @@ const SECTION_EXPLAINER: Record<string, {
 
 function useInView(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 
   useEffect(() => {
+    if (isVisible) return;
     const el = ref.current;
     if (!el) return;
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setIsVisible(true);
-      return;
-    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -229,7 +225,7 @@ function useInView(threshold = 0.1) {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [threshold]);
+  }, [threshold, isVisible]);
 
   return { ref, isVisible };
 }
@@ -642,62 +638,23 @@ function CommodityPanel({
 
 export default function InflationRatesPage() {
   const [theme] = useState<'light' | 'dark'>('dark');
-  const [data, setData] = useState<EconomicFundamentals | null>(null);
-  const [cpiComponents, setCpiComponents] = useState<CpiComponent[]>([]);
-  const [tcData, setTcData] = useState<TreasuryCommoditiesResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedDim, setSelectedDim] = useState<string>('inflation');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [commodityTimeRange, setCommodityTimeRange] = useState('1Y');
+  const queryClient = useQueryClient();
 
-  // Weekly report state
-  const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
-  const [weeklyLoading, setWeeklyLoading] = useState(true);
+  const { data: ratesResponse, isLoading: ratesLoading, error: ratesError } = useInflationRates();
+  const { data: cpiResponse, isLoading: cpiLoading } = useCpiBreakdown();
+  const { data: tcResponse, isLoading: tcLoading } = useTreasuryCommodities();
+  const { data: weeklyResponse, isLoading: weeklyLoading } = useWeeklyReport();
 
-  const fetchData = useCallback(async (bypassCache = false) => {
-    if (bypassCache) {
-      invalidateCache('inflation-rates');
-      invalidateCache('cpi-breakdown');
-      invalidateCache('treasury-commodities');
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const [ratesRes, cpiRes, tcRes] = await Promise.all([
-        api.getInflationRates(),
-        api.getCpiBreakdown(),
-        api.getTreasuryCommodities(),
-      ]);
-      if (ratesRes.success) {
-        setData(ratesRes.data);
-        setLastUpdated(ratesRes.timestamp);
-      }
-      if (cpiRes.success) {
-        setCpiComponents(cpiRes.components);
-      }
-      if (tcRes.success) {
-        setTcData(tcRes);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      console.error('Error fetching inflation & rates:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    api.weeklyReport
-      .getLatest()
-      .then((res) => {
-        if (res.success) setWeeklyReport(res.data);
-      })
-      .catch(() => {})
-      .finally(() => setWeeklyLoading(false));
-  }, [fetchData]);
+  const loading = ratesLoading || cpiLoading || tcLoading;
+  const data = ratesResponse?.success ? ratesResponse.data : null;
+  const lastUpdated = ratesResponse?.timestamp ?? null;
+  const error = ratesError ? (ratesError instanceof Error ? ratesError.message : 'Failed to fetch data') : null;
+  const cpiComponents: CpiComponent[] = cpiResponse?.success ? cpiResponse.components : [];
+  const tcData = tcResponse?.success ? tcResponse : null;
+  const weeklyReport = weeklyResponse?.success ? weeklyResponse.data : null;
 
   const inflationDim = data?.sub_dimensions.find((d) => d.name === 'inflation');
   const ratesDim = data?.sub_dimensions.find((d) => d.name === 'rates');
@@ -729,7 +686,7 @@ export default function InflationRatesPage() {
         question="物价压力如何? 美联储会怎么做?"
         lastUpdated={lastUpdated ? formatTimestamp(lastUpdated) : null}
         loading={loading}
-        onRefresh={() => fetchData(true)}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.macro.all })}
       />
 
       {error && (

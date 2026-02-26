@@ -1,8 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { ReportContent } from '@/components/ReportContent';
 import { marketTodayStr, formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { TodayActions } from './_components/TodayActions';
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: '/today',
+  },
+};
 
 // ISR: revalidate every 5 minutes
 export const revalidate = 300;

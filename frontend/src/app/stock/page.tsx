@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import { api, StockQuote } from '@/lib/api';
+import { StockQuote } from '@/lib/api';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { useStockSearch } from '@/hooks/useStockSearch';
+import { useStockQuotes } from '@/hooks/queries/use-stock-data';
 
 // =============================================================================
 // Types & Data
@@ -111,37 +112,27 @@ function addRecentStock(symbol: string, name: string): void {
 
 export default function StockResearchPage() {
   const router = useRouter();
-  const [recentStocks, setRecentStocks] = useState<RecentStock[]>([]);
-  const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
-  const [isLoadingQuotes, setIsLoadingQuotes] = useState(true);
+  const [recentStocks] = useState<RecentStock[]>(
+    () => typeof window !== 'undefined' ? getRecentStocks() : []
+  );
 
-  useEffect(() => {
-    setRecentStocks(getRecentStocks());
-  }, []);
+  // Combine all track symbols + recent stocks for a single batch quote request
+  const allSymbols = useMemo(() => {
+    const recentSymbols = recentStocks.map(s => s.symbol);
+    return Array.from(new Set([...allTrackSymbols, ...recentSymbols]));
+  }, [recentStocks]);
 
-  // Fetch quotes for all track symbols + recent stocks
-  useEffect(() => {
-    const recentSymbols = getRecentStocks().map(s => s.symbol);
-    const allSymbols = Array.from(new Set([...allTrackSymbols, ...recentSymbols]));
+  const { data: quotesResponse, isLoading: isLoadingQuotes } = useStockQuotes(allSymbols);
 
-    if (allSymbols.length === 0) return;
-
-    setIsLoadingQuotes(true);
-    api.getStockQuotes(allSymbols)
-      .then(res => {
-        const map: Record<string, StockQuote> = {};
-        for (const q of res.quotes) {
-          map[q.symbol] = q;
-        }
-        setQuotes(map);
-      })
-      .catch(err => {
-        console.error('Failed to fetch quotes:', err);
-      })
-      .finally(() => {
-        setIsLoadingQuotes(false);
-      });
-  }, []);
+  const quotes = useMemo(() => {
+    const map: Record<string, StockQuote> = {};
+    if (quotesResponse?.quotes) {
+      for (const q of quotesResponse.quotes) {
+        map[q.symbol] = q;
+      }
+    }
+    return map;
+  }, [quotesResponse]);
 
   // Search hook
   const handleSearchSelect = useCallback((result: { symbol: string; name: string }) => {

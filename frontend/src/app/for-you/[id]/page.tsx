@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useMemo, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, DigestResponse } from '@/lib/api';
+import { DigestResponse } from '@/lib/api';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
+import { useDigestById } from '@/hooks/queries/use-digest-data';
 
 export default function ForYouDetailPage({
   params,
@@ -16,10 +17,6 @@ export default function ForYouDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
-
-  const [digest, setDigest] = useState<DigestResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Validate UUID format
   const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -31,46 +28,20 @@ export default function ForYouDetailPage({
     }
   }, [authLoading, isAuthenticated, router, id]);
 
-  // Load digest
-  useEffect(() => {
-    const loadDigest = async () => {
-      if (!user?.id) return;
+  const { data: historyItem, isLoading: queryLoading, error: queryError } = useDigestById(
+    id,
+    !!user?.id && isValidUUID,
+  );
 
-      if (!isValidUUID) {
-        setError('Invalid report ID');
-        setLoading(false);
-        return;
-      }
+  const loading = queryLoading;
 
-      setLoading(true);
-      setError(null);
-      try {
-        const historyItem = await api.digests.getById(id);
-
-        if (!historyItem) {
-          setError('Report not found');
-          return;
-        }
-
-        // Verify ownership
-        if (historyItem.user_id !== user.id) {
-          setError('You do not have access to this report');
-          return;
-        }
-
-        setDigest(userDigestToResponse(historyItem));
-      } catch (err) {
-        console.error('Failed to load digest:', err);
-        setError('Failed to load report');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user?.id && id) {
-      loadDigest();
-    }
-  }, [user?.id, id, isValidUUID]);
+  const { digest, error } = useMemo((): { digest: DigestResponse | null; error: string | null } => {
+    if (!isValidUUID) return { digest: null, error: 'Invalid report ID' };
+    if (queryError) return { digest: null, error: 'Failed to load report' };
+    if (!historyItem) return { digest: null, error: loading ? null : 'Report not found' };
+    if (historyItem.user_id !== user?.id) return { digest: null, error: 'You do not have access to this report' };
+    return { digest: userDigestToResponse(historyItem), error: null };
+  }, [isValidUUID, queryError, historyItem, loading, user?.id]);
 
   // Show loading while checking auth
   if (authLoading) {

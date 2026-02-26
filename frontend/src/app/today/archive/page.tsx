@@ -1,36 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { api, ReportListItem } from '@/lib/api';
 import { formatDateChinese, formatDateShort, formatTimePacific } from '@/lib/timezone';
+import { useReportList } from '@/hooks/queries/use-report-data';
 
 export default function ArchivePage() {
-  const [reports, setReports] = useState<ReportListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const pageSize = 12;
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await api.reports.list(pageSize, page * pageSize);
-      setReports(result.data);
-      setTotal(result.total);
-    } catch {
-      setError('Failed to load reports');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize]);
+  const { data, isLoading: loading, error: queryError } = useReportList(pageSize, page * pageSize);
 
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
-
+  const reports = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const error = queryError ? 'Failed to load reports' : null;
   const totalPages = Math.ceil(total / pageSize);
 
   return (

@@ -1,37 +1,44 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
-import { api, DigestResponse, UserDigestItem } from '@/lib/api';
+import { api, DigestResponse } from '@/lib/api';
 import { marketTodayStr } from '@/lib/timezone';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
 import RecentReports from '@/components/for-you/RecentReports';
+import { useWatchlist } from '@/hooks/queries/use-watchlist';
+import { useDigestList, useGenerateDigest } from '@/hooks/queries/use-digest-data';
 
 function ForYouPageContent() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
-  // Core state
-  const [symbols, setSymbols] = useState<string[]>([]);
-  const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [watchlistLoadFailed, setWatchlistLoadFailed] = useState(false);
-  const [history, setHistory] = useState<UserDigestItem[]>([]);
-  const [totalHistory, setTotalHistory] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  // --- TanStack Query hooks ---
+  const { data: watchlistData, isLoading: loadingWatchlist, isError: watchlistLoadFailed } = useWatchlist(!!user?.id);
+  const { data: digestData } = useDigestList(user?.id ?? '', 10, 0, !!user?.id);
+  const generateDigestMutation = useGenerateDigest();
 
-  // Dashboard state
-  const [generating, setGenerating] = useState(false);
-  const [displayDigest, setDisplayDigest] = useState<DigestResponse | null>(null);
+  const symbols = useMemo(() => {
+    if (!watchlistData?.symbols || watchlistData.symbols.length === 0) return [];
+    return [...new Set(watchlistData.symbols.map((s: string) => s.toUpperCase()))];
+  }, [watchlistData]);
 
-  // Subscription state
+  const history = digestData?.data ?? [];
+  const totalHistory = digestData?.total ?? 0;
+
+  const displayDigest: DigestResponse | null = useMemo(() => {
+    if (history.length === 0) return null;
+    return userDigestToResponse(history[0]);
+  }, [history]);
+
+  // Subscription state (kept as-is, simple boolean toggle)
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
-
 
   // Today's digest detection
   const todayDigest = useMemo(() => {
@@ -45,6 +52,11 @@ function ForYouPageContent() {
     return history.slice(1);
   }, [history, displayDigest]);
 
+  const generating = generateDigestMutation.isPending;
+  const error = generateDigestMutation.error
+    ? (generateDigestMutation.error instanceof Error ? generateDigestMutation.error.message : 'Failed to generate digest')
+    : null;
+
   // --- Effects ---
 
   useEffect(() => {
@@ -52,47 +64,6 @@ function ForYouPageContent() {
       router.push('/login?redirect=/for-you');
     }
   }, [authLoading, isAuthenticated, router]);
-
-  useEffect(() => {
-    const loadUserData = async () => {
-      if (!user?.id) return;
-
-      setLoadingWatchlist(true);
-      setWatchlistLoadFailed(false);
-      try {
-        const watchlist = await api.watchlist.get(user.id);
-        if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
-          const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
-          setSymbols(uniqueSymbols);
-        }
-      } catch (err) {
-        console.error('Failed to load watchlist:', err);
-        setWatchlistLoadFailed(true);
-      }
-
-      try {
-        const historyResult = await api.digests.list(user.id, 10, 0);
-        if (historyResult.data) {
-          setHistory(historyResult.data);
-          setTotalHistory(historyResult.total);
-
-          if (historyResult.data.length > 0) {
-            const latest = historyResult.data[0];
-            setDisplayDigest(userDigestToResponse(latest));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load digest history:', err);
-      } finally {
-        setLoadingWatchlist(false);
-      }
-    };
-
-    if (user?.id) {
-      loadUserData();
-    }
-  }, [user?.id]);
-
 
   useEffect(() => {
     const checkSubscription = async () => {
@@ -113,32 +84,6 @@ function ForYouPageContent() {
       checkSubscription();
     }
   }, [user?.email]);
-
-  // Refetch watchlist + quotes when returning from watchlist page
-  const refetchWatchlist = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const watchlist = await api.watchlist.get(user.id);
-      if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
-        const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
-        setSymbols(uniqueSymbols);
-      } else if (watchlist) {
-        setSymbols([]);
-      }
-    } catch (err) {
-      console.error('Failed to refetch watchlist:', err);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refetchWatchlist();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [refetchWatchlist]);
 
   // --- Handlers ---
 
@@ -168,28 +113,9 @@ function ForYouPageContent() {
     }
   };
 
-  const handleGenerateDigest = async () => {
+  const handleGenerateDigest = () => {
     if (!user?.id) return;
-
-    setGenerating(true);
-    setError(null);
-    try {
-      await api.generateDigest(symbols, user.id);
-
-      // Refresh history and update display digest in-place
-      const historyResult = await api.digests.list(user.id, 10, 0);
-      if (historyResult.data) {
-        setHistory(historyResult.data);
-        setTotalHistory(historyResult.total);
-        if (historyResult.data.length > 0) {
-          setDisplayDigest(userDigestToResponse(historyResult.data[0]));
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate digest');
-    } finally {
-      setGenerating(false);
-    }
+    generateDigestMutation.mutate({ symbols, userId: user.id });
   };
 
   // --- Auth loading / unauthenticated ---

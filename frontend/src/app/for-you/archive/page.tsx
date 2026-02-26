@@ -1,20 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, UserDigestItem } from '@/lib/api';
 import { formatDateChinese, formatDateShort } from '@/lib/timezone';
+import { useDigestList } from '@/hooks/queries/use-digest-data';
 
 export default function ForYouArchivePage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
-  const [digests, setDigests] = useState<UserDigestItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const pageSize = 12;
 
@@ -25,30 +21,16 @@ export default function ForYouArchivePage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Load digests
-  const loadDigests = useCallback(async () => {
-    if (!user?.id) return;
+  const { data, isLoading: loading, error: queryError } = useDigestList(
+    user?.id ?? '',
+    pageSize,
+    page * pageSize,
+    !!user?.id,
+  );
 
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await api.digests.list(user.id, pageSize, page * pageSize);
-      setDigests(result.data);
-      setTotal(result.total);
-    } catch (err) {
-      console.error('Failed to load digests:', err);
-      setError('加载报告失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, page, pageSize]);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadDigests();
-    }
-  }, [user?.id, loadDigests]);
-
+  const digests = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const error = queryError ? '加载报告失败' : null;
   const totalPages = Math.ceil(total / pageSize);
 
   // Show loading while checking auth

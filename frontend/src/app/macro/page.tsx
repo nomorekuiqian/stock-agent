@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -7,6 +8,14 @@ import {
   SignalLights,
 } from '@/lib/api';
 import { MacroActions } from './_components/MacroActions';
+
+export const metadata: Metadata = {
+  title: '美股宏观周报 - 经济、流动性、通胀与市场情绪',
+  description: '每周更新的美股宏观分析报告。涵盖经济基本面、流动性环境、通胀与利率、市场情绪四大维度，AI 解读宏观趋势与投资策略。',
+  alternates: {
+    canonical: '/macro',
+  },
+};
 
 // ISR: revalidate every 10 minutes
 export const revalidate = 600;

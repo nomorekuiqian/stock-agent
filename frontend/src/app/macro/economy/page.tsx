@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -10,13 +11,12 @@ const TradingViewWidget = dynamic(
 );
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 import {
-  api,
-  invalidateCache,
-  EconomicFundamentals,
   SubDimension,
   RiskIndicator,
-  WeeklyMacroReport,
 } from '@/lib/api';
+import { useEconomicFundamentals } from '@/hooks/queries/use-macro-data';
+import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
+import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatTimestamp } from '@/lib/timezone';
 import { TrendingUp, Users, Landmark, type LucideIcon } from 'lucide-react';
@@ -641,13 +641,10 @@ function DeepDiveSection({
 
 export default function EconomyPage() {
   const [theme] = useState<'light' | 'dark'>('dark');
-  const [data, setData] = useState<EconomicFundamentals | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selectedDim, setSelectedDim] = useState<string>('growth');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     return () => {
@@ -655,38 +652,13 @@ export default function EconomyPage() {
     };
   }, []);
 
-  // Weekly report state
-  const [weeklyReport, setWeeklyReport] = useState<WeeklyMacroReport | null>(null);
-  const [weeklyLoading, setWeeklyLoading] = useState(true);
+  const { data: econResponse, isLoading: loading, error: econError } = useEconomicFundamentals();
+  const { data: weeklyResponse, isLoading: weeklyLoading } = useWeeklyReport();
 
-  const fetchData = useCallback(async (bypassCache = false) => {
-    if (bypassCache) invalidateCache('economic-fundamentals');
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.getEconomicFundamentals();
-      if (response.success) {
-        setData(response.data);
-        setLastUpdated(response.timestamp);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      console.error('Error fetching economic fundamentals:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    api.weeklyReport
-      .getLatest()
-      .then((res) => {
-        if (res.success) setWeeklyReport(res.data);
-      })
-      .catch(() => {})
-      .finally(() => setWeeklyLoading(false));
-  }, [fetchData]);
+  const data = econResponse?.success ? econResponse.data : null;
+  const lastUpdated = econResponse?.timestamp ?? null;
+  const error = econError ? (econError instanceof Error ? econError.message : 'Failed to fetch data') : null;
+  const weeklyReport = weeklyResponse?.success ? weeklyResponse.data : null;
 
   const growthDim = data?.sub_dimensions.find((d) => d.name === 'growth');
   const employmentDim = data?.sub_dimensions.find((d) => d.name === 'employment');
@@ -701,7 +673,7 @@ export default function EconomyPage() {
         question="经济是在变好还是变差?"
         lastUpdated={lastUpdated ? formatTimestamp(lastUpdated) : null}
         loading={loading}
-        onRefresh={() => fetchData(true)}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.macro.economy() })}
       />
 
       {/* Error */}

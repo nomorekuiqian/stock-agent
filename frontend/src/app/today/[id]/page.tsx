@@ -18,16 +18,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!report) {
     return {
-      title: 'Report Not Found - TheMarketBrew',
-      description: 'The requested market report could not be found.',
+      title: '未找到报告',
+      description: '未找到该市场分析报告，请查看最新的美股日报。',
     };
   }
 
-  const title = report.title || `${formatDateForSEO(report.report_date || '')} Market Report`;
-  const description = report.summary || 'AI-powered daily market analysis and insights for smart investors.';
+  const title = report.title || `${formatDateForSEO(report.report_date || '')} 美股日报`;
+  const description = report.summary || 'AI 生成的美股每日分析报告，深度解读市场动态与投资机会。';
 
   return {
-    title: `${title} - TheMarketBrew`,
+    title,
     description,
     openGraph: {
       title,
@@ -51,12 +51,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 function formatDateForSEO(dateStr: string): string {
   try {
     const [year, month, day] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return `${year}年${month}月${day}日`;
   } catch {
     return dateStr;
   }
@@ -66,8 +61,8 @@ function generateJsonLd(report: MarketData, id: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: report.title || `${formatDateForSEO(report.report_date || '')} Market Report`,
-    description: report.summary || 'AI-powered daily market analysis',
+    headline: report.title || `${formatDateForSEO(report.report_date || '')} 美股日报`,
+    description: report.summary || 'AI 生成的美股每日分析报告',
     datePublished: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
     dateModified: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
     author: {
@@ -84,7 +79,7 @@ function generateJsonLd(report: MarketData, id: string) {
       '@type': 'WebPage',
       '@id': `https://themarketbrew.com/today/${id}`,
     },
-    articleSection: 'Market Analysis',
+    articleSection: '美股市场分析',
     inLanguage: 'zh-CN',
   };
 }
