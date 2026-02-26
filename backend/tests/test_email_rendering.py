@@ -17,6 +17,7 @@ def email_svc():
     svc.api_key = None
     svc.from_email = "test@example.com"
     svc.frontend_url = "https://themarketbrew.com"
+    svc.is_production = True
     svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
     return svc
 
@@ -515,6 +516,110 @@ class TestBroadcastWeeklyUsesDaily:
                 SubscriptionChannel.DAILY_REPORT
             )
             assert result["success"] is True
+
+
+class TestWelcomeQrCode:
+    """Test that _format_welcome_html() includes the QR code community section."""
+
+    def test_qrcode_image_in_html(self, email_svc):
+        """QR code img tag with insforge storage URL is present in welcome email."""
+        html = email_svc._format_welcome_html(first_name="Tester")
+        assert "insforge.app/api/storage/buckets/community/objects/wechat-qr.jpg" in html
+        assert "<img" in html
+
+    def test_community_section_header(self, email_svc):
+        """Welcome email contains the community section header text."""
+        html = email_svc._format_welcome_html(first_name="Tester")
+        assert "\u52a0\u5165\u793e\u7fa4" in html  # "加入社群"
+
+
+class TestResolveAudience:
+    """Test the _resolve_audience() method."""
+
+    @pytest.fixture
+    def production_email_svc(self):
+        """EmailService with is_production=True."""
+        svc = EmailService.__new__(EmailService)
+        svc.api_key = None
+        svc.from_email = "test@example.com"
+        svc.frontend_url = "https://themarketbrew.com"
+        svc.is_production = True
+        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+        return svc
+
+    @pytest.fixture
+    def non_production_email_svc(self):
+        """EmailService with is_production=False."""
+        svc = EmailService.__new__(EmailService)
+        svc.api_key = None
+        svc.from_email = "test@example.com"
+        svc.frontend_url = "http://localhost:3000"
+        svc.is_production = False
+        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+        return svc
+
+    def test_non_production_routes_to_test_audience(self, non_production_email_svc):
+        """When is_production=False, should return TEST_AUDIENCE_ID regardless."""
+        from app.features.subscription.service import SubscriptionChannel
+
+        result = non_production_email_svc._resolve_audience(
+            None, SubscriptionChannel.DAILY_REPORT
+        )
+        assert result == EmailService.TEST_AUDIENCE_ID
+
+    def test_production_uses_given_audience(self, production_email_svc):
+        """When is_production=True and audience_id is given, returns it."""
+        from app.features.subscription.service import SubscriptionChannel
+
+        given_id = "custom-audience-id-123"
+        result = production_email_svc._resolve_audience(
+            given_id, SubscriptionChannel.DAILY_REPORT
+        )
+        assert result == given_id
+
+    def test_production_looks_up_audience(self, production_email_svc):
+        """When is_production=True and no audience_id, calls ensure_audience."""
+        from unittest.mock import patch, MagicMock
+        from app.features.subscription.service import SubscriptionChannel
+
+        mock_sub_service = MagicMock()
+        mock_sub_service.ensure_audience.return_value = "looked-up-audience-id"
+
+        with patch(
+            "app.features.subscription.email_service.get_subscription_service",
+            return_value=mock_sub_service,
+        ):
+            result = production_email_svc._resolve_audience(
+                None, SubscriptionChannel.DAILY_REPORT
+            )
+            assert result == "looked-up-audience-id"
+            mock_sub_service.ensure_audience.assert_called_once_with(
+                SubscriptionChannel.DAILY_REPORT
+            )
+
+
+class TestIsProduction:
+    """Test the is_production flag."""
+
+    def test_production_url_sets_flag_true(self):
+        """When frontend_url matches production URL, is_production is True."""
+        svc = EmailService.__new__(EmailService)
+        svc.api_key = None
+        svc.from_email = "test@example.com"
+        svc.frontend_url = "https://themarketbrew.com"
+        svc.is_production = svc.frontend_url == EmailService.PRODUCTION_URL
+        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+        assert svc.is_production is True
+
+    def test_non_production_url_sets_flag_false(self):
+        """When frontend_url is localhost, is_production is False."""
+        svc = EmailService.__new__(EmailService)
+        svc.api_key = None
+        svc.from_email = "test@example.com"
+        svc.frontend_url = "http://localhost:3000"
+        svc.is_production = svc.frontend_url == EmailService.PRODUCTION_URL
+        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+        assert svc.is_production is False
 
 
 if __name__ == "__main__":

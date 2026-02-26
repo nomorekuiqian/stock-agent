@@ -72,5 +72,35 @@ class TestChannelConfig:
             assert "requires_auth" in config, f"{channel} missing requires_auth"
 
 
+class TestPersonalDigestConfig:
+    """Tests for personal_digest channel configuration."""
+
+    def test_no_symbols_in_metadata_fields(self):
+        """personal_digest metadata_fields should NOT contain 'symbols'."""
+        config = CHANNEL_CONFIG[SubscriptionChannel.PERSONAL_DIGEST]
+        assert "symbols" not in config["metadata_fields"]
+
+    def test_user_id_in_metadata_fields(self):
+        """personal_digest metadata_fields should contain 'user_id'."""
+        config = CHANNEL_CONFIG[SubscriptionChannel.PERSONAL_DIGEST]
+        assert "user_id" in config["metadata_fields"]
+
+
+class TestSubscriptionModels:
+    """Tests for subscription Pydantic models."""
+
+    def test_subscribe_request_no_symbols_field(self):
+        """SubscribeRequest model should not have 'symbols' in its fields."""
+        from app.features.subscription.models import SubscribeRequest
+
+        assert "symbols" not in SubscribeRequest.model_fields
+
+    def test_update_request_no_symbols_field(self):
+        """SubscriptionUpdateRequest should not have 'symbols' in its fields."""
+        from app.features.subscription.models import SubscriptionUpdateRequest
+
+        assert "symbols" not in SubscriptionUpdateRequest.model_fields
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
