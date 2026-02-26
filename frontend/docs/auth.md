@@ -6,15 +6,23 @@
 
 ## 认证方式
 
-### 1. 邮箱密码
+### 1. 邮箱密码 (Server Proxy)
 ```
 用户输入 email + password
   -> lib/auth.ts signIn()
-  -> Insforge Auth API
-  -> 返回 session + user
-  -> POST /api/auth (同步 cookie)
+  -> POST /api/auth { action: 'login', email, password }
+  -> Next.js Server 代理调用 Insforge POST /api/auth/sessions
+  -> Server 从 Insforge Set-Cookie 头提取 refresh token
+  -> Server 设置 3 个 httpOnly cookies:
+     - insforge-session (access token, 7天)
+     - insforge-refresh (refresh token, 30天)
+     - insforge-csrf (CSRF token, 30天)
+  -> 返回 { accessToken, user } 给前端
+  -> 前端设置 SDK 内存状态
   -> AuthContext 更新状态
 ```
+
+> **为什么需要 Server Proxy?** Insforge 的 refresh token 只通过 `Set-Cookie` 响应头返回（在 Insforge 域名下），不在 response body 中。前端 `fetch()` 无法读取跨域的 `Set-Cookie` 头，所以必须由 Next.js Server 端代理登录请求来捕获 refresh token。
 
 ### 2. Google OAuth
 ```
@@ -23,8 +31,7 @@
   -> 重定向到 Google 授权页
   -> 回调到 /auth/callback
   -> Insforge 处理 OAuth code
-  -> AuthContext polling 检测 insforge_code
-  -> POST /api/auth (同步 cookie)
+  -> InsforgeBrowserProvider onSignIn 回调触发 POST /api/auth (同步 cookie)
   -> AuthContext 更新状态
 ```
 
@@ -34,7 +41,8 @@
 |------|------|
 | `lib/auth.ts` | Insforge Auth SDK 封装 (signIn/signUp/signOut/OAuth/密码重置) |
 | `contexts/AuthContext.tsx` | 全局认证状态管理 (React Context + Provider) |
-| `app/api/auth/route.ts` | API Route — Cookie 同步 (httpOnly) |
+| `app/api/auth/route.ts` | API Route — Server Proxy 登录 + Cookie 管理 |
+| `app/api/auth/session/route.ts` | Session 验证 + Token Refresh (httpOnly Cookie) |
 | `app/login/page.tsx` | 登录页面 UI |
 | `app/auth/callback/page.tsx` | OAuth 回调处理 |
 | `components/NavAuth.tsx` | 导航栏认证状态显示 |
@@ -43,9 +51,10 @@
 ## AuthContext 详细逻辑
 
 ### 初始化
-1. 检查 Insforge session (`getCurrentUser()`)
-2. 如果有 session -> 设置 user 状态
-3. 如果没有 -> isAuthenticated = false
+1. `useInsforge()` hook 加载 SDK，检查是否有已登录用户
+2. 如果 SDK 有 user -> 设置 user 状态，`isRecovering = false`
+3. 如果 SDK 无 user -> 尝试 httpOnly cookie 恢复 (`GET /api/auth/session`)
+4. 恢复成功 -> 设置 SDK user + auth token；失败 -> `isAuthenticated = false`
 
 ### 登录后自动行为
 1. **订阅同步**: `api.subscriptions.syncUser(userId, email, firstName)`
@@ -55,20 +64,33 @@
 3. **刷新用户信息**: `refreshUser()` 更新 Context 状态
 
 ### OAuth 回调处理
-- AuthContext 在加载时检测 URL 中的 `insforge_code` 参数
-- 如果存在，使用 `exchangeCodeForSession()` 交换 session
-- 交换成功后清理 URL 参数
+- `InsforgeBrowserProvider` 自动检测 OAuth 回调中的 code 参数
+- SDK 内部处理 code exchange，`onSignIn` 回调触发 cookie 同步
+- `/auth/callback` 页面监听 `isAuthenticated` 状态变化后重定向
 
 ## Session 管理
 
-### Cookie 同步 (POST /api/auth)
-- 前端获取 Insforge session token
-- POST 到 `/api/auth` 写入 httpOnly cookie
-- 后续请求自动携带 cookie
+### Cookie 管理 (POST /api/auth)
 
-### Session 刷新
-- Insforge SDK 自动处理 token 刷新
-- AuthContext 在组件挂载时检查 session 有效性
+支持的 actions:
+- `login` — Server 代理登录，设置 3 个 httpOnly cookies
+- SDK 回调 (onSignIn/onRefresh) — 由 `InsforgeBrowserProvider` 自动处理
+- `DELETE /api/auth` — 登出时清除所有 auth cookies (含自定义的 refresh/csrf)
+
+### Session 刷新 (GET /api/auth/session)
+
+1. 检查 `insforge-session` cookie 中的 access token 是否有效
+2. 如果无效，使用 `insforge-refresh` + `insforge-csrf` 调用 Insforge `POST /api/auth/refresh`
+3. Refresh 需要: Cookie `insforge_refresh_token`、Header `X-CSRF-Token`、Header `Authorization: Bearer <anonKey>`
+4. 成功后更新 cookies（access token + 可能轮换的 refresh/CSRF token）
+5. 全部失败则清除 stale cookies，返回 401
+
+### Token 恢复链 (getAccessToken)
+
+前端 `getAccessToken()` 按以下优先级恢复会话:
+1. SDK 内存 session (`getCurrentSession()`，检查 token 是否过期)
+2. httpOnly Cookie 恢复 (`GET /api/auth/session`，可触发 refresh)
+3. 全部失败返回 null
 
 ## 受保护页面
 
@@ -95,15 +117,13 @@
 
 ## Token 生命周期
 
-| Token 类型 | 有效期 | 存储位置 | 刷新方式 |
-|------------|--------|----------|----------|
-| Access Token | 1 小时 | SDK 内存 + localStorage + httpOnly Cookie | SDK 自动刷新 |
-| Refresh Token | 30 天 | httpOnly Cookie | 用于获取新 Access Token |
+| Token 类型 | 有效期 | 存储位置 | 用途 |
+|------------|--------|----------|------|
+| Access Token | ~15 分钟 | SDK 内存 + httpOnly Cookie (`insforge-session`) | API 请求认证 |
+| Refresh Token | 30 天 | httpOnly Cookie (`insforge-refresh`) | 刷新 Access Token |
+| CSRF Token | 30 天 | httpOnly Cookie (`insforge-csrf`) | Refresh 请求防伪验证 |
 
-**Token 恢复链** (优先级从高到低):
-1. SDK 内存 session (`insforge.auth.getCurrentSession()`)
-2. httpOnly Cookie (`/api/auth/session` 端点)
-3. localStorage (`insforge-auth-token` key)
+> **重要**: Refresh Token 只通过 Insforge 的 `Set-Cookie` 响应头返回，不在 response body 中。必须通过 Server Proxy 登录才能捕获。
 
 ## 后端 API 认证
 
@@ -113,7 +133,7 @@
 
 **机制**:
 - 从 `Authorization: Bearer {token}` Header 提取 JWT
-- 调用 Insforge Auth API (`/auth/v1/user`) 验证 token 有效性
+- 调用 Insforge Auth API (`/api/auth/sessions/current`) 验证 token 有效性
 - 验证结果缓存 60 秒（内存 dict，避免重复调用 Insforge API）
 - 返回 `user_id` 字符串
 
@@ -187,6 +207,7 @@ const response = await fetch(`${API_BASE_URL}/watchlist`, {
 - Google OAuth 的回调 URL 需要在 Insforge 控制台配置
 - httpOnly Cookie 确保 token 不暴露给 JavaScript (XSS 防护)
 - `has_auto_subscribed` localStorage key 用于避免每次登录都重复订阅
-- Insforge Auth 本质上是 Supabase Auth 的封装，API 兼容
+- Insforge Auth API 路径与 Supabase **不同** (如 `/api/auth/sessions/current` 而非 `/auth/v1/user`)，不要假设兼容
 - `verify_user_token` 验证结果有 60 秒内存缓存，高频请求不会反复调用 Insforge API
-- 前端 `getAccessToken()` 依赖 SDK session，需要 AuthContext 先初始化（页面加载时 `getCurrentUser()` 会设置）
+- 前端 `getAccessToken()` 优先用缓存 token，过期后通过 SDK session 或 `/api/auth/session` cookie 恢复刷新
+- Insforge 的 refresh 端点需要 CSRF token，登录时必须同时存储 `insforge-csrf` cookie
