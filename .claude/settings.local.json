@@ -185,7 +185,9 @@
       "Bash(git stash:*)",
       "WebFetch(domain:themarketbrew.com)",
       "Bash(TZ='America/New_York' date:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebFetch(domain:docs.insforge.dev)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
