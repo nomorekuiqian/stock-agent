@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getReportById, MarketReport } from '@/lib/insforge';
+import { api, MarketData } from '@/lib/api';
 import { ReportContent } from '@/components/ReportContent';
 import { formatReportDate } from '@/lib/timezone';
 
@@ -14,7 +14,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const report = await getReportById(id);
+  const report = await api.reports.getById(id);
 
   if (!report) {
     return {
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const title = report.title || `${formatDateForSEO(report.report_date)} Market Report`;
+  const title = report.title || `${formatDateForSEO(report.report_date || '')} Market Report`;
   const description = report.summary || 'AI-powered daily market analysis and insights for smart investors.';
 
   return {
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'article',
-      publishedTime: report.timestamp || report.report_date,
+      publishedTime: report.timestamp || report.report_date || '',
       siteName: 'TheMarketBrew',
       locale: 'zh_CN',
     },
@@ -62,14 +62,14 @@ function formatDateForSEO(dateStr: string): string {
   }
 }
 
-function generateJsonLd(report: MarketReport, id: string) {
+function generateJsonLd(report: MarketData, id: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: report.title || `${formatDateForSEO(report.report_date)} Market Report`,
+    headline: report.title || `${formatDateForSEO(report.report_date || '')} Market Report`,
     description: report.summary || 'AI-powered daily market analysis',
-    datePublished: report.timestamp || `${report.report_date}T00:00:00Z`,
-    dateModified: report.timestamp || `${report.report_date}T00:00:00Z`,
+    datePublished: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
+    dateModified: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
     author: {
       '@type': 'Organization',
       name: 'TheMarketBrew',
@@ -97,7 +97,7 @@ interface IndexData {
 
 export default async function ReportDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const report = await getReportById(id);
+  const report = await api.reports.getById(id);
 
   if (!report) {
     notFound();
@@ -133,7 +133,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {formatReportDate(report.report_date)}
+              {formatReportDate(report.report_date || '')}
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
               {report.title || 'Market Report'}

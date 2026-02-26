@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getReportsList, MarketReport } from '@/lib/insforge';
+import { api, ReportListItem } from '@/lib/api';
 import { formatDateChinese, formatDateShort, formatTimePacific } from '@/lib/timezone';
 
 export default function ArchivePage() {
-  const [reports, setReports] = useState<MarketReport[]>([]);
+  const [reports, setReports] = useState<ReportListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -17,7 +17,7 @@ export default function ArchivePage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getReportsList(pageSize, page * pageSize);
+      const result = await api.reports.list(pageSize, page * pageSize);
       setReports(result.data);
       setTotal(result.total);
     } catch {
@@ -30,25 +30,6 @@ export default function ArchivePage() {
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
-
-  // Use Pacific timezone for date formatting
-  const formatDate = (dateString: string) => formatDateChinese(dateString);
-  const formatSDate = (dateString: string) => formatDateShort(dateString);
-  const formatTime = (dateString: string) => formatTimePacific(dateString);
-
-  const getPreviewText = (text: string, maxLength: number = 150) => {
-    if (!text) return '';
-    // Remove markdown formatting for preview
-    const cleaned = text
-      .replace(/#{1,6}\s/g, '')
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/\n/g, ' ')
-      .trim();
-    return cleaned.length > maxLength
-      ? cleaned.substring(0, maxLength) + '...'
-      : cleaned;
-  };
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -113,7 +94,7 @@ export default function ArchivePage() {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {formatSDate(report.report_date)}
+                    {formatDateShort(report.report_date)}
                   </div>
                   <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -122,18 +103,18 @@ export default function ArchivePage() {
 
                 {/* Title */}
                 <h3 className="text-sm font-semibold text-foreground mb-2 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors">
-                  {report.title || formatDate(report.report_date)}
+                  {report.title || formatDateChinese(report.report_date)}
                 </h3>
 
                 {/* Preview */}
                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                  {report.summary || getPreviewText(report.in_depth_analysis || '')}
+                  {report.summary || ''}
                 </p>
 
                 {/* Footer */}
                 <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
-                    {report.timestamp ? formatTime(report.timestamp) : 'View report'}
+                    {report.timestamp ? formatTimePacific(report.timestamp) : 'View report'}
                   </span>
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500/20 dark:group-hover:bg-emerald-500/30 group-hover:glow-emerald-sm transition-all">
                     <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

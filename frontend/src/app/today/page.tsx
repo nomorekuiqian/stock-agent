@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getReportByDate, getLatestReport, getReportsList } from '@/lib/insforge';
+import { api } from '@/lib/api';
 import { ReportContent } from '@/components/ReportContent';
 import { marketTodayStr, formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { TodayActions } from './_components/TodayActions';
@@ -20,15 +20,15 @@ export default async function TodayPage() {
   const [reportResult, historicalResult] = await Promise.all([
     (async () => {
       try {
-        const todayReport = await getReportByDate(today);
+        const todayReport = await api.reports.getByDate(today);
         if (todayReport) return { report: todayReport, isToday: true };
-        const latestReport = await getLatestReport();
+        const latestReport = await api.reports.getLatest();
         return { report: latestReport, isToday: latestReport?.report_date === today };
       } catch {
         return { report: null, isToday: false };
       }
     })(),
-    getReportsList(6, 0).catch(() => ({ data: [], total: 0 })),
+    api.reports.list(6, 0).catch(() => ({ data: [], total: 0 })),
   ]);
 
   const { report, isToday } = reportResult;

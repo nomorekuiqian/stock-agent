@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next';
-import { getReportsList } from '@/lib/insforge';
+import { api } from '@/lib/api';
 
 const BASE_URL = 'https://themarketbrew.com';
 
@@ -37,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     // Fetch all reports (up to 500)
-    const { data: reports } = await getReportsList(500, 0);
+    const { data: reports } = await api.reports.list(500, 0);
 
     reportPages = reports.map((report) => ({
       url: `${BASE_URL}/today/${report.id}`,

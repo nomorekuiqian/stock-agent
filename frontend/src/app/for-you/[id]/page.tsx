@@ -4,8 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserDigestById } from '@/lib/insforge';
-import { DigestResponse } from '@/lib/api';
+import { api, DigestResponse } from '@/lib/api';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
 
@@ -46,7 +45,7 @@ export default function ForYouDetailPage({
       setLoading(true);
       setError(null);
       try {
-        const historyItem = await getUserDigestById(id);
+        const historyItem = await api.digests.getById(id);
 
         if (!historyItem) {
           setError('Report not found');

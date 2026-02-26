@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { UserDigest } from '@/lib/insforge';
+import { UserDigestItem } from '@/lib/api';
 import { formatReportDate, formatDateShort } from '@/lib/timezone';
 
 interface RecentReportsProps {
-  history: UserDigest[];
+  history: UserDigestItem[];
   totalHistory: number;
 }
 

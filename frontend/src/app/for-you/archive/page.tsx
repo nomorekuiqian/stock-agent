@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserDigests, UserDigest } from '@/lib/insforge';
+import { api, UserDigestItem } from '@/lib/api';
 import { formatDateChinese, formatDateShort } from '@/lib/timezone';
 
 export default function ForYouArchivePage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
-  const [digests, setDigests] = useState<UserDigest[]>([]);
+  const [digests, setDigests] = useState<UserDigestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -32,7 +32,7 @@ export default function ForYouArchivePage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getUserDigests(user.id, pageSize, page * pageSize);
+      const result = await api.digests.list(user.id, pageSize, page * pageSize);
       setDigests(result.data);
       setTotal(result.total);
     } catch (err) {

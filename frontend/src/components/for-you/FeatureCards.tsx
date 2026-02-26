@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { UserDigest } from '@/lib/insforge';
+import { UserDigestItem } from '@/lib/api';
 import { formatDateShort } from '@/lib/timezone';
 
 interface FeatureCardsProps {
-  todayDigest: UserDigest | null;
+  todayDigest: UserDigestItem | null;
   isSubscribed: boolean;
   subscribing: boolean;
   checkingSubscription: boolean;
@@ -114,7 +114,7 @@ function DigestReadyCard({
   checkingSubscription,
   onToggleSubscription,
 }: {
-  digest: UserDigest;
+  digest: UserDigestItem;
   isSubscribed: boolean;
   subscribing: boolean;
   checkingSubscription: boolean;

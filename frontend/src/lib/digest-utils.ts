@@ -1,10 +1,9 @@
-import { DigestResponse } from './api';
-import { UserDigest } from './insforge';
+import { DigestResponse, UserDigestItem } from './api';
 
 /**
- * Convert a UserDigest (database record) to DigestResponse (display format).
+ * Convert a UserDigestItem (database record) to DigestResponse (display format).
  */
-export function userDigestToResponse(item: UserDigest): DigestResponse {
+export function userDigestToResponse(item: UserDigestItem): DigestResponse {
   const digestData = item.digest_data || {};
   return {
     success: true,

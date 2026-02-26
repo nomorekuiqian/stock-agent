@@ -5,11 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
-import { api, DigestResponse } from '@/lib/api';
-import { getUserWatchlist, saveUserWatchlist, getUserDigests, UserDigest } from '@/lib/insforge';
+import { api, DigestResponse, UserDigestItem } from '@/lib/api';
 import { marketTodayStr } from '@/lib/timezone';
 import { userDigestToResponse } from '@/lib/digest-utils';
-import OnboardingSection from '@/components/for-you/OnboardingSection';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
 import RecentReports from '@/components/for-you/RecentReports';
 
@@ -20,7 +18,8 @@ function ForYouPageContent() {
   // Core state
   const [symbols, setSymbols] = useState<string[]>([]);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [history, setHistory] = useState<UserDigest[]>([]);
+  const [watchlistLoadFailed, setWatchlistLoadFailed] = useState(false);
+  const [history, setHistory] = useState<UserDigestItem[]>([]);
   const [totalHistory, setTotalHistory] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,13 +39,11 @@ function ForYouPageContent() {
     return history[0].digest_date === marketTodayStr() ? history[0] : null;
   }, [history]);
 
-  // History items to show in RecentReports, skipping the one already displayed inline
+  // History items for RecentReports, skipping the first item when it's displayed inline
   const filteredHistory = useMemo(() => {
     if (!displayDigest || history.length === 0) return history;
-    // Skip the first item if it's the one being displayed inline
-    const displayId = todayDigest?.id || history[0]?.id;
-    return history.filter(item => item.id !== displayId);
-  }, [history, displayDigest, todayDigest]);
+    return history.slice(1);
+  }, [history, displayDigest]);
 
   // --- Effects ---
 
@@ -61,26 +58,31 @@ function ForYouPageContent() {
       if (!user?.id) return;
 
       setLoadingWatchlist(true);
+      setWatchlistLoadFailed(false);
       try {
-        const watchlist = await getUserWatchlist(user.id);
-        if (watchlist?.symbols) {
-          const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
+        const watchlist = await api.watchlist.get(user.id);
+        if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
+          const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
           setSymbols(uniqueSymbols);
         }
+      } catch (err) {
+        console.error('Failed to load watchlist:', err);
+        setWatchlistLoadFailed(true);
+      }
 
-        const historyResult = await getUserDigests(user.id, 10, 0);
+      try {
+        const historyResult = await api.digests.list(user.id, 10, 0);
         if (historyResult.data) {
           setHistory(historyResult.data);
           setTotalHistory(historyResult.total);
 
-          // Set display digest: today's or latest
           if (historyResult.data.length > 0) {
             const latest = historyResult.data[0];
             setDisplayDigest(userDigestToResponse(latest));
           }
         }
       } catch (err) {
-        console.error('Failed to load user data:', err);
+        console.error('Failed to load digest history:', err);
       } finally {
         setLoadingWatchlist(false);
       }
@@ -116,11 +118,11 @@ function ForYouPageContent() {
   const refetchWatchlist = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const watchlist = await getUserWatchlist(user.id);
-      if (watchlist?.symbols) {
-        const uniqueSymbols = [...new Set(watchlist.symbols.map(s => s.toUpperCase()))];
+      const watchlist = await api.watchlist.get(user.id);
+      if (watchlist && watchlist.symbols && watchlist.symbols.length > 0) {
+        const uniqueSymbols = [...new Set(watchlist.symbols.map((s: string) => s.toUpperCase()))];
         setSymbols(uniqueSymbols);
-      } else {
+      } else if (watchlist) {
         setSymbols([]);
       }
     } catch (err) {
@@ -154,7 +156,6 @@ function ForYouPageContent() {
         const result = await api.subscriptions.subscribe('personal_digest', {
           email: user.email,
           user_id: user.id,
-          symbols: symbols,
         });
         if (result.success) {
           setIsSubscribed(true);
@@ -176,7 +177,7 @@ function ForYouPageContent() {
       await api.generateDigest(symbols, user.id);
 
       // Refresh history and update display digest in-place
-      const historyResult = await getUserDigests(user.id, 10, 0);
+      const historyResult = await api.digests.list(user.id, 10, 0);
       if (historyResult.data) {
         setHistory(historyResult.data);
         setTotalHistory(historyResult.total);
@@ -186,48 +187,6 @@ function ForYouPageContent() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate digest');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleSelectTemplate = async (newSymbols: string[]) => {
-    if (!user?.id) throw new Error('Not authenticated');
-
-    // 1. Save watchlist
-    await saveUserWatchlist(user.id, newSymbols);
-
-    // 2. Subscribe to email (non-blocking)
-    if (user.email) {
-      try {
-        await api.subscriptions.subscribe('personal_digest', {
-          email: user.email,
-          user_id: user.id,
-          symbols: newSymbols,
-        });
-      } catch {
-        // Subscription failure should not block onboarding
-      }
-    }
-
-    // 3. Update local state
-    setSymbols(newSymbols);
-    setIsSubscribed(true);
-
-    // 4. Generate digest
-    setGenerating(true);
-    try {
-      await api.generateDigest(newSymbols, user.id);
-
-      // 5. Refresh history and display inline
-      const historyResult = await getUserDigests(user.id, 10, 0);
-      if (historyResult.data) {
-        setHistory(historyResult.data);
-        setTotalHistory(historyResult.total);
-        if (historyResult.data.length > 0) {
-          setDisplayDigest(userDigestToResponse(historyResult.data[0]));
-        }
-      }
     } finally {
       setGenerating(false);
     }
@@ -254,7 +213,10 @@ function ForYouPageContent() {
 
   // --- Three-state rendering ---
 
-  const isOnboarding = !loadingWatchlist && symbols.length === 0;
+  // Only show onboarding if watchlist loaded successfully AND is empty.
+  // Never show onboarding when the load failed - that would let the user
+  // accidentally overwrite their existing watchlist via template selection.
+  const isOnboarding = !loadingWatchlist && !watchlistLoadFailed && symbols.length === 0;
   const subscriptionLoading = subscribing || checkingSubscription;
 
   return (
@@ -275,7 +237,7 @@ function ForYouPageContent() {
             </h1>
             <p className="text-muted-foreground text-sm md:text-base max-w-lg">
               {isOnboarding
-                ? '选择一个模板，快速开始你的个性化投资日报'
+                ? '添加你的持仓，获取专属投资日报'
                 : '你的持仓和市场动态，一目了然'}
             </p>
 
@@ -349,13 +311,64 @@ function ForYouPageContent() {
         </div>
       )}
 
-      {/* State A: Onboarding */}
+      {/* State: Load failed */}
+      {!loadingWatchlist && watchlistLoadFailed && (
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-12">
+          <div className="flex flex-col items-center justify-center gap-4 py-12 rounded-xl border border-dashed border-red-500/30 bg-red-500/5">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-sm text-red-400 font-medium">加载持仓数据失败</p>
+            <p className="text-xs text-muted-foreground text-center max-w-xs">
+              无法连接到服务器，请刷新页面重试。
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border/50 text-sm text-foreground hover:border-emerald-500/30 transition-colors cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              刷新页面
+            </button>
+          </div>
+
+          {/* Still show existing digest history if available */}
+          {displayDigest && <DigestInlineReport digest={displayDigest} />}
+          {history.length > 0 && <RecentReports history={history} totalHistory={totalHistory} />}
+        </div>
+      )}
+
+      {/* State A: Empty watchlist - direct to watchlist management */}
       {!loadingWatchlist && isOnboarding && user && (
-        <OnboardingSection
-          onSelectTemplate={handleSelectTemplate}
-          userId={user.id}
-          userEmail={user.email}
-        />
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
+          <div className="flex flex-col items-center justify-center gap-6 py-16 rounded-xl border border-dashed border-border/50 bg-card/30">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
+              <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-lg font-medium text-foreground">
+                添加你的持仓
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                搜索并添加你关注的股票，我们将为你生成专属的每日投资分析
+              </p>
+            </div>
+            <Link
+              href="/for-you/watchlist"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-600 text-white text-sm font-medium transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              管理我的持仓
+            </Link>
+          </div>
+        </div>
       )}
 
       {/* State B/C: Dashboard */}
