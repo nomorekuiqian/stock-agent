@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { insforge } from '@/lib/insforge';
 
 function Spinner() {
   return (
@@ -14,55 +13,33 @@ function Spinner() {
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refreshUser, isAuthenticated } = useAuth();
-  const [status, setStatus] = useState('Processing...');
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    async function handleCallback() {
-      if (isAuthenticated) {
-        const redirectUrl = sessionStorage.getItem('auth_redirect') || '/today';
-        sessionStorage.removeItem('auth_redirect');
-        router.push(redirectUrl);
-        return;
-      }
+    if (isLoading) return;
 
-      const error = searchParams.get('error');
-      if (error) {
-        router.push('/login?error=' + encodeURIComponent(error));
-        return;
-      }
-
-      setStatus('Completing sign in...');
-
-      const maxAttempts = 40;
-      const pollInterval = 50;
-
-      for (let i = 0; i < maxAttempts; i++) {
-        const { data: sessionData } = await insforge.auth.getCurrentSession();
-
-        if (sessionData?.session?.accessToken) {
-          await refreshUser();
-          const redirectUrl = sessionStorage.getItem('auth_redirect') || '/today';
-          sessionStorage.removeItem('auth_redirect');
-          setStatus('Redirecting...');
-          router.push(redirectUrl);
-          return;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-      }
-
-      router.push('/login?error=auth_timeout');
+    const error = searchParams.get('error');
+    if (error) {
+      router.push('/login?error=' + encodeURIComponent(error));
+      return;
     }
 
-    handleCallback();
-  }, [router, refreshUser, searchParams, isAuthenticated]);
+    if (isAuthenticated) {
+      const redirectUrl = sessionStorage.getItem('auth_redirect') || '/today';
+      sessionStorage.removeItem('auth_redirect');
+      router.push(redirectUrl);
+    } else {
+      router.push('/login?error=auth_failed');
+    }
+  }, [isAuthenticated, isLoading, router, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center space-y-4">
         <Spinner />
-        <p className="text-gray-500 text-sm">{status}</p>
+        <p className="text-gray-500 text-sm">
+          {isLoading ? 'Processing...' : 'Redirecting...'}
+        </p>
       </div>
     </div>
   );

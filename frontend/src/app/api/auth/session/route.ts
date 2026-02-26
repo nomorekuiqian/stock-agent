@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 
 const INSFORGE_BASE_URL =
   process.env.NEXT_PUBLIC_INSFORGE_URL || 'https://9wmhxyi4.us-east.insforge.app';
+const INSFORGE_ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || '';
 
 interface InsforgeUser {
   id: string;
@@ -17,7 +18,10 @@ async function validateToken(
     const res = await fetch(
       `${INSFORGE_BASE_URL}/api/auth/sessions/current`,
       {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          apikey: INSFORGE_ANON_KEY,
+        },
         cache: 'no-store',
       }
     );
@@ -32,66 +36,67 @@ async function validateToken(
 }
 
 async function tryRefreshToken(
-  refreshToken: string
-): Promise<{ accessToken: string; user: InsforgeUser } | null> {
-  // Strategy 1: POST /api/auth/token with grant_type=refresh_token
+  refreshToken: string,
+  csrfToken?: string
+): Promise<{ accessToken: string; refreshToken?: string; csrfToken?: string; user: InsforgeUser } | null> {
+  // Insforge SDK uses POST /api/auth/refresh with:
+  // 1. Refresh token in httpOnly cookie named "insforge_refresh_token"
+  // 2. CSRF token in X-CSRF-Token header
+  // 3. Authorization with anon key
+  // From the server side we set headers manually (allowed in Node.js).
   try {
-    const res = await fetch(`${INSFORGE_BASE_URL}/api/auth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
-      cache: 'no-store',
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.access_token || data?.accessToken) {
-        const newAccessToken = data.access_token || data.accessToken;
-        // Validate the new token to get user data
-        const validated = await validateToken(newAccessToken);
-        if (validated) {
-          return { accessToken: newAccessToken, user: validated.user };
-        }
-      }
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${INSFORGE_ANON_KEY}`,
+      Cookie: `insforge_refresh_token=${refreshToken}`,
+    };
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
     }
-  } catch {
-    // Fall through to strategy 2
-  }
 
-  // Strategy 2: POST /api/auth/refresh with cookie-style header
-  try {
     const res = await fetch(`${INSFORGE_BASE_URL}/api/auth/refresh`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `insforge-refresh=${refreshToken}`,
-      },
+      headers,
       cache: 'no-store',
     });
-    if (res.ok) {
-      const data = await res.json();
-      const newAccessToken =
-        data?.access_token || data?.accessToken || data?.session?.access_token;
-      if (newAccessToken) {
-        const validated = await validateToken(newAccessToken);
-        if (validated) {
-          return { accessToken: newAccessToken, user: validated.user };
-        }
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.error(`[auth/session] refresh failed: ${res.status} ${errBody}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const newAccessToken = data?.accessToken;
+    if (!newAccessToken) return null;
+
+    // Extract rotated refresh token from Set-Cookie if present
+    let newRefreshToken: string | undefined;
+    const setCookies = res.headers.getSetCookie?.() ?? [];
+    for (const header of setCookies) {
+      const match = header.match(/insforge_refresh_token=([^;]+)/);
+      if (match?.[1]) {
+        newRefreshToken = match[1];
+        break;
       }
     }
-  } catch {
-    // Both strategies failed
-  }
 
-  return null;
+    // Extract new CSRF token if present
+    const newCsrfToken = data?.csrfToken;
+
+    // Validate the new token to get user data
+    const validated = await validateToken(newAccessToken);
+    if (!validated) return null;
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken, csrfToken: newCsrfToken, user: validated.user };
+  } catch {
+    return null;
+  }
 }
 
 export async function GET() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('insforge-session')?.value;
   const refreshToken = cookieStore.get('insforge-refresh')?.value;
+  const csrfToken = cookieStore.get('insforge-csrf')?.value;
 
   if (!accessToken && !refreshToken) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
@@ -111,21 +116,38 @@ export async function GET() {
 
   // 2. Access token expired/invalid, try refresh
   if (refreshToken) {
-    const refreshed = await tryRefreshToken(refreshToken);
+    const refreshed = await tryRefreshToken(refreshToken, csrfToken);
     if (refreshed) {
       const response = NextResponse.json({
         authenticated: true,
         accessToken: refreshed.accessToken,
         user: refreshed.user,
       });
-      // Update session cookie with new access token
-      response.cookies.set('insforge-session', refreshed.accessToken, {
+      const cookieOpts = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'lax' as const,
         path: '/',
+      };
+      // Update session cookie with new access token
+      response.cookies.set('insforge-session', refreshed.accessToken, {
+        ...cookieOpts,
         maxAge: 60 * 60 * 24 * 7, // 7 days
       });
+      // Update refresh cookie if Insforge rotated it
+      if (refreshed.refreshToken) {
+        response.cookies.set('insforge-refresh', refreshed.refreshToken, {
+          ...cookieOpts,
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
+      }
+      // Update CSRF token if Insforge rotated it
+      if (refreshed.csrfToken) {
+        response.cookies.set('insforge-csrf', refreshed.csrfToken, {
+          ...cookieOpts,
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
+      }
       return response;
     }
   }
@@ -137,5 +159,6 @@ export async function GET() {
   );
   response.cookies.delete('insforge-session');
   response.cookies.delete('insforge-refresh');
+  response.cookies.delete('insforge-csrf');
   return response;
 }

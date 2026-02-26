@@ -1,7 +1,16 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, getCurrentUser, signIn, signUp, signOut, signInWithGoogle, updateProfile } from '@/lib/auth';
+import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo, useState, useRef } from 'react';
+import { useInsforge } from '@insforge/nextjs';
+import {
+  User,
+  signIn as authSignIn,
+  signUp as authSignUp,
+  signInWithGoogle,
+  updateProfile as authUpdateProfile,
+  isTokenExpired,
+} from '@/lib/auth';
+import { insforge } from '@/lib/insforge';
 import { api } from '@/lib/api';
 
 function getAutoSubscribedKey(userId: string): string {
@@ -85,125 +94,142 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const sdk = useInsforge();
+  // Start true to prevent auth guards from redirecting before recovery completes.
+  // Without this, there's a single-frame gap after SDK init (isLoaded=true, user=null)
+  // but before setIsRecovering(true) re-renders, where isLoading would briefly be false.
+  const [isRecovering, setIsRecovering] = useState(true);
+  const recoveryAttempted = useRef(false);
 
-  async function refreshUser(): Promise<void> {
-    try {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-      if (currentUser) {
-        syncUserWithSubscriptions(currentUser);
-      }
-    } catch (error) {
-      console.error('[AuthContext] Refresh user error:', error);
-      setUser(null);
-    }
-  }
+  // Map SDK user (InsforgeUser) to our User type
+  const user: User | null = useMemo(() => {
+    if (!sdk.user) return null;
+    return {
+      id: sdk.user.id,
+      email: sdk.user.email || '',
+      name: sdk.user.profile?.name,
+      avatarUrl: sdk.user.profile?.avatar_url,
+    };
+  }, [sdk.user]);
 
+  // SDK loaded but no user -> try recovering from our httpOnly cookies.
+  // The SDK's own getCurrentSession() can't access our cookies (they're on
+  // our domain, not Insforge's), so we check /api/auth/session ourselves.
   useEffect(() => {
-    async function initAuth() {
-      try {
-        const hasOAuthCode = typeof window !== 'undefined' &&
-          window.location.search.includes('insforge_code');
+    if (!sdk.isLoaded) return;
 
-        if (hasOAuthCode) {
-          const maxAttempts = 40;
-          const pollInterval = 50;
-
-          for (let i = 0; i < maxAttempts; i++) {
-            const currentUser = await getCurrentUser();
-            if (currentUser) {
-              setUser(currentUser);
-              syncUserWithSubscriptions(currentUser);
-
-              if (typeof window !== 'undefined' && window.history.replaceState) {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('insforge_code');
-                window.history.replaceState({}, '', url.toString());
-              }
-
-              setIsLoading(false);
-              return;
-            }
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
-          }
-
-          console.warn('[AuthContext] OAuth code present but no session after polling');
-          setIsLoading(false);
-          return;
-        }
-
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
-        if (currentUser) {
-          syncUserWithSubscriptions(currentUser);
-        }
-      } catch (error) {
-        console.error('[AuthContext] Init error:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    // SDK found a user on its own — no recovery needed
+    if (sdk.user) {
+      setIsRecovering(false);
+      return;
     }
 
-    initAuth();
+    if (recoveryAttempted.current) return;
+    recoveryAttempted.current = true;
+
+    fetch('/api/auth/session')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.authenticated && data.accessToken && data.user && !isTokenExpired(data.accessToken)) {
+          insforge.getHttpClient().setAuthToken(data.accessToken);
+          sdk.setUser({
+            id: data.user.id,
+            email: data.user.email,
+            profile: data.user.profile ?? null,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsRecovering(false));
+  }, [sdk.isLoaded, sdk.user, sdk]);
+
+  const isLoading = !sdk.isLoaded || isRecovering;
+
+  // Subscription sync - the only custom business logic
+  useEffect(() => {
+    if (user) {
+      syncUserWithSubscriptions(user);
+    }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Custom signIn (must use server proxy to capture refresh token).
+  // We use sdk.setUser() instead of sdk.reloadAuth() because reloadAuth()
+  // calls getCurrentSession() which checks SDK's internal tokenManager — but
+  // our server proxy login doesn't go through the SDK, so the tokenManager
+  // has no session data.
+  const handleSignIn = useCallback(async (email: string, password: string, rememberMe?: boolean) => {
+    const result = await authSignIn(email, password, rememberMe);
+    if (result.success && result.user) {
+      sdk.setUser({
+        id: result.user.id,
+        email: result.user.email,
+        profile: {
+          name: result.user.name,
+          avatar_url: result.user.avatarUrl,
+        },
+      });
+    }
+    return { success: result.success, error: result.error };
+  }, [sdk]);
+
+  const handleSignUp = useCallback(async (email: string, password: string, name?: string) => {
+    const result = await authSignUp(email, password, name);
+    if (result.success) {
+      await sdk.reloadAuth();
+    }
+    return { success: result.success, error: result.error };
+  }, [sdk]);
+
+  // signOut via SDK - InsforgeBrowserProvider's onSignOut sends DELETE /api/auth
+  const handleSignOut = useCallback(async () => {
+    try {
+      await sdk.signOut();
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }, [sdk]);
+
+  const handleUpdateProfile = useCallback(async (profile: { name?: string }) => {
+    const result = await authUpdateProfile(profile);
+    if (result.success && result.user && user) {
+      // Sync the new name to Resend contacts
+      api.subscriptions.syncUser(user.id, user.email, result.user.name).catch(() => {});
+      // Refresh SDK user state to pick up new profile
+      await sdk.reloadAuth();
+    }
+    return { success: result.success, error: result.error };
+  }, [user, sdk]);
+
+  const handleSignInWithGoogle = useCallback(async () => {
+    return signInWithGoogle();
   }, []);
 
-  async function handleSignIn(email: string, password: string, rememberMe?: boolean) {
-    const result = await signIn(email, password, rememberMe);
-    if (result.success && result.user) {
-      setUser(result.user);
-      syncUserWithSubscriptions(result.user);
+  const refreshUser = useCallback(async () => {
+    try {
+      await sdk.reloadAuth();
+    } catch (error) {
+      console.error('[AuthContext] Refresh user error:', error);
     }
-    return { success: result.success, error: result.error };
-  }
+  }, [sdk]);
 
-  async function handleSignUp(email: string, password: string, name?: string) {
-    const result = await signUp(email, password, name);
-    if (result.success && result.user) {
-      setUser(result.user);
-      syncUserWithSubscriptions(result.user);
-    }
-    return { success: result.success, error: result.error };
-  }
-
-  async function handleSignOut() {
-    const result = await signOut();
-    if (result.success) {
-      setUser(null);
-    }
-    return result;
-  }
-
-  async function handleUpdateProfile(profile: { name?: string }) {
-    const result = await updateProfile(profile);
-    if (result.success && result.user && user) {
-      const updatedUser = { ...user, name: result.user.name };
-      setUser(updatedUser);
-      // Sync the new name to Resend contacts
-      api.subscriptions.syncUser(updatedUser.id, updatedUser.email, updatedUser.name).catch(() => {});
-    }
-    return { success: result.success, error: result.error };
-  }
-
-  async function handleSignInWithGoogle() {
-    return signInWithGoogle();
-  }
+  const value = useMemo<AuthContextType>(() => ({
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+    signIn: handleSignIn,
+    signUp: handleSignUp,
+    signOut: handleSignOut,
+    signInWithGoogle: handleSignInWithGoogle,
+    updateProfile: handleUpdateProfile,
+    refreshUser,
+  }), [user, isLoading, handleSignIn, handleSignUp, handleSignOut, handleSignInWithGoogle, handleUpdateProfile, refreshUser]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        signIn: handleSignIn,
-        signUp: handleSignUp,
-        signOut: handleSignOut,
-        signInWithGoogle: handleSignInWithGoogle,
-        updateProfile: handleUpdateProfile,
-        refreshUser,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,64 +1,91 @@
 import { createAuthRouteHandlers } from '@insforge/nextjs/api';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { buildCookieOptions, extractRefreshToken } from './helpers';
 
 const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL || 'https://9wmhxyi4.us-east.insforge.app';
+const INSFORGE_ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || '';
 
 const handlers = createAuthRouteHandlers({
   baseUrl,
 });
 
-// Custom POST handler that handles sync-token action
+// ---------------------------------------------------------------------------
+// POST handler
+// ---------------------------------------------------------------------------
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Handle sync-token action for OAuth callback
-    if (body.action === 'sync-token' && body.accessToken) {
-      const cookieStore = await cookies();
-      const rememberMe = body.rememberMe !== false; // default true
+    // --- Server-side login proxy ---
+    // Frontend calls this instead of SDK signInWithPassword so we can capture
+    // the refresh token from Insforge's Set-Cookie header (not in response body).
+    if (body.action === 'login' && body.email && body.password) {
+      const insforgeRes = await fetch(`${baseUrl}/api/auth/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${INSFORGE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ email: body.email, password: body.password }),
+        cache: 'no-store',
+      });
 
-      // When rememberMe is false, omit maxAge so cookies expire when browser closes
-      const sessionCookieOptions: Record<string, unknown> = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      };
-      if (rememberMe) {
-        sessionCookieOptions.maxAge = 60 * 60 * 24 * 7; // 7 days
+      let data;
+      try {
+        data = await insforgeRes.json();
+      } catch {
+        return NextResponse.json(
+          { success: false, error: 'Invalid response from auth service' },
+          { status: 502 }
+        );
       }
 
-      cookieStore.set('insforge-session', body.accessToken, sessionCookieOptions);
-
-      // Also set refresh token cookie
-      if (body.refreshToken) {
-        const refreshCookieOptions: Record<string, unknown> = {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-        };
-        if (rememberMe) {
-          refreshCookieOptions.maxAge = 60 * 60 * 24 * 30; // 30 days
-        }
-
-        cookieStore.set('insforge-refresh', body.refreshToken, refreshCookieOptions);
+      if (!insforgeRes.ok) {
+        return NextResponse.json(
+          { success: false, error: data.message || data.error || 'Login failed' },
+          { status: insforgeRes.status }
+        );
       }
 
-      return NextResponse.json({ success: true });
-    }
-
-    // Handle clear-token action for logout
-    if (body.action === 'clear-token') {
+      const refreshToken = extractRefreshToken(insforgeRes);
+      const rememberMe = body.rememberMe !== false;
       const cookieStore = await cookies();
-      cookieStore.delete('insforge-session');
-      cookieStore.delete('insforge-refresh');
-      return NextResponse.json({ success: true });
+
+      // Store access token in our httpOnly cookie
+      cookieStore.set(
+        'insforge-session',
+        data.accessToken,
+        buildCookieOptions(rememberMe, 60 * 60 * 24 * 7) // 7 days
+      );
+
+      // Store refresh token in our httpOnly cookie
+      if (refreshToken) {
+        cookieStore.set(
+          'insforge-refresh',
+          refreshToken,
+          buildCookieOptions(rememberMe, 60 * 60 * 24 * 30) // 30 days
+        );
+      }
+
+      // Store CSRF token — required by Insforge's /api/auth/refresh endpoint
+      if (data.csrfToken) {
+        cookieStore.set(
+          'insforge-csrf',
+          data.csrfToken,
+          buildCookieOptions(rememberMe, 60 * 60 * 24 * 30) // 30 days
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        accessToken: data.accessToken,
+        user: data.user,
+      });
     }
 
-    // For other actions, use the default handler
-    // Re-create the request with the body
+    // For other actions (sync-token etc.), delegate to the SDK's default handler
     const newRequest = new NextRequest(request.url, {
       method: 'POST',
       headers: request.headers,
@@ -67,10 +94,17 @@ export async function POST(request: NextRequest) {
 
     return handlers.POST(newRequest);
   } catch {
-    // If JSON parsing fails, pass through to default handler
     return handlers.POST(request);
   }
 }
 
 export const GET = handlers.GET;
-export const DELETE = handlers.DELETE;
+
+// Override DELETE to also clear our custom cookies (insforge-refresh, insforge-csrf)
+// that are set by the server proxy login but not managed by the SDK's default handler.
+export async function DELETE(request: NextRequest) {
+  const response = await handlers.DELETE(request);
+  response.cookies.set('insforge-refresh', '', { maxAge: 0, path: '/' });
+  response.cookies.set('insforge-csrf', '', { maxAge: 0, path: '/' });
+  return response;
+}
