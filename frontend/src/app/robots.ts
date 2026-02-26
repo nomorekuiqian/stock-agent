@@ -9,7 +9,10 @@ export default function robots(): MetadataRoute.Robots {
           '/',
           '/today',
           '/today/*',
-          '/liquidity',
+          '/macro',
+          '/macro/*',
+          '/stock',
+          '/stock/*',
         ],
         disallow: [
           '/api/',
