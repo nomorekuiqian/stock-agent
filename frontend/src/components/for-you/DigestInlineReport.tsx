@@ -91,7 +91,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
           <div className="divide-y divide-border/30">
             {digest.news.headlines.map((item: DigestHeadlineNews, index: number) => (
               <div key={index} className="py-4 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
                   <a
                     href={item.url}
                     target="_blank"
@@ -101,7 +101,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                     {item.title}
                   </a>
                   {item.related_symbols.length > 0 && (
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex flex-wrap gap-1 sm:shrink-0">
                       {item.related_symbols.map((sym: string) => (
                         <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
                           {sym}
@@ -128,7 +128,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
           <div className="divide-y divide-border/30">
             {digest.news.briefs.map((item: DigestBriefNews, index: number) => (
               <div key={index} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-1">
                   <a
                     href={item.url}
                     target="_blank"
@@ -138,7 +138,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                     {item.title}
                   </a>
                   {item.related_symbols.length > 0 && (
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex flex-wrap gap-1 sm:shrink-0">
                       {item.related_symbols.map((sym: string) => (
                         <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
                           {sym}
@@ -183,10 +183,10 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-1">
                       <span className="font-semibold text-foreground text-sm">{event.event}</span>
                       {event.related_symbols.length > 0 && (
-                        <div className="flex gap-1 shrink-0">
+                        <div className="flex flex-wrap gap-1 sm:shrink-0">
                           {event.related_symbols.map((sym: string) => (
                             <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
                               {sym}
