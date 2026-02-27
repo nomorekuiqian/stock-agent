@@ -929,11 +929,22 @@ class EmailService:
                     "broadcast_id": broadcast_id,
                 }
 
-        logger.info("%s broadcast sent successfully: %s", label, broadcast_id)
+        # Count audience contacts for monitoring
+        total = 0
+        try:
+            contacts = resend.Contacts.list(audience_id=audience_id)
+            total = len([c for c in contacts.get("data", []) if not c.get("unsubscribed")])
+        except Exception as e:
+            logger.warning("%s failed to count audience contacts: %s", label, e)
+
+        logger.info("%s broadcast sent successfully: %s (audience: %d contacts)", label, broadcast_id, total)
         return {
             "success": True,
             "broadcast_id": broadcast_id,
             "audience_id": audience_id,
+            "total": total,
+            "sent": total,
+            "failed": 0,
         }
 
     async def broadcast_daily_report(self, data: dict, audience_id: Optional[str] = None) -> dict:
