@@ -602,24 +602,20 @@ class TestIsProduction:
     """Test the is_production flag."""
 
     def test_production_url_sets_flag_true(self):
-        """When frontend_url matches production URL, is_production is True."""
-        svc = EmailService.__new__(EmailService)
-        svc.api_key = None
-        svc.from_email = "test@example.com"
-        svc.frontend_url = "https://themarketbrew.com"
-        svc.is_production = svc.frontend_url == EmailService.PRODUCTION_URL
-        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
-        assert svc.is_production is True
+        """When ENVIRONMENT=production, is_production is True."""
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("app.features.subscription.email_service.ENVIRONMENT", "production")
+            mp.setattr("app.features.subscription.email_service.RESEND_API_KEY", "")
+            svc = EmailService()
+            assert svc.is_production is True
 
-    def test_non_production_url_sets_flag_false(self):
-        """When frontend_url is localhost, is_production is False."""
-        svc = EmailService.__new__(EmailService)
-        svc.api_key = None
-        svc.from_email = "test@example.com"
-        svc.frontend_url = "http://localhost:3000"
-        svc.is_production = svc.frontend_url == EmailService.PRODUCTION_URL
-        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
-        assert svc.is_production is False
+    def test_non_production_env_sets_flag_false(self):
+        """When ENVIRONMENT != production, is_production is False."""
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("app.features.subscription.email_service.ENVIRONMENT", "development")
+            mp.setattr("app.features.subscription.email_service.RESEND_API_KEY", "")
+            svc = EmailService()
+            assert svc.is_production is False
 
 
 if __name__ == "__main__":

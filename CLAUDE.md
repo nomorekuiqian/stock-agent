@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **禁止自动 Git 操作**: 不要自动执行 `git commit` 或 `git push`，所有 Git 提交和推送操作需要用户手动确认后再执行
 - **遗留代码禁区**: `backend/app/services/` 和 `backend/app/models/` 是重构前的死代码，不被任何活跃代码导入。禁止从这些路径 import，活跃代码在 `app/features/` 和 `app/shared/`
 - **前端测试使用 Chrome DevTools MCP**: 进行浏览器交互测试和调试时，优先使用 Chrome DevTools MCP 工具
-- **邮件广播安全**: 当 `FRONTEND_URL` 不是生产域名时，所有 broadcast 自动路由到 Resend 测试 segment (`1c300c45-49a7-479e-a4c2-1ed5cfccda1e`)，可以正常调用广播端点模拟生产流程。**Claude 在开发环境调用广播 API 后，必须检查返回的 `audience_id` 确认是测试 segment。**
+- **邮件广播安全**: 当 `ENVIRONMENT` 不是 `"production"` 时，所有 broadcast 自动路由到 Resend 测试 segment (`1c300c45-49a7-479e-a4c2-1ed5cfccda1e`)，可以正常调用广播端点模拟生产流程。**Claude 在开发环境调用广播 API 后，必须检查返回的 `audience_id` 确认是测试 segment。**
 - **日志规范**: 使用 `get_logger(__name__)`，禁止 `print()`，用 `%s` lazy 格式化，不用 f-string
 - **认证模式**: 用户端点用 `Depends(verify_user_token)`，定时任务用 `Depends(verify_cron_secret)`。完整认证流程见 `frontend/docs/auth.md`
 - **测试账号** (本地调试和浏览器测试): 邮箱 `voya.technologies@gmail.com`，密码 `123456`
@@ -127,7 +127,8 @@ CRON_SECRET=xxx                 # 定时任务认证
 INSFORGE_ANON_KEY=xxx           # Insforge 匿名密钥
 
 # 基础
-FRONTEND_URL=https://xxx        # 生产环境 CORS + 广播安全判断
+ENVIRONMENT=production          # 必需 - 生产环境标识，影响广播安全路由
+FRONTEND_URL=https://xxx        # 生产环境 CORS
 INSFORGE_BASE_URL=https://xxx   # Insforge 实例地址
 ```
 

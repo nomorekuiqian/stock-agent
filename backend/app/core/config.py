@@ -21,6 +21,9 @@ STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 INSFORGE_ANON_KEY = os.getenv("INSFORGE_ANON_KEY", "")
 
+# Environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # "production" or "development"
+
 # URLs
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 INSFORGE_BASE_URL = os.getenv(

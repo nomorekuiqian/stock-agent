@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 import resend
 
-from app.core.config import RESEND_API_KEY, FRONTEND_URL
+from app.core.config import RESEND_API_KEY, FRONTEND_URL, ENVIRONMENT
 from app.core.logging import get_logger
 from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
 from app.features.subscription.service import (
@@ -26,16 +26,14 @@ logger = get_logger(__name__)
 class EmailService:
     """Service for sending market analysis reports and personal digests via email."""
 
-    PRODUCTION_URL = "https://themarketbrew.com"
-
     def __init__(self):
         self.api_key = RESEND_API_KEY
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-        self.frontend_url = FRONTEND_URL if FRONTEND_URL else self.PRODUCTION_URL
-        self.is_production = self.frontend_url == self.PRODUCTION_URL
-        self.logo_url = f"{self.PRODUCTION_URL}/logo-avatar.png"
+        self.frontend_url = FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
+        self.is_production = ENVIRONMENT == "production"
+        self.logo_url = "https://themarketbrew.com/logo-avatar.png"
 
     def _format_timestamp(self, timestamp: str) -> str:
         """Format ISO timestamp to human-readable format (Pacific timezone)."""
