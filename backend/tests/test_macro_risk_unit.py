@@ -36,9 +36,9 @@ from app.features.macro.risk.service import (
     _credit_headline,
     _employment_headline,
     _ai_headline,
-    _get_cached_dashboard,
-    _set_cached_dashboard,
-    _dashboard_cache,
+    _get_cached,
+    _set_cached,
+    _get_cache,
     _CACHE_TTL,
 )
 from app.features.macro.risk.models import (
@@ -527,11 +527,11 @@ class TestHeadlines:
 
 
 class TestCacheFunctions:
-    """Tests for dashboard cache get/set functions."""
+    """Tests for generic cache get/set functions."""
 
     def setup_method(self):
         """Clear cache before each test."""
-        _dashboard_cache.clear()
+        _get_cache("dashboard").clear()
 
     def test_set_and_get_cached(self):
         """Set cache then get returns same data."""
@@ -541,8 +541,9 @@ class TestCacheFunctions:
             composite_level="medium",
             categories=[],
         )
-        _set_cached_dashboard(dashboard)
-        result = _get_cached_dashboard()
+        store = _get_cache("dashboard")
+        _set_cached(store, dashboard)
+        result = _get_cached(store)
         assert result is not None
         assert result.composite_score == 5.0
         assert result.composite_level == "medium"
@@ -555,20 +556,22 @@ class TestCacheFunctions:
             composite_level="medium",
             categories=[],
         )
-        _set_cached_dashboard(dashboard)
+        store = _get_cache("dashboard")
+        _set_cached(store, dashboard)
         # Manually set timestamp to past
-        _dashboard_cache["ts"] = time.time() - _CACHE_TTL - 1
-        result = _get_cached_dashboard()
+        store["ts"] = time.time() - _CACHE_TTL - 1
+        result = _get_cached(store)
         assert result is None
 
     def test_empty_cache(self):
         """Empty cache returns None."""
-        result = _get_cached_dashboard()
+        store = _get_cache("dashboard")
+        result = _get_cached(store)
         assert result is None
 
     def teardown_method(self):
         """Clear cache after each test."""
-        _dashboard_cache.clear()
+        _get_cache("dashboard").clear()
 
 
 if __name__ == "__main__":

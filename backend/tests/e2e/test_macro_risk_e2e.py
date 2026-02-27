@@ -131,11 +131,11 @@ class TestEconomicFundamentals:
 
     @pytest.mark.asyncio
     async def test_economy_sub_dimensions_count(self, client):
-        """Economy has exactly 4 sub-dimensions."""
+        """Economy has exactly 3 sub-dimensions (growth, employment, credit)."""
         resp = await client.get("/api/macro-risk/economy", timeout=60)
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data["data"]["sub_dimensions"]) == 4
+        assert len(data["data"]["sub_dimensions"]) == 3
 
     @pytest.mark.asyncio
     async def test_economy_score_range(self, client):
