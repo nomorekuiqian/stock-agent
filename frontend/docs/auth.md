@@ -98,6 +98,9 @@
 |------|----------|
 | `/for-you` | AuthContext 检查，未登录重定向到 `/login` |
 | `/for-you/[id]` | 同上 |
+| `/for-you/archive` | 同上 |
+| `/for-you/watchlist` | 同上 |
+| `/profile` | 同上 |
 
 ### 重定向保持
 - 访问受保护页面时，将当前 URL 存入 `sessionStorage`
@@ -197,10 +200,15 @@ const response = await fetch(`${API_BASE_URL}/watchlist`, {
 | `GET /api/watchlist` | Bearer Token | 获取用户自选股 |
 | `PUT /api/watchlist` | Bearer Token | 保存用户自选股 |
 | `GET /api/digests` | Bearer Token | 列出用户摘要 |
-| `GET /api/digests/{id}` | Bearer Token | 获取特定摘要 |
-| `POST /api/payments/*` | Bearer Token | 支付相关 |
+| `GET /api/digests/{digest_id}` | Bearer Token | 获取特定摘要 |
+| `POST /api/payment/checkout-session` | Bearer Token | 创建 Stripe Checkout Session |
+| `GET /api/payment/subscription-status` | Bearer Token | 查询订阅状态 |
+| `POST /api/payment/portal-session` | Bearer Token | 创建 Stripe 客户门户 |
 | `POST /api/report/send` | X-Cron-Secret | 广播日报 (管理端点) |
+| `POST /api/newsletter/generate` | X-Cron-Secret | 生成 Newsletter |
 | `POST /api/newsletter/broadcast` | X-Cron-Secret | 广播简报 (管理端点) |
+| `POST /api/weekly-report/broadcast` | X-Cron-Secret | 广播周报 (管理端点) |
+| `POST /api/payment/sync` | X-Cron-Secret | 手动同步 Stripe 订阅 |
 
 ## 注意事项
 

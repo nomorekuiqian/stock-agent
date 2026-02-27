@@ -13,15 +13,24 @@
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
 | `/for-you/[id]` | 摘要详情 | Insforge (getUserDigestById) | 是 |
+| `/for-you/archive` | 摘要存档 | Backend (digests API) | 是 |
+| `/for-you/watchlist` | 自选股管理 | Backend (watchlist API) + StockQuotes | 是 |
 | `/sectors` | 板块分析 | Backend (sectors API) | 否 |
 | `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 否 |
 | `/macro/liquidity` | 流动性 | Backend (liquidity API) | 否 |
 | `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 否 |
 | `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 否 |
 | `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 否 |
+| `/sectors/archive` | 板块存档 | Backend (sectors API) | 否 |
 | `/login` | 登录 | Insforge Auth | 否 |
+| `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
+| `/auth/callback` | OAuth 回调 | Insforge Auth (code exchange) | 否 |
+| `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
+| `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
 | `/contact` | 联系/反馈 | Backend (feedback/user) | 否 |
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
+| `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
+| `/email-test` | 邮件测试 | Backend (notification API) | 否 |
 
 ### 重定向
 | 旧路由 | 目标 |
@@ -30,6 +39,7 @@
 | `/digest` | `/for-you` |
 | `/liquidity` | `/macro/liquidity` |
 | `/reports` | `/today/archive` |
+| `/reports/[id]` | `/today/[id]` |
 
 ## 页面详情
 

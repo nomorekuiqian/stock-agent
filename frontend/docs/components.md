@@ -5,13 +5,15 @@
 | 分类 | 数量 | 说明 |
 |------|------|------|
 | UI 基础 | 7 | shadcn/ui 组件 (Button, Card, Badge 等) |
-| 导航布局 | 4 | Navbar, NavAuth, MobileMenu, ThemeToggle |
+| 导航布局 | 5 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle |
 | 数据展示 | 3 | ReportContent, InsightBanner, MacroPageHeader |
 | 图表 | 8 | 各类金融图表 (基于 Lightweight Charts) |
 | 风险指标 | 4 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
-| 个股 | 3 | StockCard, StockAnalysisCard, WatchlistPanel |
+| 个股 | 4 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
 | 板块 | 4 | SectorPanel, SectorSelector, SectorPreview, SectorDigestContent |
-| 订阅 | 2 | SubscribeForm, SubscriptionManager |
+| 技术分析 | 6 | SignalCard, TechnicalTooltip, TechnicalAnalysisContent, IndicatorBar, TechnicalSignalDashboard, TechnicalChart |
+| 个性化 (for-you) | 5 | PortfolioSnapshotBar, OnboardingSection, DigestInlineReport, FeatureCards, RecentReports |
+| 订阅 | 2 | SubscribeForm, PaywallGuard |
 | 装饰 | 2 | TrustBadges, LogoMarquee |
 | 全局 | 2 | Providers, TradingViewWidget |
 
@@ -48,6 +50,37 @@ AI 个股分析卡片，支持三种状态。
 宏观风险概览条。
 - **组成**: RiskGauge (0-10 综合评分) + 4 个 LiquidityCard (四维度)
 - **使用场景**: `/macro`
+
+### StockSearchDropdown
+股票搜索下拉组件，支持中文 IME 输入。
+- **功能**: 防抖搜索 + 下拉结果列表 + 键盘导航
+- **使用场景**: `/stock`, `/for-you` (WatchlistPanel 内嵌)
+
+### PaywallGuard
+付费墙守卫组件，根据订阅状态控制内容访问。
+- **功能**: 检查用户订阅状态，未订阅时显示升级提示
+- **使用场景**: Pro 功能入口
+
+### 技术分析组件 (technical/)
+
+| 组件 | 说明 | 使用场景 |
+|------|------|----------|
+| TechnicalSignalDashboard | 技术信号总览面板 | `/stock/[symbol]` |
+| TechnicalAnalysisContent | 技术分析内容区 | `/stock/[symbol]` |
+| TechnicalChart | 技术指标图表 | `/stock/[symbol]` |
+| SignalCard | 单个技术信号卡片 | `/stock/[symbol]` |
+| IndicatorBar | 指标进度条 | `/stock/[symbol]` |
+| TechnicalTooltip | 技术指标说明提示 | `/stock/[symbol]` |
+
+### 个性化组件 (for-you/)
+
+| 组件 | 说明 | 使用场景 |
+|------|------|----------|
+| PortfolioSnapshotBar | 投资组合快照摘要条 | `/for-you` |
+| OnboardingSection | 新用户引导区域 | `/for-you` |
+| DigestInlineReport | 内嵌摘要报告展示 | `/for-you` |
+| FeatureCards | 功能介绍卡片组 | `/for-you` |
+| RecentReports | 近期报告列表 | `/for-you` |
 
 ---
 
