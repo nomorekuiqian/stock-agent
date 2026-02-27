@@ -187,7 +187,9 @@
       "Bash(TZ='America/New_York' date:*)",
       "Bash(cp:*)",
       "WebFetch(domain:docs.insforge.dev)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(TZ=\"America/New_York\" date:*)",
+      "Bash(gh secret:*)"
     ],
     "deny": [],
     "ask": []
