@@ -170,6 +170,49 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
   });
 
+  it('resolves loading when SDK finds user even if cookie recovery is pending', async () => {
+    // Start with no user — recovery will fire
+    mockSdkUser = null;
+    mockIsLoaded = true;
+
+    // Simulate a slow cookie recovery that never resolves during this test
+    globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
+
+    const { rerender } = await act(async () => {
+      return render(
+        <AuthProvider>
+          <AuthConsumer />
+        </AuthProvider>
+      );
+    });
+
+    // While cookie recovery is pending, loading should be true
+    expect(screen.getByTestId('loading')).toHaveTextContent('true');
+
+    // SDK independently discovers user (e.g., from storage)
+    mockSdkUser = {
+      id: 'u3',
+      email: 'sdk-found@test.com',
+      profile: { name: 'SDK User' },
+    };
+
+    await act(async () => {
+      rerender(
+        <AuthProvider>
+          <AuthConsumer />
+        </AuthProvider>
+      );
+    });
+
+    // isRecovering = recoveryPending && !sdk.user = true && false = false
+    // So isLoading should become false even though cookie recovery never finished
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+    expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+    expect(screen.getByTestId('user-email')).toHaveTextContent('sdk-found@test.com');
+  });
+
   it('throws when useAuth is called outside AuthProvider', () => {
     // Suppress console.error from React rendering error
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
