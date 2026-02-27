@@ -56,28 +56,34 @@ export function HistoryAreaChart({
 }: HistoryAreaChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rawDataRef = useRef<HistoryDataPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dataReady, setDataReady] = useState(false);
+
+  // Track fetch result keyed by symbol so loading/error are derived without
+  // synchronous setState in the effect body.
+  const [fetchResult, setFetchResult] = useState<{
+    symbol: string;
+    status: 'success' | 'error';
+    message?: string;
+  } | null>(null);
+
+  const loading = !fetchResult || fetchResult.symbol !== symbol;
+  const error = fetchResult?.symbol === symbol && fetchResult.status === 'error'
+    ? (fetchResult.message ?? 'Failed to load') : null;
+  const dataReady = fetchResult?.symbol === symbol && fetchResult.status === 'success';
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setDataReady(false);
 
     fetcher(symbol, 730)
       .then((res) => {
         if (!cancelled && res.success) {
           rawDataRef.current = res.data.map(d => ({ date: d.date, close: d.close }));
-          setDataReady(true);
+          setFetchResult({ symbol, status: 'success' });
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setFetchResult({ symbol, status: 'error', message: err instanceof Error ? err.message : 'Failed to load' });
+        }
       });
 
     return () => { cancelled = true; };

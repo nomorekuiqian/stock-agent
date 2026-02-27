@@ -95,10 +95,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const sdk = useInsforge();
-  // Start true to prevent auth guards from redirecting before recovery completes.
-  // Without this, there's a single-frame gap after SDK init (isLoaded=true, user=null)
-  // but before setIsRecovering(true) re-renders, where isLoading would briefly be false.
-  const [isRecovering, setIsRecovering] = useState(true);
+  // Tracks whether cookie recovery is still pending.
+  // Starts true to prevent auth guards from redirecting before recovery completes.
+  const [recoveryPending, setRecoveryPending] = useState(true);
   const recoveryAttempted = useRef(false);
 
   // Map SDK user (InsforgeUser) to our User type
@@ -118,11 +117,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!sdk.isLoaded) return;
 
-    // SDK found a user on its own — no recovery needed
-    if (sdk.user) {
-      setIsRecovering(false);
-      return;
-    }
+    // SDK found a user on its own — no recovery needed.
+    // isRecovering is derived (recoveryPending && !sdk.user), so it auto-resolves.
+    if (sdk.user) return;
 
     if (recoveryAttempted.current) return;
     recoveryAttempted.current = true;
@@ -140,9 +137,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {})
-      .finally(() => setIsRecovering(false));
+      .finally(() => setRecoveryPending(false));
   }, [sdk.isLoaded, sdk.user, sdk]);
 
+  // When SDK already found a user, recovery is not needed regardless of recoveryPending.
+  const isRecovering = recoveryPending && !sdk.user;
   const isLoading = !sdk.isLoaded || isRecovering;
 
   // Subscription sync - the only custom business logic

@@ -37,7 +37,6 @@ export function StockPriceChart({
   const seriesRef = useRef<ISeriesApi<any> | null>(null);
   const [chartType, setChartType] = useState<ChartType>('area');
   const [timeRange, setTimeRange] = useState<string>('1Y');
-  const [chartReady, setChartReady] = useState(false);
 
   // Filter data by time range
   const filteredData = useMemo(() => {
@@ -74,9 +73,77 @@ export function StockPriceChart({
     };
   }, [filteredData]);
 
+  // Initialize chart (must run before data effect so chartRef.current is set)
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      height,
+      layout: {
+        background: { color: 'transparent' },
+        textColor: '#9ca3af',
+      },
+      grid: {
+        vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.03)' },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: {
+          color: '#10b981',
+          width: 1,
+          style: 2,
+          labelBackgroundColor: '#10b981',
+        },
+        horzLine: {
+          color: '#10b981',
+          width: 1,
+          style: 2,
+          labelBackgroundColor: '#10b981',
+        },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      timeScale: {
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      handleScroll: {
+        vertTouchDrag: false,
+      },
+    });
+
+    chartRef.current = chart;
+
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+    };
+  }, [height]);
+
   // Update chart when data or type changes
   useEffect(() => {
-    if (!filteredData || filteredData.length === 0 || !chartRef.current || !chartReady) return;
+    if (!filteredData || filteredData.length === 0 || !chartRef.current) return;
 
     // Remove old series
     if (seriesRef.current) {
@@ -132,76 +199,7 @@ export function StockPriceChart({
     }
 
     chartRef.current.timeScale().fitContent();
-  }, [filteredData, chartType, priceStats?.isPositive, chartReady]);
-
-  // Initialize chart
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-
-    const chart = createChart(chartContainerRef.current, {
-      height,
-      layout: {
-        background: { color: 'transparent' },
-        textColor: '#9ca3af',
-      },
-      grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.03)' },
-      },
-      crosshair: {
-        mode: 1,
-        vertLine: {
-          color: '#10b981',
-          width: 1,
-          style: 2,
-          labelBackgroundColor: '#10b981',
-        },
-        horzLine: {
-          color: '#10b981',
-          width: 1,
-          style: 2,
-          labelBackgroundColor: '#10b981',
-        },
-      },
-      rightPriceScale: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
-      },
-      timeScale: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      handleScroll: {
-        vertTouchDrag: false,
-      },
-    });
-
-    chartRef.current = chart;
-    setChartReady(true);
-
-    const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
-    };
-  }, [height]);
+  }, [filteredData, chartType, priceStats?.isPositive]);
 
   const timeRanges = ['1W', '1M', '3M', '6M', '1Y', '5Y'];
 

@@ -45,7 +45,7 @@ function MiniSparkline({
   height?: number;
 }) {
   const chartData = data || Array.from({ length: 10 }, (_, i) =>
-    50 + Math.sin(i * 0.5) * 20 + Math.random() * 10
+    50 + Math.sin(i * 0.5) * 20 + Math.sin(i * 1.7) * 5
   );
 
   const min = Math.min(...chartData);
