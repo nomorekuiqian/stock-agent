@@ -9,6 +9,8 @@
 | `/today` | 市场日报 | Insforge (getLatestReport) + Backend (getMarketAnalysis) | 否 |
 | `/today/[id]` | 日报详情 | Insforge (getReportById) | 否 |
 | `/today/archive` | 日报存档 | Insforge (getReportsList) | 否 |
+| `/morning` | 盘前早报 | Backend (morningReports API) | 否 |
+| `/morning/[id]` | 早报详情 | Backend (morningReports.getById) | 否 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -52,6 +54,14 @@
 - 如无缓存，调用 `api.getMarketAnalysis()` 生成
 - 使用 `ReportContent` 组件渲染
 - SEO: 动态 metadata + JSON-LD 结构化数据
+
+### `/morning` 盘前早报
+- ISR Server Component (revalidate 300s)
+- 获取今日早报 (by date -> fallback latest)
+- 获取历史早报列表 (最多 5 篇)
+- `MorningReportContent` 组件渲染 (期货 grid + 全球市场 + 新闻 + 焦点 + 总结)
+- SEO: 动态 metadata + JSON-LD 结构化数据
+- 琥珀色主题 (amber accent)
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口
