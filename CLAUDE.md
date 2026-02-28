@@ -55,6 +55,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | /stock | stock | `features/stock/.context.md` | 现有模块演进 > /stock + 模块 3 |
 | /macro | macro/risk, liquidity, weekly | `features/macro/*/.context.md` (3 个) | 现有模块演进 > /macro |
 | /sectors | sector | `features/sector/.context.md` | 现有模块演进 > /sectors |
+| /screener | screener | `features/screener/.context.md` + `app/screener/.context.md` | 模块 4 (机会发现) |
 
 ### Obsidian 产品知识库
 
@@ -125,6 +126,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `frontend/src/app/stock/.context.md` — 个股研究页面
 - `frontend/src/app/macro/.context.md` — 宏观仪表盘页面
 - `frontend/src/app/sectors/.context.md` — 板块分析页面
+- `frontend/src/app/screener/.context.md` — 个股筛选页面
 - `frontend/src/app/api/auth/.context.md` — Server Proxy 认证路由
 - `frontend/src/lib/.context.md` — 共享工具库 (api/auth/insforge)
 - `frontend/src/components/.context.md` — 共享组件库
