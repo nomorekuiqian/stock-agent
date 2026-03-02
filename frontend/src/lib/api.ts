@@ -165,7 +165,7 @@ export interface UnsubscribeResponse {
 }
 
 // Subscription Management Types
-export type SubscriptionChannel = 'daily_report' | 'morning_report' | 'personal_digest' | 'weekly_report';
+export type SubscriptionChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
 
 export interface SubscriptionResponse {
   success: boolean;

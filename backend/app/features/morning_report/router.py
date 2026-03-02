@@ -15,7 +15,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from app.core.deps import verify_user_token
+from app.core.deps import verify_cron_secret, verify_user_token
+from app.features.subscription.models import BroadcastResponse
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
@@ -199,4 +200,94 @@ async def generate_morning_report(request: Request, body: Optional[MorningReport
 
     except Exception as e:
         logger.exception("Error in generate_morning_report")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/morning/broadcast")
+async def broadcast_morning_report(
+    force: bool = Query(False, description="Force regenerate report before broadcasting"),
+    _secret: str = Depends(verify_cron_secret),
+):
+    """
+    Broadcast morning report to daily_report subscribers.
+    Protected by CRON_SECRET for scheduled job authentication.
+
+    Uses the shared daily_report audience (same as daily report).
+    """
+    try:
+        from app.features.subscription.email_service import get_email_service
+
+        email_service = get_email_service()
+        today = today_str()
+        report_data = None
+
+        if not force:
+            existing = await morning_db.get_morning_report_by_date(today)
+            if existing:
+                logger.info("Using cached morning report for %s broadcast", today)
+                report_data = {
+                    "report_id": existing.get("id"),
+                    "report_date": existing.get("report_date", today),
+                    "timestamp": existing.get("timestamp", now_iso()),
+                    "title": existing.get("title", ""),
+                    "market_pulse": existing.get("market_pulse", ""),
+                    "futures": existing.get("futures", []),
+                    "futures_analysis": existing.get("futures_analysis", ""),
+                    "global_markets": existing.get("global_markets", {}),
+                    "global_markets_analysis": existing.get("global_markets_analysis", ""),
+                    "overnight_news": existing.get("overnight_news", []),
+                    "today_focus": existing.get("today_focus", []),
+                    "summary": existing.get("summary", []),
+                }
+
+        if report_data is None:
+            if force:
+                logger.info("Force regenerating morning report for broadcast...")
+            else:
+                logger.info("No cached morning report, generating...")
+
+            agent = MorningReportAgent()
+            result = await agent.analyze()
+            if not result:
+                raise HTTPException(status_code=500, detail="Failed to generate morning report")
+
+            report_data = {
+                "report_date": today,
+                "timestamp": result.get("timestamp", now_iso()),
+                "title": result.get("title", ""),
+                "market_pulse": result.get("market_pulse", ""),
+                "futures": result.get("futures", []),
+                "futures_analysis": result.get("futures_analysis", ""),
+                "global_markets": result.get("global_markets", {}),
+                "global_markets_analysis": result.get("global_markets_analysis", ""),
+                "overnight_news": result.get("overnight_news", []),
+                "today_focus": result.get("today_focus", []),
+                "summary": result.get("summary", []),
+                "market_data": result.get("market_data", {}),
+            }
+
+            save_result = await morning_db.save_morning_report(report_data)
+            if save_result.get("success"):
+                report_data["report_id"] = save_result.get("report_id")
+
+        broadcast_result = await email_service.broadcast_morning_report(report_data)
+
+        if not broadcast_result.get("success"):
+            error_msg = broadcast_result.get("error", "Failed to broadcast morning report")
+            logger.error("Morning report broadcast failed: %s", error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
+
+        return BroadcastResponse(
+            success=True,
+            channel="daily_report",
+            total=broadcast_result.get("total", 0),
+            sent=broadcast_result.get("sent", 0),
+            failed=broadcast_result.get("failed", 0),
+            errors=[],
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error in broadcast_morning_report")
         raise HTTPException(status_code=500, detail=str(e))

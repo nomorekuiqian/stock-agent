@@ -16,7 +16,7 @@ jobs:
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            "${{ secrets.BACKEND_URL }}/api/subscriptions/morning_report/broadcast?force=true")
+            "${{ secrets.BACKEND_URL }}/api/morning/broadcast?force=true")
 
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
