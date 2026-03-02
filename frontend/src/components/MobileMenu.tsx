@@ -14,7 +14,8 @@ export function MobileMenu() {
     {
       title: '日报',
       links: [
-        { href: '/today', label: '今日日报' },
+        { href: '/morning', label: '盘前早报' },
+        { href: '/today', label: '盘后晚报' },
       ],
     },
     {
@@ -33,6 +34,7 @@ export function MobileMenu() {
       title: '个股',
       links: [
         { href: '/stock', label: '个股研究' },
+        ...(process.env.NODE_ENV === 'development' ? [{ href: '/screener', label: '个股筛选' }] : []),
       ],
     },
     {

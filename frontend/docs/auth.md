@@ -204,6 +204,9 @@ const response = await fetch(`${API_BASE_URL}/watchlist`, {
 | `POST /api/payment/checkout-session` | Bearer Token | 创建 Stripe Checkout Session |
 | `GET /api/payment/subscription-status` | Bearer Token | 查询订阅状态 |
 | `POST /api/payment/portal-session` | Bearer Token | 创建 Stripe 客户门户 |
+| `POST /api/market` | Bearer Token | 生成市场日报 |
+| `POST /api/morning` | Bearer Token | 生成盘前早报 |
+| `POST /api/screener/ask` | Bearer Token | Screener AI 问答 |
 | `POST /api/report/send` | X-Cron-Secret | 广播日报 (管理端点) |
 | `POST /api/newsletter/generate` | X-Cron-Secret | 生成 Newsletter |
 | `POST /api/newsletter/broadcast` | X-Cron-Secret | 广播简报 (管理端点) |

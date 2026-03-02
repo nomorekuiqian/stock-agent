@@ -165,7 +165,7 @@ export interface UnsubscribeResponse {
 }
 
 // Subscription Management Types
-export type SubscriptionChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
+export type SubscriptionChannel = 'daily_report' | 'morning_report' | 'personal_digest' | 'weekly_report';
 
 export interface SubscriptionResponse {
   success: boolean;
@@ -644,6 +644,69 @@ export interface ReportListItem {
   created_at?: string;
 }
 
+// --- Morning Report Types ---
+
+export interface MorningFuturesQuote {
+  name: string;
+  value: number;
+  daily_change: number;
+}
+
+export interface MorningMarketQuote {
+  name: string;
+  value: number;
+  daily_change: number;
+}
+
+export interface MorningGlobalSnapshot {
+  asia: MorningMarketQuote[];
+  europe: MorningMarketQuote[];
+  other: MorningMarketQuote[];
+}
+
+export interface MorningOvernightItem {
+  title: string;
+  analysis: string;
+  url?: string;
+}
+
+export interface MorningTodayFocusItem {
+  title: string;
+  analysis: string;
+  time?: string;
+}
+
+export interface MorningSummarySection {
+  title: string;
+  content: string;
+}
+
+export interface MorningReport {
+  report_id?: string;
+  report_date?: string;
+  timestamp: string;
+  title: string;
+  market_pulse: string;
+  futures: MorningFuturesQuote[];
+  futures_analysis?: string;
+  global_markets: MorningGlobalSnapshot;
+  global_markets_analysis?: string;
+  overnight_news: MorningOvernightItem[];
+  today_focus: MorningTodayFocusItem[];
+  summary: MorningSummarySection[];
+  market_data?: unknown;
+  from_cache?: boolean;
+}
+
+export interface MorningReportListItem {
+  id: string;
+  report_date: string;
+  timestamp: string;
+  title?: string;
+  market_pulse?: string;
+  created_at?: string;
+}
+
 export interface WatchlistData {
   user_id: string;
   email?: string;
@@ -670,6 +733,84 @@ export interface UserDigestItem {
   created_at?: string;
 }
 
+// Screener Types
+export interface ScreenerFilterRequest {
+  strategy: string;
+  sector?: string | null;
+  params?: Record<string, unknown> | null;
+}
+
+export interface ScreenerSuggestionOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
+export interface ScreenerSuggestion {
+  dimension: string;
+  label: string;
+  type: 'categorical' | 'sort';
+  options?: ScreenerSuggestionOption[];
+  description?: string;
+}
+
+export interface ScreenerFilterResult {
+  success: boolean;
+  strategy: string;
+  candidates: Record<string, unknown>[];
+  candidate_count: number;
+  universe_size: number;
+  data_freshness: string | null;
+  is_stale: boolean;
+  suggestions: ScreenerSuggestion[];
+}
+
+export interface ScreenerStatusEntry {
+  key: string;
+  fetched_at: string | null;
+  source: string | null;
+  is_valid: boolean;
+  error: string | null;
+}
+
+export interface ScreenerStatusResponse {
+  success: boolean;
+  timestamp: string;
+  entries: ScreenerStatusEntry[];
+  count: number;
+}
+
+export interface ScreenerSector {
+  value: string;
+  label_zh: string;
+  label: string;
+  count: number;
+}
+
+export interface ScreenerSectorsResponse {
+  success: boolean;
+  sectors: ScreenerSector[];
+  count: number;
+}
+
+export interface ScreenerAskRequest {
+  message: string;
+  current_filters?: { field: string; op: string; value: unknown }[];
+  history?: { role: string; content?: string; summary?: string }[];
+}
+
+export interface ScreenerAskResult {
+  success: boolean;
+  filter_used: Record<string, unknown>;
+  candidates: Record<string, unknown>[];
+  candidate_count: number;
+  universe_size: number;
+  suggestions: ScreenerSuggestion[];
+  summary: string;
+  data_freshness: string | null;
+  is_stale: boolean;
+}
+
 async function _authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
   const token = await getAccessToken();
   if (token) {
@@ -682,9 +823,7 @@ export const api = {
   getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
     const response = await fetch(`${API_BASE_URL}/market`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await _authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ force }),
     });
     if (!response.ok) {
@@ -708,6 +847,34 @@ export const api = {
     return response.json();
   },
 
+  sendMorningReportEmail: async (email?: string): Promise<SendEmailResponse> => {
+    const response = await fetch(`${API_BASE_URL}/morning-report/send-test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to send morning report email' }));
+      throw new Error(error.detail || 'Failed to send morning report email');
+    }
+    return response.json();
+  },
+
+  generateMorningReport: async (force = false): Promise<unknown> => {
+    const response = await fetch(`${API_BASE_URL}/morning`, {
+      method: 'POST',
+      headers: await _authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ force }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to generate morning report' }));
+      throw new Error(error.detail || 'Failed to generate morning report');
+    }
+    return response.json();
+  },
+
   generateDigest: async (
     symbols: string[],
     userId?: string
@@ -719,9 +886,7 @@ export const api = {
 
     const response = await fetch(`${API_BASE_URL}/digest`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await _authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
     if (!response.ok) {
@@ -1114,6 +1279,47 @@ export const api = {
 
   // --- Backend-proxied data reads (replaces direct Insforge SDK queries) ---
 
+  morningReports: {
+    getLatest: async (): Promise<MorningReport | null> => {
+      const response = await fetch(`${API_BASE_URL}/morning/reports/latest`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch latest morning report');
+      }
+      const json = await response.json();
+      return json.data as MorningReport;
+    },
+
+    getByDate: async (date: string): Promise<MorningReport | null> => {
+      const response = await fetch(`${API_BASE_URL}/morning/reports/date/${date}`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch morning report');
+      }
+      const json = await response.json();
+      return json.data as MorningReport;
+    },
+
+    getById: async (id: string): Promise<MorningReport | null> => {
+      const response = await fetch(`${API_BASE_URL}/morning/reports/${id}`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch morning report');
+      }
+      const json = await response.json();
+      return json.data as MorningReport;
+    },
+
+    list: async (limit = 20, offset = 0): Promise<{ data: MorningReportListItem[]; total: number }> => {
+      const response = await fetch(`${API_BASE_URL}/morning/reports?limit=${limit}&offset=${offset}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch morning reports');
+      }
+      const json = await response.json();
+      return { data: json.data || [], total: json.total ?? json.data?.length ?? 0 };
+    },
+  },
+
   reports: {
     getLatest: async (): Promise<MarketData | null> => {
       const response = await fetch(`${API_BASE_URL}/market/reports/latest`);
@@ -1204,6 +1410,59 @@ export const api = {
       }
       const json = await response.json();
       return json.data || null;
+    },
+  },
+
+  // Screener API
+  screener: {
+    filter: async (req: ScreenerFilterRequest): Promise<ScreenerFilterResult> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const response = await fetch(`${API_BASE_URL}/screener/filter`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to filter stocks' }));
+        throw new Error(error.detail || 'Failed to filter stocks');
+      }
+      return response.json();
+    },
+
+    status: async (): Promise<ScreenerStatusResponse> => {
+      const response = await fetch(`${API_BASE_URL}/screener/status`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch screener status');
+      }
+      return response.json();
+    },
+
+    sectors: async (): Promise<ScreenerSectorsResponse> => {
+      const response = await fetch(`${API_BASE_URL}/screener/sectors`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch screener sectors');
+      }
+      return response.json();
+    },
+
+    ask: async (req: ScreenerAskRequest): Promise<ScreenerAskResult> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      if (!headers['Authorization']) {
+        throw new Error('登录已过期，请刷新页面或重新登录');
+      }
+      const response = await fetch(`${API_BASE_URL}/screener/ask`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('登录已过期，请刷新页面或重新登录');
+        }
+        const error = await response.json().catch(() => ({ detail: 'AI 查询失败' }));
+        throw new Error(error.detail || 'AI 查询失败');
+      }
+      return response.json();
     },
   },
 

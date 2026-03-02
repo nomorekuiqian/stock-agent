@@ -120,8 +120,11 @@ export default function RootLayout({
 
                 {/* Links */}
                 <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                  <Link href="/morning" className="hover:text-foreground transition-colors">
+                    早报
+                  </Link>
                   <Link href="/today" className="hover:text-foreground transition-colors">
-                    日报
+                    晚报
                   </Link>
                   <Link href="/for-you" className="hover:text-foreground transition-colors">
                     专属

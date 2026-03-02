@@ -309,4 +309,300 @@ describe('api (post cache removal)', () => {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Morning Reports APIs
+  // -------------------------------------------------------------------------
+  describe('morningReports.getLatest', () => {
+    it('returns data on success', async () => {
+      const report = { id: 'mr-1', report_date: '2026-02-28', title: 'Morning' };
+      mockFetchOk({ data: report });
+
+      const result = await api.morningReports.getLatest();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/morning/reports/latest')
+      );
+      expect(result).toEqual(report);
+    });
+
+    it('returns null on 404', async () => {
+      mockFetchError(404);
+
+      const result = await api.morningReports.getLatest();
+
+      expect(result).toBeNull();
+    });
+
+    it('throws on network error', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network failure'));
+
+      await expect(api.morningReports.getLatest()).rejects.toThrow('Network failure');
+    });
+  });
+
+  describe('morningReports.getByDate', () => {
+    it('returns data on success', async () => {
+      const report = { id: 'mr-2', report_date: '2026-02-27' };
+      mockFetchOk({ data: report });
+
+      const result = await api.morningReports.getByDate('2026-02-27');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/morning/reports/date/2026-02-27')
+      );
+      expect(result).toEqual(report);
+    });
+
+    it('returns null on 404', async () => {
+      mockFetchError(404);
+
+      const result = await api.morningReports.getByDate('1999-01-01');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('morningReports.getById', () => {
+    it('returns data on success', async () => {
+      const report = { id: 'mr-abc', report_date: '2026-02-26' };
+      mockFetchOk({ data: report });
+
+      const result = await api.morningReports.getById('mr-abc');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/morning/reports/mr-abc')
+      );
+      expect(result).toEqual(report);
+    });
+
+    it('returns null on 404', async () => {
+      mockFetchError(404);
+
+      const result = await api.morningReports.getById('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('morningReports.list', () => {
+    it('passes limit and offset params', async () => {
+      mockFetchOk({ data: [], total: 0 });
+
+      await api.morningReports.list(10, 5);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/morning/reports?limit=10&offset=5')
+      );
+    });
+
+    it('returns data array and total count', async () => {
+      const items = [{ id: 'mr-1', report_date: '2026-02-28' }];
+      mockFetchOk({ data: items, total: 42 });
+
+      const result = await api.morningReports.list();
+
+      expect(result.data).toEqual(items);
+      expect(result.total).toBe(42);
+    });
+
+    it('defaults total to data length when total is missing', async () => {
+      const items = [{ id: 'mr-1' }, { id: 'mr-2' }];
+      mockFetchOk({ data: items });
+
+      const result = await api.morningReports.list();
+
+      expect(result.total).toBe(2);
+    });
+
+    it('handles null data gracefully', async () => {
+      mockFetchOk({ data: null, total: 0 });
+
+      const result = await api.morningReports.list();
+
+      expect(result.data).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // sendMorningReportEmail
+  // -------------------------------------------------------------------------
+  describe('sendMorningReportEmail', () => {
+    it('POSTs to correct URL and returns json', async () => {
+      const payload = { success: true, message: 'sent' };
+      mockFetchOk(payload);
+
+      const result = await api.sendMorningReportEmail('test@example.com');
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/morning-report/send-test');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(JSON.parse(opts.body)).toEqual({ email: 'test@example.com' });
+      expect(result).toEqual(payload);
+    });
+
+    it('throws with detail message on non-ok response', async () => {
+      mockFetchError(500, 'Email service down');
+
+      await expect(api.sendMorningReportEmail()).rejects.toThrow('Email service down');
+    });
+
+    it('throws fallback message when response is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.sendMorningReportEmail()).rejects.toThrow('Failed to send morning report email');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // generateMorningReport
+  // -------------------------------------------------------------------------
+  describe('generateMorningReport', () => {
+    it('POSTs with force=false by default and returns json', async () => {
+      const payload = { success: true, report_id: 'mr-new' };
+      mockFetchOk(payload);
+
+      const result = await api.generateMorningReport();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/morning');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual({ force: false });
+      expect(result).toEqual(payload);
+    });
+
+    it('sends force=true when specified', async () => {
+      mockFetchOk({ success: true });
+
+      await api.generateMorningReport(true);
+
+      const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({ force: true });
+    });
+
+    it('throws with detail message on non-ok response', async () => {
+      mockFetchError(500, 'Generation failed');
+
+      await expect(api.generateMorningReport()).rejects.toThrow('Generation failed');
+    });
+
+    it('throws fallback message when response is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.generateMorningReport()).rejects.toThrow('Failed to generate morning report');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Screener APIs
+  // -------------------------------------------------------------------------
+  describe('screener.filter', () => {
+    it('POSTs to correct URL with auth headers and returns json', async () => {
+      const filterReq = { query: 'tech stocks', limit: 20 };
+      const payload = { stocks: [{ symbol: 'AAPL' }], total: 1 };
+      mockFetchOk(payload);
+
+      const result = await api.screener.filter(filterReq as never);
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/screener/filter');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual(filterReq);
+      expect(result).toEqual(payload);
+    });
+
+    it('throws with detail message on error', async () => {
+      mockFetchError(500, 'Filter engine error');
+
+      await expect(api.screener.filter({} as never)).rejects.toThrow('Filter engine error');
+    });
+
+    it('throws fallback message when response is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.screener.filter({} as never)).rejects.toThrow('Failed to filter stocks');
+    });
+  });
+
+  describe('screener.status', () => {
+    it('GETs from correct URL and returns json', async () => {
+      const payload = { status: 'ready', last_update: '2026-02-28' };
+      mockFetchOk(payload);
+
+      const result = await api.screener.status();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/screener/status')
+      );
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on non-ok response', async () => {
+      mockFetchError(500);
+
+      await expect(api.screener.status()).rejects.toThrow('Failed to fetch screener status');
+    });
+  });
+
+  describe('screener.sectors', () => {
+    it('GETs from correct URL and returns json', async () => {
+      const payload = { sectors: ['Technology', 'Healthcare'] };
+      mockFetchOk(payload);
+
+      const result = await api.screener.sectors();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/screener/sectors')
+      );
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on non-ok response', async () => {
+      mockFetchError(500);
+
+      await expect(api.screener.sectors()).rejects.toThrow('Failed to fetch screener sectors');
+    });
+  });
+
+  describe('screener.ask', () => {
+    it('POSTs with auth headers and returns json', async () => {
+      const askReq = { question: 'best dividend stocks' };
+      const payload = { answer: 'Here are top dividend stocks', stocks: [] };
+      mockFetchOk(payload);
+
+      const result = await api.screener.ask(askReq as never);
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/screener/ask');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual(askReq);
+      expect(result).toEqual(payload);
+    });
+
+    it('throws with detail message on error', async () => {
+      mockFetchError(500, 'Query processing failed');
+
+      await expect(api.screener.ask({} as never)).rejects.toThrow('Query processing failed');
+    });
+
+    it('throws fallback message when response is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.screener.ask({} as never)).rejects.toThrow('Failed to process query');
+    });
+  });
 });

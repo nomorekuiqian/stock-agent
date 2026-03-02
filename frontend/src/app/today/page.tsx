@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { ReportContent } from '@/components/ReportContent';
+import { ReportTabs } from '@/components/ReportTabs';
 import { marketTodayStr, formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { TodayActions } from './_components/TodayActions';
 
@@ -64,7 +65,10 @@ export default async function TodayPage() {
               </p>
             </div>
 
-            <TodayActions reportExists={!!report} />
+            <div className="flex flex-col items-start md:items-end gap-4">
+              <ReportTabs />
+              <TodayActions reportExists={!!report} />
+            </div>
           </div>
         </div>
       </section>

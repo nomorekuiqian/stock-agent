@@ -31,6 +31,7 @@ class EmailService:
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
+        self.from_email_morning = "MarketBrew Morning <morning@themarketbrew.com>"
         self.frontend_url = FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
         self.is_production = ENVIRONMENT == "production"
         self.logo_url = "https://themarketbrew.com/logo-avatar.png"
@@ -162,6 +163,8 @@ class EmailService:
             prompt_text = "今天的专属日报对你有帮助吗?"
         elif report_type == "weekly":
             prompt_text = "本周的宏观周报对你有帮助吗?"
+        elif report_type == "morning":
+            prompt_text = "今天的盘前早报对你有帮助吗?"
         else:
             prompt_text = "今天的日报对你有帮助吗?"
 
@@ -1981,6 +1984,373 @@ class EmailService:
 
         except Exception as e:
             logger.exception("Error in broadcast_personal_digests")
+            return {"success": False, "error": str(e)}
+
+
+    # =========================================================================
+    # Morning Report Email
+    # =========================================================================
+
+    def _format_change_color(self, change: float) -> str:
+        """Return CSS color for positive/negative change."""
+        if change > 0:
+            return "#10b981"  # green
+        elif change < 0:
+            return "#ef4444"  # red
+        return "#71717a"  # gray
+
+    def _format_change_text(self, change: float) -> str:
+        """Format change percentage with sign."""
+        sign = "+" if change > 0 else ""
+        return f"{sign}{change:.2f}%"
+
+    def _format_morning_report_html(
+        self, data: dict, report_date: str, report_id: Optional[str] = None
+    ) -> str:
+        """Generate the morning report HTML email template."""
+        formatted_date = self._format_timestamp(data.get("timestamp", ""))
+        title = data.get("title", "Morning Brief")
+        market_pulse = data.get("market_pulse", "")
+        futures = data.get("futures", [])
+        futures_analysis = data.get("futures_analysis", "")
+        global_markets = data.get("global_markets", {})
+        global_markets_analysis = data.get("global_markets_analysis", "")
+        overnight_news = data.get("overnight_news", [])
+        today_focus = data.get("today_focus", [])
+        summary = data.get("summary", [])
+
+        # Chinese name mapping for global market indicators
+        name_zh = {
+            "Nikkei 225": "日经225",
+            "Hang Seng": "恒生指数",
+            "Shanghai Composite": "上证综指",
+            "DAX": "DAX (德国)",
+            "FTSE 100": "富时100 (英国)",
+            "Gold": "黄金",
+            "Crude Oil": "原油",
+            "US Dollar": "美元指数",
+            "VIX": "VIX 恐慌指数",
+            "BTC": "比特币",
+        }
+        # Chinese region labels
+        region_zh = {"asia": "亚太", "europe": "欧洲", "other": "其他"}
+        # Chinese summary section titles
+        summary_titles_zh = {"overnight_review": "隔夜回顾", "today_outlook": "今日展望"}
+
+        # Build report URL
+        report_url = ""
+        if report_id:
+            report_url = f"{self.frontend_url}/morning/{report_id}"
+
+        # Shared styles (matching daily report)
+        card_style = "background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;"
+        section_header_style = "font-size: 12px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; padding-left: 12px; border-left: 3px solid #0a0a0a;"
+        subsection_style = "font-size: 11px; font-weight: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;"
+        analysis_box_style = "font-size: 12px; color: #52525b; background: #f8f8f8; padding: 10px 12px; border-radius: 4px; line-height: 1.6; margin-top: 10px;"
+
+        # --- Header ---
+        header = self._get_email_header(formatted_date, title="MarketBrew 早报")
+
+        # --- Title Card (matching daily report style) ---
+        title_section = f"""
+        <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
+            <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
+                Hi {{{{{{first_name}}}}}}
+            </p>
+            <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
+                新的一天，为你准备了今日的盘前简报，一起看看发生了什么吧。
+            </p>
+            {f'<a href="{report_url}" style="text-decoration: none;"><h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{title}</h1></a>' if report_url else f'<h1 style="color: #0a0a0a; font-size: 21px; font-weight: 600; margin: 0 0 10px 0; line-height: 1.4;">{title}</h1>'}
+            {f'<p style="color: #71717a; font-size: 14px; margin: 0; line-height: 1.6;">{market_pulse}</p>' if market_pulse else ''}
+        </div>
+        """
+
+        # --- Futures Card ---
+        futures_html = ""
+        if futures:
+            futures_cells = ""
+            for f in futures[:3]:
+                name = f.get("name", "")
+                display_name = name.replace(" Futures", "").replace("S&P 500", "S&P").replace("Nasdaq", "NQ").replace("Dow", "DOW")
+                value = f.get("value", 0)
+                change = f.get("daily_change", 0)
+                color = self._format_change_color(change)
+                change_text = self._format_change_text(change)
+                futures_cells += f"""
+                <td style="vertical-align: top; width: 33.33%;">
+                    <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
+                        <div style="font-size: 10px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{display_name}</div>
+                        <div style="font-size: 17px; font-weight: 600; color: #0a0a0a;">{value:,.0f}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: {color}; margin-top: 2px;">{change_text}</div>
+                    </div>
+                </td>
+                """
+            futures_analysis_html = ""
+            if futures_analysis:
+                futures_analysis_html = f'<div style="{analysis_box_style}">{futures_analysis}</div>'
+            futures_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">美股期货</div>
+                <table style="width: 100%; border-collapse: separate; border-spacing: 6px;" cellpadding="0" cellspacing="0">
+                    <tr>{futures_cells}</tr>
+                </table>
+                {futures_analysis_html}
+            </div>
+            """
+
+        # --- Global Markets Card ---
+        def _build_market_rows(items, region_key):
+            if not items:
+                return ""
+            group_label = region_zh.get(region_key, region_key)
+            rows = ""
+            for item in items:
+                raw_name = item.get("name", "")
+                display_name = name_zh.get(raw_name, raw_name)
+                value = item.get("value", 0)
+                change = item.get("daily_change", 0)
+                color = self._format_change_color(change)
+                change_text = self._format_change_text(change)
+                val_str = f"{value:,.0f}" if value > 1000 else f"{value:,.2f}"
+                rows += f"""
+                <tr>
+                    <td style="padding: 6px 0; font-size: 13px; color: #3f3f46;">{display_name}</td>
+                    <td style="padding: 6px 0; font-size: 13px; color: #0a0a0a; text-align: right; font-weight: 500;">{val_str}</td>
+                    <td style="padding: 6px 0; font-size: 13px; color: {color}; text-align: right; font-weight: 600; width: 80px;">{change_text}</td>
+                </tr>
+                """
+            return f"""
+            <div style="margin-bottom: 14px;">
+                <div style="{subsection_style} border-bottom: 1px solid #e8e8e8; padding-bottom: 4px;">{group_label}</div>
+                <table style="width: 100%;" cellpadding="0" cellspacing="0">{rows}</table>
+            </div>
+            """
+
+        asia_items = global_markets.get("asia", [])
+        europe_items = global_markets.get("europe", [])
+        other_items = global_markets.get("other", [])
+
+        global_html = ""
+        markets_content = _build_market_rows(asia_items, "asia") + _build_market_rows(europe_items, "europe") + _build_market_rows(other_items, "other")
+        if markets_content:
+            gm_analysis_html = ""
+            if global_markets_analysis:
+                gm_analysis_html = f'<div style="{analysis_box_style}">{global_markets_analysis}</div>'
+            global_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">全球市场</div>
+                {markets_content}
+                {gm_analysis_html}
+            </div>
+            """
+
+        # --- Overnight News Card ---
+        news_html = ""
+        if overnight_news:
+            news_items = ""
+            for n in overnight_news:
+                n_title = n.get("title", "")
+                n_analysis = n.get("analysis", "")
+                n_url = n.get("url", "")
+                title_html = f'<a href="{n_url}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{n_title}</a>' if n_url else f'<div style="font-size: 14px; font-weight: 600; color: #0a0a0a; margin-bottom: 6px;">{n_title}</div>'
+                news_items += f"""
+                <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
+                    {title_html}
+                    <div style="font-size: 12px; color: #52525b; background: #f8f8f8; padding: 10px 12px; border-radius: 4px; line-height: 1.6;">{n_analysis}</div>
+                </div>
+                """
+            news_html = f"""
+            <div style="background: #fafafa; border: 1px solid #e4e4e7; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                <div style="{section_header_style}">隔夜要闻</div>
+                {news_items}
+            </div>
+            """
+
+        # --- Today Focus Card ---
+        focus_html = ""
+        if today_focus:
+            focus_items = ""
+            for f in today_focus:
+                f_title = f.get("title", "")
+                f_analysis = f.get("analysis", "")
+                f_time = f.get("time", "")
+                time_badge = f'<span style="display: inline-block; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; margin-right: 6px; vertical-align: middle;">{f_time}</span>' if f_time else ""
+                focus_items += f"""
+                <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
+                    <div style="font-size: 14px; line-height: 1.4; margin-bottom: 6px;">
+                        {time_badge}<span style="font-weight: 600; color: #0a0a0a;">{f_title}</span>
+                    </div>
+                    <div style="font-size: 13px; color: #52525b; line-height: 1.6;">{f_analysis}</div>
+                </div>
+                """
+            focus_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">今日焦点</div>
+                {focus_items}
+            </div>
+            """
+
+        # --- Summary Card ---
+        summary_html = ""
+        if summary:
+            subsections_html = ""
+            for s in summary:
+                s_title = s.get("title", "")
+                s_content = s.get("content", "")
+                display_title = summary_titles_zh.get(s_title, s_title)
+                paragraphs = s_content.replace("\\n", "\n").split("\n\n")
+                content_html = "".join(
+                    f'<p style="margin: 0 0 10px 0; font-size: 13px; color: #3f3f46; line-height: 1.85;">{p.strip()}</p>'
+                    for p in paragraphs if p.strip()
+                )
+                subsections_html += f"""
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #0a0a0a; margin-bottom: 8px;">{display_title}</div>
+                    {content_html}
+                </div>
+                """
+            summary_html = f"""
+            <div style="{card_style}">
+                <div style="{section_header_style}">总结与展望</div>
+                {subsections_html}
+            </div>
+            """
+
+        # --- Read online link ---
+        read_online = ""
+        if report_id:
+            read_url = f"{self.frontend_url}/morning/{report_id}"
+            read_online = f"""
+            <div style="padding: 0 16px 16px; text-align: center;">
+                <a href="{read_url}" style="display: inline-block; padding: 10px 24px; background: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                    在线阅读完整报告
+                </a>
+            </div>
+            """
+
+        # --- Feedback + Footer ---
+        feedback = self._get_feedback_section(
+            report_date=report_date,
+            report_id=report_id,
+            report_type="morning",
+        )
+        footer = self._get_email_footer()
+
+        # --- Assemble (matching daily report layout: white title card + grey content area) ---
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                {header}
+                {title_section}
+
+                <!-- Content Area -->
+                <div style="background: #f0f0f0; padding: 16px;">
+                    {futures_html}
+                    {global_html}
+                    {news_html}
+                    {focus_html}
+                    {summary_html}
+                    {read_online}
+                </div>
+
+                {feedback}
+                {self._get_digest_cta_section()}
+                {footer}
+            </div>
+        </body>
+        </html>
+        """
+
+    async def broadcast_morning_report(
+        self, data: dict, audience_id: Optional[str] = None
+    ) -> dict:
+        """Send the morning report using Resend Broadcasts."""
+        logger.info("broadcast_morning_report called, audience_id=%s", audience_id)
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            audience_id = self._resolve_audience(
+                audience_id, SubscriptionChannel.DAILY_REPORT
+            )
+            today = today_str()
+            report_date = data.get("report_date") or today
+            report_id = data.get("report_id")
+            html_content = self._format_morning_report_html(
+                data, report_date, report_id
+            )
+
+            report_title = data.get("title", "")
+            subject = (
+                f"[MarketBrew 早报] {report_title}"
+                if report_title
+                else f"[MarketBrew 早报] {today}"
+            )
+
+            return self._create_and_send_broadcast(
+                label="Morning",
+                audience_id=audience_id,
+                subject=subject,
+                broadcast_name=f"Morning Report {today}",
+                html=html_content,
+                from_email=self.from_email_morning,
+            )
+
+        except Exception as e:
+            logger.error("Error broadcasting morning report: %s", e)
+            return {"success": False, "error": str(e)}
+
+    async def send_morning_report(
+        self, data: dict, to_email: str, first_name: Optional[str] = None
+    ) -> dict:
+        """Send the morning report email to a single recipient (for testing)."""
+        logger.info("send_morning_report to=%s", to_email)
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        try:
+            today = today_str()
+            report_date = data.get("report_date") or today
+            report_id = data.get("report_id")
+            html_content = self._format_morning_report_html(
+                data, report_date, report_id
+            )
+
+            # Replace template variables for single sends
+            display_name = first_name or ""
+            html_content = html_content.replace("{{{first_name}}}", display_name)
+            html_content = html_content.replace("{{{email}}}", quote(to_email))
+
+            report_title = data.get("title", "")
+            subject = (
+                f"[MarketBrew 早报] {report_title}"
+                if report_title
+                else f"[MarketBrew 早报] {today}"
+            )
+
+            params = {
+                "from": self.from_email_morning,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            }
+
+            result = resend.Emails.send(params)
+            email_id = result.get("id") if result else None
+
+            if email_id:
+                logger.info("Morning report sent to %s: %s", to_email, email_id)
+                return {"success": True, "email_id": email_id}
+            else:
+                return {"success": False, "error": "No email ID returned"}
+
+        except Exception as e:
+            logger.error("Error sending morning report to %s: %s", to_email, e)
             return {"success": False, "error": str(e)}
 
 

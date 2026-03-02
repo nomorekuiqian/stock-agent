@@ -40,9 +40,22 @@ export const queryKeys = {
   watchlist: {
     all: ['watchlist'] as const,
   },
+  morningReports: {
+    all: ['morning-reports'] as const,
+    list: (limit: number, offset: number) => ['morning-reports', 'list', limit, offset] as const,
+    latest: () => ['morning-reports', 'latest'] as const,
+    byId: (id: string) => ['morning-reports', id] as const,
+    byDate: (date: string) => ['morning-reports', 'date', date] as const,
+  },
   digests: {
     all: ['digests'] as const,
     list: (limit: number, offset: number) => ['digests', 'list', limit, offset] as const,
     byId: (id: string) => ['digests', id] as const,
+  },
+  screener: {
+    all: ['screener'] as const,
+    filter: (key: string) => ['screener', 'filter', key] as const,
+    sectors: () => ['screener', 'sectors'] as const,
+    status: () => ['screener', 'status'] as const,
   },
 };

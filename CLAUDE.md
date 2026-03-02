@@ -122,6 +122,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **前端**:
 - `frontend/src/app/today/.context.md` — 市场日报页面
+- `frontend/src/app/morning/.context.md` — 盘前早报页面
 - `frontend/src/app/for-you/.context.md` — 个性化 Brew 页面
 - `frontend/src/app/stock/.context.md` — 个股研究页面
 - `frontend/src/app/macro/.context.md` — 宏观仪表盘页面
@@ -147,7 +148,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **技术栈:**
 - 前端: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4
-- 后端: FastAPI + Google ADK (gemini-3-pro-preview) + yfinance + FMP API + FRED API
+- 后端: FastAPI + Google ADK (gemini-3.1-pro-preview) + yfinance + FMP API + FRED API
 - 支付: Stripe (订阅制)
 - 邮件: Resend API
 - 数据库: Insforge (PostgreSQL)
@@ -428,7 +429,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 
 agent = LlmAgent(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     name="analyst",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,

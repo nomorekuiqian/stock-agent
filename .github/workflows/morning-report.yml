@@ -1,0 +1,38 @@
+name: Morning Market Report
+
+on:
+  schedule:
+    # Run at 7:00 AM US Eastern Time (before market open)
+    # UTC 11:00 = 7:00 AM EDT (summer) / 6:00 AM EST (winter)
+    - cron: '0 11 * * 1-5'  # Monday to Friday only (market days)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  send-morning-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Morning Market Report
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/subscriptions/morning_report/broadcast?force=true")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Failed to send morning report (HTTP $http_code)"
+            exit 1
+          fi
+
+          # Also check success field in response body
+          if echo "$body" | grep -q '"success":false'; then
+            echo "Morning report API returned success:false"
+            exit 1
+          fi
+
+          echo "Morning report sent successfully!"

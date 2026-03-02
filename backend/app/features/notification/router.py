@@ -458,6 +458,46 @@ async def send_test_weekly_report(request: SendEmailRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/morning-report/send-test")
+async def send_test_morning_report(request: SendEmailRequest):
+    """
+    Send the latest morning report email to a test recipient.
+    """
+    try:
+        to_email = request.email
+        if not to_email:
+            raise HTTPException(status_code=400, detail="Email address is required")
+
+        from app.features.morning_report import db as morning_db
+
+        report = await morning_db.get_latest_morning_report()
+        if not report:
+            raise HTTPException(status_code=404, detail="No morning report found. Generate one first.")
+
+        email_service = get_email_service()
+        email_result = await email_service.send_morning_report(
+            data=report,
+            to_email=to_email,
+            first_name=request.first_name,
+        )
+
+        if not email_result.get("success"):
+            raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to send morning report"))
+
+        return {
+            "success": True,
+            "message": f"Morning report sent to {to_email}",
+            "email_id": email_result.get("email_id"),
+            "sent_to": to_email,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error in send_test_morning_report")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/welcome/send-test")
 async def send_test_welcome_email(request: SendEmailRequest):
     """

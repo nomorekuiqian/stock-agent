@@ -55,6 +55,28 @@ CURRENCY_TICKERS = {
     "US Dollar": "DX-Y.NYB",
 }
 
+# Pre-market / global market tickers for morning report
+FUTURES_TICKERS = {
+    "S&P 500 Futures": "ES=F",
+    "Nasdaq Futures": "NQ=F",
+    "Dow Futures": "YM=F",
+}
+
+ASIA_TICKERS = {
+    "Nikkei 225": "^N225",
+    "Hang Seng": "^HSI",
+    "Shanghai Composite": "000001.SS",
+}
+
+EUROPE_TICKERS = {
+    "DAX": "^GDAXI",
+    "FTSE 100": "^FTSE",
+}
+
+CRYPTO_TICKERS_PREMARKET = {
+    "BTC": "BTC-USD",
+}
+
 # Combined for single download
 ALL_TICKERS = {
     **EQUITY_TICKERS,
@@ -552,3 +574,149 @@ def get_stock_quotes(symbols: list[str]) -> dict:
     except Exception as e:
         logger.exception("Error fetching stock quotes: %s", e)
         return {"status": "error", "error": str(e), "stocks": {}}
+
+
+# =============================================================================
+# Pre-market Data for Morning Report
+# =============================================================================
+
+
+def get_premarket_data() -> dict:
+    """
+    Fetch pre-market data for the morning report: futures, global markets, and key assets.
+    Uses yf.download() with 5-day period and reuses _extract_asset_data().
+
+    Returns:
+        {
+            "futures": {"S&P 500 Futures": {...}, ...},
+            "global_markets": {
+                "asia": {"Nikkei 225": {...}, ...},
+                "europe": {"DAX": {...}, ...},
+                "other": {"Gold": {...}, "US Dollar": {...}, "BTC": {...}, "VIX": {...}},
+            },
+            "status": "success",
+        }
+    """
+    logger.info("get_premarket_data()")
+
+    try:
+        # Combine all tickers for a single download
+        all_premarket = {
+            **FUTURES_TICKERS,
+            **ASIA_TICKERS,
+            **EUROPE_TICKERS,
+            **VOLATILITY_TICKERS,
+            **CURRENCY_TICKERS,
+            **CRYPTO_TICKERS_PREMARKET,
+        }
+
+        data = yf.download(
+            list(all_premarket.values()),
+            period="1mo",
+            progress=False,
+        )
+
+        result = {
+            "futures": {},
+            "global_markets": {
+                "asia": {},
+                "europe": {},
+                "other": {},
+            },
+        }
+
+        # Futures
+        for name, symbol in FUTURES_TICKERS.items():
+            asset = _extract_asset_data(data, name, symbol)
+            if asset:
+                result["futures"][name] = {
+                    "value": asset["value"],
+                    "daily_change": asset["daily_change"],
+                }
+
+        # Asia
+        for name, symbol in ASIA_TICKERS.items():
+            asset = _extract_asset_data(data, name, symbol)
+            if asset:
+                result["global_markets"]["asia"][name] = {
+                    "value": asset["value"],
+                    "daily_change": asset["daily_change"],
+                }
+
+        # Europe
+        for name, symbol in EUROPE_TICKERS.items():
+            asset = _extract_asset_data(data, name, symbol)
+            if asset:
+                result["global_markets"]["europe"][name] = {
+                    "value": asset["value"],
+                    "daily_change": asset["daily_change"],
+                }
+
+        # Other key assets: Gold, Oil, USD, BTC, VIX
+        # Gold and Oil via FMP spot (same pattern as get_all_market_data)
+        fmp = get_fmp_service()
+        try:
+            gold_result = fmp.get_commodity_quotes(["XAUUSD"])
+            gold_data = gold_result.get("commodities", {}).get("Gold")
+            if gold_data and gold_data.get("price"):
+                price = safe_float(gold_data["price"])
+                prev = safe_float(gold_data.get("previousClose"))
+                change = ((price - prev) / prev * 100) if prev > 0 else 0.0
+                result["global_markets"]["other"]["Gold"] = {
+                    "value": round(price, 2),
+                    "daily_change": round(change, 2),
+                }
+        except Exception as e:
+            logger.warning("FMP gold fetch failed for premarket: %s", e)
+
+        # Oil via FMP spot (Brent Crude, same pattern as Gold)
+        try:
+            oil_result = fmp.get_commodity_quotes(["BZUSD"])
+            oil_data = oil_result.get("commodities", {}).get("Oil")
+            if oil_data and oil_data.get("price"):
+                price = safe_float(oil_data["price"])
+                prev = safe_float(oil_data.get("previousClose"))
+                change = ((price - prev) / prev * 100) if prev > 0 else 0.0
+                result["global_markets"]["other"]["Crude Oil"] = {
+                    "value": round(price, 2),
+                    "daily_change": round(change, 2),
+                }
+        except Exception as e:
+            logger.warning("FMP oil fetch failed for premarket: %s", e)
+
+        # USD, VIX from yf data
+        for name, symbol in {**CURRENCY_TICKERS, **VOLATILITY_TICKERS}.items():
+            asset = _extract_asset_data(data, name, symbol)
+            if asset:
+                result["global_markets"]["other"][name] = {
+                    "value": asset["value"],
+                    "daily_change": asset["daily_change"],
+                }
+
+        # BTC
+        for name, symbol in CRYPTO_TICKERS_PREMARKET.items():
+            asset = _extract_asset_data(data, name, symbol)
+            if asset:
+                result["global_markets"]["other"][name] = {
+                    "value": asset["value"],
+                    "daily_change": asset["daily_change"],
+                }
+
+        result["status"] = "success"
+        logger.info(
+            "Premarket data: futures=%d, asia=%d, europe=%d, other=%d",
+            len(result["futures"]),
+            len(result["global_markets"]["asia"]),
+            len(result["global_markets"]["europe"]),
+            len(result["global_markets"]["other"]),
+        )
+        return result
+
+    except Exception as e:
+        logger.exception("Error fetching premarket data: %s", e)
+        return {
+            "status": "error",
+            "error": str(e),
+            "futures": {},
+            "global_markets": {"asia": {}, "europe": {}, "other": {}},
+        }
