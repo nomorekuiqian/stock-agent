@@ -1,0 +1,42 @@
+name: Screener Universe Refresh
+
+on:
+  schedule:
+    # Weekdays at UTC 23:00 (EST 18:00, after US market close)
+    - cron: '0 23 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    name: Refresh screener universe data
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh screener universe
+        run: |
+          echo "Refreshing screener universe data (tvscreener)..."
+
+          response=$(curl -s -w "\n%{http_code}" --max-time 120 -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/screener/refresh")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Code: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Screener refresh failed with HTTP $http_code"
+            exit 1
+          fi
+
+          if echo "$body" | grep -q '"success":false'; then
+            echo "::error::Screener refresh returned success:false"
+            echo "$body"
+            exit 1
+          fi
+
+          # Extract stock count from results
+          stock_count=$(echo "$body" | grep -o '"stock_count":[0-9]*' | cut -d: -f2)
+          echo "Screener universe refreshed: ${stock_count:-unknown} stocks"
