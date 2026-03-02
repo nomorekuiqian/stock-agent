@@ -1,6 +1,6 @@
 # Stock Screener 前端页面 + Agent 体系 Engineering Plan
 
-> Status: Phase 1 Implemented
+> Status: All Phases Complete
 > Related: `backend/app/features/screener/.context.md`, `frontend/src/app/stock/.context.md`
 > Vision: 产品策略.md > 模块 4 (机会发现) — "有什么值得关注的投资机会？"
 
@@ -34,23 +34,27 @@
 
 ### 后端（已完成）
 
-- 5,840 只美股 x 71 维度数据，日频刷新（tvscreener）
+- 3,680 只美股 x 65 维度数据，日频刷新（tvscreener，已过滤 OTC 股票）
 - 8 个筛选策略（hot_sectors, volume_surge, value_discovery, high_dividend, momentum, oversold_quality, by_sector, custom）
 - `POST /api/screener/filter` 端点，< 10ms 响应（内存缓存）
 - `GET /api/screener/status` 缓存状态监控
+- `GET /api/screener/sectors` 板块列表（中英文 + 计数）
 - `POST /api/screener/refresh` Cron 刷新（已部署 Edge Function + DB 表）
+- `POST /api/screener/ask` 自然语言选股 Agent (Google ADK + 3 FunctionTools)
+- 智能收窄推荐系统 (suggestions.py)
 
-### 前端（未开始）
+### 前端（Phase 1+2 已完成）
 
-- `/screener` 路由不存在
-- `api.ts` 中没有 screener 相关方法
-- 无 screener 相关组件
+- `/screener` 页面已上线 (CSR, PaywallGuard)
+- 10 个组件: StrategyCards, ScreenerInput, AiSummary, FunnelProgress, AppliedFilters, NarrowingSuggestions, CandidateList, SectorSelector, DataStatus
+- 策略卡片为主入口 (7 张)，AI 输入框为次要入口
+- 对话状态管理 (最多 5 轮)
 
-### Agent（未开始）
+### Agent（已完成）
 
-- 自然语言 → FilterRequest 的解析 Agent 未构建
-- 智能收窄推荐逻辑未构建
-- 结果摘要生成未构建
+- Google ADK LlmAgent + InMemoryRunner
+- 3 FunctionTools: execute_screener, get_field_distribution, list_available_sectors
+- 自然语言 → 结构化 filters 解析 + 摘要生成
 
 ## 产品决策记录
 
@@ -465,20 +469,20 @@ const SECTOR_MAP: Record<string, string> = {
 
 ### Phase 2: Agent 对话版（在 Phase 1 基础上）
 
-18. [ ] **后端: Screener Agent** — `backend/app/features/screener/agent.py`，自然语言 → FilterRequest 解析，含模糊表述映射
-19. [ ] **后端: Agent Instruction** — 策略说明 + 71 字段 + 20 板块 + 运算符 + 对话微调规则
-20. [ ] **后端: /api/screener/ask 端点** — 接收 message + current_filters + history → Agent 解析 → filter → suggestions → 返回
-21. [ ] **前端: api.ts 添加 ask 方法** — `api.screener.ask(message, currentFilters, history)`
-22. [ ] **前端: ScreenerInput 组件** — 输入框，Enter 发送，loading 状态，placeholder 引导
-23. [ ] **前端: AiSummary 组件** — Agent 摘要展示
-24. [ ] **前端: 对话状态管理** — 维护 history[] (最多 5 轮)，第 5 轮后提示 "重新开始"
-25. [ ] **前端: 输入框与策略卡片联动** — 点击卡片后可在输入框中用自然语言在当前结果上微调
-26. [ ] **更新 .context.md** — 后端 + 前端的 .context.md 补充 Agent 相关内容
+18. [x] **后端: Screener Agent** — `backend/app/features/screener/agent.py`，Google ADK LlmAgent + 3 FunctionTools (execute_screener, get_field_distribution, list_available_sectors)
+19. [x] **后端: Agent Instruction** — 策略说明 + 65 字段 + 20 板块 + 运算符 + 对话微调规则 + 模糊表述映射
+20. [x] **后端: /api/screener/ask 端点** — 接收 message + current_filters + history → Agent 解析 → filter → suggestions → 返回
+21. [x] **前端: api.ts 添加 ask 方法** — `api.screener.ask(message, currentFilters, history)`
+22. [x] **前端: ScreenerInput 组件** — 搜索图标 + Enter 发送 + loading 状态 + placeholder 引导 + 轮次指示器
+23. [x] **前端: AiSummary 组件** — Agent 摘要展示，含加载动画
+24. [x] **前端: 对话状态管理** — chatHistory[] (最多 5 轮) + roundCount + 第 5 轮后提示 "重新开始"
+25. [x] **前端: 输入框与策略卡片联动** — 策略卡片为主入口，AI 输入框为次要入口，结果区有追问输入框
+26. [x] **更新 .context.md** — 后端 + 前端的 .context.md 补充 Agent 相关内容 + UI 重设计 (策略卡片优先布局)
 
 ### Phase 3: 自动化 + 后续
 
-27. [ ] **后端: GitHub Actions cron** — `screener-universe-refresh.yml`，`0 23 * * 1-5` 自动刷新
-28. [ ] **前端: 接入 Brew** — 候选股可一键添加到 watchlist
+27. [x] **后端: GitHub Actions cron** — `screener-universe-refresh.yml`，`0 23 * * 1-5` 自动刷新 (UTC 23:00 = EST 18:00)
+28. [x] **前端: 接入 Brew** — CandidateList 每行/卡片添加"加入持仓"按钮，使用 useWatchlist/useSaveWatchlist hooks
 
 ## 依赖
 
@@ -486,14 +490,14 @@ const SECTOR_MAP: Record<string, string> = {
 |--------|------|------|
 | 后端 screener 数据层 | 已完成 | 5,840 股 x 71 维度，< 10ms filter |
 | Edge Function + DB 表 | 已部署 | `screener-universe-cache` |
-| tvscreener 数据刷新 | 需手动触发 | Cron 未建 (Phase 3)，目前手动 refresh |
+| tvscreener 数据刷新 | 已配置 Cron | GitHub Actions `screener-universe-refresh.yml` 每日 UTC 23:00 |
 | Google ADK | 已集成 | Agent 框架已在 brew/stock/daily_report 使用 |
 | /stock 详情页 | 已上线 | 候选股点击跳转目标 |
 | Navbar 组件 | 已有 | 需添加 Screener 入口 |
 | AuthGuard 模式 | 已有 | /for-you 页面已实现登录保护模式 |
 
-## 待定问题
+## 已解决问题
 
-1. **预设策略 → custom 的条件转换** — 点击 "放量异动" 后如果用户要收窄，需要把 volume_surge 的隐式条件 (relative_volume >= 2, daily_change > 0) 转换为显式的 custom filters，以便后续叠加。这个转换在前端做还是后端做？
-2. **收窄 chips 的交互细节** — 分类型 chip（如 "科技服务 12"）点击后是直接应用，还是展开二级选择？多个板块能否多选？
-3. **空结果处理** — 如果收窄到 0 只怎么办？提示 "条件太严格，试试删除一个条件" + 高亮可删除的 chips？
+1. **预设策略 → custom 的条件转换** — 在前端做。`page.tsx` 中 `strategyToFilters()` 函数把预设策略的隐式条件转为显式 custom filters，存入 `customFilters[]` 状态。
+2. **收窄 chips 的交互细节** — 点击直接应用（单选）。分类型 chip 点击后立即筛选，不展开二级选择。
+3. **空结果处理** — 显示 "无匹配结果" 空状态 + "尝试调整筛选条件或删除部分条件" 提示。
