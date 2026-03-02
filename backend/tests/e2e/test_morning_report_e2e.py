@@ -19,8 +19,11 @@ Usage:
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from unittest.mock import AsyncMock, patch
 
 from app.main import app
+
+TEST_CRON_SECRET = "test-cron-secret-for-e2e"
 
 
 @pytest.fixture
@@ -179,6 +182,124 @@ class TestSendTestMorningReport:
             data = resp.json()
             assert data["success"] is True
             assert "email_id" in data
+
+
+# ===========================================================================
+# TestBroadcastMorningReport
+# ===========================================================================
+
+
+@pytest.mark.e2e
+class TestBroadcastMorningReport:
+    """Tests for POST /api/morning/broadcast."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_cron_secret(self):
+        """Patch CRON_SECRET so auth tests work regardless of env."""
+        with patch("app.core.deps.CRON_SECRET", TEST_CRON_SECRET):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_missing_cron_secret_returns_401(self, client):
+        """Missing X-Cron-Secret header returns 401."""
+        resp = await client.post("/api/morning/broadcast", timeout=10)
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_wrong_cron_secret_returns_401(self, client):
+        """Wrong X-Cron-Secret returns 401."""
+        resp = await client.post(
+            "/api/morning/broadcast",
+            headers={"X-Cron-Secret": "wrong-secret"},
+            timeout=10,
+        )
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_quality_gate_rejects_incomplete_report(self, client):
+        """Broadcast with incomplete cached report returns 500."""
+        incomplete_report = {
+            "id": "test-id",
+            "report_date": "2026-03-02",
+            "title": "",
+            "overnight_news": [],
+            "summary": [],
+        }
+        with patch(
+            "app.features.morning_report.db.get_morning_report_by_date",
+            new=AsyncMock(return_value=incomplete_report),
+        ):
+            resp = await client.post(
+                "/api/morning/broadcast",
+                headers={"X-Cron-Secret": TEST_CRON_SECRET},
+                timeout=30,
+            )
+            assert resp.status_code == 500
+            assert "quality check" in resp.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_quality_gate_rejects_error_report(self, client):
+        """Broadcast with error-content report (the March 2 bug) returns 500."""
+        error_report = {
+            "id": "test-id",
+            "report_date": "2026-03-02",
+            "title": "",
+            "market_pulse": "Data fetched (analysis error: 500 INTERNAL)",
+            "overnight_news": [],
+            "today_focus": [],
+            "summary": [],
+        }
+        with patch(
+            "app.features.morning_report.db.get_morning_report_by_date",
+            new=AsyncMock(return_value=error_report),
+        ):
+            resp = await client.post(
+                "/api/morning/broadcast",
+                headers={"X-Cron-Secret": TEST_CRON_SECRET},
+                timeout=30,
+            )
+            assert resp.status_code == 500
+            assert "quality check" in resp.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_broadcast_with_valid_cached_report(self, client):
+        """Broadcast with valid cached report calls email service and returns 200."""
+        valid_report = {
+            "id": "test-id",
+            "report_date": "2026-03-02",
+            "timestamp": "2026-03-02T07:00:00Z",
+            "title": "Market opens higher",
+            "market_pulse": "Positive sentiment",
+            "overnight_news": [{"title": "Fed speaks", "analysis": "No change"}],
+            "today_focus": [{"title": "ISM PMI", "time": "10:00 AM ET"}],
+            "summary": [
+                {"title": "overnight_review", "content": "Markets rallied."},
+                {"title": "today_outlook", "content": "Watch ISM data."},
+            ],
+        }
+        mock_broadcast = AsyncMock(return_value={
+            "success": True,
+            "total": 10,
+            "sent": 10,
+            "failed": 0,
+        })
+        with patch(
+            "app.features.morning_report.db.get_morning_report_by_date",
+            new=AsyncMock(return_value=valid_report),
+        ), patch(
+            "app.features.subscription.email_service.EmailService.broadcast_morning_report",
+            new=mock_broadcast,
+        ):
+            resp = await client.post(
+                "/api/morning/broadcast",
+                headers={"X-Cron-Secret": TEST_CRON_SECRET},
+                timeout=30,
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["success"] is True
+            assert data["total"] == 10
+            mock_broadcast.assert_called_once()
 
 
 if __name__ == "__main__":

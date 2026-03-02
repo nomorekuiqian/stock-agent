@@ -17,6 +17,7 @@ Usage:
 import pytest
 
 from app.features.morning_report.router import (
+    _is_morning_report_valid,
     _normalize_report_data,
     _report_to_response,
 )
@@ -477,6 +478,72 @@ class TestResolveArticleUrls:
         source_news = [{"url": "http://a.com"}]
         result = resolver._resolve_article_urls(news_items, source_news)
         assert result[0]["url"] == ""
+
+
+# ===========================================================================
+# TestIsMorningReportValid
+# ===========================================================================
+
+
+class TestIsMorningReportValid:
+    """Tests for _is_morning_report_valid() quality gate."""
+
+    def _valid_report(self):
+        return {
+            "title": "Market opens higher",
+            "overnight_news": [{"title": "Fed speaks", "analysis": "Steady."}],
+            "summary": [{"title": "overnight_review", "content": "Markets rallied."}],
+        }
+
+    def test_valid_report_passes(self):
+        """Complete report passes validation."""
+        assert _is_morning_report_valid(self._valid_report()) is True
+
+    def test_missing_title_fails(self):
+        """Empty title fails validation."""
+        data = self._valid_report()
+        data["title"] = ""
+        assert _is_morning_report_valid(data) is False
+
+    def test_none_title_fails(self):
+        """None title fails validation."""
+        data = self._valid_report()
+        data["title"] = None
+        assert _is_morning_report_valid(data) is False
+
+    def test_missing_overnight_news_fails(self):
+        """Empty overnight_news list fails validation."""
+        data = self._valid_report()
+        data["overnight_news"] = []
+        assert _is_morning_report_valid(data) is False
+
+    def test_missing_summary_fails(self):
+        """Empty summary list fails validation."""
+        data = self._valid_report()
+        data["summary"] = []
+        assert _is_morning_report_valid(data) is False
+
+    def test_empty_dict_fails(self):
+        """Empty dict fails validation."""
+        assert _is_morning_report_valid({}) is False
+
+    def test_march2_bug_report_fails(self):
+        """The March 2 incident: error in market_pulse, all content empty."""
+        data = {
+            "title": "",
+            "market_pulse": "Data fetched (analysis error: 500 INTERNAL)",
+            "overnight_news": [],
+            "today_focus": [],
+            "summary": [],
+        }
+        assert _is_morning_report_valid(data) is False
+
+    def test_extra_fields_dont_affect_validation(self):
+        """Validation only checks title, overnight_news, summary."""
+        data = self._valid_report()
+        data["market_pulse"] = ""  # empty but not checked
+        data["today_focus"] = []   # empty but not checked
+        assert _is_morning_report_valid(data) is True
 
 
 if __name__ == "__main__":
