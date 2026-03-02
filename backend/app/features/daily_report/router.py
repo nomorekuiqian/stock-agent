@@ -7,8 +7,9 @@ Endpoints:
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
@@ -184,7 +185,7 @@ async def get_latest_report():
 
 @router.post("/market")
 @limiter.limit("5/minute")
-async def analyze_market(request: Request, body: Optional[MarketAnalysisRequest] = None):
+async def analyze_market(request: Request, body: Optional[MarketAnalysisRequest] = None, _user_id: str = Depends(verify_user_token)):
     try:
         force = body.force if body else False
 

@@ -819,6 +819,7 @@ class FMPService:
                 "epsActual": self._safe_float(item.get("epsActual")),
                 "revenueEstimated": self._safe_float(item.get("revenueEstimated")),
                 "revenueActual": self._safe_float(item.get("revenueActual")),
+                "time": item.get("time", ""),
                 "lastUpdated": item.get("lastUpdated", ""),
             })
 
