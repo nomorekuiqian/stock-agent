@@ -36,6 +36,17 @@ class MorningReportRequest(BaseModel):
     force: bool = False
 
 
+def _is_morning_report_valid(data: dict) -> bool:
+    """Check if a morning report has enough content to broadcast."""
+    if not data.get("title"):
+        return False
+    if not data.get("overnight_news"):
+        return False
+    if not data.get("summary"):
+        return False
+    return True
+
+
 def _normalize_report_data(data: dict) -> dict:
     """Normalize report data before saving/returning.
 
@@ -269,6 +280,20 @@ async def broadcast_morning_report(
             save_result = await morning_db.save_morning_report(report_data)
             if save_result.get("success"):
                 report_data["report_id"] = save_result.get("report_id")
+
+        # Quality gate: don't broadcast incomplete reports
+        if not _is_morning_report_valid(report_data):
+            logger.error(
+                "Morning report quality check failed, skipping broadcast. "
+                "title=%s, news=%d, summary=%d",
+                bool(report_data.get("title")),
+                len(report_data.get("overnight_news", [])),
+                len(report_data.get("summary", [])),
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Morning report failed quality check: missing title, news, or summary. Broadcast skipped.",
+            )
 
         broadcast_result = await email_service.broadcast_morning_report(report_data)
 

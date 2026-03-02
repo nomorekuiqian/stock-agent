@@ -289,6 +289,22 @@ async def broadcast_to_channel(
                 if save_result.get("success"):
                     report_data["report_id"] = save_result.get("report_id")
 
+            # Quality gate: don't broadcast incomplete reports
+            news = (report_data or {}).get("news") or {}
+            has_title = bool((report_data or {}).get("title"))
+            has_headlines = bool(news.get("headlines") if isinstance(news, dict) else False)
+            has_summary = bool((report_data or {}).get("report_summary"))
+            if not (has_title and has_headlines and has_summary):
+                logger.error(
+                    "Daily report quality check failed, skipping broadcast. "
+                    "title=%s, headlines=%s, report_summary=%s",
+                    has_title, has_headlines, has_summary,
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="Daily report failed quality check: missing title, news, or summary. Broadcast skipped.",
+                )
+
             # Broadcast daily report
             broadcast_result = await email_service.broadcast_daily_report(report_data)
 
