@@ -2286,9 +2286,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[MarketBrew 早报] {report_title}"
+                f"[TheMarketBrew 早报] {report_title}"
                 if report_title
-                else f"[MarketBrew 早报] {today}"
+                else f"[TheMarketBrew 早报] {today}"
             )
 
             return self._create_and_send_broadcast(
@@ -2328,9 +2328,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[MarketBrew 早报] {report_title}"
+                f"[TheMarketBrew 早报] {report_title}"
                 if report_title
-                else f"[MarketBrew 早报] {today}"
+                else f"[TheMarketBrew 早报] {today}"
             )
 
             params = {
