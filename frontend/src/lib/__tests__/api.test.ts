@@ -602,7 +602,7 @@ describe('api (post cache removal)', () => {
     it('throws fallback message when response is not JSON', async () => {
       mockFetchJsonFails(500);
 
-      await expect(api.screener.ask({} as never)).rejects.toThrow('Failed to process query');
+      await expect(api.screener.ask({} as never)).rejects.toThrow('AI 查询失败');
     });
   });
 });
