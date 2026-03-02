@@ -8,6 +8,7 @@ Data is fetched in Python, then the analyst agent selects important news
 and produces the final structured report.
 """
 
+import asyncio
 import json
 import os
 
@@ -338,7 +339,7 @@ class MarketAgent:
     def __init__(self, client=None):
         self.runner = InMemoryRunner(agent=market_report_agent, app_name="stock_agent")
 
-    async def analyze(self) -> dict:
+    async def analyze(self) -> dict | None:
         """Fetch all data and run the analyst agent with structured output."""
         try:
             logger.info("Fetching market data...")
@@ -385,36 +386,9 @@ class MarketAgent:
             if previous_reports:
                 data_for_analyst["previous_reports"] = previous_reports
 
-            # Step 4: Create session and run the analyst agent
+            # Step 4: Create session and run the analyst agent (with retry)
             logger.info("Running analyst agent with structured output...")
-
-            session = await self.runner.session_service.create_session(
-                app_name="stock_agent", user_id="analyst"
-            )
-
-            # Send data to the agent
-            message = Content(
-                parts=[
-                    Part(
-                        text=f"Please analyze the following market data and provide a comprehensive report:\n\n{json.dumps(data_for_analyst, ensure_ascii=False, indent=2, default=str)}"
-                    )
-                ],
-                role="user",
-            )
-
-            # Run agent and collect output
-            async for event in self.runner.run_async(
-                user_id="analyst", session_id=session.id, new_message=message
-            ):
-                pass  # Events are processed, output stored in session state
-
-            # Get structured output from session state
-            session_data = await self.runner.session_service.get_session(
-                app_name="stock_agent", user_id="analyst", session_id=session.id
-            )
-
-            # Extract report from state (output_key="report" from analyst_agent)
-            # New structured fields
+            max_attempts = 2
             title = ""
             summary = ""
             intro = ""
@@ -422,24 +396,76 @@ class MarketAgent:
             report_summary = []
             calendar = []
 
-            if session_data and hasattr(session_data, "state"):
-                state = session_data.state or {}
-                report_data = state.get("report", {})
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    session = await self.runner.session_service.create_session(
+                        app_name="stock_agent", user_id="analyst"
+                    )
 
-                if isinstance(report_data, str):
-                    # Try to parse as JSON if it's a string
-                    try:
-                        report_data = json.loads(report_data)
-                    except json.JSONDecodeError:
-                        report_data = {}
+                    message = Content(
+                        parts=[
+                            Part(
+                                text=f"Please analyze the following market data and provide a comprehensive report:\n\n{json.dumps(data_for_analyst, ensure_ascii=False, indent=2, default=str)}"
+                            )
+                        ],
+                        role="user",
+                    )
 
-                if isinstance(report_data, dict):
-                    title = report_data.get("title", "")
-                    summary = report_data.get("summary", "")
-                    intro = report_data.get("intro", "")
-                    news = report_data.get("news", {"headlines": [], "briefs": []})
-                    report_summary = report_data.get("report_summary", [])
-                    calendar = report_data.get("calendar", [])
+                    async for event in self.runner.run_async(
+                        user_id="analyst", session_id=session.id, new_message=message
+                    ):
+                        pass
+
+                    session_data = await self.runner.session_service.get_session(
+                        app_name="stock_agent", user_id="analyst", session_id=session.id
+                    )
+
+                    if session_data and hasattr(session_data, "state"):
+                        state = session_data.state or {}
+                        report_data = state.get("report", {})
+
+                        if isinstance(report_data, str):
+                            try:
+                                report_data = json.loads(report_data)
+                            except json.JSONDecodeError:
+                                report_data = {}
+
+                        if isinstance(report_data, dict):
+                            title = report_data.get("title", "")
+                            summary = report_data.get("summary", "")
+                            intro = report_data.get("intro", "")
+                            news = report_data.get("news", {"headlines": [], "briefs": []})
+                            report_summary = report_data.get("report_summary", [])
+                            calendar = report_data.get("calendar", [])
+
+                    # Validate Gemini returned actual content
+                    if not title and not news.get("headlines"):
+                        logger.warning(
+                            "Gemini returned empty content (attempt %d/%d)",
+                            attempt, max_attempts,
+                        )
+                        if attempt < max_attempts:
+                            await asyncio.sleep(3)
+                            continue
+                        else:
+                            logger.error("Gemini returned empty content after %d attempts", max_attempts)
+                            return None
+
+                    break  # Success, exit retry loop
+
+                except Exception as e:
+                    if attempt < max_attempts:
+                        logger.warning(
+                            "Analyst Gemini call failed (attempt %d/%d), retrying in 3s: %s",
+                            attempt, max_attempts, e,
+                        )
+                        await asyncio.sleep(3)
+                    else:
+                        logger.error(
+                            "Analyst Gemini call failed after %d attempts: %s",
+                            max_attempts, e,
+                        )
+                        return None
 
             # Resolve article_id references to real URLs
             news = self._resolve_article_urls(news, raw_news)
@@ -470,7 +496,6 @@ class MarketAgent:
                     "date_range": earnings_result.get("date_range", {}),
                 },
                 "timestamp": now_iso(),
-                # Structured output
                 "title": title,
                 "summary": summary,
                 "intro": intro,
@@ -481,23 +506,7 @@ class MarketAgent:
 
         except Exception as e:
             logger.exception("Error in market analysis")
-
-            # Fallback - return data without analysis
-            market_data = get_all_market_data()
-            return {
-                "market_data": market_data,
-                "news_data": {"count": 0, "articles": [], "filters": {}},
-                "economic_calendar": {"count": 0, "events": [], "date_range": {}},
-                "earnings_calendar": {"count": 0, "earnings": [], "date_range": {}},
-                "timestamp": now_iso(),
-                # Structured fields with defaults
-                "title": "",
-                "summary": f"Data fetched (analysis error: {str(e)[:100]})",
-                "intro": "",
-                "news": {"headlines": [], "briefs": []},
-                "report_summary": [],
-                "calendar": [],
-            }
+            return None
 
     def _resolve_article_urls(self, news: dict, source_news: list) -> dict:
         """Ensure all news URLs are valid by resolving article_id or validating URLs.

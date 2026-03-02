@@ -117,7 +117,7 @@ Selection criteria:
 3. Must be actual events (someone did something), not commentary
 
 ### today_focus (3-6 items)
-Mix of economic data releases, earnings reports, and key catalysts for today.
+Events and catalysts happening TODAY ONLY. Do NOT include events scheduled for tomorrow or later days.
 Sort by importance. Each item needs:
 - title: Chinese description of the event
 - analysis: 2-3 sentences on what to expect, potential market impact, and key thresholds/metrics to watch
@@ -125,8 +125,9 @@ Sort by importance. Each item needs:
   If the event has no specific scheduled time, leave time as empty string "".
   Do NOT use vague descriptions like "ongoing", "real-time", "published" etc.
 
-Source from input economic_calendar (today's events) and earnings_calendar (today's earnings).
-Also include important non-calendar catalysts from overnight news that will drive today's action.
+Source ONLY from input economic_calendar and earnings_calendar (these are already filtered to today's events).
+If news mentions an upcoming event (e.g. earnings tomorrow, data release next week), do NOT put it here.
+Instead, mention it briefly in the relevant overnight_news item's analysis as forward context.
 
 ### summary (exactly 2 sections)
 Section 1 - title: "overnight_review"
@@ -246,7 +247,7 @@ class MorningReportAgent:
             )
             self._initialized = True
 
-    async def analyze(self) -> dict:
+    async def analyze(self) -> dict | None:
         """Fetch all pre-market data and run the morning analyst agent."""
         try:
             logger.info("Fetching pre-market data...")
@@ -390,18 +391,7 @@ class MorningReportAgent:
 
         except Exception as e:
             logger.exception("Error in morning analysis")
-            premarket_data = get_premarket_data()
-            return {
-                "timestamp": now_iso(),
-                "title": "",
-                "market_pulse": f"Data fetched (analysis error: {str(e)[:100]})",
-                "futures": [],
-                "global_markets": {"asia": [], "europe": [], "other": []},
-                "overnight_news": [],
-                "today_focus": [],
-                "summary": [],
-                "market_data": {"premarket": premarket_data},
-            }
+            return None
 
     def _resolve_article_urls(self, news_items: list, source_news: list) -> list:
         """Resolve article_id references to real URLs in news items.
