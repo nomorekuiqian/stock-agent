@@ -35,6 +35,7 @@ vi.mock('@/lib/auth', () => ({
   signInWithGoogle: vi.fn(),
   updateProfile: vi.fn(),
   isTokenExpired: vi.fn().mockReturnValue(false),
+  setCachedToken: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => ({

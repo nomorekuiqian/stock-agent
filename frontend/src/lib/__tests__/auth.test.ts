@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isTokenExpired, signIn, signOut, getAccessToken } from '../auth';
+import { isTokenExpired, signIn, signOut, getAccessToken, setCachedToken } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Mock @/lib/insforge
@@ -126,6 +126,7 @@ describe('getAccessToken', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setCachedToken(null);
   });
 
   afterEach(() => {
@@ -189,6 +190,94 @@ describe('getAccessToken', () => {
     expect(t2).toBe(freshToken);
     // fetch should only have been called once due to deduplication
     expect(resolveCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// token cache
+// ---------------------------------------------------------------------------
+describe('token cache', () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCachedToken(null);
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('returns cached token without any network calls', async () => {
+    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    setCachedToken(validToken);
+
+    // SDK and fetch should NOT be called
+    mockGetCurrentSession.mockRejectedValue(new Error('should not be called'));
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('should not be called'));
+
+    const token = await getAccessToken();
+    expect(token).toBe(validToken);
+    expect(mockGetCurrentSession).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('ignores expired cached token and falls back', async () => {
+    const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
+    setCachedToken(expiredToken);
+
+    // SDK also returns nothing useful
+    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
+
+    const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ authenticated: true, accessToken: freshToken }),
+    });
+
+    const token = await getAccessToken();
+    expect(token).toBe(freshToken);
+    // SDK was called because cache was expired
+    expect(mockGetCurrentSession).toHaveBeenCalled();
+  });
+
+  it('signIn seeds the cache so getAccessToken is instant', async () => {
+    const accessToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    const mockUser = { id: 'u1', email: 'a@b.com', profile: { name: 'Test' } };
+
+    // signIn via server proxy
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, accessToken, user: mockUser }),
+    });
+    await signIn('a@b.com', 'pass', true);
+
+    // Reset mocks so we can verify getAccessToken makes zero calls
+    vi.clearAllMocks();
+    mockGetCurrentSession.mockRejectedValue(new Error('should not be called'));
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('should not be called'));
+
+    const token = await getAccessToken();
+    expect(token).toBe(accessToken);
+    expect(mockGetCurrentSession).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('signOut clears the cache', async () => {
+    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    setCachedToken(validToken);
+
+    mockSignOut.mockResolvedValue({ error: null });
+    await signOut();
+
+    // After signOut, cache is cleared — SDK will be consulted
+    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
+
+    const token = await getAccessToken();
+    expect(token).toBeNull();
+    // SDK was called because cache was cleared by signOut
+    expect(mockGetCurrentSession).toHaveBeenCalled();
   });
 });
 

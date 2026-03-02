@@ -9,6 +9,7 @@ import {
   signInWithGoogle,
   updateProfile as authUpdateProfile,
   isTokenExpired,
+  setCachedToken,
 } from '@/lib/auth';
 import { insforge } from '@/lib/insforge';
 import { api } from '@/lib/api';
@@ -129,6 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(data => {
         if (data?.authenticated && data.accessToken && data.user && !isTokenExpired(data.accessToken)) {
           insforge.getHttpClient().setAuthToken(data.accessToken);
+          // Seed the token cache so getAccessToken() returns instantly
+          // without making redundant network calls to Insforge.
+          setCachedToken(data.accessToken);
           sdk.setUser({
             id: data.user.id,
             email: data.user.email,
