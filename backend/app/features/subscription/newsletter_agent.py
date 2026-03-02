@@ -53,7 +53,7 @@ NEWSLETTER_INSTRUCTION = """
 
 newsletter_agent = LlmAgent(
     name="newsletter_writer",
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     description="Generates newsletter content in Chinese with a warm, personal tone",
     instruction=NEWSLETTER_INSTRUCTION,
     output_schema=NewsletterOutput,

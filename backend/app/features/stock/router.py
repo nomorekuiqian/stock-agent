@@ -347,7 +347,7 @@ async def generate_stock_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3-pro-preview"),
+                        "model": cached.get("model", "gemini-3.1-pro-preview"),
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -405,7 +405,7 @@ async def generate_stock_analysis_endpoint(
                 "quote": stock_data.get("quote", {}),
                 "fundamentals": stock_data.get("fundamentals", {}),
             },
-            model=meta.get("model", "gemini-3-pro-preview"),
+            model=meta.get("model", "gemini-3.1-pro-preview"),
         )
         logger.info("Save result: %s", save_result)
 
@@ -567,7 +567,7 @@ async def generate_technical_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3-pro-preview"),
+                        "model": cached.get("model", "gemini-3.1-pro-preview"),
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                         "timeframe": timeframe,
@@ -607,7 +607,7 @@ async def generate_technical_analysis_endpoint(
             analysis_type=analysis_type,
             content=analysis,
             data_snapshot=technical_data,
-            model=meta.get("model", "gemini-3-pro-preview"),
+            model=meta.get("model", "gemini-3.1-pro-preview"),
             expires_hours=8,
         )
         logger.info("Save result: %s", save_result)

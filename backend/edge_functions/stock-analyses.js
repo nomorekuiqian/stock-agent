@@ -125,7 +125,7 @@ module.exports = async function(request) {
           analysis_type: analysis_type,
           content: contentStr,
           data_snapshot: snapshotStr,
-          model: model || 'gemini-3-pro-preview',
+          model: model || 'gemini-3.1-pro-preview',
           generated_at: generated_at || now,
           expires_at: expires_at || defaultExpiry
         }])
