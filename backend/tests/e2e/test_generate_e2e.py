@@ -16,6 +16,7 @@ Usage:
 
     # Run specific generation test
     pytest tests/e2e/test_generate_e2e.py::TestGenerateE2E::test_generate_daily_report -v --run-generate
+    pytest tests/e2e/test_generate_e2e.py::TestGenerateE2E::test_generate_morning_report -v --run-generate
 """
 
 import os
@@ -59,12 +60,17 @@ class TestGenerateE2E:
         print("=" * 60)
 
         # 1. Call /api/market to generate report
+        # Override auth dependency for this test (we're testing generation, not auth)
+        from app.core.deps import verify_user_token
+        app.dependency_overrides[verify_user_token] = lambda: TEST_USER_ID
+
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 "/api/market",
                 timeout=120.0,  # 2 minute timeout for AI generation
             )
+        app.dependency_overrides.pop(verify_user_token, None)
 
         assert response.status_code == 200, f"API call failed: {response.status_code} - {response.text}"
 
@@ -178,6 +184,84 @@ class TestGenerateE2E:
             email_data,
             audience_id=TEST_AUDIENCE_ID,
             first_name=first_name
+        )
+
+        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
+        print(f"[Generate] SUCCESS: Broadcast ID = {result.get('broadcast_id')}")
+
+    @pytest.mark.asyncio
+    async def test_generate_morning_report(self, email_service):
+        """
+        Full morning report generation flow:
+        1. Call /api/morning to generate new report (or use cache if today's exists)
+        2. Verify report structure (title, futures, overnight_news, summary)
+        3. Broadcast to Test Broadcast channel
+        4. Verify broadcast success
+
+        Note: This test may take 30-60 seconds due to AI generation.
+        If today's report already exists, it will use the cached version.
+        """
+        from app.main import app
+        from app.core.deps import verify_user_token
+
+        print("\n" + "=" * 60)
+        print("GENERATING MORNING REPORT (may take 30-60 seconds)")
+        print("=" * 60)
+
+        # 1. Call /api/morning to generate report
+        # Override auth dependency (testing generation, not auth)
+        app.dependency_overrides[verify_user_token] = lambda: TEST_USER_ID
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/morning",
+                timeout=120.0,
+            )
+        app.dependency_overrides.pop(verify_user_token, None)
+
+        assert response.status_code == 200, (
+            f"API call failed: {response.status_code} - {response.text}"
+        )
+
+        data = response.json()
+        from_cache = data.get("from_cache", False)
+        print(f"[Generate] From cache: {from_cache}")
+        print(f"[Generate] Report date: {data.get('report_date', 'N/A')}")
+        print(f"[Generate] Title: {data.get('title', '')[:60]}...")
+
+        # 2. Verify morning report structure
+        assert data.get("title"), "Morning report should have a title"
+        assert isinstance(data.get("futures"), list), "futures should be a list"
+        assert isinstance(data.get("overnight_news"), list), "overnight_news should be a list"
+        assert isinstance(data.get("summary"), list), "summary should be a list"
+
+        report_id = data.get("report_id")
+        print(f"[Generate] report_id: {report_id}")
+
+        # 3. Prepare data for broadcast
+        report_data = {
+            "report_id": report_id,
+            "report_date": data.get("report_date", ""),
+            "timestamp": data.get("timestamp", ""),
+            "title": data.get("title", ""),
+            "market_pulse": data.get("market_pulse", ""),
+            "futures": data.get("futures", []),
+            "futures_analysis": data.get("futures_analysis", ""),
+            "global_markets": data.get("global_markets", {}),
+            "global_markets_analysis": data.get("global_markets_analysis", ""),
+            "overnight_news": data.get("overnight_news", []),
+            "today_focus": data.get("today_focus", []),
+            "summary": data.get("summary", []),
+        }
+
+        # Wait to avoid Resend rate limiting
+        time.sleep(2)
+
+        # 4. Broadcast to Test Broadcast
+        result = await email_service.broadcast_morning_report(
+            report_data,
+            audience_id=TEST_AUDIENCE_ID,
         )
 
         assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
