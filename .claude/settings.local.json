@@ -189,7 +189,9 @@
       "WebFetch(domain:docs.insforge.dev)",
       "Bash(done)",
       "Bash(TZ=\"America/New_York\" date:*)",
-      "Bash(gh secret:*)"
+      "Bash(gh secret:*)",
+      "Bash(npm run:*)",
+      "Skill(cover-changes)"
     ],
     "deny": [],
     "ask": []

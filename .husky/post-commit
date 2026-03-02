@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# Post-commit hook: 自动将 commit 记录追加到 Obsidian 开发日志
+# 每次 git commit 后触发，记录 commit hash、message 和改动文件
+
+DEVLOG_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/TheMarketBrew增长/产品/开发日志.md"
+
+# 如果 devlog 文件不存在则跳过
+if [ ! -f "$DEVLOG_PATH" ]; then
+  exit 0
+fi
+
+# 获取东部时间日期
+TODAY=$(TZ='America/New_York' date +%Y-%m-%d)
+
+# 获取 commit 信息
+COMMIT_HASH=$(git log -1 --format='%h')
+COMMIT_MSG=$(git log -1 --format='%s')
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | head -10 | tr '\n' ', ' | sed 's/,$//')
+
+# 过滤掉 Co-Authored-By 行，只取第一行 subject
+COMMIT_MSG=$(echo "$COMMIT_MSG" | head -1)
+
+# 如果今天的日期标题不存在，添加一个
+if ! grep -q "### $TODAY" "$DEVLOG_PATH" 2>/dev/null; then
+  echo "" >> "$DEVLOG_PATH"
+  echo "### $TODAY" >> "$DEVLOG_PATH"
+fi
+
+# 追加 commit 记录
+echo "- \`$COMMIT_HASH\` $COMMIT_MSG ($CHANGED_FILES)" >> "$DEVLOG_PATH"

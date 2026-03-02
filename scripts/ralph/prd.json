@@ -1,0 +1,27 @@
+{
+  "project": "context-audit-test",
+  "description": "Test run: audit .context.md files against actual code and fix drift",
+  "stories": [
+    {
+      "id": "AUDIT-1",
+      "title": "Audit morning_report .context.md",
+      "description": "Read backend/app/features/morning_report/.context.md, compare against actual code in that directory (router.py, agent.py, models.py, db.py). Fix any inaccuracies in the .context.md (wrong endpoint paths, missing endpoints, outdated descriptions, wrong file responsibilities).",
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "AUDIT-2",
+      "title": "Audit screener .context.md",
+      "description": "Read backend/app/features/screener/.context.md, compare against actual code in that directory (router.py, db.py, models.py, filters.py, refresher.py). Fix any inaccuracies in the .context.md.",
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "AUDIT-3",
+      "title": "Audit subscription .context.md",
+      "description": "Read backend/app/features/subscription/.context.md, compare against actual code (router.py, service.py, email_service.py). Verify the channel list, email template count, and dependency list are accurate after the morning_report additions.",
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}
