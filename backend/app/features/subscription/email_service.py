@@ -318,6 +318,16 @@ class EmailService:
         ][:6]
         indices_html = ""
 
+        # Bilingual display names for market indicators
+        indicator_display_names = {
+            "S&P 500": "S&P 500 标普500",
+            "Nasdaq": "NASDAQ 纳指",
+            "10Y Treasury": "10Y TREASURY 十年美债",
+            "VIX": "VIX 恐慌指数",
+            "Gold": "GOLD 黄金",
+            "US Dollar": "US DOLLAR 美元",
+        }
+
         if key_indices:
             indices_html = '<table style="width: 100%; border-collapse: separate; border-spacing: 6px;"><tr>'
             for i, index in enumerate(key_indices):
@@ -336,10 +346,11 @@ class EmailService:
                     # Percentage: show with % suffix (e.g., "+1.27%")
                     change_str = f"{arrow}{change:.2f}%"
 
+                display_name = indicator_display_names.get(index.get("name", ""), index.get("name", ""))
                 indices_html += f"""
                 <td style="vertical-align: top; width: 33.33%;">
                     <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
-                        <div style="font-size: 10px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{index.get('name', '')}</div>
+                        <div style="font-size: 10px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{display_name}</div>
                         <div style="font-size: 17px; font-weight: 600; color: #0a0a0a;">{value_str}</div>
                         <div style="font-size: 11px; font-weight: 600; color: {color}; margin-top: 2px;">{change_str}</div>
                     </div>
