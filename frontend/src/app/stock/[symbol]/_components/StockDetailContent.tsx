@@ -25,6 +25,8 @@ import {
   useTechnicalSnapshot,
   useGenerateStockAnalysis,
   useGenerateTechnicalAnalysis,
+  useGenerateNewsAnalysis,
+  useGenerateMacroAnalysis,
 } from '@/hooks/queries/use-stock-data';
 
 // =============================================================================
@@ -145,6 +147,24 @@ interface StockTechnicalAnalysis {
   pattern_analysis: string;
   technical_summary: string;
 }
+
+interface StockNewsAnalysis {
+  title: string;
+  news_summary: string;
+  analyst_activity: string;
+  upcoming_catalysts: string;
+  sentiment_assessment: string;
+}
+
+interface StockMacroAnalysis {
+  title: string;
+  macro_impact: string;
+  sector_positioning: string;
+  market_regime: string;
+  outlook_and_risks: string;
+}
+
+type AnalysisTab = 'fundamental' | 'technical' | 'news' | 'macro';
 
 interface PriceHistoryData {
   date: string;
@@ -979,53 +999,47 @@ function AnalysisTabBar({
   activeTab,
   onTabChange,
 }: {
-  activeTab: 'fundamental' | 'technical';
-  onTabChange: (tab: 'fundamental' | 'technical') => void;
+  activeTab: AnalysisTab;
+  onTabChange: (tab: AnalysisTab) => void;
 }) {
+  const tabs: { id: AnalysisTab; label: string; labelEn: string; desc: string; color: string; activeBg: string }[] = [
+    { id: 'fundamental', label: '基本面', labelEn: 'Fundamentals', desc: '财务 / 估值 / AI 投资分析', color: 'amber', activeBg: 'bg-amber-500/[0.07]' },
+    { id: 'technical', label: '技术面', labelEn: 'Technical', desc: '趋势 / 信号 / AI 技术分析', color: 'emerald', activeBg: 'bg-emerald-500/[0.07]' },
+    { id: 'news', label: '新闻面', labelEn: 'News', desc: '新闻 / 分析师 / 催化事件', color: 'blue', activeBg: 'bg-blue-500/[0.07]' },
+    { id: 'macro', label: '宏观面', labelEn: 'Macro', desc: '宏观 / 板块 / 市场环境', color: 'violet', activeBg: 'bg-violet-500/[0.07]' },
+  ];
+
+  const colorMap: Record<string, { text: string; bar: string }> = {
+    amber: { text: 'text-amber-400 light:text-amber-600', bar: 'bg-amber-500' },
+    emerald: { text: 'text-emerald-400 light:text-emerald-600', bar: 'bg-emerald-500' },
+    blue: { text: 'text-blue-400 light:text-blue-600', bar: 'bg-blue-500' },
+    violet: { text: 'text-violet-400 light:text-violet-600', bar: 'bg-violet-500' },
+  };
+
   return (
-    <div className="grid grid-cols-2 rounded-xl overflow-hidden border border-border/40">
-      <button
-        onClick={() => onTabChange('fundamental')}
-        className={`relative px-5 py-3.5 text-left transition-all cursor-pointer border-r border-border/40 ${
-          activeTab === 'fundamental'
-            ? 'bg-amber-500/[0.07]'
-            : 'bg-card/30 hover:bg-card/60'
-        }`}
-      >
-        {activeTab === 'fundamental' && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-amber-500" />
-        )}
-        <div className={`text-sm font-semibold ${
-          activeTab === 'fundamental' ? 'text-amber-400 light:text-amber-600' : 'text-muted-foreground'
-        }`}>
-          基本面
-          <span className="ml-1.5 text-xs font-normal opacity-60">Fundamentals</span>
-        </div>
-        <div className="text-[11px] text-muted-foreground/50 mt-1">
-          财务数据 / 估值对比 / AI 投资分析
-        </div>
-      </button>
-      <button
-        onClick={() => onTabChange('technical')}
-        className={`relative px-5 py-3.5 text-left transition-all cursor-pointer ${
-          activeTab === 'technical'
-            ? 'bg-emerald-500/[0.07]'
-            : 'bg-card/30 hover:bg-card/60'
-        }`}
-      >
-        {activeTab === 'technical' && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500" />
-        )}
-        <div className={`text-sm font-semibold ${
-          activeTab === 'technical' ? 'text-emerald-400 light:text-emerald-600' : 'text-muted-foreground'
-        }`}>
-          技术面
-          <span className="ml-1.5 text-xs font-normal opacity-60">Technical</span>
-        </div>
-        <div className="text-[11px] text-muted-foreground/50 mt-1">
-          趋势信号 / 关键价位 / AI 技术分析
-        </div>
-      </button>
+    <div className="grid grid-cols-4 rounded-xl overflow-hidden border border-border/40">
+      {tabs.map((tab, i) => {
+        const isActive = activeTab === tab.id;
+        const colors = colorMap[tab.color];
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            className={`relative px-3 py-3 text-left transition-all cursor-pointer ${
+              i < tabs.length - 1 ? 'border-r border-border/40' : ''
+            } ${isActive ? tab.activeBg : 'bg-card/30 hover:bg-card/60'}`}
+          >
+            {isActive && <div className={`absolute top-0 left-0 right-0 h-[2px] ${colors.bar}`} />}
+            <div className={`text-sm font-semibold ${isActive ? colors.text : 'text-muted-foreground'}`}>
+              {tab.label}
+              <span className="ml-1 text-xs font-normal opacity-60 hidden sm:inline">{tab.labelEn}</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground/50 mt-1 hidden sm:block">
+              {tab.desc}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1039,6 +1053,14 @@ function AIAnalysisSection({
   technicalLoading,
   onGenerateTechnical,
   onRegenerateTechnical,
+  newsAnalysis,
+  newsLoading,
+  onGenerateNews,
+  onRegenerateNews,
+  macroAnalysis,
+  macroLoading,
+  onGenerateMacro,
+  onRegenerateMacro,
   companyName,
   symbol,
   isAuthenticated,
@@ -1055,16 +1077,32 @@ function AIAnalysisSection({
   technicalLoading: boolean;
   onGenerateTechnical: () => void;
   onRegenerateTechnical: () => void;
+  newsAnalysis: StockNewsAnalysis | null;
+  newsLoading: boolean;
+  onGenerateNews: () => void;
+  onRegenerateNews: () => void;
+  macroAnalysis: StockMacroAnalysis | null;
+  macroLoading: boolean;
+  onGenerateMacro: () => void;
+  onRegenerateMacro: () => void;
   companyName: string;
   symbol: string;
   isAuthenticated: boolean;
   isPro: boolean;
   onLoginRequired: () => void;
   onUpgradeRequired: () => void;
-  activeTab: 'fundamental' | 'technical';
+  activeTab: AnalysisTab;
 }) {
-  const currentAnalysis = activeTab === 'fundamental' ? analysis : technicalAnalysis;
-  const currentLoading = activeTab === 'fundamental' ? loading : technicalLoading;
+  const analysisMap: Record<AnalysisTab, { data: unknown; loading: boolean; generate: () => void; regenerate: () => void }> = {
+    fundamental: { data: analysis, loading, generate: onGenerate, regenerate: onRegenerate },
+    technical: { data: technicalAnalysis, loading: technicalLoading, generate: onGenerateTechnical, regenerate: onRegenerateTechnical },
+    news: { data: newsAnalysis, loading: newsLoading, generate: onGenerateNews, regenerate: onRegenerateNews },
+    macro: { data: macroAnalysis, loading: macroLoading, generate: onGenerateMacro, regenerate: onRegenerateMacro },
+  };
+
+  const current = analysisMap[activeTab];
+  const currentAnalysis = current.data;
+  const currentLoading = current.loading;
 
   // Handle generate click - check auth and pro status
   const handleGenerateClick = () => {
@@ -1076,19 +1114,11 @@ function AIAnalysisSection({
       onUpgradeRequired();
       return;
     }
-    if (activeTab === 'fundamental') {
-      onGenerate();
-    } else {
-      onGenerateTechnical();
-    }
+    current.generate();
   };
 
   const handleRegenerateClick = () => {
-    if (activeTab === 'fundamental') {
-      onRegenerate();
-    } else {
-      onRegenerateTechnical();
-    }
+    current.regenerate();
   };
 
   // State A: Not analyzed yet - show CTA
@@ -1100,26 +1130,26 @@ function AIAnalysisSection({
           <div className="px-6 py-8 md:px-10 md:py-10">
             <div className="max-w-2xl mx-auto text-center">
               <p className="text-xs uppercase tracking-[0.2em] text-amber-500/80 light:text-amber-600 mb-4">
-                {activeTab === 'fundamental' ? 'Investment Research' : 'Technical Analysis'}
+                {{ fundamental: 'Investment Research', technical: 'Technical Analysis', news: 'News & Catalysts', macro: 'Macro Analysis' }[activeTab]}
               </p>
               <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
-                {activeTab === 'fundamental' ? (
-                  <>
-                    Unlock Insights for{' '}
-                    <span className="text-amber-400 light:text-amber-600">{symbol}</span>
-                  </>
+                {{ fundamental: 'amber', technical: 'emerald', news: 'blue', macro: 'violet' }[activeTab] === 'amber' ? (
+                  <>Unlock Insights for <span className="text-amber-400 light:text-amber-600">{symbol}</span></>
+                ) : { technical: 'emerald', news: 'blue', macro: 'violet' }[activeTab as 'technical' | 'news' | 'macro'] === 'emerald' ? (
+                  <>Technical View of <span className="text-emerald-400 light:text-emerald-600">{symbol}</span></>
+                ) : activeTab === 'news' ? (
+                  <>News Briefing for <span className="text-blue-400 light:text-blue-600">{symbol}</span></>
                 ) : (
-                  <>
-                    Technical View of{' '}
-                    <span className="text-emerald-400 light:text-emerald-600">{symbol}</span>
-                  </>
+                  <>Macro Context for <span className="text-violet-400 light:text-violet-600">{symbol}</span></>
                 )}
               </h3>
               <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-8 max-w-lg mx-auto">
-                {activeTab === 'fundamental'
-                  ? `Generate a comprehensive analysis of ${companyName}'s fundamentals, financials, opportunities and risks.`
-                  : `Analyze ${companyName}'s technical indicators, trend signals, support/resistance levels, and chart patterns.`
-                }
+                {{
+                  fundamental: `Generate a comprehensive analysis of ${companyName}'s fundamentals, financials, opportunities and risks.`,
+                  technical: `Analyze ${companyName}'s technical indicators, trend signals, support/resistance levels, and chart patterns.`,
+                  news: `Summarize recent news, analyst activity, and upcoming catalysts for ${companyName}.`,
+                  macro: `Analyze how macro environment, sector positioning, and market regime affect ${companyName}.`,
+                }[activeTab]}
               </p>
               <button
                 onClick={handleGenerateClick}
@@ -1141,7 +1171,7 @@ function AIAnalysisSection({
                   </>
                 ) : (
                   <>
-                    <span>{activeTab === 'fundamental' ? 'Generate Analysis' : 'Generate Technical Analysis'}</span>
+                    <span>{{ fundamental: 'Generate Analysis', technical: 'Generate Technical Analysis', news: 'Generate News Briefing', macro: 'Generate Macro Analysis' }[activeTab]}</span>
                     <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
@@ -1181,10 +1211,12 @@ function AIAnalysisSection({
                 </svg>
               </div>
               <p className="text-sm text-muted-foreground">
-                {activeTab === 'fundamental'
-                  ? `Analyzing ${companyName}...`
-                  : `Analyzing ${symbol} technicals...`
-                }
+                {{
+                  fundamental: `Analyzing ${companyName}...`,
+                  technical: `Analyzing ${symbol} technicals...`,
+                  news: `Gathering news for ${symbol}...`,
+                  macro: `Analyzing macro context for ${symbol}...`,
+                }[activeTab]}
               </p>
             </div>
           </div>
@@ -1204,16 +1236,17 @@ function AIAnalysisSection({
         <div className="px-5 py-4 border-b border-border/30 bg-card/40">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <div className={`w-1 h-5 rounded-full ${activeTab === 'fundamental' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-              <span>{activeTab === 'fundamental' ? '投资分析' : '技术分析'}</span>
+              <div className={`w-1 h-5 rounded-full ${{ fundamental: 'bg-amber-500', technical: 'bg-emerald-500', news: 'bg-blue-500', macro: 'bg-violet-500' }[activeTab]}`} />
+              <span>{{ fundamental: '投资分析', technical: '技术分析', news: '新闻分析', macro: '宏观分析' }[activeTab]}</span>
               <span className="text-muted-foreground text-sm font-normal font-data">{symbol}</span>
             </h2>
             <button
               onClick={handleRegenerateClick}
               disabled={currentLoading}
-              className={`p-2 text-muted-foreground transition-colors disabled:opacity-50 ${
-                activeTab === 'fundamental' ? 'hover:text-amber-400' : 'hover:text-emerald-400'
-              }`}
+              className={`p-2 text-muted-foreground transition-colors disabled:opacity-50 ${{
+                fundamental: 'hover:text-amber-400', technical: 'hover:text-emerald-400',
+                news: 'hover:text-blue-400', macro: 'hover:text-violet-400',
+              }[activeTab]}`}
               title="重新生成"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1362,6 +1395,100 @@ function AIAnalysisSection({
                 </div>
               )}
             </>
+          ) : activeTab === 'news' && newsAnalysis ? (
+            <>
+              {newsAnalysis.news_summary && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+                    <span className="text-blue-400">新闻综述</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Headlines</span>
+                  </h3>
+                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                    <MarkdownContent content={newsAnalysis.news_summary} />
+                  </div>
+                </div>
+              )}
+              {newsAnalysis.analyst_activity && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+                    <span className="text-blue-400">分析师动态</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Analysts</span>
+                  </h3>
+                  <MarkdownContent content={newsAnalysis.analyst_activity} />
+                </div>
+              )}
+              {newsAnalysis.upcoming_catalysts && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+                    <span className="text-blue-400">催化事件</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Catalysts</span>
+                  </h3>
+                  <MarkdownContent content={newsAnalysis.upcoming_catalysts} />
+                </div>
+              )}
+              {newsAnalysis.sentiment_assessment && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+                    <span className="text-blue-400">情绪判断</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Sentiment</span>
+                  </h3>
+                  <div className="p-4 bg-blue-500/[0.04] border border-blue-500/20 rounded-lg">
+                    <MarkdownContent content={newsAnalysis.sentiment_assessment} />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : activeTab === 'macro' && macroAnalysis ? (
+            <>
+              {macroAnalysis.macro_impact && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400/80" />
+                    <span className="text-violet-400">宏观影响</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Macro Impact</span>
+                  </h3>
+                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
+                    <MarkdownContent content={macroAnalysis.macro_impact} />
+                  </div>
+                </div>
+              )}
+              {macroAnalysis.sector_positioning && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400/80" />
+                    <span className="text-violet-400">板块定位</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Sector</span>
+                  </h3>
+                  <MarkdownContent content={macroAnalysis.sector_positioning} />
+                </div>
+              )}
+              {macroAnalysis.market_regime && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400/80" />
+                    <span className="text-violet-400">市场环境</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Regime</span>
+                  </h3>
+                  <MarkdownContent content={macroAnalysis.market_regime} />
+                </div>
+              )}
+              {macroAnalysis.outlook_and_risks && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400/80" />
+                    <span className="text-violet-400">前景与风险</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Outlook</span>
+                  </h3>
+                  <div className="p-4 bg-violet-500/[0.04] border border-violet-500/20 rounded-lg">
+                    <MarkdownContent content={macroAnalysis.outlook_and_risks} />
+                  </div>
+                </div>
+              )}
+            </>
           ) : null}
         </div>
       </div>
@@ -1422,6 +1549,8 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   // AI Analysis mutations (kept as local state due to force/regenerate semantics)
   const analysisMutation = useGenerateStockAnalysis(symbol);
   const technicalMutation = useGenerateTechnicalAnalysis(symbol);
+  const newsMutation = useGenerateNewsAnalysis(symbol);
+  const macroMutation = useGenerateMacroAnalysis(symbol);
 
   const analysis = (analysisMutation.data as StockAIAnalysis | null) ?? null;
   const analysisLoading = analysisMutation.isPending;
@@ -1431,8 +1560,14 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const [weeklyTechnicalAnalysis, setWeeklyTechnicalAnalysis] = useState<StockTechnicalAnalysis | null>(null);
   const technicalLoading = technicalMutation.isPending;
 
+  // News & Macro analysis
+  const newsAnalysis = (newsMutation.data as StockNewsAnalysis | null) ?? null;
+  const newsLoading = newsMutation.isPending;
+  const macroAnalysis = (macroMutation.data as StockMacroAnalysis | null) ?? null;
+  const macroLoading = macroMutation.isPending;
+
   // Active analysis tab (synced from AIAnalysisSection to control chart)
-  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'fundamental' | 'technical'>('fundamental');
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<AnalysisTab>('fundamental');
 
   // Technical Snapshot (lazy-loaded on tab change)
   const [snapshotEnabled, setSnapshotEnabled] = useState(false);
@@ -1470,11 +1605,19 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const technicalAnalysis = technicalTimeframe === 'daily' ? dailyTechnicalAnalysis : weeklyTechnicalAnalysis;
 
   // Handle analysis tab change (enable snapshot fetch on first technical tab visit)
-  const handleAnalysisTabChange = (tab: 'fundamental' | 'technical') => {
+  const handleAnalysisTabChange = (tab: AnalysisTab) => {
     setActiveAnalysisTab(tab);
     if (tab === 'technical' && !snapshotEnabled) {
       setSnapshotEnabled(true);
     }
+  };
+
+  const handleGenerateNews = (force: boolean = false) => {
+    newsMutation.mutate({ force });
+  };
+
+  const handleGenerateMacro = (force: boolean = false) => {
+    macroMutation.mutate({ force });
   };
 
   // Show full skeleton only if we have nothing to show yet
@@ -1664,7 +1807,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
           {activeAnalysisTab === 'technical' ? (
             <TechnicalChart symbol={symbol} interval={technicalTimeframe === 'weekly' ? 'W' : 'D'} />
           ) : (
-            <div className="terminal-card overflow-hidden rounded-xl">
+            <div className="v2-card overflow-hidden rounded-xl">
               <StockPriceChart
                 symbol={symbol}
                 data={priceHistory}
@@ -1688,6 +1831,14 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             technicalLoading={technicalLoading}
             onGenerateTechnical={() => handleGenerateTechnical(false)}
             onRegenerateTechnical={() => handleGenerateTechnical(true)}
+            newsAnalysis={newsAnalysis}
+            newsLoading={newsLoading}
+            onGenerateNews={() => handleGenerateNews(false)}
+            onRegenerateNews={() => handleGenerateNews(true)}
+            macroAnalysis={macroAnalysis}
+            macroLoading={macroLoading}
+            onGenerateMacro={() => handleGenerateMacro(false)}
+            onRegenerateMacro={() => handleGenerateMacro(true)}
             companyName={profile?.company_name || symbol}
             symbol={symbol}
             isAuthenticated={isAuthenticated}

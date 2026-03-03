@@ -134,6 +134,7 @@ export function StockPriceChart({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      seriesRef.current = null;
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
@@ -204,9 +205,9 @@ export function StockPriceChart({
   const timeRanges = ['1W', '1M', '3M', '6M', '1Y', '5Y'];
 
   return (
-    <div className="terminal-card overflow-hidden">
+    <div className="v2-card overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-border/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />

@@ -95,7 +95,7 @@ export function SectorPreview({
     : 0;
 
   return (
-    <div className="terminal-card p-5">
+    <div className="v2-card p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
