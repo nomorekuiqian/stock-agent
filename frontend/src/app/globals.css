@@ -367,7 +367,7 @@ h1, h2, h3, h4, h5, h6 {
     color: #059669;
   }
 
-  /* Terminal-style card */
+  /* Terminal-style card — DEPRECATED: use v2-card instead */
   .terminal-card {
     @apply bg-card border border-border rounded-lg overflow-hidden;
     box-shadow:
@@ -380,6 +380,74 @@ h1, h2, h3, h4, h5, h6 {
       0 0 0 1px rgba(228, 228, 231, 0.8),
       0 4px 12px rgba(0, 0, 0, 0.08);
   }
+
+  /* ---- Design System v2 ---- */
+
+  /* V2 Primary Card — borderless, multi-layer shadow depth */
+  .v2-card {
+    @apply bg-card rounded-xl overflow-hidden;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+
+  .v2-card:hover {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 2px 4px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .light .v2-card {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.04),
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 4px 16px rgba(0, 0, 0, 0.04);
+  }
+
+  .light .v2-card:hover {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.06),
+      0 2px 6px rgba(0, 0, 0, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+
+  /* V2 Inset Surface — recessed, used inside v2-card */
+  .v2-inset {
+    @apply rounded-lg overflow-hidden;
+    background: rgba(255, 255, 255, 0.02);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .light .v2-inset {
+    background: rgba(0, 0, 0, 0.02);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* V2 Divider */
+  .v2-divider {
+    @apply h-px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .light .v2-divider {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  /* V2 Gold Accent — champagne gold replacing amber for secondary accent */
+  .text-gold { color: #C9A96E; }
+  .light .text-gold { color: #9A7B4F; }
+
+  .bg-gold\/10 { background: rgba(201, 169, 110, 0.10); }
+  .bg-gold\/15 { background: rgba(201, 169, 110, 0.15); }
+  .light .bg-gold\/10 { background: rgba(154, 123, 79, 0.10); }
+  .light .bg-gold\/15 { background: rgba(154, 123, 79, 0.15); }
+
+  .border-gold\/20 { border-color: rgba(201, 169, 110, 0.20); }
+  .border-gold\/30 { border-color: rgba(201, 169, 110, 0.30); }
+  .light .border-gold\/20 { border-color: rgba(154, 123, 79, 0.20); }
+  .light .border-gold\/30 { border-color: rgba(154, 123, 79, 0.30); }
 }
 
 /* ============================================
