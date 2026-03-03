@@ -11,6 +11,7 @@ and produces the final structured report.
 import asyncio
 import json
 import os
+import re
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso, format_report_date
@@ -121,6 +122,20 @@ ANALYST_INSTRUCTION = """
 - "道指首次突破5万点" -> 指数变动，属于 report_summary 分析
 - "分析师认为AI股票被高估" -> 个人观点，不是事件
 - "美股本周回顾与展望" -> 市场综述，不是具体事件
+
+**时效性验证（极重要！必须严格执行）**
+新闻数组中的文章虽然是最近发布的，但文章报道的事件可能发生在数天甚至数周前。你必须检查每篇文章的实际内容，判断报道的事件是否发生在今天或昨天。
+
+必须排除的"旧事新报"类文章：
+- 回顾/总结类："亚马逊股价上月大跌12%"、"Netflix stock surged 10% in February" -> 报道的是上月的价格变动，不是今天发生的
+- 月度/周度复盘："Top gainers/losers of the month"、"本月表现最佳科技股" -> 回顾总结，不是新事件
+- 过时的价格变动：文章标题或正文提到 "last month"、"in January"、"past quarter"、"since December"、"over the past weeks" 等过去时间框架的价格涨跌幅
+
+判断方法：读文章的 title 和 text，问自己"这个事件是今天/昨天发生的吗？"
+- 如果文章说"Amazon dropped 12%"，检查 text 里是否提到这是 last month/past month 的变动 -> 如果是，排除
+- 如果文章说"Amazon宣布新AI计划"，这是一个新公告 -> 可以选入
+
+这类旧事新报的文章会严重误导读者，让他们以为今天发生了大波动。即使文章来自可靠来源且内容准确，只要报道的事件不是近1-2天发生的，就不能选入。
 
 **URL 规则：** url 字段填写来源文章的 article_id 数字（如 "0"、"5"、"12"），系统自动替换为真实链接。
 
@@ -251,6 +266,65 @@ def _clean_market_data(data: dict) -> dict:
     return result
 
 
+def _is_retrospective_news(title: str, text: str) -> bool:
+    """
+    Detect retrospective/stale news that reports on past events.
+
+    These are articles published today but reporting on price movements or events
+    from weeks/months ago. They mislead readers into thinking the event happened today.
+
+    Examples that should be filtered:
+    - "Amazon stock dropped 12% last month"
+    - "Top tech gainers of February"
+    - "Netflix surged 10% since January"
+    """
+    combined = (title + " " + text[:300]).lower()
+
+    # Pattern 1: Past timeframe + price movement (the most common pattern)
+    # Matches: "fell 12% last month", "surged 10% in february", "dropped since january"
+    price_move_re = re.compile(
+        r'(?:surge[ds]?|jump(?:ed|s)?|soar(?:ed|s)?|gain(?:ed|s)?|rose|ris(?:es?|ing)|rally|rallied'
+        r'|drop(?:ped|s)?|fell|fall(?:s|ing)?|plung(?:ed|es?|ing)|tumbl(?:ed|es?|ing)'
+        r'|declin(?:ed|es?|ing)|los(?:t|es?|ing)|tank(?:ed|s)?|crash(?:ed)?|slid|sink(?:s|ing)?)'
+        r'\s+\d+%?\s*'
+        r'(?:last\s+(?:month|week|quarter)|in\s+(?:january|february|march|april|may|june'
+        r'|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)'
+        r'|over\s+the\s+past\s+(?:month|weeks?|quarter)'
+        r'|since\s+(?:january|february|march|april|may|june|july|august|september|october|november|december'
+        r'|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec|last|the\s+start))'
+    )
+    if price_move_re.search(combined):
+        return True
+
+    # Pattern 2: Reverse order - timeframe then price move
+    # Matches: "last month Amazon fell 12%", "in February, Netflix surged"
+    reverse_re = re.compile(
+        r'(?:last\s+(?:month|week|quarter)'
+        r'|in\s+(?:january|february|march|april|may|june|july|august|september|october|november|december'
+        r'|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec))'
+        r'.{0,40}'
+        r'(?:surge[ds]?|jump(?:ed|s)?|soar(?:ed|s)?|gain(?:ed|s)?|rose|rally|rallied'
+        r'|drop(?:ped|s)?|fell|plung(?:ed|es?|ing)|tumbl(?:ed|es?|ing)|declin(?:ed|es?|ing)'
+        r'|los(?:t|es?)|tank(?:ed|s)?|crash(?:ed)?|slid)'
+        r'\s+\d+%'
+    )
+    if reverse_re.search(combined):
+        return True
+
+    # Pattern 3: Monthly/weekly summary articles
+    summary_patterns = [
+        r'(?:top|best|worst|biggest)\s+\w*\s*(?:gainers?|losers?|performers?|stocks?)\s+(?:of|in|for)\s+(?:the\s+)?(?:month|week|january|february|march|april|may|june|july|august|september|october|november|december)',
+        r'(?:monthly|weekly)\s+(?:recap|review|roundup|wrap|summary)',
+        r'(?:month|week)\s+in\s+review',
+        r'how\s+.{0,20}\s+performed\s+(?:last|in|this)\s+(?:month|week|quarter)',
+    ]
+    for pattern in summary_patterns:
+        if re.search(pattern, combined):
+            return True
+
+    return False
+
+
 def _prepare_data_for_analyst(
     market_data: dict,
     news: list,
@@ -272,6 +346,7 @@ def _prepare_data_for_analyst(
     #    Python post-processing resolves article_id -> real URL.
     #    Pre-filter obvious junk before sending to AI.
     clean_news = []
+    retrospective_filtered = 0
     for i, n in enumerate(news):
         title = n.get("title", "")
         if not title:
@@ -283,15 +358,24 @@ def _prepare_data_for_analyst(
             "INVESTORS WITH LOSSES", "ENCOURAGES", "LAWSUIT",
         ]):
             continue
+        # Pre-filter retrospective news (reports on past events)
+        text = n.get("text", "")
+        if _is_retrospective_news(title, text):
+            retrospective_filtered += 1
+            logger.info("Filtered retrospective news: %s", title[:80])
+            continue
         item = {
             "article_id": i,
             "title": title,
-            "text": n.get("text", ""),
+            "text": text,
             "source": n.get("source", ""),
             "url": n.get("url", ""),
             "publishedDate": n.get("publishedDate", ""),
         }
         clean_news.append(item)
+
+    if retrospective_filtered:
+        logger.info("Filtered %d retrospective news articles", retrospective_filtered)
 
     # 2. Clean economic_calendar - keep only: date, event, previous, estimate, is_key_event
     clean_calendar = [
