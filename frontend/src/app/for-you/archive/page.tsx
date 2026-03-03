@@ -104,7 +104,7 @@ export default function ForYouArchivePage() {
               <Link
                 key={digest.id}
                 href={`/for-you/${digest.id}`}
-                className="group terminal-card p-5 hover:border-emerald-500/30 transition-all"
+                className="group v2-card p-5 transition-all"
               >
                 {/* Date Badge */}
                 <div className="flex items-center justify-between mb-4">

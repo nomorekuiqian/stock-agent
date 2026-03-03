@@ -55,7 +55,7 @@ export default function FeatureCards({
         {/* Manage Holdings */}
         <button
           onClick={onToggleHoldings}
-          className="terminal-card p-5 hover:border-emerald-500/30 transition-all group text-left cursor-pointer focus:ring-2 focus:ring-emerald-500/50 focus:outline-none"
+          className="v2-card p-5 transition-all group text-left cursor-pointer focus:ring-2 focus:ring-emerald-500/50 focus:outline-none"
         >
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -78,7 +78,7 @@ export default function FeatureCards({
         </button>
 
         {/* AI Analysis (Coming Soon) */}
-        <div className="terminal-card p-5 opacity-50 cursor-default">
+        <div className="v2-card p-5 opacity-50 cursor-default">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,7 +121,7 @@ function DigestReadyCard({
   onToggleSubscription: () => void;
 }) {
   return (
-    <div className="relative terminal-card overflow-hidden">
+    <div className="relative v2-card overflow-hidden">
       {/* Subtle emerald gradient accent at top */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
 
@@ -214,7 +214,7 @@ function DigestGenerateCard({
   onToggleSubscription: () => void;
 }) {
   return (
-    <div className="relative terminal-card overflow-hidden">
+    <div className="relative v2-card overflow-hidden">
       {/* Subtle border glow */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 

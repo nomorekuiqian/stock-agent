@@ -47,7 +47,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Watchlist Overview */}
       {digest.stocks.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section className="v2-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
@@ -83,7 +83,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Headlines News */}
       {digest.news.headlines && digest.news.headlines.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section className="v2-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">头条新闻</h3>
@@ -120,7 +120,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Brief News */}
       {digest.news.briefs && digest.news.briefs.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section className="v2-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">更多新闻</h3>
@@ -157,7 +157,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Key Events */}
       {digest.events.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section className="v2-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">重要事件</h3>
@@ -206,7 +206,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Summary */}
       {digest.summary?.content && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section className="v2-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">总结</h3>
