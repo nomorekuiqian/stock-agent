@@ -1347,7 +1347,7 @@ export const api = {
 
   reports: {
     getLatest: async (): Promise<MarketData | null> => {
-      const response = await fetch(`${API_BASE_URL}/market/reports/latest`);
+      const response = await fetch(`${API_BASE_URL}/market/reports/latest`, { signal: AbortSignal.timeout(10000) });
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch latest report');
@@ -1357,7 +1357,7 @@ export const api = {
     },
 
     getByDate: async (date: string): Promise<MarketData | null> => {
-      const response = await fetch(`${API_BASE_URL}/market/reports/date/${date}`);
+      const response = await fetch(`${API_BASE_URL}/market/reports/date/${date}`, { signal: AbortSignal.timeout(10000) });
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch report');
@@ -1367,7 +1367,7 @@ export const api = {
     },
 
     getById: async (id: string): Promise<MarketData | null> => {
-      const response = await fetch(`${API_BASE_URL}/market/reports/${id}`);
+      const response = await fetch(`${API_BASE_URL}/market/reports/${id}`, { signal: AbortSignal.timeout(10000) });
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch report');
@@ -1377,7 +1377,7 @@ export const api = {
     },
 
     list: async (limit = 20, offset = 0): Promise<{ data: ReportListItem[]; total: number }> => {
-      const response = await fetch(`${API_BASE_URL}/market/reports?limit=${limit}&offset=${offset}`);
+      const response = await fetch(`${API_BASE_URL}/market/reports?limit=${limit}&offset=${offset}`, { signal: AbortSignal.timeout(10000) });
       if (!response.ok) {
         throw new Error('Failed to fetch reports');
       }
