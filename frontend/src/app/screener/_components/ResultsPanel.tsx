@@ -1,0 +1,131 @@
+'use client';
+
+import FilterProgress, { type FilterStep } from './FilterProgress';
+import PickReasonCard from './PickReasonCard';
+import CandidateList from './CandidateList';
+
+interface ResultsPanelProps {
+  steps: FilterStep[];
+  appliedFilters: { field: string; op: string; value: unknown }[];
+  candidates: Record<string, unknown>[];
+  candidateCount: number;
+  universeSize: number;
+  pickReasons: { symbol: string; reason: string }[];
+  loading: boolean;
+}
+
+/**
+ * ResultsPanel - Right side results display.
+ *
+ * Shows:
+ * 1. Filter progress funnel (3,680 -> 45 -> 5)
+ * 2. Applied filter condition chips
+ * 3. Pick reason cards (when AI makes final recommendations)
+ * 4. Candidate stock list (table on desktop, cards on mobile)
+ *
+ * Empty state shown when no results yet.
+ */
+export default function ResultsPanel({
+  steps,
+  appliedFilters,
+  candidates,
+  candidateCount,
+  universeSize,
+  pickReasons,
+  loading,
+}: ResultsPanelProps) {
+  const hasResults = candidates.length > 0;
+  const hasReasons = pickReasons.length > 0;
+
+  // Empty state
+  if (!hasResults && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-800/50 border border-border/20 flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+            <path d="M13 13l6 6" />
+          </svg>
+        </div>
+        <p className="text-sm text-zinc-500 leading-relaxed">
+          在左侧对话中描述你的偏好<br />
+          AI 会帮你筛选出合适的股票
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto px-4 py-4 space-y-4 animate-panel-enter">
+      {/* Filter progress */}
+      <FilterProgress steps={steps} appliedFilters={appliedFilters} />
+
+      {/* Result count */}
+      {hasResults && (
+        <div className="flex items-baseline gap-2">
+          <span className="font-data text-lg text-emerald-400 tabular-nums">
+            {candidateCount}
+          </span>
+          <span className="text-xs text-zinc-500">
+            / {universeSize.toLocaleString()} 只匹配
+          </span>
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {loading && hasResults && (
+        <div className="flex items-center gap-2 py-2">
+          <div className="w-4 h-4 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+          <span className="text-xs text-zinc-500">更新中...</span>
+        </div>
+      )}
+
+      {/* Pick reason cards (final recommendation mode) */}
+      {hasReasons && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-medium text-zinc-500 tracking-wider uppercase">
+            AI 推荐
+          </h3>
+          {pickReasons.map((pr, i) => {
+            const stock = candidates.find(
+              (c) => {
+                const s = String(c.symbol || '');
+                const clean = s.includes(':') ? s.split(':')[1] : s;
+                return clean === pr.symbol || s === pr.symbol;
+              }
+            );
+            return (
+              <PickReasonCard
+                key={pr.symbol}
+                symbol={pr.symbol}
+                name={stock?.name as string}
+                price={stock?.price as number}
+                dailyChange={stock?.daily_change as number}
+                reason={pr.reason}
+                index={i}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Candidate list (non-recommendation mode) */}
+      {hasResults && !hasReasons && (
+        <CandidateList
+          candidates={candidates}
+          strategy="custom"
+          expanded={candidateCount <= 5}
+        />
+      )}
+
+      {/* Prompt for deep research */}
+      {candidateCount > 0 && candidateCount <= 5 && !hasReasons && (
+        <div className="text-center py-3">
+          <p className="text-xs text-emerald-500/70">
+            点击股票代码查看详细分析
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
