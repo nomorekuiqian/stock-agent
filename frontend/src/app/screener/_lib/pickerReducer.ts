@@ -1,0 +1,221 @@
+/**
+ * Picker state management — reducer, persistence, and helpers.
+ *
+ * Extracted from page.tsx so the pure logic can be unit-tested
+ * without rendering React components.
+ */
+
+import type { PickResult, PickerOption } from '@/lib/api';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface ChatMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  options?: PickerOption[];
+  selectedOption?: string | null;
+  isError?: boolean;
+}
+
+export interface FilterStep {
+  count: number;
+  label?: string;
+}
+
+export interface PickerState {
+  phase: 'welcome' | 'chat';
+  messages: ChatMsg[];
+  accumulatedFilters: { field: string; op: string; value: unknown }[];
+  candidates: Record<string, unknown>[];
+  candidateCount: number;
+  universeSize: number;
+  pickReasons: { symbol: string; reason: string }[];
+  funnelSteps: FilterStep[];
+  isLoading: boolean;
+  error: string | null;
+  hasNewResults: boolean;
+}
+
+export type PickerAction =
+  | { type: 'SEND_MESSAGE'; message: string }
+  | { type: 'RECEIVE_RESPONSE'; result: PickResult }
+  | { type: 'SET_ERROR'; error: string }
+  | { type: 'SET_LOADING'; loading: boolean }
+  | { type: 'VIEW_RESULTS' }
+  | { type: 'RESET' };
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const STORAGE_KEY = 'screener_picker_state';
+
+export const initialState: PickerState = {
+  phase: 'welcome',
+  messages: [],
+  accumulatedFilters: [],
+  candidates: [],
+  candidateCount: 0,
+  universeSize: 0,
+  pickReasons: [],
+  funnelSteps: [],
+  isLoading: false,
+  error: null,
+  hasNewResults: false,
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+export function nextMsgId(): string {
+  return `msg-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+}
+
+/** Keys to exclude from sessionStorage (large, re-fetchable data). */
+const TRANSIENT_KEYS = new Set(['candidates']);
+
+export function saveState(state: PickerState): void {
+  try {
+    const filtered: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(state)) {
+      if (!TRANSIENT_KEYS.has(k)) filtered[k] = v;
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  } catch {
+    // sessionStorage full or unavailable - silently ignore
+  }
+}
+
+export function loadState(): PickerState {
+  if (typeof window === 'undefined') return initialState;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return initialState;
+    const saved = JSON.parse(raw) as Partial<PickerState>;
+    return { ...initialState, ...saved, candidates: [], isLoading: false, error: null };
+  } catch {
+    return initialState;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reducer
+// ---------------------------------------------------------------------------
+
+export function pickerReducer(state: PickerState, action: PickerAction): PickerState {
+  switch (action.type) {
+    case 'SEND_MESSAGE': {
+      const userMsg: ChatMsg = {
+        id: nextMsgId(),
+        role: 'user',
+        content: action.message,
+      };
+
+      // Mark the previous assistant message's option as selected (if user clicked a chip)
+      const updatedMessages = state.messages.map((msg, i) => {
+        if (
+          msg.role === 'assistant' &&
+          msg.options?.some(o => o.value === action.message) &&
+          !msg.selectedOption &&
+          i === state.messages.length - 1
+        ) {
+          return { ...msg, selectedOption: action.message };
+        }
+        return msg;
+      });
+
+      return {
+        ...state,
+        phase: 'chat',
+        messages: [...updatedMessages, userMsg],
+        isLoading: true,
+        error: null,
+      };
+    }
+
+    case 'RECEIVE_RESPONSE': {
+      const { result } = action;
+
+      const assistantMsg: ChatMsg = {
+        id: nextMsgId(),
+        role: 'assistant',
+        content: result.message,
+        options: result.options.length > 0 ? result.options : undefined,
+      };
+
+      // Build funnel steps
+      let newFunnelSteps = [...state.funnelSteps];
+      if (result.candidate_count > 0) {
+        if (newFunnelSteps.length === 0 && result.universe_size > 0) {
+          newFunnelSteps = [
+            { count: result.universe_size, label: '全市场' },
+            { count: result.candidate_count },
+          ];
+        } else if (
+          newFunnelSteps.length > 0 &&
+          result.candidate_count !== newFunnelSteps[newFunnelSteps.length - 1]?.count
+        ) {
+          newFunnelSteps = [...newFunnelSteps, { count: result.candidate_count }];
+        }
+      }
+
+      // Determine pickReasons for this turn:
+      // - New pick_reasons from backend -> use them (replace)
+      // - New candidates but no pick_reasons -> clear old recommendations (back to list)
+      // - Neither -> keep current state (pure chat turn)
+      const hasNewCandidates = result.candidates.length > 0;
+      const hasNewReasons = result.pick_reasons.length > 0;
+      let nextPickReasons = state.pickReasons;
+      if (hasNewReasons) {
+        nextPickReasons = result.pick_reasons;
+      } else if (hasNewCandidates) {
+        nextPickReasons = [];
+      }
+
+      return {
+        ...state,
+        messages: [...state.messages, assistantMsg],
+        accumulatedFilters: result.accumulated_filters || state.accumulatedFilters,
+        candidates: hasNewCandidates ? result.candidates : state.candidates,
+        candidateCount: result.candidate_count > 0 ? result.candidate_count : state.candidateCount,
+        universeSize: result.universe_size > 0 ? result.universe_size : state.universeSize,
+        pickReasons: nextPickReasons,
+        funnelSteps: newFunnelSteps,
+        isLoading: false,
+        hasNewResults: hasNewCandidates,
+      };
+    }
+
+    case 'SET_ERROR': {
+      const errorMsg: ChatMsg = {
+        id: nextMsgId(),
+        role: 'assistant',
+        content: action.error,
+        isError: true,
+      };
+      return {
+        ...state,
+        messages: [...state.messages, errorMsg],
+        isLoading: false,
+        error: null,
+      };
+    }
+
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.loading };
+
+    case 'VIEW_RESULTS':
+      return { ...state, hasNewResults: false };
+
+    case 'RESET':
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      return { ...initialState };
+
+    default:
+      return state;
+  }
+}
