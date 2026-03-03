@@ -122,3 +122,37 @@ export function useGenerateTechnicalAnalysis(symbol: string) {
     },
   });
 }
+
+export function useGenerateNewsAnalysis(symbol: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/news?force=${force}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(`Failed to generate news analysis: ${response.status}`);
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.stocks.newsAnalysis(symbol), data);
+    },
+  });
+}
+
+export function useGenerateMacroAnalysis(symbol: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/macro?force=${force}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(`Failed to generate macro analysis: ${response.status}`);
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.stocks.macroAnalysis(symbol), data);
+    },
+  });
+}

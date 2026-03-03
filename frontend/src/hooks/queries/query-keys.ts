@@ -36,6 +36,8 @@ export const queryKeys = {
     analysis: (symbol: string) => ['stocks', 'analysis', symbol] as const,
     technical: (symbol: string) => ['stocks', 'technical', symbol] as const,
     technicalSnapshot: (symbol: string) => ['stocks', 'technical-snapshot', symbol] as const,
+    newsAnalysis: (symbol: string) => ['stocks', 'news-analysis', symbol] as const,
+    macroAnalysis: (symbol: string) => ['stocks', 'macro-analysis', symbol] as const,
   },
   watchlist: {
     all: ['watchlist'] as const,
