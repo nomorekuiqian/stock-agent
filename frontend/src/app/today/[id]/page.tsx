@@ -108,7 +108,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
       />
 
       <main className="min-h-screen bg-background">
-        <div className="border-b border-border">
+        <div>
           <div className="max-w-5xl mx-auto px-4 md:px-6 py-3">
             <Link
               href="/today"

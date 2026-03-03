@@ -19,7 +19,7 @@ export default function ArchivePage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
-      <section className="border-b border-border">
+      <section>
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-14">
           <div className="text-center space-y-5">
             <div className="flex items-center justify-center gap-3">
@@ -69,7 +69,7 @@ export default function ArchivePage() {
               <Link
                 key={report.id || report.report_date}
                 href={`/today/${report.id}`}
-                className="group bg-card rounded-xl border border-border p-5 hover:border-emerald-500/50 hover-glow transition-all"
+                className="group v2-card p-5 transition-all"
               >
                 {/* Date Badge */}
                 <div className="flex items-center justify-between mb-4">
@@ -95,7 +95,7 @@ export default function ArchivePage() {
                 </p>
 
                 {/* Footer */}
-                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-border/10 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
                     {report.timestamp ? formatTimePacific(report.timestamp) : 'View report'}
                   </span>
@@ -168,7 +168,7 @@ export default function ArchivePage() {
       {!loading && !error && reports.length === 0 && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="text-center space-y-5">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-muted border border-border flex items-center justify-center">
+            <div className="w-20 h-20 mx-auto rounded-2xl v2-card flex items-center justify-center">
               <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>

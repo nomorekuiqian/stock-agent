@@ -19,7 +19,7 @@ export default function MorningArchivePage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
-      <section className="border-b border-border">
+      <section>
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-14">
           <div className="text-center space-y-5">
             <div className="flex items-center justify-center gap-3">
@@ -69,7 +69,7 @@ export default function MorningArchivePage() {
               <Link
                 key={report.id || report.report_date}
                 href={`/morning/${report.id}`}
-                className="group bg-card rounded-xl border border-border p-5 hover:border-amber-500/50 hover-glow transition-all"
+                className="group v2-card p-5 transition-all"
               >
                 {/* Date Badge */}
                 <div className="flex items-center justify-between mb-4">
@@ -95,7 +95,7 @@ export default function MorningArchivePage() {
                 </p>
 
                 {/* Footer */}
-                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-border/10 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
                     {report.timestamp ? formatTimePacific(report.timestamp) : ''}
                   </span>
@@ -168,7 +168,7 @@ export default function MorningArchivePage() {
       {!loading && !error && reports.length === 0 && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="text-center space-y-5">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-muted border border-border flex items-center justify-center">
+            <div className="w-20 h-20 mx-auto rounded-2xl v2-card flex items-center justify-center">
               <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
