@@ -16,25 +16,23 @@ if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
 from google.adk.runners import InMemoryRunner  # noqa: E402
+from google.genai.errors import ServerError  # noqa: E402
 from google.genai.types import Content, Part  # noqa: E402
 
 from app.core.logging import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 
+FALLBACK_MODEL = "gemini-3-flash-preview"
 
-async def run_agent_session(
+
+async def _run_single_session(
     runner: InMemoryRunner,
     app_name: str,
     prompt: str,
     output_key: str,
 ) -> Dict[str, Any]:
-    """Run an ADK agent session and extract structured output from state.
-
-    Creates a session, sends the prompt, extracts the output_key from
-    session state, and cleans up the session. Returns the parsed dict
-    (empty dict on failure).
-    """
+    """Run one ADK agent session and extract structured output from state."""
     session = await runner.session_service.create_session(
         app_name=app_name, user_id="analyst"
     )
@@ -77,3 +75,34 @@ async def run_agent_session(
         pass
 
     return result
+
+
+async def run_agent_session(
+    runner: InMemoryRunner,
+    app_name: str,
+    prompt: str,
+    output_key: str,
+) -> Dict[str, Any]:
+    """Run an ADK agent session with automatic model fallback on 503.
+
+    Tries the primary model first. If the Gemini API returns 503
+    (model overloaded), temporarily switches to the fallback model
+    and retries once.
+    """
+    try:
+        return await _run_single_session(runner, app_name, prompt, output_key)
+    except ServerError as e:
+        if e.code != 503:
+            raise
+
+        agent = runner.agent
+        primary_model = agent.model
+        logger.warning(
+            "Model %s returned 503, falling back to %s for %s",
+            primary_model, FALLBACK_MODEL, app_name,
+        )
+        agent.model = FALLBACK_MODEL
+        try:
+            return await _run_single_session(runner, app_name, prompt, output_key)
+        finally:
+            agent.model = primary_model
