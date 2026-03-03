@@ -1945,11 +1945,27 @@ class EmailService:
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
-                        # Resend Batch.send() uses strict mode by default:
-                        # success = all emails accepted, failure = exception thrown.
-                        resend.Batch.send(chunk)
-                        sent_count += len(chunk)
-                        logger.info("Batch %d sent: %d ok", batch_num, len(chunk))
+                        response = resend.Batch.send(chunk)
+                        batch_errors = (
+                            response.get("errors", [])
+                            if isinstance(response, dict)
+                            else []
+                        )
+                        if batch_errors:
+                            for err in batch_errors:
+                                idx = err.get("index", -1)
+                                email_addr = (
+                                    chunk[idx]["to"][0]
+                                    if 0 <= idx < len(chunk)
+                                    else "unknown"
+                                )
+                                send_errors.append(
+                                    {"email": email_addr, "error": err.get("message", "validation error")}
+                                )
+                            sent_count += len(chunk) - len(batch_errors)
+                        else:
+                            sent_count += len(chunk)
+                        logger.info("Batch %d sent: %d ok", batch_num, len(chunk) - len(batch_errors))
                         break
                     except Exception as e:
                         err_str = str(e)
