@@ -28,6 +28,8 @@ from app.features.screener.models import (
     AskResult,
     FilterRequest,
     FilterResult,
+    PickRequest,
+    PickResult,
 )
 from app.features.screener.suggestions import (
     compute_narrowing_suggestions,
@@ -435,6 +437,142 @@ async def ask_screener(req: AskRequest, user_id: str = Depends(verify_user_token
         universe_size=len(universe),
         suggestions=suggestions,
         summary=summary,
+        data_freshness=freshness,
+        is_stale=not is_valid,
+    )
+
+
+@router.post("/pick", response_model=PickResult)
+async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token)):
+    """
+    Conversation-guided stock picking assistant.
+    Each call is one turn in an ongoing conversation.
+    The agent guides the user to find personalized stocks.
+    """
+    from app.features.screener.filters import filter_custom
+    from app.features.screener.picker_agent import get_picker_agent
+
+    # Load universe
+    cache = await _load_universe()
+    universe = cache["universe"]
+    freshness = cache["freshness"]
+    is_valid = cache["is_valid"]
+
+    if not universe:
+        return PickResult(
+            success=False,
+            message="数据还没准备好，请稍等一下再试",
+            data_freshness=freshness,
+            is_stale=True,
+            universe_size=0,
+        )
+
+    # Run picker agent
+    agent = get_picker_agent()
+    try:
+        parsed = await agent.guide(
+            message=req.message,
+            history=req.history if req.history else None,
+            accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
+            universe=universe,
+        )
+    except Exception as e:
+        logger.error("Picker agent error: %s", e)
+        return PickResult(
+            success=False,
+            message="AI 助手出了点问题，请再试一次",
+            universe_size=len(universe),
+            data_freshness=freshness,
+            is_stale=not is_valid,
+        )
+
+    # Extract agent output
+    agent_message = parsed.get("message", "")
+    options_raw = parsed.get("options", [])
+    filters = parsed.get("filters", [])
+    pick_reasons_raw = parsed.get("pick_reasons", [])
+
+    # Convert options to PickerOption format
+    from app.features.screener.models import PickerOption
+    options = []
+    for opt in options_raw:
+        if isinstance(opt, dict) and "label" in opt and "value" in opt:
+            options.append(PickerOption(label=opt["label"], value=opt["value"]))
+
+    # Execute filter if we have conditions
+    candidates = []
+    if filters:
+        filter_params = {
+            "filters": filters,
+            "sort_by": parsed.get("sort_by") or "market_cap",
+            "sort_order": parsed.get("sort_order") or "desc",
+            "limit": parsed.get("limit") or 30,
+        }
+        candidates = filter_custom(universe, filter_params)
+        logger.info(
+            "Picker filter: %d conditions -> %d candidates",
+            len(filters), len(candidates),
+        )
+
+    # Build lookup tables for symbol validation
+    ticker_set: set[str] = set()
+    name_to_ticker: dict[str, str] = {}
+    for s in universe:
+        raw_sym = s.get("symbol", "")
+        ticker = raw_sym.split(":")[-1] if raw_sym else ""
+        if ticker:
+            ticker_set.add(ticker.upper())
+        name = s.get("name", "")
+        if name and ticker:
+            name_to_ticker[name.lower()] = ticker
+
+    # Format pick_reasons with symbol validation
+    pick_reasons = []
+    for pr in pick_reasons_raw:
+        if not isinstance(pr, dict) or "symbol" not in pr or "reason" not in pr:
+            continue
+        sym = pr["symbol"].strip()
+        reason = pr["reason"]
+
+        # Direct ticker match
+        if sym.upper() in ticker_set:
+            pick_reasons.append({"symbol": sym.upper(), "reason": reason})
+            continue
+
+        # Strip exchange prefix (e.g. "NASDAQ:AAPL" -> "AAPL")
+        if ":" in sym:
+            stripped = sym.split(":")[-1].upper()
+            if stripped in ticker_set:
+                pick_reasons.append({"symbol": stripped, "reason": reason})
+                continue
+
+        # Company name -> ticker reverse lookup
+        name_lower = sym.lower()
+        if name_lower in name_to_ticker:
+            pick_reasons.append({"symbol": name_to_ticker[name_lower], "reason": reason})
+            continue
+
+        # Fuzzy name match (contains)
+        matched_ticker = None
+        for candidate_name, candidate_ticker in name_to_ticker.items():
+            if name_lower in candidate_name or candidate_name in name_lower:
+                matched_ticker = candidate_ticker
+                break
+        if matched_ticker:
+            pick_reasons.append({"symbol": matched_ticker, "reason": reason})
+            continue
+
+        logger.warning("Picker agent output unresolvable symbol: %s", sym)
+
+    return PickResult(
+        success=True,
+        message=agent_message,
+        options=options,
+        candidates=candidates,
+        candidate_count=len(candidates),
+        universe_size=len(universe),
+        pick_reasons=pick_reasons,
+        accumulated_filters=filters,
         data_freshness=freshness,
         is_stale=not is_valid,
     )

@@ -164,7 +164,8 @@ def execute_screener(
     )
     preview = []
     for s in top_results[:10]:
-        item: dict[str, Any] = {"ticker": s.get("ticker", "")}
+        raw_sym = s.get("symbol", "")
+        item: dict[str, Any] = {"ticker": raw_sym.split(":")[-1] if raw_sym else ""}
         for key in preview_fields:
             val = s.get(key)
             if val is not None:
