@@ -811,6 +811,31 @@ export interface ScreenerAskResult {
   is_stale: boolean;
 }
 
+// Stock Picker Agent types
+export interface PickerOption {
+  label: string;
+  value: string;
+}
+
+export interface PickRequest {
+  message: string;
+  history?: { role: string; content: string }[];
+  accumulated_filters?: { field: string; op: string; value: unknown }[];
+}
+
+export interface PickResult {
+  success: boolean;
+  message: string;
+  options: PickerOption[];
+  candidates: Record<string, unknown>[];
+  candidate_count: number;
+  universe_size: number;
+  pick_reasons: { symbol: string; reason: string }[];
+  accumulated_filters: { field: string; op: string; value: unknown }[];
+  data_freshness: string | null;
+  is_stale: boolean;
+}
+
 async function _authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
   const token = await getAccessToken();
   if (token) {
@@ -1461,6 +1486,26 @@ export const api = {
         }
         const error = await response.json().catch(() => ({ detail: 'AI 查询失败' }));
         throw new Error(error.detail || 'AI 查询失败');
+      }
+      return response.json();
+    },
+
+    pick: async (req: PickRequest): Promise<PickResult> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      if (!headers['Authorization']) {
+        throw new Error('登录已过期，请刷新页面或重新登录');
+      }
+      const response = await fetch(`${API_BASE_URL}/screener/pick`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('登录已过期，请刷新页面或重新登录');
+        }
+        const error = await response.json().catch(() => ({ detail: 'AI 助手暂时无法响应' }));
+        throw new Error(error.detail || 'AI 助手暂时无法响应');
       }
       return response.json();
     },

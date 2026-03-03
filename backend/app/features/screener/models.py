@@ -54,6 +54,61 @@ class AskResult(BaseModel):
     is_stale: bool = False
 
 
+# ---------------------------------------------------------------------------
+# Stock Picker Agent models
+# ---------------------------------------------------------------------------
+
+
+class PickerOption(BaseModel):
+    label: str
+    value: str
+
+
+class PickRequest(BaseModel):
+    message: str = Field(
+        description="User message or selected option value",
+        max_length=500,
+    )
+    history: list[dict] = Field(
+        default_factory=list,
+        description="Conversation history [{role, content}]",
+        max_length=40,
+    )
+    accumulated_filters: list[dict] = Field(
+        default_factory=list,
+        description="Accumulated filter conditions from previous turns",
+        max_length=30,
+    )
+
+
+class PickResult(BaseModel):
+    success: bool
+    message: str = Field(
+        default="",
+        description="Agent reply text (plain Chinese)",
+    )
+    options: list[PickerOption] = Field(
+        default_factory=list,
+        description="Dynamic option chips for user to click",
+    )
+    candidates: list[dict] = Field(
+        default_factory=list,
+        description="Filtered stock results (when filters are active)",
+    )
+    candidate_count: int = 0
+    universe_size: int = 0
+    pick_reasons: list[dict] = Field(
+        default_factory=list,
+        description="Per-stock recommendation reasons [{symbol, reason}]",
+    )
+    accumulated_filters: list[dict] = Field(
+        default_factory=list,
+        description="Current accumulated filter conditions",
+    )
+    data_freshness: str | None = None
+    is_stale: bool = False
+
+
 class FilterResult(BaseModel):
     success: bool
     strategy: str

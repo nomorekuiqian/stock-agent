@@ -561,6 +561,145 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
+   PICKER AGENT - Premium Chat Animations
+   ============================================ */
+
+/* Word Fade In - Text materializing from fog */
+@keyframes word-fade-in {
+  0% {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.animate-word {
+  opacity: 0;
+  animation: word-fade-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Fade Out Up - Exit animation for welcome */
+@keyframes fade-out-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98);
+  }
+}
+
+.animate-fade-out-up {
+  animation: fade-out-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Typing Indicator - 3-dot bounce */
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Panel Slide In - Results panel from right */
+@keyframes panel-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-panel-enter {
+  animation: panel-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Chip Enter - Scale + fade for option chips */
+@keyframes chip-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-chip-enter {
+  opacity: 0;
+  animation: chip-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Number Count Up - For filter progress */
+@keyframes number-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-number-pop {
+  animation: number-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Emerald breathing glow for welcome icon */
+@keyframes emerald-breathe {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 0 40px rgba(16, 185, 129, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.25), 0 0 60px rgba(16, 185, 129, 0.1);
+  }
+}
+
+.animate-emerald-breathe {
+  animation: emerald-breathe 3s ease-in-out infinite;
+}
+
+/* Message slide up */
+@keyframes msg-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-msg-enter {
+  animation: msg-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ============================================
    SCROLLBAR - Minimal & Elegant
    ============================================ */
 
