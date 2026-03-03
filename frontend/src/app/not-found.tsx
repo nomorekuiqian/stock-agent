@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function NotFound() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
-      <div className="terminal-card max-w-lg w-full p-8 text-center space-y-6">
+      <div className="v2-card max-w-lg w-full p-8 text-center space-y-6">
         <div className="space-y-2">
           <p className="font-mono text-6xl font-semibold text-primary">404</p>
           <h1 className="font-serif text-2xl text-foreground">

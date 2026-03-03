@@ -66,9 +66,9 @@ export function NavAuth() {
               : 'opacity-0 invisible -translate-y-1'
           }`}
         >
-          <div className="min-w-[220px] py-3 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl shadow-black/10">
+          <div className="min-w-[220px] py-3 backdrop-blur-xl rounded-xl v2-card">
             {/* User Info */}
-            <div className="px-4 pb-3 border-b border-border/50">
+            <div className="px-4 pb-3 border-b border-border/10">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-foreground truncate">
                   {user.name || 'User'}

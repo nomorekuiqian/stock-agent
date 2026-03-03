@@ -16,7 +16,7 @@ export default function GlobalError({
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
-      <div className="terminal-card max-w-lg w-full p-8 text-center space-y-6">
+      <div className="v2-card max-w-lg w-full p-8 text-center space-y-6">
         <div className="space-y-2">
           <h1 className="font-serif text-2xl text-foreground">
             Something went wrong

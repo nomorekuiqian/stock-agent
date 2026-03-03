@@ -23,7 +23,7 @@ export function Navbar() {
   }, []);
 
   const navBase = 'fixed top-0 left-0 right-0 z-50 transition-all duration-500';
-  const navScrolled = 'bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm shadow-black/5';
+  const navScrolled = 'bg-background/95 backdrop-blur-md shadow-[0_1px_0_rgba(255,255,255,0.04),0_1px_3px_rgba(0,0,0,0.2)]';
   const navTransparentHome = 'bg-transparent border-b border-transparent hero-dark';
 
   return (
@@ -163,7 +163,7 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
         </svg>
       </button>
       <div
-        className={`absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1.5 min-w-[120px] bg-background/95 backdrop-blur-md border border-border/50 rounded-lg shadow-lg shadow-black/10 transition-all duration-200 ${
+        className={`absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1.5 min-w-[120px] bg-background/95 backdrop-blur-md rounded-lg v2-card transition-all duration-200 ${
           open ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-1 invisible'
         }`}
       >
