@@ -97,6 +97,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **与产品愿景的关系**：Plan 的"目标"应引用 `.context.md` 的产品愿景或 Obsidian 产品策略.md，确保工程方向与产品方向一致。
 
+## Worktree 并行开发
+
+多个 worktree 同时开发时，每个 worktree 自动分配独立端口避免冲突：
+
+| 环境 | 后端端口 | 前端端口 | 分配方式 |
+|------|----------|----------|----------|
+| 主仓库 | 8000 | 3000 | 固定 |
+| Worktree 1 | 8001 | 3001 | 自动 |
+| Worktree 2 | 8002 | 3002 | 自动 |
+| ... | 800N | 300N | 自动 (N=1-9) |
+
+**自动化脚本**: `bash scripts/start-worktree-dev.sh`
+- 自动扫描 8001-8009 / 3001-3009 找下一个空闲端口对
+- 创建/更新 `frontend/.env.local` 指向分配的后端端口
+- 安装前端依赖（如 `node_modules` 缺失）
+- 启动后端 + 前端 dev server（后台运行）
+- 日志输出到 `/tmp/worktree-{backend,frontend}-{port}.log`
+
+**Claude 操作规则**：
+1. **进入 worktree 后**：立即运行 `bash scripts/start-worktree-dev.sh`，一条命令完成端口分配 + 服务启动
+2. **判断方式**：路径包含 `.claude/worktrees` 即为 worktree 环境
+3. **不要手动分配端口**：全部交给脚本自动检测，避免端口冲突
+4. **`.env.local` 保护**：脚本自动处理，worktree 的 `frontend/.env.local` 绝不会指向 `:8000`
+
 ## 模块文档
 
 每个模块目录下有 `.context.md`，修改代码前先阅读以了解模块的功能逻辑、数据流、依赖关系和注意事项。
