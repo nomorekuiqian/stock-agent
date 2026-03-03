@@ -634,6 +634,335 @@ async def generate_technical_analysis_endpoint(
 
 
 # =============================================================================
+# News Context Analysis
+# =============================================================================
+
+
+def _get_peer_symbols(symbol: str) -> list[str]:
+    """Get top peer symbols for competitor news analysis."""
+    try:
+        fmp = get_fmp_service()
+        result = fmp.get_stock_peers(symbol)
+        if result.get("status") == "success":
+            peers = result.get("peers", [])
+            return [p["symbol"] for p in peers[:5] if p.get("symbol")]
+    except Exception as e:
+        logger.warning("Failed to get peers for %s: %s", symbol, e)
+    return []
+
+
+@router.post("/{symbol}/news")
+@limiter.limit("5/minute")
+async def generate_news_analysis_endpoint(
+    request: Request,
+    symbol: str,
+    force: bool = Query(default=False, description="Force regenerate even if cached"),
+):
+    """
+    Generate AI news context analysis for a stock.
+
+    Analyzes recent news, analyst activity, upcoming catalysts,
+    and overall sentiment for the given stock.
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        # Check cache first (unless force=True)
+        if not force:
+            cached = await get_stock_analysis(symbol, analysis_type="news_context")
+            if cached:
+                logger.info("Using cached news analysis for %s", symbol)
+                return {
+                    "success": True,
+                    "analysis": cached.get("content"),
+                    "meta": {
+                        "symbol": symbol,
+                        "model": cached.get("model", "gemini-3.1-pro-preview"),
+                        "generated_at": cached.get("generated_at"),
+                        "from_cache": True,
+                    },
+                }
+
+        # Parallel fetch: news, earnings, stock data, peers
+        import asyncio
+        from app.shared.data_tools.news import get_fmp_news
+        from app.shared.data_tools.earnings import get_earnings_calendar
+        from app.features.stock.agent import _prepare_news_context, get_news_context_agent
+
+        stock_service = get_stock_service()
+
+        news_task = asyncio.to_thread(get_fmp_news, days=7, symbols=[symbol])
+        earnings_task = asyncio.to_thread(get_earnings_calendar, days=60)
+        stock_task = stock_service.get_stock_data(symbol, include_financials=False)
+        peers_task = asyncio.to_thread(_get_peer_symbols, symbol)
+
+        news_data, earnings_data, stock_data, peer_symbols = await asyncio.gather(
+            news_task, earnings_task, stock_task, peers_task,
+            return_exceptions=True,
+        )
+
+        # Handle exceptions from gather
+        if isinstance(news_data, Exception):
+            logger.warning("News fetch failed for %s: %s", symbol, news_data)
+            news_data = {"status": "error", "news": []}
+        if isinstance(earnings_data, Exception):
+            logger.warning("Earnings fetch failed for %s: %s", symbol, earnings_data)
+            earnings_data = {"status": "error", "earnings": []}
+        if isinstance(stock_data, Exception):
+            logger.error("Stock data fetch failed for %s: %s", symbol, stock_data)
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to fetch stock data for news analysis.",
+            )
+        if isinstance(peer_symbols, Exception):
+            logger.warning("Peers fetch failed for %s: %s", symbol, peer_symbols)
+            peer_symbols = []
+
+        # Fetch competitor news (top 3 peers, non-blocking)
+        peer_news_data = {"status": "error", "news": []}
+        if peer_symbols:
+            try:
+                peer_news_data = await asyncio.to_thread(
+                    get_fmp_news, days=7, symbols=peer_symbols[:3]
+                )
+            except Exception as e:
+                logger.warning("Peer news fetch failed: %s", e)
+
+        # Extract analyst targets and quote from stock data
+        fundamentals = stock_data.get("fundamentals", {})
+        analyst_targets = fundamentals.get("analyst_targets", {})
+        quote = stock_data.get("quote", {})
+
+        # Prepare context
+        news_context = _prepare_news_context(
+            news_data, earnings_data, analyst_targets, symbol,
+            peer_news=peer_news_data, peer_symbols=peer_symbols[:3],
+        )
+        if not news_context:
+            news_context = {"symbol": symbol}  # Agent can still produce basic output
+
+        quote_snapshot = {
+            "price": quote.get("price"),
+            "change_percent": quote.get("change_percent"),
+            "market_cap": quote.get("market_cap"),
+        }
+
+        # Run agent
+        logger.info("Generating AI news analysis for %s", symbol)
+        agent = get_news_context_agent()
+        result = await agent.analyze(symbol, news_context, quote_snapshot)
+
+        analysis = result.get("analysis", {})
+        meta = result.get("meta", {})
+
+        if meta.get("error"):
+            logger.error("News agent returned error for %s: %s", symbol, meta["error"])
+            raise HTTPException(
+                status_code=500,
+                detail="News analysis generation failed. Please try again later.",
+            )
+
+        # Save to cache (8h TTL)
+        save_result = await save_stock_analysis(
+            symbol=symbol,
+            analysis_type="news_context",
+            content=analysis,
+            data_snapshot={"quote": quote_snapshot},
+            model=meta.get("model", "gemini-3.1-pro-preview"),
+            expires_hours=8,
+        )
+        logger.info("News analysis save result: %s", save_result)
+
+        return {
+            "success": True,
+            "analysis": analysis,
+            "meta": {
+                **meta,
+                "from_cache": False,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to generate news analysis for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate news analysis. Please try again later.",
+        )
+
+
+# =============================================================================
+# Macro-Sector Analysis
+# =============================================================================
+
+
+def _find_sector_id_for_symbol(symbol: str) -> str | None:
+    """Find sector_id for a symbol by searching SECTORS list."""
+    from app.features.sector.models import SECTORS
+
+    symbol_upper = symbol.upper()
+    for sector in SECTORS:
+        if symbol_upper in sector.symbols:
+            return sector.id
+    return None
+
+
+@router.post("/{symbol}/macro")
+@limiter.limit("5/minute")
+async def generate_macro_analysis_endpoint(
+    request: Request,
+    symbol: str,
+    force: bool = Query(default=False, description="Force regenerate even if cached"),
+):
+    """
+    Generate AI macro-sector analysis for a stock.
+
+    Analyzes macro environment impact, sector positioning,
+    market regime, and macro outlook for the given stock.
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        # Check cache first (unless force=True)
+        if not force:
+            cached = await get_stock_analysis(symbol, analysis_type="macro_sector")
+            if cached:
+                logger.info("Using cached macro analysis for %s", symbol)
+                return {
+                    "success": True,
+                    "analysis": cached.get("content"),
+                    "meta": {
+                        "symbol": symbol,
+                        "model": cached.get("model", "gemini-3.1-pro-preview"),
+                        "generated_at": cached.get("generated_at"),
+                        "from_cache": True,
+                    },
+                }
+
+        # Get stock data first (for profile + quote)
+        import asyncio
+        from app.features.macro.risk.service import (
+            get_macro_risk_dashboard,
+            get_market_sentiment,
+            get_inflation_rates,
+            get_treasury_and_commodities,
+        )
+        from app.features.sector.db import get_latest_sector_digest
+        from app.features.stock.agent import (
+            _prepare_macro_sector_context,
+            get_macro_sector_agent,
+        )
+
+        stock_service = get_stock_service()
+        stock_data = await stock_service.get_stock_data(symbol, include_financials=False)
+        profile = stock_data.get("profile", {})
+        quote = stock_data.get("quote", {})
+
+        # Find sector_id for this symbol
+        sector_id = _find_sector_id_for_symbol(symbol)
+
+        # Parallel fetch: macro dashboard, sentiment, sector digest,
+        # inflation/rates, treasury/commodities
+        macro_task = get_macro_risk_dashboard()
+        sentiment_task = get_market_sentiment()
+        inflation_task = get_inflation_rates()
+        treasury_task = get_treasury_and_commodities()
+
+        async def _noop():
+            return None
+
+        sector_task = get_latest_sector_digest(sector_id) if sector_id else _noop()
+
+        results = await asyncio.gather(
+            macro_task, sentiment_task, sector_task,
+            inflation_task, treasury_task,
+            return_exceptions=True,
+        )
+
+        macro_dashboard = results[0] if not isinstance(results[0], Exception) else None
+        market_sentiment = results[1] if not isinstance(results[1], Exception) else None
+        sector_digest = results[2] if not isinstance(results[2], Exception) else None
+        inflation_rates = results[3] if not isinstance(results[3], Exception) else None
+        treasury_commodities = results[4] if not isinstance(results[4], Exception) else None
+
+        for i, name in enumerate(["Macro dashboard", "Market sentiment", "Sector digest",
+                                   "Inflation rates", "Treasury commodities"]):
+            if isinstance(results[i], Exception):
+                logger.warning("%s fetch failed: %s", name, results[i])
+
+        # Prepare context
+        macro_context = _prepare_macro_sector_context(
+            macro_dashboard, market_sentiment, sector_digest, profile,
+            inflation_rates=inflation_rates,
+            treasury_commodities=treasury_commodities,
+        )
+        if not macro_context:
+            macro_context = {
+                "company_profile": {
+                    "sector": profile.get("classification", {}).get("sector"),
+                    "industry": profile.get("classification", {}).get("industry"),
+                },
+            }
+
+        quote_snapshot = {
+            "price": quote.get("price"),
+            "change_percent": quote.get("change_percent"),
+            "market_cap": quote.get("market_cap"),
+        }
+
+        # Run agent
+        logger.info("Generating AI macro analysis for %s", symbol)
+        agent = get_macro_sector_agent()
+        result = await agent.analyze(symbol, macro_context, quote_snapshot)
+
+        analysis = result.get("analysis", {})
+        meta = result.get("meta", {})
+
+        if meta.get("error"):
+            logger.error("Macro agent returned error for %s: %s", symbol, meta["error"])
+            raise HTTPException(
+                status_code=500,
+                detail="Macro analysis generation failed. Please try again later.",
+            )
+
+        # Save to cache (24h TTL)
+        save_result = await save_stock_analysis(
+            symbol=symbol,
+            analysis_type="macro_sector",
+            content=analysis,
+            data_snapshot={"quote": quote_snapshot},
+            model=meta.get("model", "gemini-3.1-pro-preview"),
+            expires_hours=24,
+        )
+        logger.info("Macro analysis save result: %s", save_result)
+
+        return {
+            "success": True,
+            "analysis": analysis,
+            "meta": {
+                **meta,
+                "from_cache": False,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to generate macro analysis for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate macro analysis. Please try again later.",
+        )
+
+
+# =============================================================================
 # Legacy routes: redirect /api/stock/* -> /api/stocks/*
 # =============================================================================
 

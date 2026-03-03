@@ -448,7 +448,7 @@ class FMPService:
         logger.info("Treasury rates with change: today=%s, prev=%s", today_date, prev_date)
         return result
 
-    def get_stock_news(self, symbols: list[str] = None, limit: int = 80, from_date: str = None) -> dict:
+    def get_stock_news(self, symbols: list[str] | None = None, limit: int = 80, from_date: str | None = None) -> dict:
         """
         Get news for specific stock symbols from FMP API.
         Batches requests in groups of 20 (API limit per request).

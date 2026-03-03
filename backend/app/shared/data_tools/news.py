@@ -51,8 +51,10 @@ def _is_within_time_range(pub_date_str: str, days: int = 1) -> bool:
         now = now_pacific()
         weekday = now.weekday()
 
-        # On weekends or Monday, use trading day logic
-        if weekday in [0, 5, 6]:  # Monday, Saturday, Sunday
+        # For multi-day requests (e.g. days=7), always use rolling window
+        if days > 1:
+            cutoff = now - timedelta(hours=24 * days)
+        elif weekday in [0, 5, 6]:  # Monday, Saturday, Sunday
             cutoff = _get_last_trading_day_cutoff()
         else:
             # Use rolling 24-hour window instead of midnight cutoff
@@ -84,7 +86,7 @@ def _get_effective_date_range() -> tuple:
 # =============================================================================
 
 
-def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
+def get_fmp_news(days: int = 1, symbols: list[str] | None = None) -> dict:
     """
     Fetch market news from FMP API by ticker symbols.
 
@@ -102,8 +104,13 @@ def get_fmp_news(days: int = 1, symbols: list[str] = None) -> dict:
 
         fmp = get_fmp_service()
         # Pass cutoff date to FMP API for server-side filtering
-        cutoff = _get_last_trading_day_cutoff()
-        from_date = cutoff.strftime("%Y-%m-%d")
+        # For multi-day requests (e.g. stock news agent with days=7),
+        # use the days parameter directly instead of trading day cutoff
+        if days > 1:
+            from_date = (now_pacific() - timedelta(days=days)).strftime("%Y-%m-%d")
+        else:
+            cutoff = _get_last_trading_day_cutoff()
+            from_date = cutoff.strftime("%Y-%m-%d")
         result = fmp.get_stock_news(symbols=symbols, limit=50, from_date=from_date)
 
         if result.get("status") == "error":
@@ -258,7 +265,7 @@ def _deduplicate_news(news_list: list) -> list:
     return unique_news
 
 
-def get_combined_market_news(days: int = 1, symbols: list[str] = None) -> dict:
+def get_combined_market_news(days: int = 1, symbols: list[str] | None = None) -> dict:
     """
     Fetch market news from multiple FMP sources and combine them.
 
