@@ -605,4 +605,71 @@ describe('api (post cache removal)', () => {
       await expect(api.screener.ask({} as never)).rejects.toThrow('AI 查询失败');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Screener Pick API (Stock Picker Agent)
+  // -------------------------------------------------------------------------
+  describe('screener.pick', () => {
+    const pickResponse = {
+      success: true,
+      message: 'Here are some picks',
+      options: [{ label: 'Growth', value: 'growth' }],
+      candidates: [{ symbol: 'AAPL', name: 'Apple' }],
+      candidate_count: 1,
+      universe_size: 3680,
+      pick_reasons: [{ symbol: 'AAPL', reason: 'Great company' }],
+      accumulated_filters: [{ field: 'roe', op: 'gt', value: 15 }],
+      data_freshness: '2026-03-02T00:00:00Z',
+      is_stale: false,
+    };
+
+    it('calls POST /screener/pick with auth header', async () => {
+      mockFetchOk(pickResponse);
+
+      const result = await api.screener.pick({ message: 'stable stocks' });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Here are some picks');
+      expect(result.pick_reasons).toHaveLength(1);
+
+      const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(fetchCall[0]).toContain('/screener/pick');
+      expect(fetchCall[1].method).toBe('POST');
+      expect(fetchCall[1].headers['Authorization']).toBe('Bearer fake-token');
+    });
+
+    it('sends history and accumulated_filters in body', async () => {
+      mockFetchOk(pickResponse);
+
+      await api.screener.pick({
+        message: 'more',
+        history: [{ role: 'user', content: 'hi' }],
+        accumulated_filters: [{ field: 'roe', op: 'gt', value: 15 }],
+      });
+
+      const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(fetchCall[1].body);
+      expect(body.message).toBe('more');
+      expect(body.history).toHaveLength(1);
+      expect(body.accumulated_filters).toHaveLength(1);
+    });
+
+    it('throws on 401 with login expired message', async () => {
+      mockFetchError(401);
+
+      await expect(api.screener.pick({ message: 'test' })).rejects.toThrow('登录已过期');
+    });
+
+    it('throws with detail message on error', async () => {
+      mockFetchError(500, 'Agent processing failed');
+
+      await expect(api.screener.pick({ message: 'test' })).rejects.toThrow('Agent processing failed');
+    });
+
+    it('throws fallback message when response is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.screener.pick({ message: 'test' })).rejects.toThrow('AI 助手暂时无法响应');
+    });
+  });
 });
