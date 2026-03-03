@@ -30,8 +30,9 @@ class EmailService:
         self.api_key = RESEND_API_KEY
         if self.api_key:
             resend.api_key = self.api_key
-        self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-        self.from_email_morning = "MarketBrew Morning <morning@themarketbrew.com>"
+        self.from_email = "TheMarketBrew Daily <daily@themarketbrew.com>"
+        self.from_email_morning = "TheMarketBrew Morning <morning@themarketbrew.com>"
+        self.from_email_weekly = "TheMarketBrew Weekly <weekly@themarketbrew.com>"
         self.frontend_url = FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
         self.is_production = ENVIRONMENT == "production"
         self.logo_url = "https://themarketbrew.com/logo-avatar.png"
@@ -105,7 +106,7 @@ class EmailService:
 
         return text
 
-    def _get_email_header(self, formatted_date: str, title: str = "Daily Brief") -> str:
+    def _get_email_header(self, formatted_date: str, title: str = "TheMarketBrew日报") -> str:
         """Common email header with THEMARKETBREW branding and logo."""
         return f"""
         <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 20px 24px;">
@@ -504,7 +505,7 @@ class EmailService:
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
             <div style="max-width: 600px; margin: 0 auto;">
-                {self._get_email_header(formatted_date, "Daily Brief")}
+                {self._get_email_header(formatted_date, "TheMarketBrew日报")}
 
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
@@ -704,7 +705,7 @@ class EmailService:
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
             <div style="max-width: 600px; margin: 0 auto;">
-                {self._get_email_header(formatted_date, "个性化日报")}
+                {self._get_email_header(formatted_date, "TheMarketBrew专属日报")}
 
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
@@ -1319,7 +1320,7 @@ class EmailService:
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
             <div style="max-width: 600px; margin: 0 auto;">
-                {self._get_email_header(formatted_date, "Macro Weekly")}
+                {self._get_email_header(formatted_date, "TheMarketBrew周报")}
 
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
@@ -1392,9 +1393,9 @@ class EmailService:
 
             title = data.get("title", "")
             subject = (
-                f"[TheMarketBrew 周报] {title}"
+                f"[TheMarketBrew周报] {title}"
                 if title
-                else f"[TheMarketBrew 周报] {week_label}"
+                else f"[TheMarketBrew周报] {week_label}"
             )
 
             return self._create_and_send_broadcast(
@@ -1403,6 +1404,7 @@ class EmailService:
                 subject=subject,
                 broadcast_name=f"Weekly Report {week_label}",
                 html=html_content,
+                from_email=self.from_email_weekly,
             )
 
         except Exception as e:
@@ -1430,13 +1432,13 @@ class EmailService:
             title = data.get("title", "")
             week_label = data.get("week_label", "")
             subject = (
-                f"[TheMarketBrew 周报] {title}"
+                f"[TheMarketBrew周报] {title}"
                 if title
-                else f"[TheMarketBrew 周报] {week_label}"
+                else f"[TheMarketBrew周报] {week_label}"
             )
 
             params = {
-                "from": self.from_email,
+                "from": self.from_email_weekly,
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
@@ -2076,7 +2078,7 @@ class EmailService:
         analysis_box_style = "font-size: 12px; color: #52525b; background: #f8f8f8; padding: 10px 12px; border-radius: 4px; line-height: 1.6; margin-top: 10px;"
 
         # --- Header ---
-        header = self._get_email_header(formatted_date, title="MarketBrew 早报")
+        header = self._get_email_header(formatted_date, title="TheMarketBrew早报")
 
         # --- Title Card (matching daily report style) ---
         title_section = f"""
@@ -2313,9 +2315,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[TheMarketBrew 早报] {report_title}"
+                f"[TheMarketBrew早报] {report_title}"
                 if report_title
-                else f"[TheMarketBrew 早报] {today}"
+                else f"[TheMarketBrew早报] {today}"
             )
 
             return self._create_and_send_broadcast(
@@ -2355,9 +2357,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[TheMarketBrew 早报] {report_title}"
+                f"[TheMarketBrew早报] {report_title}"
                 if report_title
-                else f"[TheMarketBrew 早报] {today}"
+                else f"[TheMarketBrew早报] {today}"
             )
 
             params = {
