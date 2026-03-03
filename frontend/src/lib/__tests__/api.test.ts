@@ -152,7 +152,8 @@ describe('api (post cache removal)', () => {
       const result = await api.reports.getLatest();
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/market/reports/latest')
+        expect.stringContaining('/market/reports/latest'),
+        expect.any(Object)
       );
       expect(result).toEqual(report);
     });
@@ -180,7 +181,8 @@ describe('api (post cache removal)', () => {
       const result = await api.reports.getById('abc-123');
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/market/reports/abc-123')
+        expect.stringContaining('/market/reports/abc-123'),
+        expect.any(Object)
       );
       expect(result).toEqual(report);
     });
@@ -201,7 +203,8 @@ describe('api (post cache removal)', () => {
       await api.reports.list(10, 5);
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/market/reports?limit=10&offset=5')
+        expect.stringContaining('/market/reports?limit=10&offset=5'),
+        expect.any(Object)
       );
     });
 

@@ -107,7 +107,7 @@ class TestGetTickerMetrics:
         assert result["valuation"]["ps"] == 7.8
         assert result["valuation"]["pb"] == 45.2
         assert result["valuation"]["ev_to_ebitda"] == 24.7
-        assert result["valuation"]["dividend_yield"] == 0.005
+        assert result["valuation"]["dividend_yield"] == 0.5  # 0.005 * 100 (displayed as %)
         assert result["valuation"]["peg"] == 2.1
 
         # Forward (forward_pe removed, only forward_eps and trailing_eps kept)

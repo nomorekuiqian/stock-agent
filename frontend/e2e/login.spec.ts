@@ -18,8 +18,8 @@ test.describe('Login page (/login)', () => {
     await emailInput.fill('wrong@example.com');
     await passwordInput.fill('wrongpassword');
 
-    // Submit the form
-    const submitBtn = page.locator('button[type="submit"], button:has-text("登录"), button:has-text("Sign")').first();
+    // Submit the email/password form (not the Google button)
+    const submitBtn = page.locator('form button[type="submit"]').first();
     await submitBtn.click();
 
     // Should show an error message
@@ -35,7 +35,8 @@ test.describe('Login page (/login)', () => {
     await emailInput.fill('voya.technologies@gmail.com');
     await passwordInput.fill('123456');
 
-    const submitBtn = page.locator('button[type="submit"], button:has-text("登录"), button:has-text("Sign")').first();
+    // Submit the email/password form (not the Google button)
+    const submitBtn = page.locator('form button[type="submit"]').first();
     await submitBtn.click();
 
     // Should redirect away from login page
@@ -51,7 +52,8 @@ test.describe('Login page (/login)', () => {
     await emailInput.fill('voya.technologies@gmail.com');
     await passwordInput.fill('123456');
 
-    const submitBtn = page.locator('button[type="submit"], button:has-text("登录"), button:has-text("Sign")').first();
+    // Submit the email/password form (not the Google button)
+    const submitBtn = page.locator('form button[type="submit"]').first();
     await submitBtn.click();
 
     // Should redirect to the specified path
