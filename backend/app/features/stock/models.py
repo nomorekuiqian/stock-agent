@@ -319,6 +319,6 @@ class StockAnalysisDB(BaseModel):
     analysis_type: str  # "overview", "earnings", "valuation", etc.
     content: str  # AI-generated analysis text
     data_snapshot: Optional[Dict[str, Any]] = None
-    model: str = "gemini-3.1-pro-preview"
+    model: str = "gemini-3.1-flash-lite-preview"
     generated_at: Optional[str] = None
     expires_at: Optional[str] = None

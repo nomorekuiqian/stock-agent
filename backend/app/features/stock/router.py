@@ -372,7 +372,7 @@ async def generate_stock_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-pro-preview"),
+                        "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -430,7 +430,7 @@ async def generate_stock_analysis_endpoint(
                 "quote": stock_data.get("quote", {}),
                 "fundamentals": stock_data.get("fundamentals", {}),
             },
-            model=meta.get("model", "gemini-3.1-pro-preview"),
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
         )
         logger.info("Save result: %s", save_result)
 
@@ -592,7 +592,7 @@ async def generate_technical_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-pro-preview"),
+                        "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                         "timeframe": timeframe,
@@ -632,7 +632,7 @@ async def generate_technical_analysis_endpoint(
             analysis_type=analysis_type,
             content=analysis,
             data_snapshot=technical_data,
-            model=meta.get("model", "gemini-3.1-pro-preview"),
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
             expires_hours=8,
         )
         logger.info("Save result: %s", save_result)
@@ -705,7 +705,7 @@ async def generate_news_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-pro-preview"),
+                        "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -796,7 +796,7 @@ async def generate_news_analysis_endpoint(
             analysis_type="news_context",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-pro-preview"),
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
             expires_hours=8,
         )
         logger.info("News analysis save result: %s", save_result)
@@ -865,7 +865,7 @@ async def generate_macro_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-pro-preview"),
+                        "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -963,7 +963,7 @@ async def generate_macro_analysis_endpoint(
             analysis_type="macro_sector",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-pro-preview"),
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
             expires_hours=24,
         )
         logger.info("Macro analysis save result: %s", save_result)

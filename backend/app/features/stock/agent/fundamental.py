@@ -203,7 +203,7 @@ A balanced conclusion:
 
 stock_analyst_agent = LlmAgent(
     name="stock_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes individual stock fundamentals, provides investment insights in Chinese",
     instruction=STOCK_ANALYST_INSTRUCTION,
     output_schema=StockAnalysisOutput,
@@ -515,7 +515,7 @@ class StockAnalysisAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                 },
             }
@@ -527,7 +527,7 @@ class StockAnalysisAgent:
                 "analysis": _empty_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

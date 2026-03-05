@@ -144,7 +144,7 @@ Section 2 - title: "today_outlook"
 
 morning_analyst_agent = LlmAgent(
     name="morning_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes pre-market data and produces a structured morning briefing in Chinese",
     instruction=MORNING_ANALYST_INSTRUCTION,
     output_schema=MorningReportOutput,

@@ -104,7 +104,7 @@ Pick the 2-3 most investment-relevant news items. For each:
 
 news_context_agent = LlmAgent(
     name="news_context_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes recent news, analyst activity, and catalysts for individual stocks in Chinese",
     instruction=NEWS_CONTEXT_INSTRUCTION,
     output_schema=NewsContextOutput,
@@ -224,7 +224,7 @@ class NewsContextAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                 },
             }
@@ -236,7 +236,7 @@ class NewsContextAgent:
                 "analysis": _empty_news_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

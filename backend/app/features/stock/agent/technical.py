@@ -144,7 +144,7 @@ TECHNICAL_ANALYST_INSTRUCTION = """
 
 technical_analyst_agent = LlmAgent(
     name="technical_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes stock technical indicators and provides technical outlook in Chinese",
     instruction=TECHNICAL_ANALYST_INSTRUCTION,
     output_schema=TechnicalAnalysisOutput,
@@ -262,7 +262,7 @@ class TechnicalAnalysisAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                 },
             }
@@ -274,7 +274,7 @@ class TechnicalAnalysisAgent:
                 "analysis": _empty_technical_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

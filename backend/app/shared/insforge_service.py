@@ -1071,7 +1071,7 @@ class InsforgeService:
         analysis_type: str,
         content: Any,
         data_snapshot: Optional[Dict[str, Any]] = None,
-        model: str = "gemini-3.1-pro-preview",
+        model: str = "gemini-3.1-flash-lite-preview",
         expires_hours: int = STOCK_ANALYSIS_CACHE_HOURS,
     ) -> Dict[str, Any]:
         """

@@ -103,7 +103,7 @@ How current macro environment specifically affects this company:
 
 macro_sector_agent = LlmAgent(
     name="macro_sector_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes macro environment and sector positioning impact on individual stocks in Chinese",
     instruction=MACRO_SECTOR_INSTRUCTION,
     output_schema=MacroSectorOutput,
@@ -371,7 +371,7 @@ class MacroSectorAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                 },
             }
@@ -383,7 +383,7 @@ class MacroSectorAgent:
                 "analysis": _empty_macro_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

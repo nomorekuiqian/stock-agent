@@ -213,7 +213,7 @@ content: 1-2段，150-250字。回答一个问题：接下来最值得关注的2
 
 analyst_agent = LlmAgent(
     name="market_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,

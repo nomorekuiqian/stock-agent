@@ -2,7 +2,7 @@
 PersonalDigest - Daily Digest for User Watchlist
 
 Architecture:
-    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3.1-pro-preview) -> Structured output
+    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3.1-flash-lite-preview) -> Structured output
 """
 
 import json
@@ -243,7 +243,7 @@ DIGEST_INSTRUCTION = """
 
 personal_digest_agent = LlmAgent(
     name="personal_digest",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Generates personalized daily digest based on user's watchlist",
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,

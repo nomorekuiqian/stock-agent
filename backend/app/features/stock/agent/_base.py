@@ -23,7 +23,7 @@ from app.core.logging import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 
-FALLBACK_MODEL = "gemini-3-flash-preview"
+FALLBACK_MODEL = "gemini-3.1-flash-lite-preview"
 
 
 async def _run_single_session(

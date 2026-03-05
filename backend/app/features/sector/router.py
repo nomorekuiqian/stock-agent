@@ -68,7 +68,7 @@ async def generate_sector_digest(sector_id: str):
     """
     Generate a sector digest for a specific sector.
 
-    Uses SectorDigest agent (gemini-3-flash-preview) to generate
+    Uses SectorDigest agent (gemini-3.1-flash-lite-preview) to generate
     in-depth sector analysis.
     """
     try:

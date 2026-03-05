@@ -294,7 +294,7 @@ WEEKLY_ANALYST_INSTRUCTION = """
 
 weekly_analyst = LlmAgent(
     name="weekly_macro_analyst",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     description="Analyzes macro data and generates structured weekly report in Chinese",
     instruction=WEEKLY_ANALYST_INSTRUCTION,
     output_schema=WeeklyReportOutput,
