@@ -1,19 +1,15 @@
 """
-Screener Query Agent - Natural language stock screener with tool-based reasoning.
+Screener shared infrastructure - tools, ContextVar, and session helper.
 
-Uses FunctionTools to:
-1. Execute screener filters to test conditions and see results
-2. Check field distributions to set reasonable thresholds
-3. List available sectors
-
-Then produces structured filter output based on what it observed.
+Provides the shared FunctionTools and utilities used by the StockPickerAgent.
+The tools operate on a per-coroutine universe ContextVar for thread safety.
 """
 
 import contextvars
 import json
 import os
 import statistics
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 
@@ -22,10 +18,8 @@ load_dotenv()
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
-from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.features.screener.suggestions import SECTOR_ZH
@@ -56,53 +50,6 @@ _OPS = {
     "neq": lambda a, b: a is not None and a != b,
     "in": lambda a, b: a is not None and a in b,
 }
-
-
-# ---------------------------------------------------------------------------
-# Output Schema
-# ---------------------------------------------------------------------------
-
-class ScreenerQueryOutput(BaseModel):
-    """Structured output from the screener query agent."""
-
-    strategy: str = Field(
-        default="custom",
-        description="Always 'custom' for tool-based queries.",
-    )
-    sector: str | None = Field(
-        default=None,
-        description=(
-            "Sector name in English (e.g. 'Technology Services'). "
-            "Only set when filtering within a specific sector."
-        ),
-    )
-    filters: str = Field(
-        default="[]",
-        description=(
-            "JSON array string of the final filter conditions. "
-            "Format: [{\"field\": \"pe_ttm\", \"op\": \"lt\", \"value\": 15}, ...]. "
-            "Use the exact same JSON you passed to execute_screener."
-        ),
-    )
-    sort_by: str | None = Field(
-        default=None,
-        description="Field name to sort by (e.g. 'roe', 'market_cap').",
-    )
-    sort_order: str = Field(
-        default="desc",
-        description="Sort order: 'asc' or 'desc'.",
-    )
-    limit: int = Field(
-        default=30,
-        description="Max results to return (1-100).",
-    )
-    summary: str = Field(
-        description=(
-            "Chinese summary (60-150 chars). Include: what conditions were used "
-            "and how many stocks matched. "
-            "Example: '在 5840 只美股中筛选 PE<15 ROE>10% 的科技股，共找到 23 只'"
-        ),
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +217,73 @@ def get_field_distribution(field: str, sector: str = "") -> str:
     }, ensure_ascii=False)
 
 
+def filter_by_tickers(
+    tickers: list[str],
+    sort_by: str = "market_cap",
+    sort_order: str = "desc",
+) -> str:
+    """Filter stocks by a list of ticker symbols. Use this when the user asks about
+    a thematic group that doesn't map to standard sector/industry filters,
+    e.g. "crypto stocks", "AI chips", "weight-loss drugs", "space companies",
+    "nuclear energy", "quantum computing", etc.
+
+    Rely on your own world knowledge to decide which tickers belong to the theme.
+    Be EXHAUSTIVE - list every ticker you can think of (aim for 20-50+).
+    The tool automatically ignores tickers not in our universe, so there is
+    zero cost to including more. More candidates = better narrowing later.
+
+    Args:
+        tickers: List of ticker symbols. Include as many as possible, e.g. for crypto: ["COIN", "MARA", "RIOT", "MSTR", "CLSK", "HUT", "BITF", "CIFR", "BTBT", "HIVE", "ARBK", "IREN", "CORZ", "WULF", "SQ", "PYPL", "HOOD", "GBTC", "ETHE", ...]
+        sort_by: Field to sort by. Default: market_cap
+        sort_order: "asc" or "desc". Default: desc
+
+    Returns:
+        JSON with match_count, universe_size, and matched stocks with full data.
+    """
+    if not isinstance(tickers, list):
+        return json.dumps({"error": "tickers must be a list of strings."})
+
+    ticker_set = {t.upper().strip() for t in tickers if isinstance(t, str)}
+
+    matched = []
+    for s in _current_universe.get():
+        raw_sym = s.get("symbol", "")
+        clean = raw_sym.split(":")[-1].upper() if raw_sym else ""
+        if clean in ticker_set:
+            matched.append(s)
+
+    # Sort
+    sort_key = sort_by or "market_cap"
+    valid = [s for s in matched if s.get(sort_key) is not None]
+    valid.sort(key=lambda s: s[sort_key], reverse=(sort_order == "desc"))
+
+    # Build preview
+    preview_fields = (
+        "name", "sector", "industry", "price", "market_cap", "pe_ttm", "roe",
+        "daily_change", "dividend_yield", "rsi", "analyst_rating",
+        "revenue_growth_ttm", "change_3m",
+    )
+    preview = []
+    for s in valid[:15]:
+        raw_sym = s.get("symbol", "")
+        item: dict[str, Any] = {"ticker": raw_sym.split(":")[-1] if raw_sym else ""}
+        for key in preview_fields:
+            val = s.get(key)
+            if val is not None:
+                item[key] = val
+        preview.append(item)
+
+    found_tickers = {s.get("symbol", "").split(":")[-1].upper() for s in matched}
+    not_found = sorted(ticker_set - found_tickers)
+
+    return json.dumps({
+        "match_count": len(matched),
+        "universe_size": len(_current_universe.get()),
+        "not_in_universe": not_found,
+        "preview": preview,
+    }, ensure_ascii=False, default=str)
+
+
 def list_available_sectors() -> str:
     """List all available stock sectors with Chinese names and stock counts.
 
@@ -300,204 +314,8 @@ def list_available_sectors() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Agent Instruction
+# Agent Session Helper
 # ---------------------------------------------------------------------------
-
-SCREENER_AGENT_INSTRUCTION = """You are a stock screening assistant for a US stock screener covering ~5,800 stocks with 71 data fields.
-
-## How to Work
-
-You have 3 tools:
-- **execute_screener**: Test filter conditions and see matching results
-- **get_field_distribution**: Check field statistics to set smart thresholds
-- **list_available_sectors**: See available sectors with counts
-
-### Always follow this workflow:
-1. Understand what the user wants to filter
-2. If unsure about typical field values, call `get_field_distribution` first
-3. Build filter conditions and call `execute_screener` to test them
-4. Check match_count:
-   - 0 results: relax conditions (raise/lower thresholds) and retry
-   - >100 results: tighten conditions or add more filters, then retry
-   - 10-50 results: good range, use these conditions
-5. Produce your final output with the conditions that gave the best results
-
-**IMPORTANT**: You MUST call execute_screener at least once before producing your final answer.
-
-## Available Data Fields
-
-### Identity
-- `name` (str): Company name
-- `sector` (str): Sector (see sector list below)
-- `industry` (str): Industry
-- `beta_1y` (float): 1-year beta
-
-### Price & Performance
-- `price` (float): Current price (USD)
-- `daily_change` (float): Daily change %
-- `weekly_change` (float): Weekly change %
-- `monthly_change` (float): Monthly change %
-- `change_3m` (float): 3-month change %
-- `change_6m` (float): 6-month change %
-- `ytd_change` (float): Year-to-date %
-- `yearly_change` (float): 1-year change %
-- `high_52w` (float): 52-week high
-- `low_52w` (float): 52-week low
-
-### Valuation
-- `market_cap` (float): Market cap (USD)
-- `pe_ttm` (float): P/E TTM
-- `pb_mrq` (float): P/B MRQ
-- `ps_fy` (float): P/S FY
-- `ev_ebitda_ttm` (float): EV/EBITDA TTM
-- `ev_mrq` (float): Enterprise value MRQ
-- `peg_ttm` (float): PEG TTM
-
-### Profitability
-- `gross_margin` (float): Gross margin % TTM
-- `operating_margin` (float): Operating margin % TTM
-- `net_margin` (float): Net margin % TTM
-- `roe` (float): ROE % TTM
-- `roa` (float): ROA % TTM
-- `roic` (float): ROIC % TTM
-
-### Growth
-- `revenue_growth_ttm` (float): Revenue growth TTM YoY %
-- `revenue_growth_quarterly` (float): Revenue growth quarterly YoY %
-- `eps_growth_ttm` (float): EPS growth TTM YoY %
-- `eps_growth_quarterly` (float): EPS growth quarterly YoY %
-- `ebitda_growth_ttm` (float): EBITDA growth TTM YoY %
-- `fcf_growth_ttm` (float): FCF growth TTM YoY %
-- `revenue_growth_5y` (float): 5-year revenue growth %
-- `eps_growth_5y` (float): 5-year EPS growth %
-
-### Dividends
-- `dividend_yield` (float): Dividend yield %
-- `payout_ratio` (float): Payout ratio % TTM
-- `dividend_growth_years` (int): Consecutive growth years
-- `dividend_payout_years` (int): Consecutive payout years
-
-### Earnings & Cash Flow
-- `eps_ttm` (float): Diluted EPS TTM
-- `net_income_fy` (float): Net income FY
-- `gross_profit_fy` (float): Gross profit FY
-- `fcf_margin` (float): FCF margin % TTM
-
-### Balance Sheet
-- `debt_to_equity` (float): Debt/equity MRQ
-- `current_ratio` (float): Current ratio MRQ
-- `cash_equivalents` (float): Cash & equivalents MRQ
-
-### Volume
-- `volume` (float): Daily volume
-- `avg_volume_30d` (float): 30-day avg volume
-- `relative_volume` (float): Today / 30-day avg
-
-### Shares
-- `shares_outstanding` (float): Total shares
-- `shares_float` (float): Float shares
-- `float_pct` (float): Float %
-
-### Analyst
-- `target_price_avg` (float): Avg target price
-- `target_price_median` (float): Median target price
-- `target_price_high` (float): High target
-- `target_price_low` (float): Low target
-- `analyst_rating` (float): 1=Strong Buy ... 5=Strong Sell
-
-### Technical
-- `rsi` (float): RSI 14
-- `macd` (float): MACD 12,26
-- `macd_signal` (float): MACD signal
-- `sma20` / `sma50` / `sma200` (float): Simple moving averages
-- `ema20` / `ema50` (float): Exponential moving averages
-- `atr` (float): ATR 14
-- `bb_upper` / `bb_lower` (float): Bollinger bands
-- `adx` (float): ADX 14
-- `cmf` (float): Chaikin Money Flow
-- `stoch_k` (float): Stochastic %K
-
-### Derived (computed)
-- `pct_from_52w_high` (float): % from 52w high (negative)
-- `position_52w` (float): 52w range position (0=low, 1=high)
-- `above_sma200` (bool): Price > SMA200
-- `above_sma50` (bool): Price > SMA50
-- `analyst_upside` (float): (target_avg - price) / price * 100
-- `market_cap_tier` (str): "small" (<$2B), "mid" ($2-10B), "large" ($10-200B), "mega" (>$200B)
-
-## Sectors (English -> Chinese)
-Commercial Services (商业服务), Communications (通信), Consumer Durables (耐用消费品),
-Consumer Non-Durables (非耐用消费品), Consumer Services (消费服务),
-Distribution Services (分销服务), Electronic Technology (电子技术),
-Energy Minerals (能源矿产), Finance (金融), Health Services (医疗服务),
-Health Technology (医疗技术), Industrial Services (工业服务),
-Miscellaneous (其他), Non-Energy Minerals (非能源矿产),
-Process Industries (加工工业), Producer Manufacturing (生产制造),
-Retail Trade (零售), Technology Services (科技服务),
-Transportation (运输), Utilities (公用事业)
-
-## Operators
-- gt (>), gte (>=), lt (<), lte (<=), eq (=), neq (!=), in (value in list)
-
-## Fuzzy Expression Mapping
-| User says | Map to |
-|-----------|--------|
-| "cheap"/"undervalued"/"便宜"/"低估" | pe_ttm < 15 |
-| "expensive"/"overvalued"/"贵" | pe_ttm > 30 |
-| "profitable"/"赚钱"/"盈利好" | roe > 15 |
-| "high growth"/"高增长" | revenue_growth_ttm > 20 |
-| "stable"/"low risk"/"稳定" | beta_1y < 1 |
-| "volatile"/"risky"/"高波动" | beta_1y > 1.5 |
-| "large cap"/"大盘" | market_cap_tier in ["large","mega"] |
-| "small cap"/"小盘" | market_cap_tier eq "small" |
-| "analysts bullish"/"分析师看好" | analyst_rating < 2.5 |
-| "high dividend"/"高股息" | dividend_yield > 2 |
-| "oversold"/"超卖" | rsi < 30 |
-| "overbought"/"超买" | rsi > 70 |
-| "trending up"/"上升趋势" | above_sma200 eq true, change_3m > 0 |
-| "near 52w low"/"接近低点" | position_52w < 0.2 |
-| "放量" | relative_volume > 2 |
-| "tech"/"科技" | sector eq "Technology Services" |
-| "finance"/"金融" | sector eq "Finance" |
-| "healthcare"/"医疗" | sector in ["Health Technology","Health Services"] |
-| "energy"/"能源" | sector eq "Energy Minerals" |
-
-## Critical Output Rules
-
-**Your `filters` output field MUST contain the exact same JSON array you passed to execute_screener in your last successful call.** Do NOT leave filters empty. Copy the filters_json string directly.
-
-Example: if you called `execute_screener(filters_json='[{"field":"pe_ttm","op":"lt","value":15}]')`,
-then your output `filters` MUST be `[{"field":"pe_ttm","op":"lt","value":15}]`.
-
-**Your `sector` output field must be a single string or null.** If you filtered by multiple sectors, put them in the filters array using the "in" operator instead.
-
-## Other Rules
-1. **ALWAYS call execute_screener** at least once before producing your final output.
-2. **Merge with existing filters**: Include ALL previous conditions from current_filters plus new ones.
-3. **Modify/remove filters only on explicit request** (e.g. "remove PE condition", "change ROE to >20").
-4. **Use exact field names** from the list above. Do not invent field names.
-5. **Market cap is in USD** (1e9 = $1B, 10e9 = $10B).
-6. **Percentages are raw numbers** (ROE 15% = 15, not 0.15).
-7. **Analyst rating**: 1=Strong Buy, 5=Strong Sell. Lower = more bullish.
-8. **Write summary in Chinese**, mention conditions applied and result count.
-9. **Default limit 30**. Adjust if user says "top 10", "show 5", etc.
-10. **If results are 0**, relax conditions and try again. Mention the adjustment in summary.
-11. **If user is vague**, start with a broad filter and explain what you found.
-"""
-
-
-# ---------------------------------------------------------------------------
-# Agent + Runner
-# ---------------------------------------------------------------------------
-
-_screener_agent = LlmAgent(
-    name="screener_query",
-    model="gemini-3.1-pro-preview",
-    instruction=SCREENER_AGENT_INSTRUCTION,
-    output_schema=ScreenerQueryOutput,
-    output_key="query",
-    tools=[execute_screener, get_field_distribution, list_available_sectors],
-)
 
 
 async def _run_agent_session(
@@ -550,151 +368,3 @@ async def _run_agent_session(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Wrapper Class
-# ---------------------------------------------------------------------------
-
-class ScreenerQueryAgent:
-    """Natural language stock screener with tool-based reasoning."""
-
-    def __init__(self):
-        self.runner = InMemoryRunner(
-            agent=_screener_agent, app_name="screener_query"
-        )
-
-    async def parse(
-        self,
-        message: str,
-        current_filters: List[Dict[str, Any]] | None = None,
-        history: List[Dict[str, str]] | None = None,
-        universe: list[dict] | None = None,
-    ) -> Dict[str, Any]:
-        """
-        Parse a natural language screener query with tool-based reasoning.
-
-        The agent will use tools to explore the data, test conditions,
-        and produce refined filter conditions.
-
-        Args:
-            message: User's natural language query
-            current_filters: Existing filter conditions to build upon
-            history: Conversation history [{role, content/summary}]
-            universe: Stock universe data (list of stock dicts)
-
-        Returns:
-            Dict with strategy, filters, sort_by, sort_order, limit, summary
-        """
-        # Set universe for tool access (ContextVar: coroutine-safe)
-        _current_universe.set(universe if universe else [])
-
-        prompt_parts = []
-
-        # Conversation history
-        if history:
-            prompt_parts.append("## Conversation History")
-            for turn in history[-5:]:  # max 5 rounds
-                role = turn.get("role", "user")
-                content = turn.get("content") or turn.get("summary", "")
-                if role == "user":
-                    prompt_parts.append(f"User: {content}")
-                else:
-                    prompt_parts.append(f"Assistant: {content}")
-            prompt_parts.append("")
-
-        # Current filters
-        if current_filters:
-            prompt_parts.append("## Current Active Filters")
-            prompt_parts.append(
-                "These filters are already applied. Include ALL of them "
-                "in your output unless the user explicitly wants to remove one."
-            )
-            prompt_parts.append(json.dumps(current_filters, ensure_ascii=False))
-            prompt_parts.append("")
-
-        # Universe info
-        prompt_parts.append(
-            f"## Universe: {len(_current_universe.get())} stocks loaded"
-        )
-        prompt_parts.append("")
-
-        # User message
-        prompt_parts.append("## User's Request")
-        prompt_parts.append(message)
-
-        prompt = "\n".join(prompt_parts)
-
-        logger.info("Screener agent query: %s", message[:100])
-
-        try:
-            result = await _run_agent_session(
-                runner=self.runner,
-                app_name="screener_query",
-                prompt=prompt,
-                output_key="query",
-            )
-        finally:
-            # Clean up universe reference
-            _current_universe.set([])
-
-        if not result:
-            logger.warning(
-                "Screener agent returned empty result for: %s", message[:100]
-            )
-            return {
-                "strategy": "custom",
-                "filters": current_filters or [],
-                "sort_by": None,
-                "sort_order": "desc",
-                "limit": 30,
-                "summary": "未能理解您的筛选条件，请换个说法试试",
-            }
-
-        # Parse filters from JSON string (output_schema uses str to avoid
-        # Gemini API rejecting list[dict] schemas with additional_properties)
-        filters_raw = result.get("filters", "[]")
-        if isinstance(filters_raw, str):
-            try:
-                filters = json.loads(filters_raw)
-            except json.JSONDecodeError:
-                filters = current_filters or []
-        elif isinstance(filters_raw, list):
-            filters = filters_raw
-        else:
-            filters = current_filters or []
-
-        # Normalize sector: model sometimes returns a list
-        sector_raw = result.get("sector")
-        if isinstance(sector_raw, list):
-            if len(sector_raw) == 1:
-                sector_raw = sector_raw[0]
-            elif len(sector_raw) > 1:
-                # Multiple sectors → add "in" filter
-                filters.append({
-                    "field": "sector", "op": "in", "value": sector_raw
-                })
-                sector_raw = None
-
-        return {
-            "strategy": result.get("strategy", "custom"),
-            "sector": sector_raw,
-            "filters": filters,
-            "sort_by": result.get("sort_by"),
-            "sort_order": result.get("sort_order", "desc"),
-            "limit": result.get("limit", 30),
-            "summary": result.get("summary", ""),
-        }
-
-
-# ---------------------------------------------------------------------------
-# Singleton
-# ---------------------------------------------------------------------------
-
-_agent_instance: ScreenerQueryAgent | None = None
-
-
-def get_screener_agent() -> ScreenerQueryAgent:
-    """Get or create the singleton screener query agent."""
-    global _agent_instance
-    if _agent_instance is None:
-        _agent_instance = ScreenerQueryAgent()
-    return _agent_instance

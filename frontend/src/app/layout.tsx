@@ -109,7 +109,7 @@ export default function RootLayout({
 
           {children}
 
-          <footer className="mt-20">
+          <footer className="border-t border-border/50 mt-16">
             <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 {/* Brand */}

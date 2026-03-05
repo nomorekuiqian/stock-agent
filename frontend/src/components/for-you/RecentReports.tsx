@@ -41,7 +41,7 @@ export default function RecentReports({ history, totalHistory }: RecentReportsPr
             <Link
               key={item.id}
               href={`/for-you/${item.id}`}
-              className="group v2-card p-6 transition-all"
+              className="group terminal-card p-6 hover:border-emerald-500/30 hover:bg-card/80 transition-all"
             >
               <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-relaxed mb-4">
                 {item.greeting || formatReportDate(item.digest_date)}

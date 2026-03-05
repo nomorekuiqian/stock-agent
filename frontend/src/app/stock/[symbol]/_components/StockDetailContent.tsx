@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import FundamentalsReport from './FundamentalsReport';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import dynamic from 'next/dynamic';
@@ -437,7 +438,7 @@ function translateIndustry(industry: string | undefined): string {
 // Utility Functions
 // =============================================================================
 
-function formatNumber(value: number | null | undefined, options?: {
+export function formatNumber(value: number | null | undefined, options?: {
   style?: 'currency' | 'percent' | 'decimal';
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;
@@ -482,7 +483,7 @@ function formatNumber(value: number | null | undefined, options?: {
   }).format(value);
 }
 
-function formatQuarter(dateStr: string, fiscalQuarter?: string): string {
+export function formatQuarter(dateStr: string, fiscalQuarter?: string): string {
   if (!dateStr) return '--';
   const date = new Date(dateStr);
   const year = date.getFullYear();
@@ -498,7 +499,7 @@ function formatQuarter(dateStr: string, fiscalQuarter?: string): string {
 // Components
 // =============================================================================
 
-function Tooltip({ content, children }: { content: string; children: React.ReactNode }) {
+export function Tooltip({ content, children }: { content: string; children: React.ReactNode }) {
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLSpanElement>(null);
@@ -535,7 +536,7 @@ function Tooltip({ content, children }: { content: string; children: React.React
   );
 }
 
-function MetricLabel({ metricKey }: { metricKey: string }) {
+export function MetricLabel({ metricKey }: { metricKey: string }) {
   const metric = METRIC_EXPLANATIONS[metricKey];
   if (!metric) return null;
 
@@ -557,7 +558,7 @@ const TREND_COLORS = {
   neutral: 'text-foreground',
 } as const;
 
-function MetricCard({ metricKey, value, trend }: {
+export function MetricCard({ metricKey, value, trend }: {
   metricKey: string;
   value: string;
   trend?: 'up' | 'down' | 'neutral';
@@ -574,7 +575,7 @@ function MetricCard({ metricKey, value, trend }: {
   );
 }
 
-function StatRow({ metricKey, value, trend }: {
+export function StatRow({ metricKey, value, trend }: {
   metricKey: string;
   value: string;
   trend?: 'up' | 'down' | 'neutral';
@@ -591,7 +592,7 @@ function StatRow({ metricKey, value, trend }: {
   );
 }
 
-function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
+export function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
   if (!quarters || quarters.length === 0) {
     return (
       <div className="text-center py-6 text-muted-foreground">
@@ -665,7 +666,7 @@ function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
   );
 }
 
-function SubsectionHeader({ title, titleEn }: {
+export function SubsectionHeader({ title, titleEn }: {
   title: string;
   titleEn: string;
 }) {
@@ -678,7 +679,7 @@ function SubsectionHeader({ title, titleEn }: {
   );
 }
 
-function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
+export function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
   return (
     <div className={`max-w-none ${className}`}>
       <ReactMarkdown
@@ -743,18 +744,22 @@ function MarkdownContent({ content, className = '' }: { content: string; classNa
   );
 }
 
-function SectionCard({ title, titleEn, children, className = '', action }: {
+export function SectionCard({ title, titleEn, children, className = '', action, numberLabel }: {
   title: string;
   titleEn: string;
   children: React.ReactNode;
   className?: string;
   action?: React.ReactNode;
+  numberLabel?: string;
 }) {
   return (
     <div className={`bg-card/50 border border-border/40 rounded-xl overflow-hidden ${className}`}>
       <div className="px-5 py-4 border-b border-border/30 bg-card/40">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            {numberLabel && (
+              <span className="font-data text-muted-foreground/30 text-sm font-bold tabular-nums mr-0.5">{numberLabel}</span>
+            )}
             <div className="w-1 h-5 bg-emerald-500 rounded-full" />
             <span>{title}</span>
             <span className="text-muted-foreground text-sm font-normal">{titleEn}</span>
@@ -769,7 +774,7 @@ function SectionCard({ title, titleEn, children, className = '', action }: {
   );
 }
 
-function ValuationComparisonSection({
+export function ValuationComparisonSection({
   data,
   loading,
   currentValuation,
@@ -1543,7 +1548,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const error = detailError ? (detailError instanceof Error ? detailError.message : 'Failed to load stock data') : null;
 
   // UI state
-  const [showDescription, setShowDescription] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   // AI Analysis mutations (kept as local state due to force/regenerate semantics)
@@ -1658,10 +1662,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const isPositive = priceChange >= 0;
   const logoUrl = profile?.company_details?.image;
 
-  // Calculate 52-week position
-  const pricePosition = quote?.week_52_low && quote?.week_52_high && quote?.price
-    ? ((quote.price - quote.week_52_low) / (quote.week_52_high - quote.week_52_low)) * 100
-    : 50;
+  // 52-week position is now calculated inside FundamentalsReport
 
   return (
     <div className="min-h-screen bg-background">
@@ -1819,35 +1820,56 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
         </section>
 
         {/* ================================================================== */}
-        {/* AI ANALYSIS SECTION */}
+        {/* AI ANALYSIS / FUNDAMENTALS REPORT */}
         {/* ================================================================== */}
-        <section className="mb-5">
-          <AIAnalysisSection
+        {activeAnalysisTab === 'fundamental' ? (
+          <FundamentalsReport
+            symbol={symbol}
+            companyName={profile?.company_name || symbol}
             analysis={analysis}
-            loading={analysisLoading}
+            analysisLoading={analysisLoading}
             onGenerate={() => handleGenerateAnalysis(false)}
             onRegenerate={() => handleGenerateAnalysis(true)}
-            technicalAnalysis={technicalAnalysis}
-            technicalLoading={technicalLoading}
-            onGenerateTechnical={() => handleGenerateTechnical(false)}
-            onRegenerateTechnical={() => handleGenerateTechnical(true)}
-            newsAnalysis={newsAnalysis}
-            newsLoading={newsLoading}
-            onGenerateNews={() => handleGenerateNews(false)}
-            onRegenerateNews={() => handleGenerateNews(true)}
-            macroAnalysis={macroAnalysis}
-            macroLoading={macroLoading}
-            onGenerateMacro={() => handleGenerateMacro(false)}
-            onRegenerateMacro={() => handleGenerateMacro(true)}
-            companyName={profile?.company_name || symbol}
-            symbol={symbol}
             isAuthenticated={isAuthenticated}
             isPro={isPro}
             onLoginRequired={handleLoginRequired}
             onUpgradeRequired={createCheckout}
-            activeTab={activeAnalysisTab}
+            quote={quote}
+            fundamentals={fundamentals}
+            financials={financials}
+            valuationData={valuationData}
+            valuationLoading={valuationLoading}
+            stockDataMeta={data?.meta || null}
           />
-        </section>
+        ) : (
+          <section className="mb-5">
+            <AIAnalysisSection
+              analysis={analysis}
+              loading={analysisLoading}
+              onGenerate={() => handleGenerateAnalysis(false)}
+              onRegenerate={() => handleGenerateAnalysis(true)}
+              technicalAnalysis={technicalAnalysis}
+              technicalLoading={technicalLoading}
+              onGenerateTechnical={() => handleGenerateTechnical(false)}
+              onRegenerateTechnical={() => handleGenerateTechnical(true)}
+              newsAnalysis={newsAnalysis}
+              newsLoading={newsLoading}
+              onGenerateNews={() => handleGenerateNews(false)}
+              onRegenerateNews={() => handleGenerateNews(true)}
+              macroAnalysis={macroAnalysis}
+              macroLoading={macroLoading}
+              onGenerateMacro={() => handleGenerateMacro(false)}
+              onRegenerateMacro={() => handleGenerateMacro(true)}
+              companyName={profile?.company_name || symbol}
+              symbol={symbol}
+              isAuthenticated={isAuthenticated}
+              isPro={isPro}
+              onLoginRequired={handleLoginRequired}
+              onUpgradeRequired={createCheckout}
+              activeTab={activeAnalysisTab}
+            />
+          </section>
+        )}
 
         {/* ================================================================== */}
         {/* SIGNAL DASHBOARD (technical tab only) */}
@@ -1887,216 +1909,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
           </section>
         )}
 
-        {/* ================================================================== */}
-        {/* FUNDAMENTALS (only visible on fundamental tab) */}
-        {/* ================================================================== */}
-        {activeAnalysisTab === 'fundamental' && (<>
-        <section className="mb-5">
-          <SectionCard
-            title="基本面分析"
-            titleEn="Fundamentals"
-          >
-            {/* Show skeleton while fundamentals are loading */}
-            {!fundamentals || !quote ? (
-              <div className="animate-pulse space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
-                </div>
-                <div className="h-20 bg-muted rounded-lg" />
-                <div className="grid grid-cols-2 gap-2">
-                  {[1, 2].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Market Overview */}
-                <div className="mb-5 pb-5 border-b border-border/40">
-                  <SubsectionHeader title="市场概览" titleEn="Overview" />
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                    <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
-                    <MetricCard metricKey="dividend_yield" value={fundamentals.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
-                    <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
-                  </div>
-                  {/* 52-Week Range */}
-                  {quote.week_52_low && quote.week_52_high && (
-                    <div className="bg-card/30 border border-border/30 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-foreground/70">
-                          52 周区间
-                        </span>
-                        <span className="text-sm text-muted-foreground font-data">
-                          at {pricePosition.toFixed(0)}%
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-data font-medium text-red-400 w-18">${quote.week_52_low.toFixed(2)}</span>
-                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-red-500/70 via-amber-500/70 to-emerald-500/70 relative rounded-full">
-                            <div
-                              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-background shadow-sm"
-                              style={{ left: `calc(${Math.min(Math.max(pricePosition, 5), 95)}% - 7px)` }}
-                            />
-                          </div>
-                        </div>
-                        <span className="text-sm font-data font-medium text-emerald-400 w-18 text-right">${quote.week_52_high.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Valuation */}
-                <div className="mb-5 pb-5 border-b border-border/40">
-                  <SubsectionHeader title="估值指标" titleEn="Valuation" />
-
-                  {/* Trailing (TTM) */}
-                  <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Trailing (TTM)</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
-                    <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
-                    <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
-                  </div>
-                  <p className="text-xs text-muted-foreground/60 mt-1.5">
-                    {data?.meta.latest_quarter
-                      ? `TTM (latest: ${data.meta.latest_quarter})`
-                      : 'TTM (yfinance)'}
-                  </p>
-
-                </div>
-
-                {/* Growth */}
-                <div className="mb-5 pb-5 border-b border-border/40">
-                  <SubsectionHeader title="增长指标" titleEn="Growth" />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                    <StatRow
-                      metricKey="revenue_yoy"
-                      value={formatNumber(fundamentals.growth.revenue_yoy, { style: 'percent' })}
-                      trend={fundamentals.growth.revenue_yoy ? (fundamentals.growth.revenue_yoy > 0 ? 'up' : 'down') : 'neutral'}
-                    />
-                    <StatRow
-                      metricKey="net_income_yoy"
-                      value={formatNumber(fundamentals.growth.net_income_yoy, { style: 'percent' })}
-                      trend={fundamentals.growth.net_income_yoy ? (fundamentals.growth.net_income_yoy > 0 ? 'up' : 'down') : 'neutral'}
-                    />
-                    <StatRow
-                      metricKey="revenue_qoq"
-                      value={formatNumber(fundamentals.growth.revenue_qoq, { style: 'percent' })}
-                      trend={fundamentals.growth.revenue_qoq ? (fundamentals.growth.revenue_qoq > 0 ? 'up' : 'down') : 'neutral'}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Profitability - only show when data is loaded */}
-            {fundamentals && (
-              <div>
-                <SubsectionHeader title="盈利能力" titleEn="Profitability" />
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <MetricCard metricKey="gross_margin" value={formatNumber(fundamentals.profitability.gross_margin, { style: 'percent' })} />
-                  <MetricCard metricKey="net_margin" value={formatNumber(fundamentals.profitability.net_margin, { style: 'percent' })} />
-                  <MetricCard metricKey="roe" value={formatNumber(fundamentals.profitability.roe, { style: 'percent' })} />
-                  <MetricCard metricKey="roa" value={formatNumber(fundamentals.profitability.roa, { style: 'percent' })} />
-                </div>
-              </div>
-            )}
-          </SectionCard>
-        </section>
-
-        {/* ================================================================== */}
-        {/* VALUATION COMPARISON */}
-        {/* ================================================================== */}
-        <section className="mb-5">
-          <SectionCard
-            title="估值对比"
-            titleEn="Valuation Comparison"
-          >
-            <ValuationComparisonSection
-              data={valuationData}
-              loading={valuationLoading}
-              currentValuation={fundamentals?.valuation}
-            />
-          </SectionCard>
-        </section>
-
-        {/* ================================================================== */}
-        {/* FINANCIALS */}
-        {/* ================================================================== */}
-        <section className="mb-5">
-          <SectionCard title="财务报表" titleEn="Financials">
-            {/* Show skeleton while financials are loading */}
-            {!fundamentals || !financials ? (
-              <div className="animate-pulse space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
-                </div>
-                <div className="h-48 bg-muted rounded-lg" />
-              </div>
-            ) : (
-              <>
-                {/* TTM Summary */}
-                <div className="mb-5 pb-5 border-b border-border/40">
-                  <SubsectionHeader title="过去十二个月" titleEn="TTM" />
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="net_income" value={formatNumber(fundamentals.ttm.net_income, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="ebitda" value={formatNumber(fundamentals.ttm.ebitda, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="operating_cash_flow" value={formatNumber(fundamentals.ttm.operating_cash_flow, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="free_cash_flow" value={formatNumber(fundamentals.ttm.free_cash_flow, { style: 'currency', compact: true })} />
-                    <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
-                  </div>
-                </div>
-
-                {/* Quarterly Table */}
-                <div>
-                  <SubsectionHeader title="季度数据" titleEn="Quarterly" />
-                  <FinancialsTable quarters={financials.quarters} />
-                </div>
-              </>
-            )}
-          </SectionCard>
-        </section>
-
-        {/* ================================================================== */}
-        {/* COMPANY DESCRIPTION */}
-        {/* ================================================================== */}
-        {profile && (profile.description?.en || profile.description?.zh) && (
-          <section className="mb-5">
-            <SectionCard title="公司概况" titleEn="About">
-              {/* Company Details */}
-              {profile.company_details && (
-                <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm mb-4 pb-4 border-b border-border/20">
-                  {profile.company_details.ceo && (
-                    <span><span className="text-muted-foreground">CEO:</span> {profile.company_details.ceo}</span>
-                  )}
-                  {profile.company_details.employees && (
-                    <span><span className="text-muted-foreground">员工:</span> <span className="font-data">{formatNumber(profile.company_details.employees)}</span></span>
-                  )}
-                  {profile.company_details.ipo_date && (
-                    <span><span className="text-muted-foreground">上市日期:</span> <span className="font-data">{profile.company_details.ipo_date}</span></span>
-                  )}
-                  {profile.company_details.website && (
-                    <a href={profile.company_details.website} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-                      官网
-                    </a>
-                  )}
-                </div>
-              )}
-              <p className={`text-sm text-muted-foreground leading-relaxed ${!showDescription ? 'line-clamp-3' : ''}`}>
-                {profile.description?.en || profile.description?.zh}
-              </p>
-              {((profile.description?.en || profile.description?.zh)?.length ?? 0) > 200 && (
-                <button
-                  onClick={() => setShowDescription(!showDescription)}
-                  className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  {showDescription ? '收起' : '展开'}
-                </button>
-              )}
-            </SectionCard>
-          </section>
-        )}
-        </>)}
+        {/* Fundamentals data sections now rendered by FundamentalsReport above */}
 
         {/* Analysis Error Display */}
         {analysisMutation.error && (

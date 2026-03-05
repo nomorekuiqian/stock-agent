@@ -1,9 +1,7 @@
 'use client';
 
-import type { PickerOption } from '@/lib/api';
-
 interface OptionChipsProps {
-  options: PickerOption[];
+  options: string[];
   onSelect: (value: string) => void;
   /** Whether these chips have been used (clicked) */
   disabled?: boolean;
@@ -28,28 +26,28 @@ export default function OptionChips({
   return (
     <div className="flex flex-wrap gap-2 mt-2.5 ml-10">
       {options.map((opt, i) => {
-        const isSelected = selectedValue === opt.value;
+        const isSelected = selectedValue === opt;
         const isDisabled = disabled;
 
         return (
           <button
-            key={`${opt.value}-${i}`}
-            onClick={() => !isDisabled && onSelect(opt.value)}
+            key={`${opt}-${i}`}
+            onClick={() => !isDisabled && onSelect(opt)}
             disabled={isDisabled}
             className={`
               animate-chip-enter
               px-3.5 py-1.5 rounded-full text-sm
               border transition-all duration-200
               ${isSelected
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
                 : isDisabled
-                  ? 'bg-zinc-800/30 border-border/20 text-zinc-500 cursor-default'
-                  : 'bg-zinc-800/40 border-border/30 text-zinc-300 hover:border-emerald-500/30 hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 cursor-pointer'
+                  ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-default'
+                  : 'bg-card/60 border-border/50 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 cursor-pointer'
               }
             `}
             style={{ animationDelay: `${i * 60}ms` }}
           >
-            {opt.label}
+            {opt}
           </button>
         );
       })}

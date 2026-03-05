@@ -35,4 +35,14 @@ jobs:
             exit 1
           fi
 
+          # Parse and validate sent count
+          sent=$(echo "$body" | grep -o '"sent":[0-9]*' | cut -d':' -f2)
+          total=$(echo "$body" | grep -o '"total":[0-9]*' | cut -d':' -f2)
+          echo "Total: $total, Sent: $sent"
+
+          if [ -n "$sent" ] && [ "$sent" -eq 0 ]; then
+            echo "::error::Broadcast sent to 0 recipients - check audience configuration"
+            exit 1
+          fi
+
           echo "Daily report sent successfully!"

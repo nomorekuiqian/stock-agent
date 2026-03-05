@@ -11,16 +11,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **日志规范**: 使用 `get_logger(__name__)`，禁止 `print()`，用 `%s` lazy 格式化，不用 f-string
 - **认证模式**: 用户端点用 `Depends(verify_user_token)`，定时任务用 `Depends(verify_cron_secret)`。完整认证流程见 `frontend/docs/auth.md`
 - **测试账号** (本地调试和浏览器测试): 邮箱 `voya.technologies@gmail.com`，密码 `123456`
-- **Commit Message 规范**: 使用中文，必须包含 title + body。格式如下：
-  ```
-  类型: 一句话标题（不超过50字）
-
-  具体描述这次提交的实现内容，说清楚做了什么、为什么这样做。
-  不需要列举文件名，重点讲功能和逻辑变化。可以多行。
-
-  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
-  ```
-  类型前缀：`feat`(新功能)、`fix`(修复)、`refactor`(重构)、`docs`(文档)、`chore`(杂项)、`style`(样式)、`perf`(性能)
 
 ### Context 自动维护
 
@@ -106,48 +96,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **完成后**：Plan 的知识沉淀到对应 `.context.md`，plan 文件删除或移到 `docs/technical/` 归档
 
 **与产品愿景的关系**：Plan 的"目标"应引用 `.context.md` 的产品愿景或 Obsidian 产品策略.md，确保工程方向与产品方向一致。
-
-## Worktree 并行开发
-
-多个 worktree 同时开发时，每个 worktree 自动分配独立端口避免冲突：
-
-| 环境 | 后端端口 | 前端端口 | 分配方式 |
-|------|----------|----------|----------|
-| 主仓库 | 8000 | 3000 | 固定 |
-| Worktree 1 | 8001 | 3001 | 自动 |
-| Worktree 2 | 8002 | 3002 | 自动 |
-| ... | 800N | 300N | 自动 (N=1-9) |
-
-**自动化脚本**: `bash scripts/start-worktree-dev.sh`
-- 自动扫描 8001-8009 / 3001-3009 找下一个空闲端口对
-- 创建/更新 `frontend/.env.local` 指向分配的后端端口
-- 安装前端依赖（如 `node_modules` 缺失）
-- 启动后端 + 前端 dev server（后台运行）
-- 日志输出到 `/tmp/worktree-{backend,frontend}-{port}.log`
-
-**Worktree 完整生命周期**：
-
-```
-创建 → 启动服务 → 开发 → 审查/测试 → 提交 → 合并 → 清理
-```
-
-| 阶段 | 操作 | 命令/工具 |
-|------|------|-----------|
-| 创建 | 新建 worktree | `EnterWorktree` 或 `git worktree add` |
-| 启动服务 | 自动分配端口 + 启动前后端 | `bash scripts/start-worktree-dev.sh` |
-| 开发 | 正常开发，在 worktree 端口上测试 | 日常 dev 工作 |
-| 审查 | Code review | `/review-changes` |
-| 测试 | 跑测试套件 | `/test` |
-| 提交 | 分组提交 | `/commit-diffs` |
-| 合并 | 切回主仓库，merge 到 master | `git merge <branch>` |
-| 清理 | 停服务 + 删 worktree + 删分支 | `/cleanup-worktree` |
-
-**Claude 操作规则**：
-1. **进入 worktree 后**：立即运行 `bash scripts/start-worktree-dev.sh`，一条命令完成端口分配 + 服务启动
-2. **判断方式**：路径包含 `.claude/worktrees` 即为 worktree 环境
-3. **不要手动分配端口**：全部交给脚本自动检测，避免端口冲突
-4. **合并后必须清理**：worktree 分支合并到 master 后，用 `/cleanup-worktree` 停止 dev server、删除 worktree、清理本地分支
-4. **`.env.local` 保护**：脚本自动处理，worktree 的 `frontend/.env.local` 绝不会指向 `:8000`
 
 ## 模块文档
 
@@ -435,7 +383,6 @@ frontend/src/
 | 文档审计 | `/audit-docs` | 扫描 ~30 个文档 vs 代码现状，自动修复 drift |
 | 提交 | `/commit-diffs` | 自动分组提交（git hooks 保护，无需改 skill） |
 | 工程规划 | `/plan [feature]` | 创建 engineering plan 到 docs/plans/ |
-| Worktree 清理 | `/cleanup-worktree [name\|all]` | 停 dev server + 删 worktree + 删分支 |
 
 ### 典型一天的流程
 
@@ -449,8 +396,7 @@ frontend/src/
 7. 提交             → /commit-diffs       git hooks 拦截 + post-commit 写开发日志
 8. 功能做完         → plan 沉淀到 .context.md，更新产品现状
 9. 大版本发布前     → /test all           完整测试套件
-10. worktree 完成   → /cleanup-worktree    停服务 + 删 worktree + 删分支
-11. 偶尔兜底        → /audit-docs         检查文档 drift
+10. 偶尔兜底        → /audit-docs         检查文档 drift
 ```
 
 ## 测试架构
@@ -495,13 +441,6 @@ runner = InMemoryRunner(agent=agent, app_name="market")
 
 全局错误处理、速率限制 (slowapi)、健康检查、结构化日志。详见 `backend/docs/reliability.md`。
 
-## 设计系统 (v2)
+## 设计系统
 
-Apple/Linear 极简 + 金融数据密度。详见 `frontend/docs/design-system.md`。
-
-**Design System v2 规则**:
-- 卡片使用 `v2-card` (无边框, shadow 分层)，禁止 `bg-card border border-border` 手写模式
-- 嵌套表面使用 `v2-inset`，禁止 `bg-muted/80 border border-border/50`
-- 次要强调色使用 `text-gold` (#C9A96E)，不使用 `amber-400/500` (morning 早报主题色除外)
-- 分隔线使用 `border-border/10`（主题感知）或移除改用留白
-- `terminal-card` 已废弃，禁止在新代码中使用
+Financial Terminal + Editorial Luxury 风格。主色 `emerald-500`，次色 `amber-400`。详见 `frontend/docs/design-system.md`。

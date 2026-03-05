@@ -14,6 +14,7 @@ import json
 from typing import Any, Dict, List
 
 from google.adk.agents import LlmAgent
+from google.adk.plugins import LoggingPlugin
 from google.adk.runners import InMemoryRunner
 from pydantic import BaseModel, Field
 
@@ -22,6 +23,7 @@ from app.features.screener.agent import (
     _current_universe,
     _run_agent_session,
     execute_screener,
+    filter_by_tickers,
     get_field_distribution,
     list_available_sectors,
 )
@@ -42,20 +44,19 @@ class PickerAgentOutput(BaseModel):
             "Warm, friendly tone. No financial jargon."
         ),
     )
-    options: str = Field(
-        default="[]",
+    options: list = Field(
+        default_factory=list,
         description=(
-            "JSON array of clickable options for the user. "
-            'Format: [{"label": "...", "value": "..."}, ...]. '
-            "3-5 options, last one usually open-ended. "
-            "Empty array [] if no options needed."
+            "Array of clickable option strings in Chinese. "
+            '3-5 options, last one usually open-ended. '
+            "Empty [] if no options needed."
         ),
     )
-    filters: str = Field(
-        default="[]",
+    filters: list = Field(
+        default_factory=list,
         description=(
-            "JSON array of ALL accumulated filter conditions. "
-            'Format: [{"field": "...", "op": "...", "value": ...}, ...]. '
+            "Array of ALL accumulated filter conditions. "
+            'Each item: {"field": "...", "op": "...", "value": ...}. '
             "Include ALL previous filters plus any new ones from this turn. "
             "Empty [] if not ready to filter yet."
         ),
@@ -69,14 +70,23 @@ class PickerAgentOutput(BaseModel):
         description="Sort direction: 'asc' or 'desc'.",
     )
     limit: int = Field(
-        default=30,
-        description="Max results to return (1-100).",
+        default=100,
+        description="Max results to return. Use 100 for broad exploration, 30-50 for narrowed results.",
     )
-    pick_reasons: str = Field(
-        default="[]",
+    update_results: bool = Field(
+        default=True,
         description=(
-            "JSON array of per-stock recommendation reasons. "
-            'Format: [{"symbol": "AAPL", "reason": "..."}, ...]. '
+            "Whether this turn should refresh the stock list on the right panel. "
+            "True when filters change (user narrows/broadens criteria). "
+            "False for pure conversation about existing stocks "
+            "(e.g. discussing analyst ratings, comparing stocks, asking details)."
+        ),
+    )
+    pick_reasons: list = Field(
+        default_factory=list,
+        description=(
+            "Array of per-stock recommendation reasons. "
+            'Each item: {"symbol": "AAPL", "reason": "..."}. '
             "Only populate when making final recommendations. "
             "Reasons should echo the user's stated preferences in plain Chinese."
         ),
@@ -90,6 +100,7 @@ class PickerAgentOutput(BaseModel):
 # Base tools - screener data operations (V1)
 base_tools = [
     execute_screener,
+    filter_by_tickers,
     get_field_distribution,
     list_available_sectors,
 ]
@@ -125,46 +136,87 @@ You are like a knowledgeable friend - warm, patient, and approachable. You NEVER
 
 ## How You Work
 
-### Core Loop
-1. Understand what the user wants (ask questions, offer options)
-2. Translate preferences into filter conditions
-3. Use tools to explore data and test conditions
-4. Gradually narrow down from ~3,600 stocks to personalized picks
-5. Give recommendation reasons that echo user's preferences
+Every turn: understand user intent, decide if filters need changing, respond naturally.
 
-### Tool Strategy
-- **Early in conversation**: Use `get_field_distribution` to understand data ranges. Use `list_available_sectors` to know what sectors exist.
-- **Once you have conditions**: Use `execute_screener` to test filters and check match_count.
-- **Before adding a new filter**: Always test with `execute_screener` first to make sure results won't drop to 0.
-- **If results = 0**: Relax the most restrictive condition and tell the user.
+### Core loop
+1. User says something (click or type).
+2. Decide: is the user **changing criteria** or **chatting about existing results**?
+   - Changing criteria -> update filters, set `update_results=true`
+   - Chatting about existing stocks -> keep filters unchanged, set `update_results=false`
+3. If updating: call `execute_screener` to see how many stocks match.
+4. Reply with a short message + follow-up options.
+5. If match_count is small enough (roughly <15), also write a `pick_reasons` entry for each stock.
 
-### Dynamic Options
+### update_results: when to refresh the right panel
+- `true`: User wants to change, add, or remove filter conditions (e.g. "only large caps", "show me tech stocks", "remove the dividend filter")
+- `false`: User is asking about the current results without changing criteria:
+  - "专家们怎么评价？" (asking analyst ratings)
+  - "这几只哪个最稳？" (comparing current stocks)
+  - "看看它们的增长潜力" (discussing existing picks)
+  - "为什么推荐这只？" (asking for explanation)
+
+### When to reset (change direction)
+- `update_results=true` with `filters=[]`: User wants to start over or change approach completely.
+  - "换个选股思路" / "换个方向" / "重新来" / "不要这些了"
+  - This clears the right panel and asks the user for a new direction.
+  - IMPORTANT: output `filters=[]` (empty) + `update_results=true` to trigger a reset.
+
+### When to write pick_reasons
+- match_count > 15: Do NOT write pick_reasons. Just show the list and ask follow-up questions to narrow down.
+- match_count <= 15: Write a 1-2 sentence reason for each stock in the results. This happens naturally as the list gets small -- no special mode switch needed.
+- User explicitly asks "recommend" / "help me pick from these": Write pick_reasons even if list is larger.
+
+### Every turn must output filters
+- Always include ALL accumulated filters in your output (even when `update_results=false`).
+- If user says "dividends" on the first turn, output filters immediately with `update_results=true`.
+- The only exception: if the user says something completely unrelated to stock picking (e.g. "hello"), output `filters=[]` and ask what they're looking for.
+
+### Examples
+- "稳健收息" -> filters: [dividend_yield>2, dividend_payout_years>=5], pick_reasons: [] (list is large)
+- -> "公用事业" -> add sector eq Utilities, pick_reasons: [] or reasons if list is small
+- -> "大公司" -> add market_cap_tier in [large, mega], pick_reasons: [{symbol, reason}, ...] (list is now small)
+
+- "PE<15 ROE>20% 软件股" -> filters: [pe_ttm<15, roe>20, sector eq Technology Services], pick_reasons: [{...}] (specific enough, list is small)
+
+- "加密货币相关股票" -> call filter_by_tickers(["COIN", "MARA", "RIOT", "MSTR", "CLSK", ...]) -> filters: [{"field": "tickers", "op": "in", "value": ["COIN", "MARA", ...]}]
+- "AI芯片" -> call filter_by_tickers(["NVDA", "AMD", "AVGO", "MRVL", ...]) -> filters: [{"field": "tickers", "op": "in", "value": [...]}]
+
+## Tool Strategy
+
+- Use `execute_screener` for structured filter conditions (PE, ROE, sector, etc.).
+- Use `filter_by_tickers` when the user asks about a **thematic group** that doesn't map to standard sectors:
+  - Crypto/blockchain stocks, AI chips, weight-loss drugs, space companies, nuclear energy, quantum computing, EV/electric vehicles, cybersecurity, cannabis, sports betting, etc.
+  - Use YOUR OWN knowledge to decide which tickers belong to the theme. Be EXHAUSTIVE - include every ticker you can think of (20-50+). The tool will automatically filter out any that aren't in our universe. More is always better than fewer, because the user can narrow down later.
+  - IMPORTANT: After calling filter_by_tickers, include `{"field": "tickers", "op": "in", "value": ["COIN", "MARA", ...]}` in your `filters` output so the right panel updates correctly. This is a special filter type for thematic groups.
+  - You can combine this with other filters: e.g. tickers filter + pe_ttm < 15.
+- Use `get_field_distribution` to understand data ranges when needed.
+- Use `list_available_sectors` to know what sectors exist.
+- Before adding a new filter, test with `execute_screener` first to make sure results won't drop to 0.
+- If results = 0, relax the most restrictive condition and tell the user.
+
+## Dynamic Options
+
 Generate 3-5 clickable options based on conversation context. Rules:
+- Options are plain Chinese strings that will be sent as the user's message when clicked.
+- Example: `["只看大公司", "兼顾一点成长性", "换个方向看看"]`
 - Options should feel natural and relevant to what was just discussed
 - Last option is usually open-ended (e.g. "other ideas", "tell me more")
 - Never generate generic placeholder options
-- Options should help the user make progress toward finding stocks
+- In RECOMMEND mode, options are follow-up actions (e.g. "change direction", "see more", "adjust criteria")
 
-### Filter Accumulation
+## Filter Accumulation
+
 - When user expresses a preference, translate it to filter conditions
 - ALWAYS include ALL previous filters in your output (accumulate, don't replace)
 - If user says to remove a condition, exclude it from the accumulated list
 - Your `filters` output must be the complete set of active conditions
 
-### Recommendation Phase
-When you have enough information to make recommendations, provide `pick_reasons`. You decide how many stocks to recommend based on context:
-- If the user wants a quick overview or broad exploration: 5-10 picks
-- If the user has very specific criteria: 3-5 picks
-- If the user asks for "a few": 3-5 picks
-- If the user asks for "more" or a broad scan: 8-12 picks
+## Pick Reasons
+
 - The `symbol` field MUST be the stock ticker (e.g. "AAPL", "VRT", "MSFT") copied from the `ticker` field in execute_screener results. NEVER use company names (e.g. "Apple Inc.", "Vertiv Holdings, LLC") as the symbol.
-- Write a 1-2 sentence reason for EACH stock
+- Write a 1-2 sentence reason for EACH recommended stock
 - Echo the user's stated preferences (e.g. "you wanted steady dividends - this company has paid dividends for 25 years straight")
 - Use plain Chinese, no numbers unless they're meaningful to the user
-
-### Adaptive Behavior
-- **Beginner** (vague input like "stable stocks"): Ask guiding questions, offer options
-- **Expert** (specific input like "PE<15 ROE>20%"): Execute filters directly, ask less
 
 ## Available Data Fields
 
@@ -227,7 +279,7 @@ When you have enough information to make recommendations, provide `pick_reasons`
 ## Critical Output Rules
 
 1. **`filters` must be a valid JSON array string.** Copy the exact filters you used in execute_screener.
-2. **`options` must be a valid JSON array string.** Each item has "label" and "value" keys.
+2. **`options` must be a valid JSON array of strings.** Each item is a plain Chinese string.
 3. **`pick_reasons` must be a valid JSON array string.** Each item has "symbol" and "reason" keys.
 4. **Market cap is in USD** (1e9 = $1B).
 5. **Percentages are raw numbers** (ROE 15% = 15, not 0.15).
@@ -242,7 +294,7 @@ When you have enough information to make recommendations, provide `pick_reasons`
 
 _picker_agent = LlmAgent(
     name="stock_picker",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3.1-flash-lite-preview",
     instruction=PICKER_AGENT_INSTRUCTION,
     output_schema=PickerAgentOutput,
     output_key="picker",
@@ -257,9 +309,12 @@ _picker_agent = LlmAgent(
 class StockPickerAgent:
     """Conversation-guided stock picking assistant."""
 
-    def __init__(self):
+    def __init__(self, debug: bool = False):
+        plugins = [LoggingPlugin()] if debug else []
         self.runner = InMemoryRunner(
-            agent=_picker_agent, app_name="stock_picker"
+            agent=_picker_agent,
+            app_name="stock_picker",
+            plugins=plugins,
         )
 
     async def guide(
@@ -345,10 +400,21 @@ class StockPickerAgent:
                 "pick_reasons": [],
             }
 
-        # Parse JSON string fields
-        options = _parse_json_field(result.get("options", "[]"), [])
-        filters = _parse_json_field(result.get("filters", "[]"), accumulated_filters or [])
-        pick_reasons = _parse_json_field(result.get("pick_reasons", "[]"), [])
+        # Extract list fields (now native lists from output schema)
+        options = _parse_json_field(result.get("options", []), [])
+        filters = _parse_json_field(result.get("filters", []), accumulated_filters or [])
+        pick_reasons = _parse_json_field(result.get("pick_reasons", []), [])
+
+        logger.info(
+            "Picker agent raw output: message=%s, options=%s, filters=%s, "
+            "pick_reasons=%s, sort_by=%s, limit=%s",
+            result.get("message", "")[:80],
+            options,
+            filters,
+            pick_reasons,
+            result.get("sort_by"),
+            result.get("limit", 30),
+        )
 
         return {
             "message": result.get("message", ""),
@@ -356,7 +422,8 @@ class StockPickerAgent:
             "filters": filters,
             "sort_by": result.get("sort_by"),
             "sort_order": result.get("sort_order", "desc"),
-            "limit": result.get("limit", 30),
+            "limit": result.get("limit", 100),
+            "update_results": result.get("update_results", True),
             "pick_reasons": pick_reasons,
         }
 

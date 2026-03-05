@@ -30,9 +30,9 @@ describe('ReportContent', () => {
       />
     );
 
-    expect(screen.getByText(/S&P 500/)).toBeTruthy();
-    expect(screen.getByText(/NASDAQ/)).toBeTruthy();
-    expect(screen.getByText(/VIX/)).toBeTruthy();
+    expect(screen.getByText('S&P 500')).toBeTruthy();
+    expect(screen.getByText('NASDAQ')).toBeTruthy();
+    expect(screen.getByText('VIX')).toBeTruthy();
   });
 
   it('renders intro section', () => {

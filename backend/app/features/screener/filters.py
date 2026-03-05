@@ -210,7 +210,7 @@ def filter_by_sector(universe: list[dict], sector: str,
     return _sort_and_limit(sector_stocks, sort_by, limit)
 
 
-def filter_custom(universe: list[dict], criteria: dict) -> list[dict]:
+def filter_custom(universe: list[dict], criteria: dict) -> tuple[list[dict], int]:
     """
     Custom filter: apply arbitrary field-based criteria.
 
@@ -227,7 +227,7 @@ def filter_custom(universe: list[dict], criteria: dict) -> list[dict]:
     }
     """
     if not criteria or "filters" not in criteria:
-        return []
+        return [], 0
 
     ops = {
         "gt": lambda a, b: a is not None and a > b,
@@ -244,6 +244,16 @@ def filter_custom(universe: list[dict], criteria: dict) -> list[dict]:
         field = f.get("field")
         op = f.get("op")
         value = f.get("value")
+
+        # Special handling: filter by ticker list (thematic groups)
+        if field == "tickers" and op == "in" and isinstance(value, list):
+            ticker_set = {t.upper().strip() for t in value if isinstance(t, str)}
+            filtered = [
+                s for s in filtered
+                if s.get("symbol", "").split(":")[-1].upper() in ticker_set
+            ]
+            continue
+
         if not field or not op or op not in ops:
             continue
         filtered = [s for s in filtered if ops[op](s.get(field), value)]
@@ -252,7 +262,9 @@ def filter_custom(universe: list[dict], criteria: dict) -> list[dict]:
     sort_order = criteria.get("sort_order", "desc")
     limit = criteria.get("limit", 30)
 
-    return _sort_and_limit(filtered, sort_by, limit, reverse=(sort_order == "desc"))
+    total_matches = len(filtered)
+    limited = _sort_and_limit(filtered, sort_by, limit, reverse=(sort_order == "desc"))
+    return limited, total_matches
 
 
 # Strategy dispatch map

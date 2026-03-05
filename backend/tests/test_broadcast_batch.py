@@ -125,10 +125,10 @@ class TestBroadcastBatchFlow:
             assert "subject" in params
 
     @pytest.mark.asyncio
-    async def test_generation_failure_excluded_from_batch(self, email_svc):
+    async def test_generation_failure_recovered_by_internal_retry(self, email_svc):
         """
-        If digest generation fails for a subscriber, that subscriber is excluded
-        from the batch send, and counted as failed.
+        If digest generation fails on first attempt but succeeds on internal retry
+        within process_subscriber, the subscriber is included in the batch send.
         """
         subscribers = _make_subscribers(3)
 
@@ -137,7 +137,8 @@ class TestBroadcastBatchFlow:
         async def generate_side_effect(symbols):
             nonlocal call_count
             call_count += 1
-            # Fail for the second subscriber (both attempts)
+            # Fail on calls 2 and 4 (first attempts for subscriber 1 and 2)
+            # Internal retry (calls 3 and 5) succeeds
             if call_count in (2, 4):
                 return _mock_digest_result(success=False)
             return _mock_digest_result()
@@ -166,20 +167,78 @@ class TestBroadcastBatchFlow:
                 return_value={"symbols": ["AAPL"]},
             ),
             patch("app.features.subscription.email_service.resend") as mock_resend,
+            patch("app.features.subscription.email_service.asyncio.sleep", new_callable=AsyncMock),
         ):
             mock_resend.Batch.send.return_value = {
-                "data": [{"id": "email-0"}, {"id": "email-2"}],
+                "data": [{"id": "email-0"}],
             }
 
             result = await email_svc.broadcast_personal_digests(max_concurrent=5)
 
         assert result["success"] is True
-        assert result["sent"] == 2
-        assert result["failed"] == 1
+        # Internal retry recovers both failed subscribers, all 3 sent
+        assert result["sent"] == 3
+        assert result["failed"] == 0
 
-        # Batch.send called with only 2 emails (subscriber 1 failed generation)
-        batch_args = mock_resend.Batch.send.call_args[0][0]
-        assert len(batch_args) == 2
+    @pytest.mark.asyncio
+    async def test_phase3_retries_persistent_failures(self, email_svc):
+        """
+        Phase 3 auto-retry: if a subscriber fails BOTH Phase 1 attempts,
+        Phase 3 retries after delay and recovers them.
+        Uses 1 subscriber to ensure deterministic call ordering.
+        """
+        subscribers = _make_subscribers(1)
+
+        call_count = 0
+
+        async def generate_side_effect(symbols):
+            nonlocal call_count
+            call_count += 1
+            # Fail first 2 calls (Phase 1: first attempt + internal retry)
+            # Succeed on call 3 (Phase 3 retry)
+            if call_count <= 2:
+                return _mock_digest_result(success=False)
+            return _mock_digest_result()
+
+        mock_digest_agent = MagicMock()
+        mock_digest_agent.generate = AsyncMock(side_effect=generate_side_effect)
+
+        mock_sub_service = MagicMock()
+        mock_sub_service.list_subscribers.return_value = {
+            "success": True,
+            "subscribers": subscribers,
+        }
+
+        with (
+            patch(
+                "app.features.subscription.email_service.get_subscription_service",
+                return_value=mock_sub_service,
+            ),
+            patch(
+                "app.features.brew.agent.get_personal_digest",
+                return_value=mock_digest_agent,
+            ),
+            patch(
+                "app.features.subscription.email_service.get_user_watchlist",
+                new_callable=AsyncMock,
+                return_value={"symbols": ["AAPL"]},
+            ),
+            patch("app.features.subscription.email_service.resend") as mock_resend,
+            patch("app.features.subscription.email_service.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mock_resend.Batch.send.return_value = {
+                "data": [{"id": "email-0"}],
+            }
+
+            result = await email_svc.broadcast_personal_digests(max_concurrent=5)
+
+        assert result["success"] is True
+        # Phase 3 recovered the subscriber
+        assert result["sent"] == 1
+        assert result["failed"] == 0
+        # Batch.send called twice: Phase 2 (0 emails, skipped) + Phase 3 (1 recovered)
+        # Actually Phase 2 with 0 emails doesn't call Batch.send, so only 1 call from Phase 3
+        assert mock_resend.Batch.send.call_count == 1
 
     @pytest.mark.asyncio
     async def test_no_symbols_skipped(self, email_svc):

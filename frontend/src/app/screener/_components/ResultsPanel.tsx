@@ -41,13 +41,13 @@ export default function ResultsPanel({
   if (!hasResults && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-800/50 border border-border/20 flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="w-12 h-12 rounded-2xl bg-card border border-border/50 flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
             <path d="M13 13l6 6" />
           </svg>
         </div>
-        <p className="text-sm text-zinc-500 leading-relaxed">
+        <p className="text-sm text-muted-foreground leading-relaxed">
           在左侧对话中描述你的偏好<br />
           AI 会帮你筛选出合适的股票
         </p>
@@ -63,10 +63,10 @@ export default function ResultsPanel({
       {/* Result count */}
       {hasResults && (
         <div className="flex items-baseline gap-2">
-          <span className="font-data text-lg text-emerald-400 tabular-nums">
+          <span className="font-data text-lg text-emerald-600 dark:text-emerald-400 tabular-nums">
             {candidateCount}
           </span>
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-muted-foreground">
             / {universeSize.toLocaleString()} 只匹配
           </span>
         </div>
@@ -76,14 +76,14 @@ export default function ResultsPanel({
       {loading && hasResults && (
         <div className="flex items-center gap-2 py-2">
           <div className="w-4 h-4 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-          <span className="text-xs text-zinc-500">更新中...</span>
+          <span className="text-xs text-muted-foreground">更新中...</span>
         </div>
       )}
 
-      {/* Pick reason cards (final recommendation mode) */}
+      {/* AI recommendation cards (always shown when available) */}
       {hasReasons && (
         <div className="space-y-3">
-          <h3 className="text-xs font-medium text-zinc-500 tracking-wider uppercase">
+          <h3 className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
             AI 推荐
           </h3>
           {pickReasons.map((pr, i) => {
@@ -109,19 +109,28 @@ export default function ResultsPanel({
         </div>
       )}
 
-      {/* Candidate list (non-recommendation mode) */}
-      {hasResults && !hasReasons && (
-        <CandidateList
-          candidates={candidates}
-          strategy="custom"
-          expanded={candidateCount <= 5}
-        />
+      {/* Full candidate list (always shown when there are results) */}
+      {hasResults && (
+        <>
+          {hasReasons && (
+            <div className="border-t border-border/30 pt-3">
+              <h3 className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-3">
+                全部候选 ({candidateCount})
+              </h3>
+            </div>
+          )}
+          <CandidateList
+            candidates={candidates}
+            strategy="custom"
+            expanded={candidateCount <= 5}
+          />
+        </>
       )}
 
       {/* Prompt for deep research */}
-      {candidateCount > 0 && candidateCount <= 5 && !hasReasons && (
+      {candidateCount > 0 && candidateCount <= 5 && (
         <div className="text-center py-3">
-          <p className="text-xs text-emerald-500/70">
+          <p className="text-xs text-emerald-600/70 dark:text-emerald-500/70">
             点击股票代码查看详细分析
           </p>
         </div>

@@ -22,46 +22,9 @@ class FilterRequest(BaseModel):
     )
 
 
-class AskRequest(BaseModel):
-    message: str = Field(
-        description="User's natural language screener query",
-        max_length=500,
-    )
-    current_filters: list[dict] = Field(
-        default_factory=list,
-        description="Currently applied filter conditions [{field, op, value}]",
-        max_length=20,
-    )
-    history: list[dict] = Field(
-        default_factory=list,
-        description="Conversation history [{role, content/summary}], max 5 rounds",
-        max_length=10,
-    )
-
-
-class AskResult(BaseModel):
-    success: bool
-    filter_used: dict = Field(
-        default_factory=dict,
-        description="The filter parameters that were actually executed",
-    )
-    candidates: list[dict] = Field(default_factory=list)
-    candidate_count: int = 0
-    universe_size: int = 0
-    suggestions: list[dict] = Field(default_factory=list)
-    summary: str = ""
-    data_freshness: str | None = None
-    is_stale: bool = False
-
-
 # ---------------------------------------------------------------------------
 # Stock Picker Agent models
 # ---------------------------------------------------------------------------
-
-
-class PickerOption(BaseModel):
-    label: str
-    value: str
 
 
 class PickRequest(BaseModel):
@@ -87,9 +50,9 @@ class PickResult(BaseModel):
         default="",
         description="Agent reply text (plain Chinese)",
     )
-    options: list[PickerOption] = Field(
+    options: list[str] = Field(
         default_factory=list,
-        description="Dynamic option chips for user to click",
+        description="Dynamic option chips for user to click (plain Chinese strings)",
     )
     candidates: list[dict] = Field(
         default_factory=list,
@@ -104,6 +67,10 @@ class PickResult(BaseModel):
     accumulated_filters: list[dict] = Field(
         default_factory=list,
         description="Current accumulated filter conditions",
+    )
+    reset_results: bool = Field(
+        default=False,
+        description="When true, frontend should clear all results (direction change)",
     )
     data_freshness: str | None = None
     is_stale: bool = False

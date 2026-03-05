@@ -367,7 +367,7 @@ h1, h2, h3, h4, h5, h6 {
     color: #059669;
   }
 
-  /* Terminal-style card — DEPRECATED: use v2-card instead */
+  /* Terminal-style card */
   .terminal-card {
     @apply bg-card border border-border rounded-lg overflow-hidden;
     box-shadow:
@@ -380,74 +380,6 @@ h1, h2, h3, h4, h5, h6 {
       0 0 0 1px rgba(228, 228, 231, 0.8),
       0 4px 12px rgba(0, 0, 0, 0.08);
   }
-
-  /* ---- Design System v2 ---- */
-
-  /* V2 Primary Card — borderless, multi-layer shadow depth */
-  .v2-card {
-    @apply bg-card rounded-xl overflow-hidden;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.04),
-      0 1px 2px rgba(0, 0, 0, 0.3),
-      0 4px 16px rgba(0, 0, 0, 0.25);
-  }
-
-  .v2-card:hover {
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 2px 4px rgba(0, 0, 0, 0.3),
-      0 8px 24px rgba(0, 0, 0, 0.3);
-  }
-
-  .light .v2-card {
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.04),
-      0 1px 3px rgba(0, 0, 0, 0.06),
-      0 4px 16px rgba(0, 0, 0, 0.04);
-  }
-
-  .light .v2-card:hover {
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.06),
-      0 2px 6px rgba(0, 0, 0, 0.08),
-      0 8px 24px rgba(0, 0, 0, 0.06);
-  }
-
-  /* V2 Inset Surface — recessed, used inside v2-card */
-  .v2-inset {
-    @apply rounded-lg overflow-hidden;
-    background: rgba(255, 255, 255, 0.02);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
-  }
-
-  .light .v2-inset {
-    background: rgba(0, 0, 0, 0.02);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
-  }
-
-  /* V2 Divider */
-  .v2-divider {
-    @apply h-px;
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .light .v2-divider {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
-  /* V2 Gold Accent — champagne gold replacing amber for secondary accent */
-  .text-gold { color: #C9A96E; }
-  .light .text-gold { color: #9A7B4F; }
-
-  .bg-gold\/10 { background: rgba(201, 169, 110, 0.10); }
-  .bg-gold\/15 { background: rgba(201, 169, 110, 0.15); }
-  .light .bg-gold\/10 { background: rgba(154, 123, 79, 0.10); }
-  .light .bg-gold\/15 { background: rgba(154, 123, 79, 0.15); }
-
-  .border-gold\/20 { border-color: rgba(201, 169, 110, 0.20); }
-  .border-gold\/30 { border-color: rgba(201, 169, 110, 0.30); }
-  .light .border-gold\/20 { border-color: rgba(154, 123, 79, 0.20); }
-  .light .border-gold\/30 { border-color: rgba(154, 123, 79, 0.30); }
 }
 
 /* ============================================
@@ -629,10 +561,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
-   PICKER AGENT - Premium Chat Animations
+   SCREENER ANIMATIONS
    ============================================ */
 
-/* Word Fade In - Text materializing from fog */
+/* Word Fade In - Streaming text effect */
 @keyframes word-fade-in {
   0% {
     opacity: 0;
@@ -651,23 +583,7 @@ h1, h2, h3, h4, h5, h6 {
   animation: word-fade-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Fade Out Up - Exit animation for welcome */
-@keyframes fade-out-up {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.98);
-  }
-}
-
-.animate-fade-out-up {
-  animation: fade-out-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* Typing Indicator - 3-dot bounce */
+/* Typing Bounce - Dot indicator */
 @keyframes typing-bounce {
   0%, 60%, 100% {
     transform: translateY(0);
@@ -737,21 +653,7 @@ h1, h2, h3, h4, h5, h6 {
   animation: number-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Emerald breathing glow for welcome icon */
-@keyframes emerald-breathe {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 0 40px rgba(16, 185, 129, 0.05);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(16, 185, 129, 0.25), 0 0 60px rgba(16, 185, 129, 0.1);
-  }
-}
-
-.animate-emerald-breathe {
-  animation: emerald-breathe 3s ease-in-out infinite;
-}
-
-/* Message slide up */
+/* Message Enter - Chat bubble slide up */
 @keyframes msg-enter {
   0% {
     opacity: 0;

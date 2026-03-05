@@ -8,7 +8,7 @@ export function ReportTabs() {
   const isMorning = pathname.startsWith('/morning');
 
   return (
-    <div className="flex items-center gap-1 p-1 v2-inset">
+    <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border/50">
       <Link
         href="/morning"
         className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${

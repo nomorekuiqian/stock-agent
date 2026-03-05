@@ -40,7 +40,20 @@ jobs:
           sent=$(echo "$body" | grep -o '"sent":[0-9]*' | cut -d':' -f2)
           failed=$(echo "$body" | grep -o '"failed":[0-9]*' | cut -d':' -f2)
 
-          echo "Personal digests sent successfully!"
           echo "Total subscribers: $total"
           echo "Sent: $sent"
           echo "Failed: $failed"
+
+          # Show error details if any failures occurred
+          if [ -n "$failed" ] && [ "$failed" -gt 0 ]; then
+            errors=$(echo "$body" | grep -o '"errors":\[[^]]*\]' || true)
+            echo "Error details: $errors"
+          fi
+
+          # Fail if more than 2 users failed (triggers GitHub notification)
+          if [ -n "$failed" ] && [ "$failed" -gt 2 ]; then
+            echo "::error::Too many failures: $failed users did not receive their digest"
+            exit 1
+          fi
+
+          echo "Personal digests sent successfully!"

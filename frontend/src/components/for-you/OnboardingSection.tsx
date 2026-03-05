@@ -56,12 +56,12 @@ export default function OnboardingSection({
               key={template.id}
               onClick={() => handleSelectTemplate(template)}
               disabled={activatingId !== null}
-              className={`v2-card p-5 text-left transition-all group ${
+              className={`terminal-card p-5 text-left transition-all group ${
                 isActivating
-                  ? 'ring-2 ring-emerald-500/60'
+                  ? 'border-emerald-500/60 bg-card/80'
                   : isDisabled
                     ? 'opacity-50 pointer-events-none'
-                    : ''
+                    : 'hover:border-emerald-500/40 hover:bg-card/80'
               }`}
             >
               {isActivating ? (

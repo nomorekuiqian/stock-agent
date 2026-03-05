@@ -63,7 +63,7 @@ export default function ChatInput({
   };
 
   return (
-    <div className="relative flex items-end gap-2 p-2 rounded-2xl bg-zinc-800/50 border border-border/30 transition-colors focus-within:border-emerald-500/30">
+    <div className="relative flex items-end gap-2 p-2 rounded-2xl bg-card/80 border border-border/50 transition-colors focus-within:border-emerald-500/40">
       <textarea
         ref={textareaRef}
         value={value}
@@ -72,7 +72,7 @@ export default function ChatInput({
         placeholder={placeholder}
         disabled={loading}
         rows={1}
-        className="flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-500 resize-none outline-none px-2 py-1.5 max-h-[120px]"
+        className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 resize-none outline-none px-2 py-1.5 max-h-[120px]"
       />
       <button
         onClick={handleSubmit}
@@ -81,8 +81,8 @@ export default function ChatInput({
           shrink-0 w-8 h-8 rounded-xl flex items-center justify-center
           transition-all duration-200
           ${hasValue && !loading
-            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 active:scale-95'
-            : 'bg-zinc-700/50 text-zinc-500 cursor-default'
+            ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-500 dark:hover:bg-emerald-400 active:scale-95'
+            : 'bg-muted text-muted-foreground/50 cursor-default'
           }
         `}
       >

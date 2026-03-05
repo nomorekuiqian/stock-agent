@@ -100,7 +100,7 @@ export default function ContactPage() {
           {/* Feedback Form */}
           <div className="max-w-md mx-auto mb-12">
             {submitStatus === 'success' ? (
-              <div className="v2-card p-6 md:p-8 text-center">
+              <div className="terminal-card p-6 md:p-8 text-center">
                 <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
                   <svg
                     className="w-8 h-8 text-emerald-500"
@@ -128,7 +128,7 @@ export default function ContactPage() {
                 </button>
               </div>
             ) : (
-              <div className="v2-card p-6 md:p-8">
+              <div className="terminal-card p-6 md:p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                     <svg

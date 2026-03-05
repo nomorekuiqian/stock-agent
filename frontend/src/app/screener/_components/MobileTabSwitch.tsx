@@ -19,13 +19,13 @@ export default function MobileTabSwitch({
   hasNewResults = false,
 }: MobileTabSwitchProps) {
   return (
-    <div className="flex border-b border-border/30 bg-zinc-900/80 backdrop-blur-sm">
+    <div className="flex border-b border-border/50 bg-background/80 backdrop-blur-sm">
       <button
         onClick={() => onTabChange('chat')}
         className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
           activeTab === 'chat'
-            ? 'text-emerald-400'
-            : 'text-zinc-500 hover:text-zinc-300'
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-muted-foreground hover:text-foreground'
         }`}
       >
         对话
@@ -37,8 +37,8 @@ export default function MobileTabSwitch({
         onClick={() => onTabChange('results')}
         className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
           activeTab === 'results'
-            ? 'text-emerald-400'
-            : 'text-zinc-500 hover:text-zinc-300'
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-muted-foreground hover:text-foreground'
         }`}
       >
         结果

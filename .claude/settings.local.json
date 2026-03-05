@@ -191,7 +191,12 @@
       "Bash(TZ=\"America/New_York\" date:*)",
       "Bash(gh secret:*)",
       "Bash(npm run:*)",
-      "Skill(cover-changes)"
+      "Skill(cover-changes)",
+      "WebFetch(domain:www.glbgpt.com)",
+      "WebFetch(domain:ghuntley.com)",
+      "Bash(railway whoami:*)",
+      "Bash(railway deployment:*)",
+      "WebFetch(domain:docs.railway.com)"
     ],
     "deny": [],
     "ask": []

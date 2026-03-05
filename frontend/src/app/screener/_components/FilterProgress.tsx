@@ -66,22 +66,22 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
           {steps.map((step, i) => (
             <span key={i} className="flex items-center gap-2">
               {i > 0 && (
-                <svg className="w-3 h-3 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-3 h-3 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               )}
               <span
                 className={`animate-number-pop font-data tabular-nums ${
                   i === steps.length - 1
-                    ? 'text-emerald-400 font-medium'
-                    : 'text-zinc-500'
+                    ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                    : 'text-muted-foreground'
                 }`}
                 style={{ animationDelay: `${i * 100}ms` }}
               >
                 {step.count.toLocaleString()}
               </span>
               {step.label && (
-                <span className="text-zinc-600 text-xs">{step.label}</span>
+                <span className="text-muted-foreground/60 text-xs">{step.label}</span>
               )}
             </span>
           ))}
@@ -94,7 +94,7 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
           {appliedFilters.map((f, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-emerald-500/8 border border-emerald-500/15 text-emerald-400/80"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-emerald-500/8 border border-emerald-500/15 text-emerald-600/80 dark:text-emerald-400/80"
             >
               <span>{FIELD_LABELS[f.field] || f.field}</span>
               <span className="text-emerald-500/50">{OP_LABELS[f.op] || f.op}</span>

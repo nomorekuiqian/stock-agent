@@ -235,7 +235,7 @@ export default function SectorArchivePage() {
                 <Link
                   key={item.id}
                   href={`/sectors/${item.sector_id}?date=${item.digest_date}`}
-                  className="group v2-card p-4 transition-all"
+                  className="group terminal-card p-4 hover:border-emerald-500/30 transition-all"
                 >
                   <div className="flex items-start gap-4">
                     {/* Date Badge */}

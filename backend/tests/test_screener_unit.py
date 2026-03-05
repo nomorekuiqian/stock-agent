@@ -10,13 +10,20 @@ Usage:
     pytest tests/test_screener_unit.py -v
 """
 
+import json
+
 import pytest
-import math
 from app.features.screener.filters import (
     _num, _sort_and_limit,
     filter_volume_surge, filter_high_dividend, filter_momentum,
     filter_oversold_quality, filter_by_sector, filter_custom,
     filter_hot_sectors, filter_value_discovery,
+)
+from app.features.screener.agent import (
+    _current_universe,
+    filter_by_tickers,
+    get_field_distribution,
+    list_available_sectors,
 )
 from app.features.screener.suggestions import (
     _safe_float, _suggest_sector, _suggest_market_cap_tier,
@@ -277,7 +284,7 @@ class TestFilterCustom:
             "sort_by": "pe_ttm",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["pe_ttm"] > 20 for s in result)
 
     def test_lt_operator(self, sample_universe):
@@ -286,7 +293,7 @@ class TestFilterCustom:
             "sort_by": "pe_ttm",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["pe_ttm"] < 15 for s in result)
 
     def test_gte_operator(self, sample_universe):
@@ -295,7 +302,7 @@ class TestFilterCustom:
             "sort_by": "roe",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["roe"] >= 22 for s in result)
 
     def test_lte_operator(self, sample_universe):
@@ -304,7 +311,7 @@ class TestFilterCustom:
             "sort_by": "rsi",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["rsi"] <= 30 for s in result)
 
     def test_eq_operator(self, sample_universe):
@@ -313,7 +320,7 @@ class TestFilterCustom:
             "sort_by": "market_cap",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["sector"] == "Finance" for s in result)
         assert len(result) == 1
 
@@ -323,7 +330,7 @@ class TestFilterCustom:
             "sort_by": "market_cap",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["sector"] != "Finance" for s in result)
 
     def test_in_operator(self, sample_universe):
@@ -335,7 +342,7 @@ class TestFilterCustom:
             "sort_by": "market_cap",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert all(s["sector"] in ["Finance", "Retail Trade"] for s in result)
 
     def test_multiple_filters_combined(self, sample_universe):
@@ -347,14 +354,14 @@ class TestFilterCustom:
             "sort_by": "roe",
             "limit": 10,
         }
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         for s in result:
             assert s["pe_ttm"] < 30
             assert s["roe"] > 15
 
     def test_empty_criteria_returns_empty(self, sample_universe):
-        assert filter_custom(sample_universe, {}) == []
-        assert filter_custom(sample_universe, None) == []
+        assert filter_custom(sample_universe, {}) == ([], 0)
+        assert filter_custom(sample_universe, None) == ([], 0)
 
     def test_unknown_op_is_skipped(self, sample_universe):
         criteria = {
@@ -363,8 +370,18 @@ class TestFilterCustom:
             "limit": 10,
         }
         # Unknown op filter is skipped, all stocks pass, then sorted/limited
-        result = filter_custom(sample_universe, criteria)
+        result, _ = filter_custom(sample_universe, criteria)
         assert len(result) == 5
+
+    def test_returns_total_matches(self, sample_universe):
+        criteria = {
+            "filters": [{"field": "roe", "op": "gt", "value": 10}],
+            "sort_by": "roe",
+            "limit": 2,
+        }
+        result, total = filter_custom(sample_universe, criteria)
+        assert len(result) <= 2
+        assert total >= len(result)
 
 
 # ---------------------------------------------------------------------------
@@ -705,3 +722,261 @@ class TestComputeSectorStats:
         assert len(stats) == 1
         # avg of single NaN is NaN, _clean_nan converts to None
         assert stats[0]["avg_daily_change"] is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: filter_custom with tickers filter (filters.py)
+# ---------------------------------------------------------------------------
+
+class TestFilterCustomTickers:
+    """Tests for the special tickers filter in filter_custom."""
+
+    @pytest.fixture
+    def ticker_universe(self):
+        return [
+            {"symbol": "NASDAQ:COIN", "name": "Coinbase", "market_cap": 5e10, "sector": "Finance"},
+            {"symbol": "NASDAQ:MARA", "name": "Marathon Digital", "market_cap": 5e9, "sector": "Finance"},
+            {"symbol": "NASDAQ:AAPL", "name": "Apple", "market_cap": 3e12, "sector": "Technology Services"},
+            {"symbol": "NYSE:JPM", "name": "JPMorgan", "market_cap": 5.5e11, "sector": "Finance"},
+        ]
+
+    def test_ticker_filter_matches_by_symbol(self, ticker_universe):
+        criteria = {
+            "filters": [{"field": "tickers", "op": "in", "value": ["COIN", "MARA"]}],
+            "sort_by": "market_cap",
+            "limit": 10,
+        }
+        result, total = filter_custom(ticker_universe, criteria)
+        symbols = [s["symbol"].split(":")[-1] for s in result]
+        assert "COIN" in symbols
+        assert "MARA" in symbols
+        assert "AAPL" not in symbols
+        assert total == 2
+
+    def test_ticker_filter_case_insensitive(self, ticker_universe):
+        criteria = {
+            "filters": [{"field": "tickers", "op": "in", "value": ["coin", "Mara"]}],
+            "sort_by": "market_cap",
+            "limit": 10,
+        }
+        result, total = filter_custom(ticker_universe, criteria)
+        assert total == 2
+
+    def test_ticker_filter_with_additional_filters(self, ticker_universe):
+        criteria = {
+            "filters": [
+                {"field": "tickers", "op": "in", "value": ["COIN", "MARA", "AAPL"]},
+                {"field": "sector", "op": "eq", "value": "Finance"},
+            ],
+            "sort_by": "market_cap",
+            "limit": 10,
+        }
+        result, total = filter_custom(ticker_universe, criteria)
+        # AAPL is in tickers but sector != Finance
+        symbols = [s["symbol"].split(":")[-1] for s in result]
+        assert "COIN" in symbols
+        assert "MARA" in symbols
+        assert "AAPL" not in symbols
+        assert total == 2
+
+    def test_ticker_filter_no_matches(self, ticker_universe):
+        criteria = {
+            "filters": [{"field": "tickers", "op": "in", "value": ["NONEXIST"]}],
+            "sort_by": "market_cap",
+            "limit": 10,
+        }
+        result, total = filter_custom(ticker_universe, criteria)
+        assert total == 0
+        assert result == []
+
+    def test_ticker_filter_empty_list(self, ticker_universe):
+        criteria = {
+            "filters": [{"field": "tickers", "op": "in", "value": []}],
+            "sort_by": "market_cap",
+            "limit": 10,
+        }
+        result, total = filter_custom(ticker_universe, criteria)
+        assert total == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: filter_by_tickers tool (agent.py)
+# ---------------------------------------------------------------------------
+
+class TestFilterByTickers:
+    """Tests for the filter_by_tickers FunctionTool in agent.py."""
+
+    @pytest.fixture
+    def crypto_universe(self):
+        return [
+            {"symbol": "NASDAQ:COIN", "name": "Coinbase", "sector": "Finance",
+             "industry": "Crypto Exchange", "price": 250, "market_cap": 5e10,
+             "pe_ttm": 30, "roe": 15, "daily_change": 3.2,
+             "dividend_yield": 0, "rsi": 62, "analyst_rating": 2.1,
+             "revenue_growth_ttm": 45, "change_3m": 25},
+            {"symbol": "NASDAQ:MARA", "name": "Marathon Digital", "sector": "Finance",
+             "industry": "Crypto Mining", "price": 22, "market_cap": 5e9,
+             "pe_ttm": None, "roe": -5, "daily_change": 5.1,
+             "dividend_yield": 0, "rsi": 55, "analyst_rating": 3.0,
+             "revenue_growth_ttm": 120, "change_3m": 40},
+            {"symbol": "NASDAQ:AAPL", "name": "Apple", "sector": "Technology Services",
+             "industry": "Consumer Electronics", "price": 180, "market_cap": 3e12,
+             "pe_ttm": 28, "roe": 25, "daily_change": 1.5,
+             "dividend_yield": 0.5, "rsi": 58, "analyst_rating": 1.8,
+             "revenue_growth_ttm": 8, "change_3m": 12},
+            {"symbol": "NYSE:SQ", "name": "Block Inc", "sector": "Technology Services",
+             "industry": "Fintech", "price": 75, "market_cap": 4e10,
+             "pe_ttm": 50, "roe": 8, "daily_change": 2.0,
+             "dividend_yield": 0, "rsi": 48, "analyst_rating": 2.5,
+             "revenue_growth_ttm": 20, "change_3m": 15},
+        ]
+
+    def test_matches_tickers_in_universe(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers(["COIN", "MARA", "SQ"]))
+            assert result["match_count"] == 3
+            tickers = [p["ticker"] for p in result["preview"]]
+            assert "COIN" in tickers
+            assert "MARA" in tickers
+            assert "SQ" in tickers
+            assert "AAPL" not in tickers
+        finally:
+            _current_universe.set([])
+
+    def test_reports_not_in_universe(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers(["COIN", "RIOT", "BTBT"]))
+            assert result["match_count"] == 1
+            assert "RIOT" in result["not_in_universe"]
+            assert "BTBT" in result["not_in_universe"]
+        finally:
+            _current_universe.set([])
+
+    def test_case_insensitive(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers(["coin", "Mara"]))
+            assert result["match_count"] == 2
+        finally:
+            _current_universe.set([])
+
+    def test_sorted_by_market_cap_desc(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers(["COIN", "MARA", "AAPL", "SQ"]))
+            caps = [p.get("market_cap", 0) for p in result["preview"]]
+            assert caps == sorted(caps, reverse=True)
+        finally:
+            _current_universe.set([])
+
+    def test_empty_tickers_returns_zero(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers([]))
+            assert result["match_count"] == 0
+        finally:
+            _current_universe.set([])
+
+    def test_preview_includes_industry_field(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers(["COIN"]))
+            preview = result["preview"][0]
+            assert "industry" in preview
+            assert preview["industry"] == "Crypto Exchange"
+        finally:
+            _current_universe.set([])
+
+    def test_invalid_input_returns_error(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers("not a list"))
+            assert "error" in result
+        finally:
+            _current_universe.set([])
+
+    def test_whitespace_in_tickers_stripped(self, crypto_universe):
+        _current_universe.set(crypto_universe)
+        try:
+            result = json.loads(filter_by_tickers(["  COIN  ", " MARA"]))
+            assert result["match_count"] == 2
+        finally:
+            _current_universe.set([])
+
+
+# ---------------------------------------------------------------------------
+# Tests: get_field_distribution (agent.py)
+# ---------------------------------------------------------------------------
+
+class TestGetFieldDistribution:
+    """Tests for get_field_distribution tool."""
+
+    @pytest.fixture(autouse=True)
+    def set_universe(self, sample_universe):
+        _current_universe.set(sample_universe)
+        yield
+        _current_universe.set([])
+
+    def test_numeric_field_stats(self):
+        result = json.loads(get_field_distribution("pe_ttm"))
+        assert result["type"] == "numeric"
+        assert "min" in result
+        assert "max" in result
+        assert "mean" in result
+        assert "median" in result
+        assert result["non_null_count"] > 0
+
+    def test_categorical_field_stats(self):
+        result = json.loads(get_field_distribution("sector"))
+        assert result["type"] == "categorical"
+        assert "top_values" in result
+        assert result["unique_count"] > 0
+
+    def test_boolean_field_stats(self):
+        result = json.loads(get_field_distribution("above_sma50"))
+        assert result["type"] == "boolean"
+        assert "true_count" in result
+        assert "false_count" in result
+
+    def test_nonexistent_field(self):
+        result = json.loads(get_field_distribution("nonexistent_field"))
+        assert "error" in result
+        assert result["non_null_count"] == 0
+
+    def test_sector_filter(self):
+        result = json.loads(get_field_distribution("pe_ttm", sector="Finance"))
+        assert result["type"] == "numeric"
+        # Only JPM in Finance sector
+        assert result["non_null_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Tests: list_available_sectors (agent.py)
+# ---------------------------------------------------------------------------
+
+class TestListAvailableSectors:
+    """Tests for list_available_sectors tool."""
+
+    @pytest.fixture(autouse=True)
+    def set_universe(self, sample_universe):
+        _current_universe.set(sample_universe)
+        yield
+        _current_universe.set([])
+
+    def test_returns_sectors_with_counts(self):
+        result = json.loads(list_available_sectors())
+        assert result["total_sectors"] > 0
+        assert result["total_stocks"] == 5
+        for sector in result["sectors"]:
+            assert "sector_en" in sector
+            assert "sector_zh" in sector
+            assert "count" in sector
+            assert sector["count"] > 0
+
+    def test_empty_universe(self):
+        _current_universe.set([])
+        result = json.loads(list_available_sectors())
+        assert result["total_sectors"] == 0
+        assert result["total_stocks"] == 0

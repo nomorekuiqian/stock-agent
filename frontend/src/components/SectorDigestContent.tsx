@@ -125,7 +125,7 @@ function EventItem({ event }: { event: SectorEvent }) {
 export function SectorDigestContent({ digest }: SectorDigestContentProps) {
   if (!digest.success) {
     return (
-      <div className="v2-card p-6">
+      <div className="terminal-card p-6">
         <div className="text-red-400">
           {digest.error || 'Failed to load digest'}
         </div>
@@ -136,7 +136,7 @@ export function SectorDigestContent({ digest }: SectorDigestContentProps) {
   return (
     <div className="space-y-8">
       {/* Greeting & Intro */}
-      <section className="v2-card p-6 animate-fade-in-up">
+      <section className="terminal-card p-6 animate-fade-in-up">
         <div className="text-sm text-emerald-400 font-medium mb-3">
           {digest.greeting}
         </div>
@@ -149,7 +149,7 @@ export function SectorDigestContent({ digest }: SectorDigestContentProps) {
 
       {/* Stock Analysis */}
       {digest.stocks && digest.stocks.length > 0 && (
-        <section className="v2-card p-6 animate-fade-in-up">
+        <section className="terminal-card p-6 animate-fade-in-up">
           <SectionHeader icon={BarChart3} title="Stocks" />
           <div className="space-y-4">
             {digest.stocks.map((stock, idx) => (
@@ -161,7 +161,7 @@ export function SectorDigestContent({ digest }: SectorDigestContentProps) {
 
       {/* News */}
       {digest.news && digest.news.length > 0 && (
-        <section className="v2-card p-6 animate-fade-in-up">
+        <section className="terminal-card p-6 animate-fade-in-up">
           <SectionHeader icon={Newspaper} title="News" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {digest.news.map((news, idx) => (
@@ -173,7 +173,7 @@ export function SectorDigestContent({ digest }: SectorDigestContentProps) {
 
       {/* Events */}
       {digest.events && digest.events.length > 0 && (
-        <section className="v2-card p-6 animate-fade-in-up">
+        <section className="terminal-card p-6 animate-fade-in-up">
           <SectionHeader icon={Calendar} title="Events" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {digest.events.map((event, idx) => (
@@ -185,7 +185,7 @@ export function SectorDigestContent({ digest }: SectorDigestContentProps) {
 
       {/* Summary / Deep Insight */}
       {digest.summary && (
-        <section className="v2-card p-6 animate-fade-in-up">
+        <section className="terminal-card p-6 animate-fade-in-up">
           <SectionHeader icon={Lightbulb} title="Analysis" />
           <div className="prose prose-invert prose-sm max-w-none">
             <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
