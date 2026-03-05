@@ -1,15 +1,41 @@
 'use client';
 
+import { useState } from 'react';
 import ChatInput from './ChatInput';
 
-/** Welcome chip options - hardcoded for zero-latency first screen */
-const WELCOME_OPTIONS = [
-  { label: '稳健收息', value: '稳健收息' },
-  { label: '高成长潜力', value: '高成长潜力' },
-  { label: '被低估的好公司', value: '被低估的好公司' },
-  { label: '跟着趋势走', value: '跟着趋势走' },
-  { label: '我有具体想法', value: '__focus_input__' },
+/** All available preset queries, grouped by theme */
+const ALL_PRESETS = [
+  // Core strategies
+  '稳健收息',
+  '高成长潜力',
+  '被低估的好公司',
+  '跟着趋势走',
+  // Thematic / sector
+  'AI 和芯片相关的股票',
+  '新能源和电动车相关股票',
+  '医药和生物科技领域的股票',
+  '网络安全相关股票',
+  // Style / profile
+  '自由现金流很强的公司',
+  '波动小、比较抗跌的股票',
+  '市值小但成长快的黑马股',
+  '分析师评级最高的股票',
+  // Situational
+  '最近跌了很多、可能超跌反弹的股票',
+  '连续 10 年以上稳定分红的股票',
+  '利润率高、负债又低的优质公司',
+  '最近成交量放大、突破均线的股票',
 ];
+
+const FOCUS_INPUT = '__focus_input__';
+
+/** Pick a random subset of presets, always including core strategies */
+function getWelcomeOptions() {
+  const core = ALL_PRESETS.slice(0, 4);
+  const extended = ALL_PRESETS.slice(4);
+  const shuffled = extended.sort(() => Math.random() - 0.5);
+  return [...core, ...shuffled.slice(0, 4), FOCUS_INPUT];
+}
 
 interface WelcomeScreenProps {
   onSelect: (value: string) => void;
@@ -23,14 +49,15 @@ interface WelcomeScreenProps {
  * Transitions out with fade-out-up when user makes first interaction.
  */
 export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenProps) {
-  const handleChipClick = (value: string) => {
-    if (value === '__focus_input__') {
-      // Focus the input instead of sending
+  const [options] = useState(getWelcomeOptions);
+
+  const handleChipClick = (query: string) => {
+    if (query === FOCUS_INPUT) {
       const input = document.querySelector<HTMLTextAreaElement>('.welcome-input textarea');
       input?.focus();
       return;
     }
-    onSelect(value);
+    onSelect(query);
   };
 
   return (
@@ -62,14 +89,14 @@ export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenP
 
         {/* Chips */}
         <div className="flex flex-wrap justify-center gap-2.5 animate-fade-in-up delay-200">
-          {WELCOME_OPTIONS.map((opt, i) => (
+          {options.map((query, i) => (
             <button
-              key={opt.value}
-              onClick={() => handleChipClick(opt.value)}
+              key={query}
+              onClick={() => handleChipClick(query)}
               className="animate-chip-enter px-4 py-2 rounded-full text-sm border border-border/50 bg-card/60 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 transition-all duration-200 cursor-pointer"
               style={{ animationDelay: `${300 + i * 60}ms` }}
             >
-              {opt.label}
+              {query === FOCUS_INPUT ? '我有具体想法' : query}
             </button>
           ))}
         </div>

@@ -44,7 +44,7 @@ class PickerAgentOutput(BaseModel):
             "Warm, friendly tone. No financial jargon."
         ),
     )
-    options: list = Field(
+    options: List[str] = Field(
         default_factory=list,
         description=(
             "Array of clickable option strings in Chinese. "
@@ -52,11 +52,11 @@ class PickerAgentOutput(BaseModel):
             "Empty [] if no options needed."
         ),
     )
-    filters: list = Field(
+    filters: List[str] = Field(
         default_factory=list,
         description=(
-            "Array of ALL accumulated filter conditions. "
-            'Each item: {"field": "...", "op": "...", "value": ...}. '
+            "Array of ALL accumulated filter conditions as JSON strings. "
+            'Each item: \'{"field": "...", "op": "...", "value": ...}\'. '
             "Include ALL previous filters plus any new ones from this turn. "
             "Empty [] if not ready to filter yet."
         ),
@@ -82,11 +82,11 @@ class PickerAgentOutput(BaseModel):
             "(e.g. discussing analyst ratings, comparing stocks, asking details)."
         ),
     )
-    pick_reasons: list = Field(
+    pick_reasons: List[str] = Field(
         default_factory=list,
         description=(
-            "Array of per-stock recommendation reasons. "
-            'Each item: {"symbol": "AAPL", "reason": "..."}. '
+            "Array of per-stock recommendation reasons as JSON strings. "
+            'Each item: \'{"symbol": "AAPL", "reason": "..."}\'. '
             "Only populate when making final recommendations. "
             "Reasons should echo the user's stated preferences in plain Chinese."
         ),
@@ -429,13 +429,26 @@ class StockPickerAgent:
 
 
 def _parse_json_field(raw: Any, fallback: Any) -> Any:
-    """Parse a JSON string field from agent output, with fallback."""
+    """Parse a JSON string field from agent output, with fallback.
+
+    Handles: plain str (JSON), list of dicts, list of JSON strings, etc.
+    """
     if isinstance(raw, str):
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
             return fallback
     if isinstance(raw, list):
+        # If list items are JSON strings (from List[str] output schema),
+        # parse each one into a dict
+        if raw and isinstance(raw[0], str):
+            parsed = []
+            for item in raw:
+                try:
+                    parsed.append(json.loads(item))
+                except (json.JSONDecodeError, TypeError):
+                    parsed.append(item)
+            return parsed
         return raw
     return fallback
 
