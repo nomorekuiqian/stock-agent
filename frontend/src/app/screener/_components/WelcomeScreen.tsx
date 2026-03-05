@@ -38,8 +38,8 @@ export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenP
       <div className="w-full max-w-lg space-y-8 text-center">
         {/* Emerald icon with breathing glow */}
         <div className="flex justify-center">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center animate-emerald-breathe animate-fade-in-up">
-            <svg className="w-7 h-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center animate-fade-in-up">
+            <svg className="w-7 h-7 text-emerald-600 dark:text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
@@ -52,7 +52,7 @@ export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenP
           <h1 className="text-2xl md:text-3xl font-editorial text-foreground tracking-tight">
             找到适合你的投资机会
           </h1>
-          <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+          <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-sm mx-auto">
             {universeSize
               ? `从 ${universeSize.toLocaleString()}+ 只美股中，AI 帮你挑选`
               : 'AI 帮你从美股中挑选适合的投资标的'
@@ -66,7 +66,7 @@ export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenP
             <button
               key={opt.value}
               onClick={() => handleChipClick(opt.value)}
-              className="animate-chip-enter px-4 py-2 rounded-full text-sm border border-border/40 bg-zinc-800/40 text-zinc-300 hover:border-emerald-500/30 hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 transition-all duration-200 cursor-pointer"
+              className="animate-chip-enter px-4 py-2 rounded-full text-sm border border-border/50 bg-card/60 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 transition-all duration-200 cursor-pointer"
               style={{ animationDelay: `${300 + i * 60}ms` }}
             >
               {opt.label}
@@ -84,7 +84,7 @@ export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenP
         </div>
 
         {/* Subtle hint */}
-        <p className="text-xs text-zinc-600 animate-fade-in delay-700">
+        <p className="text-xs text-muted-foreground/60 animate-fade-in delay-700">
           点击上方选项或输入你的想法，AI 会引导你一步步找到心仪的股票
         </p>
       </div>

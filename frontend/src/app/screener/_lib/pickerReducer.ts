@@ -5,7 +5,7 @@
  * without rendering React components.
  */
 
-import type { PickResult, PickerOption } from '@/lib/api';
+import type { PickResult } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,7 +15,7 @@ export interface ChatMsg {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  options?: PickerOption[];
+  options?: string[];
   selectedOption?: string | null;
   isError?: boolean;
 }
@@ -96,6 +96,15 @@ export function loadState(): PickerState {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState;
     const saved = JSON.parse(raw) as Partial<PickerState>;
+    // Migrate old {label,value} options to plain strings
+    if (saved.messages) {
+      saved.messages = saved.messages.map((m) => ({
+        ...m,
+        options: m.options?.map((o: unknown) =>
+          typeof o === 'string' ? o : (o as { label?: string }).label ?? '',
+        ),
+      }));
+    }
     return { ...initialState, ...saved, candidates: [], isLoading: false, error: null };
   } catch {
     return initialState;
@@ -119,7 +128,7 @@ export function pickerReducer(state: PickerState, action: PickerAction): PickerS
       const updatedMessages = state.messages.map((msg, i) => {
         if (
           msg.role === 'assistant' &&
-          msg.options?.some(o => o.value === action.message) &&
+          msg.options?.some(o => o === action.message) &&
           !msg.selectedOption &&
           i === state.messages.length - 1
         ) {
@@ -161,6 +170,21 @@ export function pickerReducer(state: PickerState, action: PickerAction): PickerS
         ) {
           newFunnelSteps = [...newFunnelSteps, { count: result.candidate_count }];
         }
+      }
+
+      // Handle reset signal: agent cleared all filters (e.g. "change direction")
+      if (result.reset_results) {
+        return {
+          ...state,
+          messages: [...state.messages, assistantMsg],
+          accumulatedFilters: [],
+          candidates: [],
+          candidateCount: 0,
+          pickReasons: [],
+          funnelSteps: [],
+          isLoading: false,
+          hasNewResults: false,
+        };
       }
 
       // Determine pickReasons for this turn:

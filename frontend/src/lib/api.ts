@@ -812,10 +812,6 @@ export interface ScreenerAskResult {
 }
 
 // Stock Picker Agent types
-export interface PickerOption {
-  label: string;
-  value: string;
-}
 
 export interface PickRequest {
   message: string;
@@ -826,12 +822,13 @@ export interface PickRequest {
 export interface PickResult {
   success: boolean;
   message: string;
-  options: PickerOption[];
+  options: string[];
   candidates: Record<string, unknown>[];
   candidate_count: number;
   universe_size: number;
   pick_reasons: { symbol: string; reason: string }[];
   accumulated_filters: { field: string; op: string; value: unknown }[];
+  reset_results: boolean;
   data_freshness: string | null;
   is_stale: boolean;
 }

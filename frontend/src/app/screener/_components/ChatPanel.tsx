@@ -98,7 +98,7 @@ export default function ChatPanel({ messages, onSend, loading, inputPlaceholder 
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
           <button
             onClick={scrollToBottom}
-            className="px-3 py-1.5 rounded-full bg-zinc-800 border border-border/30 text-xs text-zinc-400 hover:text-zinc-200 transition-colors shadow-lg"
+            className="px-3 py-1.5 rounded-full bg-card border border-border/50 text-xs text-muted-foreground hover:text-foreground transition-colors shadow-lg"
           >
             <svg className="w-3 h-3 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 5v14M5 12l7 7 7-7" />
