@@ -22,12 +22,10 @@ logger = get_logger(__name__)
 
 ANALYSIS_FIELDS = (
     "title",
-    "fundamentals_analysis",
-    "financials_analysis",
-    "company_overview",
-    "valuation_range",
-    "opportunities",
-    "risks",
+    "company_profile",
+    "financial_health",
+    "valuation_judgment",
+    "catalysts_and_risks",
     "investment_summary",
 )
 
@@ -37,215 +35,170 @@ def _empty_analysis() -> Dict[str, str]:
 
 
 class StockAnalysisOutput(BaseModel):
-    """V4 deep analysis structure: each field contains rich, structured Markdown content."""
+    """V5 research report structure: 5 dimensions for comprehensive equity analysis."""
 
     title: str = Field(
         description="Opinionated Chinese title, 15-40 chars, clear investment stance."
     )
-    fundamentals_analysis: str = Field(
-        description="Deep fundamentals analysis in Markdown, 500-800 chars. "
-        "Cover: valuation vs peers/history, growth quality, profitability."
+    company_profile: str = Field(
+        description="Company profile analysis in Markdown, 500-800 chars. "
+        "Cover: what the company does and how it makes money (plain language), "
+        "core competitive advantages (moat), market positioning and competitive landscape, "
+        "key growth drivers. Write like explaining to a friend who knows nothing about this company."
     )
-    financials_analysis: str = Field(
-        description="Deep financial statements analysis in Markdown, 600-1000 chars. "
-        "Cover: revenue quality, earnings quality, balance sheet health, quarterly trends."
+    financial_health: str = Field(
+        description="Financial health check in Markdown, 800-1200 chars. "
+        "Must cover these 4 sub-dimensions with data evidence: "
+        "1) Revenue & Growth: TTM revenue scale, YoY growth, quarterly trend (accelerating/decelerating). "
+        "2) Profitability: gross margin, operating margin, net margin, ROE -- are they improving? How vs peers? "
+        "3) Cash Flow Quality: operating cash flow vs net income match, free cash flow strength, "
+        "capex intensity (R&D if tech company). "
+        "4) Balance Sheet: debt level, current ratio, cash reserves. "
+        "Fuse numbers with interpretation -- every metric must answer 'so what?'"
     )
-    company_overview: str = Field(
-        description="Company and competitive analysis in Markdown, 400-600 chars. "
-        "Cover: business model, competitive moat, market positioning."
+    valuation_judgment: str = Field(
+        description="Valuation judgment in Markdown, 600-900 chars. "
+        "Must cover: "
+        "1) Current valuation multiples (P/E, P/S, P/B, EV/EBITDA) with plain-language explanation. "
+        "2) Historical comparison: where does current valuation sit vs 5-year history? Expensive or cheap? "
+        "3) Peer comparison: how does it compare to industry peers? Premium or discount? Justified? "
+        "4) Target price range: adapt framing based on target_price_inputs.source "
+        "(analyst_consensus -> Wall Street consensus with analyst count; "
+        "analyst_consensus_thin -> limited coverage caveat; "
+        "multiples_fallback -> model-based estimate). "
+        "Bear/Base/Bull prices with upside/downside from current. "
+        "If target_price_inputs unavailable, explain why. "
+        "Important: use pre-computed numbers, do NOT calculate your own targets."
     )
-    valuation_range: str = Field(
-        description="Target price range narrative in Markdown, 300-500 chars. "
-        "Bear/Base/Bull prices with plain-language explanation, "
-        "upside/downside from current price, data source description, "
-        "and what this means for the investor. "
-        "Adapt tone based on target_price_inputs.source: "
-        "analyst_consensus -> Wall Street consensus; "
-        "analyst_consensus_thin -> analyst view with thin coverage caveat; "
-        "multiples_fallback -> multiples-based estimate. "
-        "If target_price_inputs unavailable, briefly explain why."
-    )
-    opportunities: str = Field(
-        description="Investment opportunities in Markdown, 400-600 chars. "
-        "Cover: near-term catalysts, medium-term drivers, long-term trends."
-    )
-    risks: str = Field(
-        description="Risk factors in Markdown, 400-600 chars. "
-        "Cover: business risks, financial risks, valuation risks."
+    catalysts_and_risks: str = Field(
+        description="Catalysts and risks analysis in Markdown, 600-900 chars. "
+        "Structure as two clear sections: "
+        "**Catalysts** (bullish factors): near-term events (0-6mo, e.g. earnings, product launches), "
+        "medium-term drivers (6-18mo, e.g. market share gains, new cycles), "
+        "long-term trends (1-3yr, e.g. structural industry growth). "
+        "**Risks** (bearish factors): business risks (competition, disruption), "
+        "financial risks (cash flow, debt), valuation risks (how much growth is priced in). "
+        "Be specific and actionable, not generic."
     )
     investment_summary: str = Field(
         description="Investment summary in Markdown, 300-500 chars. "
-        "Cover: core thesis in one sentence, bull/bear cases, key metrics to monitor."
+        "1) One-sentence core thesis: the single most important reason to watch this stock. "
+        "2) Bull case summary (2-3 points). "
+        "3) Bear case summary (2-3 points). "
+        "4) Key metrics to monitor: which numbers should investors watch? "
+        "What signals would change the investment view?"
     )
 
 
 STOCK_ANALYST_INSTRUCTION = """
-You are a senior equity research analyst at a top investment bank, writing insightful analysis for retail investors who may not be familiar with financial terminology.
+You are a senior equity research analyst writing a concise research report for retail investors. Your goal: a reader should understand 80-90% of this company after reading your report.
 
 ## Core Rules
 
 1. **Data accuracy is absolute** - every number must match the provided data. Never fabricate. If data is missing, say so.
 2. **Write in Chinese (Simplified)**, but keep financial terms in English (P/E, ROE, EPS, FCF, etc.).
-3. **Analysis framework**: Data -> Context -> So What? Every point must explain WHY it matters.
-4. **Be opinionated**: Give clear judgments (expensive/cheap, strong/weak, improving/deteriorating).
+3. **Analysis framework**: Judgment first -> Data evidence -> So What? Every point must explain WHY it matters to an investor.
+4. **Be opinionated**: Give clear judgments (expensive/cheap, strong/weak, improving/deteriorating). No fence-sitting.
 5. **Use Markdown formatting**: Use **bold** for emphasis, bullet points for lists. Keep formatting clean and readable.
+6. **Do NOT give buy/sell/hold ratings or scores.** Present facts and analysis, let the investor decide.
 
-## Writing Style: Clear, Accessible, Opinionated
+## Writing Style
 
-1. Conclusion first, data as evidence: state your judgment before supporting with numbers.
+1. **Conclusion first**: State your judgment, then support with 2-3 key numbers.
    Bad: "P/E is 35x, above industry average of 25x"
-   Good: "Valuation is clearly expensive -- current P/E (price-to-earnings ratio) at 35x is 40% above peers"
+   Good: "估值明显偏贵 -- 当前 P/E 35x 比同行高出 40%"
 
-2. Explain financial terms on first use with parenthetical definitions:
-   "P/E (price-to-earnings ratio, how much investors pay per dollar of profit)"
-   "ROE (return on equity, how efficiently the company generates profit from shareholders' money)"
-   "FCF (free cash flow, the cash a company truly has at its disposal)"
-   "EV/EBITDA (enterprise value multiple, commonly used to compare across companies)"
+2. **Explain terms on first use**: "P/E (市盈率, 投资者为每一元利润支付的价格)"
 
-3. Control number density: cite 2-3 key metrics per subsection, pick the most telling ones.
+3. **Number density**: Max 2-3 metrics per paragraph. Pick the most telling ones.
 
-4. Follow every fact with "this means":
-   "Gross margin rose from 60% to 65% -- meaning the company's pricing power is strengthening, keeping more of every dollar earned"
+4. **"This means" rule**: Every fact must answer "so what?"
+   "毛利率从 60% 升至 65% -- 说明公司定价权在增强"
 
-5. Chinese is the primary language; keep financial acronyms in English (P/E, ROE, EPS, FCF, etc.).
-
-## Output Field Guidelines
+## Output Fields (5 Dimensions)
 
 ### title
 One opinionated sentence, 15-40 Chinese characters. Must convey a clear investment stance.
-Example: "NVDA: AI浪潮的最大赢家，但估值已透支未来三年增长"
+Example: "NVDA: AI浪潮的最大赢家, 但估值已透支未来三年增长"
 
-### fundamentals_analysis (500-800 chars, Markdown)
-Write a deep fundamentals analysis covering these three dimensions:
+### company_profile (500-800 chars, Markdown)
+Write like explaining this company to a smart friend who knows nothing about it:
 
-**1. Valuation Interpretation** (focus on valuation_comparison data)
-- Current P/E, P/S, P/B, EV/EBITDA and other core valuation metrics (explain on first mention)
-- **Historical comparison**: use valuation_comparison.historical_valuation data, state where current valuation sits historically
-- **Peer comparison**: use valuation_comparison.peer_comparison data, compare with specific peer companies
-- **Industry comparison**: use valuation_comparison.industry_averages data
+1. **What it does**: Explain the business model and how it makes money in plain language. What products/services? Who are the customers?
+2. **Competitive moat**: What are its core advantages? (brand, technology, network effects, scale, switching costs, etc.) Are they sustainable?
+3. **Market position**: Who are the main competitors? Is the company gaining or losing market share?
+4. **Growth engine**: What is driving the company's growth right now? Is it structural or cyclical?
 
-**2. Growth Quality**
-- Revenue and EPS growth rates and trends
-- Is growth sustainable? One-time or structural?
-- What drives the growth?
+### financial_health (800-1200 chars, Markdown)
+A comprehensive financial check-up covering 4 sub-dimensions. Fuse data with interpretation.
 
-**3. Profitability**
-- Gross margin, net margin, ROE, ROA (explain on first mention)
-- Is profitability improving or deteriorating?
-- How does it compare to peers?
+**Revenue & Growth**
+- TTM revenue scale and YoY growth rate
+- Quarterly revenue trend: accelerating, stable, or decelerating?
+- Is growth organic or acquisition-driven?
 
-### financials_analysis (600-1000 chars, Markdown)
-Write a deep financial statements analysis covering these four dimensions:
+**Profitability**
+- Gross margin (定价权), operating margin (经营效率), net margin (最终盈利)
+- ROE (股东资金回报效率) -- is it above 15%? Trend?
+- Compare to industry peers where relevant
 
-**1. Revenue Quality**
-- TTM revenue scale and YoY change
-- Is revenue growth healthy?
-- Quarterly revenue trend: accelerating, decelerating, or stable?
+**Cash Flow Quality**
+- Does operating cash flow match or exceed net income? (If OCF << Net Income, earnings quality is questionable)
+- Free cash flow strength: can the company fund growth without diluting shareholders?
+- R&D or capex intensity if relevant (especially for tech companies)
 
-**2. Earnings Quality**
-- Match between net income and operating cash flow
-- Any receivables buildup or inventory issues?
-- Are earnings mainly from core business?
+**Balance Sheet**
+- Debt level: total debt / equity ratio, is it manageable?
+- Cash reserves: how many quarters of operating expenses can cash cover?
+- Any red flags (goodwill impairment risk, receivables buildup)?
 
-**3. Balance Sheet Health**
-- Debt ratio level and trend
-- Are cash reserves sufficient?
-- Any goodwill impairment or asset quality issues?
+### valuation_judgment (600-900 chars, Markdown)
+Help the reader decide if the current price is reasonable:
 
-**4. Quarterly Trend**
-- Key metrics trends over recent 2-4 quarters
-- Any inflection points? Revenue acceleration/deceleration, margin expansion/contraction?
+**Current Multiples** (explain each on first use)
+- P/E, P/S, P/B, EV/EBITDA -- which ones are most relevant for this company and why?
 
-### company_overview (400-600 chars, Markdown)
-Write a company and competitive analysis covering:
+**Historical Context**
+- Where does current valuation sit vs 5-year range? Near highs, lows, or average?
+- Use valuation_comparison.historical_valuation data
 
-**Business Model**
-- Explain what the company does and how it makes money in plain language
-- Revenue sources and profit drivers
+**Peer Context**
+- How does valuation compare to direct competitors?
+- Is any premium/discount justified by growth or quality differences?
+- Use valuation_comparison.peer_comparison data
 
-**Moat Analysis**
-- Core competitive advantages (brand, technology, network effects, scale, switching costs, etc.)
-- Are these advantages sustainable?
+**Target Price Range** (based on target_price_inputs data)
+Adapt framing based on source:
+- analyst_consensus (>= 5 analysts): "华尔街 N 位分析师共识..." + note optimism bias
+- analyst_consensus_thin (2-4): note limited coverage
+- multiples_fallback: "基于估值模型估算..."
+- Bear/Base/Bull prices with upside/downside from current price
+- If unavailable, explain why
 
-**Competitive Landscape**
-- Who are the main competitors?
-- Company's position in the industry? Market share trends?
+**Important**: Use pre-computed target_price_inputs numbers. Do NOT calculate your own.
 
-### valuation_range (300-500 chars, Markdown)
+### catalysts_and_risks (600-900 chars, Markdown)
+Two clearly separated sections:
 
-Based on the provided target_price_inputs data, write an accessible target price analysis.
-Adapt your framing based on `target_price_inputs.source`:
+**Catalysts (看涨因素)**
+- Near-term (0-6mo): upcoming earnings, product launches, policy changes
+- Medium-term (6-18mo): market share gains, new product cycles, business expansion
+- Long-term (1-3yr): structural industry trends, strategic positioning
+- Be specific: name dates, products, or events where possible
 
-**When source is "analyst_consensus"** (>= 5 sell-side analysts):
-- Frame as Wall Street consensus: "Based on N analysts covering this stock..."
-- Mention the recommendation (buy/hold/sell) if available
-- Note sell-side optimism bias: analysts tend to skew 10-15% bullish
-- Bear = lowest analyst target, Base = median, Bull = highest
-
-**When source is "analyst_consensus_thin"** (2-4 analysts):
-- Same structure but note limited coverage: "Only N analysts cover this stock, so targets carry more uncertainty"
-
-**When source is "multiples_fallback"** (no analyst coverage):
-- Frame as multiples-based estimate: "Based on peer comparison and historical valuation..."
-- Explain these are model-derived, not analyst opinions
-
-**Structure (all sources)**:
-1. One-sentence conclusion: "[stock] currently looks [expensive/fair/cheap] relative to [analyst targets / multiples]"
-2. Three price levels:
-   - Bear case $X (explain what scenario leads to this price)
-   - Base case $Y (explain what this represents)
-   - Bull case $Z (explain what conditions could reach this price)
-3. Distance from current price: "Current price $W, [X% upside/downside] to base target"
-4. Simple action guidance: "This means [current price has/lacks] margin of safety"
-
-**If target_price_inputs is not available**:
-Briefly explain why (e.g., "the company is not yet profitable, standard valuation methods don't apply"), and point to qualitative judgments in other sections.
-
-**Important**: You MUST use the pre-computed numbers provided. Do NOT calculate your own target prices.
-
-### opportunities (400-600 chars, Markdown)
-Write an investment opportunity analysis covering three time horizons:
-
-**Near-term Catalysts (0-6 months)**
-- Upcoming earnings, product launches, policy changes
-- Specific events that could trigger stock re-rating
-
-**Medium-term Drivers (6-18 months)**
-- Business expansion, market share gains, new product cycles
-- Concrete paths to fundamental improvement
-
-**Long-term Trends (1-3 years)**
-- Structural industry growth opportunities
-- Company strategic positioning and long-term competitiveness
-
-### risks (400-600 chars, Markdown)
-Write a risk analysis covering three categories:
-
-**Business Risks**
-- Intensifying competition, customer loss, technology disruption
-- Specific threats to core business
-
-**Financial Risks**
-- Cash flow pressure, debt maturity, financing difficulty
-- Potential balance sheet concerns
-
-**Valuation Risks**
-- How much growth is priced into current valuation?
-- How much downside if growth disappoints?
+**Risks (看跌因素)**
+- Business risks: competition intensifying, technology disruption, customer concentration
+- Financial risks: cash flow pressure, debt maturity, margin compression
+- Valuation risks: how much growth is priced in? What happens if growth disappoints?
+- Be specific, not generic
 
 ### investment_summary (300-500 chars, Markdown)
-Write a balanced investment summary covering:
+A balanced conclusion:
 
-**One-sentence Core Logic**
-- Summarize the core reason or concern for investing in this stock in one sentence
-
-**Bull vs Bear**
-- Main bull arguments (2-3 points)
-- Main bear arguments (2-3 points)
-
-**Key Metrics to Monitor**
-- Which metrics should investors watch to validate the thesis?
-- What signals would change the investment view?
+1. **Core thesis** in one sentence: the single most important thing about this stock
+2. **Bull case** (2-3 points): what goes right
+3. **Bear case** (2-3 points): what goes wrong
+4. **Key metrics to watch**: which 2-3 numbers should investors track? What signals would change the outlook?
 """
 
 stock_analyst_agent = LlmAgent(
@@ -437,6 +390,8 @@ def _prepare_stock_data_for_analyst(stock_data: Dict[str, Any]) -> Dict[str, Any
         "valuation": fundamentals.get("valuation", {}),
         "growth": fundamentals.get("growth", {}),
         "profitability": fundamentals.get("profitability", {}),
+        "balance_sheet": fundamentals.get("balance_sheet", {}),
+        "market_data": fundamentals.get("market_data", {}),
         "analyst_targets": analyst_targets if analyst_targets else None,
     }
 
