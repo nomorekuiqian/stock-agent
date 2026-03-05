@@ -51,7 +51,7 @@ def full_ticker_info():
         "priceToSalesTrailing12Months": 7.8,
         "priceToBook": 45.2,
         "enterpriseToEbitda": 24.7,
-        "dividendYield": 0.005,
+        "trailingAnnualDividendYield": 0.0039,
         "trailingPegRatio": 2.1,
         # Forward
         "forwardPE": 28.0,
@@ -65,6 +65,17 @@ def full_ticker_info():
         # Growth
         "revenueGrowth": 0.05,
         "earningsQuarterlyGrowth": 0.12,
+        # Balance Sheet
+        "currentRatio": 1.04,
+        "quickRatio": 0.95,
+        "debtToEquity": 181.32,
+        "totalDebt": 108_040_000_000,
+        "totalCash": 29_965_000_000,
+        # Market Data
+        "beta": 1.24,
+        "shortRatio": 1.87,
+        "heldPercentInsiders": 0.0007,
+        "heldPercentInstitutions": 0.6127,
     }
 
 
@@ -107,7 +118,7 @@ class TestGetTickerMetrics:
         assert result["valuation"]["ps"] == 7.8
         assert result["valuation"]["pb"] == 45.2
         assert result["valuation"]["ev_to_ebitda"] == 24.7
-        assert result["valuation"]["dividend_yield"] == 0.5  # 0.005 * 100 (displayed as %)
+        assert result["valuation"]["dividend_yield"] == 0.39  # 0.0039 * 100 (displayed as %)
         assert result["valuation"]["peg"] == 2.1
 
         # Forward (forward_pe removed, only forward_eps and trailing_eps kept)
@@ -126,6 +137,19 @@ class TestGetTickerMetrics:
         assert result["growth"]["revenue_yoy"] == 0.05
         assert result["growth"]["earnings_yoy"] == 0.12
 
+        # Balance Sheet (new)
+        assert result["balance_sheet"]["current_ratio"] == 1.04
+        assert result["balance_sheet"]["quick_ratio"] == 0.95
+        assert result["balance_sheet"]["debt_to_equity"] == 181.32
+        assert result["balance_sheet"]["total_debt"] == 108_040_000_000
+        assert result["balance_sheet"]["total_cash"] == 29_965_000_000
+
+        # Market Data (new)
+        assert result["market_data"]["beta"] == 1.24
+        assert result["market_data"]["short_ratio"] == 1.87
+        assert result["market_data"]["insider_ownership"] == 0.0007
+        assert result["market_data"]["institutional_ownership"] == 0.6127
+
     @patch("app.shared.yfinance_service.yf")
     def test_minimal_data(self, mock_yf, service, minimal_ticker_info):
         """Missing fields result in empty sub-dicts, not errors."""
@@ -143,6 +167,9 @@ class TestGetTickerMetrics:
         assert result["growth"] == {}
         # Profitability empty
         assert result["profitability"] == {}
+        # Balance sheet and market data empty
+        assert result["balance_sheet"] == {}
+        assert result["market_data"] == {}
 
     @patch("app.shared.yfinance_service.yf")
     def test_negative_pe_excluded(self, mock_yf, service):
@@ -181,6 +208,8 @@ class TestGetTickerMetrics:
         assert result["forward"] == {}
         assert result["profitability"] == {}
         assert result["growth"] == {}
+        assert result["balance_sheet"] == {}
+        assert result["market_data"] == {}
 
     @patch("app.shared.yfinance_service.yf")
     def test_cache_hit(self, mock_yf, service, full_ticker_info):
@@ -237,6 +266,69 @@ class TestGetTickerMetrics:
         assert "forward_pe" not in result["forward"]
         assert result["forward"]["forward_eps"] == 5.0
         assert result["forward"]["trailing_eps"] == 4.0
+
+
+class TestBalanceSheetExtraction:
+    """Tests for balance_sheet field extraction in get_ticker_metrics."""
+
+    @patch("app.shared.yfinance_service.yf")
+    def test_partial_balance_sheet(self, mock_yf, service):
+        """Only available balance sheet fields are extracted."""
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"currentRatio": 2.5, "totalCash": 1_000_000}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = service.get_ticker_metrics("PARTIAL")
+
+        assert result["balance_sheet"]["current_ratio"] == 2.5
+        assert result["balance_sheet"]["total_cash"] == 1_000_000
+        assert "quick_ratio" not in result["balance_sheet"]
+        assert "debt_to_equity" not in result["balance_sheet"]
+
+
+class TestMarketDataExtraction:
+    """Tests for market_data field extraction in get_ticker_metrics."""
+
+    @patch("app.shared.yfinance_service.yf")
+    def test_partial_market_data(self, mock_yf, service):
+        """Only available market data fields are extracted."""
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"beta": 0.85, "heldPercentInstitutions": 0.75}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = service.get_ticker_metrics("STABLE")
+
+        assert result["market_data"]["beta"] == 0.85
+        assert result["market_data"]["institutional_ownership"] == 0.75
+        assert "short_ratio" not in result["market_data"]
+        assert "insider_ownership" not in result["market_data"]
+
+    @patch("app.shared.yfinance_service.yf")
+    def test_none_values_excluded(self, mock_yf, service):
+        """None values from yfinance are not included in output."""
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"beta": None, "shortRatio": 2.5}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = service.get_ticker_metrics("NONE")
+
+        assert "beta" not in result["market_data"]
+        assert result["market_data"]["short_ratio"] == 2.5
+
+
+class TestDividendYieldSource:
+    """Tests for dividend_yield using trailingAnnualDividendYield."""
+
+    @patch("app.shared.yfinance_service.yf")
+    def test_trailing_annual_dividend_yield(self, mock_yf, service):
+        """trailingAnnualDividendYield is used for dividend_yield."""
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"trailingAnnualDividendYield": 0.02}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        result = service.get_ticker_metrics("DIV")
+
+        assert result["valuation"]["dividend_yield"] == 2.0  # 0.02 * 100
 
 
 class TestCacheStats:

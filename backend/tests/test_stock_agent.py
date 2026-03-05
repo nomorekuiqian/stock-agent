@@ -43,6 +43,8 @@ def full_stock_data():
             "valuation": {"ev_ebitda": 22.5, "peg_ratio": 1.8},
             "growth": {"revenue_yoy": 0.26, "earnings_yoy": 0.45, "ni_yoy": 0.42},
             "profitability": {"gross_margin": 0.65, "net_margin": 0.55, "roa": 0.28},
+            "balance_sheet": {"current_ratio": 1.5, "debt_to_equity": 0.8, "total_cash": 5000000000},
+            "market_data": {"beta": 1.7, "short_ratio": 3.5, "insider_ownership": 0.04},
         },
         "financials": {
             "latest_quarter": "Q4 2024",
@@ -137,6 +139,62 @@ class TestAnalysisFieldsSchemaConsistency:
         """ANALYSIS_FIELDS tuple matches StockAnalysisOutput model fields exactly."""
         schema_fields = set(StockAnalysisOutput.model_fields.keys())
         assert set(ANALYSIS_FIELDS) == schema_fields
+
+    def test_v5_field_names(self):
+        """V5 ANALYSIS_FIELDS contains the 5-dimension field names."""
+        expected = {
+            "title",
+            "company_profile",
+            "financial_health",
+            "valuation_judgment",
+            "catalysts_and_risks",
+            "investment_summary",
+        }
+        assert set(ANALYSIS_FIELDS) == expected
+
+    def test_no_legacy_v4_fields(self):
+        """Legacy V4 fields are no longer in ANALYSIS_FIELDS."""
+        legacy_fields = {
+            "fundamentals_analysis",
+            "financials_analysis",
+            "company_overview",
+            "valuation_range",
+            "opportunities",
+            "risks",
+        }
+        assert legacy_fields.isdisjoint(set(ANALYSIS_FIELDS))
+
+
+class TestPrepareStockDataBalanceSheetAndMarketData:
+    """Test balance_sheet and market_data pass-through in _prepare_stock_data_for_analyst."""
+
+    def test_balance_sheet_passed_through(self, full_stock_data):
+        """balance_sheet data is included in clean_fundamentals."""
+        result = _prepare_stock_data_for_analyst(full_stock_data)
+        bs = result["fundamentals"]["balance_sheet"]
+        assert bs["current_ratio"] == 1.5
+        assert bs["debt_to_equity"] == 0.8
+        assert bs["total_cash"] == 5000000000
+
+    def test_market_data_passed_through(self, full_stock_data):
+        """market_data is included in clean_fundamentals."""
+        result = _prepare_stock_data_for_analyst(full_stock_data)
+        md = result["fundamentals"]["market_data"]
+        assert md["beta"] == 1.7
+        assert md["short_ratio"] == 3.5
+        assert md["insider_ownership"] == 0.04
+
+    def test_empty_balance_sheet_returns_empty_dict(self):
+        """Missing balance_sheet returns empty dict, not error."""
+        data = {"fundamentals": {"ttm": {}}}
+        result = _prepare_stock_data_for_analyst(data)
+        assert result["fundamentals"]["balance_sheet"] == {}
+
+    def test_empty_market_data_returns_empty_dict(self):
+        """Missing market_data returns empty dict, not error."""
+        data = {"fundamentals": {"ttm": {}}}
+        result = _prepare_stock_data_for_analyst(data)
+        assert result["fundamentals"]["market_data"] == {}
 
 
 if __name__ == "__main__":

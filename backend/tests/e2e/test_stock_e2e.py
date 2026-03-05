@@ -207,5 +207,72 @@ class TestStockAnalysis:
         assert resp.status_code == 400
 
 
+# ===========================================================================
+# TestStockAnalysisCache
+# ===========================================================================
+
+
+@pytest.mark.e2e
+class TestStockAnalysisCache:
+    """Tests for GET /api/stocks/{symbol}/analysis/cache."""
+
+    @pytest.mark.asyncio
+    async def test_cache_returns_success(self, client):
+        """Cache endpoint returns success even with no cached data."""
+        resp = await client.get("/api/stocks/AAPL/analysis/cache")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        # analysis is either dict or None
+        assert "analysis" in data
+
+    @pytest.mark.asyncio
+    async def test_cache_invalid_symbol(self, client):
+        """Invalid symbol format returns 400."""
+        resp = await client.get("/api/stocks/!!!/analysis/cache")
+        assert resp.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_cache_structure_when_exists(self, client):
+        """If cached analysis exists, meta contains expected fields."""
+        resp = await client.get("/api/stocks/AAPL/analysis/cache")
+        assert resp.status_code == 200
+        data = resp.json()
+        if data["analysis"] is not None:
+            assert "meta" in data
+            assert data["meta"]["from_cache"] is True
+            assert data["meta"]["symbol"] == "AAPL"
+
+
+# ===========================================================================
+# TestStockDataNewFields
+# ===========================================================================
+
+
+@pytest.mark.e2e
+class TestStockDataNewFields:
+    """Tests for balance_sheet and market_data in GET /api/stocks/{symbol}."""
+
+    @pytest.mark.asyncio
+    async def test_fundamentals_has_balance_sheet(self, client):
+        """Fundamentals response includes balance_sheet dict."""
+        resp = await client.get("/api/stocks/AAPL")
+        assert resp.status_code == 200
+        data = resp.json()
+        fundamentals = data["fundamentals"]
+        assert "balance_sheet" in fundamentals
+        assert isinstance(fundamentals["balance_sheet"], dict)
+
+    @pytest.mark.asyncio
+    async def test_fundamentals_has_market_data(self, client):
+        """Fundamentals response includes market_data dict."""
+        resp = await client.get("/api/stocks/AAPL")
+        assert resp.status_code == 200
+        data = resp.json()
+        fundamentals = data["fundamentals"]
+        assert "market_data" in fundamentals
+        assert isinstance(fundamentals["market_data"], dict)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
