@@ -310,6 +310,31 @@ async def get_stock_valuation_comparison(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{symbol}/analysis/cache")
+async def get_stock_analysis_cache(symbol: str):
+    """Return cached AI analysis if available, without triggering generation."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        cached = await get_stock_analysis(symbol, analysis_type="comprehensive")
+        if cached:
+            return {
+                "success": True,
+                "analysis": cached.get("content"),
+                "meta": {
+                    "symbol": symbol,
+                    "generated_at": cached.get("generated_at"),
+                    "from_cache": True,
+                },
+            }
+        return {"success": True, "analysis": None}
+    except Exception as e:
+        logger.exception("Error checking analysis cache for %s", symbol)
+        return {"success": True, "analysis": None}
+
+
 @router.post("/{symbol}/analysis")
 @limiter.limit("5/minute")
 async def generate_stock_analysis_endpoint(
