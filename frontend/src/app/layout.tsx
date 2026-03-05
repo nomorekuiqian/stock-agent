@@ -8,6 +8,7 @@ import { Navbar } from "@/components/Navbar";
 import { Logo } from "@/components/Logo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { getAuthFromCookies } from "@insforge/nextjs/server";
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -91,18 +92,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialState = await getAuthFromCookies();
+
   return (
     <html lang="zh-CN" suppressHydrationWarning className={`${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
-        <Providers>
+        <Providers initialState={initialState}>
           <Navbar />
           {/* Spacer for fixed navbar */}
           <div className="h-16" />

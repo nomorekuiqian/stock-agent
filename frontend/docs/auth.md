@@ -4,6 +4,60 @@
 
 使用 Insforge Auth (基于 Supabase) 实现用户认证，支持邮箱密码登录和 Google OAuth。认证状态通过 React Context 全局管理，httpOnly Cookie 存储 session。
 
+## SDK 自动登录架构
+
+用户登录后关闭页面再打开时自动恢复 session，需要 `@insforge/nextjs` SDK 的 3 个组件协作：
+
+| 组件 | 位置 | 作用 |
+|------|------|------|
+| `createAuthRouteHandlers` | `app/api/auth/route.ts` | 登录时同步 token 到 httpOnly cookie |
+| `InsforgeMiddleware` | `middleware.ts` | 路由保护 + URL param → cookie 处理 |
+| `getAuthFromCookies()` + `initialState` | `app/layout.tsx` + `components/Providers.tsx` | 页面加载时从 cookie 恢复 auth 状态 |
+
+**三者缺一不可**。缺少 middleware 会导致 URL 中的 token 参数无法自动存入 cookie；缺少 `initialState` 会导致页面刷新后需要等待异步 session 恢复，出现"闪烁未登录"状态。
+
+### 自动登录完整流程
+
+```
+用户已登录 → 关闭页面 → 重新打开
+  -> 浏览器发送请求 (携带 httpOnly cookies)
+  -> InsforgeMiddleware 检查 cookie 中的 token
+     ├── 有 token → 放行
+     └── 无 token + 非 publicRoute → 重定向到 /login
+  -> layout.tsx (Server Component)
+     -> getAuthFromCookies() 从 httpOnly cookie 读取 user 数据
+     -> 返回 initialState = { user, userId }
+  -> Providers.tsx (Client Component)
+     -> InsforgeBrowserProvider 收到 initialState
+     -> 立即设置 user + isLoaded=true (无闪烁)
+     -> 异步调用 getCurrentSession() 刷新完整 session (含 access token)
+  -> AuthContext 获取到 user → isAuthenticated=true
+```
+
+### InsforgeMiddleware 配置
+
+```typescript
+// middleware.ts
+import { InsforgeMiddleware } from '@insforge/nextjs/middleware';
+
+export default InsforgeMiddleware({
+  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL || '...',
+  publicRoutes: ['/', '/today*', '/morning*', '/stock*', ...],  // 所有不需登录的页面
+  useBuiltInAuth: false,   // 我们用自定义登录页
+  signInUrl: '/login',     // 未认证用户访问 protected 路由时重定向到此
+});
+
+// matcher 排除 api 路由 — SDK 官方推荐
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+};
+```
+
+**注意**：
+- `publicRoutes` 支持通配符 `*`，如 `/today*` 匹配 `/today`、`/today/123`、`/today/archive`
+- 只有 `/for-you/*` 和 `/profile` 是需要认证的页面，其他全部是 public
+- middleware 只检查 token 是否存在，不验证有效性（验证由后端 `verify_user_token` 负责）
+
 ## 认证方式
 
 ### 1. 邮箱密码 (Server Proxy)
@@ -39,6 +93,9 @@
 
 | 文件 | 职责 |
 |------|------|
+| `middleware.ts` | InsforgeMiddleware — 路由保护 + URL token → cookie |
+| `app/layout.tsx` | getAuthFromCookies() — Server 端读 cookie 恢复 auth |
+| `components/Providers.tsx` | InsforgeBrowserProvider + initialState + AuthProvider |
 | `lib/auth.ts` | Insforge Auth SDK 封装 (signIn/signUp/signOut/OAuth/密码重置) |
 | `contexts/AuthContext.tsx` | 全局认证状态管理 (React Context + Provider) |
 | `app/api/auth/route.ts` | API Route — Server Proxy 登录 + Cookie 管理 |
@@ -46,7 +103,6 @@
 | `app/login/page.tsx` | 登录页面 UI |
 | `app/auth/callback/page.tsx` | OAuth 回调处理 |
 | `components/NavAuth.tsx` | 导航栏认证状态显示 |
-| `components/Providers.tsx` | 包含 InsforgeBrowserProvider + AuthProvider |
 
 ## AuthContext 详细逻辑
 
