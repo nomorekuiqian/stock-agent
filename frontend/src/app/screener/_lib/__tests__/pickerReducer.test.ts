@@ -25,6 +25,7 @@ function makeResult(overrides: Partial<PickResult> = {}): PickResult {
     universe_size: 0,
     pick_reasons: [],
     accumulated_filters: [],
+    reset_results: false,
     data_freshness: null,
     is_stale: false,
     ...overrides,
@@ -99,19 +100,16 @@ describe('SEND_MESSAGE', () => {
           id: 'a1',
           role: 'assistant',
           content: 'Choose one',
-          options: [
-            { label: 'Growth', value: 'growth' },
-            { label: 'Value', value: 'value' },
-          ],
+          options: ['Growth', 'Value'],
         },
       ],
     };
     const state = pickerReducer(prev, {
       type: 'SEND_MESSAGE',
-      message: 'growth',
+      message: 'Growth',
     });
     // First message (assistant) should have selectedOption set
-    expect(state.messages[0].selectedOption).toBe('growth');
+    expect(state.messages[0].selectedOption).toBe('Growth');
     // Second message is the user message
     expect(state.messages[1].role).toBe('user');
   });
@@ -125,17 +123,17 @@ describe('SEND_MESSAGE', () => {
           id: 'a1',
           role: 'assistant',
           content: 'Choose',
-          options: [{ label: 'A', value: 'a' }],
-          selectedOption: 'a',
+          options: ['A'],
+          selectedOption: 'A',
         },
       ],
     };
     const state = pickerReducer(prev, {
       type: 'SEND_MESSAGE',
-      message: 'a',
+      message: 'A',
     });
-    // Should remain 'a', not re-set
-    expect(state.messages[0].selectedOption).toBe('a');
+    // Should remain 'A', not re-set
+    expect(state.messages[0].selectedOption).toBe('A');
   });
 });
 
@@ -158,10 +156,10 @@ describe('RECEIVE_RESPONSE', () => {
   it('stores options on assistant message when present', () => {
     const prev = chatState();
     const result = makeResult({
-      options: [{ label: 'A', value: 'a' }],
+      options: ['A'],
     });
     const state = pickerReducer(prev, { type: 'RECEIVE_RESPONSE', result });
-    expect(state.messages[1].options).toEqual([{ label: 'A', value: 'a' }]);
+    expect(state.messages[1].options).toEqual(['A']);
   });
 
   it('does not store options when empty array', () => {
@@ -383,6 +381,69 @@ describe('SET_LOADING', () => {
       loading: false,
     });
     expect(state.isLoading).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RECEIVE_RESPONSE with reset_results
+// ---------------------------------------------------------------------------
+
+describe('RECEIVE_RESPONSE with reset_results', () => {
+  it('clears all results when reset_results is true', () => {
+    const prev = chatState({
+      candidates: [{ symbol: 'OLD' }],
+      candidateCount: 50,
+      universeSize: 3600,
+      pickReasons: [{ symbol: 'OLD', reason: 'keep' }],
+      funnelSteps: [{ count: 3600, label: '\u5168\u5e02\u573a' }, { count: 50 }],
+      accumulatedFilters: [{ field: 'roe', op: 'gt', value: 15 }],
+    });
+    const result = makeResult({
+      message: 'OK, let us start over',
+      reset_results: true,
+    });
+    const state = pickerReducer(prev, { type: 'RECEIVE_RESPONSE', result });
+
+    expect(state.candidates).toEqual([]);
+    expect(state.candidateCount).toBe(0);
+    expect(state.pickReasons).toEqual([]);
+    expect(state.funnelSteps).toEqual([]);
+    expect(state.accumulatedFilters).toEqual([]);
+    expect(state.hasNewResults).toBe(false);
+    expect(state.isLoading).toBe(false);
+  });
+
+  it('still appends assistant message on reset', () => {
+    const prev = chatState({
+      candidates: [{ symbol: 'OLD' }],
+    });
+    const result = makeResult({
+      message: 'Starting fresh',
+      reset_results: true,
+    });
+    const state = pickerReducer(prev, { type: 'RECEIVE_RESPONSE', result });
+    // Original user message + new assistant message
+    expect(state.messages).toHaveLength(2);
+    expect(state.messages[1].role).toBe('assistant');
+    expect(state.messages[1].content).toBe('Starting fresh');
+  });
+
+  it('does not reset when reset_results is false', () => {
+    const prev = chatState({
+      candidates: [{ symbol: 'KEEP' }],
+      candidateCount: 10,
+    });
+    const result = makeResult({
+      message: 'narrowing down',
+      reset_results: false,
+      candidates: [{ symbol: 'NEW' }],
+      candidate_count: 5,
+      universe_size: 3600,
+    });
+    const state = pickerReducer(prev, { type: 'RECEIVE_RESPONSE', result });
+    // Should update normally, not clear
+    expect(state.candidates).toEqual([{ symbol: 'NEW' }]);
+    expect(state.candidateCount).toBe(5);
   });
 });
 

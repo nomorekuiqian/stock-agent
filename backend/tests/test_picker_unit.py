@@ -5,7 +5,7 @@ Tests for:
   - agent.py: execute_screener ticker extraction from symbol field
   - router.py: pick_reasons symbol validation logic
   - picker_agent.py: _parse_json_field utility
-  - models.py: PickRequest / PickResult / PickerOption validation
+  - models.py: PickRequest / PickResult validation
 
 No network access, no database. All data constructed in fixtures.
 
@@ -24,7 +24,7 @@ from app.features.screener.agent import (
     execute_screener,
 )
 from app.features.screener.picker_agent import _parse_json_field
-from app.features.screener.models import PickerOption, PickRequest, PickResult
+from app.features.screener.models import PickRequest, PickResult
 
 
 # ---------------------------------------------------------------------------
@@ -249,13 +249,6 @@ class TestParseJsonField:
 # Tests: Pydantic models (models.py)
 # ---------------------------------------------------------------------------
 
-class TestPickerOption:
-    def test_valid_option(self):
-        opt = PickerOption(label="Growth stocks", value="growth")
-        assert opt.label == "Growth stocks"
-        assert opt.value == "growth"
-
-
 class TestPickRequest:
     def test_valid_request(self):
         req = PickRequest(message="I want stable stocks")
@@ -290,7 +283,7 @@ class TestPickResult:
         r = PickResult(
             success=True,
             message="Here are my picks",
-            options=[PickerOption(label="A", value="a")],
+            options=["A"],
             candidates=[{"symbol": "AAPL"}],
             candidate_count=1,
             universe_size=3680,
@@ -300,3 +293,19 @@ class TestPickResult:
         assert r.candidate_count == 1
         assert r.universe_size == 3680
         assert len(r.pick_reasons) == 1
+
+    def test_reset_results_default_false(self):
+        r = PickResult(success=True)
+        assert r.reset_results is False
+
+    def test_reset_results_true(self):
+        r = PickResult(success=True, reset_results=True)
+        assert r.reset_results is True
+
+    def test_options_are_plain_strings(self):
+        r = PickResult(
+            success=True,
+            options=["high dividend", "growth stocks"],
+        )
+        assert r.options == ["high dividend", "growth stocks"]
+        assert all(isinstance(o, str) for o in r.options)
