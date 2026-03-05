@@ -34,7 +34,7 @@ export function MobileMenu() {
       title: '个股',
       links: [
         { href: '/stock', label: '个股研究' },
-        ...(process.env.NODE_ENV === 'development' ? [{ href: '/screener', label: '个股筛选' }] : []),
+        ...((process.env.NODE_ENV === 'development' || isPro) ? [{ href: '/screener', label: '个股筛选' }] : []),
       ],
     },
     {

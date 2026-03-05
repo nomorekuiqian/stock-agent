@@ -7,10 +7,12 @@ import { NavAuth } from '@/components/NavAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileMenu } from '@/components/MobileMenu';
 import { Logo } from '@/components/Logo';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const { isPro } = useSubscription();
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export function Navbar() {
               <NavLink href="/sectors">板块</NavLink>
             )}
             <NavLink href="/stock">个股</NavLink>
-            {process.env.NODE_ENV === 'development' && (
+            {(process.env.NODE_ENV === 'development' || isPro) && (
               <NavLink href="/screener">筛选</NavLink>
             )}
             <NavLink href="/macro">宏观</NavLink>
