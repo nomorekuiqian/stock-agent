@@ -205,6 +205,8 @@ class StockService:
                 "valuation": valuation,
                 "growth": growth,
                 "profitability": profitability,
+                "balance_sheet": yf_metrics.get("balance_sheet", {}),
+                "market_data": yf_metrics.get("market_data", {}),
                 "analyst_targets": yf_metrics.get("analyst_targets", {}),
                 "forward_eps": forward_data.get("forward_eps"),
             },

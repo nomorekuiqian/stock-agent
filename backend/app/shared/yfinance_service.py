@@ -361,7 +361,7 @@ class YFinanceService:
                 info = yf.Ticker(symbol).info
         except Exception as e:
             logger.error("Error fetching ticker info for %s: %s", symbol, e)
-            return {"ttm": {}, "valuation": {}, "forward": {}, "profitability": {}, "growth": {}, "source": "yfinance"}
+            return {"ttm": {}, "valuation": {}, "forward": {}, "profitability": {}, "growth": {}, "balance_sheet": {}, "market_data": {}, "source": "yfinance"}
 
         def _get(key):
             return info.get(key)
@@ -399,7 +399,9 @@ class YFinanceService:
         ev_to_ebitda = _positive_or_none(_get("enterpriseToEbitda"))
         if ev_to_ebitda is not None:
             valuation["ev_to_ebitda"] = _round(ev_to_ebitda, 2)
-        dividend_yield = _get("dividendYield")
+        # Use trailingAnnualDividendYield (always decimal, e.g. 0.0039 = 0.39%)
+        # dividendYield is unreliable: sometimes decimal, sometimes percentage
+        dividend_yield = _get("trailingAnnualDividendYield")
         if dividend_yield is not None:
             valuation["dividend_yield"] = _round(dividend_yield * 100, 4)
         peg = _positive_or_none(_get("trailingPegRatio"))
@@ -455,12 +457,47 @@ class YFinanceService:
         if rec_key is not None:
             analyst_targets["recommendation"] = rec_key
 
+        # Balance sheet health
+        balance_sheet = {}
+        current_ratio = _get("currentRatio")
+        if current_ratio is not None:
+            balance_sheet["current_ratio"] = _round(current_ratio, 2)
+        quick_ratio = _get("quickRatio")
+        if quick_ratio is not None:
+            balance_sheet["quick_ratio"] = _round(quick_ratio, 2)
+        debt_to_equity = _get("debtToEquity")
+        if debt_to_equity is not None:
+            balance_sheet["debt_to_equity"] = _round(debt_to_equity, 2)
+        total_debt = _get("totalDebt")
+        if total_debt is not None:
+            balance_sheet["total_debt"] = total_debt
+        total_cash = _get("totalCash")
+        if total_cash is not None:
+            balance_sheet["total_cash"] = total_cash
+
+        # Market data
+        market_data = {}
+        beta = _get("beta")
+        if beta is not None:
+            market_data["beta"] = _round(beta, 2)
+        short_ratio = _get("shortRatio")
+        if short_ratio is not None:
+            market_data["short_ratio"] = _round(short_ratio, 2)
+        held_insiders = _get("heldPercentInsiders")
+        if held_insiders is not None:
+            market_data["insider_ownership"] = _round(held_insiders)
+        held_institutions = _get("heldPercentInstitutions")
+        if held_institutions is not None:
+            market_data["institutional_ownership"] = _round(held_institutions)
+
         result = {
             "ttm": ttm,
             "valuation": valuation,
             "forward": forward,
             "profitability": profitability,
             "growth": growth,
+            "balance_sheet": balance_sheet,
+            "market_data": market_data,
             "analyst_targets": analyst_targets,
             "source": "yfinance",
         }
