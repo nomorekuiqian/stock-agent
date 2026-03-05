@@ -23,14 +23,14 @@ interface ReportContentProps {
 // Key indices to display (matching email format)
 const KEY_INDICES = ['S&P 500', 'Nasdaq', '10Y Treasury', 'VIX', 'Gold', 'US Dollar'];
 
-// Indicator display names (bilingual)
+// Indicator display names
 const INDICATOR_NAMES: Record<string, string> = {
-  'S&P 500': 'S&P 500 标普500',
-  'Nasdaq': 'NASDAQ 纳指',
-  '10Y Treasury': '10Y TREASURY 十年美债',
-  'VIX': 'VIX 恐慌指数',
-  'Gold': 'GOLD 黄金',
-  'US Dollar': 'US DOLLAR 美元',
+  'S&P 500': 'S&P 500',
+  'Nasdaq': 'NASDAQ',
+  '10Y Treasury': '10Y TREASURY',
+  'VIX': 'VIX',
+  'Gold': 'GOLD',
+  'US Dollar': 'US DOLLAR',
 };
 
 // Section header component (matching email style)

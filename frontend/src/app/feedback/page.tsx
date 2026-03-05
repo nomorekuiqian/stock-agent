@@ -59,7 +59,7 @@ function FeedbackContent() {
 
     const saveFeedback = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.marketbrew.xyz/api';
         const params = new URLSearchParams({
           report_date: reportDate,
           email: email,

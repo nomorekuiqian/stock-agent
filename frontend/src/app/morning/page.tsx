@@ -42,7 +42,7 @@ export default async function MorningPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Page Header */}
-      <section>
+      <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-3">
@@ -75,7 +75,7 @@ export default async function MorningPage() {
           {/* Report Header */}
           <section>
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card/50 border border-border/10">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
                 <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
@@ -90,7 +90,7 @@ export default async function MorningPage() {
             )}
 
             {report.market_pulse && (
-              <div className="mt-4 p-4 rounded-lg bg-card/50 border border-border/10">
+              <div className="mt-4 p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
                 <p className="text-foreground/80 leading-relaxed text-sm">
                   {report.market_pulse}
                 </p>
@@ -112,7 +112,7 @@ export default async function MorningPage() {
         /* Empty State */
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="text-center space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-2xl v2-card flex items-center justify-center">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center">
               <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
@@ -128,7 +128,7 @@ export default async function MorningPage() {
       )}
 
       {/* Historical Reports Section */}
-      <section className="mt-16">
+      <section className="border-t border-border/50 mt-12">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
           <div className="flex items-center justify-between mb-8">
             <div className="space-y-1">
@@ -155,12 +155,12 @@ export default async function MorningPage() {
                 <Link
                   key={r.id}
                   href={`/morning/${r.id}`}
-                  className="group v2-card p-6 hover:bg-card/80 transition-all"
+                  className="group terminal-card p-6 hover:border-amber-500/30 hover:bg-card/80 transition-all"
                 >
                   <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-amber-400 transition-colors leading-relaxed mb-4">
                     {r.title || formatReportDate(r.report_date)}
                   </h4>
-                  <div className="flex items-center justify-between pt-4 border-t border-border/10">
+                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
                     <span className="text-xs font-data text-muted-foreground">
                       {formatDateShort(r.report_date)}
                     </span>

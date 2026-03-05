@@ -183,7 +183,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                   desc: '宏观指标、流动性变化、板块轮动持续监控',
                 },
               ].map((item) => (
-                <div key={item.pain} className="v2-card p-5">
+                <div key={item.pain} className="terminal-card p-5">
                   <div className="text-sm text-muted-foreground mb-1 line-through decoration-red-400/50">{item.pain}</div>
                   <div className="text-sm font-medium text-emerald-400 mb-3">{item.solution}</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
@@ -199,7 +199,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
             <h2 className="text-xl font-editorial text-foreground text-center mb-8">Free vs Pro</h2>
 
             {/* Desktop table */}
-            <div className="hidden md:block v2-card overflow-hidden">
+            <div className="hidden md:block terminal-card overflow-hidden">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border/50">
@@ -240,7 +240,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
             {/* Mobile stacked cards */}
             <div className="md:hidden space-y-3">
               {FEATURES.map((f, i) => (
-                <div key={i} className="v2-card p-4">
+                <div key={i} className="terminal-card p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-foreground font-medium">{f.title}</div>
@@ -276,7 +276,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
         {/* Pricing Card */}
         <section className="border-b border-border/50">
           <div className="max-w-md mx-auto px-4 md:px-6 py-12">
-            <div className="v2-card p-8 relative overflow-hidden">
+            <div className="terminal-card p-8 relative overflow-hidden">
               {/* Glow border effect */}
               <div className="absolute inset-0 rounded-lg border border-emerald-500/30 pointer-events-none" />
               <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -378,7 +378,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
             <h2 className="text-xl font-editorial text-foreground text-center mb-8">FAQ</h2>
             <div className="space-y-2">
               {FAQS.map((faq, i) => (
-                <div key={i} className="v2-card overflow-hidden">
+                <div key={i} className="terminal-card overflow-hidden">
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
                     className="w-full flex items-center justify-between p-4 text-left"

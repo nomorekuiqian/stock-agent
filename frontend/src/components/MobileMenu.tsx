@@ -86,7 +86,7 @@ export function MobileMenu() {
           />
 
           {/* Menu Panel */}
-          <div className="absolute top-16 left-0 right-0 bg-background shadow-[0_8px_24px_rgba(0,0,0,0.3)] z-50 animate-fade-in-up">
+          <div className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
             <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
               {/* Nav Sections */}
               {navSections.map((section) => (
@@ -110,7 +110,7 @@ export function MobileMenu() {
               ))}
 
               {/* Divider */}
-              <div className="h-px bg-border/10 my-2" />
+              <div className="h-px bg-border/50 my-2" />
 
               {/* Auth Section */}
               {isLoading ? (

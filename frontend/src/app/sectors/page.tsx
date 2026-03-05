@@ -427,7 +427,7 @@ function SectorsPageContent() {
 
           {/* Stock Overview */}
           {digest.stocks && digest.stocks.length > 0 && (
-            <section className="v2-card p-6 animate-fade-in-up">
+            <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
                 <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">个股概览</h3>
@@ -458,7 +458,7 @@ function SectorsPageContent() {
 
           {/* News */}
           {digest.news && digest.news.length > 0 && (
-            <section className="v2-card p-6 animate-fade-in-up">
+            <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
                 <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">板块新闻</h3>
@@ -489,7 +489,7 @@ function SectorsPageContent() {
 
           {/* Key Events */}
           {digest.events && digest.events.length > 0 && (
-            <section className="v2-card p-6 animate-fade-in-up">
+            <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
                 <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">重要事件</h3>
@@ -524,7 +524,7 @@ function SectorsPageContent() {
 
           {/* Summary */}
           {digest.summary && (
-            <section className="v2-card p-6 animate-fade-in-up">
+            <section className="terminal-card p-6 animate-fade-in-up">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-1 h-5 bg-emerald-500 rounded-full" />
                 <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">总结</h3>
@@ -601,7 +601,7 @@ function SectorsPageContent() {
                   <Link
                     key={item.id}
                     href={`/sectors/${item.sector_id}?date=${item.digest_date}`}
-                    className="group v2-card p-4 transition-all"
+                    className="group terminal-card p-4 hover:border-emerald-500/30 transition-all"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-data text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">

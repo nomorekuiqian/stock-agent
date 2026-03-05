@@ -86,11 +86,11 @@ export function MorningReportContent({
     <div className="space-y-5">
       {/* Futures */}
       {futures.length > 0 && (
-        <section className="v2-card p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <SectionHeader>美股期货</SectionHeader>
           <div className="grid grid-cols-3 gap-3">
             {futures.map((f) => (
-              <div key={f.name} className="v2-inset p-4 text-center">
+              <div key={f.name} className="bg-muted/80 rounded-lg p-4 text-center border border-border/50">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
                   {f.name.replace(' Futures', '').replace('S&P 500', 'S&P').replace('Nasdaq', 'NQ').replace('Dow', 'DOW')}
                 </p>
@@ -104,7 +104,7 @@ export function MorningReportContent({
             ))}
           </div>
           {futures_analysis && (
-            <div className="mt-4 v2-inset p-3">
+            <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
               <p className="text-sm text-foreground/90 leading-relaxed">
                 {futures_analysis}
               </p>
@@ -115,9 +115,9 @@ export function MorningReportContent({
 
       {/* Global Markets */}
       {(global_markets.asia?.length > 0 || global_markets.europe?.length > 0 || global_markets.other?.length > 0) && (
-        <section className="v2-card p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <SectionHeader>全球市场</SectionHeader>
-          <div className="divide-y divide-border/10">
+          <div className="divide-y divide-border/50">
             {[
               { label: 'Asia', items: global_markets.asia },
               { label: 'Europe', items: global_markets.europe },
@@ -144,7 +144,7 @@ export function MorningReportContent({
               ))}
           </div>
           {global_markets_analysis && (
-            <div className="mt-4 v2-inset p-3">
+            <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
               <p className="text-sm text-foreground/90 leading-relaxed">
                 {global_markets_analysis}
               </p>
@@ -155,11 +155,11 @@ export function MorningReportContent({
 
       {/* Overnight News */}
       {overnight_news.length > 0 && (
-        <section className="v2-card p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <SectionHeader>隔夜要闻</SectionHeader>
           <div className="space-y-4">
             {overnight_news.map((item, i) => (
-              <div key={i} className="pb-4 border-b border-border/10 last:border-0 last:pb-0">
+              <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
                 {item.url ? (
                   <a
                     href={item.url}
@@ -174,7 +174,7 @@ export function MorningReportContent({
                     {item.title}
                   </h4>
                 )}
-                <div className="v2-inset p-3">
+                <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
                   <p className="text-sm text-foreground/90 leading-relaxed">
                     {item.analysis}
                   </p>
@@ -187,11 +187,11 @@ export function MorningReportContent({
 
       {/* Today Focus */}
       {today_focus.length > 0 && (
-        <section className="v2-card p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <SectionHeader>今日焦点</SectionHeader>
           <div className="space-y-4">
             {today_focus.map((item, i) => (
-              <div key={i} className="pb-4 border-b border-border/10 last:border-0 last:pb-0">
+              <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
                 <div className="flex items-start gap-3">
                   {item.time && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-wide uppercase shrink-0 mt-0.5">
@@ -215,7 +215,7 @@ export function MorningReportContent({
 
       {/* Summary */}
       {summary.length > 0 && (
-        <section className="v2-card p-5">
+        <section className="bg-card rounded-xl border border-border p-5">
           <SectionHeader>总结与展望</SectionHeader>
           <div className="space-y-5">
             {summary.map((section, i) => (
