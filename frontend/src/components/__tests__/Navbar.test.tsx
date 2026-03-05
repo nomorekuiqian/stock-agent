@@ -27,6 +27,10 @@ vi.mock('@/components/MobileMenu', () => ({
   MobileMenu: () => <div data-testid="mobile-menu">MobileMenu</div>,
 }));
 
+vi.mock('@/contexts/SubscriptionContext', () => ({
+  useSubscription: () => ({ isPro: false, plan: 'free', status: 'none' }),
+}));
+
 vi.mock('@/components/Logo', () => ({
   Logo: ({ className }: { className?: string }) => (
     <svg data-testid="logo" className={className} />
