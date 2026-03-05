@@ -5,7 +5,7 @@ Endpoints:
   POST /api/screener/refresh       (cron, protected)
   GET  /api/screener/status        (monitoring, public)
   POST /api/screener/filter        (screener queries, public)
-  POST /api/screener/ask           (agent NL queries, auth required)
+  POST /api/screener/pick          (guided stock picking, auth required)
 """
 
 import asyncio
@@ -24,8 +24,6 @@ from app.features.screener.db import (
     is_cache_valid,
 )
 from app.features.screener.models import (
-    AskRequest,
-    AskResult,
     FilterRequest,
     FilterResult,
     PickRequest,
@@ -317,7 +315,7 @@ async def filter_stocks(req: FilterRequest):
         )
 
     elif req.strategy == "custom":
-        candidates = filter_custom(universe, params)
+        candidates, _ = filter_custom(universe, params)
 
     else:
         candidates = []
@@ -334,111 +332,6 @@ async def filter_stocks(req: FilterRequest):
         data_freshness=freshness,
         is_stale=not is_valid,
         suggestions=suggestions,
-    )
-
-
-@router.post("/ask", response_model=AskResult)
-async def ask_screener(req: AskRequest, user_id: str = Depends(verify_user_token)):
-    """
-    Natural language screener query via AI agent.
-    Accepts a message + current filters + history, returns filtered candidates.
-    """
-    from app.features.screener.agent import get_screener_agent
-    from app.features.screener.filters import filter_custom
-
-    # Load universe
-    cache = await _load_universe()
-    universe = cache["universe"]
-    freshness = cache["freshness"]
-    is_valid = cache["is_valid"]
-
-    if not universe:
-        return AskResult(
-            success=False,
-            summary="数据尚未加载，请稍后再试",
-            data_freshness=freshness,
-            is_stale=True,
-        )
-
-    # Run agent to parse natural language into filters
-    agent = get_screener_agent()
-    try:
-        parsed = await agent.parse(
-            message=req.message,
-            current_filters=req.current_filters if req.current_filters else None,
-            history=req.history if req.history else None,
-            universe=universe,
-        )
-    except Exception as e:
-        logger.error("Screener agent error: %s", e)
-        return AskResult(
-            success=False,
-            summary="AI 解析失败，请换个说法试试",
-            universe_size=len(universe),
-            data_freshness=freshness,
-            is_stale=not is_valid,
-        )
-
-    strategy = parsed.get("strategy", "custom")
-    summary = parsed.get("summary", "")
-
-    # Build filter params from agent output
-    filter_params = {}
-    if parsed.get("filters"):
-        filter_params["filters"] = parsed["filters"]
-    if parsed.get("sort_by"):
-        filter_params["sort_by"] = parsed["sort_by"]
-        filter_params["sort_order"] = parsed.get("sort_order", "desc")
-    if parsed.get("limit"):
-        filter_params["limit"] = parsed["limit"]
-
-    # Execute filter
-    if strategy == "custom" or strategy not in (
-        "hot_sectors", "volume_surge", "value_discovery",
-        "high_dividend", "momentum", "oversold_quality",
-        "by_sector",
-    ):
-        candidates = filter_custom(universe, filter_params)
-    else:
-        # For preset strategies, delegate to the filter endpoint logic
-        filter_req = FilterRequest(
-            strategy=strategy,
-            sector=parsed.get("sector"),
-            params=filter_params if filter_params else None,
-        )
-        result = await filter_stocks(filter_req)
-        return AskResult(
-            success=result.success,
-            filter_used={
-                "strategy": strategy,
-                "sector": parsed.get("sector"),
-                "params": filter_params,
-            },
-            candidates=result.candidates,
-            candidate_count=result.candidate_count,
-            universe_size=result.universe_size,
-            suggestions=result.suggestions,
-            summary=summary,
-            data_freshness=result.data_freshness,
-            is_stale=result.is_stale,
-        )
-
-    # Compute suggestions
-    suggestions = compute_narrowing_suggestions(candidates, strategy="custom")
-
-    return AskResult(
-        success=True,
-        filter_used={
-            "strategy": strategy,
-            "params": filter_params,
-        },
-        candidates=candidates,
-        candidate_count=len(candidates),
-        universe_size=len(universe),
-        suggestions=suggestions,
-        summary=summary,
-        data_freshness=freshness,
-        is_stale=not is_valid,
     )
 
 
@@ -491,28 +384,33 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
     options_raw = parsed.get("options", [])
     filters = parsed.get("filters", [])
     pick_reasons_raw = parsed.get("pick_reasons", [])
+    update_results = parsed.get("update_results", True)
 
-    # Convert options to PickerOption format
-    from app.features.screener.models import PickerOption
-    options = []
-    for opt in options_raw:
-        if isinstance(opt, dict) and "label" in opt and "value" in opt:
-            options.append(PickerOption(label=opt["label"], value=opt["value"]))
+    # Convert options to plain strings
+    options = [str(o) for o in options_raw if o]
 
-    # Execute filter if we have conditions
+    # Execute filter only when agent signals a criteria change
     candidates = []
-    if filters:
+    total_matches = 0
+    reset_results = False
+    if filters and update_results:
         filter_params = {
             "filters": filters,
             "sort_by": parsed.get("sort_by") or "market_cap",
             "sort_order": parsed.get("sort_order") or "desc",
-            "limit": parsed.get("limit") or 30,
+            "limit": parsed.get("limit") or 100,
         }
-        candidates = filter_custom(universe, filter_params)
+        candidates, total_matches = filter_custom(universe, filter_params)
         logger.info(
-            "Picker filter: %d conditions -> %d candidates",
-            len(filters), len(candidates),
+            "Picker filter: %d conditions -> %d matches (%d returned)",
+            len(filters), total_matches, len(candidates),
         )
+    elif not filters and update_results:
+        # Agent cleared all filters (e.g. "change direction") -> reset results
+        reset_results = True
+        logger.info("Picker reset: agent cleared all filters")
+    elif not update_results:
+        logger.info("Picker chat turn: skipping filter (update_results=false)")
 
     # Build lookup tables for symbol validation
     ticker_set: set[str] = set()
@@ -526,6 +424,41 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
         if name and ticker:
             name_to_ticker[name.lower()] = ticker
 
+    def _resolve_symbol(sym: str) -> str | None:
+        """Resolve agent symbol output to a valid ticker."""
+        upper = sym.upper()
+
+        # Direct ticker match
+        if upper in ticker_set:
+            return upper
+
+        # Strip exchange prefix (e.g. "NASDAQ:AAPL" -> "AAPL")
+        if ":" in sym:
+            stripped = sym.split(":")[-1].upper()
+            if stripped in ticker_set:
+                return stripped
+
+        # Company name -> ticker reverse lookup
+        name_lower = sym.lower()
+        if name_lower in name_to_ticker:
+            return name_to_ticker[name_lower]
+
+        # Fuzzy name match (contains)
+        for candidate_name, candidate_ticker in name_to_ticker.items():
+            if name_lower in candidate_name or candidate_name in name_lower:
+                return candidate_ticker
+
+        # Fallback: search current candidates by name
+        for c in candidates:
+            c_name = c.get("name", "")
+            if c_name and (
+                name_lower in c_name.lower() or c_name.lower() in name_lower
+            ):
+                c_sym = c.get("symbol", "")
+                return c_sym.split(":")[-1].upper() if c_sym else None
+
+        return None
+
     # Format pick_reasons with symbol validation
     pick_reasons = []
     for pr in pick_reasons_raw:
@@ -534,45 +467,29 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
         sym = pr["symbol"].strip()
         reason = pr["reason"]
 
-        # Direct ticker match
-        if sym.upper() in ticker_set:
-            pick_reasons.append({"symbol": sym.upper(), "reason": reason})
-            continue
+        resolved = _resolve_symbol(sym)
+        if resolved:
+            pick_reasons.append({"symbol": resolved, "reason": reason})
+        else:
+            logger.warning("Picker agent output unresolvable symbol: %s", sym)
 
-        # Strip exchange prefix (e.g. "NASDAQ:AAPL" -> "AAPL")
-        if ":" in sym:
-            stripped = sym.split(":")[-1].upper()
-            if stripped in ticker_set:
-                pick_reasons.append({"symbol": stripped, "reason": reason})
-                continue
-
-        # Company name -> ticker reverse lookup
-        name_lower = sym.lower()
-        if name_lower in name_to_ticker:
-            pick_reasons.append({"symbol": name_to_ticker[name_lower], "reason": reason})
-            continue
-
-        # Fuzzy name match (contains)
-        matched_ticker = None
-        for candidate_name, candidate_ticker in name_to_ticker.items():
-            if name_lower in candidate_name or candidate_name in name_lower:
-                matched_ticker = candidate_ticker
-                break
-        if matched_ticker:
-            pick_reasons.append({"symbol": matched_ticker, "reason": reason})
-            continue
-
-        logger.warning("Picker agent output unresolvable symbol: %s", sym)
+    logger.info(
+        "Picker final: candidates=%d, total_matches=%d, pick_reasons=%d, "
+        "agent_pick_reasons_raw=%d, options=%d",
+        len(candidates), total_matches, len(pick_reasons),
+        len(pick_reasons_raw), len(options),
+    )
 
     return PickResult(
         success=True,
         message=agent_message,
         options=options,
         candidates=candidates,
-        candidate_count=len(candidates),
+        candidate_count=total_matches if total_matches else len(candidates),
         universe_size=len(universe),
         pick_reasons=pick_reasons,
         accumulated_filters=filters,
+        reset_results=reset_results,
         data_freshness=freshness,
         is_stale=not is_valid,
     )
