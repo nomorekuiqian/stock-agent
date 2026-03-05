@@ -1,6 +1,6 @@
 fastapi
 fredapi
-google-adk
+google-adk>=1.20.0
 google-genai
 httpx
 openai

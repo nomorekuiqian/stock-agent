@@ -11,7 +11,7 @@ Layered tool architecture:
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from google.adk.agents import LlmAgent
 from google.adk.plugins import LoggingPlugin
@@ -61,7 +61,7 @@ class PickerAgentOutput(BaseModel):
             "Empty [] if not ready to filter yet."
         ),
     )
-    sort_by: str | None = Field(
+    sort_by: Optional[str] = Field(
         default=None,
         description="Field to sort results by (e.g. 'market_cap', 'dividend_yield').",
     )
