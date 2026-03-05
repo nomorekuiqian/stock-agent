@@ -88,6 +88,22 @@ export function useTechnicalSnapshot(symbol: string, enabled: boolean = false) {
   });
 }
 
+// Auto-fetch cached analysis on page load (GET, no AI generation)
+export function useStockAnalysisCache(symbol: string) {
+  return useQuery({
+    queryKey: queryKeys.stocks.analysis(symbol),
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analysis/cache`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    enabled: !!symbol,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
 export function useGenerateStockAnalysis(symbol: string) {
   const queryClient = useQueryClient();
   return useMutation({

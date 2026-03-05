@@ -4,13 +4,18 @@ import { useState } from 'react';
 
 interface StockAIAnalysis {
   title: string;
-  fundamentals_analysis: string;
-  financials_analysis: string;
-  company_overview: string;
-  valuation_range?: string;
-  opportunities: string;
-  risks: string;
+  company_profile: string;
+  financial_health: string;
+  valuation_judgment: string;
+  catalysts_and_risks: string;
   investment_summary: string;
+  // Legacy fields (backward compatibility with cached analysis)
+  fundamentals_analysis?: string;
+  financials_analysis?: string;
+  company_overview?: string;
+  valuation_range?: string;
+  opportunities?: string;
+  risks?: string;
 }
 
 interface StockAnalysisCardProps {

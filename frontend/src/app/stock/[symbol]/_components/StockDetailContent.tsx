@@ -24,6 +24,7 @@ import {
   usePriceHistory,
   useValuationComparison,
   useTechnicalSnapshot,
+  useStockAnalysisCache,
   useGenerateStockAnalysis,
   useGenerateTechnicalAnalysis,
   useGenerateNewsAnalysis,
@@ -101,6 +102,19 @@ interface StockFundamentals {
     net_margin?: number;
     roe?: number;
     roa?: number;
+  };
+  balance_sheet?: {
+    current_ratio?: number;
+    quick_ratio?: number;
+    debt_to_equity?: number;
+    total_debt?: number;
+    total_cash?: number;
+  };
+  market_data?: {
+    beta?: number;
+    short_ratio?: number;
+    insider_ownership?: number;
+    institutional_ownership?: number;
   };
 }
 
@@ -341,6 +355,53 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     zh: '成交量',
     en: 'Volume',
     tip: '今日交易的股票数量。高成交量通常伴随显著的价格波动。',
+  },
+  // Balance Sheet
+  current_ratio: {
+    zh: '流动比率',
+    en: 'Current Ratio',
+    tip: '流动资产与流动负债的比值。> 1 表示短期偿债能力充足，< 1 需要关注短期资金压力。',
+  },
+  quick_ratio: {
+    zh: '速动比率',
+    en: 'Quick Ratio',
+    tip: '扣除存货后的流动资产与流动负债的比值。比流动比率更严格的短期偿债能力指标。',
+  },
+  debt_to_equity: {
+    zh: '负债/权益比',
+    en: 'D/E Ratio',
+    tip: '总负债与股东权益的比值。衡量公司的杠杆水平，越高风险越大。',
+  },
+  total_debt: {
+    zh: '总负债',
+    en: 'Total Debt',
+    tip: '公司的总债务规模，包括短期和长期借款。',
+  },
+  total_cash: {
+    zh: '现金储备',
+    en: 'Total Cash',
+    tip: '公司持有的现金及现金等价物总额。充足的现金储备是财务安全的保障。',
+  },
+  // Market Data
+  beta: {
+    zh: 'Beta',
+    en: 'Beta',
+    tip: '股票相对于大盘的波动率。Beta > 1 表示比大盘波动更大，< 1 表示更稳定。',
+  },
+  short_ratio: {
+    zh: '做空比率',
+    en: 'Short Ratio',
+    tip: '做空股数与日均成交量的比值。高比率可能暗示市场看空情绪，但也可能引发轧空。',
+  },
+  insider_ownership: {
+    zh: '内部人持股',
+    en: 'Insider Own',
+    tip: '公司高管和董事持有的股份比例。较高的内部人持股通常被视为管理层信心的信号。',
+  },
+  institutional_ownership: {
+    zh: '机构持股',
+    en: 'Inst. Own',
+    tip: '机构投资者持有的股份比例。高机构持股表示专业投资者认可公司质量。',
   },
 };
 
@@ -1109,16 +1170,8 @@ function AIAnalysisSection({
   const currentAnalysis = current.data;
   const currentLoading = current.loading;
 
-  // Handle generate click - check auth and pro status
+  // TODO: temporarily bypass auth/pro check for dev
   const handleGenerateClick = () => {
-    if (!isAuthenticated) {
-      onLoginRequired();
-      return;
-    }
-    if (!isPro) {
-      onUpgradeRequired();
-      return;
-    }
     current.generate();
   };
 
@@ -1135,64 +1188,40 @@ function AIAnalysisSection({
           <div className="px-6 py-8 md:px-10 md:py-10">
             <div className="max-w-2xl mx-auto text-center">
               <p className="text-xs uppercase tracking-[0.2em] text-amber-500/80 light:text-amber-600 mb-4">
-                {{ fundamental: 'Investment Research', technical: 'Technical Analysis', news: 'News & Catalysts', macro: 'Macro Analysis' }[activeTab]}
+                {{ fundamental: 'AI 投研', technical: 'AI 技术分析', news: 'AI 新闻分析', macro: 'AI 宏观分析' }[activeTab]}
               </p>
               <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
                 {{ fundamental: 'amber', technical: 'emerald', news: 'blue', macro: 'violet' }[activeTab] === 'amber' ? (
-                  <>Unlock Insights for <span className="text-amber-400 light:text-amber-600">{symbol}</span></>
+                  <>解锁 <span className="text-amber-400 light:text-amber-600">{symbol}</span> 深度洞察</>
                 ) : { technical: 'emerald', news: 'blue', macro: 'violet' }[activeTab as 'technical' | 'news' | 'macro'] === 'emerald' ? (
-                  <>Technical View of <span className="text-emerald-400 light:text-emerald-600">{symbol}</span></>
+                  <><span className="text-emerald-400 light:text-emerald-600">{symbol}</span> 技术面透视</>
                 ) : activeTab === 'news' ? (
-                  <>News Briefing for <span className="text-blue-400 light:text-blue-600">{symbol}</span></>
+                  <><span className="text-blue-400 light:text-blue-600">{symbol}</span> 新闻速递</>
                 ) : (
-                  <>Macro Context for <span className="text-violet-400 light:text-violet-600">{symbol}</span></>
+                  <><span className="text-violet-400 light:text-violet-600">{symbol}</span> 宏观环境</>
                 )}
               </h3>
               <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-8 max-w-lg mx-auto">
                 {{
-                  fundamental: `Generate a comprehensive analysis of ${companyName}'s fundamentals, financials, opportunities and risks.`,
-                  technical: `Analyze ${companyName}'s technical indicators, trend signals, support/resistance levels, and chart patterns.`,
-                  news: `Summarize recent news, analyst activity, and upcoming catalysts for ${companyName}.`,
-                  macro: `Analyze how macro environment, sector positioning, and market regime affect ${companyName}.`,
+                  fundamental: `为 ${companyName} 生成全面的基本面分析，涵盖财务体检、估值判断、催化剂与风险等维度。`,
+                  technical: `分析 ${companyName} 的技术指标、趋势信号、支撑阻力位和图表形态。`,
+                  news: `汇总 ${companyName} 近期新闻、分析师动态和即将到来的催化事件。`,
+                  macro: `分析宏观环境、板块定位和市场状态对 ${companyName} 的影响。`,
                 }[activeTab]}
               </p>
               <button
                 onClick={handleGenerateClick}
                 className="group inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all hover:opacity-90"
               >
-                {!isAuthenticated ? (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    <span>Sign in to Analyze</span>
-                  </>
-                ) : !isPro ? (
-                  <>
-                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                    <span>Upgrade to Pro</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{{ fundamental: 'Generate Analysis', technical: 'Generate Technical Analysis', news: 'Generate News Briefing', macro: 'Generate Macro Analysis' }[activeTab]}</span>
-                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </>
-                )}
+                {/* TODO: temporarily bypass auth/pro check for dev */}
+                <>
+                  <span>{{ fundamental: '生成分析报告', technical: '生成技术分析', news: '生成新闻简报', macro: '生成宏观分析' }[activeTab]}</span>
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </>
               </button>
-              {!isAuthenticated && (
-                <p className="mt-4 text-xs text-muted-foreground">
-                  AI Analysis is available for registered users
-                </p>
-              )}
-              {isAuthenticated && !isPro && (
-                <p className="mt-4 text-xs text-muted-foreground">
-                  AI Analysis is a Pro feature
-                </p>
-              )}
+              {/* TODO: auth hints temporarily removed for dev */}
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
@@ -1217,10 +1246,10 @@ function AIAnalysisSection({
               </div>
               <p className="text-sm text-muted-foreground">
                 {{
-                  fundamental: `Analyzing ${companyName}...`,
-                  technical: `Analyzing ${symbol} technicals...`,
-                  news: `Gathering news for ${symbol}...`,
-                  macro: `Analyzing macro context for ${symbol}...`,
+                  fundamental: `正在分析 ${companyName}...`,
+                  technical: `正在分析 ${symbol} 技术面...`,
+                  news: `正在汇总 ${symbol} 新闻...`,
+                  macro: `正在分析 ${symbol} 宏观环境...`,
                 }[activeTab]}
               </p>
             </div>
@@ -1265,86 +1294,73 @@ function AIAnalysisSection({
         <div className="p-5 space-y-6">
           {activeTab === 'fundamental' && analysis ? (
             <>
-              {/* Investment Summary - Most prominent */}
+              {/* V5: 5-dimension layout (with V4 legacy fallback) */}
+              {/* Dim 1: Company Profile */}
+              {(analysis.company_profile || analysis.company_overview) && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                    <span className="text-amber-400">公司画像</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Company Profile</span>
+                  </h3>
+                  <MarkdownContent content={analysis.company_profile || analysis.company_overview || ''} />
+                </div>
+              )}
+
+              {/* Dim 2: Financial Health */}
+              {(analysis.financial_health || analysis.financials_analysis) && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                    <span className="text-emerald-400">财务体检</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Financial Health</span>
+                  </h3>
+                  <MarkdownContent content={analysis.financial_health || analysis.financials_analysis || ''} />
+                </div>
+              )}
+
+              {/* Dim 3: Valuation Judgment */}
+              {(analysis.valuation_judgment || analysis.valuation_range || analysis.fundamentals_analysis) && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+                    <span className="text-blue-400">估值判断</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Valuation</span>
+                  </h3>
+                  <MarkdownContent content={analysis.valuation_judgment || analysis.valuation_range || analysis.fundamentals_analysis || ''} />
+                </div>
+              )}
+
+              {/* Dim 4: Catalysts & Risks */}
+              {(analysis.catalysts_and_risks || analysis.opportunities || analysis.risks) && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400/80" />
+                    <span className="text-violet-400">催化剂与风险</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Catalysts & Risks</span>
+                  </h3>
+                  {analysis.catalysts_and_risks ? (
+                    <MarkdownContent content={analysis.catalysts_and_risks} />
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {analysis.opportunities && <MarkdownContent content={analysis.opportunities} />}
+                      {analysis.risks && <MarkdownContent content={analysis.risks} />}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dim 5: Investment Summary */}
               {analysis.investment_summary && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
                     <span className="text-amber-400">投资总结</span>
+                    <span className="text-muted-foreground/50 text-xs font-normal">Summary</span>
                   </h3>
                   <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
                     <MarkdownContent content={analysis.investment_summary} />
                   </div>
-                </div>
-              )}
-
-              {/* Valuation Range */}
-              {analysis.valuation_range && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
-                    <span className="text-blue-400">目标价格区间</span>
-                  </h3>
-                  <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
-                    <MarkdownContent content={analysis.valuation_range} />
-                  </div>
-                </div>
-              )}
-
-              {/* Opportunities & Risks - Side by side */}
-              {(analysis.opportunities || analysis.risks) && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {analysis.opportunities && (
-                    <div>
-                      <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                        <span className="text-emerald-400">投资机会</span>
-                      </h3>
-                      <MarkdownContent content={analysis.opportunities} />
-                    </div>
-                  )}
-                  {analysis.risks && (
-                    <div>
-                      <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-400/80" />
-                        <span className="text-red-400">风险因素</span>
-                      </h3>
-                      <MarkdownContent content={analysis.risks} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Fundamentals Analysis */}
-              {analysis.fundamentals_analysis && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                    <span className="text-amber-400">基本面分析</span>
-                  </h3>
-                  <MarkdownContent content={analysis.fundamentals_analysis} />
-                </div>
-              )}
-
-              {/* Financials Analysis */}
-              {analysis.financials_analysis && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                    <span className="text-amber-400">财务分析</span>
-                  </h3>
-                  <MarkdownContent content={analysis.financials_analysis} />
-                </div>
-              )}
-
-              {/* Company Overview */}
-              {analysis.company_overview && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                    <span className="text-amber-400">公司概述</span>
-                  </h3>
-                  <MarkdownContent content={analysis.company_overview} />
                 </div>
               )}
             </>
@@ -1550,14 +1566,18 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   // UI state
   const [logoError, setLogoError] = useState(false);
 
-  // AI Analysis mutations (kept as local state due to force/regenerate semantics)
+  // Auto-fetch cached analysis on page load
+  const { data: cachedAnalysis, isLoading: cacheLoading } = useStockAnalysisCache(symbol);
+
+  // AI Analysis mutations (for generate/regenerate)
   const analysisMutation = useGenerateStockAnalysis(symbol);
   const technicalMutation = useGenerateTechnicalAnalysis(symbol);
   const newsMutation = useGenerateNewsAnalysis(symbol);
   const macroMutation = useGenerateMacroAnalysis(symbol);
 
-  const analysis = (analysisMutation.data as StockAIAnalysis | null) ?? null;
-  const analysisLoading = analysisMutation.isPending;
+  // Use mutation result if available, otherwise fall back to cached data
+  const analysis = (analysisMutation.data as StockAIAnalysis | null) ?? (cachedAnalysis as StockAIAnalysis | null) ?? null;
+  const analysisLoading = analysisMutation.isPending || cacheLoading;
 
   // Technical Analysis state (separate per timeframe, kept local)
   const [dailyTechnicalAnalysis, setDailyTechnicalAnalysis] = useState<StockTechnicalAnalysis | null>(null);
@@ -1920,7 +1940,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
               </svg>
               <span className="text-sm font-medium">分析出错</span>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{analysisMutation.error instanceof Error ? analysisMutation.error.message : 'Failed to generate analysis'}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{analysisMutation.error instanceof Error ? analysisMutation.error.message : '生成分析失败，请重试'}</p>
             <button
               onClick={() => handleGenerateAnalysis(false)}
               className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"

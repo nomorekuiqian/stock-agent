@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
 import {
   MetricCard,
@@ -67,6 +68,19 @@ interface FundamentalsReportProps {
       roe?: number;
       roa?: number;
     };
+    balance_sheet?: {
+      current_ratio?: number;
+      quick_ratio?: number;
+      debt_to_equity?: number;
+      total_debt?: number;
+      total_cash?: number;
+    };
+    market_data?: {
+      beta?: number;
+      short_ratio?: number;
+      insider_ownership?: number;
+      institutional_ownership?: number;
+    };
   } | null;
   financials: {
     latest_quarter: string | null;
@@ -98,6 +112,42 @@ interface FundamentalsReportProps {
 }
 
 // =============================================================================
+// Hooks
+// =============================================================================
+
+/** Intersection observer for staggered reveal animations */
+function useReveal(delay = 0) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    // Check prefers-reduced-motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      requestAnimationFrame(() => setVisible(true));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => setVisible(true), delay);
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [delay]);
+
+  return { ref, visible };
+}
+
+// =============================================================================
 // Internal Components
 // =============================================================================
 
@@ -106,49 +156,73 @@ function ReportSection({
   title,
   titleEn,
   children,
+  delay = 0,
 }: {
   number: string;
   title: string;
   titleEn: string;
   children: React.ReactNode;
+  delay?: number;
 }) {
+  const { ref, visible } = useReveal(delay);
+
   return (
-    <SectionCard
-      title={title}
-      titleEn={titleEn}
-      numberLabel={number}
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}
     >
-      {children}
-    </SectionCard>
+      <SectionCard title={title} titleEn={titleEn} numberLabel={number}>
+        {children}
+      </SectionCard>
+    </div>
   );
 }
 
+/** AI insight block - amber-accented editorial callout */
 function AICallout({ content }: { content: string }) {
   return (
-    <div className="p-4 bg-amber-500/[0.04] border-l-2 border-amber-500/40 rounded-r-lg">
-      <MarkdownContent content={content} />
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Gradient top border */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
+      <div className="p-5 bg-amber-500/[0.03] border border-amber-500/20 rounded-lg light:bg-amber-50/50 light:border-amber-200/60">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center light:bg-amber-100">
+            <svg className="w-3 h-3 text-amber-500 light:text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <MarkdownContent content={content} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
+/** Premium shimmer skeleton */
 function AISkeleton() {
   return (
-    <div className="animate-pulse space-y-2">
-      <div className="h-4 w-full bg-muted rounded" />
-      <div className="h-4 w-4/5 bg-muted rounded" />
-      <div className="h-4 w-3/5 bg-muted rounded" />
+    <div className="space-y-3 p-5 bg-card/20 rounded-lg border border-border/20">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="w-4 h-4 rounded-full bg-amber-500/10 animate-pulse" />
+        <div className="h-3 w-20 bg-muted/60 rounded animate-shimmer" />
+      </div>
+      <div className="space-y-2.5">
+        <div className="h-3.5 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '100ms' }} />
+        <div className="h-3.5 w-[92%] bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '200ms' }} />
+        <div className="h-3.5 w-4/5 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '300ms' }} />
+        <div className="h-3.5 w-3/5 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '400ms' }} />
+      </div>
     </div>
   );
 }
 
+/** Generate analysis CTA - editorial luxury style */
 function AICta({
   symbol,
   companyName,
-  isAuthenticated,
-  isPro,
   onGenerate,
-  onLoginRequired,
-  onUpgradeRequired,
 }: {
   symbol: string;
   companyName: string;
@@ -158,89 +232,131 @@ function AICta({
   onLoginRequired: () => void;
   onUpgradeRequired: () => void;
 }) {
-  const handleClick = () => {
-    if (!isAuthenticated) {
-      onLoginRequired();
-      return;
-    }
-    if (!isPro) {
-      onUpgradeRequired();
-      return;
-    }
-    onGenerate();
-  };
-
   return (
-    <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
+    <div className="relative bg-card/30 border border-border/30 rounded-xl overflow-hidden">
+      {/* Decorative gradient lines */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-      <div className="px-6 py-8 md:px-10 md:py-10">
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+
+      <div className="px-6 py-10 md:px-10 md:py-14">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-amber-500/80 light:text-amber-600 mb-4">
-            Investment Research
+          <p className="text-xs uppercase tracking-[0.25em] text-amber-500/70 light:text-amber-600 mb-5 font-medium">
+            AI 投研
           </p>
-          <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
-            Unlock Insights for <span className="text-amber-400 light:text-amber-600">{symbol}</span>
+          <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-4 leading-tight tracking-tight">
+            解锁{' '}
+            <span className="text-amber-400 light:text-amber-600 font-data">{symbol}</span>
+            {' '}深度洞察
           </h3>
-          <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-8 max-w-lg mx-auto">
-            Generate a comprehensive analysis of {companyName}&apos;s fundamentals, financials, opportunities and risks.
+          <p className="text-sm text-muted-foreground leading-relaxed mb-10 max-w-md mx-auto">
+            为 {companyName} 生成全面的基本面分析，涵盖财务体检、估值判断、催化剂与风险等维度。
           </p>
           <button
-            onClick={handleClick}
-            className="group inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all hover:opacity-90"
+            onClick={onGenerate}
+            className="group relative inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10"
           >
-            {!isAuthenticated ? (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <span>Sign in to Analyze</span>
-              </>
-            ) : !isPro ? (
-              <>
-                <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-                <span>Upgrade to Pro</span>
-              </>
-            ) : (
-              <>
-                <span>Generate Analysis</span>
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </>
-            )}
+            {/* TODO: temporarily bypass auth/pro check for dev */}
+            <span className="text-sm">生成分析报告</span>
+            <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
           </button>
-          {!isAuthenticated && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              AI Analysis is available for registered users
-            </p>
-          )}
-          {isAuthenticated && !isPro && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              AI Analysis is a Pro feature
-            </p>
-          )}
         </div>
       </div>
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
     </div>
   );
 }
 
-// Helper: should we show AI content (user is logged in + Pro, and analysis exists or is loading)
+// Helper: should we show AI content
 function useAIVisibility(
   analysis: StockAIAnalysis | null,
   analysisLoading: boolean,
-  isAuthenticated: boolean,
-  isPro: boolean,
 ) {
-  const canShowAI = isAuthenticated && isPro;
+  // TODO: temporarily bypass auth/pro check for dev
+  const canShowAI = true;
   const hasAnalysis = !!analysis;
   const showSkeleton = canShowAI && analysisLoading && !hasAnalysis;
   const showContent = canShowAI && hasAnalysis;
-  const showCta = !canShowAI && !hasAnalysis && !analysisLoading;
+  const showCta = !hasAnalysis && !analysisLoading;
   return { canShowAI, showSkeleton, showContent, showCta };
+}
+
+// Helper: get AI content with V4 legacy fallback
+function getAI(analysis: StockAIAnalysis | null, field: 'company_profile' | 'financial_health' | 'valuation_judgment' | 'catalysts_and_risks' | 'investment_summary'): string | undefined {
+  if (!analysis) return undefined;
+  // V5 fields
+  if (analysis[field]) return analysis[field];
+  // V4 legacy fallback
+  const legacyMap: Record<string, string | undefined> = {
+    company_profile: analysis.company_overview,
+    financial_health: analysis.financials_analysis,
+    valuation_judgment: analysis.valuation_range || analysis.fundamentals_analysis,
+    catalysts_and_risks: [analysis.opportunities, analysis.risks].filter(Boolean).join('\n\n---\n\n') || undefined,
+    investment_summary: analysis.investment_summary,
+  };
+  return legacyMap[field];
+}
+
+/** 52-week range visualization */
+function WeekRangeBar({
+  low,
+  high,
+  current,
+  position,
+}: {
+  low: number;
+  high: number;
+  current: number;
+  position: number;
+}) {
+  const { ref, visible } = useReveal(100);
+
+  return (
+    <div ref={ref} className="bg-card/30 border border-border/30 rounded-lg p-4 hover:border-border/50 transition-colors duration-300">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80">52 周区间</span>
+        <span className="text-xs text-muted-foreground font-data">
+          {current.toFixed(2)} <span className="text-muted-foreground/50">at</span> {position.toFixed(0)}%
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-data font-semibold text-red-400 light:text-red-600 w-20 shrink-0">
+          ${low.toFixed(2)}
+        </span>
+        <div className="flex-1 relative h-2.5 bg-muted/60 rounded-full overflow-hidden">
+          {/* Gradient fill */}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-500/50 via-amber-500/50 to-emerald-500/50 transition-all duration-1000 ease-out"
+            style={{ width: visible ? '100%' : '0%' }}
+          />
+          {/* Position indicator */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000 ease-out"
+            style={{ left: visible ? `calc(${Math.min(Math.max(position, 3), 97)}% - 7px)` : '0%' }}
+          >
+            <div className="w-3.5 h-3.5 rounded-full bg-foreground border-2 border-background shadow-md" />
+          </div>
+        </div>
+        <span className="text-sm font-data font-semibold text-emerald-400 light:text-emerald-600 w-20 text-right shrink-0">
+          ${high.toFixed(2)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Data loading skeleton for metric grids */
+function DataGridSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="p-3 bg-muted/20 rounded-lg border border-border/20 animate-pulse" style={{ animationDelay: `${i * 75}ms` }}>
+          <div className="h-3 w-16 bg-muted/40 rounded mb-2" />
+          <div className="h-5 w-20 bg-muted/40 rounded" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // =============================================================================
@@ -265,7 +381,7 @@ export default function FundamentalsReport({
   valuationLoading,
   stockDataMeta,
 }: FundamentalsReportProps) {
-  const ai = useAIVisibility(analysis, analysisLoading, isAuthenticated, isPro);
+  const ai = useAIVisibility(analysis, analysisLoading);
 
   // Calculate 52-week position
   const pricePosition = quote?.week_52_low && quote?.week_52_high && quote?.price
@@ -276,178 +392,116 @@ export default function FundamentalsReport({
     <div className="space-y-5">
       {/* CTA for non-Pro users - shown once at the top */}
       {ai.showCta && (
-        <AICta
-          symbol={symbol}
-          companyName={companyName}
-          isAuthenticated={isAuthenticated}
-          isPro={isPro}
-          onGenerate={onGenerate}
-          onLoginRequired={onLoginRequired}
-          onUpgradeRequired={onUpgradeRequired}
-        />
+        <div className="animate-fade-in-up">
+          <AICta
+            symbol={symbol}
+            companyName={companyName}
+            isAuthenticated={isAuthenticated}
+            isPro={isPro}
+            onGenerate={onGenerate}
+            onLoginRequired={onLoginRequired}
+            onUpgradeRequired={onUpgradeRequired}
+          />
+        </div>
       )}
 
-      {/* Regenerate button (floating, only when analysis exists) */}
+      {/* Regenerate button */}
       {ai.showContent && (
-        <div className="flex justify-end">
+        <div className="flex justify-end animate-fade-in">
           <button
             onClick={onRegenerate}
             disabled={analysisLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-amber-400 transition-colors disabled:opacity-50"
-            title="Regenerate analysis"
+            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-amber-400 light:hover:text-amber-600 transition-colors duration-200 disabled:opacity-50"
+            title="重新生成分析"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`w-3.5 h-3.5 transition-transform duration-500 ${analysisLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span>Regenerate</span>
+            <span>重新生成</span>
           </button>
         </div>
       )}
 
       {/* ================================================================ */}
-      {/* 01 Executive Summary */}
+      {/* 01 Company Profile */}
       {/* ================================================================ */}
-      <ReportSection number="01" title="投资总结" titleEn="Executive Summary">
-        {/* AI: investment_summary */}
-        {ai.showContent && analysis?.investment_summary && (
+      <ReportSection number="01" title="公司画像" titleEn="Company Profile" delay={0}>
+        {/* AI: company_profile */}
+        {ai.showContent && getAI(analysis, 'company_profile') && (
           <div className="mb-5">
-            <AICallout content={analysis.investment_summary} />
+            <MarkdownContent content={getAI(analysis, 'company_profile')!} />
           </div>
         )}
-        {ai.showSkeleton && (
-          <div className="mb-5">
-            <AISkeleton />
-          </div>
-        )}
+        {ai.showSkeleton && <div className="mb-5"><AISkeleton /></div>}
 
-        {/* Data: Key metrics strip + 52-week range */}
+        {/* Data: Key metrics + 52-week range */}
         {!quote ? (
-          <div className="animate-pulse space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
-            </div>
-            <div className="h-20 bg-muted rounded-lg" />
+          <div className="space-y-3">
+            <DataGridSkeleton />
+            <div className="h-16 bg-muted/20 rounded-lg animate-pulse" />
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
-              <MetricCard metricKey="eps" value={formatNumber(quote.eps, { style: 'currency', maximumFractionDigits: 2 })} />
+              <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2 })} />
               <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
               <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
             </div>
 
             {/* 52-Week Range */}
-            {quote.week_52_low && quote.week_52_high && (
-              <div className="bg-card/30 border border-border/30 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-foreground/70">52 周区间</span>
-                  <span className="text-sm text-muted-foreground font-data">at {pricePosition.toFixed(0)}%</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-data font-medium text-red-400 w-18">${quote.week_52_low.toFixed(2)}</span>
-                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-red-500/70 via-amber-500/70 to-emerald-500/70 relative rounded-full">
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-background shadow-sm"
-                        style={{ left: `calc(${Math.min(Math.max(pricePosition, 5), 95)}% - 7px)` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-sm font-data font-medium text-emerald-400 w-18 text-right">${quote.week_52_high.toFixed(2)}</span>
-                </div>
+            {quote.week_52_low && quote.week_52_high && quote.price && (
+              <WeekRangeBar
+                low={quote.week_52_low}
+                high={quote.week_52_high}
+                current={quote.price}
+                position={pricePosition}
+              />
+            )}
+
+            {/* Market Data: Beta, Short Ratio, Ownership */}
+            {fundamentals?.market_data && Object.keys(fundamentals.market_data).length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {fundamentals.market_data.beta != null && (
+                  <MetricCard metricKey="beta" value={formatNumber(fundamentals.market_data.beta)} />
+                )}
+                {fundamentals.market_data.short_ratio != null && (
+                  <MetricCard metricKey="short_ratio" value={formatNumber(fundamentals.market_data.short_ratio)} />
+                )}
+                {fundamentals.market_data.insider_ownership != null && (
+                  <MetricCard metricKey="insider_ownership" value={formatNumber(fundamentals.market_data.insider_ownership, { style: 'percent' })} />
+                )}
+                {fundamentals.market_data.institutional_ownership != null && (
+                  <MetricCard metricKey="institutional_ownership" value={formatNumber(fundamentals.market_data.institutional_ownership, { style: 'percent' })} />
+                )}
               </div>
             )}
-          </>
+          </div>
         )}
       </ReportSection>
 
       {/* ================================================================ */}
-      {/* 02 Business Model & Competitive Advantage */}
+      {/* 02 Financial Health */}
       {/* ================================================================ */}
-      {(ai.showContent && analysis?.company_overview) || ai.showSkeleton ? (
-        <ReportSection number="02" title="盈利模式与竞争优势" titleEn="Business Model">
-          {ai.showContent && analysis?.company_overview && (
-            <MarkdownContent content={analysis.company_overview} />
-          )}
-          {ai.showSkeleton && <AISkeleton />}
-        </ReportSection>
-      ) : null}
-
-      {/* ================================================================ */}
-      {/* 03 Valuation Analysis */}
-      {/* ================================================================ */}
-      <ReportSection number="03" title="估值分析" titleEn="Valuation">
-        {/* AI: valuation_range */}
-        {ai.showContent && analysis?.valuation_range && (
+      <ReportSection number="02" title="财务体检" titleEn="Financial Health" delay={80}>
+        {/* AI: financial_health */}
+        {ai.showContent && getAI(analysis, 'financial_health') && (
           <div className="mb-5">
-            <AICallout content={analysis.valuation_range} />
+            <MarkdownContent content={getAI(analysis, 'financial_health')!} />
           </div>
         )}
-        {ai.showSkeleton && (
-          <div className="mb-5">
-            <AISkeleton />
-          </div>
-        )}
+        {ai.showSkeleton && <div className="mb-5"><AISkeleton /></div>}
 
-        {/* Data: Valuation metrics */}
+        {/* Data: Growth + Profitability + Balance Sheet + TTM + Quarterly */}
         {!fundamentals ? (
-          <div className="animate-pulse space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
-            </div>
-          </div>
-        ) : (
-          <div className="mb-5">
-            <SubsectionHeader title="估值指标" titleEn="Valuation Multiples" />
-            <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider mb-2">Trailing (TTM)</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
-              <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
-              <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
-            </div>
-            {stockDataMeta?.latest_quarter && (
-              <p className="text-xs text-muted-foreground/60 mt-1.5">
-                TTM (latest: {stockDataMeta.latest_quarter})
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Data: Historical + Industry + Peer comparison */}
-        <ValuationComparisonSection
-          data={valuationData}
-          loading={valuationLoading}
-          currentValuation={fundamentals?.valuation}
-        />
-      </ReportSection>
-
-      {/* ================================================================ */}
-      {/* 04 Growth & Profitability */}
-      {/* ================================================================ */}
-      <ReportSection number="04" title="增长与盈利" titleEn="Growth & Profitability">
-        {/* AI: fundamentals_analysis */}
-        {ai.showContent && analysis?.fundamentals_analysis && (
-          <div className="mb-5">
-            <MarkdownContent content={analysis.fundamentals_analysis} />
-          </div>
-        )}
-        {ai.showSkeleton && (
-          <div className="mb-5">
-            <AISkeleton />
-          </div>
-        )}
-
-        {/* Data: Growth metrics */}
-        {!fundamentals ? (
-          <div className="animate-pulse space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-muted rounded-lg" />)}
-            </div>
+          <div className="space-y-5">
+            <DataGridSkeleton count={3} />
+            <DataGridSkeleton />
           </div>
         ) : (
           <>
-            <div className="mb-5 pb-5 border-b border-border/40">
+            {/* Growth */}
+            <div className="mb-5 pb-5 border-b border-border/30">
               <SubsectionHeader title="增长指标" titleEn="Growth" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
                 <StatRow
@@ -468,7 +522,8 @@ export default function FundamentalsReport({
               </div>
             </div>
 
-            <div>
+            {/* Profitability */}
+            <div className="mb-5 pb-5 border-b border-border/30">
               <SubsectionHeader title="盈利能力" titleEn="Profitability" />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <MetricCard metricKey="gross_margin" value={formatNumber(fundamentals.profitability.gross_margin, { style: 'percent' })} />
@@ -477,37 +532,33 @@ export default function FundamentalsReport({
                 <MetricCard metricKey="roa" value={formatNumber(fundamentals.profitability.roa, { style: 'percent' })} />
               </div>
             </div>
-          </>
-        )}
-      </ReportSection>
 
-      {/* ================================================================ */}
-      {/* 05 Financial Statements */}
-      {/* ================================================================ */}
-      <ReportSection number="05" title="财务报表" titleEn="Financial Statements">
-        {/* AI: financials_analysis */}
-        {ai.showContent && analysis?.financials_analysis && (
-          <div className="mb-5">
-            <MarkdownContent content={analysis.financials_analysis} />
-          </div>
-        )}
-        {ai.showSkeleton && (
-          <div className="mb-5">
-            <AISkeleton />
-          </div>
-        )}
+            {/* Balance Sheet Health */}
+            {fundamentals.balance_sheet && Object.keys(fundamentals.balance_sheet).length > 0 && (
+              <div className="mb-5 pb-5 border-b border-border/30">
+                <SubsectionHeader title="资产负债" titleEn="Balance Sheet" />
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {fundamentals.balance_sheet.current_ratio != null && (
+                    <MetricCard metricKey="current_ratio" value={formatNumber(fundamentals.balance_sheet.current_ratio)} />
+                  )}
+                  {fundamentals.balance_sheet.quick_ratio != null && (
+                    <MetricCard metricKey="quick_ratio" value={formatNumber(fundamentals.balance_sheet.quick_ratio)} />
+                  )}
+                  {fundamentals.balance_sheet.debt_to_equity != null && (
+                    <MetricCard metricKey="debt_to_equity" value={formatNumber(fundamentals.balance_sheet.debt_to_equity)} />
+                  )}
+                  {fundamentals.balance_sheet.total_debt != null && (
+                    <MetricCard metricKey="total_debt" value={formatNumber(fundamentals.balance_sheet.total_debt, { style: 'currency', compact: true })} />
+                  )}
+                  {fundamentals.balance_sheet.total_cash != null && (
+                    <MetricCard metricKey="total_cash" value={formatNumber(fundamentals.balance_sheet.total_cash, { style: 'currency', compact: true })} />
+                  )}
+                </div>
+              </div>
+            )}
 
-        {/* Data: TTM cards + quarterly table */}
-        {!fundamentals || !financials ? (
-          <div className="animate-pulse space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
-            </div>
-            <div className="h-48 bg-muted rounded-lg" />
-          </div>
-        ) : (
-          <>
-            <div className="mb-5 pb-5 border-b border-border/40">
+            {/* TTM Key Financials */}
+            <div className="mb-5 pb-5 border-b border-border/30">
               <SubsectionHeader title="过去十二个月" titleEn="TTM" />
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true })} />
@@ -517,45 +568,82 @@ export default function FundamentalsReport({
                 <MetricCard metricKey="free_cash_flow" value={formatNumber(fundamentals.ttm.free_cash_flow, { style: 'currency', compact: true })} />
                 <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
               </div>
-            </div>
-
-            <div>
-              <SubsectionHeader title="季度数据" titleEn="Quarterly" />
-              <FinancialsTable quarters={financials.quarters} />
+              {stockDataMeta?.latest_quarter && (
+                <p className="text-xs text-muted-foreground/50 mt-2 font-data">
+                  TTM (latest: {stockDataMeta.latest_quarter})
+                </p>
+              )}
             </div>
           </>
+        )}
+
+        {/* Quarterly Table */}
+        {financials && (
+          <div>
+            <SubsectionHeader title="季度数据" titleEn="Quarterly" />
+            <FinancialsTable quarters={financials.quarters} />
+          </div>
         )}
       </ReportSection>
 
       {/* ================================================================ */}
-      {/* 06 Catalysts & Risks */}
+      {/* 03 Valuation Judgment */}
       {/* ================================================================ */}
-      {(ai.showContent && (analysis?.opportunities || analysis?.risks)) || ai.showSkeleton ? (
-        <ReportSection number="06" title="投资机会与风险" titleEn="Catalysts & Risks">
-          {ai.showSkeleton && <AISkeleton />}
-          {ai.showContent && (
-            <div className="grid md:grid-cols-2 gap-5">
-              {analysis?.opportunities && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">投资机会</span>
-                    <span className="text-muted-foreground/50 text-xs font-normal">Catalysts</span>
-                  </h3>
-                  <MarkdownContent content={analysis.opportunities} />
-                </div>
-              )}
-              {analysis?.risks && (
-                <div>
-                  <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400/80" />
-                    <span className="text-red-400">风险因素</span>
-                    <span className="text-muted-foreground/50 text-xs font-normal">Risks</span>
-                  </h3>
-                  <MarkdownContent content={analysis.risks} />
-                </div>
-              )}
+      <ReportSection number="03" title="估值判断" titleEn="Valuation" delay={160}>
+        {/* AI: valuation_judgment */}
+        {ai.showContent && getAI(analysis, 'valuation_judgment') && (
+          <div className="mb-5">
+            <AICallout content={getAI(analysis, 'valuation_judgment')!} />
+          </div>
+        )}
+        {ai.showSkeleton && <div className="mb-5"><AISkeleton /></div>}
+
+        {/* Data: Valuation metrics */}
+        {!fundamentals ? (
+          <DataGridSkeleton count={6} />
+        ) : (
+          <div className="mb-5">
+            <SubsectionHeader title="估值指标" titleEn="Valuation Multiples" />
+            <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-2 font-data">Trailing (TTM) 倍数</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+              <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
+              <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
+              <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
+              <MetricCard metricKey="peg" value={formatNumber(fundamentals.valuation.peg)} />
+              <MetricCard metricKey="dividend_yield" value={fundamentals.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
             </div>
+          </div>
+        )}
+
+        {/* Data: Historical + Industry + Peer comparison */}
+        <ValuationComparisonSection
+          data={valuationData}
+          loading={valuationLoading}
+          currentValuation={fundamentals?.valuation}
+        />
+      </ReportSection>
+
+      {/* ================================================================ */}
+      {/* 04 Catalysts & Risks */}
+      {/* ================================================================ */}
+      {(ai.showContent && getAI(analysis, 'catalysts_and_risks')) || ai.showSkeleton ? (
+        <ReportSection number="04" title="催化剂与风险" titleEn="Catalysts & Risks" delay={240}>
+          {ai.showSkeleton && <AISkeleton />}
+          {ai.showContent && getAI(analysis, 'catalysts_and_risks') && (
+            <MarkdownContent content={getAI(analysis, 'catalysts_and_risks')!} />
+          )}
+        </ReportSection>
+      ) : null}
+
+      {/* ================================================================ */}
+      {/* 05 Investment Summary */}
+      {/* ================================================================ */}
+      {(ai.showContent && analysis?.investment_summary) || ai.showSkeleton ? (
+        <ReportSection number="05" title="投资总结" titleEn="Investment Summary" delay={320}>
+          {ai.showSkeleton && <AISkeleton />}
+          {ai.showContent && analysis?.investment_summary && (
+            <AICallout content={analysis.investment_summary} />
           )}
         </ReportSection>
       ) : null}
