@@ -75,8 +75,8 @@ export function nextMsgId(): string {
   return `msg-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
 }
 
-/** Keys to exclude from sessionStorage (large, re-fetchable data). */
-const TRANSIENT_KEYS = new Set(['candidates']);
+/** Keys to exclude from sessionStorage. */
+const TRANSIENT_KEYS = new Set<string>();
 
 export function saveState(state: PickerState): void {
   try {
@@ -105,7 +105,7 @@ export function loadState(): PickerState {
         ),
       }));
     }
-    return { ...initialState, ...saved, candidates: [], isLoading: false, error: null };
+    return { ...initialState, ...saved, isLoading: false, error: null };
   } catch {
     return initialState;
   }

@@ -499,7 +499,7 @@ describe('saveState', () => {
     expect(raw).toBeTruthy();
   });
 
-  it('excludes candidates from persisted data', () => {
+  it('includes candidates in persisted data', () => {
     const state: PickerState = {
       ...initialState,
       candidates: [{ symbol: 'AAPL', price: 180 }],
@@ -507,7 +507,7 @@ describe('saveState', () => {
     saveState(state);
     const raw = sessionStorage.getItem(STORAGE_KEY);
     const parsed = JSON.parse(raw!);
-    expect(parsed.candidates).toBeUndefined();
+    expect(parsed.candidates).toEqual([{ symbol: 'AAPL', price: 180 }]);
   });
 
   it('persists messages and filters', () => {
@@ -534,11 +534,12 @@ describe('loadState', () => {
     expect(loadState()).toEqual(initialState);
   });
 
-  it('restores saved state with candidates as empty array', () => {
+  it('restores saved state with candidates preserved', () => {
     const saved = {
       phase: 'chat',
       messages: [{ id: 'm1', role: 'user', content: 'hi' }],
       accumulatedFilters: [{ field: 'roe', op: 'gt', value: 15 }],
+      candidates: [{ symbol: 'AAPL', price: 180 }],
       candidateCount: 50,
       universeSize: 3600,
     };
@@ -546,7 +547,7 @@ describe('loadState', () => {
     const state = loadState();
     expect(state.phase).toBe('chat');
     expect(state.messages).toHaveLength(1);
-    expect(state.candidates).toEqual([]);
+    expect(state.candidates).toEqual([{ symbol: 'AAPL', price: 180 }]);
     expect(state.candidateCount).toBe(50);
   });
 
