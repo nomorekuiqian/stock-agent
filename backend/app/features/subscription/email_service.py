@@ -55,6 +55,7 @@ class EmailService:
             resend.api_key = self.api_key
         self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
         self.from_email_morning = "MarketBrew Morning <morning@themarketbrew.com>"
+        self.from_email_weekly = "MarketBrew Weekly <weekly@themarketbrew.com>"
         self.frontend_url = FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
         self.is_production = ENVIRONMENT == "production"
         self.logo_url = "https://themarketbrew.com/logo-avatar.png"
@@ -402,9 +403,9 @@ class EmailService:
             title = data.get("title", "")
             week_label = data.get("week_label", "")
             subject = (
-                f"[TheMarketBrew 周报] {title}"
+                f"[TheMarketBrew周报] {title}"
                 if title
-                else f"[TheMarketBrew 周报] {week_label}"
+                else f"[TheMarketBrew周报] {week_label}"
             )
 
             params = {
@@ -498,9 +499,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[TheMarketBrew 早报] {report_title}"
+                f"[TheMarketBrew早报] {report_title}"
                 if report_title
-                else f"[TheMarketBrew 早报] {today}"
+                else f"[TheMarketBrew早报] {today}"
             )
 
             params = {
@@ -614,9 +615,9 @@ class EmailService:
 
             title = data.get("title", "")
             subject = (
-                f"[TheMarketBrew 周报] {title}"
+                f"[TheMarketBrew周报] {title}"
                 if title
-                else f"[TheMarketBrew 周报] {week_label}"
+                else f"[TheMarketBrew周报] {week_label}"
             )
 
             return self._create_and_send_broadcast(
@@ -625,6 +626,7 @@ class EmailService:
                 subject=subject,
                 broadcast_name=f"Weekly Report {week_label}",
                 html=html_content,
+                from_email=self.from_email_weekly,
             )
 
         except Exception as e:
@@ -680,9 +682,9 @@ class EmailService:
 
             report_title = data.get("title", "")
             subject = (
-                f"[TheMarketBrew 早报] {report_title}"
+                f"[TheMarketBrew早报] {report_title}"
                 if report_title
-                else f"[TheMarketBrew 早报] {today}"
+                else f"[TheMarketBrew早报] {today}"
             )
 
             return self._create_and_send_broadcast(
@@ -716,6 +718,21 @@ class EmailService:
 
         try:
             from app.features.brew.agent import get_personal_digest
+
+            # Canary check: verify Insforge connectivity before processing
+            canary_result = await get_user_watchlist(
+                "14204862-26b9-4f24-b8ff-7f98e2f3fe1d"  # voya test account
+            )
+            if canary_result is None:
+                logger.error(
+                    "Insforge canary check FAILED: cannot reach "
+                    "user-watchlists Edge Function"
+                )
+            else:
+                logger.info(
+                    "Insforge canary check OK: %d symbols",
+                    len(canary_result.get("symbols", [])),
+                )
 
             if not self.is_production:
                 # Dev environment: use test segment contacts instead of production subscribers
@@ -825,20 +842,37 @@ class EmailService:
                     },
                 }
 
-            async def get_symbols_for_user(user_id: str, email: str) -> list:
-                """Get symbols from Insforge user_watchlists table only."""
+            async def get_symbols_for_user(
+                user_id: str, email: str
+            ) -> tuple[list, str]:
+                """Get symbols from Insforge user_watchlists table only.
+
+                Returns:
+                    (symbols_list, error_reason) - empty reason means success
+                """
                 if not user_id:
                     logger.info("No user_id for %s, skipping", email)
-                    return []
+                    return [], "No user_id in subscription metadata"
 
                 watchlist = await get_user_watchlist(user_id)
-                if watchlist and watchlist.get("symbols"):
-                    symbols = watchlist.get("symbols", [])
-                    logger.info("Loaded %d symbols from Insforge for %s", len(symbols), email)
-                    return symbols
+                if watchlist is None:
+                    logger.warning(
+                        "Watchlist query failed for %s (user_id=%s), "
+                        "likely Insforge API issue",
+                        email, user_id[:8],
+                    )
+                    return [], "Watchlist query failed (Insforge API error)"
 
-                logger.info("No watchlist found in Insforge for %s", email)
-                return []
+                symbols = watchlist.get("symbols", [])
+                if not symbols:
+                    logger.info("No watchlist found in Insforge for %s", email)
+                    return [], "No symbols configured"
+
+                logger.info(
+                    "Loaded %d symbols from Insforge for %s",
+                    len(symbols), email,
+                )
+                return symbols, ""
 
             async def process_subscriber(sub: dict) -> dict:
                 """Process a single subscriber with retry logic."""
@@ -847,12 +881,12 @@ class EmailService:
                 first_name = metadata.get("first_name", "")
                 user_id = metadata.get("user_id")
 
-                symbols = await get_symbols_for_user(user_id, email)
+                symbols, reason = await get_symbols_for_user(user_id, email)
                 if not symbols:
                     return {
                         "email": email,
                         "success": False,
-                        "error": "No symbols configured",
+                        "error": reason,
                     }
 
                 async with semaphore:
@@ -884,10 +918,12 @@ class EmailService:
 
             email_params_list: list[dict] = []
             errors: list[dict] = []
+            failed_subs: list[dict] = []
 
-            for r in results:
+            for idx, r in enumerate(results):
                 if isinstance(r, Exception):
                     errors.append({"error": str(r)})
+                    failed_subs.append(subscribers[idx])
                 elif isinstance(r, dict):
                     if r.get("success") and r.get("params"):
                         email_params_list.append(r["params"])
@@ -895,6 +931,7 @@ class EmailService:
                         errors.append(
                             {"email": r.get("email"), "error": r.get("error")}
                         )
+                        failed_subs.append(subscribers[idx])
 
             gen_failed = len(errors)
             logger.info(
@@ -959,14 +996,77 @@ class EmailService:
                 if i + batch_size < len(email_params_list):
                     time.sleep(1)
 
+            # --- Phase 3: retry failed subscribers ---
+            if failed_subs:
+                logger.info(
+                    "Phase 3: retrying %d failed subscribers after 5s delay",
+                    len(failed_subs),
+                )
+                await asyncio.sleep(5)
+
+                retry_results = await asyncio.gather(
+                    *[process_subscriber(sub) for sub in failed_subs],
+                    return_exceptions=True,
+                )
+
+                retry_params: list[dict] = []
+                retry_errors: list[dict] = []
+                for r in retry_results:
+                    if isinstance(r, Exception):
+                        retry_errors.append({"error": str(r)})
+                    elif isinstance(r, dict):
+                        if r.get("success") and r.get("params"):
+                            retry_params.append(r["params"])
+                        else:
+                            retry_errors.append(
+                                {"email": r.get("email"), "error": r.get("error")}
+                            )
+
+                logger.info(
+                    "Phase 3 complete: %d recovered, %d still failed",
+                    len(retry_params),
+                    len(retry_errors),
+                )
+
+                # Batch send recovered emails
+                for i in range(0, len(retry_params), batch_size):
+                    chunk = retry_params[i : i + batch_size]
+                    try:
+                        response = resend.Batch.send(chunk)
+                        batch_errors = (
+                            response.get("errors", [])
+                            if isinstance(response, dict)
+                            else []
+                        )
+                        sent_count += len(chunk) - len(batch_errors)
+                        for err in batch_errors:
+                            eidx = err.get("index", -1)
+                            email_addr = (
+                                chunk[eidx]["to"][0]
+                                if 0 <= eidx < len(chunk)
+                                else "unknown"
+                            )
+                            send_errors.append(
+                                {"email": email_addr, "error": err.get("message", "retry send error")}
+                            )
+                    except Exception as e:
+                        logger.error("Phase 3 batch send failed: %s", e)
+                        for p in chunk:
+                            send_errors.append(
+                                {"email": p["to"][0], "error": str(e)}
+                            )
+
+                # Replace Phase 1 errors with only the still-failed ones
+                errors = retry_errors
+
             all_errors = errors + send_errors
-            failed_count = gen_failed + len(send_errors)
+            failed_count = len(errors) + len(send_errors)
 
             logger.info(
                 "Broadcast complete: %d sent, %d failed (gen=%d, send=%d)",
                 sent_count,
                 failed_count,
-                gen_failed,
+                len(errors),
                 len(send_errors),
             )
 
