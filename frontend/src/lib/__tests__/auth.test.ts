@@ -1,17 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isTokenExpired, signIn, signOut, getAccessToken, setCachedToken } from '../auth';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { isTokenExpired, signIn, signOut, getAccessToken } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Mock @/lib/insforge
 // ---------------------------------------------------------------------------
-const mockSetAuthToken = vi.fn();
+const mockSignInWithPassword = vi.fn();
 const mockGetCurrentSession = vi.fn();
 const mockSignOut = vi.fn();
 
 vi.mock('@/lib/insforge', () => ({
   insforge: {
-    getHttpClient: () => ({ setAuthToken: mockSetAuthToken }),
     auth: {
+      signInWithPassword: (...args: unknown[]) => mockSignInWithPassword(...args),
       getCurrentSession: (...args: unknown[]) => mockGetCurrentSession(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
     },
@@ -44,12 +44,12 @@ describe('isTokenExpired', () => {
   });
 
   it('returns true when token expires within the 60s buffer', () => {
-    const token = fakeJwt({ exp: Date.now() / 1000 + 30 }); // 30s left < 60s buffer
+    const token = fakeJwt({ exp: Date.now() / 1000 + 30 });
     expect(isTokenExpired(token)).toBe(true);
   });
 
   it('returns false when token expires just outside the 60s buffer', () => {
-    const token = fakeJwt({ exp: Date.now() / 1000 + 120 }); // 120s left > 60s buffer
+    const token = fakeJwt({ exp: Date.now() / 1000 + 120 });
     expect(isTokenExpired(token)).toBe(false);
   });
 
@@ -69,37 +69,32 @@ describe('isTokenExpired', () => {
 });
 
 // ---------------------------------------------------------------------------
-// signIn
+// signIn (pure SDK mode)
 // ---------------------------------------------------------------------------
 describe('signIn', () => {
-  const originalFetch = globalThis.fetch;
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('returns success and calls setAuthToken on successful login', async () => {
+  it('returns success with user data on successful SDK login', async () => {
     const mockUser = { id: 'u1', email: 'a@b.com', profile: { name: 'Test' } };
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, accessToken: 'tok123', user: mockUser }),
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: mockUser },
+      error: null,
     });
 
-    const result = await signIn('a@b.com', 'pass', true);
+    const result = await signIn('a@b.com', 'pass');
 
     expect(result.success).toBe(true);
     expect(result.user?.id).toBe('u1');
-    expect(mockSetAuthToken).toHaveBeenCalledWith('tok123');
+    expect(result.user?.email).toBe('a@b.com');
+    expect(mockSignInWithPassword).toHaveBeenCalledWith({ email: 'a@b.com', password: 'pass' });
   });
 
-  it('returns error on server error response', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: async () => ({ success: false, error: 'Invalid credentials' }),
+  it('returns error when SDK returns an error', async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: null,
+      error: { message: 'Invalid credentials' },
     });
 
     const result = await signIn('a@b.com', 'wrong');
@@ -108,8 +103,8 @@ describe('signIn', () => {
     expect(result.error).toBe('Invalid credentials');
   });
 
-  it('returns error on network exception', async () => {
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network failure'));
+  it('returns error on exception', async () => {
+    mockSignInWithPassword.mockRejectedValue(new Error('Network failure'));
 
     const result = await signIn('a@b.com', 'pass');
 
@@ -119,18 +114,11 @@ describe('signIn', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getAccessToken
+// getAccessToken (pure SDK mode)
 // ---------------------------------------------------------------------------
 describe('getAccessToken', () => {
-  const originalFetch = globalThis.fetch;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    setCachedToken(null);
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
   });
 
   it('returns SDK token when valid and not expired', async () => {
@@ -143,141 +131,30 @@ describe('getAccessToken', () => {
     expect(token).toBe(validToken);
   });
 
-  it('falls back to cookie recovery when SDK token is expired', async () => {
+  it('returns null when SDK token is expired', async () => {
     const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
     mockGetCurrentSession.mockResolvedValue({
       data: { session: { accessToken: expiredToken } },
     });
 
-    const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        authenticated: true,
-        accessToken: freshToken,
-      }),
+    const token = await getAccessToken();
+    expect(token).toBeNull();
+  });
+
+  it('returns null when SDK has no session', async () => {
+    mockGetCurrentSession.mockResolvedValue({
+      data: { session: null },
     });
 
     const token = await getAccessToken();
-    expect(token).toBe(freshToken);
-    expect(mockSetAuthToken).toHaveBeenCalledWith(freshToken);
+    expect(token).toBeNull();
   });
 
-  it('returns null when both SDK and cookie recovery fail', async () => {
+  it('returns null when SDK throws', async () => {
     mockGetCurrentSession.mockRejectedValue(new Error('SDK error'));
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
 
     const token = await getAccessToken();
     expect(token).toBeNull();
-  });
-
-  it('deduplicates concurrent refresh attempts', async () => {
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
-
-    const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    let resolveCount = 0;
-    globalThis.fetch = vi.fn().mockImplementation(async () => {
-      resolveCount++;
-      return {
-        ok: true,
-        json: async () => ({ authenticated: true, accessToken: freshToken }),
-      };
-    });
-
-    const [t1, t2] = await Promise.all([getAccessToken(), getAccessToken()]);
-
-    expect(t1).toBe(freshToken);
-    expect(t2).toBe(freshToken);
-    // fetch should only have been called once due to deduplication
-    expect(resolveCount).toBe(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// token cache
-// ---------------------------------------------------------------------------
-describe('token cache', () => {
-  const originalFetch = globalThis.fetch;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    setCachedToken(null);
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('returns cached token without any network calls', async () => {
-    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    setCachedToken(validToken);
-
-    // SDK and fetch should NOT be called
-    mockGetCurrentSession.mockRejectedValue(new Error('should not be called'));
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('should not be called'));
-
-    const token = await getAccessToken();
-    expect(token).toBe(validToken);
-    expect(mockGetCurrentSession).not.toHaveBeenCalled();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
-  });
-
-  it('ignores expired cached token and falls back', async () => {
-    const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
-    setCachedToken(expiredToken);
-
-    // SDK also returns nothing useful
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
-
-    const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ authenticated: true, accessToken: freshToken }),
-    });
-
-    const token = await getAccessToken();
-    expect(token).toBe(freshToken);
-    // SDK was called because cache was expired
-    expect(mockGetCurrentSession).toHaveBeenCalled();
-  });
-
-  it('signIn seeds the cache so getAccessToken is instant', async () => {
-    const accessToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    const mockUser = { id: 'u1', email: 'a@b.com', profile: { name: 'Test' } };
-
-    // signIn via server proxy
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, accessToken, user: mockUser }),
-    });
-    await signIn('a@b.com', 'pass', true);
-
-    // Reset mocks so we can verify getAccessToken makes zero calls
-    vi.clearAllMocks();
-    mockGetCurrentSession.mockRejectedValue(new Error('should not be called'));
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('should not be called'));
-
-    const token = await getAccessToken();
-    expect(token).toBe(accessToken);
-    expect(mockGetCurrentSession).not.toHaveBeenCalled();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
-  });
-
-  it('signOut clears the cache', async () => {
-    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    setCachedToken(validToken);
-
-    mockSignOut.mockResolvedValue({ error: null });
-    await signOut();
-
-    // After signOut, cache is cleared — SDK will be consulted
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
-
-    const token = await getAccessToken();
-    expect(token).toBeNull();
-    // SDK was called because cache was cleared by signOut
-    expect(mockGetCurrentSession).toHaveBeenCalled();
   });
 });
 
