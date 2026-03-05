@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useInsforge } from '@insforge/nextjs';
 import {
   User,
@@ -8,10 +8,7 @@ import {
   signUp as authSignUp,
   signInWithGoogle,
   updateProfile as authUpdateProfile,
-  isTokenExpired,
-  setCachedToken,
 } from '@/lib/auth';
-import { insforge } from '@/lib/insforge';
 import { api } from '@/lib/api';
 
 function getAutoSubscribedKey(userId: string): string {
@@ -49,7 +46,6 @@ function markSynced(userId: string): void {
 }
 
 async function syncUserWithSubscriptions(user: User): Promise<void> {
-  // Skip if already synced recently
   if (!needsSync(user.id)) return;
 
   try {
@@ -84,7 +80,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
@@ -96,10 +92,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const sdk = useInsforge();
-  // Tracks whether cookie recovery is still pending.
-  // Starts true to prevent auth guards from redirecting before recovery completes.
-  const [recoveryPending, setRecoveryPending] = useState(true);
-  const recoveryAttempted = useRef(false);
 
   // Map SDK user (InsforgeUser) to our User type
   const user: User | null = useMemo(() => {
@@ -112,65 +104,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [sdk.user]);
 
-  // SDK loaded but no user -> try recovering from our httpOnly cookies.
-  // The SDK's own getCurrentSession() can't access our cookies (they're on
-  // our domain, not Insforge's), so we check /api/auth/session ourselves.
-  useEffect(() => {
-    if (!sdk.isLoaded) return;
+  const isLoading = !sdk.isLoaded;
 
-    // SDK found a user on its own — no recovery needed.
-    // isRecovering is derived (recoveryPending && !sdk.user), so it auto-resolves.
-    if (sdk.user) return;
-
-    if (recoveryAttempted.current) return;
-    recoveryAttempted.current = true;
-
-    fetch('/api/auth/session')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.authenticated && data.accessToken && data.user && !isTokenExpired(data.accessToken)) {
-          insforge.getHttpClient().setAuthToken(data.accessToken);
-          // Seed the token cache so getAccessToken() returns instantly
-          // without making redundant network calls to Insforge.
-          setCachedToken(data.accessToken);
-          sdk.setUser({
-            id: data.user.id,
-            email: data.user.email,
-            profile: data.user.profile ?? null,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setRecoveryPending(false));
-  }, [sdk.isLoaded, sdk.user, sdk]);
-
-  // When SDK already found a user, recovery is not needed regardless of recoveryPending.
-  const isRecovering = recoveryPending && !sdk.user;
-  const isLoading = !sdk.isLoaded || isRecovering;
-
-  // Subscription sync - the only custom business logic
+  // Subscription sync
   useEffect(() => {
     if (user) {
       syncUserWithSubscriptions(user);
     }
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Custom signIn (must use server proxy to capture refresh token).
-  // We use sdk.setUser() instead of sdk.reloadAuth() because reloadAuth()
-  // calls getCurrentSession() which checks SDK's internal tokenManager — but
-  // our server proxy login doesn't go through the SDK, so the tokenManager
-  // has no session data.
-  const handleSignIn = useCallback(async (email: string, password: string, rememberMe?: boolean) => {
-    const result = await authSignIn(email, password, rememberMe);
-    if (result.success && result.user) {
-      sdk.setUser({
-        id: result.user.id,
-        email: result.user.email,
-        profile: {
-          name: result.user.name,
-          avatar_url: result.user.avatarUrl,
-        },
-      });
+  // signIn - now uses pure SDK (signInWithPassword) via auth.ts
+  // SDK's InsforgeBrowserProvider will auto-update sdk.user via onSignIn callback
+  const handleSignIn = useCallback(async (email: string, password: string) => {
+    const result = await authSignIn(email, password);
+    if (result.success) {
+      // SDK should auto-detect the login via its onSignIn/saveSessionFromResponse
+      // But if it doesn't update sdk.user, we use reloadAuth as fallback
+      if (!sdk.user) {
+        await sdk.reloadAuth();
+      }
     }
     return { success: result.success, error: result.error };
   }, [sdk]);
@@ -183,7 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: result.success, error: result.error };
   }, [sdk]);
 
-  // signOut via SDK - InsforgeBrowserProvider's onSignOut sends DELETE /api/auth
   const handleSignOut = useCallback(async () => {
     try {
       await sdk.signOut();
@@ -199,9 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleUpdateProfile = useCallback(async (profile: { name?: string }) => {
     const result = await authUpdateProfile(profile);
     if (result.success && result.user && user) {
-      // Sync the new name to Resend contacts
       api.subscriptions.syncUser(user.id, user.email, result.user.name).catch(() => {});
-      // Refresh SDK user state to pick up new profile
       await sdk.reloadAuth();
     }
     return { success: result.success, error: result.error };
