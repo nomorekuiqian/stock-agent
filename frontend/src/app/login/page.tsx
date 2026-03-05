@@ -59,7 +59,7 @@ function LoginPageContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
+
 
   useEffect(() => {
     sessionStorage.setItem('auth_redirect', redirectUrl);
@@ -93,7 +93,7 @@ function LoginPageContent() {
           setError(translateError(result.error || '注册失败'));
         }
       } else {
-        const result = await signIn(email, password, rememberMe);
+        const result = await signIn(email, password);
         if (result.success) {
           sessionStorage.removeItem('auth_redirect');
           router.push(redirectUrl);
@@ -265,18 +265,6 @@ function LoginPageContent() {
               className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
             />
           </div>
-
-          {!isSignUp && (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-card text-emerald-500 focus:ring-emerald-500/20 focus:ring-2 cursor-pointer accent-emerald-500"
-              />
-              <span className="text-sm text-muted-foreground">7 天内免登录</span>
-            </label>
-          )}
 
           <button
             type="submit"
