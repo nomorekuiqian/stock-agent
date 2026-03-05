@@ -1,11 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Today page (/today)', () => {
-  // SSR page fetches backend data; allow extra time
-  test.setTimeout(60000);
-
   test.beforeEach(async ({ page }) => {
-    await page.goto('/today', { timeout: 30000 });
+    await page.goto('/today');
   });
 
   test('loads and shows page heading', async ({ page }) => {

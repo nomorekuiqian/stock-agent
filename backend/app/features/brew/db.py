@@ -6,6 +6,8 @@ Provides save and retrieve operations for personalized user digests.
 
 from typing import Optional, Dict, Any, List
 
+import asyncio
+
 import httpx
 
 from app.core.database import get_insforge_service
@@ -97,26 +99,58 @@ async def get_user_watchlist(user_id: str) -> Optional[Dict[str, Any]]:
     Returns:
         Watchlist data with symbols array, or None if not found
     """
-    try:
-        service = get_insforge_service()
-        watchlist_url = f"{service.base_url}/functions/user-watchlists"
+    max_attempts = 2
+    for attempt in range(max_attempts):
+        try:
+            service = get_insforge_service()
+            watchlist_url = f"{service.base_url}/functions/user-watchlists"
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{watchlist_url}?user_id={user_id}",
-                headers=service.headers,
-                timeout=30.0,
-            )
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{watchlist_url}?user_id={user_id}",
+                    headers=service.headers,
+                    timeout=30.0,
+                )
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success"):
-                    return data.get("data")
-            return None
-
-    except Exception as e:
-        logger.error("Exception getting user watchlist: %s", e)
-        return None
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success"):
+                        result = data.get("data")
+                        if result is None:
+                            logger.info(
+                                "Watchlist for user %s: success=true but data=null "
+                                "(user has no watchlist)",
+                                user_id[:12],
+                            )
+                        return result
+                    logger.warning(
+                        "Watchlist for user %s: status=200 but success=%s, "
+                        "error=%s (attempt %d/%d)",
+                        user_id[:12], data.get("success"),
+                        data.get("error", "none"), attempt + 1, max_attempts,
+                    )
+                else:
+                    body = response.text[:200]
+                    logger.warning(
+                        "Watchlist for user %s: HTTP %s (attempt %d/%d) body=%s",
+                        user_id[:12], response.status_code,
+                        attempt + 1, max_attempts, body,
+                    )
+        except Exception as e:
+            if attempt < max_attempts - 1:
+                logger.warning(
+                    "Watchlist error for user %s (attempt %d/%d): %s",
+                    user_id[:12], attempt + 1, max_attempts, e,
+                )
+            else:
+                logger.exception(
+                    "Watchlist failed for user %s after %d attempts",
+                    user_id[:12], max_attempts,
+                )
+                return None
+        if attempt < max_attempts - 1:
+            await asyncio.sleep(3)
+    return None
 
 
 async def get_user_digest(user_id: str, digest_date: str) -> Optional[Dict[str, Any]]:
