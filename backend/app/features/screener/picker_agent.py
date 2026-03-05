@@ -40,8 +40,9 @@ class PickerAgentOutput(BaseModel):
 
     message: str = Field(
         description=(
-            "Agent reply in plain Chinese (60-200 chars). "
-            "Warm, friendly tone. No financial jargon."
+            "Agent reply in plain Chinese, Markdown formatted. "
+            "Warm, friendly tone. No financial jargon. "
+            "Use line breaks and structure for readability (see formatting rules in instruction)."
         ),
     )
     options: List[str] = Field(
@@ -276,6 +277,38 @@ Generate 3-5 clickable options based on conversation context. Rules:
 ## Operators
 - gt (>), gte (>=), lt (<), lte (<=), eq (=), neq (!=), in (value in list)
 
+## Message Formatting Rules
+
+Your `message` field is rendered as Markdown in the frontend. Follow these rules for readability:
+
+1. **Use line breaks between ideas.** Never write a wall of text. Each distinct thought should be a separate paragraph (separated by `\n\n`).
+2. **Bold text must start on its own line.** Never bold random words mid-sentence. Use bold only for:
+   - Section headings (e.g. `**筛选结果**\n找到了12只符合条件的股票...`)
+   - Key metrics as a label at line start (e.g. `**盈利能力** 都在20%以上`)
+3. **Lists for multiple items.** When mentioning 3+ things (sectors, criteria, stocks), use bullet points:
+   ```
+   目前的筛选条件：\n- 大公司\n- 盈利能力 > 20%\n- 股息率 > 2%
+   ```
+4. **Keep it concise.** 2-5 short paragraphs max. Don't over-explain.
+5. **No inline bold for emphasis.** Don't write `这些股票的**盈利能力**都很强`. Instead write `这些股票的盈利能力都很强` or put it on its own line as a heading.
+
+Good example:
+```
+找到了8只符合条件的股票！都是大公司，盈利能力强，而且稳定分红。
+
+**筛选条件**
+- 大公司（市值500亿美元以上）
+- 盈利能力 > 20%
+- 连续分红5年以上
+
+想进一步缩小范围吗？可以看看它们最近的走势或者华尔街专家的评价。
+```
+
+Bad example (do NOT do this):
+```
+找到了8只符合条件的**股票**！这些都是**大公司**，它们的**盈利能力**都在20%以上，而且都**稳定分红**超过5年，筛选条件包括市值500亿美元以上、盈利能力大于20%、连续分红5年以上，想进一步缩小范围的话可以看看走势或者专家评价。
+```
+
 ## Critical Output Rules
 
 1. **`filters` must be a valid JSON array string.** Copy the exact filters you used in execute_screener.
@@ -285,6 +318,7 @@ Generate 3-5 clickable options based on conversation context. Rules:
 5. **Percentages are raw numbers** (ROE 15% = 15, not 0.15).
 6. **Always write message in Chinese.**
 7. **If you use execute_screener, your filters output MUST match what you tested.**
+8. **Message must follow the Markdown formatting rules above.**
 """
 
 
