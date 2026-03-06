@@ -7,10 +7,22 @@
 export default function TypingIndicator() {
   return (
     <div className="flex items-start gap-3 animate-msg-enter">
-      {/* AI avatar */}
+      {/* AI avatar — brand "M" mark */}
       <div className="shrink-0 w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-        <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
+          <path
+            d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
+            stroke="url(#typing-avatar-grad)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <defs>
+            <linearGradient id="typing-avatar-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#10B981" />
+              <stop offset="100%" stopColor="#6EE7B7" />
+            </linearGradient>
+          </defs>
         </svg>
       </div>
 

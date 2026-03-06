@@ -13,6 +13,7 @@ interface ChatPanelProps {
   messages: ChatMsg[];
   onSend: (message: string) => void;
   loading: boolean;
+  onCancelLoading?: () => void;
   inputPlaceholder?: string;
 }
 
@@ -26,7 +27,7 @@ interface ChatPanelProps {
  * - Newest AI message gets word-by-word animation
  * - Option chips under AI messages
  */
-export default function ChatPanel({ messages, onSend, loading, inputPlaceholder }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -86,8 +87,21 @@ export default function ChatPanel({ messages, onSend, loading, inputPlaceholder 
           </div>
         ))}
 
-        {/* Typing indicator */}
-        {loading && <TypingIndicator />}
+        {/* Typing indicator — click to cancel if stuck */}
+        {loading && (
+          <div
+            onClick={onCancelLoading}
+            className={onCancelLoading ? 'cursor-pointer group' : ''}
+            title={onCancelLoading ? '点击取消' : undefined}
+          >
+            <TypingIndicator />
+            {onCancelLoading && (
+              <p className="text-[10px] text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
+                点击取消等待
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Scroll anchor */}
         <div ref={bottomRef} />
