@@ -10,6 +10,7 @@ Layered tool architecture:
   - extended_tools: deep stock analysis (V2+, placeholder)
 """
 
+import asyncio
 import json
 from typing import Any, Dict, List, Optional
 
@@ -90,6 +91,15 @@ class PickerAgentOutput(BaseModel):
             'Each item: {"symbol": "AAPL", "reason": "..."}. '
             "Only populate when making final recommendations. "
             "Reasons should echo the user's stated preferences in plain Chinese."
+        ),
+    )
+    title: str = Field(
+        default="",
+        description=(
+            "5-10 Chinese characters summarizing the stock picking direction. "
+            "e.g. '高股息大盘蓝筹', 'AI芯片成长股', '低估值科技反弹'. "
+            "Update every turn to reflect the CURRENT direction "
+            "(user may change direction mid-conversation)."
         ),
     )
 
@@ -309,6 +319,14 @@ Bad example (do NOT do this):
 找到了8只符合条件的**股票**！这些都是**大公司**，它们的**盈利能力**都在20%以上，而且都**稳定分红**超过5年，筛选条件包括市值500亿美元以上、盈利能力大于20%、连续分红5年以上，想进一步缩小范围的话可以看看走势或者专家评价。
 ```
 
+## Title Rules
+
+Every turn, output a `title` field: a 5-10 Chinese character summary of the current stock picking direction.
+- Must be Chinese
+- Reflect the current direction, not conversation summary
+- Update when user changes direction
+- Examples: "高股息大盘蓝筹", "AI芯片成长股", "低估值科技反弹", "网络安全小盘股"
+
 ## Critical Output Rules
 
 1. **`filters` must be a valid JSON array string.** Copy the exact filters you used in execute_screener.
@@ -411,12 +429,29 @@ class StockPickerAgent:
         logger.info("Picker agent message: %s", message[:100])
 
         try:
-            result = await _run_agent_session(
-                runner=self.runner,
-                app_name="stock_picker",
-                prompt=prompt,
-                output_key="picker",
+            result = await asyncio.wait_for(
+                _run_agent_session(
+                    runner=self.runner,
+                    app_name="stock_picker",
+                    prompt=prompt,
+                    output_key="picker",
+                ),
+                timeout=75.0,
             )
+        except asyncio.TimeoutError:
+            _current_universe.set([])
+            logger.error("Picker agent timed out for: %s", message[:100])
+            return {
+                "message": "AI 助手思考时间太长了，请再试一次。如果持续超时，可以简化一下问题。",
+                "options": ["重新试试", "换个方向看看"],
+                "filters": accumulated_filters or [],
+                "sort_by": None,
+                "sort_order": "desc",
+                "limit": 30,
+                "pick_reasons": [],
+                "update_results": False,
+                "title": "",
+            }
         finally:
             _current_universe.set([])
 
@@ -459,6 +494,7 @@ class StockPickerAgent:
             "limit": result.get("limit", 100),
             "update_results": result.get("update_results", True),
             "pick_reasons": pick_reasons,
+            "title": result.get("title", ""),
         }
 
 
