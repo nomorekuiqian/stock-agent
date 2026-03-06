@@ -5,17 +5,29 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { api } from '@/lib/api';
+import type { ConversationSummary } from '@/lib/api';
 import {
   pickerReducer,
   initialState,
   loadState,
   saveState,
 } from './_lib/pickerReducer';
+import type { LoadConversationData } from './_lib/pickerReducer';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
-import ResultsPanel from './_components/ResultsPanel';
+import ContentPanel from './_components/ContentPanel';
 import MobileTabSwitch from './_components/MobileTabSwitch';
 import DataStatus from './_components/DataStatus';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatConversationTitle(agentTitle: string): string {
+  const now = new Date();
+  const dateStr = `${now.getMonth() + 1}月${now.getDate()}日`;
+  return agentTitle ? `${dateStr} · ${agentTitle}` : dateStr;
+}
 
 // ---------------------------------------------------------------------------
 // Content
@@ -27,11 +39,29 @@ function ScreenerContent() {
   const [state, dispatch] = useReducer(pickerReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
   const prevPhaseRef = useRef(state.phase);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [conversationsLoaded, setConversationsLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   // Persist state to sessionStorage on change
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // Load conversation list when on welcome screen
+  useEffect(() => {
+    if (state.phase !== 'welcome' || !isAuthenticated) return;
+    let cancelled = false;
+    api.screener.conversations.list()
+      .then(res => {
+        if (!cancelled) {
+          setConversations(res.conversations || []);
+          setConversationsLoaded(true);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [state.phase, isAuthenticated]);
 
   // Auth redirect
   useEffect(() => {
@@ -48,6 +78,15 @@ function ScreenerContent() {
     prevPhaseRef.current = state.phase;
   }, [state.phase]);
 
+  // Safety: auto-recover from stuck isLoading after 95 seconds
+  useEffect(() => {
+    if (!state.isLoading) return;
+    const timer = setTimeout(() => {
+      dispatch({ type: 'SET_ERROR', error: 'AI 助手响应超时了，请再试一次' });
+    }, 95_000);
+    return () => clearTimeout(timer);
+  }, [state.isLoading]);
+
   // Build conversation history for API
   const buildHistory = useCallback(() => {
     return state.messages.map(m => ({
@@ -56,8 +95,58 @@ function ScreenerContent() {
     }));
   }, [state.messages]);
 
+  // Build conversation data for saving
+  const buildConversationData = useCallback((
+    messages: typeof state.messages,
+    result: { accumulated_filters: typeof state.accumulatedFilters; candidates: typeof state.candidates; candidate_count: number; universe_size: number; pick_reasons: typeof state.pickReasons },
+    funnelSteps: typeof state.funnelSteps,
+  ) => ({
+    messages,
+    accumulated_filters: result.accumulated_filters,
+    candidates: result.candidates,
+    candidate_count: result.candidate_count,
+    universe_size: result.universe_size,
+    pick_reasons: result.pick_reasons,
+    funnel_steps: funnelSteps,
+  }), []);
+
+  // Auto-save conversation after each turn
+  const saveConversation = useCallback(async (
+    convId: string | null,
+    title: string,
+    data: Record<string, unknown>,
+    messageCount: number,
+  ) => {
+    setSaveStatus('saving');
+    try {
+      if (!convId) {
+        const created = await api.screener.conversations.create({
+          title,
+          data,
+          message_count: messageCount,
+        });
+        if (created?.id) {
+          dispatch({ type: 'SET_CONVERSATION_ID', id: created.id });
+        }
+      } else {
+        await api.screener.conversations.update(convId, {
+          title,
+          data,
+          message_count: messageCount,
+        });
+      }
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch {
+      setSaveStatus('idle');
+    }
+  }, []);
+
   // Send message handler
   const handleSend = useCallback(async (message: string) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Screener] handleSend called, isLoading was:', state.isLoading);
+    }
     dispatch({ type: 'SEND_MESSAGE', message });
 
     try {
@@ -75,15 +164,99 @@ function ScreenerContent() {
       }
 
       dispatch({ type: 'RECEIVE_RESPONSE', result });
+
+      // Auto-save conversation (fire-and-forget)
+      // Note: state.messages is from the useCallback closure (before SEND_MESSAGE dispatch),
+      // so we must manually include the user message in the save payload.
+      const userMsg = { id: `msg-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`, role: 'user' as const, content: message };
+      const assistantMsg = {
+        id: `msg-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`,
+        role: 'assistant' as const,
+        content: result.message,
+        options: result.options.length > 0 ? result.options : undefined,
+      };
+      const allMessages = [...state.messages, userMsg, assistantMsg];
+      // Reconstruct funnel steps matching the reducer logic (state.funnelSteps is stale)
+      let saveFunnelSteps = [...state.funnelSteps];
+      if (result.candidate_count > 0) {
+        if (saveFunnelSteps.length === 0 && result.universe_size > 0) {
+          saveFunnelSteps = [
+            { count: result.universe_size, label: '全市场' },
+            { count: result.candidate_count },
+          ];
+        } else if (
+          saveFunnelSteps.length > 0 &&
+          result.candidate_count !== saveFunnelSteps[saveFunnelSteps.length - 1]?.count
+        ) {
+          saveFunnelSteps = [...saveFunnelSteps, { count: result.candidate_count }];
+        }
+      }
+      const convData = buildConversationData(allMessages, result, saveFunnelSteps);
+      // Title is only set on first turn (create); subsequent updates keep existing title
+      const isFirstTurn = !state.conversationId;
+      const title = isFirstTurn
+        ? formatConversationTitle(result.title)
+        : state.conversationTitle;
+      saveConversation(
+        state.conversationId,
+        title,
+        convData as Record<string, unknown>,
+        allMessages.length,
+      );
     } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Screener] handleSend error:', err);
+      }
       const msg = err instanceof Error ? err.message : 'AI 助手暂时无法响应';
       if (msg.includes('登录已过期') || msg.includes('重新登录')) {
+        dispatch({ type: 'SET_ERROR', error: '登录已过期，请刷新页面重新登录' });
         router.push('/login?redirect=/screener');
         return;
       }
       dispatch({ type: 'SET_ERROR', error: msg });
     }
-  }, [buildHistory, state.accumulatedFilters, router]);
+  }, [buildHistory, state.isLoading, state.accumulatedFilters, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation]);
+
+  // Cancel stuck loading — lets user recover without refreshing
+  const handleCancelLoading = useCallback(() => {
+    if (!state.isLoading) return;
+    dispatch({ type: 'SET_ERROR', error: '已取消。你可以重新发送或换个问题试试' });
+  }, [state.isLoading]);
+
+  // Load a saved conversation
+  const handleLoadConversation = useCallback(async (conversationId: string) => {
+    try {
+      const conv = await api.screener.conversations.get(conversationId);
+      if (!conv) return;
+      const data = (conv.data || {}) as Record<string, unknown>;
+      dispatch({
+        type: 'LOAD_CONVERSATION',
+        data: {
+          conversationId,
+          title: (conv.title as string) || '',
+          messages: (data.messages || []) as LoadConversationData['messages'],
+          accumulatedFilters: (data.accumulated_filters || []) as LoadConversationData['accumulatedFilters'],
+          candidates: (data.candidates || []) as LoadConversationData['candidates'],
+          candidateCount: (data.candidate_count as number) || 0,
+          universeSize: (data.universe_size as number) || 0,
+          pickReasons: (data.pick_reasons || []) as LoadConversationData['pickReasons'],
+          funnelSteps: (data.funnel_steps || []) as LoadConversationData['funnelSteps'],
+        },
+      });
+    } catch {
+      // Failed to load, stay on welcome screen
+    }
+  }, []);
+
+  // Delete a conversation
+  const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    try {
+      await api.screener.conversations.delete(conversationId);
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+    } catch {
+      // Ignore delete failures
+    }
+  }, []);
 
   // Mobile tab change
   const handleTabChange = useCallback((tab: 'chat' | 'results') => {
@@ -110,6 +283,10 @@ function ScreenerContent() {
       <WelcomeScreen
         onSelect={handleSend}
         universeSize={state.universeSize || undefined}
+        conversations={conversations}
+        conversationsLoading={state.phase === 'welcome' && !conversationsLoaded}
+        onLoadConversation={handleLoadConversation}
+        onDeleteConversation={handleDeleteConversation}
       />
     );
   }
@@ -133,6 +310,11 @@ function ScreenerContent() {
             </button>
             <div className="h-3 w-px bg-border/50" />
             <DataStatus inline />
+            {saveStatus === 'saved' && (
+              <span className="text-[10px] text-emerald-500/80 animate-in fade-in duration-300">
+                已保存
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -160,10 +342,11 @@ function ScreenerContent() {
             messages={state.messages}
             onSend={handleSend}
             loading={state.isLoading}
+            onCancelLoading={state.isLoading ? handleCancelLoading : undefined}
           />
         </div>
 
-        {/* Right: Results panel */}
+        {/* Right: Content panel */}
         <div
           className={`
             w-full lg:w-1/2
@@ -171,14 +354,19 @@ function ScreenerContent() {
             flex-col
           `}
         >
-          <ResultsPanel
-            steps={state.funnelSteps}
-            appliedFilters={state.accumulatedFilters}
-            candidates={state.candidates}
-            candidateCount={state.candidateCount}
-            universeSize={state.universeSize}
-            pickReasons={state.pickReasons}
-            loading={state.isLoading}
+          <ContentPanel
+            activeContent={state.activeContent}
+            canGoBack={state.contentStack.length > 0}
+            onGoBack={() => dispatch({ type: 'POP_CONTENT' })}
+            screenerProps={{
+              steps: state.funnelSteps,
+              appliedFilters: state.accumulatedFilters,
+              candidates: state.candidates,
+              candidateCount: state.candidateCount,
+              universeSize: state.universeSize,
+              pickReasons: state.pickReasons,
+              loading: state.isLoading,
+            }}
           />
         </div>
       </div>

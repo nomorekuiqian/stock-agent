@@ -6,6 +6,8 @@
  */
 
 import type { PickResult } from '@/lib/api';
+import type { ContentContext } from './contentTypes';
+import { SCREENER_CONTENT } from './contentTypes';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,6 +39,11 @@ export interface PickerState {
   isLoading: boolean;
   error: string | null;
   hasNewResults: boolean;
+  conversationId: string | null;
+  conversationTitle: string;
+  // Research Desk: content panel state
+  activeContent: ContentContext;
+  contentStack: ContentContext[];
 }
 
 export type PickerAction =
@@ -45,7 +52,28 @@ export type PickerAction =
   | { type: 'SET_ERROR'; error: string }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'VIEW_RESULTS' }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'SET_CONVERSATION_ID'; id: string }
+  | { type: 'LOAD_CONVERSATION'; data: LoadConversationData }
+  // Research Desk: content panel navigation
+  | { type: 'PUSH_CONTENT'; content: ContentContext }
+  | { type: 'POP_CONTENT' }
+  | { type: 'SWITCH_CONTENT'; content: ContentContext };
+
+export interface LoadConversationData {
+  conversationId: string;
+  title: string;
+  messages: ChatMsg[];
+  accumulatedFilters: { field: string; op: string; value: unknown }[];
+  candidates: Record<string, unknown>[];
+  candidateCount: number;
+  universeSize: number;
+  pickReasons: { symbol: string; reason: string }[];
+  funnelSteps: FilterStep[];
+  // Research Desk: optional content state from saved conversations
+  activeContent?: ContentContext;
+  contentStack?: ContentContext[];
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -65,6 +93,10 @@ export const initialState: PickerState = {
   isLoading: false,
   error: null,
   hasNewResults: false,
+  conversationId: null,
+  conversationTitle: '',
+  activeContent: SCREENER_CONTENT,
+  contentStack: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -105,7 +137,15 @@ export function loadState(): PickerState {
         ),
       }));
     }
-    return { ...initialState, ...saved, isLoading: false, error: null };
+    return {
+      ...initialState,
+      ...saved,
+      isLoading: false,
+      error: null,
+      // Ensure content fields have valid defaults (old sessions won't have them)
+      activeContent: saved.activeContent ?? SCREENER_CONTENT,
+      contentStack: saved.contentStack ?? [],
+    };
   } catch {
     return initialState;
   }
@@ -211,6 +251,7 @@ export function pickerReducer(state: PickerState, action: PickerAction): PickerS
         funnelSteps: newFunnelSteps,
         isLoading: false,
         hasNewResults: hasNewCandidates,
+        conversationTitle: result.title || state.conversationTitle,
       };
     }
 
@@ -234,6 +275,55 @@ export function pickerReducer(state: PickerState, action: PickerAction): PickerS
 
     case 'VIEW_RESULTS':
       return { ...state, hasNewResults: false };
+
+    case 'SET_CONVERSATION_ID':
+      return { ...state, conversationId: action.id };
+
+    case 'LOAD_CONVERSATION':
+      return {
+        ...initialState,
+        phase: 'chat',
+        conversationId: action.data.conversationId,
+        conversationTitle: action.data.title,
+        messages: action.data.messages.map(m => ({
+          ...m,
+          id: m.id || nextMsgId(),
+        })),
+        accumulatedFilters: action.data.accumulatedFilters,
+        candidates: action.data.candidates,
+        candidateCount: action.data.candidateCount,
+        universeSize: action.data.universeSize,
+        pickReasons: action.data.pickReasons,
+        funnelSteps: action.data.funnelSteps,
+        // Restore content state if saved, otherwise default to screener
+        activeContent: action.data.activeContent ?? SCREENER_CONTENT,
+        contentStack: action.data.contentStack ?? [],
+      };
+
+    // Research Desk: content panel navigation
+    case 'PUSH_CONTENT':
+      return {
+        ...state,
+        contentStack: [...state.contentStack, state.activeContent],
+        activeContent: action.content,
+      };
+
+    case 'POP_CONTENT': {
+      if (state.contentStack.length === 0) return state;
+      const stack = [...state.contentStack];
+      const previous = stack.pop()!;
+      return {
+        ...state,
+        contentStack: stack,
+        activeContent: previous,
+      };
+    }
+
+    case 'SWITCH_CONTENT':
+      return {
+        ...state,
+        activeContent: action.content,
+      };
 
     case 'RESET':
       try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
