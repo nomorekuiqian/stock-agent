@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
 import {
   MetricCard,
-  StatRow,
   SubsectionHeader,
   MarkdownContent,
   FinancialsTable,
@@ -348,7 +347,7 @@ function WeekRangeBar({
 /** Data loading skeleton for metric grids */
 function DataGridSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="p-3 bg-muted/20 rounded-lg border border-border/20 animate-pulse" style={{ animationDelay: `${i * 75}ms` }}>
           <div className="h-3 w-16 bg-muted/40 rounded mb-2" />
@@ -428,25 +427,30 @@ export default function FundamentalsReport({
       <ReportSection number="01" title="公司画像" titleEn="Company Profile" delay={0}>
         {/* AI: company_profile */}
         {ai.showContent && getAI(analysis, 'company_profile') && (
-          <div className="mb-5">
+          <div className="mb-6">
             <MarkdownContent content={getAI(analysis, 'company_profile')!} />
           </div>
         )}
-        {ai.showSkeleton && <div className="mb-5"><AISkeleton /></div>}
+        {ai.showSkeleton && <div className="mb-6"><AISkeleton /></div>}
 
         {/* Data: Key metrics + 52-week range */}
         {!quote ? (
-          <div className="space-y-3">
+          <div className="space-y-6">
             <DataGridSkeleton />
             <div className="h-16 bg-muted/20 rounded-lg animate-pulse" />
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
-              <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2 })} />
-              <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
-              <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
+          <div className="space-y-6">
+            {/* Key Metrics */}
+            <div>
+              <SubsectionHeader title="关键指标" titleEn="Key Metrics" />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
+                <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2 })} />
+                <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
+                <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
+                <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
+              </div>
             </div>
 
             {/* 52-Week Range */}
@@ -461,19 +465,22 @@ export default function FundamentalsReport({
 
             {/* Market Data: Beta, Short Ratio, Ownership */}
             {fundamentals?.market_data && Object.keys(fundamentals.market_data).length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {fundamentals.market_data.beta != null && (
-                  <MetricCard metricKey="beta" value={formatNumber(fundamentals.market_data.beta)} />
-                )}
-                {fundamentals.market_data.short_ratio != null && (
-                  <MetricCard metricKey="short_ratio" value={formatNumber(fundamentals.market_data.short_ratio)} />
-                )}
-                {fundamentals.market_data.insider_ownership != null && (
-                  <MetricCard metricKey="insider_ownership" value={formatNumber(fundamentals.market_data.insider_ownership, { style: 'percent' })} />
-                )}
-                {fundamentals.market_data.institutional_ownership != null && (
-                  <MetricCard metricKey="institutional_ownership" value={formatNumber(fundamentals.market_data.institutional_ownership, { style: 'percent' })} />
-                )}
+              <div>
+                <SubsectionHeader title="市场数据" titleEn="Market Data" />
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {fundamentals.market_data.beta != null && (
+                    <MetricCard metricKey="beta" value={formatNumber(fundamentals.market_data.beta)} />
+                  )}
+                  {fundamentals.market_data.short_ratio != null && (
+                    <MetricCard metricKey="short_ratio" value={formatNumber(fundamentals.market_data.short_ratio)} />
+                  )}
+                  {fundamentals.market_data.insider_ownership != null && (
+                    <MetricCard metricKey="insider_ownership" value={formatNumber(fundamentals.market_data.insider_ownership, { style: 'percent' })} />
+                  )}
+                  {fundamentals.market_data.institutional_ownership != null && (
+                    <MetricCard metricKey="institutional_ownership" value={formatNumber(fundamentals.market_data.institutional_ownership, { style: 'percent' })} />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -486,11 +493,11 @@ export default function FundamentalsReport({
       <ReportSection number="02" title="财务体检" titleEn="Financial Health" delay={80}>
         {/* AI: financial_health */}
         {ai.showContent && getAI(analysis, 'financial_health') && (
-          <div className="mb-5">
+          <div className="mb-6">
             <MarkdownContent content={getAI(analysis, 'financial_health')!} />
           </div>
         )}
-        {ai.showSkeleton && <div className="mb-5"><AISkeleton /></div>}
+        {ai.showSkeleton && <div className="mb-6"><AISkeleton /></div>}
 
         {/* Data: Growth + Profitability + Balance Sheet + TTM + Quarterly */}
         {!fundamentals ? (
@@ -499,22 +506,22 @@ export default function FundamentalsReport({
             <DataGridSkeleton />
           </div>
         ) : (
-          <>
+          <div className="space-y-6">
             {/* Growth */}
-            <div className="mb-5 pb-5 border-b border-border/30">
+            <div>
               <SubsectionHeader title="增长指标" titleEn="Growth" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                <StatRow
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <MetricCard
                   metricKey="revenue_yoy"
                   value={formatNumber(fundamentals.growth.revenue_yoy, { style: 'percent' })}
                   trend={fundamentals.growth.revenue_yoy ? (fundamentals.growth.revenue_yoy > 0 ? 'up' : 'down') : 'neutral'}
                 />
-                <StatRow
+                <MetricCard
                   metricKey="net_income_yoy"
                   value={formatNumber(fundamentals.growth.net_income_yoy, { style: 'percent' })}
                   trend={fundamentals.growth.net_income_yoy ? (fundamentals.growth.net_income_yoy > 0 ? 'up' : 'down') : 'neutral'}
                 />
-                <StatRow
+                <MetricCard
                   metricKey="revenue_qoq"
                   value={formatNumber(fundamentals.growth.revenue_qoq, { style: 'percent' })}
                   trend={fundamentals.growth.revenue_qoq ? (fundamentals.growth.revenue_qoq > 0 ? 'up' : 'down') : 'neutral'}
@@ -523,9 +530,9 @@ export default function FundamentalsReport({
             </div>
 
             {/* Profitability */}
-            <div className="mb-5 pb-5 border-b border-border/30">
+            <div>
               <SubsectionHeader title="盈利能力" titleEn="Profitability" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <MetricCard metricKey="gross_margin" value={formatNumber(fundamentals.profitability.gross_margin, { style: 'percent' })} />
                 <MetricCard metricKey="net_margin" value={formatNumber(fundamentals.profitability.net_margin, { style: 'percent' })} />
                 <MetricCard metricKey="roe" value={formatNumber(fundamentals.profitability.roe, { style: 'percent' })} />
@@ -535,7 +542,7 @@ export default function FundamentalsReport({
 
             {/* Balance Sheet Health */}
             {fundamentals.balance_sheet && Object.keys(fundamentals.balance_sheet).length > 0 && (
-              <div className="mb-5 pb-5 border-b border-border/30">
+              <div>
                 <SubsectionHeader title="资产负债" titleEn="Balance Sheet" />
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {fundamentals.balance_sheet.current_ratio != null && (
@@ -558,7 +565,7 @@ export default function FundamentalsReport({
             )}
 
             {/* TTM Key Financials */}
-            <div className="mb-5 pb-5 border-b border-border/30">
+            <div>
               <SubsectionHeader title="过去十二个月" titleEn="TTM" />
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true })} />
@@ -574,14 +581,13 @@ export default function FundamentalsReport({
                 </p>
               )}
             </div>
-          </>
-        )}
-
-        {/* Quarterly Table */}
-        {financials && (
-          <div>
-            <SubsectionHeader title="季度数据" titleEn="Quarterly" />
-            <FinancialsTable quarters={financials.quarters} />
+            {/* Quarterly Table */}
+            {financials && (
+              <div>
+                <SubsectionHeader title="季度数据" titleEn="Quarterly" />
+                <FinancialsTable quarters={financials.quarters} />
+              </div>
+            )}
           </div>
         )}
       </ReportSection>
@@ -592,36 +598,38 @@ export default function FundamentalsReport({
       <ReportSection number="03" title="估值判断" titleEn="Valuation" delay={160}>
         {/* AI: valuation_judgment */}
         {ai.showContent && getAI(analysis, 'valuation_judgment') && (
-          <div className="mb-5">
+          <div className="mb-6">
             <AICallout content={getAI(analysis, 'valuation_judgment')!} />
           </div>
         )}
-        {ai.showSkeleton && <div className="mb-5"><AISkeleton /></div>}
+        {ai.showSkeleton && <div className="mb-6"><AISkeleton /></div>}
 
-        {/* Data: Valuation metrics */}
+        {/* Data: Valuation metrics + Historical + Industry + Peer */}
         {!fundamentals ? (
           <DataGridSkeleton count={6} />
         ) : (
-          <div className="mb-5">
-            <SubsectionHeader title="估值指标" titleEn="Valuation Multiples" />
-            <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-2 font-data">Trailing (TTM) 倍数</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
-              <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
-              <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
-              <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
-              <MetricCard metricKey="peg" value={formatNumber(fundamentals.valuation.peg)} />
-              <MetricCard metricKey="dividend_yield" value={fundamentals.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
+          <div className="space-y-6">
+            {/* Valuation Multiples */}
+            <div>
+              <SubsectionHeader title="估值指标" titleEn="Valuation Multiples" />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+                <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
+                <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
+                <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
+                <MetricCard metricKey="peg" value={formatNumber(fundamentals.valuation.peg)} />
+                <MetricCard metricKey="dividend_yield" value={fundamentals.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
+              </div>
             </div>
+
+            {/* Historical + Industry + Peer comparison */}
+            <ValuationComparisonSection
+              data={valuationData}
+              loading={valuationLoading}
+              currentValuation={fundamentals?.valuation}
+            />
           </div>
         )}
-
-        {/* Data: Historical + Industry + Peer comparison */}
-        <ValuationComparisonSection
-          data={valuationData}
-          loading={valuationLoading}
-          currentValuation={fundamentals?.valuation}
-        />
       </ReportSection>
 
       {/* ================================================================ */}

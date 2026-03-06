@@ -815,20 +815,24 @@ export function SectionCard({ title, titleEn, children, className = '', action, 
 }) {
   return (
     <div className={`bg-card/50 border border-border/40 rounded-xl overflow-hidden ${className}`}>
-      <div className="px-5 py-4 border-b border-border/30 bg-card/40">
+      <div className="px-6 py-5 border-b border-border/30 bg-card/40">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <div>
             {numberLabel && (
-              <span className="font-data text-muted-foreground/30 text-sm font-bold tabular-nums mr-0.5">{numberLabel}</span>
+              <p className="font-data text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-500/60 light:text-emerald-600/70 mb-1.5">
+                Section {numberLabel}
+              </p>
             )}
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
-            <span>{title}</span>
-            <span className="text-muted-foreground text-sm font-normal">{titleEn}</span>
-          </h2>
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2.5">
+              <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+              <span>{title}</span>
+              <span className="text-muted-foreground/60 text-sm font-normal">{titleEn}</span>
+            </h2>
+          </div>
           {action}
         </div>
       </div>
-      <div className="p-5">
+      <div className="px-6 py-6">
         {children}
       </div>
     </div>
@@ -891,68 +895,68 @@ export function ValuationComparisonSection({
   const currentPE = currentValuation?.pe ?? years[0]?.pe;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Historical Valuation - By Year */}
       {years.length > 0 && (
         <div>
           <SubsectionHeader title="历史估值" titleEn="Historical Valuation" />
-          <div className="overflow-x-auto -mx-2">
+          <div className="overflow-x-auto -mx-4">
             <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="border-b border-border/30">
-                  <th className="text-left py-2 px-2 text-muted-foreground font-medium">指标</th>
+                  <th className="text-left py-3 px-4 text-foreground/80 font-medium">指标</th>
                   {years.slice(0, 5).map((y, i) => (
-                    <th key={y.year} className={`text-right py-2 px-2 font-medium ${i === 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <th key={y.year} className={`text-right py-3 px-3 font-medium font-data ${i === 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {y.year}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="font-data">
-                <tr className="border-b border-border/20">
-                  <td className="py-2.5 px-2 text-foreground/80">P/E</td>
+                <tr className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                  <td className="py-3 px-4 text-foreground/80 font-medium">P/E</td>
                   {years.slice(0, 5).map((y, i) => (
-                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    <td key={y.year} className={`text-right py-3 px-3 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {formatVal(y.pe)}
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-border/20">
-                  <td className="py-2.5 px-2 text-foreground/80">P/B</td>
+                <tr className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                  <td className="py-3 px-4 text-foreground/80 font-medium">P/B</td>
                   {years.slice(0, 5).map((y, i) => (
-                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    <td key={y.year} className={`text-right py-3 px-3 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {formatVal(y.pb)}
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-border/20">
-                  <td className="py-2.5 px-2 text-foreground/80">P/S</td>
+                <tr className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                  <td className="py-3 px-4 text-foreground/80 font-medium">P/S</td>
                   {years.slice(0, 5).map((y, i) => (
-                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    <td key={y.year} className={`text-right py-3 px-3 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {formatVal(y.ps)}
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-border/20">
-                  <td className="py-2.5 px-2 text-foreground/80">EV/EBITDA</td>
+                <tr className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                  <td className="py-3 px-4 text-foreground/80 font-medium">EV/EBITDA</td>
                   {years.slice(0, 5).map((y, i) => (
-                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    <td key={y.year} className={`text-right py-3 px-3 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {formatVal(y.ev_to_ebitda)}
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-border/20">
-                  <td className="py-2.5 px-2 text-foreground/80">毛利率</td>
+                <tr className="border-b border-border/20 hover:bg-card/30 transition-colors">
+                  <td className="py-3 px-4 text-foreground/80 font-medium">毛利率</td>
                   {years.slice(0, 5).map((y, i) => (
-                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    <td key={y.year} className={`text-right py-3 px-3 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {y.gross_margin ? `${y.gross_margin}%` : '--'}
                     </td>
                   ))}
                 </tr>
-                <tr>
-                  <td className="py-2.5 px-2 text-foreground/80">净利率</td>
+                <tr className="hover:bg-card/30 transition-colors">
+                  <td className="py-3 px-4 text-foreground/80 font-medium">净利率</td>
                   {years.slice(0, 5).map((y, i) => (
-                    <td key={y.year} className={`text-right py-2.5 px-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    <td key={y.year} className={`text-right py-3 px-3 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {y.net_margin ? `${y.net_margin}%` : '--'}
                     </td>
                   ))}
@@ -963,45 +967,45 @@ export function ValuationComparisonSection({
         </div>
       )}
 
-      {/* Industry Comparison - Horizontal Comparison */}
+      {/* Industry Comparison */}
       {(industry_valuation?.industry_pe || industry_valuation?.sector_pe) && (
         <div>
           <SubsectionHeader title="行业对比" titleEn="Industry Comparison" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {/* Sector P/E */}
             {industry_valuation.sector_pe && (
-              <div className="p-3 bg-card/40 rounded-lg border border-border/40">
-                <div className="text-xs text-muted-foreground mb-1">板块 P/E</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-data text-lg font-semibold text-foreground">
-                    {formatVal(industry_valuation.sector_pe)}
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {industry_valuation.sector}
-                  </span>
+              <div className="p-3 bg-card/40 rounded-lg border border-border/40 hover:border-border/60 transition-colors">
+                <div className="text-sm mb-1.5">
+                  <span className="text-foreground/90 font-medium">板块 P/E</span>
+                </div>
+                <div className="font-data text-lg font-semibold text-foreground">
+                  {formatVal(industry_valuation.sector_pe)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 truncate">
+                  {industry_valuation.sector}
                 </div>
                 {currentPE && (
-                  <div className={`text-xs mt-1 ${trendColors[getValuationTrend(currentPE, industry_valuation.sector_pe)]}`}>
-                    vs 当前 {formatVal(currentPE)} ({trendLabels[getValuationTrend(currentPE, industry_valuation.sector_pe)]})
+                  <div className={`text-xs mt-1 font-data ${trendColors[getValuationTrend(currentPE, industry_valuation.sector_pe)]}`}>
+                    vs {formatVal(currentPE)} ({trendLabels[getValuationTrend(currentPE, industry_valuation.sector_pe)]})
                   </div>
                 )}
               </div>
             )}
             {/* Industry P/E */}
             {industry_valuation.industry_pe && (
-              <div className="p-3 bg-card/40 rounded-lg border border-border/40">
-                <div className="text-xs text-muted-foreground mb-1">行业 P/E</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-data text-lg font-semibold text-foreground">
-                    {formatVal(industry_valuation.industry_pe)}
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {industry_valuation.industry}
-                  </span>
+              <div className="p-3 bg-card/40 rounded-lg border border-border/40 hover:border-border/60 transition-colors">
+                <div className="text-sm mb-1.5">
+                  <span className="text-foreground/90 font-medium">行业 P/E</span>
+                </div>
+                <div className="font-data text-lg font-semibold text-foreground">
+                  {formatVal(industry_valuation.industry_pe)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 truncate">
+                  {industry_valuation.industry}
                 </div>
                 {currentPE && (
-                  <div className={`text-xs mt-1 ${trendColors[getValuationTrend(currentPE, industry_valuation.industry_pe)]}`}>
-                    vs 当前 {formatVal(currentPE)} ({trendLabels[getValuationTrend(currentPE, industry_valuation.industry_pe)]})
+                  <div className={`text-xs mt-1 font-data ${trendColors[getValuationTrend(currentPE, industry_valuation.industry_pe)]}`}>
+                    vs {formatVal(currentPE)} ({trendLabels[getValuationTrend(currentPE, industry_valuation.industry_pe)]})
                   </div>
                 )}
               </div>
@@ -1014,40 +1018,40 @@ export function ValuationComparisonSection({
       {peer_comparison?.peers && peer_comparison.peers.length > 0 && (
         <div>
           <SubsectionHeader title="同行对比" titleEn="Peer Comparison" />
-          <div className="overflow-x-auto -mx-2">
+          <div className="overflow-x-auto -mx-4">
             <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="border-b border-border/30">
-                  <th className="text-left py-2 px-2 text-muted-foreground font-medium">公司</th>
-                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">P/E</th>
-                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">P/B</th>
-                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">ROE</th>
-                  <th className="text-right py-2 px-2 text-muted-foreground font-medium">毛利率</th>
+                  <th className="text-left py-3 px-4 text-foreground/80 font-medium">公司</th>
+                  <th className="text-right py-3 px-3 text-foreground/70 font-medium">P/E</th>
+                  <th className="text-right py-3 px-3 text-foreground/70 font-medium">P/B</th>
+                  <th className="text-right py-3 px-3 text-foreground/70 font-medium">ROE</th>
+                  <th className="text-right py-3 px-3 text-foreground/70 font-medium">毛利率</th>
                 </tr>
               </thead>
               <tbody className="font-data">
                 {/* Current company row */}
                 <tr className="border-b border-border/30 bg-emerald-500/5">
-                  <td className="py-2.5 px-2 font-medium text-emerald-400">{peer_comparison.symbol}</td>
-                  <td className="text-right py-2.5 px-2 text-foreground">{formatVal(peer_comparison.company_metrics?.pe_ratio)}</td>
-                  <td className="text-right py-2.5 px-2 text-foreground">{formatVal(peer_comparison.company_metrics?.pb_ratio)}</td>
-                  <td className="text-right py-2.5 px-2 text-foreground">
+                  <td className="py-3 px-4 font-medium text-emerald-400">{peer_comparison.symbol}</td>
+                  <td className="text-right py-3 px-3 text-foreground">{formatVal(peer_comparison.company_metrics?.pe_ratio)}</td>
+                  <td className="text-right py-3 px-3 text-foreground">{formatVal(peer_comparison.company_metrics?.pb_ratio)}</td>
+                  <td className="text-right py-3 px-3 text-foreground">
                     {peer_comparison.company_metrics?.roe ? `${(peer_comparison.company_metrics.roe * 100).toFixed(1)}%` : '--'}
                   </td>
-                  <td className="text-right py-2.5 px-2 text-foreground">
+                  <td className="text-right py-3 px-3 text-foreground">
                     {peer_comparison.company_metrics?.gross_margin ? `${(peer_comparison.company_metrics.gross_margin * 100).toFixed(1)}%` : '--'}
                   </td>
                 </tr>
                 {/* Peer rows */}
                 {peer_comparison.peers.slice(0, 5).map((peer) => (
                   <tr key={peer.symbol} className="border-b border-border/20 hover:bg-card/30 transition-colors">
-                    <td className="py-2.5 px-2 text-muted-foreground">{peer.symbol}</td>
-                    <td className="text-right py-2.5 px-2 text-muted-foreground">{formatVal(peer.metrics?.pe_ratio)}</td>
-                    <td className="text-right py-2.5 px-2 text-muted-foreground">{formatVal(peer.metrics?.pb_ratio)}</td>
-                    <td className="text-right py-2.5 px-2 text-muted-foreground">
+                    <td className="py-3 px-4 text-muted-foreground">{peer.symbol}</td>
+                    <td className="text-right py-3 px-3 text-muted-foreground">{formatVal(peer.metrics?.pe_ratio)}</td>
+                    <td className="text-right py-3 px-3 text-muted-foreground">{formatVal(peer.metrics?.pb_ratio)}</td>
+                    <td className="text-right py-3 px-3 text-muted-foreground">
                       {peer.metrics?.roe ? `${(peer.metrics.roe * 100).toFixed(1)}%` : '--'}
                     </td>
-                    <td className="text-right py-2.5 px-2 text-muted-foreground">
+                    <td className="text-right py-3 px-3 text-muted-foreground">
                       {peer.metrics?.gross_margin ? `${(peer.metrics.gross_margin * 100).toFixed(1)}%` : '--'}
                     </td>
                   </tr>
