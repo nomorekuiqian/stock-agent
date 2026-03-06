@@ -263,6 +263,12 @@ const response = await fetch(`${API_BASE_URL}/watchlist`, {
 | `POST /api/market` | Bearer Token | 生成市场日报 |
 | `POST /api/morning` | Bearer Token | 生成盘前早报 |
 | `POST /api/screener/ask` | Bearer Token | Screener AI 问答 |
+| `POST /api/screener/pick` | Bearer Token | 对话引导选股 |
+| `GET /api/screener/conversations` | Bearer Token | 列出 Picker 对话 |
+| `GET /api/screener/conversations/{id}` | Bearer Token | 获取 Picker 对话详情 |
+| `POST /api/screener/conversations` | Bearer Token | 创建 Picker 对话 |
+| `PUT /api/screener/conversations/{id}` | Bearer Token | 更新 Picker 对话 |
+| `DELETE /api/screener/conversations/{id}` | Bearer Token | 删除 Picker 对话 |
 | `POST /api/report/send` | X-Cron-Secret | 广播日报 (管理端点) |
 | `POST /api/newsletter/generate` | X-Cron-Secret | 生成 Newsletter |
 | `POST /api/newsletter/broadcast` | X-Cron-Secret | 广播简报 (管理端点) |
