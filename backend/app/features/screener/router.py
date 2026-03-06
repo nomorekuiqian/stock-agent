@@ -6,6 +6,11 @@ Endpoints:
   GET  /api/screener/status        (monitoring, public)
   POST /api/screener/filter        (screener queries, public)
   POST /api/screener/pick          (guided stock picking, auth required)
+  GET  /api/screener/conversations           (list, auth required)
+  GET  /api/screener/conversations/{id}      (get, auth required)
+  POST /api/screener/conversations           (create, auth required)
+  PUT  /api/screener/conversations/{id}      (update, auth required)
+  DELETE /api/screener/conversations/{id}    (delete, auth required)
 """
 
 import asyncio
@@ -24,6 +29,7 @@ from app.features.screener.db import (
     is_cache_valid,
 )
 from app.features.screener.models import (
+    ConversationSaveRequest,
     FilterRequest,
     FilterResult,
     PickRequest,
@@ -490,6 +496,107 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
         pick_reasons=pick_reasons,
         accumulated_filters=filters,
         reset_results=reset_results,
+        title=parsed.get("title", ""),
         data_freshness=freshness,
         is_stale=not is_valid,
     )
+
+
+# ---------------------------------------------------------------------------
+# Picker Conversation CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.get("/conversations")
+async def list_conversations(user_id: str = Depends(verify_user_token)):
+    """List user's picker conversations (lightweight, no data field)."""
+    from app.features.screener.conversation_db import list_conversations as db_list
+
+    items = await db_list(user_id)
+    return {"conversations": items}
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_conversation(
+    conversation_id: str,
+    user_id: str = Depends(verify_user_token),
+):
+    """Get a single conversation with full data."""
+    from app.features.screener.conversation_db import (
+        get_conversation as db_get,
+    )
+
+    conv = await db_get(conversation_id, user_id)
+    if not conv:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conv
+
+
+@router.post("/conversations", status_code=201)
+async def create_conversation(
+    req: ConversationSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Create a new picker conversation."""
+    from app.features.screener.conversation_db import (
+        create_conversation as db_create,
+    )
+
+    result = await db_create(
+        user_id=user_id,
+        title=req.title,
+        data=req.data,
+        message_count=req.message_count,
+    )
+    if not result:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=500, detail="Failed to create conversation")
+    return result
+
+
+@router.put("/conversations/{conversation_id}")
+async def update_conversation(
+    conversation_id: str,
+    req: ConversationSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Update an existing picker conversation."""
+    from app.features.screener.conversation_db import (
+        update_conversation as db_update,
+    )
+
+    ok = await db_update(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        title=req.title,
+        data=req.data,
+        message_count=req.message_count,
+    )
+    if not ok:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=404, detail="Conversation not found or not owned"
+        )
+    return {"success": True}
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    user_id: str = Depends(verify_user_token),
+):
+    """Delete a picker conversation."""
+    from app.features.screener.conversation_db import (
+        delete_conversation as db_delete,
+    )
+
+    ok = await db_delete(conversation_id, user_id)
+    if not ok:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"success": True}
