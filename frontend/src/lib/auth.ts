@@ -172,7 +172,12 @@ export function isTokenExpired(token: string): boolean {
 
 export async function getAccessToken(): Promise<string | null> {
   try {
-    const result = await insforge.auth.getCurrentSession();
+    // Guard against SDK hanging (e.g. network issues to auth server)
+    const result = await Promise.race([
+      insforge.auth.getCurrentSession(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+    ]);
+    if (!result) return null;
     const token = result?.data?.session?.accessToken;
     if (token && !isTokenExpired(token)) {
       return token;

@@ -829,8 +829,24 @@ export interface PickResult {
   pick_reasons: { symbol: string; reason: string }[];
   accumulated_filters: { field: string; op: string; value: unknown }[];
   reset_results: boolean;
+  title: string;
   data_freshness: string | null;
   is_stale: boolean;
+}
+
+// Picker Conversation types
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  message_count: number;
+  updated_at: string;
+}
+
+export interface ConversationSaveRequest {
+  title: string;
+  data: Record<string, unknown>;
+  message_count: number;
 }
 
 async function _authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
@@ -1280,13 +1296,22 @@ export const api = {
     },
 
     getSubscriptions: async (userId: string): Promise<SectorSubscription[]> => {
-      const response = await fetch(`${API_BASE_URL}/sectors/subscriptions?user_id=${userId}`);
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to fetch subscriptions' }));
-        throw new Error(error.detail || 'Failed to fetch subscriptions');
+      const maxAttempts = 2;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const response = await fetch(`${API_BASE_URL}/sectors/subscriptions?user_id=${userId}`);
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ detail: 'Failed to fetch subscriptions' }));
+          const msg = error.detail || error.error || 'Failed to fetch subscriptions';
+          if (attempt < maxAttempts && response.status === 400 && msg.includes('schema cache')) {
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          throw new Error(msg);
+        }
+        const data = await response.json();
+        return data.subscriptions;
       }
-      const data = await response.json();
-      return data.subscriptions;
+      return [];
     },
 
     getHistory: async (sectorId: string, days: number = 30): Promise<SectorDigestHistoryResponse> => {
@@ -1492,19 +1517,89 @@ export const api = {
       if (!headers['Authorization']) {
         throw new Error('登录已过期，请刷新页面或重新登录');
       }
-      const response = await fetch(`${API_BASE_URL}/screener/pick`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(req),
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('登录已过期，请刷新页面或重新登录');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/screener/pick`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('登录已过期，请刷新页面或重新登录');
+          }
+          const error = await response.json().catch(() => ({ detail: 'AI 助手暂时无法响应' }));
+          throw new Error(error.detail || 'AI 助手暂时无法响应');
         }
-        const error = await response.json().catch(() => ({ detail: 'AI 助手暂时无法响应' }));
-        throw new Error(error.detail || 'AI 助手暂时无法响应');
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('AI 助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
       }
-      return response.json();
+    },
+
+    conversations: {
+      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+        const headers = await _authHeaders();
+        const response = await fetch(`${API_BASE_URL}/screener/conversations`, { headers });
+        if (!response.ok) {
+          throw new Error('Failed to fetch conversations');
+        }
+        return response.json();
+      },
+
+      get: async (id: string): Promise<Record<string, unknown>> => {
+        const headers = await _authHeaders();
+        const response = await fetch(`${API_BASE_URL}/screener/conversations/${id}`, { headers });
+        if (!response.ok) {
+          throw new Error('Failed to fetch conversation');
+        }
+        return response.json();
+      },
+
+      create: async (req: ConversationSaveRequest): Promise<{ id: string }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const response = await fetch(`${API_BASE_URL}/screener/conversations`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to create conversation');
+        }
+        return response.json();
+      },
+
+      update: async (id: string, req: ConversationSaveRequest): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const response = await fetch(`${API_BASE_URL}/screener/conversations/${id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to update conversation');
+        }
+        return response.json();
+      },
+
+      delete: async (id: string): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders();
+        const response = await fetch(`${API_BASE_URL}/screener/conversations/${id}`, {
+          method: 'DELETE',
+          headers,
+        });
+        if (!response.ok) {
+          throw new Error('Failed to delete conversation');
+        }
+        return response.json();
+      },
     },
   },
 
