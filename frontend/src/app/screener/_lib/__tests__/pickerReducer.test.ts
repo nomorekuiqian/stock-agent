@@ -26,6 +26,7 @@ function makeResult(overrides: Partial<PickResult> = {}): PickResult {
     pick_reasons: [],
     accumulated_filters: [],
     reset_results: false,
+    title: '',
     data_freshness: null,
     is_stale: false,
     ...overrides,
@@ -562,6 +563,89 @@ describe('loadState', () => {
   it('returns initialState on invalid JSON', () => {
     sessionStorage.setItem(STORAGE_KEY, 'not json{{{');
     expect(loadState()).toEqual(initialState);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Content panel navigation (Research Desk)
+// ---------------------------------------------------------------------------
+
+describe('PUSH_CONTENT', () => {
+  it('pushes current content onto stack and sets new active', () => {
+    const stockContent = {
+      type: 'stock' as const,
+      label: 'NVDA',
+      summary: 'NVDA analysis',
+      params: { symbol: 'NVDA' },
+      available_actions: [],
+    };
+    const state = pickerReducer(initialState, {
+      type: 'PUSH_CONTENT',
+      content: stockContent,
+    });
+    expect(state.activeContent).toBe(stockContent);
+    expect(state.contentStack).toHaveLength(1);
+    expect(state.contentStack[0]).toBe(initialState.activeContent);
+  });
+
+  it('supports multiple pushes (stack grows)', () => {
+    const content1 = {
+      type: 'stock' as const,
+      label: 'AAPL',
+      summary: '',
+      params: { symbol: 'AAPL' },
+      available_actions: [],
+    };
+    const content2 = {
+      type: 'macro' as const,
+      label: 'Macro',
+      summary: '',
+      params: {},
+      available_actions: [],
+    };
+    let state = pickerReducer(initialState, { type: 'PUSH_CONTENT', content: content1 });
+    state = pickerReducer(state, { type: 'PUSH_CONTENT', content: content2 });
+    expect(state.activeContent).toBe(content2);
+    expect(state.contentStack).toHaveLength(2);
+  });
+});
+
+describe('POP_CONTENT', () => {
+  it('restores previous content from stack', () => {
+    const stockContent = {
+      type: 'stock' as const,
+      label: 'NVDA',
+      summary: '',
+      params: { symbol: 'NVDA' },
+      available_actions: [],
+    };
+    let state = pickerReducer(initialState, { type: 'PUSH_CONTENT', content: stockContent });
+    state = pickerReducer(state, { type: 'POP_CONTENT' });
+    expect(state.activeContent).toEqual(initialState.activeContent);
+    expect(state.contentStack).toHaveLength(0);
+  });
+
+  it('does nothing when stack is empty', () => {
+    const state = pickerReducer(initialState, { type: 'POP_CONTENT' });
+    expect(state).toBe(initialState);
+  });
+});
+
+describe('SWITCH_CONTENT', () => {
+  it('replaces active content without changing stack', () => {
+    const stockContent = {
+      type: 'stock' as const,
+      label: 'MSFT',
+      summary: '',
+      params: { symbol: 'MSFT' },
+      available_actions: [],
+    };
+    const state = pickerReducer(initialState, {
+      type: 'SWITCH_CONTENT',
+      content: stockContent,
+    });
+    expect(state.activeContent).toBe(stockContent);
+    expect(state.contentStack).toHaveLength(0);
   });
 });
 
