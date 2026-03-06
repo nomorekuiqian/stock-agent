@@ -1,119 +1,503 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import type { ConversationSummary } from '@/lib/api';
 import ChatInput from './ChatInput';
 
-/** All available preset queries, grouped by theme */
-const ALL_PRESETS = [
-  // Core strategies
-  '稳健收息',
-  '高成长潜力',
-  '被低估的好公司',
-  '跟着趋势走',
-  // Thematic / sector
-  'AI 和芯片相关的股票',
-  '新能源和电动车相关股票',
-  '医药和生物科技领域的股票',
-  '网络安全相关股票',
-  // Style / profile
-  '自由现金流很强的公司',
-  '波动小、比较抗跌的股票',
-  '市值小但成长快的黑马股',
-  '分析师评级最高的股票',
-  // Situational
-  '最近跌了很多、可能超跌反弹的股票',
-  '连续 10 年以上稳定分红的股票',
-  '利润率高、负债又低的优质公司',
-  '最近成交量放大、突破均线的股票',
+// ---------------------------------------------------------------------------
+// Preset data
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Strategy pool (8 total, show 4 at a time, rotate every 15s)
+// ---------------------------------------------------------------------------
+
+const ALL_STRATEGIES = [
+  {
+    label: '稳定收益',
+    desc: '高股息、持续派息',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <ellipse cx="12" cy="6" rx="8" ry="3" />
+        <path d="M4 6v4c0 1.657 3.582 3 8 3s8-1.343 8-3V6" />
+        <path d="M4 10v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4" />
+        <path d="M4 14v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4" />
+      </svg>
+    ),
+  },
+  {
+    label: '成长动能',
+    desc: '营收加速、赛道领先',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <path d="M22 7l-8.5 8.5-5-5L2 17" />
+        <path d="M16 7h6v6" />
+      </svg>
+    ),
+  },
+  {
+    label: '价值发现',
+    desc: '低估值、高质量',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <path d="M6 3h12l4 6-10 13L2 9z" />
+        <path d="M2 9h20" />
+        <path d="M10 3l-2 6 4 13 4-13-2-6" />
+      </svg>
+    ),
+  },
+  {
+    label: '趋势策略',
+    desc: '量价配合、均线突破',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    ),
+  },
+  {
+    label: '科技前沿',
+    desc: '大市值科技领军',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <rect x="6" y="6" width="12" height="12" rx="1" />
+        <path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4" />
+      </svg>
+    ),
+  },
+  {
+    label: '防御配置',
+    desc: '低波动、稳健经营',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    ),
+  },
+  {
+    label: '现金流优选',
+    desc: '自由现金流充沛',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M2 10h2M20 10h2M2 14h2M20 14h2" />
+      </svg>
+    ),
+  },
+  {
+    label: '高速成长',
+    desc: '中小市值、增速领先',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+        <path d="M7 17L17 7M17 7H7M17 7v10" />
+      </svg>
+    ),
+  },
 ];
 
-const FOCUS_INPUT = '__focus_input__';
+// ---------------------------------------------------------------------------
+// Theme pool (28 total, show 6 at a time, rotate every 10s)
+// ---------------------------------------------------------------------------
 
-/** Pick a random subset of presets, always including core strategies */
-function getWelcomeOptions() {
-  const core = ALL_PRESETS.slice(0, 4);
-  const extended = ALL_PRESETS.slice(4);
-  const shuffled = extended.sort(() => Math.random() - 0.5);
-  return [...core, ...shuffled.slice(0, 4), FOCUS_INPUT];
+const ALL_THEMES = [
+  // Sector + quality long-tail
+  '最近被低估的软件股',
+  '近期涨幅领先的芯片公司',
+  '盈利能力最强的云计算公司',
+  '被华尔街看好的生物科技股',
+  '营收增速最快的网络安全公司',
+  '自由现金流最强的科技巨头',
+  '利润率最高的医药公司',
+  '增长最快的数字支付公司',
+  '估值最低的工业股',
+  '现金流最好的新能源公司',
+  // Metric-driven
+  'PE 低于 15 且 ROE 超过 20%',
+  '股息率超过 4% 的蓝筹股',
+  '毛利率超过 60% 的高壁垒公司',
+  '连续 3 年营收增长超 30%',
+  '负债率低于 30% 的优质公司',
+  '研发投入占比最高的科技公司',
+  // Timing + quality
+  '最近从高位回调 20% 的好公司',
+  '近期突破 52 周新高的强势股',
+  'RSI 超跌的优质成长股',
+  '最近成交量明显放大的股票',
+  '最近财报超预期的公司',
+  // Style + characteristic
+  '机构持仓比例最高的中盘股',
+  '回购力度最大的公司',
+  '海外营收占比超 50% 的跨国企业',
+  '分析师一致给出买入评级的标的',
+  '连续 10 年以上稳定分红的公司',
+  '增速最快的 AI 应用公司',
+  '市盈率最低的消费龙头',
+];
+
+// ---------------------------------------------------------------------------
+// Selection helpers (exclude current set to guarantee fresh items)
+// ---------------------------------------------------------------------------
+
+type StrategyPreset = (typeof ALL_STRATEGIES)[number];
+
+function pickStrategies(count: number, excludeLabels: string[] = []): StrategyPreset[] {
+  const available = ALL_STRATEGIES.filter(s => !excludeLabels.includes(s.label));
+  const pool = available.length >= count ? available : ALL_STRATEGIES;
+  return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
 }
+
+function pickThemes(count: number, exclude: string[] = []): string[] {
+  const available = ALL_THEMES.filter(t => !exclude.includes(t));
+  const pool = available.length >= count ? available : ALL_THEMES;
+  return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
+}
+
+// ---------------------------------------------------------------------------
+// Decorative SVGs
+// ---------------------------------------------------------------------------
+
+/** Dot grid background pattern (Vercel-style) */
+function DotGrid() {
+  return (
+    <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="screener-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+          <circle cx="1.5" cy="1.5" r="0.75" className="fill-foreground/[0.04]" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#screener-dots)" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return '刚刚';
+  if (diffMin < 60) return `${diffMin}分钟前`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}小时前`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}天前`;
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 interface WelcomeScreenProps {
   onSelect: (value: string) => void;
   universeSize?: number;
+  conversations?: ConversationSummary[];
+  conversationsLoading?: boolean;
+  onLoadConversation?: (id: string) => void;
+  onDeleteConversation?: (id: string) => void;
 }
 
-/**
- * WelcomeScreen - Centered initial state with emerald icon, title, chips, and input.
- *
- * Premium feel: breathing emerald glow, staggered chip entry, editorial typography.
- * Transitions out with fade-out-up when user makes first interaction.
- */
-export default function WelcomeScreen({ onSelect, universeSize }: WelcomeScreenProps) {
-  const [options] = useState(getWelcomeOptions);
+export default function WelcomeScreen({
+  onSelect,
+  universeSize,
+  conversations = [],
+  conversationsLoading = false,
+  onLoadConversation,
+  onDeleteConversation,
+}: WelcomeScreenProps) {
+  // Rotating pools
+  const [strategies, setStrategies] = useState(() => pickStrategies(4));
+  const [themes, setThemes] = useState(() => pickThemes(6));
+  const [strategyExiting, setStrategyExiting] = useState(false);
+  const [themeExiting, setThemeExiting] = useState(false);
 
-  const handleChipClick = (query: string) => {
-    if (query === FOCUS_INPUT) {
-      const input = document.querySelector<HTMLTextAreaElement>('.welcome-input textarea');
-      input?.focus();
-      return;
-    }
-    onSelect(query);
-  };
+  const rotateStrategies = useCallback(() => {
+    setStrategyExiting(true);
+    setTimeout(() => {
+      setStrategies(prev => pickStrategies(4, prev.map(s => s.label)));
+      setStrategyExiting(false);
+    }, 300);
+  }, []);
+
+  const rotateThemes = useCallback(() => {
+    setThemeExiting(true);
+    setTimeout(() => {
+      setThemes(prev => pickThemes(6, prev));
+      setThemeExiting(false);
+    }, 300);
+  }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-12">
-      <div className="w-full max-w-lg space-y-8 text-center">
-        {/* Emerald icon with breathing glow */}
-        <div className="flex justify-center">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center animate-fade-in-up">
-            <svg className="w-7 h-7 text-emerald-600 dark:text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
+    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 lg:py-0 overflow-hidden">
+      {/* ── Background layers ── */}
+      <DotGrid />
+      {/* Emerald gradient orb — Apple-style ambient glow */}
+      <div className="absolute top-1/3 -left-32 w-[500px] h-[500px] rounded-full bg-emerald-500/[0.07] blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full bg-emerald-500/[0.04] blur-[100px] pointer-events-none" />
+
+      <div className="relative w-full max-w-5xl z-10">
+        {/* Split layout: stack on mobile, side-by-side on lg */}
+        <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-16">
+
+          {/* ── Left column: Brand + Visual ── */}
+          <div className="lg:w-[400px] shrink-0 flex flex-col justify-center lg:py-12">
+            {/* Brand mark */}
+            <div className="animate-fade-in-up">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6">
+                <svg className="w-6 h-6" viewBox="0 0 32 32" fill="none">
+                  <path
+                    d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
+                    stroke="url(#welcome-logo-grad)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <defs>
+                    <linearGradient id="welcome-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#10B981" />
+                      <stop offset="50%" stopColor="#34D399" />
+                      <stop offset="100%" stopColor="#6EE7B7" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              <h1 className="text-3xl lg:text-4xl font-editorial text-foreground tracking-tight leading-tight">
+                找到适合你的
+                <br />
+                <span className="text-emerald-600 dark:text-emerald-500">投资机会</span>
+              </h1>
+
+              <p className="mt-4 text-sm lg:text-base text-muted-foreground leading-relaxed max-w-sm">
+                {universeSize
+                  ? `覆盖 ${universeSize.toLocaleString()}+ 只美股，AI 逐步引导你筛选出心仪标的`
+                  : 'AI 帮你从全美股中，逐步筛选出适合你的投资标的'
+                }
+              </p>
+            </div>
+
+            {/* Stats row */}
+            <div className="flex items-center gap-6 mt-6 animate-fade-in-up delay-100">
+              {universeSize ? (
+                <div>
+                  <p className="text-lg font-data font-medium text-foreground">{universeSize.toLocaleString()}+</p>
+                  <p className="text-xs text-muted-foreground/70">可筛选股票</p>
+                </div>
+              ) : null}
+              <div>
+                <p className="text-lg font-data font-medium text-foreground">50+</p>
+                <p className="text-xs text-muted-foreground/70">筛选维度</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div>
+                  <p className="text-lg font-data font-medium text-foreground">实时</p>
+                  <p className="text-xs text-muted-foreground/70">数据更新</p>
+                </div>
+                {/* Live pulse indicator */}
+                <span className="relative flex h-2 w-2 mt-[-12px]">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+              </div>
+            </div>
+
+            {/* Divider - only on desktop */}
+            <div className="hidden lg:block w-12 h-px bg-border/60 mt-8 mb-6" />
+
+            {/* Recent conversations - desktop only for left column */}
+            {!conversationsLoading && conversations.length > 0 && (
+              <div className="hidden lg:block animate-fade-in-up delay-300">
+                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
+                  继续之前的对话
+                </p>
+                <div className="space-y-1 max-h-64 overflow-y-auto overflow-x-hidden conversation-scroll">
+                  {conversations.map((conv) => (
+                    <div
+                      key={conv.id}
+                      className="group flex items-center justify-between px-3 py-2.5 -mx-3 rounded-lg hover:bg-card/80 border border-transparent hover:border-border/40 transition-all duration-200 cursor-pointer"
+                      onClick={() => onLoadConversation?.(conv.id)}
+                    >
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <svg className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground truncate">
+                            {conv.title || '未命名对话'}
+                          </p>
+                          <p className="text-xs text-muted-foreground/50 mt-0.5">
+                            {formatRelativeTime(conv.updated_at)} · {conv.message_count} 条消息
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteConversation?.(conv.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 transition-all duration-150"
+                        title="删除"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Title */}
-        <div className="space-y-3 animate-fade-in-up delay-100">
-          <h1 className="text-2xl md:text-3xl font-editorial text-foreground tracking-tight">
-            找到适合你的投资机会
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-sm mx-auto">
-            {universeSize
-              ? `从 ${universeSize.toLocaleString()}+ 只美股中，AI 帮你挑选`
-              : 'AI 帮你从美股中挑选适合的投资标的'
-            }
-          </p>
-        </div>
+          {/* ── Vertical divider (desktop only) ── */}
+          <div className="hidden lg:flex items-center">
+            <div className="w-px h-96 bg-gradient-to-b from-transparent via-border/60 to-transparent" />
+          </div>
 
-        {/* Chips */}
-        <div className="flex flex-wrap justify-center gap-2.5 animate-fade-in-up delay-200">
-          {options.map((query, i) => (
-            <button
-              key={query}
-              onClick={() => handleChipClick(query)}
-              className="animate-chip-enter px-4 py-2 rounded-full text-sm border border-border/50 bg-card/60 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 transition-all duration-200 cursor-pointer"
-              style={{ animationDelay: `${300 + i * 60}ms` }}
-            >
-              {query === FOCUS_INPUT ? '我有具体想法' : query}
-            </button>
-          ))}
-        </div>
+          {/* ── Right column: Strategies + Themes + Input ── */}
+          <div className="flex-1 flex flex-col justify-center mt-10 lg:mt-0 lg:py-12">
+            {/* Strategy cards - 2x2 grid, rotating pool */}
+            <div className="animate-fade-in-up delay-200">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+                  热门策略
+                </p>
+                <button
+                  onClick={rotateStrategies}
+                  className="p-1 rounded-md text-muted-foreground/30 hover:text-emerald-500 hover:bg-emerald-500/5 transition-colors cursor-pointer"
+                  title="换一批"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
+                  </svg>
+                </button>
+              </div>
+              <div className={`grid grid-cols-2 gap-2.5 transition-all duration-300 ease-out ${
+                strategyExiting ? 'opacity-0 translate-y-1.5' : 'opacity-100 translate-y-0'
+              }`}>
+                {strategies.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => onSelect(preset.label)}
+                    className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm hover:bg-card/70 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/[0.03] transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/[0.08] border border-emerald-500/10 flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-500/80 group-hover:bg-emerald-500/15 group-hover:border-emerald-500/20 transition-colors">
+                      {preset.icon}
+                    </div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      {preset.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground/50 mt-1">
+                      {preset.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Input */}
-        <div className="welcome-input w-full max-w-md mx-auto animate-fade-in-up delay-400">
-          <ChatInput
-            onSubmit={onSelect}
-            placeholder="或者直接描述你想找的股票..."
-            autoFocus={false}
-          />
-        </div>
+            {/* Theme chips - rotating pool */}
+            <div className="mt-6 animate-fade-in-up delay-300">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+                  试试这些
+                </p>
+                <button
+                  onClick={rotateThemes}
+                  className="p-1 rounded-md text-muted-foreground/30 hover:text-emerald-500 hover:bg-emerald-500/5 transition-colors cursor-pointer"
+                  title="换一批"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
+                  </svg>
+                </button>
+              </div>
+              <div className={`flex flex-wrap gap-2 transition-all duration-300 ease-out ${
+                themeExiting ? 'opacity-0 translate-y-1.5' : 'opacity-100 translate-y-0'
+              }`}>
+                {themes.map((theme) => (
+                  <button
+                    key={theme}
+                    onClick={() => onSelect(theme)}
+                    className="px-3.5 py-1.5 rounded-full text-xs border border-border/40 bg-card/20 backdrop-blur-sm text-muted-foreground hover:border-emerald-500/30 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 transition-all duration-200 cursor-pointer"
+                  >
+                    {theme}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Subtle hint */}
-        <p className="text-xs text-muted-foreground/60 animate-fade-in delay-700">
-          点击上方选项或输入你的想法，AI 会引导你一步步找到心仪的股票
-        </p>
+            {/* Divider */}
+            <div className="w-full h-px bg-border/30 my-6" />
+
+            {/* Input */}
+            <div className="welcome-input animate-fade-in-up delay-500">
+              <p className="text-xs text-muted-foreground/50 mb-2">
+                或者，用你自己的话描述
+              </p>
+              <ChatInput
+                onSubmit={onSelect}
+                placeholder="比如：帮我找市盈率低于 15、ROE 超过 20% 的股票..."
+                autoFocus={false}
+              />
+            </div>
+
+            {/* Mobile recent conversations */}
+            {!conversationsLoading && conversations.length > 0 && (
+              <div className="lg:hidden mt-8 animate-fade-in-up delay-500">
+                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
+                  继续之前的对话
+                </p>
+                <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-hidden conversation-scroll">
+                  {conversations.map((conv) => (
+                    <div
+                      key={conv.id}
+                      className="group flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-card/80 border border-transparent hover:border-border/40 transition-all duration-200 cursor-pointer"
+                      onClick={() => onLoadConversation?.(conv.id)}
+                    >
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <svg className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground truncate">
+                            {conv.title || '未命名对话'}
+                          </p>
+                          <p className="text-xs text-muted-foreground/50 mt-0.5">
+                            {formatRelativeTime(conv.updated_at)} · {conv.message_count} 条消息
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteConversation?.(conv.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 transition-all duration-150"
+                        title="删除"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
   );
