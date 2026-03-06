@@ -121,6 +121,7 @@ interface StockFundamentals {
 interface QuarterlyData {
   period: string;
   fiscal_quarter?: string;
+  fiscal_year?: number;
   income_statement?: {
     revenue?: number;
     gross_profit?: number;
@@ -544,16 +545,18 @@ export function formatNumber(value: number | null | undefined, options?: {
   }).format(value);
 }
 
-export function formatQuarter(dateStr: string, fiscalQuarter?: string): string {
+export function formatQuarter(dateStr: string, fiscalQuarter?: string, fiscalYear?: number): string {
   if (!dateStr) return '--';
   const date = new Date(dateStr);
-  const year = date.getFullYear();
+  if (fiscalQuarter && fiscalYear) {
+    return `FY${fiscalYear} ${fiscalQuarter}`;
+  }
   if (fiscalQuarter) {
-    return `${year} ${fiscalQuarter}`;
+    return `${date.getFullYear()} ${fiscalQuarter}`;
   }
   const month = date.getMonth();
   const quarter = Math.floor(month / 3) + 1;
-  return `${year} Q${quarter}`;
+  return `${date.getFullYear()} Q${quarter}`;
 }
 
 // =============================================================================
@@ -699,7 +702,7 @@ export function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
               </th>
               {sortedQuarters.slice(0, 4).map((q, i) => (
                 <th key={i} className="text-right py-3 px-3 text-foreground/70 font-medium whitespace-nowrap font-data">
-                  {formatQuarter(q.period, q.fiscal_quarter)}
+                  {formatQuarter(q.period, q.fiscal_quarter, q.fiscal_year)}
                 </th>
               ))}
             </tr>

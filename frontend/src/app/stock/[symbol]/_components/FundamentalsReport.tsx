@@ -86,6 +86,7 @@ interface FundamentalsReportProps {
     quarters: Array<{
       period: string;
       fiscal_quarter?: string;
+      fiscal_year?: number;
       income_statement?: {
         revenue?: number;
         gross_profit?: number;
@@ -173,28 +174,6 @@ function ReportSection({
       <SectionCard title={title} titleEn={titleEn} numberLabel={number}>
         {children}
       </SectionCard>
-    </div>
-  );
-}
-
-/** AI insight block - amber-accented editorial callout */
-function AICallout({ content }: { content: string }) {
-  return (
-    <div className="relative overflow-hidden rounded-lg">
-      {/* Gradient top border */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
-      <div className="p-5 bg-amber-500/[0.03] border border-amber-500/20 rounded-lg light:bg-amber-50/50 light:border-amber-200/60">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center light:bg-amber-100">
-            <svg className="w-3 h-3 text-amber-500 light:text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <MarkdownContent content={content} />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -599,7 +578,7 @@ export default function FundamentalsReport({
         {/* AI: valuation_judgment */}
         {ai.showContent && getAI(analysis, 'valuation_judgment') && (
           <div className="mb-6">
-            <AICallout content={getAI(analysis, 'valuation_judgment')!} />
+            <MarkdownContent content={getAI(analysis, 'valuation_judgment')!} />
           </div>
         )}
         {ai.showSkeleton && <div className="mb-6"><AISkeleton /></div>}
@@ -651,7 +630,7 @@ export default function FundamentalsReport({
         <ReportSection number="05" title="投资总结" titleEn="Investment Summary" delay={320}>
           {ai.showSkeleton && <AISkeleton />}
           {ai.showContent && analysis?.investment_summary && (
-            <AICallout content={analysis.investment_summary} />
+            <MarkdownContent content={analysis.investment_summary} />
           )}
         </ReportSection>
       ) : null}
