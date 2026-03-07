@@ -63,7 +63,7 @@ function AuthConsumer() {
   );
 }
 
-function renderWithProviders(ui: JSX.Element) {
+function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
