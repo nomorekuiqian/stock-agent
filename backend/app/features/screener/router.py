@@ -404,7 +404,7 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
             "filters": filters,
             "sort_by": parsed.get("sort_by") or "market_cap",
             "sort_order": parsed.get("sort_order") or "desc",
-            "limit": parsed.get("limit") or 100,
+            "limit": parsed.get("limit") or 500,
         }
         candidates, total_matches = filter_custom(universe, filter_params)
         logger.info(
