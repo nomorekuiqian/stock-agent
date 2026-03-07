@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { PasswordField } from '@/components/PasswordField';
 import { resetPassword } from '@/lib/auth';
 
 function LoadingSpinner(): ReactNode {
@@ -48,8 +49,8 @@ function ResetPasswordContent(): ReactNode {
     }
 
     // Validate password length
-    if (newPassword.length < 6) {
-      setError('密码长度至少为6位');
+    if (newPassword.length < 8) {
+      setError('密码长度至少为8位');
       return;
     }
 
@@ -180,37 +181,26 @@ function ResetPasswordContent(): ReactNode {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-up delay-100">
-          <div>
-            <label htmlFor="newPassword" className="block text-sm font-medium text-foreground/90 mb-2">
-              新密码
-            </label>
-            <input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="******"
-              required
-              minLength={6}
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
-            />
-          </div>
+          <PasswordField
+            id="newPassword"
+            label="新密码"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+            helperText="密码至少 8 位"
+          />
 
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground/90 mb-2">
-              确认密码
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="******"
-              required
-              minLength={6}
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
-            />
-          </div>
+          <PasswordField
+            id="confirmPassword"
+            label="确认密码"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
 
           <button
             type="submit"

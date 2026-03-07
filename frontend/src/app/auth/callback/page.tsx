@@ -3,6 +3,7 @@
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect } from '@/lib/auth-redirect';
 
 function Spinner() {
   return (
@@ -25,7 +26,7 @@ function AuthCallbackContent() {
     }
 
     if (isAuthenticated) {
-      const redirectUrl = sessionStorage.getItem('auth_redirect') || '/today';
+      const redirectUrl = getStoredAuthRedirect(DEFAULT_AUTH_REDIRECT);
       sessionStorage.removeItem('auth_redirect');
       router.push(redirectUrl);
     } else {

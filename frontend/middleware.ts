@@ -1,7 +1,12 @@
 import { InsforgeMiddleware } from '@insforge/nextjs/middleware';
 
+const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL;
+if (!baseUrl) {
+  throw new Error('[Middleware] Missing NEXT_PUBLIC_INSFORGE_URL');
+}
+
 export default InsforgeMiddleware({
-  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL || 'https://9wmhxyi4.us-east.insforge.app',
+  baseUrl,
   publicRoutes: [
     '/',
     '/today*',
@@ -13,6 +18,7 @@ export default InsforgeMiddleware({
     '/login*',
     '/signup*',
     '/auth*',
+    '/verify-email*',
     '/pricing*',
     '/contact*',
     '/forgot-password*',

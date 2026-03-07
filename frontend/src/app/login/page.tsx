@@ -4,6 +4,9 @@ import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { PasswordField } from '@/components/PasswordField';
+import { buildVerifyEmailPath, storePendingVerification } from '@/lib/auth-verification';
+import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
 
 function LoadingSpinner(): ReactNode {
   return (
@@ -18,10 +21,12 @@ function LoadingSpinner(): ReactNode {
 
 const ERROR_TRANSLATIONS: Record<string, string> = {
   'invalid credentials': '邮箱或密码错误',
+  'request failed: unauthorized': '邮箱或密码错误',
   'user already exists': '该邮箱已注册，请直接登录',
+  'request failed: conflict': '该邮箱已注册，请直接登录',
   'user not found': '用户不存在',
   'invalid email': '邮箱格式不正确',
-  'password too short': '密码长度至少为6位',
+  'password too short': '密码长度至少为8位',
   'network error': '网络连接失败，请检查网络',
   'too many requests': '请求过于频繁，请稍后再试',
   'name is required': '请输入姓名',
@@ -30,6 +35,7 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'no_auth_data': '未收到认证数据，请重试',
   'code_exchange_failed': '授权码交换失败，请重试',
   'failed to complete authentication': '登录完成失败，请重试',
+  'auth_failed': '登录完成失败，请重试',
   'oauth can only be initiated in browser': '请在浏览器中登录',
 };
 
@@ -50,7 +56,8 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { signIn, signUp, signInWithGoogle, isAuthenticated, isLoading } = useAuth();
 
-  const redirectUrl = searchParams.get('redirect') || '/today';
+  const redirectUrl = sanitizeRedirectPath(searchParams.get('redirect'), DEFAULT_AUTH_REDIRECT);
+  const authError = searchParams.get('error');
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -66,10 +73,16 @@ function LoginPageContent() {
   }, [redirectUrl]);
 
   useEffect(() => {
+    if (!authError) return;
+    setSuccessMessage('');
+    setError(translateError(authError));
+  }, [authError]);
+
+  useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const storedRedirect = sessionStorage.getItem('auth_redirect');
+      const storedRedirect = getStoredAuthRedirect(redirectUrl);
       sessionStorage.removeItem('auth_redirect');
-      router.push(storedRedirect || redirectUrl);
+      router.push(storedRedirect);
     }
   }, [isLoading, isAuthenticated, router, redirectUrl]);
 
@@ -85,18 +98,25 @@ function LoginPageContent() {
 
     try {
       if (isSignUp) {
-        const result = await signUp(email, password, name);
+        const result = await signUp(email, password, name, redirectUrl);
+        if (result.success && result.requiresEmailVerification && result.email) {
+          storePendingVerification({
+            email: result.email,
+            name,
+          });
+          router.push(`${buildVerifyEmailPath(redirectUrl)}&email=${encodeURIComponent(result.email)}`);
+          return;
+        }
+
         if (result.success) {
-          sessionStorage.removeItem('auth_redirect');
-          router.push(redirectUrl);
+          setSuccessMessage('注册成功，正在登录...');
         } else {
           setError(translateError(result.error || '注册失败'));
         }
       } else {
         const result = await signIn(email, password);
         if (result.success) {
-          sessionStorage.removeItem('auth_redirect');
-          router.push(redirectUrl);
+          setSuccessMessage('登录成功，正在跳转...');
         } else {
           setError(translateError(result.error || '登录失败'));
         }
@@ -240,31 +260,24 @@ function LoginPageContent() {
             />
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label htmlFor="password" className="block text-sm font-medium text-foreground/90">
-                密码
-              </label>
-              {!isSignUp && (
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  忘记密码?
-                </Link>
-              )}
-            </div>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="******"
-              required
-              minLength={6}
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
-            />
-          </div>
+          <PasswordField
+            id="password"
+            label="密码"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete={isSignUp ? 'new-password' : 'current-password'}
+            helperText="密码至少 8 位"
+            labelAction={!isSignUp ? (
+              <Link
+                href="/forgot-password"
+                className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                忘记密码?
+              </Link>
+            ) : null}
+          />
 
           <button
             type="submit"
