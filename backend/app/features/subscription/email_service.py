@@ -29,6 +29,7 @@ from app.features.subscription.email_templates import (
     format_digest_html,
     format_weekly_report_html,
     format_welcome_html,
+    format_verification_email_html,
     format_newsletter_plaintext,
     format_morning_report_html,
     format_timestamp,
@@ -103,7 +104,7 @@ class EmailService:
         return get_feedback_section(report_date, report_id, report_type)
 
     def _get_email_footer(
-        self, unsubscribe_url: str = "{{{RESEND_UNSUBSCRIBE_URL}}}",
+        self, unsubscribe_url: Optional[str] = "{{{RESEND_UNSUBSCRIBE_URL}}}",
     ) -> str:
         return get_email_footer(unsubscribe_url)
 
@@ -137,6 +138,18 @@ class EmailService:
 
     def _format_welcome_html(self, first_name: str = "") -> str:
         return format_welcome_html(first_name)
+
+    def _format_verification_email_html(
+        self,
+        verification_code: str,
+        verify_url: str,
+        recipient_email: str = "",
+    ) -> str:
+        return format_verification_email_html(
+            verification_code=verification_code,
+            verify_url=verify_url,
+            recipient_email=recipient_email,
+        )
 
     def _format_newsletter_plaintext(self, data: dict) -> str:
         return format_newsletter_plaintext(data)

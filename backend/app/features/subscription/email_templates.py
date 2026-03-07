@@ -232,9 +232,16 @@ def get_feedback_section(
 
 
 def get_email_footer(
-    unsubscribe_url: str = "{{{RESEND_UNSUBSCRIBE_URL}}}",
+    unsubscribe_url: Optional[str] = "{{{RESEND_UNSUBSCRIBE_URL}}}",
 ) -> str:
     """Common email footer with logo."""
+    unsubscribe_html = ""
+    if unsubscribe_url:
+        unsubscribe_html = (
+            f'<a href="{unsubscribe_url}" style="color: #10b981; font-size: 11px; '
+            'text-decoration: none; font-weight: 500;">Unsubscribe</a>'
+        )
+
     return f"""
         <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 24px;">
             <table style="width: 100%;" cellpadding="0" cellspacing="0">
@@ -262,7 +269,7 @@ def get_email_footer(
                 </tr>
                 <tr>
                     <td style="text-align: center;">
-                        <a href="{unsubscribe_url}" style="color: #10b981; font-size: 11px; text-decoration: none; font-weight: 500;">Unsubscribe</a>
+                        {unsubscribe_html}
                     </td>
                 </tr>
             </table>
@@ -1219,6 +1226,96 @@ def format_welcome_html(first_name: str = "") -> str:
                 </div>
 
                 {get_email_footer()}
+            </div>
+        </body>
+        </html>
+        """
+    return html
+
+
+def format_verification_email_html(
+    verification_code: str,
+    verify_url: str,
+    recipient_email: str = "",
+) -> str:
+    """Format verification email HTML using the shared MarketBrew email style."""
+    formatted_date = now_pacific().strftime("%B %d, %Y")
+    intro_line = "我们收到了一次 TheMarketBrew 账户注册请求，验证邮箱后即可开始使用。"
+    email_line = (
+        f"验证对象：<strong>{recipient_email}</strong>"
+        if recipient_email
+        else "验证完成后，你就可以开始使用 TheMarketBrew。"
+    )
+
+    html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                {get_email_header(formatted_date, "Verify Email")}
+
+                <div style="background: #ffffff; padding: 32px 24px;">
+                    <div style="display: inline-block; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 18px;">
+                        ACCOUNT SECURITY
+                    </div>
+
+                    <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 12px 0;">
+                        完成邮箱验证，激活你的账户
+                    </h1>
+
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 10px 0;">
+                        {intro_line}
+                    </p>
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 28px 0;">
+                        {email_line}
+                    </p>
+
+                    <div style="{CARD_STYLE_WIDE}">
+                        <div style="{SECTION_HEADER_STYLE_GREEN}">
+                            你的验证码
+                        </div>
+                        <p style="color: #71717a; font-size: 13px; line-height: 1.7; margin: 0 0 16px 0;">
+                            在注册页面输入下面的 6 位验证码。验证码短时间内有效，请尽快完成验证。
+                        </p>
+                        <div style="text-align: center; margin: 0 0 18px 0;">
+                            <div style="display: inline-block; padding: 14px 22px; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 10px; font-size: 32px; line-height: 1; font-weight: 700; color: #0a0a0a; letter-spacing: 0.35em; text-indent: 0.35em;">
+                                {verification_code}
+                            </div>
+                        </div>
+                        <p style="color: #71717a; font-size: 12px; line-height: 1.7; margin: 0; text-align: center;">
+                            如果你是在手机上注册，也可以点击下方按钮直接完成验证。
+                        </p>
+                    </div>
+
+                    <div style="{CARD_STYLE}">
+                        <div style="{SECTION_HEADER_STYLE}">
+                            继续验证
+                        </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 18px 0;">
+                            点击后会回到 TheMarketBrew，自动完成邮箱验证并进入产品。
+                        </p>
+                        <div style="text-align: center;">
+                            <a href="{verify_url}" style="display: inline-block; padding: 12px 26px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                                验证并进入 TheMarketBrew
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="{CARD_STYLE}">
+                        <div style="{SECTION_HEADER_STYLE}">
+                            没有发起这个操作?
+                        </div>
+                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0;">
+                            如果这不是你本人操作，可以直接忽略这封邮件。只有拿到验证码或点击验证链接的人，才能完成账户激活。
+                        </p>
+                    </div>
+                </div>
+
+                {get_email_footer(None)}
             </div>
         </body>
         </html>

@@ -11,6 +11,7 @@ Handles:
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
+from urllib.parse import quote
 
 from app.core.deps import verify_cron_secret
 from app.core.logging import get_logger
@@ -140,6 +141,43 @@ async def send_daily_report(
         raise
     except Exception as e:
         logger.exception("Error in send_daily_report")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/verification-email/preview")
+async def get_verification_email_preview(
+    email: str = Query("preview@example.com"),
+    code: str = Query("184263"),
+    redirect: str = Query("/today"),
+):
+    """
+    Get rendered HTML preview for the verification email.
+
+    This endpoint only renders the template. It does not send any email and does
+    not depend on Insforge auth mail configuration.
+    """
+    try:
+        email_service = get_email_service()
+        verify_url = (
+            f"{email_service.frontend_url}/verify-email"
+            f"?email={quote(email)}&redirect={quote(redirect, safe='/')}&otp={quote(code)}"
+        )
+        html_content = email_service._format_verification_email_html(
+            verification_code=code,
+            verify_url=verify_url,
+            recipient_email=email,
+        )
+
+        return {
+            "success": True,
+            "html": html_content,
+            "email": email,
+            "code": code,
+            "verify_url": verify_url,
+        }
+
+    except Exception as e:
+        logger.exception("Error in get_verification_email_preview")
         raise HTTPException(status_code=500, detail=str(e))
 
 
