@@ -27,6 +27,7 @@ export function isTokenExpired(token: string): boolean {
 
 let refreshPromise: Promise<string | null> | null = null;
 let authResetPromise: Promise<void> | null = null;
+let cachedToken: { value: string; expiresAt: number } | null = null;
 
 async function tryRefreshToken(): Promise<string | null> {
   try {
@@ -40,6 +41,19 @@ async function tryRefreshToken(): Promise<string | null> {
 
     const data = await response.json();
     if (!data.accessToken) return null;
+
+    // Cache so subsequent getAccessToken() calls skip SDK + refresh
+    try {
+      const parts = data.accessToken.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp) {
+          cachedToken = { value: data.accessToken, expiresAt: payload.exp };
+        }
+      }
+    } catch {
+      // Cache is best-effort
+    }
 
     try {
       insforge.getHttpClient?.().setAuthToken?.(data.accessToken);
@@ -118,6 +132,7 @@ function buildAuthResetRedirectUrl(reason: AuthResetReason): string {
 }
 
 function clearClientAuthState(): void {
+  cachedToken = null;
   clearClientAuthStorage();
   clearAuthRedirectState();
 
@@ -169,18 +184,27 @@ export async function resetStaleAuthState(reason: AuthResetReason = 'session_res
 
 export async function getAccessToken(): Promise<string | null> {
   try {
-    // Guard against SDK hanging (e.g. network issues to auth server)
+    // Return cached token from a previous refresh (avoids redundant SDK/refresh calls)
+    if (cachedToken && !isTokenExpired(cachedToken.value)) {
+      return cachedToken.value;
+    }
+    cachedToken = null;
+
+    // Try SDK first (guard against hanging with 5s timeout)
     const result = await Promise.race([
       insforge.auth.getCurrentSession(),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
     ]);
-    if (!result) return null;
 
     const token = result?.data?.session?.accessToken;
     if (token && !isTokenExpired(token)) {
       return token;
     }
 
+    // SDK returned null or expired token. This happens when the SDK's
+    // internal refresh fails (cross-domain cookie issue with Server Proxy).
+    // Fall through to our own Server Proxy refresh which uses httpOnly
+    // cookies on our domain.
     if (!refreshPromise) {
       refreshPromise = tryRefreshToken().finally(() => {
         refreshPromise = null;
@@ -239,6 +263,13 @@ export async function exchangeResetPasswordCode(
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
+}
+
+/** @internal Exposed for test isolation only. */
+export function _resetAuthStateForTesting(): void {
+  cachedToken = null;
+  refreshPromise = null;
+  authResetPromise = null;
 }
 
 export async function resetPassword(
