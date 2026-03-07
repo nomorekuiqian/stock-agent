@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { api } from '@/lib/api';
+import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import type { ConversationSummary } from '@/lib/api';
 import {
   pickerReducer,
@@ -207,13 +208,13 @@ function ScreenerContent() {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[Screener] handleSend error:', err);
       }
-      const msg = err instanceof Error ? err.message : 'AI 助手暂时无法响应';
-      if (msg.includes('登录已过期') || msg.includes('重新登录')) {
-        dispatch({ type: 'SET_ERROR', error: '登录已过期，请刷新页面重新登录' });
+      const authError = getAuthErrorPresentation(err, 'AI 助手暂时无法响应');
+      if (authError.shouldRedirectToLogin) {
+        dispatch({ type: 'SET_ERROR', error: authError.message });
         router.push('/login?redirect=/screener');
         return;
       }
-      dispatch({ type: 'SET_ERROR', error: msg });
+      dispatch({ type: 'SET_ERROR', error: authError.message });
     }
   }, [buildHistory, state.isLoading, state.accumulatedFilters, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation]);
 

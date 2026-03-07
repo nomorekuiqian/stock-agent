@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { api, DigestResponse } from '@/lib/api';
+import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
@@ -59,13 +60,12 @@ function ForYouPageContent() {
 
   const generating = generateDigestMutation.isPending;
   const error = generateDigestMutation.error
-    ? (generateDigestMutation.error instanceof Error ? generateDigestMutation.error.message : 'Failed to generate digest')
+    ? getAuthErrorPresentation(generateDigestMutation.error, '生成摘要失败，请重试。').message
     : null;
-  const loadErrorMessage = watchlistError instanceof Error
-    ? watchlistError.message
-    : digestError instanceof Error
-      ? digestError.message
-      : '无法连接到服务器，请刷新页面重试。';
+  const loadErrorMessage = getAuthErrorPresentation(
+    watchlistError ?? digestError,
+    '无法连接到服务器，请刷新页面重试。'
+  ).message;
 
   // --- Effects ---
 

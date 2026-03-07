@@ -9,6 +9,7 @@ import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { api, SectorInfo, WatchlistData } from '@/lib/api';
+import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import { useStockSearch } from '@/hooks/useStockSearch';
 import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
@@ -80,9 +81,10 @@ function WatchlistPageContent() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [confirmingSectorRemove, setConfirmingSectorRemove] = useState<string | null>(null);
   const sectorRemoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadErrorMessage = watchlistError instanceof Error
-    ? watchlistError.message
-    : '无法连接到服务器，请刷新页面重试。为保护你的数据，在加载成功前无法编辑持仓。';
+  const loadErrorMessage = getAuthErrorPresentation(
+    watchlistError,
+    '无法连接到服务器，请刷新页面重试。为保护你的数据，在加载成功前无法编辑持仓。'
+  ).message;
 
   const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
 
@@ -190,9 +192,7 @@ function WatchlistPageContent() {
             setSaveError(
               isConflictError(error)
                 ? '持仓已在其他页面被更新，已恢复到最新保存版本，请刷新后重试。'
-                : error instanceof Error
-                  ? error.message
-                  : '保存持仓失败，请重试。',
+                : getAuthErrorPresentation(error, '保存持仓失败，请重试。').message,
             );
             await queryClient.invalidateQueries({ queryKey: queryKeys.watchlist.byUser(user.id) });
           },
