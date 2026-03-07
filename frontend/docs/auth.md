@@ -8,7 +8,7 @@
 - 后端：Bearer token + `verify_user_token`
 - Session 恢复：Server Component `auth()` + `InsforgeBrowserProvider initialState`
 
-不再使用旧的“自定义 server proxy 登录 + 自己维护 refresh/csrf cookie”的方案。`/api/auth` 只是委托 `createAuthRouteHandlers` 给 SDK 管理 cookie/session。
+登录/注册由 SDK 处理，但 token refresh 需要 Server Proxy（跨域 cookie 限制）。`/api/auth` 既委托 `createAuthRouteHandlers` 给 SDK 管理基本动作，也包含自定义的 `refresh` action 用于跨域 token 刷新。
 
 ## 当前主链路
 
@@ -98,12 +98,18 @@
 
 ### getAccessToken()
 
-前端业务 API 统一通过 `getAccessToken()` 取 token：
+前端业务 API 统一通过 `getAccessToken()` 取 token，三级降级策略：
 
-1. `insforge.auth.getCurrentSession()`
-2. 检查 JWT `exp`
-3. token 过期/缺失时，走 `POST /api/auth { action: 'refresh' }`
-4. refresh 失败时返回 `null`
+1. **cachedToken** — 如果之前 refresh 过且 token 未过期，直接返回缓存值
+2. **SDK session** — `insforge.auth.getCurrentSession()`（5 秒超时），检查 JWT `exp`（含 60 秒提前量）
+3. **Server Proxy refresh** — SDK 返回 null 或过期 token 时，`POST /api/auth { action: 'refresh' }`
+   - 成功后缓存 token、更新 SDK httpClient auth header、写入 localStorage
+   - 使用 Promise 去重，并发调用只触发一次 refresh
+4. 全部失败返回 `null`
+
+**为什么 SDK 内置 refresh 不工作？**
+
+SDK `getCurrentSession()` 内部在 token 过期时会尝试 `POST /api/auth/refresh` 到 Insforge 域名，但 refresh cookie（`insforge_refresh_token`）存在我们域名（`themarketbrew.com`），浏览器跨域不发送，所以 SDK refresh 始终失败。我们通过 Server Proxy 解决：Next.js server 读自己域名的 httpOnly cookie 转发到 Insforge API 换新 token。
 
 目前 `Providers.tsx` 会通过 `seedClientAuthFromServer()` 把 `initialState.token` 注入 `localStorage`，用于 SDK memory mode 下的刷新恢复。
 
@@ -114,7 +120,7 @@
 3. `InsforgeProviderCore.setInitialState()` 只 hydrate 用户信息，不写入 SDK token manager
 4. SDK `TokenManager.getSession()` 仍优先从 `insforge-auth-token` / `insforge-auth-user` 读取浏览器 session
 
-所以这一步目前是“兼容 SDK 恢复链的最小补丁”，而不是可以直接删除的冗余代码。
+所以这一步目前是”兼容 SDK 恢复链的最小补丁”，而不是可以直接删除的冗余代码。
 
 ### 会话异常兜底
 
