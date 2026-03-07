@@ -18,8 +18,13 @@ function ForYouPageContent() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // --- TanStack Query hooks ---
-  const { data: watchlistData, isLoading: loadingWatchlist, isError: watchlistLoadFailed } = useWatchlist(user?.id, !!user?.id);
-  const { data: digestData } = useDigestList(user?.id ?? '', 10, 0, !!user?.id);
+  const {
+    data: watchlistData,
+    isLoading: loadingWatchlist,
+    isError: watchlistLoadFailed,
+    error: watchlistError,
+  } = useWatchlist(user?.id, !!user?.id);
+  const { data: digestData, error: digestError } = useDigestList(user?.id ?? '', 10, 0, !!user?.id);
   const generateDigestMutation = useGenerateDigest();
 
   const symbols = useMemo(() => {
@@ -56,6 +61,11 @@ function ForYouPageContent() {
   const error = generateDigestMutation.error
     ? (generateDigestMutation.error instanceof Error ? generateDigestMutation.error.message : 'Failed to generate digest')
     : null;
+  const loadErrorMessage = watchlistError instanceof Error
+    ? watchlistError.message
+    : digestError instanceof Error
+      ? digestError.message
+      : '无法连接到服务器，请刷新页面重试。';
 
   // --- Effects ---
 
@@ -247,8 +257,8 @@ function ForYouPageContent() {
               </svg>
             </div>
             <p className="text-sm text-red-400 font-medium">加载持仓数据失败</p>
-            <p className="text-xs text-muted-foreground text-center max-w-xs">
-              无法连接到服务器，请刷新页面重试。
+            <p className="text-xs text-muted-foreground text-center max-w-sm">
+              {loadErrorMessage}
             </p>
             <button
               onClick={() => window.location.reload()}

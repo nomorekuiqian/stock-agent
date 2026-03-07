@@ -13,7 +13,8 @@ export interface ServerAuthSeed extends InitialAuthState {
   token?: string | null;
 }
 
-type AuthStorage = Pick<Storage, 'getItem' | 'setItem'>;
+type AuthStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type MutableAuthStorage = Pick<Storage, 'removeItem'>;
 
 export type ClientAuthSeedResult = 'seeded' | 'unchanged' | 'skipped' | 'unavailable';
 
@@ -73,5 +74,19 @@ export function seedClientAuthFromServer(
     return 'seeded';
   } catch {
     return 'unavailable';
+  }
+}
+
+export function clearClientAuthStorage(storage: MutableAuthStorage | null = getBrowserStorage()): boolean {
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.removeItem(INSFORGE_AUTH_TOKEN_KEY);
+    storage.removeItem(INSFORGE_AUTH_USER_KEY);
+    return true;
+  } catch {
+    return false;
   }
 }

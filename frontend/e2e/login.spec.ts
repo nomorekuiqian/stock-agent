@@ -19,6 +19,20 @@ async function setupAuthMocks(page: Page) {
   const accessToken = createFakeJwt();
   let currentUser: Record<string, unknown> | null = null;
 
+  await page.route('**/api/auth', async (route: Route) => {
+    if (route.request().method() === 'DELETE') {
+      currentUser = null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
   await page.route('**/api/auth/**', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -190,6 +204,52 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await page.getByRole('button', { name: '登录', exact: true }).click();
 
     await expect(page).toHaveURL(/\/for-you/, { timeout: 10000 });
+  });
+
+  test('forces re-login when protected page hits expired session', async ({ page }) => {
+    const auth = await setupAuthMocks(page);
+    await auth.mockLoginSuccess();
+
+    await page.route('http://localhost:8000/api/watchlist', async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Invalid or expired token' }),
+      });
+    });
+
+    await page.route('http://localhost:8000/api/digests?*', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], total: 0 }),
+      });
+    });
+
+    await page.route('http://localhost:8000/api/subscriptions/**', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          channel: 'personal_digest',
+          subscribed: false,
+          email: 'user@example.com',
+          metadata: {},
+        }),
+      });
+    });
+
+    await page.goto('/login?redirect=%2Ftoday');
+    await page.getByLabel('邮箱').fill('user@example.com');
+    await passwordInput(page).fill('StrongPassword123');
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 10000 });
+
+    await page.goto('/for-you');
+
+    await expect(page).toHaveURL(/\/login\?redirect=%2Ffor-you/, { timeout: 10000 });
+    await expect(page.getByText('登录已过期，请重新登录')).toBeVisible();
   });
 
   test('redirects sign-up users into verify-email flow', async ({ page }) => {

@@ -37,7 +37,12 @@ export default function ForYouDetailPage({
 
   const { digest, error } = useMemo((): { digest: DigestResponse | null; error: string | null } => {
     if (!isValidUUID) return { digest: null, error: 'Invalid report ID' };
-    if (queryError) return { digest: null, error: 'Failed to load report' };
+    if (queryError) {
+      return {
+        digest: null,
+        error: queryError instanceof Error ? queryError.message : 'Failed to load report',
+      };
+    }
     if (!historyItem) return { digest: null, error: loading ? null : 'Report not found' };
     if (historyItem.user_id !== user?.id) return { digest: null, error: 'You do not have access to this report' };
     return { digest: userDigestToResponse(historyItem), error: null };

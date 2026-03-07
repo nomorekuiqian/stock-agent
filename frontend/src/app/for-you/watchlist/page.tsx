@@ -40,7 +40,13 @@ function WatchlistPageContent() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // --- TanStack Query hooks ---
-  const { data: watchlistData, isLoading: watchlistLoading, isError: loadFailed, isSuccess: watchlistLoaded } = useWatchlist(user?.id, !!user?.id);
+  const {
+    data: watchlistData,
+    isLoading: watchlistLoading,
+    isError: loadFailed,
+    isSuccess: watchlistLoaded,
+    error: watchlistError,
+  } = useWatchlist(user?.id, !!user?.id);
   const saveWatchlistMutation = useSaveWatchlist();
 
   // Local editing state seeded from query once per authenticated user.
@@ -74,6 +80,9 @@ function WatchlistPageContent() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [confirmingSectorRemove, setConfirmingSectorRemove] = useState<string | null>(null);
   const sectorRemoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadErrorMessage = watchlistError instanceof Error
+    ? watchlistError.message
+    : '无法连接到服务器，请刷新页面重试。为保护你的数据，在加载成功前无法编辑持仓。';
 
   const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
 
@@ -310,8 +319,8 @@ function WatchlistPageContent() {
               </svg>
             </div>
             <p className="text-sm text-red-400 font-medium">加载持仓数据失败</p>
-            <p className="text-xs text-muted-foreground text-center max-w-xs">
-              无法连接到服务器，请刷新页面重试。为保护你的数据，在加载成功前无法编辑持仓。
+            <p className="text-xs text-muted-foreground text-center max-w-sm">
+              {loadErrorMessage}
             </p>
             <button
               onClick={() => window.location.reload()}

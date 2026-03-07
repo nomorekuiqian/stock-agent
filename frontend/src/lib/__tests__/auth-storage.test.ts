@@ -3,6 +3,7 @@ import {
   INSFORGE_AUTH_TOKEN_KEY,
   INSFORGE_AUTH_USER_KEY,
   seedClientAuthFromServer,
+  clearClientAuthStorage,
   type ServerAuthSeed,
 } from '../auth-storage';
 
@@ -79,10 +80,24 @@ describe('seedClientAuthFromServer', () => {
       setItem: () => {
         throw new Error('blocked');
       },
+      removeItem: () => {
+        throw new Error('blocked');
+      },
     };
 
     const result = seedClientAuthFromServer(createInitialState(), brokenStorage);
 
     expect(result).toBe('unavailable');
+  });
+
+  it('clears locally stored auth keys', () => {
+    localStorage.setItem(INSFORGE_AUTH_TOKEN_KEY, 'server-token');
+    localStorage.setItem(INSFORGE_AUTH_USER_KEY, '{"id":"user-1"}');
+
+    const result = clearClientAuthStorage(localStorage);
+
+    expect(result).toBe(true);
+    expect(localStorage.getItem(INSFORGE_AUTH_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(INSFORGE_AUTH_USER_KEY)).toBeNull();
   });
 });

@@ -30,7 +30,7 @@ export default function ForYouArchivePage() {
 
   const digests = data?.data ?? [];
   const total = data?.total ?? 0;
-  const error = queryError ? '加载报告失败' : null;
+  const error = queryError instanceof Error ? queryError.message : null;
   const totalPages = Math.ceil(total / pageSize);
 
   // Show loading while checking auth

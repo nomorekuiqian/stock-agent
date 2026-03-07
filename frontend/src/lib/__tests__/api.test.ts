@@ -17,9 +17,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock auth module before importing api
 vi.mock('@/lib/auth', () => ({
   getAccessToken: vi.fn().mockResolvedValue('fake-token'),
+  resetStaleAuthState: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { api, ApiError } from '../api';
+import { getAccessToken, resetStaleAuthState } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -56,6 +58,8 @@ function mockFetchJsonFails(status: number) {
 describe('api (post cache removal)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getAccessToken).mockResolvedValue('fake-token');
+    vi.mocked(resetStaleAuthState).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -753,6 +757,62 @@ describe('api (post cache removal)', () => {
       mockFetchError(401);
 
       await expect(api.generateDigest(['AAPL'])).rejects.toThrow('登录已过期');
+      expect(resetStaleAuthState).toHaveBeenCalledWith('session_expired');
+    });
+  });
+
+  describe('watchlist auth recovery', () => {
+    it('waits briefly for token recovery before fetching protected data', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.mocked(getAccessToken)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce('fake-token');
+        mockFetchOk({
+          success: true,
+          data: { user_id: 'user-1', symbols: ['AAPL'] },
+        });
+
+        const promise = api.watchlist.get();
+        await vi.advanceTimersByTimeAsync(150);
+
+        await expect(promise).resolves.toEqual({
+          user_id: 'user-1',
+          symbols: ['AAPL'],
+        });
+
+        expect(getAccessToken).toHaveBeenCalledTimes(2);
+        const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+        expect(opts.headers.Authorization).toBe('Bearer fake-token');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('surfaces auth recovery timeout before making request', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.mocked(getAccessToken).mockResolvedValue(null);
+        globalThis.fetch = vi.fn();
+
+        const promise = api.watchlist.get().catch((err: unknown) => err);
+        await vi.advanceTimersByTimeAsync(2500);
+        const error = await promise;
+
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain('登录状态尚未恢复');
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+        expect(resetStaleAuthState).toHaveBeenCalledWith('session_recovery_failed');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('maps 401 to login expired message', async () => {
+      mockFetchError(401);
+
+      await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
+      expect(resetStaleAuthState).toHaveBeenCalledWith('session_expired');
     });
   });
 

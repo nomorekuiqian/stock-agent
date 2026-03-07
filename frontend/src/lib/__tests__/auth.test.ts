@@ -1,16 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isTokenExpired, getAccessToken } from '../auth';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { isTokenExpired, getAccessToken, resetStaleAuthState } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Mock @/lib/insforge
 // ---------------------------------------------------------------------------
 const mockGetCurrentSession = vi.fn();
+const mockSetAuthToken = vi.fn();
+const mockSdkSignOut = vi.fn();
+const originalFetch = globalThis.fetch;
+const originalLocation = window.location;
 
 vi.mock('@/lib/insforge', () => ({
   insforge: {
     auth: {
       getCurrentSession: (...args: unknown[]) => mockGetCurrentSession(...args),
+      signOut: (...args: unknown[]) => mockSdkSignOut(...args),
     },
+    getHttpClient: () => ({
+      setAuthToken: (...args: unknown[]) => mockSetAuthToken(...args),
+    }),
   },
 }));
 
@@ -70,6 +78,18 @@ describe('isTokenExpired', () => {
 describe('getAccessToken', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 
   it('returns SDK token when valid and not expired', async () => {
@@ -82,23 +102,44 @@ describe('getAccessToken', () => {
     expect(token).toBe(validToken);
   });
 
-  it('returns null when SDK token is expired', async () => {
+  it('tries refresh when SDK token is expired', async () => {
     const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
+    const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
     mockGetCurrentSession.mockResolvedValue({
       data: { session: { accessToken: expiredToken } },
     });
-
-    const token = await getAccessToken();
-    expect(token).toBeNull();
-  });
-
-  it('returns null when SDK has no session', async () => {
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: null },
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        accessToken: refreshedToken,
+        user: { id: 'u1', email: 'user@example.com' },
+      }),
     });
 
     const token = await getAccessToken();
-    expect(token).toBeNull();
+    expect(token).toBe(refreshedToken);
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }));
+    expect(mockSetAuthToken).toHaveBeenCalledWith(refreshedToken);
+  });
+
+  it('tries refresh when SDK has no session', async () => {
+    const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    mockGetCurrentSession.mockResolvedValue({
+      data: { session: null },
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        accessToken: refreshedToken,
+        user: { id: 'u1', email: 'user@example.com' },
+      }),
+    });
+
+    const token = await getAccessToken();
+    expect(token).toBe(refreshedToken);
   });
 
   it('returns null when SDK throws', async () => {
@@ -120,5 +161,33 @@ describe('getAccessToken', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('resetStaleAuthState signs out sdk, clears cookies and redirects to login', async () => {
+    mockSdkSignOut.mockResolvedValue(undefined);
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+    const replace = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        pathname: '/for-you',
+        search: '',
+        hash: '',
+        replace,
+      },
+    });
+
+    await resetStaleAuthState('session_expired');
+
+    expect(mockSdkSignOut).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth', expect.objectContaining({
+      method: 'DELETE',
+      credentials: 'include',
+    }));
+    expect(mockSetAuthToken).toHaveBeenCalledWith('');
+    expect(replace).toHaveBeenCalledWith('/login?error=session_expired&redirect=%2Ffor-you');
   });
 });

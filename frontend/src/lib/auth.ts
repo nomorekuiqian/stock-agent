@@ -1,3 +1,5 @@
+import { DEFAULT_AUTH_REDIRECT } from './auth-redirect';
+import { clearClientAuthStorage } from './auth-storage';
 import { insforge } from './insforge';
 
 export interface User {
@@ -6,6 +8,9 @@ export interface User {
   name?: string;
   avatarUrl?: string;
 }
+
+export type AuthResetReason = 'session_reset' | 'session_expired' | 'session_recovery_failed';
+const FORCED_REAUTH_REASON_KEY = 'forced_reauth_reason';
 
 export function isTokenExpired(token: string): boolean {
   try {
@@ -20,6 +25,148 @@ export function isTokenExpired(token: string): boolean {
   }
 }
 
+let refreshPromise: Promise<string | null> | null = null;
+let authResetPromise: Promise<void> | null = null;
+
+async function tryRefreshToken(): Promise<string | null> {
+  try {
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'refresh' }),
+      credentials: 'include',
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (!data.accessToken) return null;
+
+    try {
+      insforge.getHttpClient?.().setAuthToken?.(data.accessToken);
+    } catch {
+      // SDK client mutation is best-effort.
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('insforge-auth-token', data.accessToken);
+        if (data.user) {
+          window.localStorage.setItem('insforge-auth-user', JSON.stringify(data.user));
+        }
+      } catch {
+        // localStorage might be unavailable.
+      }
+    }
+
+    return data.accessToken;
+  } catch {
+    return null;
+  }
+}
+
+function clearAuthRedirectState(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem('auth_redirect');
+  } catch {
+    // sessionStorage might be unavailable.
+  }
+}
+
+export function consumeForcedReauthReason(): AuthResetReason | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const value = window.sessionStorage.getItem(FORCED_REAUTH_REASON_KEY);
+    if (value === 'session_reset' || value === 'session_expired' || value === 'session_recovery_failed') {
+      window.sessionStorage.removeItem(FORCED_REAUTH_REASON_KEY);
+      return value;
+    }
+  } catch {
+    // sessionStorage might be unavailable.
+  }
+
+  return null;
+}
+
+function currentAppPath(): string {
+  if (typeof window === 'undefined') {
+    return DEFAULT_AUTH_REDIRECT;
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function buildAuthResetRedirectUrl(reason: AuthResetReason): string {
+  if (typeof window === 'undefined') {
+    return `/login?error=${reason}&redirect=${encodeURIComponent(DEFAULT_AUTH_REDIRECT)}`;
+  }
+
+  const isAuthPage = /^\/(login|signup|verify-email|forgot-password|reset-password)(\/|$)/.test(window.location.pathname);
+  const redirect = isAuthPage ? DEFAULT_AUTH_REDIRECT : currentAppPath();
+  const params = new URLSearchParams({
+    error: reason,
+    redirect,
+  });
+
+  return `/login?${params.toString()}`;
+}
+
+function clearClientAuthState(): void {
+  clearClientAuthStorage();
+  clearAuthRedirectState();
+
+  try {
+    insforge.getHttpClient?.().setAuthToken?.('');
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+export async function resetStaleAuthState(reason: AuthResetReason = 'session_reset'): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!authResetPromise) {
+    authResetPromise = (async () => {
+      try {
+        window.sessionStorage.setItem(FORCED_REAUTH_REASON_KEY, reason);
+      } catch {
+        // sessionStorage might be unavailable.
+      }
+
+      clearClientAuthState();
+
+      try {
+        await insforge.auth.signOut();
+      } catch {
+        // SDK sign-out is best-effort. Continue clearing server cookies below.
+      }
+
+      try {
+        await fetch('/api/auth', {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+      } catch {
+        // Cookie cleanup is best-effort; redirect still recovers the session.
+      }
+
+      window.location.replace(buildAuthResetRedirectUrl(reason));
+    })().finally(() => {
+      authResetPromise = null;
+    });
+  }
+
+  return authResetPromise;
+}
+
 export async function getAccessToken(): Promise<string | null> {
   try {
     // Guard against SDK hanging (e.g. network issues to auth server)
@@ -28,11 +175,19 @@ export async function getAccessToken(): Promise<string | null> {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
     ]);
     if (!result) return null;
+
     const token = result?.data?.session?.accessToken;
     if (token && !isTokenExpired(token)) {
       return token;
     }
-    return null;
+
+    if (!refreshPromise) {
+      refreshPromise = tryRefreshToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+
+    return refreshPromise;
   } catch {
     return null;
   }

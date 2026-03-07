@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PasswordField } from '@/components/PasswordField';
 import { buildVerifyEmailPath, storePendingVerification } from '@/lib/auth-verification';
 import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
+import { consumeForcedReauthReason } from '@/lib/auth';
 
 function LoadingSpinner(): ReactNode {
   return (
@@ -37,6 +38,9 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'failed to complete authentication': '登录完成失败，请重试',
   'auth_failed': '登录完成失败，请重试',
   'oauth can only be initiated in browser': '请在浏览器中登录',
+  'session_reset': '登录状态已重置，请重新登录',
+  'session_expired': '登录已过期，请重新登录',
+  'session_recovery_failed': '登录状态恢复失败，请重新登录',
 };
 
 function translateError(error: string): string {
@@ -66,6 +70,11 @@ function LoginPageContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [storedAuthError, setStoredAuthError] = useState<string | null>(null);
+  const effectiveAuthError = authError || storedAuthError;
+  const hasForcedReauthError = effectiveAuthError === 'session_reset'
+    || effectiveAuthError === 'session_expired'
+    || effectiveAuthError === 'session_recovery_failed';
 
 
   useEffect(() => {
@@ -73,20 +82,29 @@ function LoginPageContent() {
   }, [redirectUrl]);
 
   useEffect(() => {
-    if (!authError) return;
-    setSuccessMessage('');
-    setError(translateError(authError));
+    if (authError) {
+      setStoredAuthError(null);
+      return;
+    }
+
+    setStoredAuthError(consumeForcedReauthReason());
   }, [authError]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!effectiveAuthError) return;
+    setSuccessMessage('');
+    setError(translateError(effectiveAuthError));
+  }, [effectiveAuthError]);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !hasForcedReauthError) {
       const storedRedirect = getStoredAuthRedirect(redirectUrl);
       sessionStorage.removeItem('auth_redirect');
       router.push(storedRedirect);
     }
-  }, [isLoading, isAuthenticated, router, redirectUrl]);
+  }, [isLoading, isAuthenticated, hasForcedReauthError, router, redirectUrl]);
 
-  if (isLoading || isAuthenticated) {
+  if (isLoading || (isAuthenticated && !hasForcedReauthError)) {
     return <LoadingSpinner />;
   }
 

@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth';
+import { getAccessToken, resetStaleAuthState } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -47,6 +47,7 @@ export interface HeadlineNews {
   fact_summary: string;
   deep_analysis: string;
   url: string;
+  published_at?: string;
 }
 
 export interface BriefNews {
@@ -54,6 +55,7 @@ export interface BriefNews {
   summary: string;
   analysis: string;
   url: string;
+  published_at?: string;
 }
 
 export interface NewsSection {
@@ -107,6 +109,7 @@ export interface DigestHeadlineNews {
   fact_summary: string;
   deep_analysis: string;
   url: string;
+  published_at?: string;
 }
 
 export interface DigestBriefNews {
@@ -115,6 +118,7 @@ export interface DigestBriefNews {
   summary: string;
   analysis: string;
   url: string;
+  published_at?: string;
 }
 
 export interface DigestNewsSection {
@@ -409,6 +413,7 @@ export interface SectorNews {
   title: string;
   summary: string;
   url?: string;
+  published_at?: string;
 }
 
 export interface SectorEvent {
@@ -678,6 +683,7 @@ export interface MorningOvernightItem {
   title: string;
   analysis: string;
   url?: string;
+  published_at?: string;
 }
 
 export interface MorningTodayFocusItem {
@@ -866,12 +872,60 @@ export interface ConversationSaveRequest {
   message_count: number;
 }
 
-async function _authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
-  const token = await getAccessToken();
+const AUTH_RECOVERY_WAIT_MS = 2500;
+const AUTH_RECOVERY_POLL_MS = 150;
+const AUTH_RECOVERY_ERROR = '登录状态尚未恢复，请稍后重试或刷新页面。';
+const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resolveAccessToken(required: boolean = false): Promise<string | null> {
+  if (!required) {
+    return getAccessToken();
+  }
+
+  const deadline = Date.now() + AUTH_RECOVERY_WAIT_MS;
+  while (true) {
+    const token = await getAccessToken();
+    if (token) {
+      return token;
+    }
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      await resetStaleAuthState('session_recovery_failed');
+      throw new Error(AUTH_RECOVERY_ERROR);
+    }
+
+    await sleep(Math.min(AUTH_RECOVERY_POLL_MS, remaining));
+  }
+}
+
+async function _authHeaders(
+  base: Record<string, string> = {},
+  { required = false }: { required?: boolean } = {},
+): Promise<Record<string, string>> {
+  const token = await resolveAccessToken(required);
   if (token) {
     return { ...base, Authorization: `Bearer ${token}` };
   }
   return base;
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  const error = await response.json().catch(() => ({ detail: fallback }));
+  return error.detail || error.error || fallback;
+}
+
+async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
+  if (response.status === 401) {
+    await resetStaleAuthState('session_expired');
+    throw new Error(AUTH_EXPIRED_ERROR);
+  }
+
+  throw new Error(await readApiError(response, fallback));
 }
 
 export const api = {
@@ -931,21 +985,14 @@ export const api = {
   },
 
   generateDigest: async (symbols: string[]): Promise<DigestResponse> => {
-    const headers = await _authHeaders({ 'Content-Type': 'application/json' });
-    if (!headers['Authorization']) {
-      throw new Error('登录已过期，请刷新页面或重新登录');
-    }
+    const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
     const response = await fetch(`${API_BASE_URL}/digest`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ symbols }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('登录已过期，请刷新页面或重新登录');
-      }
-      const error = await response.json().catch(() => ({ detail: 'Failed to generate digest' }));
-      throw new Error(error.detail || 'Failed to generate digest');
+      await throwProtectedApiError(response, 'Failed to generate digest');
     }
     return response.json();
   },
@@ -1290,58 +1337,41 @@ export const api = {
     },
 
     subscribe: async (sectorId: string): Promise<SectorSubscribeResponse> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
-      if (!headers['Authorization']) {
-        throw new Error('登录已过期，请刷新页面或重新登录');
-      }
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
       const response = await fetch(`${API_BASE_URL}/sectors/subscribe`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ sector_id: sectorId }),
       });
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('登录已过期，请刷新页面或重新登录');
-        }
-        const error = await response.json().catch(() => ({ detail: 'Failed to subscribe to sector' }));
-        throw new Error(error.detail || 'Failed to subscribe to sector');
+        await throwProtectedApiError(response, 'Failed to subscribe to sector');
       }
       return response.json();
     },
 
     unsubscribe: async (sectorId: string): Promise<SectorUnsubscribeResponse> => {
-      const headers = await _authHeaders();
-      if (!headers['Authorization']) {
-        throw new Error('登录已过期，请刷新页面或重新登录');
-      }
+      const headers = await _authHeaders({}, { required: true });
       const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/unsubscribe`, {
         method: 'DELETE',
         headers,
       });
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('登录已过期，请刷新页面或重新登录');
-        }
-        const error = await response.json().catch(() => ({ detail: 'Failed to unsubscribe from sector' }));
-        throw new Error(error.detail || 'Failed to unsubscribe from sector');
+        await throwProtectedApiError(response, 'Failed to unsubscribe from sector');
       }
       return response.json();
     },
 
     getSubscriptions: async (): Promise<SectorSubscription[]> => {
-      const headers = await _authHeaders();
-      if (!headers['Authorization']) {
-        throw new Error('登录已过期，请刷新页面或重新登录');
-      }
+      const headers = await _authHeaders({}, { required: true });
       const maxAttempts = 2;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const response = await fetch(`${API_BASE_URL}/sectors/subscriptions`, { headers });
         if (!response.ok) {
           if (response.status === 401) {
-            throw new Error('登录已过期，请刷新页面或重新登录');
+            await resetStaleAuthState('session_expired');
+            throw new Error(AUTH_EXPIRED_ERROR);
           }
-          const error = await response.json().catch(() => ({ detail: 'Failed to fetch subscriptions' }));
-          const msg = error.detail || error.error || 'Failed to fetch subscriptions';
+          const msg = await readApiError(response, 'Failed to fetch subscriptions');
           if (attempt < maxAttempts && response.status === 400 && msg.includes('schema cache')) {
             await new Promise(r => setTimeout(r, 2000));
             continue;
@@ -1450,10 +1480,10 @@ export const api = {
 
   watchlist: {
     get: async (_userId?: string): Promise<WatchlistData | null> => {
-      const headers = await _authHeaders();
+      const headers = await _authHeaders({}, { required: true });
       const response = await fetch(`${API_BASE_URL}/watchlist`, { headers });
       if (!response.ok) {
-        throw new Error('Failed to fetch watchlist');
+        await throwProtectedApiError(response, 'Failed to fetch watchlist');
       }
       const json = await response.json();
       if (!json.success) {
@@ -1468,7 +1498,7 @@ export const api = {
       email: string = '',
       baseUpdatedAt?: string,
     ): Promise<SaveWatchlistResponse> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
       const response = await fetch(`${API_BASE_URL}/watchlist`, {
         method: 'PUT',
         headers,
@@ -1479,9 +1509,13 @@ export const api = {
         }),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to save watchlist' }));
+        if (response.status === 401) {
+          await resetStaleAuthState('session_expired');
+        }
         throw new ApiError(
-          error.detail || error.error || 'Failed to save watchlist',
+          response.status === 401
+            ? AUTH_EXPIRED_ERROR
+            : await readApiError(response, 'Failed to save watchlist'),
           response.status,
         );
       }
@@ -1498,24 +1532,24 @@ export const api = {
 
   digests: {
     list: async (_userId: string, limit = 10, offset = 0): Promise<{ data: UserDigestItem[]; total: number }> => {
-      const headers = await _authHeaders();
+      const headers = await _authHeaders({}, { required: true });
       const response = await fetch(
         `${API_BASE_URL}/digests?limit=${limit}&offset=${offset}`,
         { headers }
       );
       if (!response.ok) {
-        throw new Error('Failed to fetch digests');
+        await throwProtectedApiError(response, 'Failed to fetch digests');
       }
       const json = await response.json();
       return { data: json.data || [], total: json.total || 0 };
     },
 
     getById: async (id: string): Promise<UserDigestItem | null> => {
-      const headers = await _authHeaders();
+      const headers = await _authHeaders({}, { required: true });
       const response = await fetch(`${API_BASE_URL}/digests/${id}`, { headers });
       if (!response.ok) {
         if (response.status === 404) return null;
-        throw new Error('Failed to fetch digest');
+        await throwProtectedApiError(response, 'Failed to fetch digest');
       }
       const json = await response.json();
       return json.data || null;
@@ -1525,15 +1559,14 @@ export const api = {
   // Screener API
   screener: {
     filter: async (req: ScreenerFilterRequest): Promise<ScreenerFilterResult> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
       const response = await fetch(`${API_BASE_URL}/screener/filter`, {
         method: 'POST',
         headers,
         body: JSON.stringify(req),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to filter stocks' }));
-        throw new Error(error.detail || 'Failed to filter stocks');
+        await throwProtectedApiError(response, 'Failed to filter stocks');
       }
       return response.json();
     },
@@ -1555,30 +1588,20 @@ export const api = {
     },
 
     ask: async (req: ScreenerAskRequest): Promise<ScreenerAskResult> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
-      if (!headers['Authorization']) {
-        throw new Error('登录已过期，请刷新页面或重新登录');
-      }
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
       const response = await fetch(`${API_BASE_URL}/screener/ask`, {
         method: 'POST',
         headers,
         body: JSON.stringify(req),
       });
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('登录已过期，请刷新页面或重新登录');
-        }
-        const error = await response.json().catch(() => ({ detail: 'AI 查询失败' }));
-        throw new Error(error.detail || 'AI 查询失败');
+        await throwProtectedApiError(response, 'AI 查询失败');
       }
       return response.json();
     },
 
     pick: async (req: PickRequest): Promise<PickResult> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
-      if (!headers['Authorization']) {
-        throw new Error('登录已过期，请刷新页面或重新登录');
-      }
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 90_000);
       try {
@@ -1589,11 +1612,7 @@ export const api = {
           signal: controller.signal,
         });
         if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('登录已过期，请刷新页面或重新登录');
-          }
-          const error = await response.json().catch(() => ({ detail: 'AI 助手暂时无法响应' }));
-          throw new Error(error.detail || 'AI 助手暂时无法响应');
+          await throwProtectedApiError(response, 'AI 助手暂时无法响应');
         }
         return response.json();
       } catch (err) {
@@ -1608,57 +1627,57 @@ export const api = {
 
     conversations: {
       list: async (): Promise<{ conversations: ConversationSummary[] }> => {
-        const headers = await _authHeaders();
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/screener/conversations`, { headers });
         if (!response.ok) {
-          throw new Error('Failed to fetch conversations');
+          await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();
       },
 
       get: async (id: string): Promise<Record<string, unknown>> => {
-        const headers = await _authHeaders();
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/screener/conversations/${id}`, { headers });
         if (!response.ok) {
-          throw new Error('Failed to fetch conversation');
+          await throwProtectedApiError(response, 'Failed to fetch conversation');
         }
         return response.json();
       },
 
       create: async (req: ConversationSaveRequest): Promise<{ id: string }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
         const response = await fetch(`${API_BASE_URL}/screener/conversations`, {
           method: 'POST',
           headers,
           body: JSON.stringify(req),
         });
         if (!response.ok) {
-          throw new Error('Failed to create conversation');
+          await throwProtectedApiError(response, 'Failed to create conversation');
         }
         return response.json();
       },
 
       update: async (id: string, req: ConversationSaveRequest): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
         const response = await fetch(`${API_BASE_URL}/screener/conversations/${id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(req),
         });
         if (!response.ok) {
-          throw new Error('Failed to update conversation');
+          await throwProtectedApiError(response, 'Failed to update conversation');
         }
         return response.json();
       },
 
       delete: async (id: string): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders();
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/screener/conversations/${id}`, {
           method: 'DELETE',
           headers,
         });
         if (!response.ok) {
-          throw new Error('Failed to delete conversation');
+          await throwProtectedApiError(response, 'Failed to delete conversation');
         }
         return response.json();
       },
