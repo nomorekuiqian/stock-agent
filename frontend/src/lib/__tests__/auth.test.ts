@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  cleanupAuthCallbackUrlParams,
   isTokenExpired,
   getAccessToken,
   getAccessTokenResolution,
@@ -77,6 +78,43 @@ describe('isTokenExpired', () => {
 
   it('returns true for invalid base64 in payload', () => {
     expect(isTokenExpired('header.!!!invalid!!!.sig')).toBe(true);
+  });
+});
+
+describe('cleanupAuthCallbackUrlParams', () => {
+  const appOrigin = window.location.origin;
+
+  afterEach(() => {
+    window.history.replaceState({}, '', `${appOrigin}/`);
+    vi.restoreAllMocks();
+  });
+
+  it('removes insforge callback params from the URL', () => {
+    window.history.replaceState(
+      {},
+      '',
+      `${appOrigin}/screener?insforge_code=abc123&email=user%40example.com&foo=bar`
+    );
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+
+    const changed = cleanupAuthCallbackUrlParams();
+
+    expect(changed).toBe(true);
+    expect(replaceState).toHaveBeenCalledWith(
+      {},
+      document.title,
+      `${appOrigin}/screener?foo=bar`
+    );
+  });
+
+  it('does nothing when no auth callback params exist', () => {
+    window.history.replaceState({}, '', `${appOrigin}/screener?foo=bar`);
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+
+    const changed = cleanupAuthCallbackUrlParams();
+
+    expect(changed).toBe(false);
+    expect(replaceState).not.toHaveBeenCalled();
   });
 });
 

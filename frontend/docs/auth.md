@@ -53,6 +53,7 @@
   -> sdk.loginWithOAuth('google', redirectTo)
   -> OAuth 成功后回到目标页
   -> SDK / Provider 恢复用户状态
+  -> SDK 完成 code exchange 后清理 URL 中的 insforge_code
   -> 如有 callback 错误，兼容页 /auth/callback 会带 error 回 /login
 ```
 
@@ -187,6 +188,7 @@ Insforge Auth API
   - Mac：`Command + Shift + R`
   - Windows：`Ctrl + Shift + R`
   - 手机端：浏览器菜单重新加载或下拉刷新；若仍失败，关闭当前页面后重新打开
+- `insforge_code` 是回调链中的一次性授权码，不是长期 session token。前端现在会在 SDK 初始化和恢复链结束后，再额外清理一次 `insforge_code` / `access_token` / `user_id` / `email`，避免这些参数长时间停留在地址栏
 
 ## 前后端职责
 

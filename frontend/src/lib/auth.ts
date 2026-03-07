@@ -143,6 +143,30 @@ function clearAuthRedirectState(): void {
   }
 }
 
+export function cleanupAuthCallbackUrlParams(): boolean {
+  if (typeof window === 'undefined' || typeof window.history?.replaceState !== 'function') {
+    return false;
+  }
+
+  const url = new URL(window.location.href);
+  const callbackParams = ['insforge_code', 'access_token', 'user_id', 'email'];
+  let changed = false;
+
+  for (const param of callbackParams) {
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return false;
+  }
+
+  window.history.replaceState({}, document.title, url.toString());
+  return true;
+}
+
 export function consumeForcedReauthReason(): AuthResetReason | null {
   if (typeof window === 'undefined') {
     return null;

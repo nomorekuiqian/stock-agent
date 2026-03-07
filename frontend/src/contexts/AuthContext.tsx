@@ -3,7 +3,7 @@
 import { createContext, useContext, useCallback, useEffect, useRef, useState, ReactNode, useMemo } from 'react';
 import { useInsforge } from '@insforge/nextjs';
 import { useQueryClient } from '@tanstack/react-query';
-import { syncClientAuthSession, User } from '@/lib/auth';
+import { cleanupAuthCallbackUrlParams, syncClientAuthSession, User } from '@/lib/auth';
 import { buildAbsoluteVerifyEmailUrl } from '@/lib/auth-verification';
 import { getStoredAuthRedirect } from '@/lib/auth-redirect';
 
@@ -125,6 +125,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => { cancelled = true; };
   }, [sdk.isLoaded, sdk.user, sdk]);
+
+  useEffect(() => {
+    if (!sdk.isLoaded || isRecovering) {
+      return;
+    }
+
+    cleanupAuthCallbackUrlParams();
+  }, [sdk.isLoaded, isRecovering]);
 
   // Map SDK user (InsforgeUser) to our User type
   const user: User | null = useMemo(() => {
