@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
+import { AuthRecoveryInstructions } from '@/components/AuthRecoveryInstructions';
 import { api, DigestResponse } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
@@ -269,6 +270,7 @@ function ForYouPageContent() {
               </svg>
               刷新页面
             </button>
+            <AuthRecoveryInstructions redirectPath="/for-you" />
           </div>
 
           {/* Still show existing digest history if available */}

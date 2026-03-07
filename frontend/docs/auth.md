@@ -172,10 +172,17 @@ Insforge Auth API
 
 1. `api.ts` 的 `_authHeaders(..., { required: true })` 会短暂等待 token 恢复
 2. 如果恢复窗口内始终只有“临时失败”（网络抖动、短暂 5xx、refresh 超时），返回可重试错误，不立刻强制重登
-3. 如果 refresh / session 复核明确判定为 `no_session`，或者 401 后再次复核确认会话已失效，才触发 `resetStaleAuthState('session_expired')`
-4. `resetStaleAuthState()` 会先做 SDK `signOut()`，再清理 `localStorage` 中的 auth token/user，调用 `DELETE /api/auth` 清 cookie，并跳回 `/login?error=session_*`
+3. 如果 refresh / session 复核明确判定为 `no_session`，前端只返回“登录已过期”错误，不再自动清 session 或强制跳回登录页
+4. 用户可以手动刷新页面，或在需要时主动重新登录；系统不再因为单次 401/恢复失败就把整个前端登录态清空
 
-这样既能避免用户卡在“UI 看起来已登录，但所有专属接口都 401”的半登录状态，也能减少因弱网或瞬时服务异常导致的误踢下线。
+这样可以先把认证行为收敛回“尽量不自动动用户 session”的模式，避免线上因为单次 401 或恢复时序问题把用户踢回登录页。
+
+### Production 额外约束
+
+- 线上真实主站当前是 `https://www.themarketbrew.com`；`https://themarketbrew.com` 会先 307 到 `www`
+- 因此 auth cookies 不能再默认只依赖当前 host；Server Proxy 在 production 会把 auth cookies 统一写到 `.themarketbrew.com`
+- 这样可以减少 `www` / 裸域切换、旧 cookie 残留、以及生产环境 host 归一化带来的 session 分裂
+- 受保护接口在收到 `401` 后，如果 `forceRefresh` 成功，前端会自动重试一次原请求；如果仍然失败，只展示错误，不再自动强制登出
 
 ## 前后端职责
 

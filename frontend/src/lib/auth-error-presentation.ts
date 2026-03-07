@@ -19,8 +19,8 @@ const TRANSIENT_MARKERS = [
   'session_recovery_failed',
 ] as const;
 
-const EXPIRED_MESSAGE = '登录已过期，正在跳转到登录页。';
-const TRANSIENT_MESSAGE = '登录状态校验暂时失败，请刷新页面重试。如果多次出现，请稍后再试。';
+const EXPIRED_MESSAGE = '登录已过期。请先尝试 Command + Shift + R 刷新页面；如果仍然失败，请退出登录后再重试。';
+const TRANSIENT_MESSAGE = '登录状态校验暂时失败。请先尝试 Command + Shift + R 刷新页面；如果仍然失败，请退出登录后再重试。';
 
 function toErrorMessage(error: unknown): string | null {
   if (typeof error === 'string' && error.trim()) {
@@ -42,7 +42,7 @@ export function getAuthErrorPresentation(
     return {
       kind: 'expired',
       message: EXPIRED_MESSAGE,
-      shouldRedirectToLogin: true,
+      shouldRedirectToLogin: false,
     };
   }
 

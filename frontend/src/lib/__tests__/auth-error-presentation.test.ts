@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { getAuthErrorPresentation } from '../auth-error-presentation';
 
 describe('getAuthErrorPresentation', () => {
-  it('maps expired auth errors to login redirect copy', () => {
+  it('maps expired auth errors to manual re-login copy', () => {
     const result = getAuthErrorPresentation(
       new Error('登录已过期，请刷新页面或重新登录'),
       'fallback'
@@ -10,8 +10,8 @@ describe('getAuthErrorPresentation', () => {
 
     expect(result).toEqual({
       kind: 'expired',
-      message: '登录已过期，正在跳转到登录页。',
-      shouldRedirectToLogin: true,
+      message: '登录已过期。请先尝试 Command + Shift + R 刷新页面；如果仍然失败，请退出登录后再重试。',
+      shouldRedirectToLogin: false,
     });
   });
 
@@ -23,7 +23,7 @@ describe('getAuthErrorPresentation', () => {
 
     expect(result).toEqual({
       kind: 'transient',
-      message: '登录状态校验暂时失败，请刷新页面重试。如果多次出现，请稍后再试。',
+      message: '登录状态校验暂时失败。请先尝试 Command + Shift + R 刷新页面；如果仍然失败，请退出登录后再重试。',
       shouldRedirectToLogin: false,
     });
   });

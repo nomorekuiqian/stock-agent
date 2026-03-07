@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
+import { AuthRecoveryInstructions } from '@/components/AuthRecoveryInstructions';
 import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { api, SectorInfo, WatchlistData } from '@/lib/api';
@@ -331,6 +332,7 @@ function WatchlistPageContent() {
               </svg>
               刷新页面
             </button>
+            <AuthRecoveryInstructions redirectPath="/for-you/watchlist" />
           </div>
         </div>
       ) : (

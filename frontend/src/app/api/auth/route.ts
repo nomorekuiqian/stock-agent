@@ -11,7 +11,33 @@ const handlers = createAuthRouteHandlers({
   baseUrl,
 });
 
-function clearAuthCookie(response: NextResponse, name: string) {
+function resolveSharedAuthCookieDomain(request: NextRequest): string | undefined {
+  const hostname = request.nextUrl.hostname;
+  if (process.env.NODE_ENV !== 'production') {
+    return undefined;
+  }
+
+  if (hostname === 'themarketbrew.com' || hostname.endsWith('.themarketbrew.com')) {
+    return '.themarketbrew.com';
+  }
+
+  return undefined;
+}
+
+function buildAuthCookieOptions(request: NextRequest) {
+  const domain = resolveSharedAuthCookieDomain(request);
+
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    maxAge: 7 * 24 * 60 * 60,
+    path: '/',
+    ...(domain ? { domain } : {}),
+  };
+}
+
+function clearAuthCookie(response: NextResponse, request: NextRequest, name: string) {
   response.cookies.set(name, '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -19,6 +45,39 @@ function clearAuthCookie(response: NextResponse, name: string) {
     maxAge: 0,
     path: '/',
   });
+
+  const domain = resolveSharedAuthCookieDomain(request);
+  if (domain) {
+    response.cookies.set(name, '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+      domain,
+    });
+  }
+}
+
+function extractRefreshToken(response: Response): string | null {
+  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
+  const setCookieHeaders = typeof getSetCookie === 'function'
+    ? getSetCookie.call(response.headers)
+    : [];
+
+  for (const cookie of setCookieHeaders) {
+    if (cookie.startsWith('insforge_refresh_token=')) {
+      return cookie.split('=')[1]?.split(';')[0] || null;
+    }
+  }
+
+  const combinedSetCookie = response.headers.get('set-cookie');
+  if (!combinedSetCookie) {
+    return null;
+  }
+
+  const match = combinedSetCookie.match(/insforge_refresh_token=([^;,\s]+)/);
+  return match?.[1] || null;
 }
 
 // Wrap POST to add a "refresh" action that the SDK doesn't provide.
@@ -34,7 +93,7 @@ async function POST(request: NextRequest) {
   }
 
   if (body?.action === 'sign-in') {
-    return handleSignIn(body as { email: string; password: string });
+    return handleSignIn(request, body as { email: string; password: string });
   }
 
   if (body?.action === 'refresh') {
@@ -44,7 +103,7 @@ async function POST(request: NextRequest) {
   return handlers.POST(request);
 }
 
-async function handleSignIn(body: { email: string; password: string }): Promise<NextResponse> {
+async function handleSignIn(request: NextRequest, body: { email: string; password: string }): Promise<NextResponse> {
   const { email, password } = body;
   if (!email || !password) {
     return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
@@ -87,13 +146,7 @@ async function handleSignIn(body: { email: string; password: string }): Promise<
       csrfToken: data.csrfToken,
     });
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-    };
+    const cookieOptions = buildAuthCookieOptions(request);
 
     nextResponse.cookies.set('insforge-session', data.accessToken, cookieOptions);
 
@@ -114,16 +167,10 @@ async function handleSignIn(body: { email: string; password: string }): Promise<
     }
 
     // Extract refresh token from Set-Cookie header and store on our domain
-    const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
-    const setCookieHeaders = typeof getSetCookie === 'function' ? getSetCookie.call(response.headers) : [];
-    for (const cookie of setCookieHeaders) {
-      if (cookie.startsWith('insforge_refresh_token=')) {
-        const tokenValue = cookie.split('=')[1]?.split(';')[0];
-        if (tokenValue) {
-          nextResponse.cookies.set('insforge-refresh', tokenValue, cookieOptions);
-          nextResponse.cookies.set('insforge_refresh_token', tokenValue, cookieOptions);
-        }
-      }
+    const refreshedToken = extractRefreshToken(response);
+    if (refreshedToken) {
+      nextResponse.cookies.set('insforge-refresh', refreshedToken, cookieOptions);
+      nextResponse.cookies.set('insforge_refresh_token', refreshedToken, cookieOptions);
     }
 
     return nextResponse;
@@ -189,13 +236,7 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
       csrfToken: data.csrfToken,
     });
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
-    };
+    const cookieOptions = buildAuthCookieOptions(request);
 
     nextResponse.cookies.set('insforge-session', data.accessToken, cookieOptions);
 
@@ -211,16 +252,10 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
-    const setCookieHeaders = typeof getSetCookie === 'function' ? getSetCookie.call(response.headers) : [];
-    for (const cookie of setCookieHeaders) {
-      if (cookie.startsWith('insforge_refresh_token=')) {
-        const tokenValue = cookie.split('=')[1]?.split(';')[0];
-        if (tokenValue) {
-          nextResponse.cookies.set('insforge-refresh', tokenValue, cookieOptions);
-          nextResponse.cookies.set('insforge_refresh_token', tokenValue, cookieOptions);
-        }
-      }
+    const rotatedRefreshToken = extractRefreshToken(response);
+    if (rotatedRefreshToken) {
+      nextResponse.cookies.set('insforge-refresh', rotatedRefreshToken, cookieOptions);
+      nextResponse.cookies.set('insforge_refresh_token', rotatedRefreshToken, cookieOptions);
     }
 
     return nextResponse;
@@ -238,12 +273,12 @@ const GET = handlers.GET;
 async function DELETE(request: NextRequest) {
   const response = await handlers.DELETE(request);
 
-  clearAuthCookie(response, 'insforge-refresh');
-  clearAuthCookie(response, 'insforge_refresh_token');
-  clearAuthCookie(response, 'insforge-session');
-  clearAuthCookie(response, 'insforge-user');
-  clearAuthCookie(response, 'insforge-csrf');
-  clearAuthCookie(response, 'insforge_csrf_token');
+  clearAuthCookie(response, request, 'insforge-refresh');
+  clearAuthCookie(response, request, 'insforge_refresh_token');
+  clearAuthCookie(response, request, 'insforge-session');
+  clearAuthCookie(response, request, 'insforge-user');
+  clearAuthCookie(response, request, 'insforge-csrf');
+  clearAuthCookie(response, request, 'insforge_csrf_token');
 
   return response;
 }

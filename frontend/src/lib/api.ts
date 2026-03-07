@@ -1,4 +1,4 @@
-import { getAccessToken, getAccessTokenResolution, resetStaleAuthState } from './auth';
+import { getAccessToken, getAccessTokenResolution } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -895,7 +895,6 @@ async function resolveAccessToken(required: boolean = false): Promise<string | n
     }
 
     if (resolution.state === 'no_session') {
-      await resetStaleAuthState('session_expired');
       throw new Error(AUTH_EXPIRED_ERROR);
     }
 
@@ -924,11 +923,22 @@ async function readApiError(response: Response, fallback: string): Promise<strin
   return error.detail || error.error || fallback;
 }
 
+function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
+  if (!headers) {
+    return {};
+  }
+
+  const nextHeaders: Record<string, string> = {};
+  new Headers(headers).forEach((value, key) => {
+    nextHeaders[key] = value;
+  });
+  return nextHeaders;
+}
+
 async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
   if (response.status === 401) {
     const resolution = await getAccessTokenResolution({ forceRefresh: true });
     if (resolution.state === 'no_session') {
-      await resetStaleAuthState('session_expired');
       throw new Error(AUTH_EXPIRED_ERROR);
     }
 
@@ -936,6 +946,40 @@ async function throwProtectedApiError(response: Response, fallback: string): Pro
   }
 
   throw new Error(await readApiError(response, fallback));
+}
+
+async function fetchProtected(
+  url: string,
+  init: RequestInit = {},
+  fallback: string,
+): Promise<Response> {
+  const baseHeaders = toHeaderRecord(init.headers);
+
+  const doFetch = async () => fetch(url, {
+    ...init,
+    headers: await _authHeaders(baseHeaders, { required: true }),
+  });
+
+  const response = await doFetch();
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const resolution = await getAccessTokenResolution({ forceRefresh: true });
+  if (resolution.state === 'no_session') {
+    throw new Error(AUTH_EXPIRED_ERROR);
+  }
+
+  if (!resolution.token) {
+    throw new Error(AUTH_TEMPORARY_ERROR);
+  }
+
+  const retriedResponse = await doFetch();
+  if (retriedResponse.status === 401) {
+    await throwProtectedApiError(retriedResponse, fallback);
+  }
+
+  return retriedResponse;
 }
 
 export const api = {
@@ -995,12 +1039,11 @@ export const api = {
   },
 
   generateDigest: async (symbols: string[]): Promise<DigestResponse> => {
-    const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-    const response = await fetch(`${API_BASE_URL}/digest`, {
+    const response = await fetchProtected(`${API_BASE_URL}/digest`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbols }),
-    });
+    }, 'Failed to generate digest');
     if (!response.ok) {
       await throwProtectedApiError(response, 'Failed to generate digest');
     }
@@ -1489,8 +1532,11 @@ export const api = {
 
   watchlist: {
     get: async (_userId?: string): Promise<WatchlistData | null> => {
-      const headers = await _authHeaders({}, { required: true });
-      const response = await fetch(`${API_BASE_URL}/watchlist`, { headers });
+      const response = await fetchProtected(
+        `${API_BASE_URL}/watchlist`,
+        {},
+        'Failed to fetch watchlist',
+      );
       if (!response.ok) {
         await throwProtectedApiError(response, 'Failed to fetch watchlist');
       }
@@ -1507,16 +1553,15 @@ export const api = {
       email: string = '',
       baseUpdatedAt?: string,
     ): Promise<SaveWatchlistResponse> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-      const response = await fetch(`${API_BASE_URL}/watchlist`, {
+      const response = await fetchProtected(`${API_BASE_URL}/watchlist`, {
         method: 'PUT',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbols,
           email,
           base_updated_at: baseUpdatedAt,
         }),
-      });
+      }, 'Failed to save watchlist');
       if (!response.ok) {
         if (response.status === 401) {
           await throwProtectedApiError(response, 'Failed to save watchlist');
@@ -1539,10 +1584,10 @@ export const api = {
 
   digests: {
     list: async (_userId: string, limit = 10, offset = 0): Promise<{ data: UserDigestItem[]; total: number }> => {
-      const headers = await _authHeaders({}, { required: true });
-      const response = await fetch(
+      const response = await fetchProtected(
         `${API_BASE_URL}/digests?limit=${limit}&offset=${offset}`,
-        { headers }
+        {},
+        'Failed to fetch digests',
       );
       if (!response.ok) {
         await throwProtectedApiError(response, 'Failed to fetch digests');
@@ -1552,8 +1597,11 @@ export const api = {
     },
 
     getById: async (id: string): Promise<UserDigestItem | null> => {
-      const headers = await _authHeaders({}, { required: true });
-      const response = await fetch(`${API_BASE_URL}/digests/${id}`, { headers });
+      const response = await fetchProtected(
+        `${API_BASE_URL}/digests/${id}`,
+        {},
+        'Failed to fetch digest',
+      );
       if (!response.ok) {
         if (response.status === 404) return null;
         await throwProtectedApiError(response, 'Failed to fetch digest');
