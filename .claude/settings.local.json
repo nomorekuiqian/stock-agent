@@ -196,7 +196,8 @@
       "WebFetch(domain:ghuntley.com)",
       "Bash(railway whoami:*)",
       "Bash(railway deployment:*)",
-      "WebFetch(domain:docs.railway.com)"
+      "WebFetch(domain:docs.railway.com)",
+      "Bash(codex:*)"
     ],
     "deny": [],
     "ask": []
