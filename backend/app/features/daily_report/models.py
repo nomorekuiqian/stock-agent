@@ -35,6 +35,7 @@ class HeadlineNews(BaseModel):
         description="5-6 sentence deep analysis: background context, why it matters, market/sector/stock implications, what to watch next"
     )
     url: str = Field(description="The article_id number of the source article from the input news array (e.g. '0', '3', '12')")
+    published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format, filled by Python post-processing")
 
 
 class BriefNews(BaseModel):
@@ -44,6 +45,7 @@ class BriefNews(BaseModel):
     summary: str = Field(description="One sentence summary of what happened")
     analysis: str = Field(description="2-3 sentence analysis of market impact")
     url: str = Field(description="The article_id number of the source article from the input news array (e.g. '1', '7')")
+    published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format, filled by Python post-processing")
 
 
 class NewsSection(BaseModel):

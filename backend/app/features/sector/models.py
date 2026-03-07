@@ -19,6 +19,7 @@ class SectorNews(BaseModel):
     title: str = Field(description="News headline")
     summary: str = Field(description="Brief summary of the news")
     url: Optional[str] = Field(default=None, description="Link to the full article")
+    published_at: Optional[str] = Field(default=None, description="Original article publish timestamp in ISO-8601 format")
 
 
 class SectorEvent(BaseModel):

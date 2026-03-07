@@ -45,6 +45,7 @@ class DigestHeadlineNews(BaseModel):
     fact_summary: str = Field(..., description="One sentence factual summary")
     deep_analysis: str = Field(..., description="5-6 sentence deep analysis")
     url: str = Field(default="", description="Original article URL")
+    published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format")
 
 
 class DigestBriefNews(BaseModel):
@@ -54,6 +55,7 @@ class DigestBriefNews(BaseModel):
     summary: str = Field(..., description="One sentence summary")
     analysis: str = Field(..., description="2-3 sentence analysis")
     url: str = Field(default="", description="Original article URL")
+    published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format")
 
 
 class DigestNewsSection(BaseModel):
@@ -159,6 +161,7 @@ class HeadlineNews(BaseModel):
         "5) what to watch next"
     )
     url: str = Field(description="Original article URL from input data")
+    published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format, filled by Python post-processing")
 
 
 class BriefNews(BaseModel):
@@ -173,6 +176,7 @@ class BriefNews(BaseModel):
         description="2-3 sentences: why it matters and impact on watched stocks"
     )
     url: str = Field(description="Original article URL from input data")
+    published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format, filled by Python post-processing")
 
 
 class NewsSection(BaseModel):

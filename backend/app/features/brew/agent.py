@@ -403,6 +403,8 @@ class PersonalDigest:
                 len(digest_output.get('events', [])),
             )
 
+            self._attach_news_metadata(digest_output.get("news"), news_result.get("news", []))
+
             return {
                 "success": True,
                 "timestamp": now_iso(),
@@ -443,6 +445,29 @@ class PersonalDigest:
             for n in news
             if n.get("title")
         ]
+
+    def _attach_news_metadata(self, news_section: dict | None, source_news: list) -> None:
+        """Attach publish timestamps to digest news using URL/title matching."""
+        if not isinstance(news_section, dict) or not source_news:
+            return
+
+        url_to_published_at = {}
+        title_to_published_at = {}
+        for article in source_news:
+            url = article.get("url", "")
+            published_at = article.get("publishedDate", "") or ""
+            title = article.get("title", "")
+            if url:
+                url_to_published_at[url] = published_at
+            if title and title not in title_to_published_at:
+                title_to_published_at[title] = published_at
+
+        for item in news_section.get("headlines", []) + news_section.get("briefs", []):
+            if not isinstance(item, dict):
+                continue
+            url = item.get("url", "")
+            title = item.get("title", "")
+            item["published_at"] = url_to_published_at.get(url) or title_to_published_at.get(title, "")
 
     def _filter_earnings(self, earnings: list, user_symbols: list) -> list:
         """Filter earnings to user's watchlist + major tech + related companies."""

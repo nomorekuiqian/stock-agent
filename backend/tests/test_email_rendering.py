@@ -52,6 +52,7 @@ def mock_report_data():
                     "fact_summary": "Federal Reserve kept rates unchanged.",
                     "deep_analysis": "Markets expected the hold. Focus now on March meeting.",
                     "url": "https://example.com/fed",
+                    "published_at": "2025-01-24T23:00:00Z",
                 }
             ],
             "briefs": [
@@ -60,6 +61,7 @@ def mock_report_data():
                     "summary": "Q4 revenue exceeded expectations.",
                     "analysis": "Strong iPhone sales drove the beat.",
                     "url": "https://example.com/aapl",
+                    "published_at": "2025-01-24T20:30:00Z",
                 }
             ],
         },
@@ -113,6 +115,7 @@ def mock_digest_data():
                     "fact_summary": "Semiconductor ETF up 3%.",
                     "deep_analysis": "AI infrastructure spend drives sector.",
                     "url": "https://example.com/chips",
+                    "published_at": "2025-01-24T23:00:00Z",
                 }
             ],
             "briefs": [
@@ -122,6 +125,7 @@ def mock_digest_data():
                     "summary": "Key supplier raises guidance.",
                     "analysis": "Positive for iPhone supply chain.",
                     "url": "https://example.com/aapl-supply",
+                    "published_at": "2025-01-24T20:30:00Z",
                 }
             ],
         },
@@ -163,6 +167,7 @@ class TestFormatHtmlReport:
         html = email_svc._format_html_report(mock_report_data)
         assert "Fed holds rates steady" in html
         assert "Apple beats estimates" in html
+        assert "PT" in html
 
     def test_feedback_links_contain_report_id(self, email_svc, mock_report_data):
         """Feedback section links include report_id."""
@@ -196,6 +201,7 @@ class TestFormatDigestHtml:
         html = email_svc._format_digest_html(mock_digest_data)
         assert "Chip stocks rally" in html
         assert "Apple Q1 Earnings" in html
+        assert "PT" in html
 
     def test_minimal_digest_no_crash(self, email_svc):
         """Minimal digest data renders without error."""

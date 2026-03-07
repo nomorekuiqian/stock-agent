@@ -213,7 +213,7 @@ content: 1-2段，150-250字。回答一个问题：接下来最值得关注的2
 
 analyst_agent = LlmAgent(
     name="market_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.1-pro-preview",
     description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,
@@ -605,12 +605,17 @@ class MarketAgent:
 
         # Build mappings
         id_to_url = {}
+        id_to_published_at = {}
         valid_urls = set()
+        url_to_published_at = {}
         for i, article in enumerate(source_news):
             url = article.get("url", "")
+            published_at = article.get("publishedDate", "") or ""
+            id_to_published_at[str(i)] = published_at
             if url:
                 id_to_url[str(i)] = url
                 valid_urls.add(url)
+                url_to_published_at[url] = published_at
 
         resolved = 0
         kept = 0
@@ -618,13 +623,16 @@ class MarketAgent:
 
         for item in news.get("headlines", []) + news.get("briefs", []):
             url_field = str(item.get("url", "")).strip()
+            published_at = ""
 
             if url_field in id_to_url:
                 # Case 1: article_id -> resolve to real URL
                 item["url"] = id_to_url[url_field]
+                published_at = id_to_published_at.get(url_field, "")
                 resolved += 1
             elif url_field in valid_urls:
                 # Case 2: AI correctly copied a real URL from input
+                published_at = url_to_published_at.get(url_field, "")
                 kept += 1
             elif url_field.startswith("http"):
                 # Case 3: AI wrote a URL but it's not from input (fabricated)
@@ -637,6 +645,7 @@ class MarketAgent:
                 if url_field:
                     cleared += 1
 
+            item["published_at"] = published_at
+
         logger.info("%d resolved from ID, %d valid URLs kept, %d cleared", resolved, kept, cleared)
         return news
-

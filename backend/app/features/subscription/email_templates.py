@@ -32,14 +32,31 @@ _LOGO_URL: str = "https://themarketbrew.com/logo-avatar.png"
 # Utility helpers
 # ---------------------------------------------------------------------------
 
-def format_timestamp(timestamp: str) -> str:
-    """Format ISO timestamp to human-readable format (Pacific timezone)."""
+def format_timestamp(timestamp: str, compact: bool = False) -> str:
+    """Format ISO timestamp to Pacific time with an explicit timezone label."""
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         pacific_dt = to_pacific(dt)
-        return pacific_dt.strftime("%B %d, %Y")
     except Exception:
-        return now_pacific().strftime("%B %d, %Y")
+        pacific_dt = now_pacific()
+
+    time_label = pacific_dt.strftime("%I:%M %p").lstrip("0")
+    if compact:
+        date_label = pacific_dt.strftime("%b %d").replace(" 0", " ")
+        return f"{date_label} · {time_label} PT"
+
+    return f"{pacific_dt.strftime('%B %d, %Y')} · {time_label} PT"
+
+
+def render_timestamp_meta(timestamp: str) -> str:
+    """Render a compact timestamp row for news items."""
+    if not timestamp:
+        return ""
+    return (
+        '<div style="font-size: 11px; color: #a1a1aa; margin-bottom: 6px;">'
+        f'{format_timestamp(timestamp, compact=True)}'
+        "</div>"
+    )
 
 
 def get_time_greeting() -> str:
@@ -411,9 +428,11 @@ def format_html_report(
         if headlines:
             headlines_items = ""
             for headline in headlines:
+                timestamp_html = render_timestamp_meta(headline.get("published_at", ""))
                 headlines_items += f"""
                     <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
                         <a href="{headline.get('url', '#')}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{headline.get('title', '')}</a>
+                        {timestamp_html}
                         <div style="font-size: 12px; color: #71717a; margin-bottom: 8px;">{headline.get('fact_summary', '')}</div>
                         <div style="font-size: 12px; color: #52525b; background: #f8f8f8; padding: 10px 12px; border-radius: 4px; line-height: 1.6;">{headline.get('deep_analysis', '')}</div>
                     </div>
@@ -427,9 +446,11 @@ def format_html_report(
         if briefs:
             briefs_items = ""
             for brief in briefs:
+                timestamp_html = render_timestamp_meta(brief.get("published_at", ""))
                 briefs_items += f"""
                     <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
                         <a href="{brief.get('url', '#')}" style="font-size: 13px; font-weight: 500; color: #18181b; text-decoration: none;">{brief.get('title', '')}</a>
+                        {timestamp_html}
                         <div style="font-size: 12px; color: #71717a; margin-top: 3px;">{brief.get('summary', '')}</div>
                     </div>
                     """
@@ -638,10 +659,20 @@ def format_digest_html(
             headlines_items = ""
             for headline in headlines:
                 related = ", ".join(headline.get("related_symbols", [])[:3])
+                meta_parts = []
+                if related:
+                    meta_parts.append(related)
+                if headline.get("published_at"):
+                    meta_parts.append(format_timestamp(headline.get("published_at", ""), compact=True))
+                meta_html = (
+                    f'<div style="font-size: 11px; color: #10b981; margin-bottom: 6px;">{" &middot; ".join(meta_parts)}</div>'
+                    if meta_parts
+                    else ""
+                )
                 headlines_items += f"""
                     <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
                         <a href="{headline.get('url', '#')}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 4px;">{headline.get('title', '')}</a>
-                        <div style="font-size: 11px; color: #10b981; margin-bottom: 6px;">{related}</div>
+                        {meta_html}
                         <div style="font-size: 12px; color: #71717a; margin-bottom: 8px;">{headline.get('fact_summary', '')}</div>
                         <div style="font-size: 13px; color: #52525b; line-height: 1.7;">{headline.get('deep_analysis', '')}</div>
                     </div>
@@ -655,10 +686,20 @@ def format_digest_html(
             briefs_items = ""
             for brief in briefs:
                 related = ", ".join(brief.get("related_symbols", [])[:3])
+                meta_parts = []
+                if related:
+                    meta_parts.append(related)
+                if brief.get("published_at"):
+                    meta_parts.append(format_timestamp(brief.get("published_at", ""), compact=True))
+                meta_html = (
+                    f'<div style="font-size: 11px; color: #10b981; margin-top: 2px;">{" &middot; ".join(meta_parts)}</div>'
+                    if meta_parts
+                    else ""
+                )
                 briefs_items += f"""
                     <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
                         <a href="{brief.get('url', '#')}" style="font-size: 13px; font-weight: 500; color: #18181b; text-decoration: none;">{brief.get('title', '')}</a>
-                        <div style="font-size: 11px; color: #10b981; margin-top: 2px;">{related}</div>
+                        {meta_html}
                         <div style="font-size: 12px; color: #71717a; margin-top: 4px;">{brief.get('analysis', brief.get('summary', ''))}</div>
                     </div>
                     """
@@ -1506,10 +1547,12 @@ def format_morning_report_html(
             n_title = n.get("title", "")
             n_analysis = n.get("analysis", "")
             n_url = n.get("url", "")
+            timestamp_html = render_timestamp_meta(n.get("published_at", ""))
             title_html = f'<a href="{n_url}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{n_title}</a>' if n_url else f'<div style="font-size: 14px; font-weight: 600; color: #0a0a0a; margin-bottom: 6px;">{n_title}</div>'
             news_items += f"""
                 <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
                     {title_html}
+                    {timestamp_html}
                     <div style="font-size: 12px; color: #52525b; background: #f8f8f8; padding: 10px 12px; border-radius: 4px; line-height: 1.6;">{n_analysis}</div>
                 </div>
                 """

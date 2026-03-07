@@ -403,24 +403,31 @@ class MorningReportAgent:
             return news_items
 
         id_to_url = {}
+        id_to_published_at = {}
         valid_urls = set()
+        url_to_published_at = {}
         for i, article in enumerate(source_news):
             url = article.get("url", "")
+            published_at = article.get("publishedDate", "") or ""
+            id_to_published_at[str(i)] = published_at
             if url:
                 id_to_url[str(i)] = url
                 valid_urls.add(url)
+                url_to_published_at[url] = published_at
 
         resolved = 0
         cleared = 0
 
         for item in news_items:
             url_field = str(item.get("url", "")).strip()
+            published_at = ""
 
             if url_field in id_to_url:
                 item["url"] = id_to_url[url_field]
+                published_at = id_to_published_at.get(url_field, "")
                 resolved += 1
             elif url_field in valid_urls:
-                pass  # keep valid URL
+                published_at = url_to_published_at.get(url_field, "")
             elif url_field.startswith("http"):
                 item["url"] = ""
                 cleared += 1
@@ -428,6 +435,8 @@ class MorningReportAgent:
                 item["url"] = ""
                 if url_field:
                     cleared += 1
+
+            item["published_at"] = published_at
 
         logger.info("Morning news URLs: %d resolved, %d cleared", resolved, cleared)
         return news_items

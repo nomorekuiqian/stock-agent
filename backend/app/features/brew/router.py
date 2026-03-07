@@ -65,6 +65,7 @@ def _transform_digest_sections(data: Dict[str, Any]) -> tuple:
                 fact_summary=n.get("fact_summary", ""),
                 deep_analysis=n.get("deep_analysis", ""),
                 url=n.get("url", ""),
+                published_at=n.get("published_at", ""),
             )
             for n in news_data.get("headlines", [])
         ]
@@ -75,6 +76,7 @@ def _transform_digest_sections(data: Dict[str, Any]) -> tuple:
                 summary=n.get("summary", ""),
                 analysis=n.get("analysis", ""),
                 url=n.get("url", ""),
+                published_at=n.get("published_at", ""),
             )
             for n in news_data.get("briefs", [])
         ]

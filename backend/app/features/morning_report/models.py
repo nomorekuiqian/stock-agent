@@ -44,6 +44,10 @@ class OvernightItem(BaseModel):
         default="",
         description="The article_id number of the source article from the input news array (e.g. '0', '3')",
     )
+    published_at: str = Field(
+        default="",
+        description="Original article publish timestamp in ISO-8601 format, filled by Python post-processing",
+    )
 
 
 class TodayFocusItem(BaseModel):
