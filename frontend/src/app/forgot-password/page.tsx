@@ -115,8 +115,8 @@ export default function ForgotPasswordPage(): ReactNode {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError('密码长度至少为8位');
+    if (newPassword.length < 6) {
+      setError('密码长度至少为6位');
       return;
     }
 
@@ -342,11 +342,11 @@ export default function ForgotPasswordPage(): ReactNode {
               label="新密码"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="至少8位"
+              placeholder="至少6位"
               required
-              minLength={8}
+              minLength={6}
               autoComplete="new-password"
-              helperText="密码至少 8 位"
+              helperText="密码至少 6 位"
             />
 
             <PasswordField
@@ -356,7 +356,7 @@ export default function ForgotPasswordPage(): ReactNode {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="再次输入新密码"
               required
-              minLength={8}
+              minLength={6}
               autoComplete="new-password"
             />
 

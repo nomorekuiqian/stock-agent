@@ -49,8 +49,8 @@ function ResetPasswordContent(): ReactNode {
     }
 
     // Validate password length
-    if (newPassword.length < 8) {
-      setError('密码长度至少为8位');
+    if (newPassword.length < 6) {
+      setError('密码长度至少为6位');
       return;
     }
 
@@ -187,9 +187,9 @@ function ResetPasswordContent(): ReactNode {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={6}
             autoComplete="new-password"
-            helperText="密码至少 8 位"
+            helperText="密码至少 6 位"
           />
 
           <PasswordField
@@ -198,7 +198,7 @@ function ResetPasswordContent(): ReactNode {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={6}
             autoComplete="new-password"
           />
 

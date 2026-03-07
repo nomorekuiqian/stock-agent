@@ -57,7 +57,7 @@ describe('/forgot-password page', () => {
     expect(mockExchangeResetPasswordCode).not.toHaveBeenCalled();
   });
 
-  it('blocks password reset when password is shorter than 8 characters', async () => {
+  it('blocks password reset when password is shorter than 6 characters', async () => {
     mockSendPasswordResetEmail.mockResolvedValue({ success: true });
     mockExchangeResetPasswordCode.mockResolvedValue({ success: true, token: 'reset-token' });
 
@@ -74,11 +74,11 @@ describe('/forgot-password page', () => {
 
     await screen.findByRole('heading', { name: '设置新密码' });
 
-    fireEvent.change(screen.getByLabelText('新密码'), { target: { value: '1234567' } });
-    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: '1234567' } });
+    fireEvent.change(screen.getByLabelText('新密码'), { target: { value: '12345' } });
+    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: '12345' } });
     fireEvent.click(screen.getByRole('button', { name: '重置密码' }));
 
-    expect(await screen.findByText('密码长度至少为8位')).toBeInTheDocument();
+    expect(await screen.findByText('密码长度至少为6位')).toBeInTheDocument();
     expect(mockResetPassword).not.toHaveBeenCalled();
   });
 

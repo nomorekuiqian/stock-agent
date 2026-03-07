@@ -37,16 +37,16 @@ describe('/reset-password page', () => {
     expect(screen.getByText('无效的重置链接。请重新申请密码重置。')).toBeInTheDocument();
   });
 
-  it('blocks submission when password is shorter than 8 characters', async () => {
+  it('blocks submission when password is shorter than 6 characters', async () => {
     mockSearchParams = new URLSearchParams('token=reset-token');
 
     render(<ResetPasswordPage />);
 
-    fireEvent.change(await screen.findByLabelText('新密码'), { target: { value: '1234567' } });
-    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: '1234567' } });
+    fireEvent.change(await screen.findByLabelText('新密码'), { target: { value: '12345' } });
+    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: '12345' } });
     fireEvent.click(screen.getByRole('button', { name: '重置密码' }));
 
-    expect(await screen.findByText('密码长度至少为8位')).toBeInTheDocument();
+    expect(await screen.findByText('密码长度至少为6位')).toBeInTheDocument();
     expect(mockResetPassword).not.toHaveBeenCalled();
   });
 
