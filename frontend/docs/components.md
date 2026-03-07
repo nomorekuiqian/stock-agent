@@ -16,6 +16,7 @@
 | 订阅 | 2 | SubscribeForm, PaywallGuard |
 | 装饰 | 2 | TrustBadges, LogoMarquee |
 | 全局 | 2 | Providers, TradingViewWidget |
+| Auth 表单 | 1 | PasswordField |
 
 ---
 
@@ -60,6 +61,11 @@ AI 个股分析卡片，支持三种状态。
 付费墙守卫组件，根据订阅状态控制内容访问。
 - **功能**: 检查用户订阅状态，未订阅时显示升级提示
 - **使用场景**: Pro 功能入口
+
+### PasswordField
+认证表单共用密码输入组件。
+- **功能**: 密码显示/隐藏切换、统一 label/helper text、复用登录/找回/重置密码样式
+- **使用场景**: `/login`, `/forgot-password`, `/reset-password`
 
 ### 技术分析组件 (technical/)
 

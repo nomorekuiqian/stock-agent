@@ -27,6 +27,7 @@
 | `/login` | 登录 | Insforge Auth | 否 |
 | `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
 | `/auth/callback` | OAuth 回调 | Insforge Auth (code exchange) | 否 |
+| `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
 | `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
 | `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
 | `/contact` | 联系/反馈 | Backend (feedback/user) | 否 |
@@ -98,6 +99,12 @@
 - Email + Password 表单
 - Google OAuth 按钮
 - 登录后重定向到之前页面 (sessionStorage)
+- 注册态在需要验证邮箱时会跳到 `/verify-email`
+
+### `/verify-email` 邮箱验证
+- 支持验证码验证和邮件链接验证两种模式
+- 支持 resend verification email
+- 验证成功后恢复 session，并跳回原始 redirect
 
 ### `/feedback` 邮件反馈处理
 - 接收邮件中的反馈链接参数 (report_date, email, rating)
