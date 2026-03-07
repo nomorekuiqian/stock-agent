@@ -41,7 +41,7 @@ describe('useWatchlist', () => {
     mockGet.mockResolvedValue({ symbols: ['AAPL', 'MSFT'] });
     const { Wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useWatchlist(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useWatchlist('user-1'), { wrapper: Wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual({ symbols: ['AAPL', 'MSFT'] });
@@ -51,9 +51,18 @@ describe('useWatchlist', () => {
   it('does not fetch when enabled=false', async () => {
     const { Wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useWatchlist(false), { wrapper: Wrapper });
+    const { result } = renderHook(() => useWatchlist('user-1', false), { wrapper: Wrapper });
 
     // Should stay in idle state, not loading
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when userId is missing', async () => {
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useWatchlist(undefined, true), { wrapper: Wrapper });
+
     expect(result.current.fetchStatus).toBe('idle');
     expect(mockGet).not.toHaveBeenCalled();
   });
@@ -62,7 +71,7 @@ describe('useWatchlist', () => {
     mockGet.mockRejectedValue(new Error('Network error'));
     const { Wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useWatchlist(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useWatchlist('user-1'), { wrapper: Wrapper });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toBeInstanceOf(Error);
@@ -71,23 +80,32 @@ describe('useWatchlist', () => {
 
 describe('useSaveWatchlist', () => {
   it('calls api.watchlist.save with correct params', async () => {
-    mockSave.mockResolvedValue({ symbols: ['AAPL', 'NVDA'] });
+    mockSave.mockResolvedValue({ success: true, data: { user_id: 'user-1', symbols: ['AAPL', 'NVDA'] } });
     const { Wrapper } = createWrapper();
 
     const { result } = renderHook(() => useSaveWatchlist(), { wrapper: Wrapper });
 
     await act(async () => {
-      result.current.mutate({ userId: 'user-1', symbols: ['AAPL', 'NVDA'] });
+      result.current.mutate({
+        userId: 'user-1',
+        symbols: ['AAPL', 'NVDA'],
+        baseUpdatedAt: '2026-03-06T09:00:00Z',
+      });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockSave).toHaveBeenCalledWith('user-1', ['AAPL', 'NVDA'], undefined);
+    expect(mockSave).toHaveBeenCalledWith(
+      'user-1',
+      ['AAPL', 'NVDA'],
+      undefined,
+      '2026-03-06T09:00:00Z',
+    );
   });
 
   it('optimistically updates watchlist cache', async () => {
     // Set up initial cache data
     const { Wrapper, queryClient } = createWrapper();
-    queryClient.setQueryData(queryKeys.watchlist.all, { symbols: ['AAPL'], user_id: 'u1' });
+    queryClient.setQueryData(queryKeys.watchlist.byUser('u1'), { symbols: ['AAPL'], user_id: 'u1' });
 
     // Make save hang so we can inspect the optimistic state
     let resolveSave: (value: unknown) => void;
@@ -101,7 +119,7 @@ describe('useSaveWatchlist', () => {
 
     // The cache should be optimistically updated before the API responds
     await waitFor(() => {
-      const cached = queryClient.getQueryData(queryKeys.watchlist.all) as { symbols: string[] };
+      const cached = queryClient.getQueryData(queryKeys.watchlist.byUser('u1')) as { symbols: string[] };
       expect(cached.symbols).toEqual(['AAPL', 'NVDA']);
     });
 
@@ -114,7 +132,7 @@ describe('useSaveWatchlist', () => {
   it('rolls back on save error', async () => {
     const { Wrapper, queryClient } = createWrapper();
     const original = { symbols: ['AAPL'], user_id: 'u1' };
-    queryClient.setQueryData(queryKeys.watchlist.all, original);
+    queryClient.setQueryData(queryKeys.watchlist.byUser('u1'), original);
 
     mockSave.mockRejectedValue(new Error('Save failed'));
 
@@ -127,33 +145,35 @@ describe('useSaveWatchlist', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     // Cache should be rolled back to original
-    const cached = queryClient.getQueryData(queryKeys.watchlist.all);
+    const cached = queryClient.getQueryData(queryKeys.watchlist.byUser('u1'));
     expect(cached).toEqual(original);
   });
 
   it('does not crash when cache is null (no previous data)', async () => {
     const { Wrapper, queryClient } = createWrapper();
     // No initial data in cache — simulates first-time user
-    queryClient.setQueryData(queryKeys.watchlist.all, null);
+    queryClient.setQueryData(queryKeys.watchlist.byUser('u1'), null);
 
     mockSave.mockResolvedValue({ symbols: ['TSLA'] });
 
     const { result } = renderHook(() => useSaveWatchlist(), { wrapper: Wrapper });
 
-    await act(async () => {
+    act(() => {
       result.current.mutate({ userId: 'u1', symbols: ['TSLA'] });
     });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => {
+      const cached = queryClient.getQueryData(queryKeys.watchlist.byUser('u1')) as { symbols: string[] };
+      expect(cached.symbols).toEqual(['TSLA']);
+    });
 
-    // onMutate should set null (old ? { ...old, symbols } : null) when old is null
-    // After success, onSettled invalidates which would refetch
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockSave).toHaveBeenCalledOnce();
   });
 
   it('invalidates watchlist queries on settled (success or error)', async () => {
     const { Wrapper, queryClient } = createWrapper();
-    queryClient.setQueryData(queryKeys.watchlist.all, { symbols: ['AAPL'] });
+    queryClient.setQueryData(queryKeys.watchlist.byUser('u1'), { symbols: ['AAPL'] });
 
     mockSave.mockResolvedValue({ symbols: ['AAPL', 'GOOGL'] });
     mockGet.mockResolvedValue({ symbols: ['AAPL', 'GOOGL'] });
@@ -169,7 +189,42 @@ describe('useSaveWatchlist', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: queryKeys.watchlist.all })
+      expect.objectContaining({ queryKey: queryKeys.watchlist.byUser('u1') })
     );
+  });
+
+  it('replaces optimistic cache with server returned watchlist data on success', async () => {
+    const { Wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(queryKeys.watchlist.byUser('u1'), {
+      user_id: 'u1',
+      symbols: ['AAPL'],
+      updated_at: '2026-03-06T09:00:00Z',
+    });
+
+    mockSave.mockResolvedValue({
+      success: true,
+      data: {
+        user_id: 'u1',
+        symbols: ['AAPL', 'MSFT'],
+        updated_at: '2026-03-06T10:00:00Z',
+      },
+    });
+
+    const { result } = renderHook(() => useSaveWatchlist(), { wrapper: Wrapper });
+
+    await act(async () => {
+      result.current.mutate({
+        userId: 'u1',
+        symbols: ['AAPL', 'MSFT'],
+        baseUpdatedAt: '2026-03-06T09:00:00Z',
+      });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryData(queryKeys.watchlist.byUser('u1'))).toEqual({
+      user_id: 'u1',
+      symbols: ['AAPL', 'MSFT'],
+      updated_at: '2026-03-06T10:00:00Z',
+    });
   });
 });

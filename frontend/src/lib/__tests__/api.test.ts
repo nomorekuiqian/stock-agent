@@ -19,7 +19,7 @@ vi.mock('@/lib/auth', () => ({
   getAccessToken: vi.fn().mockResolvedValue('fake-token'),
 }));
 
-import { api } from '../api';
+import { api, ApiError } from '../api';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -503,6 +503,66 @@ describe('api (post cache removal)', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Subscription APIs
+  // -------------------------------------------------------------------------
+  describe('subscriptions.getStatus', () => {
+    it('throws actionable error when network request fails', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(
+        api.subscriptions.getStatus('personal_digest', 'tester@example.com')
+      ).rejects.toThrow('Failed to reach API endpoint');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/subscriptions/personal_digest/status?email=tester%40example.com')
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Watchlist APIs
+  // -------------------------------------------------------------------------
+  describe('watchlist.save', () => {
+    it('includes base_updated_at in request body when provided', async () => {
+      mockFetchOk({ success: true, data: { user_id: 'u1', symbols: ['AAPL'], updated_at: '2026-03-06T10:00:00Z' } });
+
+      await api.watchlist.save('u1', ['AAPL'], '', '2026-03-06T09:00:00Z');
+
+      const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({
+        symbols: ['AAPL'],
+        email: '',
+        base_updated_at: '2026-03-06T09:00:00Z',
+      });
+    });
+
+    it('throws with backend detail on non-ok response', async () => {
+      mockFetchError(500, 'DB unavailable');
+
+      await expect(api.watchlist.save('u1', ['AAPL'])).rejects.toThrow('DB unavailable');
+    });
+
+    it('throws when backend returns success=false', async () => {
+      mockFetchOk({ success: false, error: 'Invalid symbol list' });
+
+      await expect(api.watchlist.save('u1', ['AAPL'])).rejects.toThrow('Invalid symbol list');
+    });
+
+    it('throws ApiError with status on conflict response', async () => {
+      mockFetchError(409, 'Watchlist was updated elsewhere. Please refresh and try again.');
+
+      await expect(api.watchlist.save('u1', ['AAPL'])).rejects.toMatchObject({
+        message: 'Watchlist was updated elsewhere. Please refresh and try again.',
+        status: 409,
+      });
+
+      await api.watchlist.save('u1', ['AAPL']).catch((error) => {
+        expect(error).toBeInstanceOf(ApiError);
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Screener APIs
   // -------------------------------------------------------------------------
   describe('screener.filter', () => {
@@ -673,6 +733,63 @@ describe('api (post cache removal)', () => {
       mockFetchJsonFails(500);
 
       await expect(api.screener.pick({ message: 'test' })).rejects.toThrow('AI 助手暂时无法响应');
+    });
+  });
+
+  describe('generateDigest', () => {
+    it('POSTs authenticated request without user_id in body', async () => {
+      mockFetchOk({ success: true, symbols_used: ['AAPL'] });
+
+      await api.generateDigest(['AAPL']);
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/digest');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual({ symbols: ['AAPL'] });
+    });
+
+    it('throws login expired on 401', async () => {
+      mockFetchError(401);
+
+      await expect(api.generateDigest(['AAPL'])).rejects.toThrow('登录已过期');
+    });
+  });
+
+  describe('sectors auth-protected actions', () => {
+    it('subscribes with auth header and body without user_id', async () => {
+      mockFetchOk({ success: true, sector_id: 'ai' });
+
+      await api.sectors.subscribe('ai');
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/sectors/subscribe');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual({ sector_id: 'ai' });
+    });
+
+    it('loads subscriptions with auth header and no user_id query', async () => {
+      mockFetchOk({ success: true, subscriptions: [] });
+
+      await api.sectors.getSubscriptions();
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/sectors/subscriptions');
+      expect(url).not.toContain('user_id=');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+    });
+
+    it('unsubscribes with auth header and no user_id query', async () => {
+      mockFetchOk({ success: true, sector_id: 'ai' });
+
+      await api.sectors.unsubscribe('ai');
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/sectors/ai/unsubscribe');
+      expect(url).not.toContain('user_id=');
+      expect(opts.method).toBe('DELETE');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
     });
   });
 });

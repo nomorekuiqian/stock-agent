@@ -101,18 +101,18 @@ describe('useDigestById', () => {
 });
 
 describe('useGenerateDigest', () => {
-  it('calls api.generateDigest with symbols and userId', async () => {
+  it('calls api.generateDigest with symbols only', async () => {
     mockGenerateDigest.mockResolvedValue({ success: true });
     const { Wrapper } = createWrapper();
 
     const { result } = renderHook(() => useGenerateDigest(), { wrapper: Wrapper });
 
     await act(async () => {
-      result.current.mutate({ symbols: ['AAPL', 'MSFT'], userId: 'user-1' });
+      result.current.mutate({ symbols: ['AAPL', 'MSFT'] });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockGenerateDigest).toHaveBeenCalledWith(['AAPL', 'MSFT'], 'user-1');
+    expect(mockGenerateDigest).toHaveBeenCalledWith(['AAPL', 'MSFT']);
   });
 
   it('invalidates digest queries on success', async () => {
@@ -124,7 +124,7 @@ describe('useGenerateDigest', () => {
     const { result } = renderHook(() => useGenerateDigest(), { wrapper: Wrapper });
 
     await act(async () => {
-      result.current.mutate({ symbols: ['NVDA'], userId: 'user-1' });
+      result.current.mutate({ symbols: ['NVDA'] });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

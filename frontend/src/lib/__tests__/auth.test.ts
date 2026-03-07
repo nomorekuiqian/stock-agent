@@ -1,19 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isTokenExpired, signIn, signOut, getAccessToken } from '../auth';
+import { isTokenExpired, getAccessToken } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Mock @/lib/insforge
 // ---------------------------------------------------------------------------
-const mockSignInWithPassword = vi.fn();
 const mockGetCurrentSession = vi.fn();
-const mockSignOut = vi.fn();
 
 vi.mock('@/lib/insforge', () => ({
   insforge: {
     auth: {
-      signInWithPassword: (...args: unknown[]) => mockSignInWithPassword(...args),
       getCurrentSession: (...args: unknown[]) => mockGetCurrentSession(...args),
-      signOut: (...args: unknown[]) => mockSignOut(...args),
     },
   },
 }));
@@ -69,51 +65,6 @@ describe('isTokenExpired', () => {
 });
 
 // ---------------------------------------------------------------------------
-// signIn (pure SDK mode)
-// ---------------------------------------------------------------------------
-describe('signIn', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('returns success with user data on successful SDK login', async () => {
-    const mockUser = { id: 'u1', email: 'a@b.com', profile: { name: 'Test' } };
-    mockSignInWithPassword.mockResolvedValue({
-      data: { user: mockUser },
-      error: null,
-    });
-
-    const result = await signIn('a@b.com', 'pass');
-
-    expect(result.success).toBe(true);
-    expect(result.user?.id).toBe('u1');
-    expect(result.user?.email).toBe('a@b.com');
-    expect(mockSignInWithPassword).toHaveBeenCalledWith({ email: 'a@b.com', password: 'pass' });
-  });
-
-  it('returns error when SDK returns an error', async () => {
-    mockSignInWithPassword.mockResolvedValue({
-      data: null,
-      error: { message: 'Invalid credentials' },
-    });
-
-    const result = await signIn('a@b.com', 'wrong');
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Invalid credentials');
-  });
-
-  it('returns error on exception', async () => {
-    mockSignInWithPassword.mockRejectedValue(new Error('Network failure'));
-
-    const result = await signIn('a@b.com', 'pass');
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Network failure');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // getAccessToken (pure SDK mode)
 // ---------------------------------------------------------------------------
 describe('getAccessToken', () => {
@@ -156,26 +107,18 @@ describe('getAccessToken', () => {
     const token = await getAccessToken();
     expect(token).toBeNull();
   });
-});
 
-// ---------------------------------------------------------------------------
-// signOut
-// ---------------------------------------------------------------------------
-describe('signOut', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  it('returns null when SDK session request hangs beyond timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      mockGetCurrentSession.mockImplementation(() => new Promise(() => {}));
 
-  it('returns success when SDK signOut succeeds', async () => {
-    mockSignOut.mockResolvedValue({ error: null });
-    const result = await signOut();
-    expect(result.success).toBe(true);
-  });
+      const tokenPromise = getAccessToken();
+      await vi.advanceTimersByTimeAsync(5000);
 
-  it('returns error when SDK signOut fails', async () => {
-    mockSignOut.mockResolvedValue({ error: { message: 'Session not found' } });
-    const result = await signOut();
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Session not found');
+      await expect(tokenPromise).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

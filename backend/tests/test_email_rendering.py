@@ -16,6 +16,8 @@ def email_svc():
     svc = EmailService.__new__(EmailService)
     svc.api_key = None
     svc.from_email = "test@example.com"
+    svc.from_email_morning = "morning@example.com"
+    svc.from_email_weekly = "weekly@example.com"
     svc.frontend_url = "https://themarketbrew.com"
     svc.is_production = True
     svc.logo_url = "https://themarketbrew.com/logo-avatar.png"

@@ -128,6 +128,10 @@ describe('queryKeys', () => {
     it('all is a static array', () => {
       expect(queryKeys.watchlist.all).toEqual(['watchlist']);
     });
+
+    it('byUser(userId) includes user id for cache isolation', () => {
+      expect(queryKeys.watchlist.byUser('user-123')).toEqual(['watchlist', 'user-123']);
+    });
   });
 
   describe('digests', () => {

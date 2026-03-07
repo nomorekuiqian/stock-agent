@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
+import { useEffect } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../AuthContext';
 
 // ---------------------------------------------------------------------------
@@ -7,6 +9,12 @@ import { AuthProvider, useAuth } from '../AuthContext';
 // ---------------------------------------------------------------------------
 const mockReloadAuth = vi.fn();
 const mockSignOut = vi.fn();
+const mockSignIn = vi.fn();
+const mockSignUp = vi.fn();
+const mockUpdateUser = vi.fn();
+const mockLoginWithOAuth = vi.fn();
+const mockResendVerificationEmail = vi.fn();
+const mockVerifyEmail = vi.fn();
 let mockSdkUser: Record<string, unknown> | null = null;
 let mockIsLoaded = true;
 
@@ -14,8 +22,14 @@ vi.mock('@insforge/nextjs', () => ({
   useInsforge: () => ({
     user: mockSdkUser,
     isLoaded: mockIsLoaded,
+    signIn: mockSignIn,
+    signUp: mockSignUp,
     reloadAuth: mockReloadAuth,
     signOut: mockSignOut,
+    updateUser: mockUpdateUser,
+    loginWithOAuth: mockLoginWithOAuth,
+    resendVerificationEmail: mockResendVerificationEmail,
+    verifyEmail: mockVerifyEmail,
   }),
 }));
 
@@ -23,13 +37,6 @@ vi.mock('@/lib/insforge', () => ({
   insforge: {
     auth: { getCurrentSession: vi.fn() },
   },
-}));
-
-vi.mock('@/lib/auth', () => ({
-  signIn: vi.fn(),
-  signUp: vi.fn(),
-  signInWithGoogle: vi.fn(),
-  updateProfile: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -56,6 +63,20 @@ function AuthConsumer() {
   );
 }
 
+function renderWithProviders(ui: JSX.Element) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -76,7 +97,7 @@ describe('AuthContext', () => {
 
   it('renders children', async () => {
     await act(async () => {
-      render(
+      renderWithProviders(
         <AuthProvider>
           <span data-testid="child">Hello</span>
         </AuthProvider>
@@ -93,7 +114,7 @@ describe('AuthContext', () => {
     };
 
     await act(async () => {
-      render(
+      renderWithProviders(
         <AuthProvider>
           <AuthConsumer />
         </AuthProvider>
@@ -112,7 +133,7 @@ describe('AuthContext', () => {
     mockIsLoaded = true;
 
     await act(async () => {
-      render(
+      renderWithProviders(
         <AuthProvider>
           <AuthConsumer />
         </AuthProvider>
@@ -130,7 +151,7 @@ describe('AuthContext', () => {
     mockIsLoaded = false;
 
     await act(async () => {
-      render(
+      renderWithProviders(
         <AuthProvider>
           <AuthConsumer />
         </AuthProvider>
@@ -148,5 +169,148 @@ describe('AuthContext', () => {
     }).toThrow('useAuth must be used within an AuthProvider');
 
     spy.mockRestore();
+  });
+
+  it('returns verification-required state from signUp without treating it as error', async () => {
+    mockSignUp.mockResolvedValue({ requireEmailVerification: true });
+
+    let signUpResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signUp']>> | null = null;
+
+    function SignUpConsumer() {
+      const auth = useAuth();
+
+      useEffect(() => {
+        void auth.signUp('user@example.com', 'Password123!', 'Tester', '/for-you').then((result) => {
+          signUpResult = result;
+        });
+      }, [auth]);
+
+      return null;
+    }
+
+    await act(async () => {
+      renderWithProviders(
+        <AuthProvider>
+          <SignUpConsumer />
+        </AuthProvider>
+      );
+    });
+
+    await waitFor(() => {
+      expect(signUpResult).toEqual({
+        success: true,
+        requiresEmailVerification: true,
+        email: 'user@example.com',
+      });
+    });
+  });
+
+  it('treats signUp response with created user but no access token as verification-required', async () => {
+    mockSignUp.mockResolvedValue({
+      user: {
+        id: 'u1',
+        email: 'user@example.com',
+        emailVerified: false,
+      },
+      accessToken: null,
+    });
+
+    let signUpResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signUp']>> | null = null;
+
+    function SignUpConsumer() {
+      const auth = useAuth();
+
+      useEffect(() => {
+        void auth.signUp('user@example.com', 'Password123!', 'Tester', '/for-you').then((result) => {
+          signUpResult = result;
+        });
+      }, [auth]);
+
+      return null;
+    }
+
+    await act(async () => {
+      renderWithProviders(
+        <AuthProvider>
+          <SignUpConsumer />
+        </AuthProvider>
+      );
+    });
+
+    await waitFor(() => {
+      expect(signUpResult).toEqual({
+        success: true,
+        requiresEmailVerification: true,
+        email: 'user@example.com',
+      });
+    });
+  });
+
+  it('extracts nested sdk error messages', async () => {
+    mockSignUp.mockResolvedValue({
+      error: { message: 'User already exists' },
+    });
+
+    let signUpResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signUp']>> | null = null;
+
+    function SignUpConsumer() {
+      const auth = useAuth();
+
+      useEffect(() => {
+        void auth.signUp('user@example.com', 'Password123!', 'Tester', '/for-you').then((result) => {
+          signUpResult = result;
+        });
+      }, [auth]);
+
+      return null;
+    }
+
+    await act(async () => {
+      renderWithProviders(
+        <AuthProvider>
+          <SignUpConsumer />
+        </AuthProvider>
+      );
+    });
+
+    await waitFor(() => {
+      expect(signUpResult).toEqual({
+        success: false,
+        error: 'User already exists',
+      });
+    });
+  });
+
+  it('treats resend verification email with empty sdk result as failure', async () => {
+    mockResendVerificationEmail.mockResolvedValue(null);
+
+    let resendResult: Awaited<ReturnType<ReturnType<typeof useAuth>['resendVerificationEmail']>> | null = null;
+
+    function ResendConsumer() {
+      const auth = useAuth();
+
+      useEffect(() => {
+        void auth.resendVerificationEmail('user@example.com').then((result) => {
+          resendResult = result;
+        });
+      }, [auth]);
+
+      return null;
+    }
+
+    await act(async () => {
+      renderWithProviders(
+        <AuthProvider>
+          <ResendConsumer />
+        </AuthProvider>
+      );
+    });
+
+    await waitFor(() => {
+      expect(resendResult).toEqual({
+        success: false,
+        error: '重新发送失败，请稍后重试',
+      });
+    });
   });
 });
