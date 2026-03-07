@@ -25,8 +25,7 @@ export function useDigestById(id: string, enabled: boolean = true) {
 export function useGenerateDigest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ symbols, userId }: { symbols: string[]; userId?: string }) =>
-      api.generateDigest(symbols, userId),
+    mutationFn: ({ symbols }: { symbols: string[] }) => api.generateDigest(symbols),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.digests.all });
     },

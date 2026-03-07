@@ -18,7 +18,7 @@ function ForYouPageContent() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // --- TanStack Query hooks ---
-  const { data: watchlistData, isLoading: loadingWatchlist, isError: watchlistLoadFailed } = useWatchlist(!!user?.id);
+  const { data: watchlistData, isLoading: loadingWatchlist, isError: watchlistLoadFailed } = useWatchlist(user?.id, !!user?.id);
   const { data: digestData } = useDigestList(user?.id ?? '', 10, 0, !!user?.id);
   const generateDigestMutation = useGenerateDigest();
 

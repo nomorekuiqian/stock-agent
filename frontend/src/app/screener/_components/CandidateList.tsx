@@ -134,13 +134,17 @@ interface CandidateListProps {
 
 const MAX_WATCHLIST_SIZE = 25;
 
+const PAGE_SIZE = 20;
+
 export default function CandidateList({ candidates, strategy, expanded = false }: CandidateListProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(true);
+  const [search, setSearch] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Watchlist integration
   const { user } = useAuth();
-  const { data: watchlistData } = useWatchlist(!!user?.id);
+  const { data: watchlistData } = useWatchlist(user?.id, !!user?.id);
   const saveWatchlist = useSaveWatchlist();
   const watchlistSymbols = watchlistData?.symbols || [];
   const atLimit = watchlistSymbols.length >= MAX_WATCHLIST_SIZE;
@@ -150,19 +154,57 @@ export default function CandidateList({ candidates, strategy, expanded = false }
     e.stopPropagation();
     if (!user?.id || watchlistSymbols.includes(cleanSymbol) || atLimit) return;
     const updated = [...watchlistSymbols, cleanSymbol];
-    saveWatchlist.mutate({ userId: user.id, symbols: updated });
+    saveWatchlist.mutate({
+      userId: user.id,
+      symbols: updated,
+      baseUpdatedAt: watchlistData?.updated_at,
+    });
   };
+
+  // Reset visible count and search when candidates change.
+  // This is React's recommended "store previous value" pattern for adjusting
+  // state during render: https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const candidateKey = candidates.length + (candidates[0] ? String(candidates[0].symbol) : '');
+  const [prevKey, setPrevKey] = useState(candidateKey);
+  if (prevKey !== candidateKey) {
+    setPrevKey(candidateKey);
+    setVisibleCount(PAGE_SIZE);
+    setSearch('');
+  }
 
   const extraCols = STRATEGY_COLUMNS[strategy] || STRATEGY_COLUMNS['custom'];
 
+  // Search filter (local, instant)
+  const filtered = useMemo(() => {
+    if (!search.trim()) return candidates;
+    const q = search.trim().toLowerCase();
+    return candidates.filter((c) => {
+      const symbol = String(c.symbol || '');
+      const clean = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+      const name = String(c.name || '');
+      const sector = String(c.sector || '');
+      const sectorZh = SECTOR_ZH[sector] || '';
+      return (
+        clean.toLowerCase().includes(q) ||
+        name.toLowerCase().includes(q) ||
+        sector.toLowerCase().includes(q) ||
+        sectorZh.includes(q)
+      );
+    });
+  }, [candidates, search]);
+
   const sorted = useMemo(() => {
-    if (!sortKey) return candidates;
-    return [...candidates].sort((a, b) => {
+    const base = filtered;
+    if (!sortKey) return base;
+    return [...base].sort((a, b) => {
       const va = Number(a[sortKey]) || 0;
       const vb = Number(b[sortKey]) || 0;
       return sortDesc ? vb - va : va - vb;
     });
-  }, [candidates, sortKey, sortDesc]);
+  }, [filtered, sortKey, sortDesc]);
+
+  const visible = sorted.slice(0, visibleCount);
+  const hasMore = visibleCount < sorted.length;
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -191,6 +233,40 @@ export default function CandidateList({ candidates, strategy, expanded = false }
   // Desktop: Table view
   return (
     <div>
+      {/* Search bar - only show when enough candidates */}
+      {candidates.length > PAGE_SIZE && (
+        <div className="relative mb-3">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setVisibleCount(PAGE_SIZE);
+            }}
+            placeholder="搜索代码、名称或板块..."
+            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border/50 bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          {search && (
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              {filtered.length} / {candidates.length} 只匹配
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
@@ -217,7 +293,7 @@ export default function CandidateList({ candidates, strategy, expanded = false }
             </tr>
           </thead>
           <tbody>
-            {sorted.map((c) => {
+            {visible.map((c) => {
               const symbol = String(c.symbol || '');
               const cleanSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
               const dailyChange = Number(c.daily_change) || 0;
@@ -279,7 +355,7 @@ export default function CandidateList({ candidates, strategy, expanded = false }
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-2">
-        {sorted.map((c) => {
+        {visible.map((c) => {
           const symbol = String(c.symbol || '');
           const cleanSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
           const dailyChange = Number(c.daily_change) || 0;
@@ -345,12 +421,25 @@ export default function CandidateList({ candidates, strategy, expanded = false }
         })}
       </div>
 
-      {/* Result count */}
-      <div className="mt-3 text-xs text-muted-foreground text-center">
-        共 {candidates.length} 只候选股
-        {candidates.length <= 5 && (
-          <span className="ml-2 text-emerald-500">点击查看个股深研</span>
+      {/* Show more / result count */}
+      <div className="mt-3 text-center space-y-2">
+        {hasMore && (
+          <button
+            onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            显示更多 ({sorted.length - visibleCount} 只剩余)
+          </button>
         )}
+        <div className="text-xs text-muted-foreground">
+          {search ? `${filtered.length} / ${candidates.length}` : `共 ${candidates.length}`} 只候选股
+          {candidates.length <= 5 && (
+            <span className="ml-2 text-emerald-500">点击查看个股深研</span>
+          )}
+        </div>
       </div>
     </div>
   );

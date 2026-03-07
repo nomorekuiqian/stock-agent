@@ -1,6 +1,9 @@
 import { createAuthRouteHandlers } from '@insforge/nextjs/api';
 
-const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL || 'https://9wmhxyi4.us-east.insforge.app';
+const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL;
+if (!baseUrl) {
+  throw new Error('[Auth Route] Missing NEXT_PUBLIC_INSFORGE_URL');
+}
 
 const handlers = createAuthRouteHandlers({
   baseUrl,

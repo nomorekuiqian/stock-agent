@@ -19,14 +19,14 @@ test.describe('Stock page (/stock)', () => {
     const searchInput = page.locator('input[type="text"], input[placeholder*="搜索"], input[placeholder*="search" i]').first();
     await searchInput.fill('AAPL');
     // Dropdown should appear with results
-    const dropdown = page.locator('[role="listbox"], text=/Apple/').first();
+    const dropdown = page.locator('[role="listbox"]').first();
     await expect(dropdown).toBeVisible({ timeout: 10000 });
   });
 
   test('individual stock page loads with symbol', async ({ page }) => {
     await page.goto('/stock/AAPL');
     // Should display the stock symbol
-    await expect(page.locator('text=AAPL')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=AAPL').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('individual stock page shows price area', async ({ page }) => {
