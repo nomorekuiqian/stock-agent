@@ -1,14 +1,82 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
-// Helper: login with test account
+// Helper: mock auth and login
 // ---------------------------------------------------------------------------
 
-async function login(page: Page) {
+function createFakeJwt(): string {
+  const encode = (value: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+
+  return [
+    encode({ alg: 'HS256', typ: 'JWT' }),
+    encode({ sub: 'user-123', exp: Math.floor(Date.now() / 1000) + 3600 }),
+    'signature',
+  ].join('.');
+}
+
+async function loginWithMock(page: Page) {
+  const accessToken = createFakeJwt();
+  const mockUser = {
+    id: 'user-123',
+    email: 'test@example.com',
+    profile: { name: 'Playwright User' },
+  };
+
+  // Mock auth endpoints so login succeeds without real backend auth
+  await page.route('**/api/auth/**', async (route: Route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname.endsWith('/api/auth/public-config')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          requireEmailVerification: true,
+          verifyEmailMethod: 'code',
+          passwordMinLength: 8,
+        }),
+      });
+      return;
+    }
+
+    if (url.pathname.endsWith('/api/auth/refresh')) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Not found' }),
+      });
+      return;
+    }
+
+    if (url.pathname.endsWith('/api/auth/sessions/current')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: mockUser }),
+      });
+      return;
+    }
+
+    if (url.pathname.endsWith('/api/auth/sessions') && route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accessToken,
+          csrfToken: 'csrf-token',
+          user: mockUser,
+        }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
   await page.goto('/login');
-  await page.getByLabel('邮箱').fill('voya.technologies@gmail.com');
-  await page.getByLabel('密码').fill('123456');
-  // Click the submit button (not the nav "登录" link)
+  await page.getByLabel('邮箱').fill('test@example.com');
+  await page.locator('#password').fill('Password123');
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15000 });
 }
@@ -19,7 +87,7 @@ async function login(page: Page) {
 
 test.describe('Screener page (/screener)', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginWithMock(page);
   });
 
   // -----------------------------------------------------------------------
@@ -187,9 +255,46 @@ test.describe('Screener page (/screener)', () => {
   });
 
   test('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Fresh context without login
+    // Fresh context without login — but still need public-config mock
     const context = await browser.newContext();
     const page = await context.newPage();
+
+    await page.route('**/api/auth/**', async (route: Route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname.endsWith('/api/auth/public-config')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            requireEmailVerification: true,
+            verifyEmailMethod: 'code',
+            passwordMinLength: 8,
+          }),
+        });
+        return;
+      }
+
+      if (url.pathname.endsWith('/api/auth/sessions/current')) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Unauthorized' }),
+        });
+        return;
+      }
+
+      if (url.pathname.endsWith('/api/auth/refresh')) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Not found' }),
+        });
+        return;
+      }
+
+      await route.continue();
+    });
 
     await page.goto('/screener');
 
