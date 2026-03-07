@@ -46,27 +46,28 @@ export function AuthSubscriptionSync() {
   useEffect(() => {
     if (!user || !needsSync(user.id)) return;
 
+    const { id: userId, email: userEmail, name: userName } = user;
     let cancelled = false;
 
     async function syncUserWithSubscriptions() {
       try {
-        const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
+        const result = await api.subscriptions.syncUser(userId, userEmail, userName);
         if (!cancelled && result.success && result.synced_channels.length > 0) {
           console.log('[AuthSubscriptionSync] Synced subscriptions:', result.synced_channels.map((channel) => channel.channel));
         }
 
-        if (!hasBeenAutoSubscribed(user.id)) {
+        if (!hasBeenAutoSubscribed(userId)) {
           try {
-            const status = await api.subscriptions.getStatus('daily_report', user.email);
+            const status = await api.subscriptions.getStatus('daily_report', userEmail);
             if (!cancelled && !status.subscribed) {
               await api.subscriptions.subscribe('daily_report', {
-                email: user.email,
-                first_name: user.name,
-                user_id: user.id,
+                email: userEmail,
+                first_name: userName,
+                user_id: userId,
               });
             }
             if (!cancelled) {
-              markAsAutoSubscribed(user.id);
+              markAsAutoSubscribed(userId);
             }
           } catch (subError) {
             if (!cancelled) {
@@ -76,7 +77,7 @@ export function AuthSubscriptionSync() {
         }
 
         if (!cancelled) {
-          markSynced(user.id);
+          markSynced(userId);
         }
       } catch (error) {
         if (!cancelled) {
@@ -90,7 +91,7 @@ export function AuthSubscriptionSync() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.email, user?.name, user]);
+  }, [user]);
 
   return null;
 }

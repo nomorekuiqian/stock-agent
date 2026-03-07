@@ -30,11 +30,8 @@ function normalizeSymbols(symbols?: string[]) {
 }
 
 function isConflictError(error: unknown) {
-  return (
-    error instanceof Error &&
-    typeof (error as { status?: unknown }).status === 'number' &&
-    (error as { status: number }).status === 409
-  );
+  if (!(error instanceof Error)) return false;
+  return 'status' in error && (error as unknown as { status: number }).status === 409;
 }
 
 function WatchlistPageContent() {
@@ -86,6 +83,8 @@ function WatchlistPageContent() {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- syncing external/server state to local editing state */
+
   // Reset local editing state when user changes (avoid cross-account bleed).
   useEffect(() => {
     setSymbols([]);
@@ -117,6 +116,8 @@ function WatchlistPageContent() {
     seededUserId,
     saveWatchlistMutation.isPending,
   ]);
+
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Load sectors (no TanStack Query hook for this)
   useEffect(() => {

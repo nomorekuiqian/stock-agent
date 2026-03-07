@@ -115,7 +115,7 @@ function ForYouPageContent() {
 
   const handleGenerateDigest = () => {
     if (!user?.id) return;
-    generateDigestMutation.mutate({ symbols, userId: user.id });
+    generateDigestMutation.mutate({ symbols });
   };
 
   // --- Auth loading / unauthenticated ---
