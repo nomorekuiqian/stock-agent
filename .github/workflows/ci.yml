@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  frontend:
+    name: Frontend (lint + typecheck + unit tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Vitest unit tests
+        run: npm test
+
+  backend:
+    name: Backend (lint + unit tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Python syntax check
+        run: python -m py_compile app/main.py
+
+      - name: Import check
+        run: python -c "from app.main import app; print('Import OK')"
+
+      - name: Unit tests
+        run: pytest tests/test_*_unit.py -v --timeout=60
+        env:
+          ENVIRONMENT: test
+          GOOGLE_API_KEY: fake-key-for-ci
+          FMP_API_KEY: fake-key-for-ci
+          INSFORGE_BASE_URL: https://fake.insforge.app
+          INSFORGE_ANON_KEY: fake-key-for-ci
