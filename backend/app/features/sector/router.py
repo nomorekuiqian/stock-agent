@@ -5,6 +5,7 @@ Sector Digest API Router - endpoints for sector digests and subscriptions.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.features.sector.models import get_enabled_sectors, get_sector_by_id
 from app.features.sector.agent import get_sector_digest
@@ -80,17 +81,21 @@ async def generate_sector_digest(sector_id: str):
             error_msg = result.get("error", "Failed to generate sector digest")
             raise HTTPException(status_code=500, detail=error_msg)
 
-        # Save to database
-        try:
-            save_result = await db.save_sector_digest(
-                sector_id=sector_id,
-                digest_date=today_str(),
-                digest_data=result,
-            )
-            result["saved"] = save_result.get("success", False)
-            result["digest_id"] = save_result.get("digest_id")
-        except Exception as save_error:
-            logger.warning("Failed to save sector digest: %s", save_error)
+        # Save to database (production only to avoid overwriting live data)
+        if ENVIRONMENT == "production":
+            try:
+                save_result = await db.save_sector_digest(
+                    sector_id=sector_id,
+                    digest_date=today_str(),
+                    digest_data=result,
+                )
+                result["saved"] = save_result.get("success", False)
+                result["digest_id"] = save_result.get("digest_id")
+            except Exception as save_error:
+                logger.warning("Failed to save sector digest: %s", save_error)
+                result["saved"] = False
+        else:
+            logger.info("Dev environment: skipping DB save to protect production data")
             result["saved"] = False
 
         return result
@@ -305,18 +310,21 @@ async def generate_all_sector_digests(
                 digest_result = await digest_agent.generate(sector.id)
 
                 if digest_result.get("success"):
-                    # Save to database
-                    save_result = await db.save_sector_digest(
-                        sector_id=sector.id,
-                        digest_date=digest_date,
-                        digest_data=digest_result,
-                    )
+                    # Save to database (production only)
+                    saved = False
+                    if ENVIRONMENT == "production":
+                        save_result = await db.save_sector_digest(
+                            sector_id=sector.id,
+                            digest_date=digest_date,
+                            digest_data=digest_result,
+                        )
+                        saved = save_result.get("success", False)
 
                     results.append({
                         "sector_id": sector.id,
                         "sector_name": sector.name_zh,
                         "success": True,
-                        "saved": save_result.get("success", False),
+                        "saved": saved,
                     })
                 else:
                     results.append({

@@ -10,6 +10,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 from app.core.deps import verify_user_token
+from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
@@ -260,24 +261,27 @@ async def generate_digest(
 
         stocks, news, events, summary = _transform_digest_sections(result)
 
-        # Save to database (always save, user_id is required)
-        save_data = {
-            "user_id": user_id,
-            "digest_date": today_str(),
-            "timestamp": result.get("timestamp", now_iso()),
-            "symbols": result.get("symbols_used", []),
-            "greeting": result.get("greeting", ""),
-            "one_line_summary": result.get("one_line_summary", ""),
-            "stocks": result.get("stocks", []),
-            "news": result.get("news", {}),
-            "events": result.get("events", []),
-            "summary": result.get("summary", {}),
-        }
-        save_result = await save_user_digest(save_data)
-        if save_result.get("success"):
-            logger.info("Saved digest for user %s..., ID: %s", user_id[:8], save_result.get('digest_id'))
+        # Save to database (production only to avoid overwriting live data)
+        if ENVIRONMENT == "production":
+            save_data = {
+                "user_id": user_id,
+                "digest_date": today_str(),
+                "timestamp": result.get("timestamp", now_iso()),
+                "symbols": result.get("symbols_used", []),
+                "greeting": result.get("greeting", ""),
+                "one_line_summary": result.get("one_line_summary", ""),
+                "stocks": result.get("stocks", []),
+                "news": result.get("news", {}),
+                "events": result.get("events", []),
+                "summary": result.get("summary", {}),
+            }
+            save_result = await save_user_digest(save_data)
+            if save_result.get("success"):
+                logger.info("Saved digest for user %s..., ID: %s", user_id[:8], save_result.get('digest_id'))
+            else:
+                logger.error("Failed to save: %s", save_result.get('error'))
         else:
-            logger.error("Failed to save: %s", save_result.get('error'))
+            logger.info("Dev environment: skipping digest DB save")
 
         return DigestResponse(
             success=True,

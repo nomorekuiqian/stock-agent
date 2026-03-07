@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from app.core.deps import verify_user_token
+from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
@@ -228,12 +229,15 @@ async def analyze_market(request: Request, body: Optional[MarketAnalysisRequest]
 
         response_data = _normalize_report_data(response_data)
 
-        save_result = await market_db.save_market_report(response_data)
-        if save_result.get("success"):
-            logger.info("Report saved to database for %s", today)
-            response_data["report_id"] = save_result.get("report_id")
+        if ENVIRONMENT == "production":
+            save_result = await market_db.save_market_report(response_data)
+            if save_result.get("success"):
+                logger.info("Report saved to database for %s", today)
+                response_data["report_id"] = save_result.get("report_id")
+            else:
+                logger.error("Failed to save report: %s", save_result.get('error'))
         else:
-            logger.error("Failed to save report: %s", save_result.get('error'))
+            logger.info("Dev environment: skipping DB save to protect production data")
 
         return response_data
     except Exception as e:

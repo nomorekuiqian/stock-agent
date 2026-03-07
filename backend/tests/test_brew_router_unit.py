@@ -309,6 +309,7 @@ class TestGenerateDigestEndpoint:
         monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
         monkeypatch.setattr("app.features.brew.router.get_personal_digest", lambda: _MockAgent())
         monkeypatch.setattr("app.features.brew.router.save_user_digest", _mock_save_user_digest)
+        monkeypatch.setattr("app.features.brew.router.ENVIRONMENT", "production")
 
         result = await generate_digest(
             request=self._request(),

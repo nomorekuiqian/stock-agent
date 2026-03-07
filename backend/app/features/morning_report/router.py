@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.features.subscription.models import BroadcastResponse
+from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
@@ -199,13 +200,16 @@ async def generate_morning_report(request: Request, body: Optional[MorningReport
 
         response_data = _normalize_report_data(response_data)
 
-        # Save to DB
-        save_result = await morning_db.save_morning_report(response_data)
-        if save_result.get("success"):
-            logger.info("Morning report saved for %s", today)
-            response_data["report_id"] = save_result.get("report_id")
+        # Save to DB (production only to avoid overwriting live data)
+        if ENVIRONMENT == "production":
+            save_result = await morning_db.save_morning_report(response_data)
+            if save_result.get("success"):
+                logger.info("Morning report saved for %s", today)
+                response_data["report_id"] = save_result.get("report_id")
+            else:
+                logger.error("Failed to save morning report: %s", save_result.get("error"))
         else:
-            logger.error("Failed to save morning report: %s", save_result.get("error"))
+            logger.info("Dev environment: skipping DB save to protect production data")
 
         return response_data
 
@@ -277,9 +281,10 @@ async def broadcast_morning_report(
                 "market_data": result.get("market_data", {}),
             }
 
-            save_result = await morning_db.save_morning_report(report_data)
-            if save_result.get("success"):
-                report_data["report_id"] = save_result.get("report_id")
+            if ENVIRONMENT == "production":
+                save_result = await morning_db.save_morning_report(report_data)
+                if save_result.get("success"):
+                    report_data["report_id"] = save_result.get("report_id")
 
         # Quality gate: don't broadcast incomplete reports
         if not _is_morning_report_valid(report_data):
