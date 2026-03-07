@@ -546,6 +546,52 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Community Section - WeChat Group */}
+      <section className="relative py-16 md:py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
+
+        <div className="relative max-w-6xl mx-auto px-4 md:px-6">
+          <div className="max-w-3xl mx-auto text-center">
+            {/* Section Label */}
+            <div className="inline-flex items-center gap-3 justify-center mb-6">
+              <div className="h-px w-12 bg-gradient-to-r from-transparent to-primary/50" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+                Community
+              </span>
+              <div className="h-px w-12 bg-gradient-to-r from-primary/50 to-transparent" />
+            </div>
+
+            <h2 className="font-editorial text-3xl md:text-4xl text-foreground mb-4">
+              加入投资者社群
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">
+              和 100+ 美股投资者一起交流市场观点、分享投资心得。扫码加入微信群，与志同道合的人一起成长。
+            </p>
+
+            {/* QR Code Card */}
+            <div className="inline-block">
+              <div className="relative rounded-2xl border border-border/50 bg-card p-6 md:p-8">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
+                {/* QR Code Image */}
+                <div className="w-64 md:w-80 mx-auto mb-5 rounded-xl overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr.jpg"
+                    alt="TheMarketBrew WeChat Group QR Code"
+                    className="w-full h-auto"
+                  />
+                </div>
+
+                <p className="text-sm text-foreground font-medium">
+                  微信扫码加入社群
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Get Started Section - Combined CTA + Quick Start */}
       <section className="relative py-16 md:py-24 bg-gradient-mesh overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
