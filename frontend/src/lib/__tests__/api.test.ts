@@ -17,11 +17,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock auth module before importing api
 vi.mock('@/lib/auth', () => ({
   getAccessToken: vi.fn().mockResolvedValue('fake-token'),
+  getAccessTokenResolution: vi.fn().mockResolvedValue({ token: 'fake-token', state: 'authenticated' }),
   resetStaleAuthState: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { api, ApiError } from '../api';
-import { getAccessToken, resetStaleAuthState } from '../auth';
+import { getAccessToken, getAccessTokenResolution, resetStaleAuthState } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,6 +60,7 @@ describe('api (post cache removal)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getAccessToken).mockResolvedValue('fake-token');
+    vi.mocked(getAccessTokenResolution).mockResolvedValue({ token: 'fake-token', state: 'authenticated' });
     vi.mocked(resetStaleAuthState).mockResolvedValue(undefined);
   });
 
@@ -722,9 +724,13 @@ describe('api (post cache removal)', () => {
     });
 
     it('throws on 401 with login expired message', async () => {
+      vi.mocked(getAccessTokenResolution)
+        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
+        .mockResolvedValueOnce({ token: null, state: 'no_session' });
       mockFetchError(401);
 
       await expect(api.screener.pick({ message: 'test' })).rejects.toThrow('登录已过期');
+      expect(resetStaleAuthState).toHaveBeenCalledWith('session_expired');
     });
 
     it('throws with detail message on error', async () => {
@@ -754,6 +760,9 @@ describe('api (post cache removal)', () => {
     });
 
     it('throws login expired on 401', async () => {
+      vi.mocked(getAccessTokenResolution)
+        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
+        .mockResolvedValueOnce({ token: null, state: 'no_session' });
       mockFetchError(401);
 
       await expect(api.generateDigest(['AAPL'])).rejects.toThrow('登录已过期');
@@ -765,9 +774,9 @@ describe('api (post cache removal)', () => {
     it('waits briefly for token recovery before fetching protected data', async () => {
       vi.useFakeTimers();
       try {
-        vi.mocked(getAccessToken)
-          .mockResolvedValueOnce(null)
-          .mockResolvedValueOnce('fake-token');
+        vi.mocked(getAccessTokenResolution)
+          .mockResolvedValueOnce({ token: null, state: 'transient_failure' })
+          .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' });
         mockFetchOk({
           success: true,
           data: { user_id: 'user-1', symbols: ['AAPL'] },
@@ -781,7 +790,7 @@ describe('api (post cache removal)', () => {
           symbols: ['AAPL'],
         });
 
-        expect(getAccessToken).toHaveBeenCalledTimes(2);
+        expect(getAccessTokenResolution).toHaveBeenCalledTimes(2);
         const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
         expect(opts.headers.Authorization).toBe('Bearer fake-token');
       } finally {
@@ -792,27 +801,40 @@ describe('api (post cache removal)', () => {
     it('surfaces auth recovery timeout before making request', async () => {
       vi.useFakeTimers();
       try {
-        vi.mocked(getAccessToken).mockResolvedValue(null);
+        vi.mocked(getAccessTokenResolution).mockResolvedValue({ token: null, state: 'transient_failure' });
         globalThis.fetch = vi.fn();
 
         const promise = api.watchlist.get().catch((err: unknown) => err);
-        await vi.advanceTimersByTimeAsync(2500);
+        await vi.advanceTimersByTimeAsync(6000);
         const error = await promise;
 
         expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain('登录状态尚未恢复');
+        expect((error as Error).message).toContain('登录状态恢复失败');
         expect(globalThis.fetch).not.toHaveBeenCalled();
-        expect(resetStaleAuthState).toHaveBeenCalledWith('session_recovery_failed');
+        expect(resetStaleAuthState).not.toHaveBeenCalled();
       } finally {
         vi.useRealTimers();
       }
     });
 
     it('maps 401 to login expired message', async () => {
+      vi.mocked(getAccessTokenResolution)
+        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
+        .mockResolvedValueOnce({ token: null, state: 'no_session' });
       mockFetchError(401);
 
       await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
       expect(resetStaleAuthState).toHaveBeenCalledWith('session_expired');
+    });
+
+    it('does not force logout on transient 401 validation failures', async () => {
+      vi.mocked(getAccessTokenResolution)
+        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
+        .mockResolvedValueOnce({ token: null, state: 'transient_failure' });
+      mockFetchError(401);
+
+      await expect(api.watchlist.get()).rejects.toThrow('认证校验暂时失败');
+      expect(resetStaleAuthState).not.toHaveBeenCalled();
     });
   });
 

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isTokenExpired, getAccessToken, resetStaleAuthState, _resetAuthStateForTesting } from '../auth';
+import {
+  isTokenExpired,
+  getAccessToken,
+  getAccessTokenResolution,
+  resetStaleAuthState,
+  syncClientAuthSession,
+  _authTimingForTesting,
+  _resetAuthStateForTesting,
+} from '../auth';
 
 // ---------------------------------------------------------------------------
 // Mock @/lib/insforge
@@ -79,6 +87,7 @@ describe('getAccessToken', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     _resetAuthStateForTesting();
+    localStorage.clear();
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: async () => ({}),
@@ -101,6 +110,28 @@ describe('getAccessToken', () => {
 
     const token = await getAccessToken();
     expect(token).toBe(validToken);
+  });
+
+  it('returns cached token immediately after syncing client auth session', async () => {
+    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+
+    syncClientAuthSession(validToken, {
+      id: 'u1',
+      email: 'user@example.com',
+      profile: { name: 'Tester' },
+    });
+
+    const token = await getAccessToken();
+
+    expect(token).toBe(validToken);
+    expect(mockGetCurrentSession).not.toHaveBeenCalled();
+    expect(mockSetAuthToken).toHaveBeenCalledWith(validToken);
+    expect(localStorage.getItem('insforge-auth-token')).toBe(validToken);
+    expect(localStorage.getItem('insforge-auth-user')).toBe(JSON.stringify({
+      id: 'u1',
+      email: 'user@example.com',
+      profile: { name: 'Tester' },
+    }));
   });
 
   it('tries Server Proxy refresh when SDK token is expired', async () => {
@@ -126,6 +157,64 @@ describe('getAccessToken', () => {
     const [, requestInit] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(JSON.parse(requestInit.body)).toEqual({ action: 'refresh' });
     expect(mockSetAuthToken).toHaveBeenCalledWith(refreshedToken);
+  });
+
+  it('returns no_session when refresh responds with 401', async () => {
+    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: 'No refresh token available' }),
+    });
+
+    const result = await getAccessTokenResolution();
+
+    expect(result).toEqual({ token: null, state: 'no_session' });
+  });
+
+  it('forceRefresh ignores current sdk token and revalidates through refresh', async () => {
+    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    mockGetCurrentSession.mockResolvedValue({
+      data: { session: { accessToken: validToken } },
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: 'No refresh token available' }),
+    });
+
+    const result = await getAccessTokenResolution({ forceRefresh: true });
+
+    expect(result).toEqual({ token: null, state: 'no_session' });
+  });
+
+  it('retries transient refresh failures before giving up', async () => {
+    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
+    const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    vi.useFakeTimers();
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, status: 502, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          accessToken: refreshedToken,
+          user: { id: 'u1', email: 'user@example.com' },
+        }),
+      });
+
+    try {
+      const promise = getAccessTokenResolution();
+      await vi.advanceTimersByTimeAsync(
+        _authTimingForTesting.REFRESH_RETRY_DELAYS_MS.reduce((sum, delay) => sum + delay, 0)
+      );
+      const result = await promise;
+
+      expect(result).toEqual({ token: refreshedToken, state: 'authenticated' });
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('tries Server Proxy refresh when SDK returns no session', async () => {

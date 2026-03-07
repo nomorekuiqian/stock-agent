@@ -15,8 +15,10 @@ const mockUpdateUser = vi.fn();
 const mockLoginWithOAuth = vi.fn();
 const mockResendVerificationEmail = vi.fn();
 const mockVerifyEmail = vi.fn();
+const mockSetUser = vi.fn();
 let mockSdkUser: Record<string, unknown> | null = null;
 let mockIsLoaded = true;
+const originalFetch = globalThis.fetch;
 
 vi.mock('@insforge/nextjs', () => ({
   useInsforge: () => ({
@@ -30,6 +32,7 @@ vi.mock('@insforge/nextjs', () => ({
     loginWithOAuth: mockLoginWithOAuth,
     resendVerificationEmail: mockResendVerificationEmail,
     verifyEmail: mockVerifyEmail,
+    setUser: mockSetUser,
   }),
 }));
 
@@ -85,6 +88,10 @@ describe('AuthContext', () => {
     vi.clearAllMocks();
     mockSdkUser = null;
     mockIsLoaded = true;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    });
     // Suppress localStorage errors in jsdom
     vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {});
@@ -92,6 +99,7 @@ describe('AuthContext', () => {
 
   afterEach(() => {
     cleanup();
+    globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 
@@ -279,6 +287,69 @@ describe('AuthContext', () => {
         error: 'User already exists',
       });
     });
+  });
+
+  it('syncs token storage and sdk user after successful signIn', async () => {
+    mockSdkUser = {
+      id: 'existing-user',
+      email: 'existing@example.com',
+      profile: null,
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        accessToken: 'header.payload.signature',
+        user: {
+          id: 'u1',
+          email: 'user@example.com',
+          profile: { name: 'Tester' },
+        },
+      }),
+    });
+
+    let signInResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signIn']>> | null = null;
+
+    function SignInConsumer() {
+      const auth = useAuth();
+
+      useEffect(() => {
+        void auth.signIn('user@example.com', 'Password123!').then((result) => {
+          signInResult = result;
+        });
+      }, [auth]);
+
+      return null;
+    }
+
+    await act(async () => {
+      renderWithProviders(
+        <AuthProvider>
+          <SignInConsumer />
+        </AuthProvider>
+      );
+    });
+
+    await waitFor(() => {
+      expect(signInResult).toEqual({ success: true });
+    });
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }));
+    expect(mockSetUser).toHaveBeenCalledWith({
+      id: 'u1',
+      email: 'user@example.com',
+      profile: { name: 'Tester' },
+    });
+    expect(Storage.prototype.setItem).toHaveBeenCalledWith('insforge-auth-token', 'header.payload.signature');
+    expect(Storage.prototype.setItem).toHaveBeenCalledWith(
+      'insforge-auth-user',
+      JSON.stringify({
+        id: 'u1',
+        email: 'user@example.com',
+        profile: { name: 'Tester' },
+      })
+    );
   });
 
   it('treats resend verification email with empty sdk result as failure', async () => {
