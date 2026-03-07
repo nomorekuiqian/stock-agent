@@ -10,7 +10,21 @@ export interface User {
 }
 
 export type AuthResetReason = 'session_reset' | 'session_expired' | 'session_recovery_failed';
+export type AccessTokenResolutionState = 'authenticated' | 'no_session' | 'transient_failure';
 const FORCED_REAUTH_REASON_KEY = 'forced_reauth_reason';
+const SDK_SESSION_TIMEOUT_MS = 2000;
+const REFRESH_RETRY_DELAYS_MS = [300, 900] as const;
+
+interface ClientSessionUser {
+  id: string;
+  email?: string | null;
+  profile?: unknown;
+}
+
+interface AccessTokenResolution {
+  token: string | null;
+  state: AccessTokenResolutionState;
+}
 
 export function isTokenExpired(token: string): boolean {
   try {
@@ -25,11 +39,54 @@ export function isTokenExpired(token: string): boolean {
   }
 }
 
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<AccessTokenResolution> | null = null;
 let authResetPromise: Promise<void> | null = null;
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-async function tryRefreshToken(): Promise<string | null> {
+function cacheAccessToken(accessToken: string): void {
+  try {
+    const parts = accessToken.split('.');
+    if (parts.length !== 3) {
+      cachedToken = null;
+      return;
+    }
+
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp) {
+      cachedToken = { value: accessToken, expiresAt: payload.exp };
+      return;
+    }
+  } catch {
+    // Best-effort cache only.
+  }
+
+  cachedToken = null;
+}
+
+export function syncClientAuthSession(accessToken: string, user?: ClientSessionUser | null): void {
+  cacheAccessToken(accessToken);
+
+  try {
+    insforge.getHttpClient?.().setAuthToken?.(accessToken);
+  } catch {
+    // SDK client mutation is best-effort.
+  }
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem('insforge-auth-token', accessToken);
+    if (user) {
+      window.localStorage.setItem('insforge-auth-user', JSON.stringify(user));
+    }
+  } catch {
+    // localStorage might be unavailable.
+  }
+}
+
+async function refreshOnce(): Promise<AccessTokenResolution> {
   try {
     const response = await fetch('/api/auth', {
       method: 'POST',
@@ -37,45 +94,41 @@ async function tryRefreshToken(): Promise<string | null> {
       body: JSON.stringify({ action: 'refresh' }),
       credentials: 'include',
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { token: null, state: 'no_session' };
+      }
+      return { token: null, state: 'transient_failure' };
+    }
 
     const data = await response.json();
-    if (!data.accessToken) return null;
-
-    // Cache so subsequent getAccessToken() calls skip SDK + refresh
-    try {
-      const parts = data.accessToken.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        if (payload.exp) {
-          cachedToken = { value: data.accessToken, expiresAt: payload.exp };
-        }
-      }
-    } catch {
-      // Cache is best-effort
+    if (!data.accessToken) {
+      return { token: null, state: 'transient_failure' };
     }
+    syncClientAuthSession(data.accessToken, data.user);
 
-    try {
-      insforge.getHttpClient?.().setAuthToken?.(data.accessToken);
-    } catch {
-      // SDK client mutation is best-effort.
-    }
-
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem('insforge-auth-token', data.accessToken);
-        if (data.user) {
-          window.localStorage.setItem('insforge-auth-user', JSON.stringify(data.user));
-        }
-      } catch {
-        // localStorage might be unavailable.
-      }
-    }
-
-    return data.accessToken;
+    return { token: data.accessToken, state: 'authenticated' };
   } catch {
-    return null;
+    return { token: null, state: 'transient_failure' };
   }
+}
+
+async function tryRefreshToken(): Promise<AccessTokenResolution> {
+  for (let attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+    const result = await refreshOnce();
+    if (result.state !== 'transient_failure') {
+      return result;
+    }
+
+    const retryDelay = REFRESH_RETRY_DELAYS_MS[attempt];
+    if (retryDelay === undefined) {
+      break;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, retryDelay));
+  }
+
+  return { token: null, state: 'transient_failure' };
 }
 
 function clearAuthRedirectState(): void {
@@ -182,29 +235,32 @@ export async function resetStaleAuthState(reason: AuthResetReason = 'session_res
   return authResetPromise;
 }
 
-export async function getAccessToken(): Promise<string | null> {
+export async function getAccessTokenResolution(
+  { forceRefresh = false }: { forceRefresh?: boolean } = {}
+): Promise<AccessTokenResolution> {
   try {
-    // Return cached token from a previous refresh (avoids redundant SDK/refresh calls)
-    if (cachedToken && !isTokenExpired(cachedToken.value)) {
-      return cachedToken.value;
+    // Return cached token from a previous refresh/sign-in when the caller
+    // is not explicitly trying to revalidate the session.
+    if (!forceRefresh && cachedToken && !isTokenExpired(cachedToken.value)) {
+      return { token: cachedToken.value, state: 'authenticated' };
     }
-    cachedToken = null;
+    if (cachedToken && isTokenExpired(cachedToken.value)) {
+      cachedToken = null;
+    }
 
-    // Try SDK first (guard against hanging with 5s timeout)
+    // Try SDK first, but don't let the SDK stall protected requests for too long.
     const result = await Promise.race([
       insforge.auth.getCurrentSession(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), SDK_SESSION_TIMEOUT_MS)),
     ]);
 
     const token = result?.data?.session?.accessToken;
     if (token && !isTokenExpired(token)) {
-      return token;
+      if (!forceRefresh) {
+        return { token, state: 'authenticated' };
+      }
     }
 
-    // SDK returned null or expired token. This happens when the SDK's
-    // internal refresh fails (cross-domain cookie issue with Server Proxy).
-    // Fall through to our own Server Proxy refresh which uses httpOnly
-    // cookies on our domain.
     if (!refreshPromise) {
       refreshPromise = tryRefreshToken().finally(() => {
         refreshPromise = null;
@@ -213,7 +269,48 @@ export async function getAccessToken(): Promise<string | null> {
 
     return refreshPromise;
   } catch {
-    return null;
+    return { token: null, state: 'transient_failure' };
+  }
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  const result = await getAccessTokenResolution();
+  return result.token;
+}
+
+/** @internal Exposed for test isolation only. */
+export function _resetAuthStateForTesting(): void {
+  cachedToken = null;
+  refreshPromise = null;
+  authResetPromise = null;
+}
+
+/** @internal Exposed for tests that verify timeout and retry behavior. */
+export const _authTimingForTesting = {
+  SDK_SESSION_TIMEOUT_MS,
+  REFRESH_RETRY_DELAYS_MS: [...REFRESH_RETRY_DELAYS_MS],
+};
+
+export async function resetPassword(
+  newPassword: string,
+  otp: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.resetPassword({
+      newPassword,
+      otp,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: !!data?.message };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 
@@ -257,36 +354,6 @@ export async function exchangeResetPasswordCode(
     }
 
     return { success: true, token: data.token };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-/** @internal Exposed for test isolation only. */
-export function _resetAuthStateForTesting(): void {
-  cachedToken = null;
-  refreshPromise = null;
-  authResetPromise = null;
-}
-
-export async function resetPassword(
-  newPassword: string,
-  otp: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { data, error } = await insforge.auth.resetPassword({
-      newPassword,
-      otp,
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: !!data?.message };
   } catch (error) {
     return {
       success: false,

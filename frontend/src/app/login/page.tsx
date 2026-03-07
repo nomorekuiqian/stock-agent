@@ -40,7 +40,7 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'oauth can only be initiated in browser': '请在浏览器中登录',
   'session_reset': '登录状态已重置，请重新登录',
   'session_expired': '登录已过期，请重新登录',
-  'session_recovery_failed': '登录状态恢复失败，请重新登录',
+  'session_recovery_failed': '登录状态恢复失败，请刷新页面重试；如果反复出现，请稍后再试',
 };
 
 function translateError(error: string): string {

@@ -1,4 +1,4 @@
-import { getAccessToken, resetStaleAuthState } from './auth';
+import { getAccessToken, getAccessTokenResolution, resetStaleAuthState } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -872,10 +872,11 @@ export interface ConversationSaveRequest {
   message_count: number;
 }
 
-const AUTH_RECOVERY_WAIT_MS = 2500;
+const AUTH_RECOVERY_WAIT_MS = 6000;
 const AUTH_RECOVERY_POLL_MS = 150;
-const AUTH_RECOVERY_ERROR = '登录状态尚未恢复，请稍后重试或刷新页面。';
+const AUTH_RECOVERY_ERROR = '登录状态恢复失败，请稍后重试或刷新页面。';
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
+const AUTH_TEMPORARY_ERROR = '认证校验暂时失败，请稍后重试或刷新页面。';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -888,14 +889,18 @@ async function resolveAccessToken(required: boolean = false): Promise<string | n
 
   const deadline = Date.now() + AUTH_RECOVERY_WAIT_MS;
   while (true) {
-    const token = await getAccessToken();
-    if (token) {
-      return token;
+    const resolution = await getAccessTokenResolution();
+    if (resolution.token) {
+      return resolution.token;
+    }
+
+    if (resolution.state === 'no_session') {
+      await resetStaleAuthState('session_expired');
+      throw new Error(AUTH_EXPIRED_ERROR);
     }
 
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
-      await resetStaleAuthState('session_recovery_failed');
       throw new Error(AUTH_RECOVERY_ERROR);
     }
 
@@ -921,8 +926,13 @@ async function readApiError(response: Response, fallback: string): Promise<strin
 
 async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
   if (response.status === 401) {
-    await resetStaleAuthState('session_expired');
-    throw new Error(AUTH_EXPIRED_ERROR);
+    const resolution = await getAccessTokenResolution({ forceRefresh: true });
+    if (resolution.state === 'no_session') {
+      await resetStaleAuthState('session_expired');
+      throw new Error(AUTH_EXPIRED_ERROR);
+    }
+
+    throw new Error(AUTH_TEMPORARY_ERROR);
   }
 
   throw new Error(await readApiError(response, fallback));
@@ -1368,8 +1378,7 @@ export const api = {
         const response = await fetch(`${API_BASE_URL}/sectors/subscriptions`, { headers });
         if (!response.ok) {
           if (response.status === 401) {
-            await resetStaleAuthState('session_expired');
-            throw new Error(AUTH_EXPIRED_ERROR);
+            await throwProtectedApiError(response, 'Failed to fetch subscriptions');
           }
           const msg = await readApiError(response, 'Failed to fetch subscriptions');
           if (attempt < maxAttempts && response.status === 400 && msg.includes('schema cache')) {
@@ -1510,12 +1519,10 @@ export const api = {
       });
       if (!response.ok) {
         if (response.status === 401) {
-          await resetStaleAuthState('session_expired');
+          await throwProtectedApiError(response, 'Failed to save watchlist');
         }
         throw new ApiError(
-          response.status === 401
-            ? AUTH_EXPIRED_ERROR
-            : await readApiError(response, 'Failed to save watchlist'),
+          await readApiError(response, 'Failed to save watchlist'),
           response.status,
         );
       }

@@ -56,6 +56,7 @@ async function handleSignIn(body: { email: string; password: string }): Promise<
     };
     if (anonKey) {
       headers.Authorization = `Bearer ${anonKey}`;
+      headers.apikey = anonKey;
     }
 
     const response = await fetch(`${baseUrl}/api/auth/sessions`, {
@@ -156,6 +157,7 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
     }
     if (anonKey) {
       headers.Authorization = `Bearer ${anonKey}`;
+      headers.apikey = anonKey;
     }
 
     const response = await fetch(`${baseUrl}/api/auth/refresh`, {

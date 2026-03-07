@@ -3,7 +3,7 @@
 import { createContext, useContext, useCallback, useEffect, useRef, useState, ReactNode, useMemo } from 'react';
 import { useInsforge } from '@insforge/nextjs';
 import { useQueryClient } from '@tanstack/react-query';
-import { User } from '@/lib/auth';
+import { syncClientAuthSession, User } from '@/lib/auth';
 import { buildAbsoluteVerifyEmailUrl } from '@/lib/auth-verification';
 import { getStoredAuthRedirect } from '@/lib/auth-redirect';
 
@@ -109,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (data.accessToken && data.user) {
+          syncClientAuthSession(data.accessToken, data.user);
           sdk.setUser({
             id: data.user.id,
             email: data.user.email,
@@ -157,14 +158,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
 
-      // Inject user into SDK state so React context updates immediately
-      if (data.user) {
-        sdk.setUser({
-          id: data.user.id,
-          email: data.user.email,
-          profile: data.user.profile || null,
-        });
+      if (!data.accessToken || !data.user) {
+        return { success: false, error: 'Login response invalid' };
       }
+
+      syncClientAuthSession(data.accessToken, data.user);
+
+      // Inject user into SDK state so React context updates immediately
+      sdk.setUser({
+        id: data.user.id,
+        email: data.user.email,
+        profile: data.user.profile || null,
+      });
 
       return { success: true };
     } catch (error) {
