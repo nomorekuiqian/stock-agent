@@ -10,11 +10,20 @@ import asyncio
 
 import httpx
 
+from app.core.config import EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
 from app.utils.timezone import today_str
 
 logger = get_logger(__name__)
+
+
+def _watchlist_headers(base_headers: Dict[str, str]) -> Dict[str, str]:
+    """Build headers for user-watchlists Edge Function calls."""
+    headers = dict(base_headers)
+    if EDGE_FUNCTION_SECRET:
+        headers["X-Internal-Secret"] = EDGE_FUNCTION_SECRET
+    return headers
 
 
 async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,7 +117,7 @@ async def get_user_watchlist(user_id: str) -> Optional[Dict[str, Any]]:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{watchlist_url}?user_id={user_id}",
-                    headers=service.headers,
+                    headers=_watchlist_headers(service.headers),
                     timeout=30.0,
                 )
 
@@ -122,6 +131,11 @@ async def get_user_watchlist(user_id: str) -> Optional[Dict[str, Any]]:
                                 "(user has no watchlist)",
                                 user_id[:12],
                             )
+                            return {
+                                "user_id": user_id,
+                                "symbols": [],
+                                "email": "",
+                            }
                         return result
                     logger.warning(
                         "Watchlist for user %s: status=200 but success=%s, "
@@ -186,7 +200,12 @@ async def get_user_digest(user_id: str, digest_date: str) -> Optional[Dict[str, 
         return None
 
 
-async def save_user_watchlist(user_id: str, symbols: List[str], email: str = "") -> Dict[str, Any]:
+async def save_user_watchlist(
+    user_id: str,
+    symbols: List[str],
+    email: str = "",
+    base_updated_at: str | None = None,
+) -> Dict[str, Any]:
     """
     Save (upsert) a user's watchlist via Edge Function.
 
@@ -205,11 +224,12 @@ async def save_user_watchlist(user_id: str, symbols: List[str], email: str = "")
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 watchlist_url,
-                headers=service.headers,
+                headers=_watchlist_headers(service.headers),
                 json={
                     "user_id": user_id,
                     "symbols": symbols,
                     "email": email,
+                    "base_updated_at": base_updated_at,
                 },
                 timeout=30.0,
             )
@@ -217,19 +237,27 @@ async def save_user_watchlist(user_id: str, symbols: List[str], email: str = "")
             if response.status_code in (200, 201):
                 data = response.json()
                 if data.get("success"):
-                    return {"success": True, "data": data.get("data")}
+                    return {"success": True, "data": data.get("data"), "status_code": response.status_code}
                 else:
                     error_msg = data.get("error", "Unknown error")
                     logger.error("Save watchlist failed: %s", error_msg)
-                    return {"success": False, "error": error_msg}
+                    return {"success": False, "error": error_msg, "status_code": response.status_code}
             else:
-                error_msg = response.text
+                try:
+                    error_json = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                except Exception:
+                    error_json = {}
+                error_msg = error_json.get("error") or response.text
                 logger.error("Save watchlist failed: %s - %s", response.status_code, error_msg)
-                return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "status_code": response.status_code,
+                }
 
     except Exception as e:
         logger.exception("Exception saving user watchlist")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "status_code": 500}
 
 
 async def get_user_digest_by_id(digest_id: str) -> Optional[Dict[str, Any]]:

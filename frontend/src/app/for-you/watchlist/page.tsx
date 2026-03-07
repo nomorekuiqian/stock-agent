@@ -3,15 +3,17 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
-import { api, SectorInfo } from '@/lib/api';
+import { api, SectorInfo, WatchlistData } from '@/lib/api';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import { useStockSearch } from '@/hooks/useStockSearch';
 import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
 import { useStockQuotes } from '@/hooks/queries/use-stock-data';
+import { queryKeys } from '@/hooks/queries/query-keys';
 
 const MAX_WATCHLIST_SIZE = 25;
 
@@ -22,25 +24,37 @@ const SECTOR_CATEGORIES: { label: string; ids: string[] }[] = [
   { label: '热门主题', ids: ['china', 'crypto', 'streaming'] },
 ];
 
+function normalizeSymbols(symbols?: string[]) {
+  if (!symbols) return [];
+  return [...new Set(symbols.map((symbol) => symbol.toUpperCase()))];
+}
+
+function isConflictError(error: unknown) {
+  return (
+    error instanceof Error &&
+    typeof (error as { status?: unknown }).status === 'number' &&
+    (error as { status: number }).status === 409
+  );
+}
+
 function WatchlistPageContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // --- TanStack Query hooks ---
-  const { data: watchlistData, isLoading: watchlistLoading, isError: loadFailed, isSuccess: watchlistLoaded } = useWatchlist(!!user?.id);
+  const { data: watchlistData, isLoading: watchlistLoading, isError: loadFailed, isSuccess: watchlistLoaded } = useWatchlist(user?.id, !!user?.id);
   const saveWatchlistMutation = useSaveWatchlist();
 
-  // Local editing state seeded from query (setState during render is the
-  // React 19 recommended pattern for "adjusting state based on props/state").
+  // Local editing state seeded from query once per authenticated user.
   const [symbols, setSymbols] = useState<string[]>([]);
-  const [symbolsSeeded, setSymbolsSeeded] = useState(false);
-
-  if (watchlistData && !symbolsSeeded) {
-    setSymbolsSeeded(true);
-    if (watchlistData.symbols && watchlistData.symbols.length > 0) {
-      setSymbols([...new Set(watchlistData.symbols.map((s: string) => s.toUpperCase()))]);
-    }
-  }
+  const [seededUserId, setSeededUserId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const lastPersistedRef = useRef<Pick<WatchlistData, 'symbols' | 'updated_at'>>({
+    symbols: [],
+    updated_at: undefined,
+  });
+  const saveRequestIdRef = useRef(0);
 
   const { data: quotesResponse, isLoading: loadingQuotes } = useStockQuotes(symbols);
   const quotes = useMemo(() => {
@@ -71,6 +85,38 @@ function WatchlistPageContent() {
       router.push('/login?redirect=/for-you/watchlist');
     }
   }, [authLoading, isAuthenticated, router]);
+
+  // Reset local editing state when user changes (avoid cross-account bleed).
+  useEffect(() => {
+    setSymbols([]);
+    setSeededUserId(null);
+    setSaveError(null);
+    lastPersistedRef.current = { symbols: [], updated_at: undefined };
+    saveRequestIdRef.current = 0;
+  }, [user?.id]);
+
+  // Seed symbols from server exactly once per user after watchlist query resolves.
+  useEffect(() => {
+    if (!user?.id || !watchlistLoaded || loadFailed) return;
+    const hasQueuedSave = saveTimeoutRef.current !== null;
+    if (seededUserId === user.id && (hasQueuedSave || saveWatchlistMutation.isPending)) return;
+
+    const normalized = normalizeSymbols(watchlistData?.symbols);
+    lastPersistedRef.current = {
+      symbols: normalized,
+      updated_at: watchlistData?.updated_at,
+    };
+    setSymbols(normalized);
+    setSeededUserId(user.id);
+    setSaveError(null);
+  }, [
+    user?.id,
+    watchlistData,
+    watchlistLoaded,
+    loadFailed,
+    seededUserId,
+    saveWatchlistMutation.isPending,
+  ]);
 
   // Load sectors (no TanStack Query hook for this)
   useEffect(() => {
@@ -103,10 +149,47 @@ function WatchlistPageContent() {
     // which would overwrite the user's real watchlist with empty data.
     if (!watchlistLoaded) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    const rollbackSnapshot = {
+      symbols: [...lastPersistedRef.current.symbols],
+      updated_at: lastPersistedRef.current.updated_at,
+    };
+    const requestId = ++saveRequestIdRef.current;
     saveTimeoutRef.current = setTimeout(() => {
-      saveWatchlistMutation.mutate({ userId: user.id, symbols: newSymbols });
+      saveTimeoutRef.current = null;
+      saveWatchlistMutation.mutate(
+        {
+          userId: user.id,
+          symbols: newSymbols,
+          baseUpdatedAt: rollbackSnapshot.updated_at,
+        },
+        {
+          onSuccess: (result) => {
+            if (requestId !== saveRequestIdRef.current) return;
+            const serverSymbols = normalizeSymbols(result.data?.symbols || newSymbols);
+            lastPersistedRef.current = {
+              symbols: serverSymbols,
+              updated_at: result.data?.updated_at,
+            };
+            setSymbols(serverSymbols);
+            setSaveError(null);
+          },
+          onError: async (error) => {
+            if (requestId !== saveRequestIdRef.current) return;
+            setSymbols(rollbackSnapshot.symbols);
+            lastPersistedRef.current = rollbackSnapshot;
+            setSaveError(
+              isConflictError(error)
+                ? '持仓已在其他页面被更新，已恢复到最新保存版本，请刷新后重试。'
+                : error instanceof Error
+                  ? error.message
+                  : '保存持仓失败，请重试。',
+            );
+            await queryClient.invalidateQueries({ queryKey: queryKeys.watchlist.byUser(user.id) });
+          },
+        }
+      );
     }, 500);
-  }, [user, watchlistLoaded, saveWatchlistMutation]);
+  }, [user, watchlistLoaded, saveWatchlistMutation, queryClient]);
 
   const handleRemoveSymbol = useCallback((symbolToRemove: string) => {
     const newSymbols = symbols.filter(s => s !== symbolToRemove);
@@ -242,6 +325,12 @@ function WatchlistPageContent() {
         </div>
       ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-10">
+          {saveError && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+              {saveError}
+            </div>
+          )}
+
           <div ref={searchContainerRef} className="relative">
             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
               atLimit ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/80 focus-within:border-emerald-500/40'

@@ -5,7 +5,7 @@ Contains both API models (request/response) and the PersonalDigestOutput
 schema used by the ADK agent for structured output.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 
 
@@ -16,21 +16,15 @@ from typing import Optional
 
 class DigestRequest(BaseModel):
     """Request model for generating personalized digest"""
-    symbols: list[str] = Field(default=[], description="User watchlist symbols to analyze")
-
-    # User ID for saving the digest (optional - if not provided, digest won't be saved)
-    user_id: Optional[str] = Field(
-        default=None,
-        description="User UUID for saving the digest to database"
-    )
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "symbols": ["AAPL", "MSFT", "NVDA", "TSLA"],
-                "user_id": "12345678-1234-5678-90ab-cdef12345678"
             }
         }
+    )
+
+    symbols: list[str] = Field(default=[], description="User watchlist symbols to analyze")
 
 
 class StockAnalysis(BaseModel):

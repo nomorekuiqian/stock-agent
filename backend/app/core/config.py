@@ -20,6 +20,7 @@ STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 # Security
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 INSFORGE_ANON_KEY = os.getenv("INSFORGE_ANON_KEY", "")
+EDGE_FUNCTION_SECRET = os.getenv("EDGE_FUNCTION_SECRET", CRON_SECRET)
 
 # Environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # "production" or "development"

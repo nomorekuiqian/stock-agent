@@ -2,6 +2,16 @@ import { getAccessToken } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 
 export interface MarketIndex {
   name: string;
@@ -715,6 +725,13 @@ export interface WatchlistData {
   updated_at?: string;
 }
 
+export interface SaveWatchlistResponse {
+  success: boolean;
+  error?: string;
+  action?: string;
+  data?: WatchlistData;
+}
+
 export interface UserDigestItem {
   id?: string;
   user_id: string;
@@ -913,21 +930,20 @@ export const api = {
     return response.json();
   },
 
-  generateDigest: async (
-    symbols: string[],
-    userId?: string
-  ): Promise<DigestResponse> => {
-    const body: { symbols: string[]; user_id?: string } = { symbols };
-    if (userId) {
-      body.user_id = userId;
+  generateDigest: async (symbols: string[]): Promise<DigestResponse> => {
+    const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+    if (!headers['Authorization']) {
+      throw new Error('登录已过期，请刷新页面或重新登录');
     }
-
     const response = await fetch(`${API_BASE_URL}/digest`, {
       method: 'POST',
-      headers: await _authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body),
+      headers,
+      body: JSON.stringify({ symbols }),
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('登录已过期，请刷新页面或重新登录');
+      }
       const error = await response.json().catch(() => ({ detail: 'Failed to generate digest' }));
       throw new Error(error.detail || 'Failed to generate digest');
     }
@@ -988,9 +1004,13 @@ export const api = {
     },
 
     getStatus: async (channel: SubscriptionChannel, email: string): Promise<SubscriptionStatusResponse> => {
-      const response = await fetch(
-        `${API_BASE_URL}/subscriptions/${channel}/status?email=${encodeURIComponent(email)}`
-      );
+      const url = `${API_BASE_URL}/subscriptions/${channel}/status?email=${encodeURIComponent(email)}`;
+      let response: Response;
+      try {
+        response = await fetch(url);
+      } catch {
+        throw new Error(`Failed to reach API endpoint: ${url}. Check backend server status and NEXT_PUBLIC_API_URL.`);
+      }
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: 'Failed to get status' }));
         throw new Error(error.detail || 'Failed to get status');
@@ -1269,37 +1289,57 @@ export const api = {
       return data.digest || null;
     },
 
-    subscribe: async (sectorId: string, userId: string): Promise<SectorSubscribeResponse> => {
+    subscribe: async (sectorId: string): Promise<SectorSubscribeResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      if (!headers['Authorization']) {
+        throw new Error('登录已过期，请刷新页面或重新登录');
+      }
       const response = await fetch(`${API_BASE_URL}/sectors/subscribe`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sector_id: sectorId, user_id: userId }),
+        headers,
+        body: JSON.stringify({ sector_id: sectorId }),
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('登录已过期，请刷新页面或重新登录');
+        }
         const error = await response.json().catch(() => ({ detail: 'Failed to subscribe to sector' }));
         throw new Error(error.detail || 'Failed to subscribe to sector');
       }
       return response.json();
     },
 
-    unsubscribe: async (sectorId: string, userId: string): Promise<SectorUnsubscribeResponse> => {
-      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/unsubscribe?user_id=${userId}`, {
+    unsubscribe: async (sectorId: string): Promise<SectorUnsubscribeResponse> => {
+      const headers = await _authHeaders();
+      if (!headers['Authorization']) {
+        throw new Error('登录已过期，请刷新页面或重新登录');
+      }
+      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/unsubscribe`, {
         method: 'DELETE',
+        headers,
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('登录已过期，请刷新页面或重新登录');
+        }
         const error = await response.json().catch(() => ({ detail: 'Failed to unsubscribe from sector' }));
         throw new Error(error.detail || 'Failed to unsubscribe from sector');
       }
       return response.json();
     },
 
-    getSubscriptions: async (userId: string): Promise<SectorSubscription[]> => {
+    getSubscriptions: async (): Promise<SectorSubscription[]> => {
+      const headers = await _authHeaders();
+      if (!headers['Authorization']) {
+        throw new Error('登录已过期，请刷新页面或重新登录');
+      }
       const maxAttempts = 2;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const response = await fetch(`${API_BASE_URL}/sectors/subscriptions?user_id=${userId}`);
+        const response = await fetch(`${API_BASE_URL}/sectors/subscriptions`, { headers });
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('登录已过期，请刷新页面或重新登录');
+          }
           const error = await response.json().catch(() => ({ detail: 'Failed to fetch subscriptions' }));
           const msg = error.detail || error.error || 'Failed to fetch subscriptions';
           if (attempt < maxAttempts && response.status === 400 && msg.includes('schema cache')) {
@@ -1416,21 +1456,43 @@ export const api = {
         throw new Error('Failed to fetch watchlist');
       }
       const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error || json.detail || 'Failed to fetch watchlist');
+      }
       return json.data || null;
     },
 
-    save: async (_userId: string, symbols: string[], email: string = ''): Promise<{ success: boolean; error?: string }> => {
+    save: async (
+      _userId: string,
+      symbols: string[],
+      email: string = '',
+      baseUpdatedAt?: string,
+    ): Promise<SaveWatchlistResponse> => {
       const headers = await _authHeaders({ 'Content-Type': 'application/json' });
       const response = await fetch(`${API_BASE_URL}/watchlist`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ symbols, email }),
+        body: JSON.stringify({
+          symbols,
+          email,
+          base_updated_at: baseUpdatedAt,
+        }),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: 'Failed to save watchlist' }));
-        return { success: false, error: error.detail || 'Failed to save watchlist' };
+        throw new ApiError(
+          error.detail || error.error || 'Failed to save watchlist',
+          response.status,
+        );
       }
-      return response.json();
+      const json = await response.json();
+      if (!json.success) {
+        throw new ApiError(
+          json.error || json.detail || 'Failed to save watchlist',
+          response.status,
+        );
+      }
+      return json as SaveWatchlistResponse;
     },
   },
 

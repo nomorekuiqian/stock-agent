@@ -2,11 +2,61 @@
 // GET: query user_watchlists table for user's watchlist symbols
 // POST: upsert user's watchlist (action=upsert)
 
+function jsonResponse(payload, status, headers) {
+  return new Response(JSON.stringify(payload), { status, headers });
+}
+
+function parseBearerToken(request) {
+  const authHeader = request.headers.get('Authorization') || '';
+  if (!authHeader.startsWith('Bearer ')) return null;
+  return authHeader.slice('Bearer '.length).trim() || null;
+}
+
+async function resolveAuthContext(request, baseUrl, anonKey, internalSecret) {
+  const internalHeader = request.headers.get('X-Internal-Secret') || request.headers.get('x-internal-secret');
+  if (internalSecret && internalHeader && internalHeader === internalSecret) {
+    return { ok: true, internal: true, userId: null, token: null };
+  }
+
+  const token = parseBearerToken(request);
+  if (!token) {
+    return { ok: false, status: 401, error: 'Missing authentication' };
+  }
+
+  try {
+    const resp = await fetch(`${baseUrl}/api/auth/sessions/current`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': anonKey || ''
+      }
+    });
+
+    if (resp.status !== 200) {
+      return { ok: false, status: 401, error: 'Invalid or expired token' };
+    }
+
+    const data = await resp.json().catch(() => ({}));
+    const userObj = data?.user || data;
+    const userId = userObj?.id;
+    if (!userId) {
+      return { ok: false, status: 401, error: 'Invalid auth session' };
+    }
+    return { ok: true, internal: false, userId, token };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 502,
+      error: (error instanceof Error ? error.message : String(error)) || 'Auth service unavailable'
+    };
+  }
+}
+
 module.exports = async function(request) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Internal-Secret',
     'Content-Type': 'application/json'
   };
 
@@ -14,9 +64,18 @@ module.exports = async function(request) {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  const baseUrl = Deno.env.get('INSFORGE_INTERNAL_URL') || 'http://insforge:7130';
+  const anonKey = Deno.env.get('ANON_KEY') || '';
+  const internalSecret = Deno.env.get('EDGE_FUNCTION_SECRET') || Deno.env.get('CRON_SECRET') || '';
+  const auth = await resolveAuthContext(request, baseUrl, anonKey, internalSecret);
+  if (!auth.ok) {
+    return jsonResponse({ success: false, error: auth.error }, auth.status, corsHeaders);
+  }
+
   const client = createClient({
-    baseUrl: Deno.env.get('INSFORGE_INTERNAL_URL') || 'http://insforge:7130',
-    anonKey: Deno.env.get('ANON_KEY')
+    baseUrl,
+    edgeFunctionToken: auth.token || undefined,
+    anonKey
   });
 
   const url = new URL(request.url);
@@ -27,10 +86,17 @@ module.exports = async function(request) {
       const body = await request.json();
 
       if (!body.user_id) {
-        return new Response(JSON.stringify({
+        return jsonResponse({
           success: false,
           error: 'user_id is required'
-        }), { status: 400, headers: corsHeaders });
+        }, 400, corsHeaders);
+      }
+
+      if (!auth.internal && auth.userId !== body.user_id) {
+        return jsonResponse({
+          success: false,
+          error: 'Forbidden: user_id mismatch'
+        }, 403, corsHeaders);
       }
 
       const watchlistData = {
@@ -43,9 +109,22 @@ module.exports = async function(request) {
       // Check if exists
       const { data: existing } = await client.database
         .from('user_watchlists')
-        .select('id')
+        .select('id, updated_at')
         .eq('user_id', body.user_id)
         .maybeSingle();
+
+      if (
+        existing &&
+        body.base_updated_at &&
+        existing.updated_at &&
+        body.base_updated_at !== existing.updated_at
+      ) {
+        return jsonResponse({
+          success: false,
+          error: 'Watchlist was updated elsewhere. Please refresh and try again.',
+          data: { updated_at: existing.updated_at }
+        }, 409, corsHeaders);
+      }
 
       let result;
       if (existing) {
@@ -65,21 +144,28 @@ module.exports = async function(request) {
 
       if (result.error) throw result.error;
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: true,
         action: existing ? 'updated' : 'created',
         data: result.data
-      }), { status: existing ? 200 : 201, headers: corsHeaders });
+      }, existing ? 200 : 201, corsHeaders);
     }
 
     // GET - Query watchlist
     const userId = url.searchParams.get('user_id');
 
     if (!userId) {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: false,
         error: 'user_id is required'
-      }), { status: 400, headers: corsHeaders });
+      }, 400, corsHeaders);
+    }
+
+    if (!auth.internal && auth.userId !== userId) {
+      return jsonResponse({
+        success: false,
+        error: 'Forbidden: user_id mismatch'
+      }, 403, corsHeaders);
     }
 
     const { data, error } = await client.database
@@ -90,16 +176,16 @@ module.exports = async function(request) {
 
     if (error) throw error;
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       data: data || null
-    }), { status: 200, headers: corsHeaders });
+    }, 200, corsHeaders);
 
   } catch (error) {
     console.error('Error in user-watchlists function:', error);
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
-      error: error.message || 'Internal server error'
-    }), { status: 500, headers: corsHeaders });
+      error: (error instanceof Error ? error.message : String(error)) || 'Internal server error'
+    }, 500, corsHeaders);
   }
 };

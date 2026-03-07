@@ -41,6 +41,7 @@ export const queryKeys = {
   },
   watchlist: {
     all: ['watchlist'] as const,
+    byUser: (userId: string) => ['watchlist', userId] as const,
   },
   morningReports: {
     all: ['morning-reports'] as const,
