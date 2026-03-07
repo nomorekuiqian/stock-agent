@@ -8,7 +8,7 @@ import { Navbar } from "@/components/Navbar";
 import { Logo } from "@/components/Logo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { getAuthFromCookies } from "@insforge/nextjs/server";
+import { auth } from "@insforge/nextjs/server";
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -97,7 +97,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const initialState = await getAuthFromCookies();
+  const initialState = await auth();
 
   return (
     <html lang="zh-CN" suppressHydrationWarning className={`${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}>

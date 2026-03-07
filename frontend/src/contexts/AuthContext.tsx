@@ -1,97 +1,74 @@
 'use client';
 
-import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useCallback, ReactNode, useMemo } from 'react';
 import { useInsforge } from '@insforge/nextjs';
-import {
-  User,
-  signIn as authSignIn,
-  signUp as authSignUp,
-  signInWithGoogle,
-  updateProfile as authUpdateProfile,
-} from '@/lib/auth';
-import { api } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { User } from '@/lib/auth';
+import { buildAbsoluteVerifyEmailUrl } from '@/lib/auth-verification';
+import { getStoredAuthRedirect } from '@/lib/auth-redirect';
 
-function getAutoSubscribedKey(userId: string): string {
-  return `auto_subscribed_${userId}`;
+interface AuthActionResult {
+  success: boolean;
+  error?: string;
 }
 
-function hasBeenAutoSubscribed(userId: string): boolean {
-  if (typeof window === 'undefined') return true;
-  return localStorage.getItem(getAutoSubscribedKey(userId)) === 'true';
-}
-
-function markAsAutoSubscribed(userId: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(getAutoSubscribedKey(userId), 'true');
-  }
-}
-
-const SYNC_KEY = 'sub_synced';
-const SYNC_TTL = 60 * 60 * 1000; // 1 hour
-
-function needsSync(userId: string): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const raw = localStorage.getItem(SYNC_KEY);
-    if (!raw) return true;
-    const cached = JSON.parse(raw);
-    if (cached.userId !== userId) return true;
-    return Date.now() - cached.ts > SYNC_TTL;
-  } catch { return true; }
-}
-
-function markSynced(userId: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SYNC_KEY, JSON.stringify({ userId, ts: Date.now() }));
-}
-
-async function syncUserWithSubscriptions(user: User): Promise<void> {
-  if (!needsSync(user.id)) return;
-
-  try {
-    const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
-    if (result.success && result.synced_channels.length > 0) {
-      console.log('[AuthContext] Synced subscriptions:', result.synced_channels.map(c => c.channel));
-    }
-
-    if (!hasBeenAutoSubscribed(user.id)) {
-      try {
-        const status = await api.subscriptions.getStatus('daily_report', user.email);
-        if (!status.subscribed) {
-          await api.subscriptions.subscribe('daily_report', {
-            email: user.email,
-            first_name: user.name,
-            user_id: user.id,
-          });
-        }
-        markAsAutoSubscribed(user.id);
-      } catch (subError) {
-        console.warn('[AuthContext] Auto-subscribe failed:', subError);
-      }
-    }
-
-    markSynced(user.id);
-  } catch (error) {
-    console.warn('[AuthContext] Sync subscriptions failed:', error);
-  }
+interface SignUpResult extends AuthActionResult {
+  requiresEmailVerification?: boolean;
+  email?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
-  signOut: () => Promise<{ success: boolean; error?: string }>;
-  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
-  updateProfile: (profile: { name?: string }) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<AuthActionResult>;
+  signUp: (email: string, password: string, name?: string, redirectPath?: string) => Promise<SignUpResult>;
+  signOut: () => Promise<AuthActionResult>;
+  signInWithGoogle: () => Promise<AuthActionResult>;
+  updateProfile: (profile: { name?: string }) => Promise<AuthActionResult>;
+  resendVerificationEmail: (email: string) => Promise<AuthActionResult>;
+  verifyEmail: (otp: string, email?: string) => Promise<AuthActionResult>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getSdkError(result: unknown): string | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  if (!('error' in result)) return undefined;
+  const error = (result as { error?: unknown }).error;
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+function needsEmailVerification(result: unknown): boolean {
+  if (!result || typeof result !== 'object') return false;
+  if ('requireEmailVerification' in result && (result as { requireEmailVerification?: boolean }).requireEmailVerification === true) {
+    return true;
+  }
+
+  const signupResult = result as {
+    accessToken?: string | null;
+    user?: { email?: string | null } | null;
+  };
+
+  return Boolean(signupResult.user?.email && signupResult.accessToken === null);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const sdk = useInsforge();
+  const queryClient = useQueryClient();
 
   // Map SDK user (InsforgeUser) to our User type
   const user: User | null = useMemo(() => {
@@ -106,38 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isLoading = !sdk.isLoaded;
 
-  // Subscription sync
-  useEffect(() => {
-    if (user) {
-      syncUserWithSubscriptions(user);
-    }
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // signIn - now uses pure SDK (signInWithPassword) via auth.ts
-  // SDK's InsforgeBrowserProvider will auto-update sdk.user via onSignIn callback
   const handleSignIn = useCallback(async (email: string, password: string) => {
-    const result = await authSignIn(email, password);
-    if (result.success) {
-      // SDK should auto-detect the login via its onSignIn/saveSessionFromResponse
-      // But if it doesn't update sdk.user, we use reloadAuth as fallback
-      if (!sdk.user) {
-        await sdk.reloadAuth();
-      }
-    }
-    return { success: result.success, error: result.error };
-  }, [sdk]);
-
-  const handleSignUp = useCallback(async (email: string, password: string, name?: string) => {
-    const result = await authSignUp(email, password, name);
-    if (result.success) {
-      await sdk.reloadAuth();
-    }
-    return { success: result.success, error: result.error };
-  }, [sdk]);
-
-  const handleSignOut = useCallback(async () => {
     try {
-      await sdk.signOut();
+      const result = await sdk.signIn(email, password);
+      const error = getSdkError(result);
+      if (error) {
+        return { success: false, error };
+      }
       return { success: true };
     } catch (error) {
       return {
@@ -147,18 +99,117 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [sdk]);
 
-  const handleUpdateProfile = useCallback(async (profile: { name?: string }) => {
-    const result = await authUpdateProfile(profile);
-    if (result.success && result.user && user) {
-      api.subscriptions.syncUser(user.id, user.email, result.user.name).catch(() => {});
-      await sdk.reloadAuth();
+  const handleSignUp = useCallback(async (email: string, password: string, name?: string, redirectPath?: string) => {
+    try {
+      const emailRedirectTo = typeof window === 'undefined'
+        ? undefined
+        : buildAbsoluteVerifyEmailUrl(window.location.origin, redirectPath);
+      const result = await sdk.signUp(email, password, emailRedirectTo ? { emailRedirectTo } : undefined);
+      const error = getSdkError(result);
+      if (error) {
+        return { success: false, error };
+      }
+
+      if (needsEmailVerification(result)) {
+        return {
+          success: true,
+          requiresEmailVerification: true,
+          email,
+        };
+      }
+
+      if (name?.trim()) {
+        const updateResult = await sdk.updateUser({ name: name.trim() });
+        if (updateResult?.error) {
+          console.warn('[AuthContext] Set signup profile name failed:', updateResult.error);
+        }
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
-    return { success: result.success, error: result.error };
-  }, [user, sdk]);
+  }, [sdk]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await sdk.signOut();
+      queryClient.clear();
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }, [sdk, queryClient]);
+
+  const handleUpdateProfile = useCallback(async (profile: { name?: string }) => {
+    const updateResult = await sdk.updateUser(profile);
+    if (updateResult?.error) {
+      return { success: false, error: updateResult.error };
+    }
+    return { success: true };
+  }, [sdk]);
+
+  const handleResendVerificationEmail = useCallback(async (email: string) => {
+    try {
+      const result = await sdk.resendVerificationEmail(email);
+      const error = getSdkError(result);
+      if (error) {
+        return { success: false, error };
+      }
+      if (!result) {
+        return {
+          success: false,
+          error: '重新发送失败，请稍后重试',
+        };
+      }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }, [sdk]);
+
+  const handleVerifyEmail = useCallback(async (otp: string, email?: string) => {
+    try {
+      const result = await sdk.verifyEmail(otp, email);
+      const error = getSdkError(result);
+      if (error) {
+        return { success: false, error };
+      }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }, [sdk]);
 
   const handleSignInWithGoogle = useCallback(async () => {
-    return signInWithGoogle();
-  }, []);
+    try {
+      if (typeof window === 'undefined') {
+        return { success: false, error: 'OAuth can only be initiated in browser' };
+      }
+
+      const finalDestination = getStoredAuthRedirect();
+      const redirectTo = `${window.location.origin}${finalDestination}`;
+      await sdk.loginWithOAuth('google', redirectTo);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }, [sdk]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -177,8 +228,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut: handleSignOut,
     signInWithGoogle: handleSignInWithGoogle,
     updateProfile: handleUpdateProfile,
+    resendVerificationEmail: handleResendVerificationEmail,
+    verifyEmail: handleVerifyEmail,
     refreshUser,
-  }), [user, isLoading, handleSignIn, handleSignUp, handleSignOut, handleSignInWithGoogle, handleUpdateProfile, refreshUser]);
+  }), [user, isLoading, handleSignIn, handleSignUp, handleSignOut, handleSignInWithGoogle, handleUpdateProfile, handleResendVerificationEmail, handleVerifyEmail, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>
