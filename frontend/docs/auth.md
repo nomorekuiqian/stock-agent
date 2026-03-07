@@ -102,7 +102,8 @@
 
 1. `insforge.auth.getCurrentSession()`
 2. 检查 JWT `exp`
-3. 过期或超时则返回 `null`
+3. token 过期/缺失时，走 `POST /api/auth { action: 'refresh' }`
+4. refresh 失败时返回 `null`
 
 目前 `Providers.tsx` 会通过 `seedClientAuthFromServer()` 把 `initialState.token` 注入 `localStorage`，用于 SDK memory mode 下的刷新恢复。
 
@@ -114,6 +115,17 @@
 4. SDK `TokenManager.getSession()` 仍优先从 `insforge-auth-token` / `insforge-auth-user` 读取浏览器 session
 
 所以这一步目前是“兼容 SDK 恢复链的最小补丁”，而不是可以直接删除的冗余代码。
+
+### 会话异常兜底
+
+受保护请求现在还有一层统一兜底：
+
+1. `api.ts` 的 `_authHeaders(..., { required: true })` 会短暂等待 token 恢复
+2. 如果超时仍拿不到 token，触发 `resetStaleAuthState('session_recovery_failed')`
+3. 如果后端受保护接口返回 401，触发 `resetStaleAuthState('session_expired')`
+4. `resetStaleAuthState()` 会先做 SDK `signOut()`，再清理 `localStorage` 中的 auth token/user，调用 `DELETE /api/auth` 清 cookie，并跳回 `/login?error=session_*`
+
+这样可以避免用户卡在“UI 看起来已登录，但所有专属接口都 401”的半登录状态。
 
 ## 前后端职责
 
@@ -201,3 +213,4 @@ P0 后，以下接口统一以后端 token 身份为准：
 2. 前端页面保护和后端接口保护不是一回事，接口一定要显式 `Depends(verify_user_token)`。
 3. `/auth/callback` 目前主要是兼容错误回传和历史 callback 流程，不是唯一 OAuth 成功落地页。
 4. 当前 SDK 已提供 `verifyEmail` / `resendVerificationEmail` / `resetPassword`，但未见独立的“已登录修改密码”入口；Profile 页补“修改密码”前，需要先确认是否有可复用的 Insforge 原生 API。
+5. 登录逻辑变更时，旧 cookie / 旧 localStorage 仍可能进入不一致状态；当前前端会在检测到异常后强制重登，而不是无限停留在损坏会话里。
