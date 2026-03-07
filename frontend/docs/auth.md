@@ -183,6 +183,10 @@ Insforge Auth API
 - 因此 auth cookies 不能再默认只依赖当前 host；Server Proxy 在 production 会把 auth cookies 统一写到 `.themarketbrew.com`
 - 这样可以减少 `www` / 裸域切换、旧 cookie 残留、以及生产环境 host 归一化带来的 session 分裂
 - 受保护接口在收到 `401` 后，如果 `forceRefresh` 成功，前端会自动重试一次原请求；如果仍然失败，只展示错误，不再自动强制登出
+- 登录页和受保护错误页现在都会给出统一恢复指引：
+  - Mac：`Command + Shift + R`
+  - Windows：`Ctrl + Shift + R`
+  - 手机端：浏览器菜单重新加载或下拉刷新；若仍失败，关闭当前页面后重新打开
 
 ## 前后端职责
 

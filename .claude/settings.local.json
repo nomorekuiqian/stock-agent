@@ -197,7 +197,8 @@
       "Bash(railway whoami:*)",
       "Bash(railway deployment:*)",
       "WebFetch(domain:docs.railway.com)",
-      "Bash(codex:*)"
+      "Bash(codex:*)",
+      "mcp__insforge__list-buckets"
     ],
     "deny": [],
     "ask": []

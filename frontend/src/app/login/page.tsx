@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthRecoveryInstructions } from '@/components/AuthRecoveryInstructions';
 import { PasswordField } from '@/components/PasswordField';
 import { buildVerifyEmailPath, storePendingVerification } from '@/lib/auth-verification';
 import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
@@ -317,6 +318,10 @@ function LoginPageContent() {
             )}
           </button>
         </form>
+
+        <div className="animate-fade-in-up delay-250">
+          <AuthRecoveryInstructions redirectPath={redirectUrl} variant="help" />
+        </div>
 
         {/* Toggle Sign Up / Sign In */}
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-300">
