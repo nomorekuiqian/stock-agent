@@ -33,11 +33,103 @@ async function POST(request: NextRequest) {
     // Not JSON — delegate to SDK handler
   }
 
+  if (body?.action === 'sign-in') {
+    return handleSignIn(body as { email: string; password: string });
+  }
+
   if (body?.action === 'refresh') {
     return handleRefresh(request);
   }
 
   return handlers.POST(request);
+}
+
+async function handleSignIn(body: { email: string; password: string }): Promise<NextResponse> {
+  const { email, password } = body;
+  if (!email || !password) {
+    return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (anonKey) {
+      headers.Authorization = `Bearer ${anonKey}`;
+    }
+
+    const response = await fetch(`${baseUrl}/api/auth/sessions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Login failed';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Response might not be JSON
+      }
+      return NextResponse.json({ error: errorMessage }, { status: response.status });
+    }
+
+    const data = await response.json();
+    if (!data.accessToken) {
+      return NextResponse.json({ error: 'Login response invalid' }, { status: 500 });
+    }
+
+    const nextResponse = NextResponse.json({
+      accessToken: data.accessToken,
+      user: data.user,
+      csrfToken: data.csrfToken,
+    });
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/',
+    };
+
+    nextResponse.cookies.set('insforge-session', data.accessToken, cookieOptions);
+
+    if (data.user) {
+      nextResponse.cookies.set(
+        'insforge-user',
+        JSON.stringify({
+          id: data.user.id,
+          email: data.user.email,
+          profile: data.user.profile || null,
+        }),
+        cookieOptions,
+      );
+    }
+
+    if (data.csrfToken) {
+      nextResponse.cookies.set('insforge-csrf', data.csrfToken, cookieOptions);
+    }
+
+    // Extract refresh token from Set-Cookie header and store on our domain
+    const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
+    const setCookieHeaders = typeof getSetCookie === 'function' ? getSetCookie.call(response.headers) : [];
+    for (const cookie of setCookieHeaders) {
+      if (cookie.startsWith('insforge_refresh_token=')) {
+        const tokenValue = cookie.split('=')[1]?.split(';')[0];
+        if (tokenValue) {
+          nextResponse.cookies.set('insforge-refresh', tokenValue, cookieOptions);
+          nextResponse.cookies.set('insforge_refresh_token', tokenValue, cookieOptions);
+        }
+      }
+    }
+
+    return nextResponse;
+  } catch (error) {
+    console.error('[Auth Route] Sign-in error:', error);
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
+  }
 }
 
 async function handleRefresh(request: NextRequest): Promise<NextResponse> {

@@ -85,11 +85,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     try {
-      const result = await sdk.signIn(email, password);
-      const error = getSdkError(result);
-      if (error) {
-        return { success: false, error };
+      // Use Server Proxy to login so the refresh token gets stored on our domain.
+      // Direct SDK signIn sets the refresh cookie on Insforge's domain only,
+      // which is unusable cross-domain due to SameSite policy.
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sign-in', email, password }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { success: false, error: data.error || 'Login failed' };
       }
+
+      const data = await response.json();
+
+      // Inject user into SDK state so React context updates immediately
+      if (data.user) {
+        sdk.setUser({
+          id: data.user.id,
+          email: data.user.email,
+          profile: data.user.profile || null,
+        });
+      }
+
       return { success: true };
     } catch (error) {
       return {

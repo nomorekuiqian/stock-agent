@@ -27,7 +27,7 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'request failed: conflict': '该邮箱已注册，请直接登录',
   'user not found': '用户不存在',
   'invalid email': '邮箱格式不正确',
-  'password too short': '密码长度至少为8位',
+  'password too short': '密码长度至少为6位',
   'network error': '网络连接失败，请检查网络',
   'too many requests': '请求过于频繁，请稍后再试',
   'name is required': '请输入姓名',
@@ -71,10 +71,11 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [storedAuthError, setStoredAuthError] = useState<string | null>(null);
+  const [loginSucceeded, setLoginSucceeded] = useState(false);
   const effectiveAuthError = authError || storedAuthError;
-  const hasForcedReauthError = effectiveAuthError === 'session_reset'
+  const hasForcedReauthError = !loginSucceeded && (effectiveAuthError === 'session_reset'
     || effectiveAuthError === 'session_expired'
-    || effectiveAuthError === 'session_recovery_failed';
+    || effectiveAuthError === 'session_recovery_failed');
 
 
   useEffect(() => {
@@ -134,6 +135,7 @@ function LoginPageContent() {
       } else {
         const result = await signIn(email, password);
         if (result.success) {
+          setLoginSucceeded(true);
           setSuccessMessage('登录成功，正在跳转...');
         } else {
           setError(translateError(result.error || '登录失败'));
@@ -284,9 +286,9 @@ function LoginPageContent() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={isSignUp ? 6 : undefined}
             autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            helperText="密码至少 8 位"
+            helperText={isSignUp ? "密码至少 6 位" : undefined}
             labelAction={!isSignUp ? (
               <Link
                 href="/forgot-password"
