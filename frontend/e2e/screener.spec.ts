@@ -23,7 +23,25 @@ async function loginWithMock(page: Page) {
     profile: { name: 'Playwright User' },
   };
 
-  // Mock auth endpoints so login succeeds without real backend auth
+  // Mock our Server Proxy auth endpoint (POST /api/auth with action: 'sign-in')
+  await page.route('**/api/auth', async (route: Route) => {
+    if (route.request().method() === 'POST') {
+      let body: Record<string, unknown> = {};
+      try { body = route.request().postDataJSON(); } catch { /* not JSON */ }
+
+      if (body.action === 'sign-in') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ accessToken, csrfToken: 'csrf-token', user: mockUser }),
+        });
+        return;
+      }
+    }
+    await route.continue();
+  });
+
+  // Mock Insforge auth sub-path endpoints (SDK direct calls)
   await page.route('**/api/auth/**', async (route: Route) => {
     const url = new URL(route.request().url());
 
@@ -34,7 +52,7 @@ async function loginWithMock(page: Page) {
         body: JSON.stringify({
           requireEmailVerification: true,
           verifyEmailMethod: 'code',
-          passwordMinLength: 8,
+          passwordMinLength: 6,
         }),
       });
       return;
@@ -58,19 +76,6 @@ async function loginWithMock(page: Page) {
       return;
     }
 
-    if (url.pathname.endsWith('/api/auth/sessions') && route.request().method() === 'POST') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          accessToken,
-          csrfToken: 'csrf-token',
-          user: mockUser,
-        }),
-      });
-      return;
-    }
-
     await route.continue();
   });
 
@@ -79,6 +84,13 @@ async function loginWithMock(page: Page) {
   await page.locator('#password').fill('Password123');
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15000 });
+
+  // Set auth cookies so full page reloads recover the session
+  // (simulates what the real Server Proxy sets via Set-Cookie headers)
+  await page.context().addCookies([
+    { name: 'insforge-session', value: accessToken, domain: 'localhost', path: '/' },
+    { name: 'insforge-user', value: JSON.stringify({ id: mockUser.id, email: mockUser.email, profile: mockUser.profile || null }), domain: 'localhost', path: '/' },
+  ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +281,7 @@ test.describe('Screener page (/screener)', () => {
           body: JSON.stringify({
             requireEmailVerification: true,
             verifyEmailMethod: 'code',
-            passwordMinLength: 8,
+            passwordMinLength: 6,
           }),
         });
         return;

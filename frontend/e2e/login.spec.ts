@@ -18,9 +18,13 @@ function createFakeJwt(): string {
 async function setupAuthMocks(page: Page) {
   const accessToken = createFakeJwt();
   let currentUser: Record<string, unknown> | null = null;
+  let loginMock: { mode: 'success' | 'failure'; message?: string } | null = null;
 
+  // Handle our Server Proxy auth endpoint (POST /api/auth with action)
   await page.route('**/api/auth', async (route: Route) => {
-    if (route.request().method() === 'DELETE') {
+    const request = route.request();
+
+    if (request.method() === 'DELETE') {
       currentUser = null;
       await route.fulfill({
         status: 200,
@@ -30,9 +34,38 @@ async function setupAuthMocks(page: Page) {
       return;
     }
 
+    if (request.method() === 'POST' && loginMock) {
+      let body: Record<string, unknown> = {};
+      try { body = request.postDataJSON(); } catch { /* not JSON */ }
+
+      if (body.action === 'sign-in') {
+        if (loginMock.mode === 'success') {
+          currentUser = {
+            id: 'user-123',
+            email: (body.email as string) || 'user@example.com',
+            profile: { name: 'Playwright User' },
+          };
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ accessToken, csrfToken: 'csrf-token', user: currentUser }),
+          });
+          return;
+        } else {
+          await route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: loginMock.message || 'Invalid credentials' }),
+          });
+          return;
+        }
+      }
+    }
+
     await route.continue();
   });
 
+  // Handle Insforge auth sub-path endpoints (SDK direct calls)
   await page.route('**/api/auth/**', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -44,7 +77,7 @@ async function setupAuthMocks(page: Page) {
         body: JSON.stringify({
           requireEmailVerification: true,
           verifyEmailMethod: 'code',
-          passwordMinLength: 8,
+          passwordMinLength: 6,
         }),
       });
       return;
@@ -91,34 +124,11 @@ async function setupAuthMocks(page: Page) {
 
   return {
     async mockLoginSuccess() {
-      await page.route('**/api/auth/sessions', async (route: Route) => {
-        const payload = route.request().postDataJSON() as { email: string };
-        currentUser = {
-          id: 'user-123',
-          email: payload.email,
-          profile: { name: 'Playwright User' },
-        };
-
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            accessToken,
-            csrfToken: 'csrf-token',
-            user: currentUser,
-          }),
-        });
-      });
+      loginMock = { mode: 'success' };
     },
 
-    async mockLoginFailure(message = 'Invalid email or password') {
-      await page.route('**/api/auth/sessions', async (route: Route) => {
-        await route.fulfill({
-          status: 401,
-          contentType: 'application/json',
-          body: JSON.stringify({ message }),
-        });
-      });
+    async mockLoginFailure(message = 'Invalid credentials') {
+      loginMock = { mode: 'failure', message };
     },
 
     async mockSignUpRequiresVerification() {
@@ -245,6 +255,13 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await passwordInput(page).fill('StrongPassword123');
     await page.getByRole('button', { name: '登录', exact: true }).click();
     await expect(page).toHaveURL(/\/today/, { timeout: 10000 });
+
+    // Set auth cookies so the session survives full page reloads
+    const accessToken = createFakeJwt();
+    await page.context().addCookies([
+      { name: 'insforge-session', value: accessToken, domain: 'localhost', path: '/' },
+      { name: 'insforge-user', value: JSON.stringify({ id: 'user-123', email: 'user@example.com', profile: { name: 'Playwright User' } }), domain: 'localhost', path: '/' },
+    ]);
 
     await page.goto('/for-you');
 
