@@ -8,7 +8,22 @@
 - 后端：Bearer token + `verify_user_token`
 - Session 恢复：Server Component `auth()` + `InsforgeBrowserProvider initialState`
 
-登录/注册由 SDK 处理，但 token refresh 需要 Server Proxy（跨域 cookie 限制）。`/api/auth` 既委托 `createAuthRouteHandlers` 给 SDK 管理基本动作，也包含自定义的 `refresh` action 用于跨域 token 刷新。
+当前架构目标已经调整为 **SDK-first + thin proxy only**：
+
+- SDK 负责 UI 侧认证状态、OAuth、邮箱验证等标准能力
+- 薄 `Server Proxy` 只负责浏览器天然做不好的跨域/session 桥接
+- 不再把“存在 `/api/auth`”本身视为问题
+- 真正要避免的是应用层同时维护多套 session 恢复逻辑
+
+`/api/auth` 目前既委托 `createAuthRouteHandlers` 给 SDK 管理基础动作，也包含项目自定义的 `sign-in` / `refresh` 动作，用于 app-domain cookie/session 桥接。
+
+### 为什么薄 Proxy 仍然是合理的
+
+对于 `SSR + httpOnly cookie + auth 服务与业务站点非同域` 的场景，一个运行在应用域名下的薄 auth 路由是常见方案。目标不是“零 proxy”，而是：
+
+1. Proxy 足够薄，只做桥接
+2. SDK 仍然是唯一的前端 auth 状态入口
+3. “UI 已登录” 与 “受保护接口可用” 必须收敛成同一个 session 真相
 
 ## 当前主链路
 
@@ -17,10 +32,14 @@
 ```text
 用户在 /login 输入邮箱密码
   -> AuthContext.signIn()
-  -> sdk.signIn(email, password)
-  -> Insforge SDK 写入 session/cookie
-  -> RootLayout 下次请求时通过 auth() 读取用户
-  -> Providers 初始注入 initialState
+  -> POST /api/auth { action: 'sign-in', email, password }
+    -> Next.js Server Proxy 调用 Insforge /api/auth/sessions
+    -> 提取 refresh token / csrfToken
+    -> 写入我们域名下的 auth cookies
+    -> 返回 { accessToken, user, csrfToken }
+  -> 前端把登录结果同步到 SDK / 浏览器 session 状态
+  -> RootLayout 后续请求通过 auth() 读取 server-side auth state
+  -> Providers 用 initialState 做首屏 hydrate
   -> 前端业务请求通过 getAccessToken() 取 Bearer token
   -> 后端 verify_user_token() 校验 token
 ```
@@ -111,6 +130,8 @@
 
 SDK `getCurrentSession()` 内部在 token 过期时会尝试 `POST /api/auth/refresh` 到 Insforge 域名，但 refresh cookie（`insforge_refresh_token`）存在我们域名（`themarketbrew.com`），浏览器跨域不发送，所以 SDK refresh 始终失败。我们通过 Server Proxy 解决：Next.js server 读自己域名的 httpOnly cookie 转发到 Insforge API 换新 token。
 
+这里的关键认知更新是：问题不在“需要薄 Proxy”，而在“SDK 与应用之间缺少统一的 session bridge”。如果应用层必须自己分别兜底 `sdk.user`、token hydrate、refresh、forced reauth，就会出现状态分裂。
+
 目前 `Providers.tsx` 会通过 `seedClientAuthFromServer()` 把 `initialState.token` 注入 `localStorage`，用于 SDK memory mode 下的刷新恢复。
 
 原因不是业务代码偏好，而是当前 SDK 约束：
@@ -122,16 +143,39 @@ SDK `getCurrentSession()` 内部在 token 过期时会尝试 `POST /api/auth/ref
 
 所以这一步目前是”兼容 SDK 恢复链的最小补丁”，而不是可以直接删除的冗余代码。
 
+## 当前目标架构
+
+```text
+Browser UI
+  -> SDK / BrowserProvider
+  -> 单一前端认证状态
+
+Thin App-Domain Proxy (/api/auth)
+  -> 登录/回调/refresh 的跨域桥接
+  -> 写入或清理 first-party cookies
+
+Insforge Auth API
+  -> 身份源头
+  -> token 校验与 session 发放
+```
+
+设计原则：
+
+1. SDK-first，而不是页面自己拼 session
+2. Thin proxy only，而不是把 auth 业务逻辑堆进 route handler
+3. 单一 session 真相，避免 “UI 显示已登录但接口 401”
+4. 避免双重恢复链，不再同时维护 `sdk.user`、手写缓存 token、零散 localStorage 注入等彼此独立的判定
+
 ### 会话异常兜底
 
 受保护请求现在还有一层统一兜底：
 
 1. `api.ts` 的 `_authHeaders(..., { required: true })` 会短暂等待 token 恢复
-2. 如果超时仍拿不到 token，触发 `resetStaleAuthState('session_recovery_failed')`
-3. 如果后端受保护接口返回 401，触发 `resetStaleAuthState('session_expired')`
+2. 如果恢复窗口内始终只有“临时失败”（网络抖动、短暂 5xx、refresh 超时），返回可重试错误，不立刻强制重登
+3. 如果 refresh / session 复核明确判定为 `no_session`，或者 401 后再次复核确认会话已失效，才触发 `resetStaleAuthState('session_expired')`
 4. `resetStaleAuthState()` 会先做 SDK `signOut()`，再清理 `localStorage` 中的 auth token/user，调用 `DELETE /api/auth` 清 cookie，并跳回 `/login?error=session_*`
 
-这样可以避免用户卡在“UI 看起来已登录，但所有专属接口都 401”的半登录状态。
+这样既能避免用户卡在“UI 看起来已登录，但所有专属接口都 401”的半登录状态，也能减少因弱网或瞬时服务异常导致的误踢下线。
 
 ## 前后端职责
 
