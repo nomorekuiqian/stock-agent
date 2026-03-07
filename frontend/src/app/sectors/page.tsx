@@ -131,7 +131,7 @@ function SectorsPageContent() {
       if (!user?.id) return;
 
       try {
-        const data = await api.sectors.getSubscriptions(user.id);
+        const data = await api.sectors.getSubscriptions();
         setSubscriptions(data.map((s: SectorSubscription) => s.sector_id));
       } catch (err) {
         console.error('Failed to load subscriptions:', err);
@@ -217,10 +217,10 @@ function SectorsPageContent() {
     setSubscribingTo(sectorId);
     try {
       if (subscriptions.includes(sectorId)) {
-        await api.sectors.unsubscribe(sectorId, user.id);
+        await api.sectors.unsubscribe(sectorId);
         setSubscriptions(subscriptions.filter((s) => s !== sectorId));
       } else {
-        await api.sectors.subscribe(sectorId, user.id);
+        await api.sectors.subscribe(sectorId);
         setSubscriptions([...subscriptions, sectorId]);
       }
     } catch (err) {

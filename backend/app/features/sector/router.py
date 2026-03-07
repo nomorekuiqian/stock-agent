@@ -9,7 +9,7 @@ from app.core.logging import get_logger
 from app.features.sector.models import get_enabled_sectors, get_sector_by_id
 from app.features.sector.agent import get_sector_digest
 from app.features.sector import db
-from app.core.deps import verify_cron_secret
+from app.core.deps import verify_cron_secret, verify_user_token
 from app.utils.timezone import today_str
 
 logger = get_logger(__name__)
@@ -23,12 +23,6 @@ router = APIRouter(prefix="/api/sectors", tags=["sector"])
 
 
 class SectorSubscribeRequest(BaseModel):
-    user_id: str
-    sector_id: str
-
-
-class SectorUnsubscribeRequest(BaseModel):
-    user_id: str
     sector_id: str
 
 
@@ -143,7 +137,10 @@ async def get_latest_sector_digest(sector_id: str):
 
 
 @router.post("/subscribe")
-async def subscribe_to_sector(request: SectorSubscribeRequest):
+async def subscribe_to_sector(
+    request: SectorSubscribeRequest,
+    user_id: str = Depends(verify_user_token),
+):
     """
     Subscribe a user to a sector for daily digests.
     """
@@ -156,7 +153,7 @@ async def subscribe_to_sector(request: SectorSubscribeRequest):
             raise HTTPException(status_code=400, detail=f"Sector '{request.sector_id}' is disabled")
 
         result = await db.subscribe_to_sector(
-            user_id=request.user_id,
+            user_id=user_id,
             sector_id=request.sector_id,
         )
 
@@ -178,7 +175,7 @@ async def subscribe_to_sector(request: SectorSubscribeRequest):
 
 
 @router.get("/subscriptions")
-async def get_sector_subscriptions(user_id: str = Query(..., description="User ID")):
+async def get_sector_subscriptions(user_id: str = Depends(verify_user_token)):
     """
     Get user's sector subscriptions.
     """
@@ -215,7 +212,10 @@ async def get_sector_subscriptions(user_id: str = Query(..., description="User I
 
 
 @router.delete("/{sector_id}/unsubscribe")
-async def unsubscribe_from_sector(sector_id: str, user_id: str = Query(..., description="User ID")):
+async def unsubscribe_from_sector(
+    sector_id: str,
+    user_id: str = Depends(verify_user_token),
+):
     """
     Unsubscribe a user from a sector.
     """
