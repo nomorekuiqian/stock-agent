@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useCallback, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useCallback, useEffect, useRef, useState, ReactNode, useMemo } from 'react';
 import { useInsforge } from '@insforge/nextjs';
 import { useQueryClient } from '@tanstack/react-query';
 import { User } from '@/lib/auth';
@@ -70,6 +70,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sdk = useInsforge();
   const queryClient = useQueryClient();
 
+  // Cookie recovery: when SDK loads with user=null (e.g. its cross-domain refresh
+  // failed), try our Server Proxy refresh before declaring "not authenticated".
+  // Start as true so isLoading stays true until recovery completes or is skipped.
+  const [isRecovering, setIsRecovering] = useState(true);
+  const recoveryAttempted = useRef(false);
+
+  useEffect(() => {
+    if (!sdk.isLoaded) return;
+
+    // SDK found a user on its own — no recovery needed
+    if (sdk.user) {
+      setIsRecovering(false);
+      return;
+    }
+
+    // Only attempt recovery once per mount
+    if (recoveryAttempted.current) return;
+    recoveryAttempted.current = true;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'refresh' }),
+          credentials: 'include',
+        });
+
+        if (!response.ok || cancelled) {
+          if (!cancelled) setIsRecovering(false);
+          return;
+        }
+
+        const data = await response.json();
+        if (cancelled) return;
+
+        if (data.accessToken && data.user) {
+          sdk.setUser({
+            id: data.user.id,
+            email: data.user.email,
+            profile: data.user.profile || null,
+          });
+        }
+      } catch {
+        // Recovery failed — user is genuinely not authenticated
+      } finally {
+        if (!cancelled) setIsRecovering(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [sdk.isLoaded, sdk.user, sdk]);
+
   // Map SDK user (InsforgeUser) to our User type
   const user: User | null = useMemo(() => {
     if (!sdk.user) return null;
@@ -81,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [sdk.user]);
 
-  const isLoading = !sdk.isLoaded;
+  const isLoading = !sdk.isLoaded || isRecovering;
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     try {
