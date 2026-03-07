@@ -11,8 +11,36 @@
 // US stock market timezone (for business date logic only)
 const MARKET_TZ = 'America/New_York';
 
-// User's local timezone (auto-detected by browser)
-const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+function getUserTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+function getDateParts(
+  utcString: string | null | undefined
+): { date: Date; timeZone: string } | null {
+  if (!utcString) return null;
+
+  try {
+    const date = new Date(utcString);
+    if (Number.isNaN(date.getTime())) return null;
+    return { date, timeZone: getUserTimeZone() };
+  } catch {
+    return null;
+  }
+}
+
+function getTimeZoneLabel(date: Date, timeZone: string): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'short',
+    });
+    const zonePart = formatter.formatToParts(date).find(part => part.type === 'timeZoneName');
+    return zonePart?.value ?? timeZone;
+  } catch {
+    return timeZone;
+  }
+}
 
 /**
  * Get current date string (YYYY-MM-DD) in market timezone.
@@ -34,37 +62,62 @@ export function isMarketToday(reportDate: string): boolean {
  * Automatically uses browser's timezone.
  */
 export function formatTimestamp(utcString: string | null | undefined): string {
-  if (!utcString) return '';
-  try {
-    const date = new Date(utcString);
-    return date.toLocaleString('zh-CN', {
-      timeZone: USER_TZ,
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return utcString;
-  }
+  const parts = getDateParts(utcString);
+  if (!parts) return utcString || '';
+
+  const { date, timeZone } = parts;
+  const label = getTimeZoneLabel(date, timeZone);
+  const base = date.toLocaleString('zh-CN', {
+    timeZone,
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return `${base} ${label}`;
 }
 
 /**
  * Format just the time portion in user's local timezone.
  */
 export function formatTime(utcString: string | null | undefined): string {
-  if (!utcString) return '';
-  try {
-    const date = new Date(utcString);
-    return date.toLocaleTimeString('zh-CN', {
-      timeZone: USER_TZ,
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
+  const parts = getDateParts(utcString);
+  if (!parts) return '';
+
+  const { date, timeZone } = parts;
+  const label = getTimeZoneLabel(date, timeZone);
+  const base = date.toLocaleTimeString('zh-CN', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return `${base} ${label}`;
+}
+
+/**
+ * Format a UTC timestamp in a compact form for metadata rows.
+ */
+export function formatCompactTimestamp(utcString: string | null | undefined): string {
+  const parts = getDateParts(utcString);
+  if (!parts) return '';
+
+  const { date, timeZone } = parts;
+  const label = getTimeZoneLabel(date, timeZone);
+  const datePart = date.toLocaleDateString('zh-CN', {
+    timeZone,
+    month: 'long',
+    day: 'numeric',
+  });
+  const timePart = date.toLocaleTimeString('zh-CN', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return `${datePart} ${timePart} ${label}`;
 }
 
 /**
@@ -250,7 +303,7 @@ export function formatDatePacific(
 ): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   return date.toLocaleDateString('zh-CN', {
-    timeZone: USER_TZ,
+    timeZone: getUserTimeZone(),
     ...options,
   });
 }

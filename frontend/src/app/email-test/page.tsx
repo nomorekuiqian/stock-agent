@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatTimestamp } from '@/lib/timezone';
 
 type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
 
@@ -416,7 +417,7 @@ function EmailTestContent() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Generated</span>
                     <span className="text-gray-900 font-medium text-xs">
-                      {weeklyInfo.generatedAt ? new Date(weeklyInfo.generatedAt).toLocaleString('zh-CN') : '-'}
+                      {weeklyInfo.generatedAt ? formatTimestamp(weeklyInfo.generatedAt) : '-'}
                     </span>
                   </div>
                 </div>

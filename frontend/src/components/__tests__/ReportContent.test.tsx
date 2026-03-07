@@ -8,6 +8,7 @@ import { ReportContent } from '../ReportContent';
 vi.mock('@/lib/timezone', () => ({
   isTodayPacific: vi.fn(() => false),
   formatCalendarDate: vi.fn(() => ({ month: 'Mar', day: 15, weekday: 'Sun' })),
+  formatCompactTimestamp: vi.fn(() => '3月15日 08:30 UTC'),
 }));
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,7 @@ describe('ReportContent', () => {
               fact_summary: 'The Federal Reserve kept rates unchanged.',
               deep_analysis: 'This signals continued patience.',
               url: 'https://example.com/fed',
+              published_at: '2026-03-15T08:30:00Z',
             },
           ],
           briefs: [],
@@ -59,6 +61,7 @@ describe('ReportContent', () => {
 
     expect(screen.getByText('Fed Holds Rates Steady')).toBeTruthy();
     expect(screen.getByText(/Federal Reserve kept rates/)).toBeTruthy();
+    expect(screen.getByText('3月15日 08:30 UTC')).toBeTruthy();
   });
 
   it('renders calendar events', () => {

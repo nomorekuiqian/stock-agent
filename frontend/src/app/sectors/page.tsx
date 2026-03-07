@@ -7,7 +7,7 @@ import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { api, SectorInfo, SectorDigestData, SectorSubscription, StockQuote, SectorDigestHistoryItem, SectorStockAnalysis, SectorNews, SectorEvent } from '@/lib/api';
-import { formatDateChinese, formatTimePacific, formatCalendarDate, formatDateShort } from '@/lib/timezone';
+import { formatDateChinese, formatTimePacific, formatCalendarDate, formatDateShort, formatCompactTimestamp } from '@/lib/timezone';
 import SectorPanel from '@/components/SectorPanel';
 
 // Stock name mapping
@@ -61,6 +61,21 @@ const STOCK_NAMES: Record<string, { en: string; zh: string }> = {
   'UBER': { en: 'Uber Technologies', zh: 'Uber' },
   'ABNB': { en: 'Airbnb', zh: 'Airbnb' },
 };
+
+function NewsTimestamp({ timestamp }: { timestamp?: string }) {
+  if (!timestamp) return null;
+
+  return (
+    <div className="flex items-center gap-2 pl-1 text-[11px] leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/50">
+        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l2.5 2.5m6.5-2.5a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </span>
+      <span>{formatCompactTimestamp(timestamp)}</span>
+    </div>
+  );
+}
 
 function SectorsPageContent() {
   const router = useRouter();
@@ -480,6 +495,7 @@ function SectorsPageContent() {
                         {item.title}
                       </span>
                     )}
+                    <NewsTimestamp timestamp={item.published_at} />
                     <p className="text-sm text-muted-foreground leading-relaxed">{item.summary}</p>
                   </div>
                 ))}

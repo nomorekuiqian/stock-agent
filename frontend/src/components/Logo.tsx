@@ -1,7 +1,5 @@
-import { useId } from 'react';
-
 export function Logo({ className = '' }: { className?: string }) {
-  const gradientId = `emerald-gradient-${useId()}`;
+  const gradientId = 'emerald-gradient';
   return (
     <svg
       viewBox="0 0 32 32"

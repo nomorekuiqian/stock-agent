@@ -4,6 +4,7 @@ import {
   isMarketToday,
   formatTimestamp,
   formatTime,
+  formatCompactTimestamp,
   formatReportDate,
   formatDateShort,
   formatRelativeTime,
@@ -82,6 +83,7 @@ describe('formatTimestamp', () => {
     // Should contain year, month, day, and time components
     expect(result).toBeTruthy();
     expect(result.length).toBeGreaterThan(5);
+    expect(result).toMatch(/\b(?:[A-Z]{2,5}|GMT[+-]\d{1,2}|UTC[+-]\d{1,2}|UTC)\b/);
   });
 });
 
@@ -99,8 +101,23 @@ describe('formatTime', () => {
 
   it('formats a valid UTC timestamp to HH:MM format', () => {
     const result = formatTime('2026-03-15T08:30:00Z');
-    // Should be a time string like "16:30" or "04:30" depending on timezone
+    expect(result).toMatch(/\d{2}:\d{2}\s(?:[A-Z]{2,5}|GMT[+-]\d{1,2}|UTC[+-]\d{1,2}|UTC)/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatCompactTimestamp
+// ---------------------------------------------------------------------------
+describe('formatCompactTimestamp', () => {
+  it('returns empty string for null', () => {
+    expect(formatCompactTimestamp(null)).toBe('');
+  });
+
+  it('includes date, time, and timezone', () => {
+    const result = formatCompactTimestamp('2026-03-15T08:30:00Z');
+    expect(result).toContain('3');
     expect(result).toMatch(/\d{2}:\d{2}/);
+    expect(result).toMatch(/\b(?:[A-Z]{2,5}|GMT[+-]\d{1,2}|UTC[+-]\d{1,2}|UTC)\b/);
   });
 });
 

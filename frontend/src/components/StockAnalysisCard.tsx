@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatTimestamp } from '@/lib/timezone';
 
 interface StockAIAnalysis {
   title: string;
@@ -306,7 +307,7 @@ export function StockAnalysisCard({
         {/* Footer */}
         {generatedAt && (
           <div className="pt-3 border-t border-border/20 text-xs text-muted-foreground/60">
-            生成时间: {new Date(generatedAt).toLocaleString('zh-CN')}
+            生成时间: {formatTimestamp(generatedAt)}
           </div>
         )}
       </div>

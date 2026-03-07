@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { CalendarEvent, NewsSection, SummarySection } from '@/lib/api';
-import { isTodayPacific, formatCalendarDate } from '@/lib/timezone';
+import { isTodayPacific, formatCalendarDate, formatCompactTimestamp } from '@/lib/timezone';
 
 interface IndexData {
   name: string;
@@ -49,6 +49,21 @@ const SubsectionHeader = ({ children }: { children: React.ReactNode }) => (
     {children}
   </h3>
 );
+
+const NewsTimestamp = ({ timestamp }: { timestamp?: string }) => {
+  if (!timestamp) return null;
+
+  return (
+    <div className="flex items-center gap-2 pl-1 text-[11px] leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/50">
+        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l2.5 2.5m6.5-2.5a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </span>
+      <span>{formatCompactTimestamp(timestamp)}</span>
+    </div>
+  );
+};
 
 export function ReportContent({
   indices,
@@ -138,6 +153,7 @@ export function ReportContent({
                     >
                       {headline.title}
                     </a>
+                    <NewsTimestamp timestamp={headline.published_at} />
                     <p className="text-sm text-muted-foreground mb-3">{headline.fact_summary}</p>
                     <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
                       <p className="text-sm text-foreground/90 leading-relaxed">
@@ -161,10 +177,11 @@ export function ReportContent({
                       href={brief.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-foreground hover:text-emerald-500 transition-colors"
+                      className="text-sm font-medium text-foreground hover:text-emerald-500 transition-colors block"
                     >
                       {brief.title}
                     </a>
+                    <NewsTimestamp timestamp={brief.published_at} />
                     <p className="text-sm text-foreground/80 mt-1">{brief.summary}</p>
                   </div>
                 ))}
