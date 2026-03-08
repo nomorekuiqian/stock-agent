@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MorningActions } from '../MorningActions';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -56,6 +57,11 @@ function setLoggedOut() {
   } as ReturnType<typeof useAuth>);
 }
 
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -69,7 +75,7 @@ describe('MorningActions', () => {
 
   it('shows subscribe button when not subscribed', () => {
     setLoggedIn();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     expect(screen.getByText('订阅')).toBeTruthy();
   });
@@ -77,7 +83,7 @@ describe('MorningActions', () => {
   it('shows subscribed state with checkmark when subscribed', async () => {
     mockGetStatus.mockResolvedValue({ subscribed: true });
     setLoggedIn();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     await waitFor(() => {
       expect(screen.getByText('已订阅')).toBeTruthy();
@@ -87,7 +93,7 @@ describe('MorningActions', () => {
   it('subscribe calls api.subscriptions.subscribe with user email', async () => {
     mockSubscribe.mockResolvedValue({ success: true });
     setLoggedIn('alice@example.com');
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     fireEvent.click(screen.getByText('订阅'));
 
@@ -104,7 +110,7 @@ describe('MorningActions', () => {
     mockGetStatus.mockResolvedValue({ subscribed: true });
     mockUnsubscribe.mockResolvedValue({ success: true });
     setLoggedIn('bob@example.com');
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     // Wait for subscribed state to appear
     await waitFor(() => {
@@ -120,7 +126,7 @@ describe('MorningActions', () => {
 
   it('redirects to login when subscribe clicked without user', () => {
     setLoggedOut();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     fireEvent.click(screen.getByText('订阅'));
 
@@ -129,14 +135,14 @@ describe('MorningActions', () => {
 
   it('shows send email button when user is logged in', () => {
     setLoggedIn();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     expect(screen.getByText('发送邮件')).toBeTruthy();
   });
 
   it('send email button is disabled when reportExists is false', () => {
     setLoggedIn();
-    render(<MorningActions reportExists={false} />);
+    renderWithProviders(<MorningActions reportExists={false} />);
 
     const sendButton = screen.getByText('发送邮件').closest('button');
     expect(sendButton).toBeTruthy();
@@ -145,7 +151,7 @@ describe('MorningActions', () => {
 
   it('redirects to login when send email clicked without user', () => {
     setLoggedOut();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     // Send email button is only rendered when user exists, so we need
     // a scenario where user becomes null mid-flow. The component guards
@@ -156,7 +162,7 @@ describe('MorningActions', () => {
   it('generate button only shown in development env', () => {
     // In test mode (vitest sets NODE_ENV=test), isDev is false
     setLoggedIn();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
     expect(screen.queryByText('生成报告')).toBeNull();
 
     cleanup();
@@ -165,7 +171,7 @@ describe('MorningActions', () => {
   it('checks subscription status on mount when user has email', async () => {
     mockGetStatus.mockResolvedValue({ subscribed: true });
     setLoggedIn('check@example.com');
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     await waitFor(() => {
       expect(mockGetStatus).toHaveBeenCalledWith('daily_report', 'check@example.com');
@@ -175,7 +181,7 @@ describe('MorningActions', () => {
   it('sends email to user email when send email button clicked', async () => {
     mockSendEmail.mockResolvedValue({});
     setLoggedIn('send@example.com');
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     fireEvent.click(screen.getByText('发送邮件'));
 
@@ -187,7 +193,7 @@ describe('MorningActions', () => {
   it('shows success message after successful subscription', async () => {
     mockSubscribe.mockResolvedValue({ success: true });
     setLoggedIn();
-    render(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions reportExists />);
 
     fireEvent.click(screen.getByText('订阅'));
 

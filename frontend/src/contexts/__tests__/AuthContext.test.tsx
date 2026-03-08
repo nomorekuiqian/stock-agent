@@ -118,7 +118,9 @@ describe('AuthContext', () => {
 
   it('restores user from localStorage when token is valid', async () => {
     // SDK getCurrentUser finds the stored session and returns the user
-    const fakeToken = 'header.payload.signature';
+    // Use a valid JWT with non-expired exp so isJwtExpired returns false
+    const payload = { sub: 'u1', exp: Math.floor(Date.now() / 1000) + 3600 };
+    const fakeToken = `header.${btoa(JSON.stringify(payload))}.signature`;
     mockGetCurrentUser.mockResolvedValue({
       data: { user: { id: 'u1', email: 'test@test.com', profile: { name: 'Test User' } } },
       error: null,
@@ -415,7 +417,9 @@ describe('AuthContext', () => {
 
   it('clears storage and calls DELETE /api/auth on signOut', async () => {
     // SDK getCurrentUser returns an authenticated user on init
-    const fakeToken = 'header.payload.signature';
+    // Use a valid JWT with non-expired exp so isJwtExpired returns false
+    const payload = { sub: 'u1', exp: Math.floor(Date.now() / 1000) + 3600 };
+    const fakeToken = `header.${btoa(JSON.stringify(payload))}.signature`;
     mockGetCurrentUser.mockResolvedValue({
       data: { user: { id: 'u1', email: 'user@test.com', profile: null } },
       error: null,
