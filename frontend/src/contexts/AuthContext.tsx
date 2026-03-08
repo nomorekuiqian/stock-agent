@@ -10,6 +10,7 @@ import {
   User,
 } from '@/lib/auth';
 import { INSFORGE_AUTH_TOKEN_KEY } from '@/lib/auth-storage';
+import { isJwtExpired } from '@/lib/auth-token';
 import { insforge, _capturedOAuthCode } from '@/lib/insforge';
 import { buildAbsoluteVerifyEmailUrl } from '@/lib/auth-verification';
 
@@ -145,22 +146,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: userData } = await insforge.auth.getCurrentUser();
         if (userData?.user) {
           const token = window.localStorage.getItem(INSFORGE_AUTH_TOKEN_KEY);
-          if (token) {
+          if (token && !isJwtExpired(token)) {
+            // Token is valid — set user immediately so queries can fire
             syncClientAuthSession(token, userData.user);
+            if (!cancelled) {
+              setUser(toAuthUser(userData.user as {
+                id: string;
+                email?: string | null;
+                profile?: { name?: string; avatar_url?: string } | null;
+              }));
+              setIsLoading(false);
+            }
+            cleanupAuthCallbackUrlParams();
+            return;
           }
-          if (!cancelled) {
-            setUser(toAuthUser(userData.user as {
-              id: string;
-              email?: string | null;
-              profile?: { name?: string; avatar_url?: string } | null;
-            }));
-            setIsLoading(false);
-          }
-          cleanupAuthCallbackUrlParams();
-          return;
+          // Token expired or missing — fall through to server proxy refresh
+          // so queries only fire once we have a valid token
         }
 
-        // SDK found no session — try Server Proxy refresh via httpOnly cookies
+        // No valid local session — try Server Proxy refresh via httpOnly cookies
         const response = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
