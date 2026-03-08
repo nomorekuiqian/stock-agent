@@ -5,45 +5,170 @@
 > SDK: @insforge/sdk + @insforge/nextjs
 > Instance: 9wmhxyi4.us-east.insforge.app
 
-## Updated Position (2026-03-07)
+## 1. Our Situation
 
-After another production debugging round, our position is more precise:
+Our production setup is:
 
-- A **thin app-domain auth proxy** is not inherently a hack. In SSR + httpOnly-cookie auth systems, it is a normal pattern.
-- The real issue is not "having `/api/auth`". The issue is that the current InsForge integration leaves too much session bridging and refresh recovery to application code.
-- We want to move to **SDK-first + thin proxy only**, not "large custom auth layer".
+- Frontend domain: `themarketbrew.com`
+- InsForge instance: `*.insforge.app`
+- Framework: Next.js App Router
+- Rendering model: SSR + protected pages
 
-In other words:
+Our goal is also simple:
 
-- Acceptable: a small Next.js route layer that lives on `themarketbrew.com` and only handles cookie/session bridging that the browser cannot do cross-domain.
-- Not acceptable: app code having to manually coordinate multiple fallback paths for `user`, `token`, refresh, localStorage hydration, redirect recovery, and forced logout behavior.
+- use InsForge SDK as the main auth system
+- keep application auth logic as thin as possible
+- if a proxy is required, keep it as a **thin app-domain auth proxy**
+- avoid a large custom auth recovery layer in application code
 
-## Why We No Longer Treat the Proxy as the Core Problem
+In other words, we do **not** insist on "zero proxy".
+What we want is:
 
-We initially framed the proxy as an abnormal workaround. After comparing with mainstream auth stacks, that framing is too simplistic.
+- SDK-first
+- thin proxy only
+- one reliable session model
 
-For SSR-capable auth products, an app-domain auth layer is common when the browser cannot safely or reliably complete the full session lifecycle by itself:
+Today, basic sign-in works, but the full session lifecycle is still not fully owned by the SDK in this deployment shape. That is why we ended up writing a lot of manual glue code.
 
-- **Auth0 Next.js SDK** mounts auth routes on the application domain such as `/auth/login`, `/auth/callback`, `/auth/profile`, and `/auth/access-token`, instead of asking each app to wire raw browser auth flows directly against Auth0 APIs.
-- **Supabase SSR for Next.js** explicitly documents that Server Components cannot write cookies, so a proxy/middleware layer is required to refresh expired auth tokens and write the refreshed cookies back to both server and browser state.
-- **Clerk** treats multi-domain auth as a product-level domain model problem (`primary domain` + `satellite domains`), not as something "the browser SDK will just handle automatically" across arbitrary domains.
+## 2. Our Problems
 
-References:
+### 2.1 What users are seeing
 
-- Auth0 Next.js Quickstart:
-  - https://auth0.com/docs/quickstart/webapp/nextjs/interactive
-- Supabase SSR Next.js:
-  - https://supabase.com/docs/guides/auth/server-side/nextjs
-  - https://supabase.com/docs/guides/with-nextjs
-- Clerk satellite domains:
-  - https://clerk.com/docs/advanced-usage/satellite-domains
-  - https://clerk.com/docs/guides/dashboard/dns-domains/satellite-domains
+Our production users can enter a **ghost session** state:
 
-So our ask is not "remove every proxy forever". Our ask is:
+- the site still looks logged in
+- but protected pages fail
+- the app only discovers the problem when it makes a protected request
 
-1. Let the SDK own the canonical session lifecycle.
-2. If a proxy is required, make it an official, minimal, productized part of the SDK flow.
-3. Do not force application teams to invent their own auth recovery stack.
+Typical production behavior:
+
+1. User logs in successfully.
+2. User leaves for a while.
+3. User comes back and still sees logged-in UI.
+4. User opens `/for-you` or another protected page.
+5. The page fails and asks the user to recover or log in again.
+
+This is the opposite of the behavior we want. "Looks logged in" and "actually has a usable session" should be the same thing.
+
+### 2.2 Why these problems exist
+
+There are two main gaps.
+
+#### Gap A: Cross-domain refresh is not fully productized
+
+Our frontend runs on `themarketbrew.com`, but InsForge auth runs on `*.insforge.app`.
+
+That means when the access token expires, browser-based refresh is not something we can assume will "just work". So we had to build our own `/api/auth` bridge to:
+
+- receive login results
+- store refresh artifacts on our app domain
+- proxy refresh requests
+- clear cookies on sign-out
+
+A thin proxy is fine. The issue is that this flow is not fully owned by the SDK as an official production pattern.
+
+#### Gap B: The SDK/session model can still treat stale auth as current auth
+
+We confirmed several specific behaviors:
+
+- server `auth()` reads cookies, but does not verify whether the token is already expired
+- browser initial state hydrates user information, but not the full token/session state
+- SDK token/session retrieval does not guarantee token freshness before treating the session as current
+
+So the app can end up in this bad state:
+
+- SSR says the user is signed in
+- SDK `user` exists
+- but protected API calls still cannot use the session
+
+That is why we had to add manual reconciliation code.
+
+### 2.3 Problem Summary Table
+
+| What we hit | Why it exists |
+|---|---|
+| Users can still look logged in after the session is already unusable | Server auth and browser auth do not fully validate token freshness |
+| Protected pages fail after idle time | Cross-domain refresh is not fully productized for our deployment shape |
+| We had to write manual token hydrate logic | Server auth state does not fully hydrate browser token state |
+| We had to write our own stale-session cleanup logic | SDK does not fully reconcile `user`, token, and refresh state |
+| We had to patch CSRF / refresh rotation ourselves | Proxy-based refresh lifecycle is not fully abstracted |
+
+## 3. Our Requests
+
+We want InsForge to own one of these two paths clearly.
+
+### Option A: Official same-site / custom-domain path
+
+If InsForge supports custom auth domains, then browser refresh and SSR could become same-site and much simpler.
+
+### Option B: Official cross-domain + thin proxy path
+
+If cross-domain is the intended setup, then InsForge should provide and document a first-class Next.js auth bridge that covers:
+
+- sign-in bridge
+- refresh bridge
+- sign-out cleanup
+- SSR auth state
+- browser session hydrate
+- CSRF / refresh rotation
+- stale-session invalidation
+
+Either option is acceptable.
+
+What is not acceptable is the current middle state:
+
+- proxy is required, but unofficial
+- SSR auth exists, but can be stale
+- browser provider exists, but does not fully hydrate token state
+- app teams must invent recovery logic themselves
+
+### Request Summary Table
+
+| What we want from InsForge | Why we want it |
+|---|---|
+| Provide an official cross-domain auth topology for `frontend domain != insforge domain` | So teams do not have to guess the correct refresh / cookie / SSR pattern |
+| Ship an official thin app-domain auth bridge for Next.js App Router | This should cover sign-in, refresh, sign-out, cookie sync, and callback cleanup |
+| Make `auth()` able to return only valid auth state, not stale cookie state | SSR should not hydrate ghost sessions |
+| Expose a supported `hydrateSession()` path from server auth state to browser token manager | App code should not need localStorage patches |
+| Validate token freshness before returning SDK session state | "Existing token" should not mean "usable token" |
+| Provide first-class stale-session recovery hooks / callbacks | App code should not invent its own reset / retry / redirect behavior |
+| Document CSRF / refresh rotation behavior for proxy deployments | So app-domain proxy integrations remain correct across refresh cycles |
+| Clarify which responsibilities belong to SDK vs proxy vs application | To stop auth logic from fragmenting into multiple fallback stacks |
+
+## What Mainstream Auth Products Provide More Clearly
+
+Our point is not that Auth0, Clerk, or Supabase are "magic" or that they never need a proxy.
+
+Our point is that mainstream auth products usually define the responsibility split much more clearly. If a bridge layer is needed, it is usually:
+
+- official
+- documented
+- minimal
+- integrated into the auth product contract
+
+### Comparison Table
+
+| Product | What is clear / official | What app teams usually do not need to invent themselves |
+|---|---|---|
+| Auth0 | Next.js SDK mounts official app-domain auth routes such as login, callback, profile, and access-token routes | Teams usually do not invent their own base login/callback/token-sync route structure |
+| Clerk | Multi-domain auth is treated as an official product model, such as primary domain + satellite domains | Teams usually do not invent their own domain-topology rules for cross-domain login behavior |
+| Supabase | SSR docs explicitly explain that middleware / proxy is needed to refresh and write cookies in Next.js SSR setups | Teams usually do not have to guess whether a proxy is normal or what it is responsible for |
+| InsForge (current experience) | Basic sign-in works, but cross-domain refresh + SSR + browser hydrate + stale-session handling are not yet one clearly owned path | Teams still need to write their own bridge, hydrate patches, stale-session reconciliation, and recovery logic |
+
+### Why this matters to us
+
+The difference is not "they have more APIs".
+
+The difference is that mainstream auth products usually give application teams a more complete answer to these questions:
+
+- What is the official architecture for this deployment shape?
+- Which layer owns refresh?
+- Which layer owns SSR auth state?
+- Which layer owns browser hydrate?
+- What counts as a valid current session?
+- What should happen when session state becomes stale?
+
+That is what we are asking InsForge to make clearer.
 
 ## The Problem
 
@@ -112,70 +237,32 @@ Because SDK refresh doesn't work cross-domain, we had to build 5 layers of worka
 
 This complexity has caused production bugs including: login state loss on page refresh, race conditions between SDK refresh and our proxy refresh, "ghost login" states where UI shows logged-in but all API calls return 401, and auth cookie naming mismatches.
 
-## What We Believe the Correct Responsibility Split Should Be
+## Additional Findings Confirmed Today
 
-### What the application is willing to own
+These are the most important findings from today's debugging round:
 
-We are willing to keep a **thin** `app-domain` auth route, for example `/api/auth`, if its responsibilities are limited to:
+1. **Server-side auth state is stale-cookie based, not validity based**
+   - `@insforge/nextjs/server` `auth()` reads `insforge-session` and `insforge-user` cookies and returns them directly.
+   - It does not validate whether the access token is already expired.
+   - Result: SSR and Navbar can continue to show "logged in" after the session is already unusable.
 
-1. Receiving auth callbacks or sign-in bridge requests on `themarketbrew.com`
-2. Writing first-party cookies for our app domain
-3. Forwarding refresh requests server-to-server when the browser cannot send the refresh cookie cross-domain
-4. Clearing app-domain cookies on sign-out
+2. **Client session restore is incomplete without app patches**
+   - Server `auth()` can provide `{ userId, user, token }`.
+   - Browser provider initial state only restores `user` / `userId`.
+   - App code still has to seed token state into localStorage for SDK restore behavior to work consistently.
 
-### What the SDK should own
+3. **SDK/browser session retrieval does not guarantee token freshness**
+   - `TokenManager.getSession()` returns stored token + user.
+   - It does not validate JWT expiry before treating that as a current session.
+   - Result: the app can temporarily believe a stale token is still a usable session.
 
-We believe the SDK should own:
-
-1. A single canonical session model for `user`, `accessToken`, and refresh state
-2. Hydration from server state to browser state without requiring app code to write localStorage patches
-3. Official refresh bridging for cross-domain deployments
-4. Consistent callbacks/hooks for sign-in, refresh, sign-out, and auth failure
-5. A documented deployment story for:
-   - same-origin auth
-   - cross-domain auth
-   - custom domain auth
-   - SSR + App Router + Server Components
-
-## Recommended Target Architecture for TheMarketBrew
-
-Our preferred architecture is now:
-
-```text
-Browser UI
-  -> InsForge SDK / BrowserProvider
-  -> single client auth state
-
-App-domain auth route (/api/auth on themarketbrew.com)
-  -> only bridges browser-unfriendly steps
-  -> writes/clears first-party cookies
-  -> proxies refresh when needed
-
-InsForge Auth API
-  -> source of truth for identity
-  -> validates tokens
-  -> issues session artifacts
-```
-
-### Design principles
-
-1. **SDK-first**
-   - UI should read one canonical auth state from the SDK/provider layer.
-
-2. **Thin proxy only**
-   - The proxy should be transport glue, not custom business logic.
-
-3. **Single source of truth**
-   - "Logged in" must mean both:
-     - UI has a valid user
-     - protected API calls have a valid access token
-
-4. **No dual recovery stacks**
-   - The app should not need separate manual recovery paths for:
-     - `sdk.user`
-     - localStorage token
-     - custom cached token
-     - forced refresh polling
+4. **The app had to add session reconciliation logic that should not be app-level**
+   - We now have to reconcile:
+     - SSR cookie state
+     - SDK `user`
+     - token manager state
+     - refresh proxy result
+   - This is exactly the kind of auth split-brain state we want the SDK contract to prevent.
 
 ## What Is Currently Going Wrong in Our App
 
@@ -216,6 +303,10 @@ The app can and should be simplified, but the simplification requires a more off
 4. **Can the SDK expose a supported `hydrateSession()` or equivalent?**
    - Today, `auth()` on the server can return `{ userId, user, token }`, but the browser provider does not appear to hydrate the token manager from that same state.
 
+   Follow-up from today's debugging:
+   - We now also need to know whether InsForge plans to make server auth state freshness-aware.
+   - Returning stale cookie-backed auth state is not sufficient for SSR products.
+
 5. **Does InsForge support custom domains / CNAME for auth endpoints?**
    - If we could serve auth on `auth.themarketbrew.com` or `api.themarketbrew.com`, same-site behavior may eliminate most of this complexity.
 
@@ -243,6 +334,16 @@ The app can and should be simplified, but the simplification requires a more off
 4. If refresh fails -> return null
 ```
 
+`auth()` (`@insforge/nextjs/server`) currently:
+```
+1. Read insforge-session cookie
+2. Read insforge-user cookie
+3. Return { userId, token, user }
+4. No token validity check
+```
+
+That behavior is convenient for basic SSR hydration, but it is not strong enough for production auth correctness when stale cookies remain present.
+
 `InsforgeBrowserProvider` callbacks:
 - `onSignIn(token, user)` -> `syncToCookie()` -> POST `/api/auth { action: "sync-token" }`
 - `onRefresh(token, user)` -> `syncToCookie()` (never triggers because refresh never succeeds)
@@ -257,6 +358,35 @@ The app can and should be simplified, but the simplification requires a more off
 ## Our Current Ask to InsForge
 
 We do not need InsForge to promise "zero proxy".
+
+We are willing to keep a **thin app-domain auth route**, for example `/api/auth`, if its responsibilities are limited to:
+
+1. Receiving auth callbacks or sign-in bridge requests on `themarketbrew.com`
+2. Writing first-party cookies for our app domain
+3. Forwarding refresh requests server-to-server when the browser cannot send the refresh cookie cross-domain
+4. Clearing app-domain cookies on sign-out
+
+What we need from InsForge is for one of these two paths to become official:
+
+1. **Same-site / custom-domain auth**
+   - Where browser refresh and SSR state are first-class and require minimal app code
+
+2. **Official cross-domain + thin proxy auth**
+   - Where InsForge documents and supports:
+     - sign-in bridge
+     - refresh bridge
+     - sign-out cleanup
+     - SSR auth state
+     - browser hydrate
+     - CSRF / refresh rotation
+     - stale-session invalidation
+
+What we do **not** want is the current middle ground:
+
+- proxy is needed, but unofficial
+- SSR auth exists, but can be stale
+- browser provider exists, but does not fully hydrate token state
+- app teams must invent reconciliation logic themselves
 
 We need InsForge to provide one of these two supported paths:
 

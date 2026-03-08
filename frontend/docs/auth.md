@@ -2,11 +2,11 @@
 
 ## 概述
 
-当前认证体系基于 Insforge SDK：
+当前认证体系已经切到 **`@insforge/sdk` + 自建 Server Proxy**：
 
-- 前端：`@insforge/nextjs` + `@insforge/sdk`
+- 前端：仅保留 `@insforge/sdk`
 - 后端：Bearer token + `verify_user_token`
-- Session 恢复：Server Component `auth()` + `InsforgeBrowserProvider initialState`
+- Session 恢复：客户端 `AuthContext` + `/api/auth` Server Proxy
 
 当前架构目标已经调整为 **SDK-first + thin proxy only**：
 
@@ -15,7 +15,7 @@
 - 不再把“存在 `/api/auth`”本身视为问题
 - 真正要避免的是应用层同时维护多套 session 恢复逻辑
 
-`/api/auth` 目前既委托 `createAuthRouteHandlers` 给 SDK 管理基础动作，也包含项目自定义的 `sign-in` / `refresh` 动作，用于 app-domain cookie/session 桥接。
+`/api/auth` 现在只保留项目自定义动作：`sign-in` / `refresh` / `verify-email` / `oauth-exchange` / `bridge-session` / `DELETE`。
 
 ### 为什么薄 Proxy 仍然是合理的
 
@@ -37,9 +37,7 @@
     -> 提取 refresh token / csrfToken
     -> 写入我们域名下的 auth cookies
     -> 返回 { accessToken, user, csrfToken }
-  -> 前端把登录结果同步到 SDK / 浏览器 session 状态
-  -> RootLayout 后续请求通过 auth() 读取 server-side auth state
-  -> Providers 用 initialState 做首屏 hydrate
+  -> 前端把登录结果同步到 localStorage / SDK httpClient / React state
   -> 前端业务请求通过 getAccessToken() 取 Bearer token
   -> 后端 verify_user_token() 校验 token
 ```
@@ -49,12 +47,15 @@
 ```text
 用户点击 Google 登录
   -> AuthContext.signInWithGoogle()
-  -> 从 sessionStorage 读取 redirect 目标
-  -> sdk.loginWithOAuth('google', redirectTo)
-  -> OAuth 成功后回到目标页
-  -> SDK / Provider 恢复用户状态
-  -> SDK 完成 code exchange 后清理 URL 中的 insforge_code
-  -> 如有 callback 错误，兼容页 /auth/callback 会带 error 回 /login
+  -> sessionStorage 保存最终 redirect 目标
+  -> sdk.signInWithOAuth({ provider: 'google', redirectTo: '/auth/callback' })
+  -> Google 回跳到公开页 /auth/callback?insforge_code=...
+  -> callback 页把 code + PKCE verifier 发给 POST /api/auth { action: 'oauth-exchange' }
+    -> Server Proxy 调 Insforge /api/auth/oauth/exchange
+    -> 提取 refresh token / csrfToken
+    -> 写回我们域名的 auth cookies
+  -> 前端 syncClientAuthSession() + setUser()
+  -> 再跳转到 sessionStorage 里保存的最终业务页
 ```
 
 ### 3. 邮箱注册与验证
@@ -68,13 +69,13 @@
        1. sessionStorage 保存 pending email / name
        2. 跳到 /verify-email?email=...&redirect=...
        3. 用户输入验证码，或点击邮件链接回到 /verify-email?token=...
-       4. verifyEmail() 成功后恢复 session
+       4. verifyEmail() 走 Server Proxy 成功后恢复 session
        5. 如有 pending name，则补一次 updateProfile()
           - 无论补写成功与否，都会清理 pending signup 状态，避免后续污染新注册
        6. 跳到原始 redirect
 ```
 
-`/verify-email` 同时兼容两种验证模式：
+`/verify-email` 同时兼容两种验证模式，且两种模式都会通过 Server Proxy 完成 cookie bridge：
 
 - `code`：页面输入 6 位验证码
 - `link`：点击邮件链接自动验证，并提供 resend 入口
@@ -100,55 +101,47 @@
   -> 跳回 /login
 ```
 
-`/reset-password` 保留为兼容旧 token link 的落地页，但密码规则与 `/forgot-password` 已统一为至少 8 位。
+`/reset-password` 保留为兼容旧 token link 的落地页，但密码规则与 `/forgot-password` 已统一为至少 6 位。
 
 ## Session 恢复
 
-### Server -> Client 恢复链
+### Client 恢复链
 
 ```text
-页面请求
-  -> layout.tsx 调用 auth()
-  -> 读取当前 cookie/session
-  -> 把 initialState 传给 Providers
-  -> Providers 调用 seedClientAuthFromServer()
-  -> InsforgeBrowserProvider 初始化
-  -> AuthContext 从 useInsforge() 读取 user
+应用挂载
+  -> AuthContext init effect
+  -> 若当前是 /auth/callback?insforge_code=...:
+       跳过 SDK 自动恢复，交给 callback 页手动 exchange
+  -> 否则先调 insforge.auth.getCurrentUser()
+       - 有本地 session / Insforge 域 refresh cookie：恢复 user
+  -> 仍无会话时，再调 POST /api/auth { action: 'refresh' }
+       - 用我们域名下的 refresh cookie 换新 access token
 ```
 
 ### getAccessToken()
 
-前端业务 API 统一通过 `getAccessToken()` 取 token，三级降级策略：
+前端业务 API 统一通过 `getAccessToken()` 取 token，当前策略是：
 
 1. **cachedToken** — 如果之前 refresh 过且 token 未过期，直接返回缓存值
-2. **SDK session** — `insforge.auth.getCurrentSession()`（5 秒超时），检查 JWT `exp`（含 60 秒提前量）
-3. **Server Proxy refresh** — SDK 返回 null 或过期 token 时，`POST /api/auth { action: 'refresh' }`
+2. **localStorage token** — `insforge-auth-token` 仍有效则直接返回
+3. **Server Proxy refresh** — token 不存在或已过期时，`POST /api/auth { action: 'refresh' }`
    - 成功后缓存 token、更新 SDK httpClient auth header、写入 localStorage
    - 使用 Promise 去重，并发调用只触发一次 refresh
 4. 全部失败返回 `null`
 
-**为什么 SDK 内置 refresh 不工作？**
+**为什么业务请求不直接依赖 SDK 内置 refresh？**
 
-SDK `getCurrentSession()` 内部在 token 过期时会尝试 `POST /api/auth/refresh` 到 Insforge 域名，但 refresh cookie（`insforge_refresh_token`）存在我们域名（`themarketbrew.com`），浏览器跨域不发送，所以 SDK refresh 始终失败。我们通过 Server Proxy 解决：Next.js server 读自己域名的 httpOnly cookie 转发到 Insforge API 换新 token。
+邮箱密码登录、邮箱验证成功、OAuth callback 成功后，真正作为“应用主 session”的 refresh token 都会被桥接到我们域名 cookie。`getAccessToken()` 必须优先走这条 first-party refresh 链，不能再把 SDK 的 cross-domain refresh 当主链路。
 
 这里的关键认知更新是：问题不在“需要薄 Proxy”，而在“SDK 与应用之间缺少统一的 session bridge”。如果应用层必须自己分别兜底 `sdk.user`、token hydrate、refresh、forced reauth，就会出现状态分裂。
 
-目前 `Providers.tsx` 会通过 `seedClientAuthFromServer()` 把 `initialState.token` 注入 `localStorage`，用于 SDK memory mode 下的刷新恢复。
-
-原因不是业务代码偏好，而是当前 SDK 约束：
-
-1. `@insforge/nextjs/server` 的 `auth()` 可以拿到 `{ userId, user, token }`
-2. `@insforge/react` 的 `InitialAuthState` 只包含 `user` / `userId`
-3. `InsforgeProviderCore.setInitialState()` 只 hydrate 用户信息，不写入 SDK token manager
-4. SDK `TokenManager.getSession()` 仍优先从 `insforge-auth-token` / `insforge-auth-user` 读取浏览器 session
-
-所以这一步目前是”兼容 SDK 恢复链的最小补丁”，而不是可以直接删除的冗余代码。
+`@insforge/nextjs` 相关的 `auth()` / `initialState` / `InsforgeBrowserProvider` 已经移除，这一段历史 workaround 不再适用。
 
 ## 当前目标架构
 
 ```text
 Browser UI
-  -> SDK / BrowserProvider
+  -> AuthContext
   -> 单一前端认证状态
 
 Thin App-Domain Proxy (/api/auth)
@@ -183,12 +176,16 @@ Insforge Auth API
 - 线上真实主站当前是 `https://www.themarketbrew.com`；`https://themarketbrew.com` 会先 307 到 `www`
 - 因此 auth cookies 不能再默认只依赖当前 host；Server Proxy 在 production 会把 auth cookies 统一写到 `.themarketbrew.com`
 - 这样可以减少 `www` / 裸域切换、旧 cookie 残留、以及生产环境 host 归一化带来的 session 分裂
+- OAuth callback 不能直接回 `/for-you` / `/profile` 这类受保护页。原因是 middleware 会在 cookie bridge 之前抢先重定向回 `/login`
+- `AuthContext` 在 `/auth/callback?insforge_code=...` 场景会主动跳过 SDK 自动 code exchange，避免 SDK 先消耗掉一次性 code，导致 Server Proxy 无法再桥接 refresh token
+- `signOut()` 现在必须走统一清理函数，把模块级 `cachedToken`、localStorage、SDK httpClient header、以及 app-domain cookies 一起清掉；否则同 tab 后续 API 可能继续带旧 Bearer token
 - 受保护接口在收到 `401` 后，如果 `forceRefresh` 成功，前端会自动重试一次原请求；如果仍然失败，只展示错误，不再自动强制登出
 - 登录页和受保护错误页现在都会给出统一恢复指引：
   - Mac：`Command + Shift + R`
   - Windows：`Ctrl + Shift + R`
   - 手机端：浏览器菜单重新加载或下拉刷新；若仍失败，关闭当前页面后重新打开
 - `insforge_code` 是回调链中的一次性授权码，不是长期 session token。前端现在会在 SDK 初始化和恢复链结束后，再额外清理一次 `insforge_code` / `access_token` / `user_id` / `email`，避免这些参数长时间停留在地址栏
+- Server Proxy `refresh` 成功后，现在也会同步更新 CSRF cookie，避免 refresh token 轮换后下一次刷新仍拿着旧 CSRF 值
 
 ## 前后端职责
 
@@ -198,6 +195,7 @@ Insforge Auth API
 
 - `frontend/src/app/login/page.tsx`
 - `frontend/src/app/verify-email/page.tsx`
+- `frontend/src/app/auth/callback/page.tsx`
 - `frontend/src/components/PasswordField.tsx`
 - `frontend/src/contexts/AuthContext.tsx`
 - `frontend/src/components/Providers.tsx`
