@@ -2,9 +2,9 @@ name: Morning Market Report
 
 on:
   schedule:
-    # Run at 8:00 AM US Eastern Time (before market open)
-    # UTC 12:00 = 8:00 AM EDT (summer) / 7:00 AM EST (winter)
-    - cron: '0 12 * * 1-5'  # Monday to Friday only (market days)
+    # Run at 9:00 AM US Eastern Time (before market open)
+    # UTC 13:00 = 9:00 AM EDT (summer) / 8:00 AM EST (winter)
+    - cron: '0 13 * * 1-5'  # Monday to Friday only (market days)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
