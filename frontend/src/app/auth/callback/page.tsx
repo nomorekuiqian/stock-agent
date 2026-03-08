@@ -17,13 +17,16 @@ function AuthCallbackContent() {
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (isLoading) return;
-
     const error = searchParams.get('error');
     if (error) {
       router.push('/login?error=' + encodeURIComponent(error));
       return;
     }
+
+    // Wait for AuthContext init to complete.
+    // On this page, the init effect detects the OAuth code (captured before
+    // SDK cleaned the URL) and exchanges it through Server Proxy.
+    if (isLoading) return;
 
     if (isAuthenticated) {
       const redirectUrl = getStoredAuthRedirect(DEFAULT_AUTH_REDIRECT);

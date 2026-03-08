@@ -23,6 +23,7 @@ function LoadingSpinner(): ReactNode {
 
 const ERROR_TRANSLATIONS: Record<string, string> = {
   'invalid credentials': '邮箱或密码错误',
+  'auth_unauthorized': '邮箱或密码错误',
   'request failed: unauthorized': '邮箱或密码错误',
   'user already exists': '该邮箱已注册，请直接登录',
   'request failed: conflict': '该邮箱已注册，请直接登录',

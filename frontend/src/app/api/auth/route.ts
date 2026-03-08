@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthRouteHandlers } from '@insforge/nextjs/api';
 
 const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL;
 const anonKey = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY;
 if (!baseUrl) {
   throw new Error('[Auth Route] Missing NEXT_PUBLIC_INSFORGE_URL');
 }
-
-const handlers = createAuthRouteHandlers({
-  baseUrl,
-});
 
 function resolveSharedAuthCookieDomain(request: NextRequest): string | undefined {
   const hostname = request.nextUrl.hostname;
@@ -29,6 +24,19 @@ function buildAuthCookieOptions(request: NextRequest) {
 
   return {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    maxAge: 7 * 24 * 60 * 60,
+    path: '/',
+    ...(domain ? { domain } : {}),
+  };
+}
+
+function buildClientReadableCookieOptions(request: NextRequest) {
+  const domain = resolveSharedAuthCookieDomain(request);
+
+  return {
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     maxAge: 7 * 24 * 60 * 60,
@@ -59,6 +67,11 @@ function clearAuthCookie(response: NextResponse, request: NextRequest, name: str
   }
 }
 
+function setCsrfCookies(response: NextResponse, request: NextRequest, csrfToken: string) {
+  response.cookies.set('insforge-csrf', csrfToken, buildAuthCookieOptions(request));
+  response.cookies.set('insforge_csrf_token', csrfToken, buildClientReadableCookieOptions(request));
+}
+
 function extractRefreshToken(response: Response): string | null {
   const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
   const setCookieHeaders = typeof getSetCookie === 'function'
@@ -80,16 +93,90 @@ function extractRefreshToken(response: Response): string | null {
   return match?.[1] || null;
 }
 
-// Wrap POST to add a "refresh" action that the SDK doesn't provide.
-// When the access token expires, the client calls this to exchange
-// the insforge-refresh cookie for a new access token.
+function buildInsforgeHeaders(additionalHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (anonKey) {
+    headers.Authorization = `Bearer ${anonKey}`;
+    headers.apikey = anonKey;
+  }
+
+  return {
+    ...headers,
+    ...additionalHeaders,
+  };
+}
+
+function setSessionCookies(
+  response: NextResponse,
+  request: NextRequest,
+  session: {
+    accessToken: string;
+    user?: {
+      id: string;
+      email?: string | null;
+      profile?: unknown;
+    } | null;
+    csrfToken?: string | null;
+  },
+  refreshToken?: string | null,
+) {
+  const cookieOptions = buildAuthCookieOptions(request);
+
+  response.cookies.set('insforge-session', session.accessToken, cookieOptions);
+
+  if (session.user) {
+    response.cookies.set(
+      'insforge-user',
+      JSON.stringify({
+        id: session.user.id,
+        email: session.user.email,
+        profile: session.user.profile || null,
+      }),
+      cookieOptions,
+    );
+  }
+
+  if (session.csrfToken) {
+    setCsrfCookies(response, request, session.csrfToken);
+  }
+
+  if (refreshToken) {
+    response.cookies.set('insforge-refresh', refreshToken, cookieOptions);
+    response.cookies.set('insforge_refresh_token', refreshToken, cookieOptions);
+  }
+}
+
+async function verifyAccessToken(accessToken: string): Promise<{
+  user?: {
+    id: string;
+    email?: string | null;
+    profile?: unknown;
+  };
+}> {
+  const response = await fetch(`${baseUrl}/api/auth/sessions/current`, {
+    method: 'GET',
+    headers: buildInsforgeHeaders({
+      Authorization: `Bearer ${accessToken}`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'Token verification failed');
+  }
+
+  return response.json();
+}
+
 async function POST(request: NextRequest) {
-  const cloned = request.clone();
   let body: { action?: string } | null = null;
   try {
-    body = await cloned.json();
+    body = await request.json();
   } catch {
-    // Not JSON — delegate to SDK handler
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
   if (body?.action === 'sign-in') {
@@ -100,7 +187,19 @@ async function POST(request: NextRequest) {
     return handleRefresh(request);
   }
 
-  return handlers.POST(request);
+  if (body?.action === 'verify-email') {
+    return handleVerifyEmail(request, body as { otp: string; email?: string });
+  }
+
+  if (body?.action === 'oauth-exchange') {
+    return handleOAuthExchange(request, body as { code: string; codeVerifier: string });
+  }
+
+  if (body?.action === 'bridge-session') {
+    return handleBridgeSession(request, body as { accessToken: string; csrfToken?: string | null });
+  }
+
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
 
 async function handleSignIn(request: NextRequest, body: { email: string; password: string }): Promise<NextResponse> {
@@ -110,17 +209,9 @@ async function handleSignIn(request: NextRequest, body: { email: string; passwor
   }
 
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (anonKey) {
-      headers.Authorization = `Bearer ${anonKey}`;
-      headers.apikey = anonKey;
-    }
-
     const response = await fetch(`${baseUrl}/api/auth/sessions`, {
       method: 'POST',
-      headers,
+      headers: buildInsforgeHeaders(),
       body: JSON.stringify({ email, password }),
     });
 
@@ -146,32 +237,9 @@ async function handleSignIn(request: NextRequest, body: { email: string; passwor
       csrfToken: data.csrfToken,
     });
 
-    const cookieOptions = buildAuthCookieOptions(request);
-
-    nextResponse.cookies.set('insforge-session', data.accessToken, cookieOptions);
-
-    if (data.user) {
-      nextResponse.cookies.set(
-        'insforge-user',
-        JSON.stringify({
-          id: data.user.id,
-          email: data.user.email,
-          profile: data.user.profile || null,
-        }),
-        cookieOptions,
-      );
-    }
-
-    if (data.csrfToken) {
-      nextResponse.cookies.set('insforge-csrf', data.csrfToken, cookieOptions);
-    }
-
     // Extract refresh token from Set-Cookie header and store on our domain
     const refreshedToken = extractRefreshToken(response);
-    if (refreshedToken) {
-      nextResponse.cookies.set('insforge-refresh', refreshedToken, cookieOptions);
-      nextResponse.cookies.set('insforge_refresh_token', refreshedToken, cookieOptions);
-    }
+    setSessionCookies(nextResponse, request, data, refreshedToken);
 
     return nextResponse;
   } catch (error) {
@@ -194,17 +262,12 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+    const headers = buildInsforgeHeaders({
       Cookie: `insforge_refresh_token=${refreshToken}`,
-    };
+    });
 
     if (csrfToken) {
       headers['X-CSRF-Token'] = csrfToken;
-    }
-    if (anonKey) {
-      headers.Authorization = `Bearer ${anonKey}`;
-      headers.apikey = anonKey;
     }
 
     const response = await fetch(`${baseUrl}/api/auth/refresh`, {
@@ -236,27 +299,8 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
       csrfToken: data.csrfToken,
     });
 
-    const cookieOptions = buildAuthCookieOptions(request);
-
-    nextResponse.cookies.set('insforge-session', data.accessToken, cookieOptions);
-
-    if (data.user) {
-      nextResponse.cookies.set(
-        'insforge-user',
-        JSON.stringify({
-          id: data.user.id,
-          email: data.user.email,
-          profile: data.user.profile || null,
-        }),
-        cookieOptions,
-      );
-    }
-
     const rotatedRefreshToken = extractRefreshToken(response);
-    if (rotatedRefreshToken) {
-      nextResponse.cookies.set('insforge-refresh', rotatedRefreshToken, cookieOptions);
-      nextResponse.cookies.set('insforge_refresh_token', rotatedRefreshToken, cookieOptions);
-    }
+    setSessionCookies(nextResponse, request, data, rotatedRefreshToken);
 
     return nextResponse;
   } catch (error) {
@@ -268,10 +312,131 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-const GET = handlers.GET;
+async function handleVerifyEmail(
+  request: NextRequest,
+  body: { otp: string; email?: string },
+): Promise<NextResponse> {
+  if (!body.otp) {
+    return NextResponse.json({ error: 'Verification code required' }, { status: 400 });
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/email/verify`, {
+      method: 'POST',
+      headers: buildInsforgeHeaders(),
+      body: JSON.stringify(body.email ? { otp: body.otp, email: body.email } : { otp: body.otp }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Verification failed';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Response might not be JSON.
+      }
+      return NextResponse.json({ error: errorMessage }, { status: response.status });
+    }
+
+    const data = await response.json();
+    if (!data.accessToken || !data.user) {
+      return NextResponse.json({ error: 'Verification response invalid' }, { status: 500 });
+    }
+
+    const nextResponse = NextResponse.json({
+      accessToken: data.accessToken,
+      user: data.user,
+      csrfToken: data.csrfToken,
+    });
+    setSessionCookies(nextResponse, request, data, extractRefreshToken(response));
+    return nextResponse;
+  } catch (error) {
+    console.error('[Auth Route] Verify email error:', error);
+    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
+  }
+}
+
+async function handleOAuthExchange(
+  request: NextRequest,
+  body: { code: string; codeVerifier: string },
+): Promise<NextResponse> {
+  if (!body.code || !body.codeVerifier) {
+    return NextResponse.json({ error: 'OAuth callback data missing' }, { status: 400 });
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/oauth/exchange`, {
+      method: 'POST',
+      headers: buildInsforgeHeaders(),
+      body: JSON.stringify({
+        code: body.code,
+        code_verifier: body.codeVerifier,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'OAuth code exchange failed';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Response might not be JSON.
+      }
+      return NextResponse.json({ error: errorMessage }, { status: response.status });
+    }
+
+    const data = await response.json();
+    if (!data.accessToken || !data.user) {
+      return NextResponse.json({ error: 'OAuth exchange response invalid' }, { status: 500 });
+    }
+
+    const nextResponse = NextResponse.json({
+      accessToken: data.accessToken,
+      user: data.user,
+      csrfToken: data.csrfToken,
+      redirectTo: data.redirectTo,
+    });
+    setSessionCookies(nextResponse, request, data, extractRefreshToken(response));
+    return nextResponse;
+  } catch (error) {
+    console.error('[Auth Route] OAuth exchange error:', error);
+    return NextResponse.json({ error: 'OAuth code exchange failed' }, { status: 500 });
+  }
+}
+
+async function handleBridgeSession(
+  request: NextRequest,
+  body: { accessToken: string; csrfToken?: string | null },
+): Promise<NextResponse> {
+  if (!body.accessToken) {
+    return NextResponse.json({ error: 'Access token required' }, { status: 400 });
+  }
+
+  try {
+    const authData = await verifyAccessToken(body.accessToken);
+    if (!authData.user) {
+      return NextResponse.json({ error: 'Access token invalid' }, { status: 401 });
+    }
+
+    const nextResponse = NextResponse.json({
+      accessToken: body.accessToken,
+      user: authData.user,
+      csrfToken: body.csrfToken ?? null,
+    });
+    setSessionCookies(nextResponse, request, {
+      accessToken: body.accessToken,
+      user: authData.user,
+      csrfToken: body.csrfToken,
+    });
+    return nextResponse;
+  } catch (error) {
+    console.error('[Auth Route] Bridge session error:', error);
+    return NextResponse.json({ error: 'Failed to bridge auth session' }, { status: 401 });
+  }
+}
 
 async function DELETE(request: NextRequest) {
-  const response = await handlers.DELETE(request);
+  const response = NextResponse.json({ success: true });
 
   clearAuthCookie(response, request, 'insforge-refresh');
   clearAuthCookie(response, request, 'insforge_refresh_token');
@@ -283,4 +448,4 @@ async function DELETE(request: NextRequest) {
   return response;
 }
 
-export { POST, GET, DELETE };
+export { POST, DELETE };

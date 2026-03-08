@@ -3,8 +3,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { usePublicAuthConfig } from '@insforge/react';
 import { useAuth } from '@/contexts/AuthContext';
+import { insforge } from '@/lib/insforge';
 import {
   clearPendingVerification,
   getPendingVerification,
@@ -22,10 +22,20 @@ function LoadingSpinner(): ReactNode {
   );
 }
 
+function usePublicAuthConfig() {
+  const [config, setConfig] = useState<{ verifyEmailMethod?: string } | null>(null);
+  useEffect(() => {
+    insforge.auth.getPublicAuthConfig().then(({ data }: { data: unknown }) => {
+      if (data) setConfig(data as { verifyEmailMethod?: string });
+    }).catch(() => {});
+  }, []);
+  return config;
+}
+
 function VerifyEmailContent(): ReactNode {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { authConfig } = usePublicAuthConfig();
+  const authConfig = usePublicAuthConfig();
   const { verifyEmail, resendVerificationEmail, updateProfile } = useAuth();
 
   const redirectPath = sanitizeRedirectPath(searchParams.get('redirect'), DEFAULT_AUTH_REDIRECT);
@@ -111,13 +121,7 @@ function VerifyEmailContent(): ReactNode {
     }
 
     tokenHandledRef.current = true;
-    const timer = window.setTimeout(() => {
-      void handleVerification(token);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
+    void handleVerification(token);
   }, [handleVerification, token]);
 
   async function handleSubmit(e: React.FormEvent) {

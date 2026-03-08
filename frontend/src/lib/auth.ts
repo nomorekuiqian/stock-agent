@@ -1,6 +1,7 @@
 import { DEFAULT_AUTH_REDIRECT } from './auth-redirect';
 import { clearClientAuthStorage } from './auth-storage';
 import { insforge } from './insforge';
+import { isJwtExpired } from './auth-token';
 
 export interface User {
   id: string;
@@ -12,7 +13,6 @@ export interface User {
 export type AuthResetReason = 'session_reset' | 'session_expired' | 'session_recovery_failed';
 export type AccessTokenResolutionState = 'authenticated' | 'no_session' | 'transient_failure';
 const FORCED_REAUTH_REASON_KEY = 'forced_reauth_reason';
-const SDK_SESSION_TIMEOUT_MS = 2000;
 const REFRESH_RETRY_DELAYS_MS = [300, 900] as const;
 
 interface ClientSessionUser {
@@ -21,22 +21,18 @@ interface ClientSessionUser {
   profile?: unknown;
 }
 
+interface SessionBridgePayload {
+  accessToken: string;
+  csrfToken?: string | null;
+}
+
 interface AccessTokenResolution {
   token: string | null;
   state: AccessTokenResolutionState;
 }
 
 export function isTokenExpired(token: string): boolean {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(base64));
-    if (!payload.exp) return false;
-    return Date.now() / 1000 > payload.exp - 60;
-  } catch {
-    return true;
-  }
+  return isJwtExpired(token);
 }
 
 let refreshPromise: Promise<AccessTokenResolution> | null = null;
@@ -83,6 +79,42 @@ export function syncClientAuthSession(accessToken: string, user?: ClientSessionU
     }
   } catch {
     // localStorage might be unavailable.
+  }
+}
+
+export async function bridgeAuthSessionToCookies(
+  payload: SessionBridgePayload
+): Promise<{ success: boolean; user?: ClientSessionUser; error?: string }> {
+  try {
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'bridge-session',
+        accessToken: payload.accessToken,
+        csrfToken: payload.csrfToken,
+      }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: data.error || 'Failed to bridge auth session',
+      };
+    }
+
+    const data = await response.json().catch(() => ({}));
+    return {
+      success: true,
+      user: data.user,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to bridge auth session',
+    };
   }
 }
 
@@ -220,6 +252,25 @@ function clearClientAuthState(): void {
   }
 }
 
+export async function clearStaleAuthStateWithoutRedirect(): Promise<void> {
+  clearClientAuthState();
+
+  try {
+    await insforge.auth.signOut();
+  } catch {
+    // SDK sign-out is best-effort. Continue clearing server cookies below.
+  }
+
+  try {
+    await fetch('/api/auth', {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+  } catch {
+    // Cookie cleanup is best-effort.
+  }
+}
+
 export async function resetStaleAuthState(reason: AuthResetReason = 'session_reset'): Promise<void> {
   if (typeof window === 'undefined') {
     return;
@@ -233,23 +284,7 @@ export async function resetStaleAuthState(reason: AuthResetReason = 'session_res
         // sessionStorage might be unavailable.
       }
 
-      clearClientAuthState();
-
-      try {
-        await insforge.auth.signOut();
-      } catch {
-        // SDK sign-out is best-effort. Continue clearing server cookies below.
-      }
-
-      try {
-        await fetch('/api/auth', {
-          method: 'DELETE',
-          credentials: 'include',
-        });
-      } catch {
-        // Cookie cleanup is best-effort; redirect still recovers the session.
-      }
-
+      await clearStaleAuthStateWithoutRedirect();
       window.location.replace(buildAuthResetRedirectUrl(reason));
     })().finally(() => {
       authResetPromise = null;
@@ -263,8 +298,6 @@ export async function getAccessTokenResolution(
   { forceRefresh = false }: { forceRefresh?: boolean } = {}
 ): Promise<AccessTokenResolution> {
   try {
-    // Return cached token from a previous refresh/sign-in when the caller
-    // is not explicitly trying to revalidate the session.
     if (!forceRefresh && cachedToken && !isTokenExpired(cachedToken.value)) {
       return { token: cachedToken.value, state: 'authenticated' };
     }
@@ -272,19 +305,20 @@ export async function getAccessTokenResolution(
       cachedToken = null;
     }
 
-    // Try SDK first, but don't let the SDK stall protected requests for too long.
-    const result = await Promise.race([
-      insforge.auth.getCurrentSession(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), SDK_SESSION_TIMEOUT_MS)),
-    ]);
-
-    const token = result?.data?.session?.accessToken;
-    if (token && !isTokenExpired(token)) {
-      if (!forceRefresh) {
-        return { token, state: 'authenticated' };
+    // Check localStorage for a valid token
+    if (!forceRefresh && typeof window !== 'undefined') {
+      try {
+        const storedToken = window.localStorage.getItem('insforge-auth-token');
+        if (storedToken && !isTokenExpired(storedToken)) {
+          cacheAccessToken(storedToken);
+          return { token: storedToken, state: 'authenticated' };
+        }
+      } catch {
+        // localStorage might be unavailable.
       }
     }
 
+    // Token missing or expired — refresh via Server Proxy
     if (!refreshPromise) {
       refreshPromise = tryRefreshToken().finally(() => {
         refreshPromise = null;
@@ -309,9 +343,8 @@ export function _resetAuthStateForTesting(): void {
   authResetPromise = null;
 }
 
-/** @internal Exposed for tests that verify timeout and retry behavior. */
+/** @internal Exposed for tests that verify retry behavior. */
 export const _authTimingForTesting = {
-  SDK_SESSION_TIMEOUT_MS,
   REFRESH_RETRY_DELAYS_MS: [...REFRESH_RETRY_DELAYS_MS],
 };
 
