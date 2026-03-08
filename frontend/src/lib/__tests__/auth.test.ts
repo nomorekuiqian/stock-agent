@@ -13,7 +13,6 @@ import {
 // ---------------------------------------------------------------------------
 // Mock @/lib/insforge
 // ---------------------------------------------------------------------------
-const mockGetCurrentSession = vi.fn();
 const mockSetAuthToken = vi.fn();
 const mockSdkSignOut = vi.fn();
 const originalFetch = globalThis.fetch;
@@ -22,7 +21,6 @@ const originalLocation = window.location;
 vi.mock('@/lib/insforge', () => ({
   insforge: {
     auth: {
-      getCurrentSession: (...args: unknown[]) => mockGetCurrentSession(...args),
       signOut: (...args: unknown[]) => mockSdkSignOut(...args),
     },
     getHttpClient: () => ({
@@ -140,16 +138,6 @@ describe('getAccessToken', () => {
     });
   });
 
-  it('returns SDK token when valid and not expired', async () => {
-    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: { accessToken: validToken } },
-    });
-
-    const token = await getAccessToken();
-    expect(token).toBe(validToken);
-  });
-
   it('returns cached token immediately after syncing client auth session', async () => {
     const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
 
@@ -162,7 +150,6 @@ describe('getAccessToken', () => {
     const token = await getAccessToken();
 
     expect(token).toBe(validToken);
-    expect(mockGetCurrentSession).not.toHaveBeenCalled();
     expect(mockSetAuthToken).toHaveBeenCalledWith(validToken);
     expect(localStorage.getItem('insforge-auth-token')).toBe(validToken);
     expect(localStorage.getItem('insforge-auth-user')).toBe(JSON.stringify({
@@ -172,12 +159,21 @@ describe('getAccessToken', () => {
     }));
   });
 
-  it('tries Server Proxy refresh when SDK token is expired', async () => {
+  it('returns token from localStorage when valid', async () => {
+    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    localStorage.setItem('insforge-auth-token', validToken);
+
+    const token = await getAccessToken();
+    expect(token).toBe(validToken);
+    // Should not call fetch for refresh
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('tries Server Proxy refresh when localStorage token is expired', async () => {
     const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
     const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: { accessToken: expiredToken } },
-    });
+    localStorage.setItem('insforge-auth-token', expiredToken);
+
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -198,7 +194,6 @@ describe('getAccessToken', () => {
   });
 
   it('returns no_session when refresh responds with 401', async () => {
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -210,11 +205,10 @@ describe('getAccessToken', () => {
     expect(result).toEqual({ token: null, state: 'no_session' });
   });
 
-  it('forceRefresh ignores current sdk token and revalidates through refresh', async () => {
+  it('forceRefresh ignores cached token and goes to refresh', async () => {
     const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: { accessToken: validToken } },
-    });
+    syncClientAuthSession(validToken);
+
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -227,7 +221,6 @@ describe('getAccessToken', () => {
   });
 
   it('retries transient refresh failures before giving up', async () => {
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
     const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
     vi.useFakeTimers();
     globalThis.fetch = vi.fn()
@@ -255,51 +248,11 @@ describe('getAccessToken', () => {
     }
   });
 
-  it('tries Server Proxy refresh when SDK returns no session', async () => {
-    const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: null },
-    });
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        accessToken: refreshedToken,
-        user: { id: 'u1', email: 'user@example.com' },
-      }),
-    });
-
-    const token = await getAccessToken();
-    expect(token).toBe(refreshedToken);
-  });
-
-  it('tries Server Proxy refresh when SDK returns null (cross-domain failure)', async () => {
-    const refreshedToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    mockGetCurrentSession.mockResolvedValue(null);
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        accessToken: refreshedToken,
-        user: { id: 'u1', email: 'user@example.com' },
-      }),
-    });
-
-    const token = await getAccessToken();
-    expect(token).toBe(refreshedToken);
-  });
-
-  it('returns null when both SDK and refresh fail', async () => {
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
+  it('returns null when no localStorage token and refresh fails', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: async () => ({}),
     });
-
-    const token = await getAccessToken();
-    expect(token).toBeNull();
-  });
-
-  it('returns null when SDK throws and refresh fails', async () => {
-    mockGetCurrentSession.mockRejectedValue(new Error('SDK error'));
 
     const token = await getAccessToken();
     expect(token).toBeNull();

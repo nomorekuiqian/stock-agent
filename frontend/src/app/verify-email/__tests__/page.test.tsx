@@ -22,12 +22,15 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@insforge/react', () => ({
-  usePublicAuthConfig: () => ({
-    authConfig: {
-      verifyEmailMethod: mockVerifyMethod,
+vi.mock('@/lib/insforge', () => ({
+  insforge: {
+    auth: {
+      getPublicAuthConfig: () => Promise.resolve({
+        data: { verifyEmailMethod: mockVerifyMethod },
+        error: null,
+      }),
     },
-  }),
+  },
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({
