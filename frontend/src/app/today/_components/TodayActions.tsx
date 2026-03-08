@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { queryKeys } from '@/hooks/queries/query-keys';
 
 interface StatusMessage {
   type: 'success' | 'error';
@@ -45,6 +47,7 @@ function StatusBadge({ status }: { status: StatusMessage }) {
 
 export function TodayActions({ reportExists }: TodayActionsProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isDev = process.env.NODE_ENV === 'development';
   const { user } = useAuth();
 
@@ -117,7 +120,7 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
     setGenerating(true);
     try {
       await api.getMarketAnalysis(true);
-      router.refresh();
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
     } catch {
       // generation error is non-critical for dev tool
     } finally {

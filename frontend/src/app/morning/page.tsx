@@ -1,43 +1,29 @@
-import type { Metadata } from 'next';
+'use client';
+
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
 import { MorningReportContent } from '@/components/MorningReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
+import { useMorningReportByDate, useMorningReportLatest, useMorningReportList } from '@/hooks/queries/use-morning-report-data';
 
-export const metadata: Metadata = {
-  title: '盘前早报 - TheMarketBrew',
-  description: '盘前市场简报，助你快速了解隔夜要闻与今日焦点',
-  alternates: {
-    canonical: '/morning',
-  },
-};
-
-// ISR: revalidate every 5 minutes
-export const revalidate = 300;
-
-export default async function MorningPage() {
+export default function MorningPage() {
   const today = marketTodayStr();
 
-  // Fetch report + historical data in parallel on server
-  const [reportResult, historicalResult] = await Promise.all([
-    (async () => {
-      try {
-        const todayReport = await api.morningReports.getByDate(today);
-        if (todayReport) return { report: todayReport, isToday: true };
-        const latestReport = await api.morningReports.getLatest();
-        return { report: latestReport, isToday: latestReport?.report_date === today };
-      } catch {
-        return { report: null, isToday: false };
-      }
-    })(),
-    api.morningReports.list(6, 0).catch(() => ({ data: [], total: 0 })),
-  ]);
+  const { data: todayReport, isLoading: loadingToday } = useMorningReportByDate(today);
+  const { data: latestReport, isLoading: loadingLatest } = useMorningReportLatest();
+  const { data: historicalResult, isLoading: loadingHistory } = useMorningReportList(6, 0);
 
-  const { report, isToday } = reportResult;
-  const historicalReports = historicalResult.data.filter(r => r.report_date !== today).slice(0, 5);
-  const totalReports = historicalResult.total;
+  const report = todayReport ?? latestReport ?? null;
+  const isToday = todayReport ? true : (latestReport?.report_date === today);
+  const isLoading = loadingToday || (loadingLatest && !todayReport);
+
+  const historicalReports = useMemo(() => {
+    if (!historicalResult?.data) return [];
+    return historicalResult.data.filter(r => r.report_date !== today).slice(0, 5);
+  }, [historicalResult, today]);
+  const totalReports = historicalResult?.total ?? 0;
 
   return (
     <main className="min-h-screen bg-background">
@@ -69,8 +55,18 @@ export default async function MorningPage() {
         </div>
       </section>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
+          <div className="flex flex-col items-center justify-center gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-amber-500/20 border-t-amber-500 animate-spin" />
+            <p className="text-muted-foreground text-sm">加载早报中...</p>
+          </div>
+        </div>
+      )}
+
       {/* Report Content */}
-      {report ? (
+      {!isLoading && report ? (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
           {/* Report Header */}
           <section>
@@ -108,7 +104,7 @@ export default async function MorningPage() {
             summary={report.summary || []}
           />
         </div>
-      ) : (
+      ) : !isLoading ? (
         /* Empty State */
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="text-center space-y-6">
@@ -125,57 +121,59 @@ export default async function MorningPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Historical Reports Section */}
-      <section className="border-t border-border/50 mt-12">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
-          <div className="flex items-center justify-between mb-8">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 bg-amber-500 rounded-full" />
-                <h3 className="text-xl font-medium text-foreground">往期早报</h3>
+      {!loadingHistory && (
+        <section className="border-t border-border/50 mt-12">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
+            <div className="flex items-center justify-between mb-8">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-5 bg-amber-500 rounded-full" />
+                  <h3 className="text-xl font-medium text-foreground">往期早报</h3>
+                </div>
+                <p className="text-sm text-muted-foreground pl-3">{totalReports} 篇早报存档</p>
               </div>
-              <p className="text-sm text-muted-foreground pl-3">{totalReports} 篇早报存档</p>
+              <Link
+                href="/morning/archive"
+                className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 group"
+              >
+                查看全部
+                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
-            <Link
-              href="/morning/archive"
-              className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 group"
-            >
-              查看全部
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
 
-          {historicalReports.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {historicalReports.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/morning/${r.id}`}
-                  className="group terminal-card p-6 hover:border-amber-500/30 hover:bg-card/80 transition-all"
-                >
-                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-amber-400 transition-colors leading-relaxed mb-4">
-                    {r.title || formatReportDate(r.report_date)}
-                  </h4>
-                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
-                    <span className="text-xs font-data text-muted-foreground">
-                      {formatDateShort(r.report_date)}
-                    </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">暂无往期早报</p>
-          )}
-        </div>
-      </section>
+            {historicalReports.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {historicalReports.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/morning/${r.id}`}
+                    className="group terminal-card p-6 hover:border-amber-500/30 hover:bg-card/80 transition-all"
+                  >
+                    <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-amber-400 transition-colors leading-relaxed mb-4">
+                      {r.title || formatReportDate(r.report_date)}
+                    </h4>
+                    <div className="flex items-center justify-between pt-4 border-t border-border/30">
+                      <span className="text-xs font-data text-muted-foreground">
+                        {formatDateShort(r.report_date)}
+                      </span>
+                      <svg className="w-4 h-4 text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">暂无往期早报</p>
+            )}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

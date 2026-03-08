@@ -20,6 +20,16 @@ export function useLatestReport() {
   });
 }
 
+export function useReportByDate(date: string) {
+  return useQuery({
+    queryKey: queryKeys.reports.byDate(date),
+    queryFn: () => api.reports.getByDate(date),
+    enabled: !!date,
+    staleTime: 30 * 60 * 1000,  // 30 min
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+  });
+}
+
 export function useReportById(id: string) {
   return useQuery({
     queryKey: queryKeys.reports.byId(id),

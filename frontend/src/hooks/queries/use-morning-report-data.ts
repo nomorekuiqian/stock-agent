@@ -10,3 +10,22 @@ export function useMorningReportList(limit: number, offset: number) {
     gcTime: 30 * 60 * 1000,     // 30 min
   });
 }
+
+export function useMorningReportByDate(date: string) {
+  return useQuery({
+    queryKey: queryKeys.morningReports.byDate(date),
+    queryFn: () => api.morningReports.getByDate(date),
+    enabled: !!date,
+    staleTime: 30 * 60 * 1000,  // 30 min
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+  });
+}
+
+export function useMorningReportLatest() {
+  return useQuery({
+    queryKey: queryKeys.morningReports.latest(),
+    queryFn: () => api.morningReports.getLatest(),
+    staleTime: 30 * 60 * 1000,  // 30 min
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+  });
+}

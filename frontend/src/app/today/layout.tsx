@@ -8,6 +8,9 @@ export const metadata: Metadata = {
     '美股行情分析', '股市日报', 'S&P 500 分析', '纳斯达克分析',
     'daily stock market report', 'US stock analysis'
   ],
+  alternates: {
+    canonical: '/today',
+  },
   openGraph: {
     title: '美股每日报告 - TheMarketBrew',
     description: 'AI 生成的美股每日分析报告，深度解读市场动态',

@@ -1,19 +1,12 @@
-import type { Metadata } from 'next';
+'use client';
+
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
 import { ReportContent } from '@/components/ReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { marketTodayStr, formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { TodayActions } from './_components/TodayActions';
-
-export const metadata: Metadata = {
-  alternates: {
-    canonical: '/today',
-  },
-};
-
-// ISR: revalidate every 5 minutes
-export const revalidate = 300;
+import { useReportByDate, useLatestReport, useReportList } from '@/hooks/queries/use-report-data';
 
 interface IndexData {
   name: string;
@@ -21,27 +14,22 @@ interface IndexData {
   change_percent?: number;
 }
 
-export default async function TodayPage() {
+export default function TodayPage() {
   const today = marketTodayStr();
 
-  // Fetch report + historical data in parallel on server
-  const [reportResult, historicalResult] = await Promise.all([
-    (async () => {
-      try {
-        const todayReport = await api.reports.getByDate(today);
-        if (todayReport) return { report: todayReport, isToday: true };
-        const latestReport = await api.reports.getLatest();
-        return { report: latestReport, isToday: latestReport?.report_date === today };
-      } catch {
-        return { report: null, isToday: false };
-      }
-    })(),
-    api.reports.list(6, 0).catch(() => ({ data: [], total: 0 })),
-  ]);
+  const { data: todayReport, isLoading: loadingToday } = useReportByDate(today);
+  const { data: latestReport, isLoading: loadingLatest } = useLatestReport();
+  const { data: historicalResult, isLoading: loadingHistory } = useReportList(6, 0);
 
-  const { report, isToday } = reportResult;
-  const historicalReports = historicalResult.data.filter(r => r.report_date !== today).slice(0, 5);
-  const totalReports = historicalResult.total;
+  const report = todayReport ?? latestReport ?? null;
+  const isToday = todayReport ? true : (latestReport?.report_date === today);
+  const isLoading = loadingToday || (loadingLatest && !todayReport);
+
+  const historicalReports = useMemo(() => {
+    if (!historicalResult?.data) return [];
+    return historicalResult.data.filter(r => r.report_date !== today).slice(0, 5);
+  }, [historicalResult, today]);
+  const totalReports = historicalResult?.total ?? 0;
 
   return (
     <main className="min-h-screen bg-background">
@@ -73,8 +61,18 @@ export default async function TodayPage() {
         </div>
       </section>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
+          <div className="flex flex-col items-center justify-center gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <p className="text-muted-foreground text-sm">加载报告中...</p>
+          </div>
+        </div>
+      )}
+
       {/* Report Content */}
-      {report ? (
+      {!isLoading && report ? (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
           {/* Report Header */}
           <section>
@@ -109,7 +107,7 @@ export default async function TodayPage() {
             showDisclaimer={false}
           />
         </div>
-      ) : (
+      ) : !isLoading ? (
         /* Empty State */
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="text-center space-y-6">
@@ -126,10 +124,10 @@ export default async function TodayPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Historical Reports Section */}
-      {historicalReports.length > 0 && (
+      {!loadingHistory && historicalReports.length > 0 && (
         <section className="border-t border-border/50 mt-12">
           <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
             <div className="flex items-center justify-between mb-8">
