@@ -2,9 +2,9 @@ name: Daily Personal Digest
 
 on:
   schedule:
-    # Run at 6:15 PM US Eastern Time (after daily report finishes)
-    # Staggered 15 min after daily-report to avoid Resend rate limit (2 req/sec)
-    - cron: '15 23 * * 1-5'  # Monday to Friday only (market days)
+    # Run 15 min after daily report to avoid Resend rate limit (2 req/sec)
+    # UTC 22:15 = 3:15 PM PDT (summer) / 2:15 PM PST (winter)
+    - cron: '15 22 * * 1-5'  # Monday to Friday only (market days)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
