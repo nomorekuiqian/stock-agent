@@ -29,11 +29,11 @@ async function loginWithMock(page: Page) {
       let body: Record<string, unknown> = {};
       try { body = route.request().postDataJSON(); } catch { /* not JSON */ }
 
-      if (body.action === 'sign-in') {
+      if (body.action === 'login') {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ accessToken, csrfToken: 'csrf-token', user: mockUser }),
+          body: JSON.stringify({ success: true, accessToken, csrfToken: 'csrf-token', user: mockUser }),
         });
         return;
       }
