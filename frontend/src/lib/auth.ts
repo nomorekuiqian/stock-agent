@@ -1,7 +1,8 @@
 import { DEFAULT_AUTH_REDIRECT } from './auth-redirect';
-import { clearClientAuthStorage } from './auth-storage';
+import { clearClientAuthStorage, INSFORGE_AUTH_TOKEN_KEY, INSFORGE_AUTH_USER_KEY } from './auth-storage';
 import { insforge } from './insforge';
-import { isJwtExpired } from './auth-token';
+
+let _cachedToken: string | null = null;
 
 export interface User {
   id: string;
@@ -10,62 +11,200 @@ export interface User {
   avatarUrl?: string;
 }
 
-export type AuthResetReason = 'session_reset' | 'session_expired' | 'session_recovery_failed';
-export type AccessTokenResolutionState = 'authenticated' | 'no_session' | 'transient_failure';
-const FORCED_REAUTH_REASON_KEY = 'forced_reauth_reason';
-const REFRESH_RETRY_DELAYS_MS = [300, 900] as const;
-
-interface ClientSessionUser {
-  id: string;
-  email?: string | null;
-  profile?: unknown;
+export interface AuthResult {
+  success: boolean;
+  user?: User;
+  error?: string;
 }
 
-interface SessionBridgePayload {
-  accessToken: string;
-  csrfToken?: string | null;
-}
+export type AccessTokenResolutionState = 'authenticated' | 'no_session';
 
-interface AccessTokenResolution {
+export interface AccessTokenResolution {
   token: string | null;
   state: AccessTokenResolutionState;
 }
 
-export function isTokenExpired(token: string): boolean {
-  return isJwtExpired(token);
-}
+export type AuthResetReason = 'session_reset' | 'session_expired' | 'session_recovery_failed';
 
-let refreshPromise: Promise<AccessTokenResolution> | null = null;
-let authResetPromise: Promise<void> | null = null;
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
-function cacheAccessToken(accessToken: string): void {
+export async function signUp(
+  email: string,
+  password: string,
+  name?: string,
+): Promise<AuthResult> {
   try {
-    const parts = accessToken.split('.');
-    if (parts.length !== 3) {
-      cachedToken = null;
-      return;
+    const { data, error } = await insforge.auth.signUp({ email, password, name });
+
+    if (error) {
+      return { success: false, error: error.message };
     }
 
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    if (payload.exp) {
-      cachedToken = { value: accessToken, expiresAt: payload.exp };
-      return;
+    if (data?.user) {
+      return {
+        success: true,
+        user: {
+          id: data.user.id,
+          email: data.user.email || email,
+          name: data.user.profile?.name || '',
+        },
+      };
     }
-  } catch {
-    // Best-effort cache only.
+
+    return {
+      success: false,
+      error: '注册失败，请重试',
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
-
-  cachedToken = null;
 }
 
-export function syncClientAuthSession(accessToken: string, user?: ClientSessionUser | null): void {
-  cacheAccessToken(accessToken);
+export async function signIn(
+  email: string,
+  password: string,
+  rememberMe: boolean = true,
+): Promise<AuthResult> {
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login', email, password, rememberMe }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Sign in failed' };
+    }
+
+    syncClientAuthSession(data.accessToken, data.user);
+
+    return {
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email || email,
+        name: data.user.profile?.name || '',
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function signInWithGoogle(): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'OAuth can only be initiated in browser' };
+    }
+
+    const finalDestination = sessionStorage.getItem('auth_redirect') || '/today';
+    const redirectTo = `${window.location.origin}${finalDestination}`;
+
+    const { data, error } = await insforge.auth.signInWithOAuth({
+      provider: 'google',
+      redirectTo,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data?.url) {
+      window.location.href = data.url;
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function updateProfile(profile: { name?: string }): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.setProfile(profile);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    const session = await insforge.auth.getCurrentSession();
+    const sessionUser = session?.data?.session?.user;
+    if (!sessionUser) {
+      return { success: false, error: 'Session expired. Please sign in again.' };
+    }
+
+    return {
+      success: true,
+      user: {
+        id: sessionUser.id,
+        email: sessionUser.email || '',
+        name: data?.profile?.name,
+        avatarUrl: data?.profile?.avatar_url,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function signOut(): Promise<{ success: boolean; error?: string }> {
+  setCachedToken(null);
+  clearClientAuthStorage();
 
   try {
-    insforge.getHttpClient?.().setAuthToken?.(accessToken);
+    const { error } = await insforge.auth.signOut();
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export function isTokenExpired(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64));
+    if (!payload.exp) return false;
+    return Date.now() / 1000 > payload.exp - 60;
   } catch {
-    // SDK client mutation is best-effort.
+    return true;
+  }
+}
+
+let _refreshPromise: Promise<string | null> | null = null;
+
+export function setCachedToken(token: string | null): void {
+  _cachedToken = token;
+}
+
+export function syncClientAuthSession(
+  accessToken: string,
+  user?: { id: string; email?: string | null; profile?: unknown } | null,
+): void {
+  _cachedToken = accessToken;
+
+  try {
+    insforge.getHttpClient().setAuthToken(accessToken);
+  } catch {
+    // Best-effort SDK sync.
   }
 
   if (typeof window === 'undefined') {
@@ -73,105 +212,38 @@ export function syncClientAuthSession(accessToken: string, user?: ClientSessionU
   }
 
   try {
-    window.localStorage.setItem('insforge-auth-token', accessToken);
+    window.localStorage.setItem(INSFORGE_AUTH_TOKEN_KEY, accessToken);
     if (user) {
-      window.localStorage.setItem('insforge-auth-user', JSON.stringify(user));
+      window.localStorage.setItem(INSFORGE_AUTH_USER_KEY, JSON.stringify(user));
     }
   } catch {
     // localStorage might be unavailable.
   }
 }
 
-export async function bridgeAuthSessionToCookies(
-  payload: SessionBridgePayload
-): Promise<{ success: boolean; user?: ClientSessionUser; error?: string }> {
+export async function clearStaleAuthStateWithoutRedirect(): Promise<void> {
+  setCachedToken(null);
+  clearClientAuthStorage();
+
   try {
-    const response = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'bridge-session',
-        accessToken: payload.accessToken,
-        csrfToken: payload.csrfToken,
-      }),
+    insforge.getHttpClient().setAuthToken('');
+  } catch {
+    // Best-effort cleanup only.
+  }
+
+  try {
+    await insforge.auth.signOut();
+  } catch {
+    // Best-effort cleanup only.
+  }
+
+  try {
+    await fetch('/api/auth', {
+      method: 'DELETE',
       credentials: 'include',
     });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return {
-        success: false,
-        error: data.error || 'Failed to bridge auth session',
-      };
-    }
-
-    const data = await response.json().catch(() => ({}));
-    return {
-      success: true,
-      user: data.user,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to bridge auth session',
-    };
-  }
-}
-
-async function refreshOnce(): Promise<AccessTokenResolution> {
-  try {
-    const response = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'refresh' }),
-      credentials: 'include',
-    });
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        return { token: null, state: 'no_session' };
-      }
-      return { token: null, state: 'transient_failure' };
-    }
-
-    const data = await response.json();
-    if (!data.accessToken) {
-      return { token: null, state: 'transient_failure' };
-    }
-    syncClientAuthSession(data.accessToken, data.user);
-
-    return { token: data.accessToken, state: 'authenticated' };
   } catch {
-    return { token: null, state: 'transient_failure' };
-  }
-}
-
-async function tryRefreshToken(): Promise<AccessTokenResolution> {
-  for (let attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
-    const result = await refreshOnce();
-    if (result.state !== 'transient_failure') {
-      return result;
-    }
-
-    const retryDelay = REFRESH_RETRY_DELAYS_MS[attempt];
-    if (retryDelay === undefined) {
-      break;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, retryDelay));
-  }
-
-  return { token: null, state: 'transient_failure' };
-}
-
-function clearAuthRedirectState(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.sessionStorage.removeItem('auth_redirect');
-  } catch {
-    // sessionStorage might be unavailable.
+    // Best-effort cleanup only.
   }
 }
 
@@ -199,181 +271,86 @@ export function cleanupAuthCallbackUrlParams(): boolean {
   return true;
 }
 
-export function consumeForcedReauthReason(): AuthResetReason | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const value = window.sessionStorage.getItem(FORCED_REAUTH_REASON_KEY);
-    if (value === 'session_reset' || value === 'session_expired' || value === 'session_recovery_failed') {
-      window.sessionStorage.removeItem(FORCED_REAUTH_REASON_KEY);
-      return value;
-    }
-  } catch {
-    // sessionStorage might be unavailable.
-  }
-
+export function consumeForcedReauthReason(): null {
   return null;
 }
 
-function currentAppPath(): string {
-  if (typeof window === 'undefined') {
-    return DEFAULT_AUTH_REDIRECT;
-  }
-
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-function buildAuthResetRedirectUrl(reason: AuthResetReason): string {
-  if (typeof window === 'undefined') {
-    return `/login?error=${reason}&redirect=${encodeURIComponent(DEFAULT_AUTH_REDIRECT)}`;
-  }
-
-  const isAuthPage = /^\/(login|signup|verify-email|forgot-password|reset-password)(\/|$)/.test(window.location.pathname);
-  const redirect = isAuthPage ? DEFAULT_AUTH_REDIRECT : currentAppPath();
-  const params = new URLSearchParams({
-    error: reason,
-    redirect,
-  });
-
-  return `/login?${params.toString()}`;
-}
-
-function clearClientAuthState(): void {
-  cachedToken = null;
-  clearClientAuthStorage();
-  clearAuthRedirectState();
-
-  try {
-    insforge.getHttpClient?.().setAuthToken?.('');
-  } catch {
-    // Best-effort cleanup only.
-  }
-}
-
-export async function clearStaleAuthStateWithoutRedirect(): Promise<void> {
-  clearClientAuthState();
-
-  try {
-    await insforge.auth.signOut();
-  } catch {
-    // SDK sign-out is best-effort. Continue clearing server cookies below.
-  }
-
-  try {
-    await fetch('/api/auth', {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-  } catch {
-    // Cookie cleanup is best-effort.
-  }
-}
-
-export async function resetStaleAuthState(reason: AuthResetReason = 'session_reset'): Promise<void> {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (!authResetPromise) {
-    authResetPromise = (async () => {
-      try {
-        window.sessionStorage.setItem(FORCED_REAUTH_REASON_KEY, reason);
-      } catch {
-        // sessionStorage might be unavailable.
-      }
-
-      await clearStaleAuthStateWithoutRedirect();
-      window.location.replace(buildAuthResetRedirectUrl(reason));
-    })().finally(() => {
-      authResetPromise = null;
-    });
-  }
-
-  return authResetPromise;
-}
-
 export async function getAccessTokenResolution(
-  { forceRefresh = false }: { forceRefresh?: boolean } = {}
+  options: { forceRefresh?: boolean } = {},
 ): Promise<AccessTokenResolution> {
-  try {
-    if (!forceRefresh && cachedToken && !isTokenExpired(cachedToken.value)) {
-      return { token: cachedToken.value, state: 'authenticated' };
-    }
-    if (cachedToken && isTokenExpired(cachedToken.value)) {
-      cachedToken = null;
-    }
-
-    // Check localStorage for a valid token
-    if (!forceRefresh && typeof window !== 'undefined') {
-      try {
-        const storedToken = window.localStorage.getItem('insforge-auth-token');
-        if (storedToken && !isTokenExpired(storedToken)) {
-          cacheAccessToken(storedToken);
-          return { token: storedToken, state: 'authenticated' };
-        }
-      } catch {
-        // localStorage might be unavailable.
-      }
-    }
-
-    // Token missing or expired — refresh via Server Proxy
-    if (!refreshPromise) {
-      refreshPromise = tryRefreshToken().finally(() => {
-        refreshPromise = null;
-      });
-    }
-
-    return refreshPromise;
-  } catch {
-    return { token: null, state: 'transient_failure' };
-  }
+  void options;
+  const token = await getAccessToken();
+  return {
+    token,
+    state: token ? 'authenticated' : 'no_session',
+  };
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  const result = await getAccessTokenResolution();
-  return result.token;
-}
+  if (_cachedToken && !isTokenExpired(_cachedToken)) {
+    return _cachedToken;
+  }
+  _cachedToken = null;
 
-/** @internal Exposed for test isolation only. */
-export function _resetAuthStateForTesting(): void {
-  cachedToken = null;
-  refreshPromise = null;
-  authResetPromise = null;
-}
-
-/** @internal Exposed for tests that verify retry behavior. */
-export const _authTimingForTesting = {
-  REFRESH_RETRY_DELAYS_MS: [...REFRESH_RETRY_DELAYS_MS],
-};
-
-export async function resetPassword(
-  newPassword: string,
-  otp: string
-): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await insforge.auth.resetPassword({
-      newPassword,
-      otp,
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
+    const result = await insforge.auth.getCurrentSession();
+    const token = result?.data?.session?.accessToken;
+    if (token && !isTokenExpired(token)) {
+      _cachedToken = token;
+      return token;
     }
+  } catch {
+    // SDK session unavailable.
+  }
 
-    return { success: !!data?.message };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+  if (!_refreshPromise) {
+    _refreshPromise = recoverTokenFromCookies().finally(() => {
+      _refreshPromise = null;
+    });
+  }
+
+  const token = await _refreshPromise;
+  if (token) {
+    _cachedToken = token;
+  }
+  return token;
+}
+
+async function recoverTokenFromCookies(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/auth/session');
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.authenticated && data.accessToken && !isTokenExpired(data.accessToken)) {
+      syncClientAuthSession(data.accessToken, data.user);
+      return data.accessToken;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
-// =============================================================================
-// Password Reset Functions (Code-based flow) - These always used SDK directly
-// =============================================================================
+export function resetStaleAuthState(reason: AuthResetReason = 'session_reset'): Promise<void> {
+  void reason;
+  if (typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+
+  return clearStaleAuthStateWithoutRedirect().finally(() => {
+    window.location.replace(`/login?redirect=${encodeURIComponent(DEFAULT_AUTH_REDIRECT)}`);
+  });
+}
+
+export function _resetAuthStateForTesting(): void {
+  _cachedToken = null;
+  _refreshPromise = null;
+}
+
+export const _authTimingForTesting = {
+  REFRESH_RETRY_DELAYS_MS: [] as number[],
+};
 
 export async function sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -394,7 +371,7 @@ export async function sendPasswordResetEmail(email: string): Promise<{ success: 
 
 export async function exchangeResetPasswordCode(
   email: string,
-  code: string
+  code: string,
 ): Promise<{ success: boolean; token?: string; error?: string }> {
   try {
     const { data, error } = await insforge.auth.exchangeResetPasswordToken({
@@ -411,6 +388,29 @@ export async function exchangeResetPasswordCode(
     }
 
     return { success: true, token: data.token };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function resetPassword(
+  newPassword: string,
+  otp: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await insforge.auth.resetPassword({
+      newPassword,
+      otp,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: !!data?.message };
   } catch (error) {
     return {
       success: false,

@@ -1,4 +1,4 @@
-import { getAccessToken, getAccessTokenResolution } from './auth';
+import { getAccessToken } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -872,48 +872,18 @@ export interface ConversationSaveRequest {
   message_count: number;
 }
 
-const AUTH_RECOVERY_WAIT_MS = 6000;
-const AUTH_RECOVERY_POLL_MS = 150;
-const AUTH_RECOVERY_ERROR = '登录状态恢复失败，请稍后重试或刷新页面。';
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
-const AUTH_TEMPORARY_ERROR = '认证校验暂时失败，请稍后重试或刷新页面。';
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function resolveAccessToken(required: boolean = false): Promise<string | null> {
-  if (!required) {
-    return getAccessToken();
-  }
-
-  const deadline = Date.now() + AUTH_RECOVERY_WAIT_MS;
-  while (true) {
-    const resolution = await getAccessTokenResolution();
-    if (resolution.token) {
-      return resolution.token;
-    }
-
-    if (resolution.state === 'no_session') {
-      throw new Error(AUTH_EXPIRED_ERROR);
-    }
-
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      throw new Error(AUTH_RECOVERY_ERROR);
-    }
-
-    await sleep(Math.min(AUTH_RECOVERY_POLL_MS, remaining));
-  }
-}
 
 async function _authHeaders(
   base: Record<string, string> = {},
   { required = false }: { required?: boolean } = {},
 ): Promise<Record<string, string>> {
-  const token = await resolveAccessToken(required);
+  const token = await getAccessToken();
   if (token) {
     return { ...base, Authorization: `Bearer ${token}` };
+  }
+  if (required) {
+    throw new Error(AUTH_EXPIRED_ERROR);
   }
   return base;
 }
@@ -921,6 +891,14 @@ async function _authHeaders(
 async function readApiError(response: Response, fallback: string): Promise<string> {
   const error = await response.json().catch(() => ({ detail: fallback }));
   return error.detail || error.error || fallback;
+}
+
+async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
+  if (response.status === 401) {
+    throw new Error(AUTH_EXPIRED_ERROR);
+  }
+
+  throw new Error(await readApiError(response, fallback));
 }
 
 function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
@@ -935,51 +913,21 @@ function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
   return nextHeaders;
 }
 
-async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
-  if (response.status === 401) {
-    const resolution = await getAccessTokenResolution({ forceRefresh: true });
-    if (resolution.state === 'no_session') {
-      throw new Error(AUTH_EXPIRED_ERROR);
-    }
-
-    throw new Error(AUTH_TEMPORARY_ERROR);
-  }
-
-  throw new Error(await readApiError(response, fallback));
-}
-
 async function fetchProtected(
   url: string,
   init: RequestInit = {},
   fallback: string,
 ): Promise<Response> {
+  void fallback;
   const baseHeaders = toHeaderRecord(init.headers);
-
-  const doFetch = async () => fetch(url, {
+  const response = await fetch(url, {
     ...init,
     headers: await _authHeaders(baseHeaders, { required: true }),
   });
-
-  const response = await doFetch();
-  if (response.status !== 401) {
-    return response;
-  }
-
-  const resolution = await getAccessTokenResolution({ forceRefresh: true });
-  if (resolution.state === 'no_session') {
+  if (response.status === 401) {
     throw new Error(AUTH_EXPIRED_ERROR);
   }
-
-  if (!resolution.token) {
-    throw new Error(AUTH_TEMPORARY_ERROR);
-  }
-
-  const retriedResponse = await doFetch();
-  if (retriedResponse.status === 401) {
-    await throwProtectedApiError(retriedResponse, fallback);
-  }
-
-  return retriedResponse;
+  return response;
 }
 
 export const api = {
@@ -1531,7 +1479,8 @@ export const api = {
   },
 
   watchlist: {
-    get: async (_userId?: string): Promise<WatchlistData | null> => {
+    get: async (userId?: string): Promise<WatchlistData | null> => {
+      void userId;
       const response = await fetchProtected(
         `${API_BASE_URL}/watchlist`,
         {},
