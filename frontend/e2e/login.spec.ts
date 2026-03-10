@@ -38,7 +38,7 @@ async function setupAuthMocks(page: Page) {
       let body: Record<string, unknown> = {};
       try { body = request.postDataJSON(); } catch { /* not JSON */ }
 
-      if (body.action === 'sign-in') {
+      if (body.action === 'login') {
         if (loginMock.mode === 'success') {
           currentUser = {
             id: 'user-123',
@@ -48,7 +48,12 @@ async function setupAuthMocks(page: Page) {
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ accessToken, csrfToken: 'csrf-token', user: currentUser }),
+            body: JSON.stringify({
+              success: true,
+              accessToken,
+              csrfToken: 'csrf-token',
+              user: currentUser,
+            }),
           });
           return;
         } else {
@@ -216,7 +221,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await expect(page).toHaveURL(/\/for-you/, { timeout: 10000 });
   });
 
-  test('forces re-login when protected page hits expired session', async ({ page }) => {
+  test('shows auth-expired error on protected page without forced redirect', async ({ page }) => {
     const auth = await setupAuthMocks(page);
     await auth.mockLoginSuccess();
 
@@ -265,8 +270,9 @@ test.describe('Auth flows (/login, /verify-email)', () => {
 
     await page.goto('/for-you');
 
-    await expect(page).toHaveURL(/\/login\?redirect=%2Ffor-you/, { timeout: 10000 });
-    await expect(page.getByText('登录已过期，请重新登录')).toBeVisible();
+    await expect(page).toHaveURL(/\/for-you/, { timeout: 10000 });
+    await expect(page.getByText('加载持仓数据失败')).toBeVisible();
+    await expect(page.getByText('登录已过期', { exact: false })).toBeVisible();
   });
 
   test('redirects sign-up users into verify-email flow', async ({ page }) => {

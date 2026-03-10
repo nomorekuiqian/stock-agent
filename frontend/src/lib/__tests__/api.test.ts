@@ -17,11 +17,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock auth module before importing api
 vi.mock('@/lib/auth', () => ({
   getAccessToken: vi.fn().mockResolvedValue('fake-token'),
-  getAccessTokenResolution: vi.fn().mockResolvedValue({ token: 'fake-token', state: 'authenticated' }),
 }));
 
 import { api, ApiError } from '../api';
-import { getAccessToken, getAccessTokenResolution } from '../auth';
+import { getAccessToken } from '../auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,7 +58,6 @@ describe('api (post cache removal)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getAccessToken).mockResolvedValue('fake-token');
-    vi.mocked(getAccessTokenResolution).mockResolvedValue({ token: 'fake-token', state: 'authenticated' });
   });
 
   afterEach(() => {
@@ -722,9 +720,6 @@ describe('api (post cache removal)', () => {
     });
 
     it('throws on 401 with login expired message', async () => {
-      vi.mocked(getAccessTokenResolution)
-        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
-        .mockResolvedValueOnce({ token: null, state: 'no_session' });
       mockFetchError(401);
 
       await expect(api.screener.pick({ message: 'test' })).rejects.toThrow('登录已过期');
@@ -757,108 +752,32 @@ describe('api (post cache removal)', () => {
     });
 
     it('throws login expired on 401', async () => {
-      vi.mocked(getAccessTokenResolution)
-        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
-        .mockResolvedValueOnce({ token: null, state: 'no_session' });
       mockFetchError(401);
 
       await expect(api.generateDigest(['AAPL'])).rejects.toThrow('登录已过期');
     });
   });
 
-  describe('watchlist auth recovery', () => {
-    it('waits briefly for token recovery before fetching protected data', async () => {
-      vi.useFakeTimers();
-      try {
-        vi.mocked(getAccessTokenResolution)
-          .mockResolvedValueOnce({ token: null, state: 'transient_failure' })
-          .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' });
-        mockFetchOk({
-          success: true,
-          data: { user_id: 'user-1', symbols: ['AAPL'] },
-        });
+  describe('watchlist auth handling', () => {
+    it('fails fast when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      globalThis.fetch = vi.fn();
 
-        const promise = api.watchlist.get();
-        await vi.advanceTimersByTimeAsync(150);
-
-        await expect(promise).resolves.toEqual({
-          user_id: 'user-1',
-          symbols: ['AAPL'],
-        });
-
-        expect(getAccessTokenResolution).toHaveBeenCalledTimes(2);
-        const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-        expect(opts.headers.Authorization).toBe('Bearer fake-token');
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it('surfaces auth recovery timeout before making request', async () => {
-      vi.useFakeTimers();
-      try {
-        vi.mocked(getAccessTokenResolution).mockResolvedValue({ token: null, state: 'transient_failure' });
-        globalThis.fetch = vi.fn();
-
-        const promise = api.watchlist.get().catch((err: unknown) => err);
-        await vi.advanceTimersByTimeAsync(6000);
-        const error = await promise;
-
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain('登录状态恢复失败');
-        expect(globalThis.fetch).not.toHaveBeenCalled();
-      } finally {
-        vi.useRealTimers();
-      }
+      await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
     it('maps 401 to login expired message', async () => {
-      vi.mocked(getAccessTokenResolution)
-        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
-        .mockResolvedValueOnce({ token: null, state: 'no_session' });
       mockFetchError(401);
 
       await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
     });
 
-    it('does not force logout on transient 401 validation failures', async () => {
-      vi.mocked(getAccessTokenResolution)
-        .mockResolvedValueOnce({ token: 'fake-token', state: 'authenticated' })
-        .mockResolvedValueOnce({ token: null, state: 'transient_failure' });
+    it('does not retry protected requests after 401', async () => {
       mockFetchError(401);
 
-      await expect(api.watchlist.get()).rejects.toThrow('认证校验暂时失败');
-    });
-
-    it('retries once after a successful forced refresh on 401', async () => {
-      vi.mocked(getAccessTokenResolution)
-        .mockResolvedValueOnce({ token: 'stale-token', state: 'authenticated' })
-        .mockResolvedValueOnce({ token: 'fresh-token', state: 'authenticated' })
-        .mockResolvedValueOnce({ token: 'fresh-token', state: 'authenticated' });
-
-      globalThis.fetch = vi.fn()
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 401,
-          json: async () => ({ detail: 'Unauthorized' }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            data: { user_id: 'user-1', symbols: ['AAPL'] },
-          }),
-        });
-
-      await expect(api.watchlist.get()).resolves.toEqual({
-        user_id: 'user-1',
-        symbols: ['AAPL'],
-      });
-
-      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
-      const secondCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[1];
-      expect(secondCall[1].headers.Authorization).toBe('Bearer fresh-token');
+      await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
   });
 
