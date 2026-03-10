@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
-import { AuthRecoveryInstructions } from '@/components/AuthRecoveryInstructions';
 import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { api, SectorInfo, WatchlistData } from '@/lib/api';
+import { clearStaleAuthStateWithoutRedirect } from '@/lib/auth';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import { useStockSearch } from '@/hooks/useStockSearch';
@@ -55,6 +55,7 @@ function WatchlistPageContent() {
   const [symbols, setSymbols] = useState<string[]>([]);
   const [seededUserId, setSeededUserId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isReauthenticating, setIsReauthenticating] = useState(false);
   const lastPersistedRef = useRef<Pick<WatchlistData, 'symbols' | 'updated_at'>>({
     symbols: [],
     updated_at: undefined,
@@ -261,6 +262,15 @@ function WatchlistPageContent() {
     setShowClearConfirm(false);
   };
 
+  const handleReLogin = async () => {
+    setIsReauthenticating(true);
+    try {
+      await clearStaleAuthStateWithoutRedirect();
+    } finally {
+      window.location.assign('/login?redirect=/for-you/watchlist');
+    }
+  };
+
   if (authLoading) {
     return (
       <main className="min-h-screen bg-background">
@@ -323,8 +333,15 @@ function WatchlistPageContent() {
             <p className="text-xs text-muted-foreground text-center max-w-sm">
               {loadErrorMessage}
             </p>
+            <button
+              type="button"
+              onClick={handleReLogin}
+              disabled={isReauthenticating}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/20 bg-background/80 text-sm font-medium text-foreground transition-all hover:border-emerald-500/30 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isReauthenticating ? '跳转中...' : '重新登录'}
+            </button>
           </div>
-          <AuthRecoveryInstructions redirectPath="/for-you/watchlist" />
         </div>
       ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-10">

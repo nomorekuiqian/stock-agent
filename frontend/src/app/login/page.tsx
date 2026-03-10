@@ -4,11 +4,9 @@ import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthRecoveryInstructions } from '@/components/AuthRecoveryInstructions';
 import { PasswordField } from '@/components/PasswordField';
 import { buildVerifyEmailPath, storePendingVerification } from '@/lib/auth-verification';
 import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
-import { consumeForcedReauthReason } from '@/lib/auth';
 
 function LoadingSpinner(): ReactNode {
   return (
@@ -40,9 +38,6 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'failed to complete authentication': '登录完成失败，请重试',
   'auth_failed': '登录完成失败，请重试',
   'oauth can only be initiated in browser': '请在浏览器中登录',
-  'session_reset': '登录状态已重置，请重新登录',
-  'session_expired': '登录已过期，请重新登录',
-  'session_recovery_failed': '登录状态恢复失败，请刷新页面重试；如果反复出现，请稍后再试',
 };
 
 function translateError(error: string): string {
@@ -72,26 +67,11 @@ function LoginPageContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [storedAuthError, setStoredAuthError] = useState<string | null>(null);
-  const [loginSucceeded, setLoginSucceeded] = useState(false);
-  const effectiveAuthError = authError || storedAuthError;
-  const hasForcedReauthError = !loginSucceeded && (effectiveAuthError === 'session_reset'
-    || effectiveAuthError === 'session_expired'
-    || effectiveAuthError === 'session_recovery_failed');
-
+  const effectiveAuthError = authError;
 
   useEffect(() => {
     sessionStorage.setItem('auth_redirect', redirectUrl);
   }, [redirectUrl]);
-
-  useEffect(() => {
-    if (authError) {
-      setStoredAuthError(null);
-      return;
-    }
-
-    setStoredAuthError(consumeForcedReauthReason());
-  }, [authError]);
 
   useEffect(() => {
     if (!effectiveAuthError) return;
@@ -100,14 +80,14 @@ function LoginPageContent() {
   }, [effectiveAuthError]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !hasForcedReauthError) {
+    if (!isLoading && isAuthenticated) {
       const storedRedirect = getStoredAuthRedirect(redirectUrl);
       sessionStorage.removeItem('auth_redirect');
       router.push(storedRedirect);
     }
-  }, [isLoading, isAuthenticated, hasForcedReauthError, router, redirectUrl]);
+  }, [isLoading, isAuthenticated, router, redirectUrl]);
 
-  if (isLoading || (isAuthenticated && !hasForcedReauthError)) {
+  if (isLoading || isAuthenticated) {
     return <LoadingSpinner />;
   }
 
@@ -137,7 +117,6 @@ function LoginPageContent() {
       } else {
         const result = await signIn(email, password);
         if (result.success) {
-          setLoginSucceeded(true);
           setSuccessMessage('登录成功，正在跳转...');
         } else {
           setError(translateError(result.error || '登录失败'));
@@ -319,10 +298,6 @@ function LoginPageContent() {
             )}
           </button>
         </form>
-
-        <div className="animate-fade-in-up delay-250">
-          <AuthRecoveryInstructions redirectPath={redirectUrl} variant="help" />
-        </div>
 
         {/* Toggle Sign Up / Sign In */}
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-300">
