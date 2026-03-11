@@ -130,13 +130,15 @@ interface CandidateListProps {
   candidates: Record<string, unknown>[];
   strategy: string;
   expanded?: boolean; // Show more fields when < 5 candidates
+  /** When provided, clicking a stock opens it in the right panel instead of navigating. */
+  onStockClick?: (symbol: string) => void;
 }
 
 const MAX_WATCHLIST_SIZE = 25;
 
 const PAGE_SIZE = 20;
 
-export default function CandidateList({ candidates, strategy, expanded = false }: CandidateListProps) {
+export default function CandidateList({ candidates, strategy, expanded = false, onStockClick }: CandidateListProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(true);
   const [search, setSearch] = useState('');
@@ -308,15 +310,25 @@ export default function CandidateList({ candidates, strategy, expanded = false }
               return (
                 <tr
                   key={cleanSymbol}
-                  className="border-b border-border/30 hover:bg-muted/30 transition-colors group"
+                  className="border-b border-border/30 hover:bg-muted/30 transition-colors group cursor-pointer"
+                  onClick={() => onStockClick ? onStockClick(cleanSymbol) : undefined}
                 >
                   <td className="py-2.5 px-3">
-                    <Link
-                      href={`/stock/${cleanSymbol}`}
-                      className="font-semibold font-data text-foreground hover:text-emerald-500 transition-colors"
-                    >
-                      {cleanSymbol}
-                    </Link>
+                    {onStockClick ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onStockClick(cleanSymbol); }}
+                        className="font-semibold font-data text-foreground hover:text-emerald-500 transition-colors"
+                      >
+                        {cleanSymbol}
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/stock/${cleanSymbol}`}
+                        className="font-semibold font-data text-foreground hover:text-emerald-500 transition-colors"
+                      >
+                        {cleanSymbol}
+                      </Link>
+                    )}
                   </td>
                   <td className="py-2.5 px-3 text-muted-foreground max-w-[160px] truncate">
                     {String(c.name || '')}
@@ -367,46 +379,58 @@ export default function CandidateList({ candidates, strategy, expanded = false }
           const sectorEn = String(c.sector || '');
           const sectorZh = SECTOR_ZH[sectorEn] || sectorEn;
 
+          const cardContent = (
+            <>
+              {/* Row 1: Symbol + Name + Sector */}
+              <div className="flex items-baseline justify-between gap-2 pr-8">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="font-semibold font-data text-foreground">{cleanSymbol}</span>
+                  <span className="text-xs text-muted-foreground truncate">{String(c.name || '')}</span>
+                </div>
+                <span className="text-xs text-muted-foreground flex-shrink-0">{sectorZh}</span>
+              </div>
+
+              {/* Row 2: Price + Change + MarketCap */}
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="font-data tabular-nums text-foreground">{formatPrice(c.price)}</span>
+                <span className={`font-data tabular-nums text-sm ${changeColor}`}>
+                  {dailyChange > 0 ? '+' : ''}{dailyChange.toFixed(2)}%
+                </span>
+                <span className="text-xs text-muted-foreground font-data tabular-nums">
+                  {formatMarketCap(c.market_cap)}
+                </span>
+              </div>
+
+              {/* Row 3: Strategy-specific metrics */}
+              {(expanded || extraCols.length > 0) && (
+                <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-border/30">
+                  {extraCols.slice(0, expanded ? 4 : 3).map((col) => (
+                    <div key={col.key} className="text-xs">
+                      <span className="text-muted-foreground">{col.label}: </span>
+                      <span className="text-foreground font-data tabular-nums">
+                        {formatValue(c[col.key], col.format)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          );
+
           return (
             <div
               key={cleanSymbol}
               className="relative p-3 rounded-lg border border-border/50 bg-card hover:border-emerald-500/30 transition-colors"
             >
-              <Link href={`/stock/${cleanSymbol}`} className="block">
-                {/* Row 1: Symbol + Name + Sector */}
-                <div className="flex items-baseline justify-between gap-2 pr-8">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    <span className="font-semibold font-data text-foreground">{cleanSymbol}</span>
-                    <span className="text-xs text-muted-foreground truncate">{String(c.name || '')}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground flex-shrink-0">{sectorZh}</span>
-                </div>
-
-                {/* Row 2: Price + Change + MarketCap */}
-                <div className="flex items-center justify-between mt-1.5">
-                  <span className="font-data tabular-nums text-foreground">{formatPrice(c.price)}</span>
-                  <span className={`font-data tabular-nums text-sm ${changeColor}`}>
-                    {dailyChange > 0 ? '+' : ''}{dailyChange.toFixed(2)}%
-                  </span>
-                  <span className="text-xs text-muted-foreground font-data tabular-nums">
-                    {formatMarketCap(c.market_cap)}
-                  </span>
-                </div>
-
-                {/* Row 3: Strategy-specific metrics */}
-                {(expanded || extraCols.length > 0) && (
-                  <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-border/30">
-                    {extraCols.slice(0, expanded ? 4 : 3).map((col) => (
-                      <div key={col.key} className="text-xs">
-                        <span className="text-muted-foreground">{col.label}: </span>
-                        <span className="text-foreground font-data tabular-nums">
-                          {formatValue(c[col.key], col.format)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Link>
+              {onStockClick ? (
+                <button onClick={() => onStockClick(cleanSymbol)} className="block w-full text-left">
+                  {cardContent}
+                </button>
+              ) : (
+                <Link href={`/stock/${cleanSymbol}`} className="block">
+                  {cardContent}
+                </Link>
+              )}
               {/* Watchlist button - positioned top-right */}
               <div className="absolute top-2.5 right-2.5">
                 <WatchlistBtn

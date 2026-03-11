@@ -12,6 +12,8 @@ interface ResultsPanelProps {
   universeSize: number;
   pickReasons: { symbol: string; reason: string }[];
   loading: boolean;
+  /** When provided, clicking a stock opens it in the right panel. */
+  onStockClick?: (symbol: string) => void;
 }
 
 /**
@@ -33,6 +35,7 @@ export default function ResultsPanel({
   universeSize,
   pickReasons,
   loading,
+  onStockClick,
 }: ResultsPanelProps) {
   const hasResults = candidates.length > 0;
   const hasReasons = pickReasons.length > 0;
@@ -83,7 +86,7 @@ export default function ResultsPanel({
       {/* AI recommendation cards (always shown when available) */}
       {hasReasons && (
         <div className="space-y-3">
-          <h3 className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
+          <h3 className="text-xs font-medium text-muted-foreground">
             AI 推荐
           </h3>
           {pickReasons.map((pr, i) => {
@@ -103,6 +106,7 @@ export default function ResultsPanel({
                 dailyChange={stock?.daily_change as number}
                 reason={pr.reason}
                 index={i}
+                onStockClick={onStockClick}
               />
             );
           })}
@@ -114,7 +118,7 @@ export default function ResultsPanel({
         <>
           {hasReasons && (
             <div className="border-t border-border/30 pt-3">
-              <h3 className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-3">
+              <h3 className="text-xs font-medium text-muted-foreground mb-3">
                 全部候选 ({candidateCount})
               </h3>
             </div>
@@ -123,6 +127,7 @@ export default function ResultsPanel({
             candidates={candidates}
             strategy="custom"
             expanded={candidateCount <= 5}
+            onStockClick={onStockClick}
           />
         </>
       )}
