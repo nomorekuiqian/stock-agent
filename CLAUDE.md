@@ -443,4 +443,4 @@ runner = InMemoryRunner(agent=agent, app_name="market")
 
 ## 设计系统
 
-Financial Terminal + Editorial Luxury 风格。主色 `emerald-500`，次色 `amber-400`。详见 `frontend/docs/design-system.md`。
+Financial Terminal + Editorial Luxury 风格。主色 `emerald-500`，次色 `amber-400`。**UI 语言统一使用中文**（按钮文案、标签、提示文字等面向用户的文本均用中文）。详见 `frontend/docs/design-system.md`。
