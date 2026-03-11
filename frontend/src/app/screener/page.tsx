@@ -14,6 +14,7 @@ import {
   saveState,
 } from './_lib/pickerReducer';
 import type { LoadConversationData } from './_lib/pickerReducer';
+import type { StockContextPayload } from './_components/StockResearchView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
@@ -43,6 +44,7 @@ function ScreenerContent() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const stockContextRef = useRef<StockContextPayload | null>(null);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
@@ -101,6 +103,8 @@ function ScreenerContent() {
     messages: typeof state.messages,
     result: { accumulated_filters: typeof state.accumulatedFilters; candidates: typeof state.candidates; candidate_count: number; universe_size: number; pick_reasons: typeof state.pickReasons },
     funnelSteps: typeof state.funnelSteps,
+    activeContent: typeof state.activeContent,
+    contentStack: typeof state.contentStack,
   ) => ({
     messages,
     accumulated_filters: result.accumulated_filters,
@@ -109,6 +113,8 @@ function ScreenerContent() {
     universe_size: result.universe_size,
     pick_reasons: result.pick_reasons,
     funnel_steps: funnelSteps,
+    active_content: activeContent,
+    content_stack: contentStack,
   }), []);
 
   // Auto-save conversation after each turn
@@ -143,6 +149,27 @@ function ScreenerContent() {
     }
   }, []);
 
+  // Navigate right panel to a stock's research view
+  const handleStockClick = useCallback((symbol: string) => {
+    stockContextRef.current = null;
+    dispatch({
+      type: 'PUSH_CONTENT',
+      content: {
+        type: 'stock',
+        label: `${symbol} 个股研究`,
+        summary: symbol,
+        params: { symbol },
+        available_actions: ['查看基本面', '技术分析', '返回选股'],
+      },
+    });
+    setMobileTab('results');
+  }, []);
+
+  // Receive stock data from StockResearchView for Agent context
+  const handleStockContextReady = useCallback((payload: StockContextPayload) => {
+    stockContextRef.current = payload;
+  }, []);
+
   // Send message handler
   const handleSend = useCallback(async (message: string) => {
     if (process.env.NODE_ENV === 'development') {
@@ -151,12 +178,25 @@ function ScreenerContent() {
     dispatch({ type: 'SEND_MESSAGE', message });
 
     try {
+      // Build active_context from stock research view if viewing a stock
+      const ctx = stockContextRef.current;
+      const activeContext = state.activeContent.type === 'stock' && ctx
+        ? {
+            type: ctx.type,
+            symbol: ctx.symbol,
+            quote: ctx.quote ?? undefined,
+            fundamentals: ctx.fundamentals ?? undefined,
+            ai_analysis: ctx.ai_analysis ?? undefined,
+          }
+        : undefined;
+
       const result = await api.screener.pick({
         message,
         history: [...buildHistory(), { role: 'user', content: message }],
         accumulated_filters: state.accumulatedFilters.length > 0
           ? state.accumulatedFilters
           : undefined,
+        active_context: activeContext || undefined,
       });
 
       if (!result.success) {
@@ -165,6 +205,11 @@ function ScreenerContent() {
       }
 
       dispatch({ type: 'RECEIVE_RESPONSE', result });
+
+      // Handle agent-driven navigation (e.g. "show me NVDA")
+      if (result.navigate?.type === 'stock' && result.navigate.params?.symbol) {
+        handleStockClick(result.navigate.params.symbol);
+      }
 
       // Auto-save conversation (fire-and-forget)
       // Note: state.messages is from the useCallback closure (before SEND_MESSAGE dispatch),
@@ -192,7 +237,7 @@ function ScreenerContent() {
           saveFunnelSteps = [...saveFunnelSteps, { count: result.candidate_count }];
         }
       }
-      const convData = buildConversationData(allMessages, result, saveFunnelSteps);
+      const convData = buildConversationData(allMessages, result, saveFunnelSteps, state.activeContent, state.contentStack);
       // Title is only set on first turn (create); subsequent updates keep existing title
       const isFirstTurn = !state.conversationId;
       const title = isFirstTurn
@@ -216,7 +261,7 @@ function ScreenerContent() {
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [buildHistory, state.isLoading, state.accumulatedFilters, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation]);
+  }, [buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation, handleStockClick]);
 
   // Cancel stuck loading — lets user recover without refreshing
   const handleCancelLoading = useCallback(() => {
@@ -242,6 +287,8 @@ function ScreenerContent() {
           universeSize: (data.universe_size as number) || 0,
           pickReasons: (data.pick_reasons || []) as LoadConversationData['pickReasons'],
           funnelSteps: (data.funnel_steps || []) as LoadConversationData['funnelSteps'],
+          activeContent: data.active_content as LoadConversationData['activeContent'],
+          contentStack: data.content_stack as LoadConversationData['contentStack'],
         },
       });
     } catch {
@@ -367,7 +414,9 @@ function ScreenerContent() {
               universeSize: state.universeSize,
               pickReasons: state.pickReasons,
               loading: state.isLoading,
+              onStockClick: handleStockClick,
             }}
+            onStockContextReady={handleStockContextReady}
           />
         </div>
       </div>

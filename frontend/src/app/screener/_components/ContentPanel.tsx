@@ -2,7 +2,9 @@
 
 import type { ContentContext } from '../_lib/contentTypes';
 import type { FilterStep } from './FilterProgress';
+import type { StockContextPayload } from './StockResearchView';
 import ResultsPanel from './ResultsPanel';
+import StockResearchView from './StockResearchView';
 
 interface ContentPanelProps {
   activeContent: ContentContext;
@@ -17,22 +19,25 @@ interface ContentPanelProps {
     universeSize: number;
     pickReasons: { symbol: string; reason: string }[];
     loading: boolean;
+    onStockClick?: (symbol: string) => void;
   };
+  /** Called when stock data is loaded in StockResearchView, for Agent context. */
+  onStockContextReady?: (payload: StockContextPayload) => void;
 }
 
 /**
  * ContentPanel - Dynamic right-side panel for the Research Desk.
  *
- * Renders different content views based on activeContent.type.
- * Currently only supports 'screener' (ResultsPanel).
- * Future content types (stock, daily_report, macro, sector) will be
- * added in Phase 2-3 of the Research Desk plan.
+ * Renders different content views based on activeContent.type:
+ * - screener: ResultsPanel (stock screening results)
+ * - stock: StockResearchView (embedded individual stock research)
  */
 export default function ContentPanel({
   activeContent,
   canGoBack,
   onGoBack,
   screenerProps,
+  onStockContextReady,
 }: ContentPanelProps) {
   return (
     <div className="flex flex-col h-full">
@@ -46,8 +51,9 @@ export default function ContentPanel({
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            返回
+            返回选股
           </button>
+          <div className="h-3 w-px bg-border/50" />
           <span className="text-xs text-muted-foreground">
             {activeContent.label}
           </span>
@@ -60,12 +66,12 @@ export default function ContentPanel({
           <ResultsPanel {...screenerProps} />
         )}
 
-        {/* Future content types will be rendered here:
-            activeContent.type === 'stock' && <StockResearchView ... />
-            activeContent.type === 'daily_report' && <DailyReportView ... />
-            activeContent.type === 'macro' && <MacroOverview ... />
-            activeContent.type === 'sector' && <SectorView ... />
-        */}
+        {activeContent.type === 'stock' && activeContent.params.symbol && (
+          <StockResearchView
+            symbol={activeContent.params.symbol}
+            onContextReady={onStockContextReady}
+          />
+        )}
       </div>
     </div>
   );

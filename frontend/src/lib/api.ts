@@ -840,6 +840,13 @@ export interface PickRequest {
   message: string;
   history?: { role: string; content: string }[];
   accumulated_filters?: { field: string; op: string; value: unknown }[];
+  active_context?: {
+    type: string;
+    symbol?: string;
+    quote?: Record<string, unknown>;
+    fundamentals?: Record<string, unknown>;
+    ai_analysis?: string;
+  };
 }
 
 export interface PickResult {
@@ -853,6 +860,7 @@ export interface PickResult {
   accumulated_filters: { field: string; op: string; value: unknown }[];
   reset_results: boolean;
   title: string;
+  navigate?: { type: string; params: Record<string, string>; reason?: string } | null;
   data_freshness: string | null;
   is_stale: boolean;
 }
