@@ -32,6 +32,20 @@ from app.features.screener.agent import (
 logger = get_logger(__name__)
 
 
+def _format_market_cap(val):
+    """Format market cap for agent context."""
+    if not val:
+        return "N/A"
+    val = float(val)
+    if val >= 1e12:
+        return "$%.1fT" % (val / 1e12)
+    if val >= 1e9:
+        return "$%.1fB" % (val / 1e9)
+    if val >= 1e6:
+        return "$%.0fM" % (val / 1e6)
+    return "$%.0f" % val
+
+
 # ---------------------------------------------------------------------------
 # Output Schema
 # ---------------------------------------------------------------------------
@@ -100,6 +114,14 @@ class PickerAgentOutput(BaseModel):
             "e.g. '高股息大盘蓝筹', 'AI芯片成长股', '低估值科技反弹'. "
             "Update every turn to reflect the CURRENT direction "
             "(user may change direction mid-conversation)."
+        ),
+    )
+    navigate: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Set this to navigate the right panel to a different content. "
+            "Only use when user explicitly asks to view a stock. "
+            'Format: {"type": "stock", "params": {"symbol": "NVDA"}, "reason": "Opening NVDA research"}'
         ),
     )
 
@@ -327,6 +349,26 @@ Every turn, output a `title` field: a 5-10 Chinese character summary of the curr
 - Update when user changes direction
 - Examples: "高股息大盘蓝筹", "AI芯片成长股", "低估值科技反弹", "网络安全小盘股"
 
+## Navigation (Research Desk)
+
+You can navigate the user's right panel to show a stock's detailed research view.
+
+### When to navigate:
+- User says "show me NVDA", "look at AAPL details", "open Apple's research"
+- User clicks a stock from results and wants to see more
+- NEVER navigate just because user mentions a stock name casually
+
+### How to navigate:
+Set the `navigate` field in your output:
+- type: "stock"
+- params: {"symbol": "AAPL"} (use clean ticker, no exchange prefix)
+- reason: brief Chinese explanation of what you're doing
+
+### When viewing a stock:
+- You have the stock's data in the context above
+- Answer questions about the stock directly from the context data
+- If the user wants to go back to screening, tell them to click the back button
+
 ## Critical Output Rules
 
 1. **`filters` must be a valid JSON array string.** Copy the exact filters you used in execute_screener.
@@ -375,6 +417,7 @@ class StockPickerAgent:
         history: List[Dict[str, str]] | None = None,
         accumulated_filters: List[Dict[str, Any]] | None = None,
         universe: list[dict] | None = None,
+        content_context: dict | None = None,
     ) -> Dict[str, Any]:
         """
         Process one turn of the guided stock picking conversation.
@@ -419,6 +462,48 @@ class StockPickerAgent:
         universe_size = len(_current_universe.get())
         prompt_parts.append("## Universe: %d stocks loaded" % universe_size)
         prompt_parts.append("")
+
+        # Content context (Research Desk: what user is viewing in right panel)
+        if content_context:
+            ctx_type = content_context.get("type", "screener")
+            if ctx_type == "stock":
+                symbol = content_context.get("symbol", "")
+                prompt_parts.append("## User is currently viewing: %s Stock Research" % symbol)
+                # Format quote data
+                quote = content_context.get("quote", {})
+                if quote:
+                    prompt_parts.append("Price: $%.2f (%s%.2f%%)" % (
+                        quote.get("price", 0) or 0,
+                        "+" if (quote.get("change_percent", 0) or 0) >= 0 else "",
+                        quote.get("change_percent", 0) or 0,
+                    ))
+                    prompt_parts.append("Market Cap: %s" % _format_market_cap(quote.get("market_cap")))
+                # Format fundamentals
+                fundamentals = content_context.get("fundamentals", {})
+                if fundamentals:
+                    valuation = fundamentals.get("valuation", {})
+                    profitability = fundamentals.get("profitability", {})
+                    growth = fundamentals.get("growth", {})
+                    parts = []
+                    if valuation.get("pe"): parts.append("PE %.1f" % valuation["pe"])
+                    if valuation.get("pb"): parts.append("PB %.1f" % valuation["pb"])
+                    if valuation.get("ps"): parts.append("PS %.1f" % valuation["ps"])
+                    if profitability.get("roe"): parts.append("ROE %.1f%%" % (profitability["roe"] * 100))
+                    if growth.get("revenue_yoy"): parts.append("Revenue YoY %+.1f%%" % (growth["revenue_yoy"] * 100))
+                    if parts:
+                        prompt_parts.append("Fundamentals: %s" % " | ".join(parts))
+                # AI analysis if available
+                ai_analysis = content_context.get("ai_analysis")
+                if ai_analysis:
+                    prompt_parts.append("\n### AI Investment Analysis (already generated)")
+                    prompt_parts.append(ai_analysis[:3000])  # Truncate to stay within limits
+                prompt_parts.append("")
+                prompt_parts.append(
+                    "The user can see all this data in the right panel. "
+                    "Answer questions about this stock using the data above. "
+                    "If user wants to see a different stock, use navigate_to_content tool."
+                )
+                prompt_parts.append("")
 
         # Current user message
         prompt_parts.append("## User's Message")
@@ -474,15 +559,21 @@ class StockPickerAgent:
         filters = _parse_json_field(result.get("filters", []), accumulated_filters or [])
         pick_reasons = _parse_json_field(result.get("pick_reasons", []), [])
 
+        # Navigate instruction
+        navigate = result.get("navigate")
+        if navigate and not isinstance(navigate, dict):
+            navigate = None
+
         logger.info(
             "Picker agent raw output: message=%s, options=%s, filters=%s, "
-            "pick_reasons=%s, sort_by=%s, limit=%s",
+            "pick_reasons=%s, sort_by=%s, limit=%s, navigate=%s",
             result.get("message", "")[:80],
             options,
             filters,
             pick_reasons,
             result.get("sort_by"),
             result.get("limit", 30),
+            navigate,
         )
 
         return {
@@ -495,6 +586,7 @@ class StockPickerAgent:
             "update_results": result.get("update_results", True),
             "pick_reasons": pick_reasons,
             "title": result.get("title", ""),
+            "navigate": navigate,
         }
 
 

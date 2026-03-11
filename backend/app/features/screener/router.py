@@ -374,6 +374,7 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
             history=req.history if req.history else None,
             accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
             universe=universe,
+            content_context=req.active_context,
         )
     except Exception as e:
         logger.error("Picker agent error: %s", e)
@@ -497,6 +498,7 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
         accumulated_filters=filters,
         reset_results=reset_results,
         title=parsed.get("title", ""),
+        navigate=parsed.get("navigate"),
         data_freshness=freshness,
         is_stale=not is_valid,
     )
