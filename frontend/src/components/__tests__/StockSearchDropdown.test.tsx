@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { Command } from 'cmdk';
 import StockSearchDropdown from '../StockSearchDropdown';
 import type { StockSearchResult } from '@/lib/api';
 
@@ -11,15 +12,20 @@ const RESULTS: StockSearchResult[] = [
   { symbol: 'AMZN', name: 'Amazon.com Inc.', type: 'stock', exchange: 'NASDAQ' },
 ];
 
+function renderWithCommand(ui: React.ReactElement) {
+  return render(
+    <Command shouldFilter={false}>{ui}</Command>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe('StockSearchDropdown', () => {
-  it('shows "搜索中..." when isSearching with no results', () => {
-    render(
+  it('shows loading text when isSearching with no results', () => {
+    renderWithCommand(
       <StockSearchDropdown
         results={[]}
-        highlightedIndex={-1}
         isSearching={true}
         onSelect={vi.fn()}
       />
@@ -28,11 +34,10 @@ describe('StockSearchDropdown', () => {
     expect(screen.getByText('搜索中...')).toBeTruthy();
   });
 
-  it('shows "无结果" when results empty and showEmpty is true', () => {
-    render(
+  it('shows empty text when results empty and showEmpty is true', () => {
+    renderWithCommand(
       <StockSearchDropdown
         results={[]}
-        highlightedIndex={-1}
         isSearching={false}
         showEmpty={true}
         onSelect={vi.fn()}
@@ -43,10 +48,9 @@ describe('StockSearchDropdown', () => {
   });
 
   it('renders results in navigate mode', () => {
-    render(
+    renderWithCommand(
       <StockSearchDropdown
         results={RESULTS}
-        highlightedIndex={-1}
         isSearching={false}
         mode="navigate"
         onSelect={vi.fn()}
@@ -58,11 +62,10 @@ describe('StockSearchDropdown', () => {
     expect(screen.getByText('AMZN')).toBeTruthy();
   });
 
-  it('shows "已添加" for in-list symbols in watchlist mode', () => {
-    render(
+  it('shows add/already-added in watchlist mode', () => {
+    renderWithCommand(
       <StockSearchDropdown
         results={RESULTS}
-        highlightedIndex={-1}
         isSearching={false}
         mode="watchlist"
         inListSymbols={['AAPL']}
@@ -75,16 +78,16 @@ describe('StockSearchDropdown', () => {
   });
 
   it('returns null for empty results when showEmpty is false', () => {
-    const { container } = render(
+    const { container } = renderWithCommand(
       <StockSearchDropdown
         results={[]}
-        highlightedIndex={-1}
         isSearching={false}
         showEmpty={false}
         onSelect={vi.fn()}
       />
     );
 
-    expect(container.innerHTML).toBe('');
+    // Only the Command wrapper should be rendered, no dropdown content
+    expect(container.querySelector('[cmdk-list]')).toBeNull();
   });
 });

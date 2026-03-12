@@ -23,27 +23,12 @@ const SAMPLE_RESULTS: StockSearchResult[] = [
   { symbol: 'ASML', name: 'ASML Holding', type: 'stock', exchange: 'NASDAQ' },
 ];
 
-function fireInputChange(
+function fireQueryChange(
   hook: ReturnType<typeof useStockSearch>,
   value: string,
 ) {
   act(() => {
-    hook.inputProps.onChange({
-      target: { value },
-      nativeEvent: { isComposing: false },
-    } as unknown as React.ChangeEvent<HTMLInputElement>);
-  });
-}
-
-function fireKeyDown(
-  hook: ReturnType<typeof useStockSearch>,
-  key: string,
-) {
-  act(() => {
-    hook.inputProps.onKeyDown({
-      key,
-      preventDefault: vi.fn(),
-    } as unknown as React.KeyboardEvent<HTMLInputElement>);
+    hook.onQueryChange(value);
   });
 }
 
@@ -69,14 +54,14 @@ describe('useStockSearch - initial state', () => {
     expect(result.current.query).toBe('');
     expect(result.current.results).toEqual([]);
     expect(result.current.isSearching).toBe(false);
-    expect(result.current.showDropdown).toBe(false);
+    expect(result.current.open).toBe(false);
   });
 
-  it('provides static inputProps values', () => {
+  it('provides inputHandlers', () => {
     const { result } = renderHook(() => useStockSearch());
-    expect(result.current.inputProps.autoComplete).toBe('off');
-    expect(result.current.inputProps.autoCapitalize).toBe('characters');
-    expect(result.current.inputProps.spellCheck).toBe(false);
+    expect(typeof result.current.inputHandlers.onCompositionStart).toBe('function');
+    expect(typeof result.current.inputHandlers.onCompositionEnd).toBe('function');
+    expect(typeof result.current.inputHandlers.onFocus).toBe('function');
   });
 });
 
@@ -87,7 +72,7 @@ describe('useStockSearch - search and debounce', () => {
   it('debounces search by 300ms', async () => {
     const { result } = renderHook(() => useStockSearch());
 
-    fireInputChange(result.current, 'AAPL');
+    fireQueryChange(result.current, 'AAPL');
     expect(mockSearchStocks).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -101,14 +86,14 @@ describe('useStockSearch - search and debounce', () => {
     const { result } = renderHook(() => useStockSearch());
 
     // First do a search
-    fireInputChange(result.current, 'AAPL');
+    fireQueryChange(result.current, 'AAPL');
     await act(async () => { vi.advanceTimersByTime(300); });
     expect(result.current.results).toHaveLength(3);
 
     // Clear search
-    fireInputChange(result.current, '');
+    fireQueryChange(result.current, '');
     expect(result.current.results).toEqual([]);
-    expect(result.current.showDropdown).toBe(false);
+    expect(result.current.open).toBe(false);
   });
 
   it('sets isSearching during search and clears after', async () => {
@@ -117,7 +102,7 @@ describe('useStockSearch - search and debounce', () => {
 
     const { result } = renderHook(() => useStockSearch());
 
-    fireInputChange(result.current, 'AAPL');
+    fireQueryChange(result.current, 'AAPL');
     await act(async () => { vi.advanceTimersByTime(300); });
 
     expect(result.current.isSearching).toBe(true);
@@ -127,7 +112,7 @@ describe('useStockSearch - search and debounce', () => {
     });
 
     expect(result.current.isSearching).toBe(false);
-    expect(result.current.showDropdown).toBe(true);
+    expect(result.current.open).toBe(true);
   });
 
   it('only uses latest search result (race condition protection)', async () => {
@@ -141,11 +126,11 @@ describe('useStockSearch - search and debounce', () => {
     const { result } = renderHook(() => useStockSearch());
 
     // First search
-    fireInputChange(result.current, 'A');
+    fireQueryChange(result.current, 'A');
     await act(async () => { vi.advanceTimersByTime(300); });
 
     // Second search (overwrites first)
-    fireInputChange(result.current, 'AA');
+    fireQueryChange(result.current, 'AA');
     await act(async () => { vi.advanceTimersByTime(300); });
 
     // Resolve second first, then first
@@ -159,88 +144,13 @@ describe('useStockSearch - search and debounce', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Keyboard navigation
-// ---------------------------------------------------------------------------
-describe('useStockSearch - keyboard navigation', () => {
-  async function setupWithResults() {
-    const { result } = renderHook(() => useStockSearch());
-    fireInputChange(result.current, 'A');
-    await act(async () => { vi.advanceTimersByTime(300); });
-    return result;
-  }
-
-  it('ArrowDown cycles through results', async () => {
-    const result = await setupWithResults();
-
-    fireKeyDown(result.current, 'ArrowDown');
-    expect(result.current.highlightedIndex).toBe(0);
-
-    fireKeyDown(result.current, 'ArrowDown');
-    expect(result.current.highlightedIndex).toBe(1);
-
-    fireKeyDown(result.current, 'ArrowDown');
-    expect(result.current.highlightedIndex).toBe(2);
-
-    // Wraps around
-    fireKeyDown(result.current, 'ArrowDown');
-    expect(result.current.highlightedIndex).toBe(0);
-  });
-
-  it('ArrowUp cycles backwards', async () => {
-    const result = await setupWithResults();
-
-    // Start from first
-    fireKeyDown(result.current, 'ArrowDown');
-    expect(result.current.highlightedIndex).toBe(0);
-
-    // Go up wraps to last
-    fireKeyDown(result.current, 'ArrowUp');
-    expect(result.current.highlightedIndex).toBe(2);
-  });
-
-  it('Enter selects highlighted result', async () => {
-    const onSelect = vi.fn();
-    const { result } = renderHook(() => useStockSearch({ onSelect }));
-
-    fireInputChange(result.current, 'A');
-    await act(async () => { vi.advanceTimersByTime(300); });
-
-    fireKeyDown(result.current, 'ArrowDown');
-    fireKeyDown(result.current, 'Enter');
-
-    expect(onSelect).toHaveBeenCalledWith(SAMPLE_RESULTS[0]);
-    expect(result.current.query).toBe('');
-  });
-
-  it('Enter calls onEnterRaw when no results', async () => {
-    mockSearchStocks.mockResolvedValue({ stocks: [] });
-    const onEnterRaw = vi.fn();
-    const { result } = renderHook(() => useStockSearch({ onEnterRaw }));
-
-    fireInputChange(result.current, 'XYZ');
-    await act(async () => { vi.advanceTimersByTime(300); });
-
-    fireKeyDown(result.current, 'Enter');
-    expect(onEnterRaw).toHaveBeenCalledWith('XYZ');
-  });
-
-  it('Escape closes dropdown', async () => {
-    const result = await setupWithResults();
-    expect(result.current.showDropdown).toBe(true);
-
-    fireKeyDown(result.current, 'Escape');
-    expect(result.current.showDropdown).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Utility methods
 // ---------------------------------------------------------------------------
 describe('useStockSearch - utility methods', () => {
   it('clearSearch resets all state', async () => {
     const { result } = renderHook(() => useStockSearch());
 
-    fireInputChange(result.current, 'AAPL');
+    fireQueryChange(result.current, 'AAPL');
     await act(async () => { vi.advanceTimersByTime(300); });
     expect(result.current.results.length).toBeGreaterThan(0);
 
@@ -248,17 +158,30 @@ describe('useStockSearch - utility methods', () => {
 
     expect(result.current.query).toBe('');
     expect(result.current.results).toEqual([]);
-    expect(result.current.showDropdown).toBe(false);
+    expect(result.current.open).toBe(false);
   });
 
-  it('closeDropdown hides dropdown and resets highlight', async () => {
+  it('closeDropdown hides dropdown', async () => {
     const { result } = renderHook(() => useStockSearch());
 
-    fireInputChange(result.current, 'A');
+    fireQueryChange(result.current, 'A');
     await act(async () => { vi.advanceTimersByTime(300); });
 
     act(() => { result.current.closeDropdown(); });
-    expect(result.current.showDropdown).toBe(false);
-    expect(result.current.highlightedIndex).toBe(-1);
+    expect(result.current.open).toBe(false);
+  });
+
+  it('resetAfterSelect clears query, results, and closes', async () => {
+    const { result } = renderHook(() => useStockSearch());
+
+    fireQueryChange(result.current, 'A');
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(result.current.open).toBe(true);
+
+    act(() => { result.current.resetAfterSelect(); });
+
+    expect(result.current.query).toBe('');
+    expect(result.current.results).toEqual([]);
+    expect(result.current.open).toBe(false);
   });
 });

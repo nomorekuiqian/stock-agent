@@ -106,22 +106,20 @@ describe('for-you watchlist page', () => {
       isLoading: false,
     });
     mockUseStockSearch.mockReturnValue({
+      query: '',
       results: [],
       isSearching: false,
-      showDropdown: false,
-      highlightedIndex: -1,
+      open: false,
       containerRef: { current: null },
-      inputProps: {
-        value: '',
-        onChange: vi.fn(),
+      onQueryChange: vi.fn(),
+      inputHandlers: {
         onCompositionStart: vi.fn(),
         onCompositionEnd: vi.fn(),
-        onKeyDown: vi.fn(),
         onFocus: vi.fn(),
-        autoComplete: 'off',
-        autoCapitalize: 'characters',
-        spellCheck: false,
       },
+      resetAfterSelect: vi.fn(),
+      closeDropdown: vi.fn(),
+      clearSearch: vi.fn(),
     });
   });
 
