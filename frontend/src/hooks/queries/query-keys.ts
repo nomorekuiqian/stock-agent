@@ -61,4 +61,8 @@ export const queryKeys = {
     sectors: () => ['screener', 'sectors'] as const,
     status: () => ['screener', 'status'] as const,
   },
+  subscriptions: {
+    all: ['subscriptions'] as const,
+    preferences: () => ['subscriptions', 'preferences'] as const,
+  },
 };

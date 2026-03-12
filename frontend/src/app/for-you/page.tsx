@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
+import { useQueryClient } from '@tanstack/react-query';
 import { api, DigestResponse } from '@/lib/api';
 import { clearStaleAuthStateWithoutRedirect } from '@/lib/auth';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
@@ -14,9 +15,12 @@ import DigestInlineReport from '@/components/for-you/DigestInlineReport';
 import RecentReports from '@/components/for-you/RecentReports';
 import { useWatchlist } from '@/hooks/queries/use-watchlist';
 import { useDigestList, useGenerateDigest } from '@/hooks/queries/use-digest-data';
+import { useEmailPreferences } from '@/hooks/queries/use-preferences';
+import { queryKeys } from '@/hooks/queries/query-keys';
 
 function ForYouPageContent() {
   const router = useRouter();
+  const isDev = process.env.NODE_ENV === 'development';
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // --- TanStack Query hooks ---
@@ -42,10 +46,10 @@ function ForYouPageContent() {
     return userDigestToResponse(history[0]);
   }, [history]);
 
-  // Subscription state (kept as-is, simple boolean toggle)
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: emailPrefs } = useEmailPreferences(isAuthenticated);
+  const isSubscribed = emailPrefs?.personal_digest ?? false;
   const [subscribing, setSubscribing] = useState(false);
-  const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [isReauthenticating, setIsReauthenticating] = useState(false);
 
   // Today's digest detection
@@ -77,26 +81,6 @@ function ForYouPageContent() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    const checkSubscription = async () => {
-      if (!user?.email) return;
-
-      setCheckingSubscription(true);
-      try {
-        const result = await api.subscriptions.getStatus('personal_digest', user.email);
-        setIsSubscribed(result.subscribed);
-      } catch (err) {
-        console.error('Failed to check subscription:', err);
-      } finally {
-        setCheckingSubscription(false);
-      }
-    };
-
-    if (user?.email) {
-      checkSubscription();
-    }
-  }, [user?.email]);
-
   // --- Handlers ---
 
   const handleSubscription = async () => {
@@ -105,17 +89,26 @@ function ForYouPageContent() {
     setSubscribing(true);
     try {
       if (isSubscribed) {
-        const result = await api.subscriptions.unsubscribe('personal_digest', user.email);
+        const result = await api.subscriptions.updatePreferences({ personal_digest: false });
         if (result.success) {
-          setIsSubscribed(false);
+          queryClient.setQueryData(queryKeys.subscriptions.preferences(), result.preferences);
         }
       } else {
-        const result = await api.subscriptions.subscribe('personal_digest', {
-          email: user.email,
-          user_id: user.id,
-        });
-        if (result.success) {
-          setIsSubscribed(true);
+        try {
+          const result = await api.subscriptions.updatePreferences({ personal_digest: true });
+          if (result.success) {
+            queryClient.setQueryData(queryKeys.subscriptions.preferences(), result.preferences);
+          } else {
+            throw new Error('update failed');
+          }
+        } catch {
+          const result = await api.subscriptions.subscribe('personal_digest', {
+            email: user.email,
+            user_id: user.id,
+          });
+          if (result.success) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.subscriptions.preferences() });
+          }
         }
       }
     } catch (err) {
@@ -164,7 +157,7 @@ function ForYouPageContent() {
   // Never show onboarding when the load failed - that would let the user
   // accidentally overwrite their existing watchlist via template selection.
   const isOnboarding = !loadingWatchlist && !watchlistLoadFailed && symbols.length === 0;
-  const subscriptionLoading = subscribing || checkingSubscription;
+  const subscriptionLoading = subscribing;
 
   return (
     <main className="min-h-screen bg-background">
@@ -222,8 +215,8 @@ function ForYouPageContent() {
                   {isSubscribed ? '已订阅邮件' : '订阅邮件'}
                 </button>
 
-                {/* Generate today's digest - only when no today digest */}
-                {!todayDigest && !generating && (
+                {/* Generate today's digest - dev only */}
+                {isDev && !todayDigest && !generating && (
                   <button
                     onClick={handleGenerateDigest}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 cursor-pointer"
@@ -236,7 +229,7 @@ function ForYouPageContent() {
                 )}
 
                 {/* Generating spinner */}
-                {generating && (
+                {isDev && generating && (
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/50 text-white text-sm font-medium">
                     <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                     生成中...

@@ -225,6 +225,18 @@ export interface SyncUserResponse {
   errors: string[];
 }
 
+export interface EmailPreferences {
+  morning_report: boolean;
+  daily_report: boolean;
+  weekly_report: boolean;
+  personal_digest: boolean;
+}
+
+export interface PreferencesResponse {
+  success: boolean;
+  preferences: EmailPreferences;
+}
+
 export interface EmailPreviewResponse {
   success: boolean;
   html: string;
@@ -1118,6 +1130,30 @@ export const api = {
         console.warn('[API] Sync user error:', error);
         return { success: false, email, user_id: userId, synced_channels: [], errors: [String(error)] };
       }
+    },
+
+    getPreferences: async (): Promise<PreferencesResponse> => {
+      const headers = await _authHeaders({}, { required: true });
+      const response = await fetch(`${API_BASE_URL}/subscriptions/preferences`, { headers });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to get preferences' }));
+        throw new Error(error.detail || 'Failed to get preferences');
+      }
+      return response.json();
+    },
+
+    updatePreferences: async (prefs: Partial<EmailPreferences>): Promise<PreferencesResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const response = await fetch(`${API_BASE_URL}/subscriptions/preferences`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(prefs),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to update preferences' }));
+        throw new Error(error.detail || 'Failed to update preferences');
+      }
+      return response.json();
     },
   },
 
