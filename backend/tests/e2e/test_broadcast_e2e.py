@@ -204,3 +204,81 @@ class TestBroadcastE2E:
 
         print(f"[E2E] SUCCESS: Weekly Broadcast ID = {result.get('broadcast_id')}")
         print(f"[E2E] Audience ID = {result.get('audience_id')}")
+
+    @pytest.mark.asyncio
+    async def test_broadcast_morning_report(self, email_service):
+        """
+        Test morning report broadcast flow:
+        1. Fetch latest morning report from database (no new generation)
+        2. Call email_service.broadcast_morning_report()
+        3. Verify broadcast_id is returned
+        """
+        from app.features.morning_report import db as morning_db
+
+        # Wait to avoid Resend rate limiting
+        time.sleep(2)
+
+        # 1. Get latest morning report from database
+        report = await morning_db.get_latest_morning_report()
+        assert report is not None, (
+            "No morning report found in database. "
+            "Please generate one first via POST /api/morning/broadcast?force=true"
+        )
+
+        print(f"\n[E2E] Using morning report: {report.get('report_date', 'N/A')}")
+        print(f"[E2E] Title: {report.get('title', '')[:60]}...")
+
+        # 2. Prepare report data
+        report_data = {
+            "report_id": report.get("id"),
+            "report_date": report.get("report_date"),
+            "timestamp": report.get("timestamp", ""),
+            "title": report.get("title", ""),
+            "market_pulse": report.get("market_pulse", ""),
+            "futures": report.get("futures", []),
+            "futures_analysis": report.get("futures_analysis", ""),
+            "global_markets": report.get("global_markets", {}),
+            "global_markets_analysis": report.get("global_markets_analysis", ""),
+            "overnight_news": report.get("overnight_news", []),
+            "today_focus": report.get("today_focus", []),
+            "summary": report.get("summary", []),
+        }
+
+        # 3. Broadcast to Test Broadcast channel
+        result = await email_service.broadcast_morning_report(
+            report_data,
+            audience_id=TEST_AUDIENCE_ID
+        )
+
+        # 4. Verify success
+        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
+        assert result.get("broadcast_id") is not None, "broadcast_id should be returned"
+
+        print(f"[E2E] SUCCESS: Morning Broadcast ID = {result.get('broadcast_id')}")
+        print(f"[E2E] Audience ID = {result.get('audience_id')}")
+
+    @pytest.mark.asyncio
+    async def test_broadcast_with_segment_id(self, email_service):
+        """
+        Test that Resend Broadcasts API accepts segment_id parameter.
+        This validates the new segment-based routing actually works at the API level,
+        not just in our code logic.
+
+        Sends a minimal HTML broadcast to the test audience via segment_id
+        (test audience ID works as both audience and segment in Resend).
+        """
+        time.sleep(2)
+
+        result = email_service._create_and_send_broadcast(
+            label="SegmentTest",
+            segment_id=TEST_AUDIENCE_ID,
+            subject="[E2E] Segment ID validation",
+            broadcast_name=f"Segment E2E {int(time.time())}",
+            html="<p>Segment ID broadcast test - safe to ignore.</p>",
+        )
+
+        assert result.get("success") is True, (
+            f"segment_id broadcast failed: {result.get('error')}"
+        )
+        assert result.get("broadcast_id") is not None
+        print(f"\n[E2E] Segment broadcast OK: {result.get('broadcast_id')}")
