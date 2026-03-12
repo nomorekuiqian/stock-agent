@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **日志规范**: 使用 `get_logger(__name__)`，禁止 `print()`，用 `%s` lazy 格式化，不用 f-string
 - **认证模式**: 用户端点用 `Depends(verify_user_token)`，定时任务用 `Depends(verify_cron_secret)`。完整认证流程见 `frontend/docs/auth.md`
 - **测试账号** (本地调试和浏览器测试): 邮箱 `voya.technologies@gmail.com`，密码 `123456`
+- **前端组件优先使用标准库**: 不要重新造轮子。实现 UI 交互组件前，先检查 shadcn/ui、Radix UI、cmdk 等项目已有依赖是否提供现成方案。只有标准库无法满足需求时才手写。已有标准化组件：`Command`（搜索/命令面板，基于 cmdk）、`DropdownMenu`、`Switch`、`Separator`
 
 ### Context 自动维护
 
