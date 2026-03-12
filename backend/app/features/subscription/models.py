@@ -155,6 +155,28 @@ class SyncUserResponse(BaseModel):
     errors: List[str] = Field(default=[], description="Any errors encountered")
 
 
+class EmailPreferences(BaseModel):
+    """Email subscription preferences"""
+    morning_report: bool = True
+    daily_report: bool = True
+    weekly_report: bool = True
+    personal_digest: bool = True
+
+
+class UpdatePreferencesRequest(BaseModel):
+    """Request model for updating email preferences"""
+    morning_report: Optional[bool] = None
+    daily_report: Optional[bool] = None
+    weekly_report: Optional[bool] = None
+    personal_digest: Optional[bool] = None
+
+
+class PreferencesResponse(BaseModel):
+    """Response model for email preferences"""
+    success: bool
+    preferences: EmailPreferences
+
+
 class NewsletterSection(BaseModel):
     """A section in the newsletter content"""
     title: str = Field(..., max_length=200, description="Section title")

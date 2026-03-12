@@ -7,7 +7,12 @@ from typing import Optional, Dict, Any
 
 import resend
 
-from app.core.config import RESEND_API_KEY
+from app.core.config import (
+    RESEND_API_KEY,
+    RESEND_SEGMENT_MORNING,
+    RESEND_SEGMENT_EVENING,
+    RESEND_SEGMENT_WEEKLY,
+)
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -39,7 +44,7 @@ class SubscriptionChannel(str, Enum):
 # Channel configuration
 CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
     SubscriptionChannel.DAILY_REPORT: {
-        "audience_name": "MarketBrew Daily",
+        "audience_name": "TheMarketBrew Daily",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
     },
@@ -49,7 +54,7 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
         "requires_auth": True,
     },
     SubscriptionChannel.WEEKLY_REPORT: {
-        "audience_name": "MarketBrew Weekly",
+        "audience_name": "TheMarketBrew Weekly",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
     },
@@ -139,6 +144,99 @@ class SubscriptionService:
         except Exception as e:
             logger.error("Error ensuring audience for %s: %s", channel, e)
             raise
+
+    # =========================================================================
+    # Segment Management (email preferences)
+    # =========================================================================
+
+    # Segment IDs for email preference filtering
+    SEGMENT_IDS = {
+        "morning_report": RESEND_SEGMENT_MORNING,
+        "daily_report": RESEND_SEGMENT_EVENING,
+        "weekly_report": RESEND_SEGMENT_WEEKLY,
+    }
+
+    def add_to_default_segments(self, email: str) -> None:
+        """Add a contact to all configured segments (default: all reports on)."""
+        for report_type, seg_id in self.SEGMENT_IDS.items():
+            if not seg_id:
+                continue
+            try:
+                _rate_limit_wait()
+                resend.ContactSegments.add(
+                    {
+                        "email": email,
+                        "segment_id": seg_id,
+                    }
+                )
+                logger.info("Added %s to segment %s", email, report_type)
+            except Exception as e:
+                logger.warning(
+                    "Failed to add %s to segment %s: %s",
+                    email,
+                    report_type,
+                    e,
+                )
+
+    def get_email_preferences(self, email: str) -> Dict[str, bool]:
+        """Get email preferences by checking which segments a contact belongs to."""
+        self._validate_api_key()
+        user_segment_ids: set = set()
+        try:
+            _rate_limit_wait()
+            result = resend.ContactSegments.list({"email": email})
+            for seg in result.get("data", []):
+                user_segment_ids.add(seg.get("id", ""))
+        except Exception as e:
+            logger.warning("Failed to list segments for %s: %s", email, e)
+
+        prefs = {}
+        for report_type, seg_id in self.SEGMENT_IDS.items():
+            if not seg_id:
+                prefs[report_type] = True  # default on if segment not configured
+            else:
+                prefs[report_type] = seg_id in user_segment_ids
+        return prefs
+
+    def update_email_preferences(
+        self, email: str, preferences: Dict[str, bool]
+    ) -> Dict[str, bool]:
+        """Update email preferences by adding/removing from segments."""
+        self._validate_api_key()
+        for report_type, enabled in preferences.items():
+            seg_id = self.SEGMENT_IDS.get(report_type)
+            if not seg_id:
+                continue
+            try:
+                _rate_limit_wait()
+                if enabled:
+                    resend.ContactSegments.add(
+                        {
+                            "email": email,
+                            "segment_id": seg_id,
+                        }
+                    )
+                else:
+                    resend.ContactSegments.remove(
+                        {
+                            "email": email,
+                            "segment_id": seg_id,
+                        }
+                    )
+                logger.info(
+                    "Updated preference %s=%s for %s",
+                    report_type,
+                    enabled,
+                    email,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to update preference %s for %s: %s",
+                    report_type,
+                    email,
+                    e,
+                )
+        return self.get_email_preferences(email)
 
     # =========================================================================
     # Subscriber Operations
@@ -565,7 +663,13 @@ class SubscriptionService:
 
             _rate_limit_wait()
             contact = resend.Contacts.create(params)
-            logger.info("New subscription %s to %s: %s", email, channel, contact.get("id"))
+            logger.info(
+                "New subscription %s to %s: %s", email, channel, contact.get("id")
+            )
+
+            # Add new daily_report subscribers to all segments (all reports on by default)
+            if channel == SubscriptionChannel.DAILY_REPORT:
+                self.add_to_default_segments(email)
 
             return {
                 "success": True,
@@ -607,7 +711,11 @@ class SubscriptionService:
                     }
                 except Exception as update_error:
                     logger.error("Error updating %s: %s", email, update_error)
-                    return {"success": False, "is_new": False, "error": str(update_error)}
+                    return {
+                        "success": False,
+                        "is_new": False,
+                        "error": str(update_error),
+                    }
 
             logger.error("Error subscribing %s to %s: %s", email, channel, e)
             return {"success": False, "is_new": False, "error": error_msg}

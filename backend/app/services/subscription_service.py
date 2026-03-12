@@ -37,7 +37,7 @@ class SubscriptionChannel(str, Enum):
 # Channel configuration
 CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
     SubscriptionChannel.DAILY_REPORT: {
-        "audience_name": "MarketBrew Daily",
+        "audience_name": "TheMarketBrew Daily",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
     },
@@ -614,7 +614,9 @@ class SubscriptionService:
 
             # Handle duplicate contact - this is a re-subscribe
             if "already exists" in error_msg.lower():
-                print(f"[SubscriptionService] {email} already exists in {channel}, updating")
+                print(
+                    f"[SubscriptionService] {email} already exists in {channel}, updating"
+                )
 
                 # Just re-enable subscription, don't send welcome again
                 try:
@@ -639,8 +641,14 @@ class SubscriptionService:
                         "metadata": metadata,
                     }
                 except Exception as update_error:
-                    print(f"[SubscriptionService] Error updating {email}: {update_error}")
-                    return {"success": False, "is_new": False, "error": str(update_error)}
+                    print(
+                        f"[SubscriptionService] Error updating {email}: {update_error}"
+                    )
+                    return {
+                        "success": False,
+                        "is_new": False,
+                        "error": str(update_error),
+                    }
 
             print(f"[SubscriptionService] Error subscribing {email} to {channel}: {e}")
             return {"success": False, "is_new": False, "error": error_msg}

@@ -32,6 +32,7 @@ _LOGO_URL: str = "https://themarketbrew.com/logo-avatar.png"
 # Utility helpers
 # ---------------------------------------------------------------------------
 
+
 def format_timestamp(timestamp: str, compact: bool = False) -> str:
     """Format ISO timestamp to Pacific time with an explicit timezone label."""
     try:
@@ -54,7 +55,7 @@ def render_timestamp_meta(timestamp: str) -> str:
         return ""
     return (
         '<div style="font-size: 11px; color: #a1a1aa; margin-bottom: 6px;">'
-        f'{format_timestamp(timestamp, compact=True)}'
+        f"{format_timestamp(timestamp, compact=True)}"
         "</div>"
     )
 
@@ -112,9 +113,7 @@ def format_markdown_to_html(text: str) -> str:
         "\n\n", '</p><p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">'
     )
     text = text.replace("\n", "<br>")
-    text = (
-        f'<p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
-    )
+    text = f'<p style="margin: 12px 0; line-height: 1.7; color: #3f3f46;">{text}</p>'
 
     return text
 
@@ -151,6 +150,7 @@ def truncate_at_paragraph(text: str, max_chars: int) -> str:
 # ---------------------------------------------------------------------------
 # Layout components
 # ---------------------------------------------------------------------------
+
 
 def get_email_header(formatted_date: str, title: str = "Daily Brief") -> str:
     """Common email header with THEMARKETBREW branding and logo."""
@@ -335,6 +335,7 @@ def get_digest_cta_section() -> str:
 # Full-page templates
 # ---------------------------------------------------------------------------
 
+
 def format_html_report(
     data: dict, report_date: Optional[str] = None, report_id: Optional[str] = None
 ) -> str:
@@ -393,7 +394,9 @@ def format_html_report(
             else:
                 change_str = f"{arrow}{change:.2f}%"
 
-            display_name = indicator_display_names.get(index.get("name", ""), index.get("name", ""))
+            display_name = indicator_display_names.get(
+                index.get("name", ""), index.get("name", "")
+            )
             indices_html += f"""
                 <td style="vertical-align: top; width: 33.33%;">
                     <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
@@ -503,6 +506,7 @@ def format_html_report(
         if isinstance(outlook, str):
             try:
                 import json as _json
+
                 parsed = _json.loads(outlook)
                 if isinstance(parsed, list):
                     outlook = parsed
@@ -518,7 +522,11 @@ def format_html_report(
                 section_content = section.get("content", "")
                 if not section_content:
                     continue
-                paragraphs = [p.strip() for p in section_content.replace("\\n", "\n").split("\n") if p.strip()]
+                paragraphs = [
+                    p.strip()
+                    for p in section_content.replace("\\n", "\n").split("\n")
+                    if p.strip()
+                ]
                 paragraphs_html = "".join(
                     f'<p style="margin: 0 0 10px 0; font-size: 13px; color: #3f3f46; line-height: 1.85;">{p}</p>'
                     for p in paragraphs
@@ -663,7 +671,9 @@ def format_digest_html(
                 if related:
                     meta_parts.append(related)
                 if headline.get("published_at"):
-                    meta_parts.append(format_timestamp(headline.get("published_at", ""), compact=True))
+                    meta_parts.append(
+                        format_timestamp(headline.get("published_at", ""), compact=True)
+                    )
                 meta_html = (
                     f'<div style="font-size: 11px; color: #10b981; margin-bottom: 6px;">{" &middot; ".join(meta_parts)}</div>'
                     if meta_parts
@@ -690,7 +700,9 @@ def format_digest_html(
                 if related:
                     meta_parts.append(related)
                 if brief.get("published_at"):
-                    meta_parts.append(format_timestamp(brief.get("published_at", ""), compact=True))
+                    meta_parts.append(
+                        format_timestamp(brief.get("published_at", ""), compact=True)
+                    )
                 meta_html = (
                     f'<div style="font-size: 11px; color: #10b981; margin-top: 2px;">{" &middot; ".join(meta_parts)}</div>'
                     if meta_parts
@@ -850,16 +862,22 @@ def format_weekly_report_html(
     }
     signal_cells = []
     for key in ["liquidity", "economy", "inflation", "sentiment"]:
-        color_key = signal_lights.get(key, "yellow") if isinstance(signal_lights, dict) else "yellow"
+        color_key = (
+            signal_lights.get(key, "yellow")
+            if isinstance(signal_lights, dict)
+            else "yellow"
+        )
         label = signal_label_map.get(color_key, "中性")
         name = signal_name_map.get(key, key)
         colors = signal_bg_map.get(color_key, signal_bg_map["yellow"])
-        signal_cells.append(f"""
+        signal_cells.append(
+            f"""
                 <td style="width: 25%; padding: 6px 4px; text-align: center;">
                     <div style="font-size: 11px; font-weight: 600; color: #52525b; margin-bottom: 6px;">{name}</div>
                     <div style="display: inline-block; padding: 3px 10px; border-radius: 10px; background: {colors['bg']}; color: {colors['text']}; font-size: 11px; font-weight: 600;">{label}</div>
                 </td>
-            """)
+            """
+        )
 
     signal_lights_html = f"""
         <table style="width: 100%; border-collapse: separate; border-spacing: 0;" cellpadding="0" cellspacing="0">
@@ -878,8 +896,12 @@ def format_weekly_report_html(
 
     if indices:
         indicator_labels = {
-            "^GSPC": "标普500", "^IXIC": "纳斯达克", "^VIX": "恐慌指数",
-            "GC=F": "黄金", "DX-Y.NYB": "美元指数", "^TNX": "十年美债",
+            "^GSPC": "标普500",
+            "^IXIC": "纳斯达克",
+            "^VIX": "恐慌指数",
+            "GC=F": "黄金",
+            "DX-Y.NYB": "美元指数",
+            "^TNX": "十年美债",
         }
         indicator_cells = []
         for idx in indices[:6]:
@@ -900,7 +922,8 @@ def format_weekly_report_html(
                 change_str = f"{ch_sign}{change:.2f}%"
 
             color = "#16a34a" if change >= 0 else "#dc2626"
-            indicator_cells.append(f"""
+            indicator_cells.append(
+                f"""
                     <td style="width: 33.33%; padding: 4px;">
                         <div style="background: #f8f8f8; border-radius: 6px; padding: 12px 8px; text-align: center;">
                             <div style="font-size: 10px; color: #71717a; letter-spacing: 0.05em; margin-bottom: 4px;">{label}</div>
@@ -908,7 +931,8 @@ def format_weekly_report_html(
                             <div style="font-size: 12px; font-weight: 600; color: {color}; margin-top: 2px;">{change_str}</div>
                         </div>
                     </td>
-                """)
+                """
+            )
 
         row1 = "".join(indicator_cells[:3])
         row2_html = ""
@@ -971,7 +995,12 @@ def format_weekly_report_html(
     # Four-dimension deep dive section
     four_dims_html = ""
     dim_keys = ["liquidity", "economy", "inflation", "sentiment"]
-    dim_names = {"liquidity": "流动性", "economy": "经济", "inflation": "通胀", "sentiment": "情绪"}
+    dim_names = {
+        "liquidity": "流动性",
+        "economy": "经济",
+        "inflation": "通胀",
+        "sentiment": "情绪",
+    }
     dim_links = {
         "liquidity": f"{_FRONTEND_URL}/macro/liquidity",
         "economy": f"{_FRONTEND_URL}/macro/economy",
@@ -987,7 +1016,11 @@ def format_weekly_report_html(
         data_changes = analysis.get("data_changes", "")
         if not dim_summary and not data_changes:
             continue
-        color_key = signal_lights.get(key, "yellow") if isinstance(signal_lights, dict) else "yellow"
+        color_key = (
+            signal_lights.get(key, "yellow")
+            if isinstance(signal_lights, dict)
+            else "yellow"
+        )
         dot_color = signal_color_map.get(color_key, "#eab308")
         label = signal_label_map.get(color_key, "中性")
         colors = signal_bg_map.get(color_key, signal_bg_map["yellow"])
@@ -1002,7 +1035,8 @@ def format_weekly_report_html(
                     {format_markdown_to_html(data_changes)}
                 </div>
                 """
-        dim_items.append(f"""
+        dim_items.append(
+            f"""
             <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px 18px; margin-bottom: 12px;">
                 <a href="{link}" style="text-decoration: none; display: block; margin-bottom: 10px;">
                     <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {dot_color}; margin-right: 8px; vertical-align: middle;"></span>
@@ -1013,7 +1047,8 @@ def format_weekly_report_html(
                 {summary_dim_html}
                 {data_html}
             </div>
-            """)
+            """
+        )
     if dim_items:
         four_dims_html = f"""
             <div style="margin-bottom: 16px;">
@@ -1279,7 +1314,7 @@ def format_verification_email_html(
     verify_url: str,
     recipient_email: str = "",
 ) -> str:
-    """Format verification email HTML using the shared MarketBrew email style."""
+    """Format verification email HTML using the shared TheMarketBrew email style."""
     formatted_date = now_pacific().strftime("%B %d, %Y")
     intro_line = "我们收到了一次 TheMarketBrew 账户注册请求，验证邮箱后即可开始使用。"
     email_line = (
@@ -1444,7 +1479,7 @@ def format_morning_report_html(
     analysis_box_style = ANALYSIS_BOX_STYLE
 
     # Header
-    header = get_email_header(formatted_date, title="MarketBrew 早报")
+    header = get_email_header(formatted_date, title="TheMarketBrew 早报")
 
     # Title Card
     title_section = f"""
@@ -1466,7 +1501,12 @@ def format_morning_report_html(
         futures_cells = ""
         for f in futures[:3]:
             name = f.get("name", "")
-            display_name = name.replace(" Futures", "").replace("S&P 500", "S&P").replace("Nasdaq", "NQ").replace("Dow", "DOW")
+            display_name = (
+                name.replace(" Futures", "")
+                .replace("S&P 500", "S&P")
+                .replace("Nasdaq", "NQ")
+                .replace("Dow", "DOW")
+            )
             value = f.get("value", 0)
             change = f.get("daily_change", 0)
             color = format_change_color(change)
@@ -1482,7 +1522,9 @@ def format_morning_report_html(
                 """
         futures_analysis_html = ""
         if futures_analysis:
-            futures_analysis_html = f'<div style="{analysis_box_style}">{futures_analysis}</div>'
+            futures_analysis_html = (
+                f'<div style="{analysis_box_style}">{futures_analysis}</div>'
+            )
         futures_html = f"""
             <div style="{card_style}">
                 <div style="{section_header_style}">美股期货</div>
@@ -1526,11 +1568,17 @@ def format_morning_report_html(
     other_items = global_markets.get("other", [])
 
     global_html = ""
-    markets_content = _build_market_rows(asia_items, "asia") + _build_market_rows(europe_items, "europe") + _build_market_rows(other_items, "other")
+    markets_content = (
+        _build_market_rows(asia_items, "asia")
+        + _build_market_rows(europe_items, "europe")
+        + _build_market_rows(other_items, "other")
+    )
     if markets_content:
         gm_analysis_html = ""
         if global_markets_analysis:
-            gm_analysis_html = f'<div style="{analysis_box_style}">{global_markets_analysis}</div>'
+            gm_analysis_html = (
+                f'<div style="{analysis_box_style}">{global_markets_analysis}</div>'
+            )
         global_html = f"""
             <div style="{card_style}">
                 <div style="{section_header_style}">全球市场</div>
@@ -1548,7 +1596,11 @@ def format_morning_report_html(
             n_analysis = n.get("analysis", "")
             n_url = n.get("url", "")
             timestamp_html = render_timestamp_meta(n.get("published_at", ""))
-            title_html = f'<a href="{n_url}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{n_title}</a>' if n_url else f'<div style="font-size: 14px; font-weight: 600; color: #0a0a0a; margin-bottom: 6px;">{n_title}</div>'
+            title_html = (
+                f'<a href="{n_url}" style="font-size: 14px; font-weight: 600; color: #0a0a0a; text-decoration: none; display: block; margin-bottom: 6px;">{n_title}</a>'
+                if n_url
+                else f'<div style="font-size: 14px; font-weight: 600; color: #0a0a0a; margin-bottom: 6px;">{n_title}</div>'
+            )
             news_items += f"""
                 <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
                     {title_html}
@@ -1571,7 +1623,11 @@ def format_morning_report_html(
             f_title = f.get("title", "")
             f_analysis = f.get("analysis", "")
             f_time = f.get("time", "")
-            time_badge = f'<span style="display: inline-block; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; margin-right: 6px; vertical-align: middle;">{f_time}</span>' if f_time else ""
+            time_badge = (
+                f'<span style="display: inline-block; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; margin-right: 6px; vertical-align: middle;">{f_time}</span>'
+                if f_time
+                else ""
+            )
             focus_items += f"""
                 <div style="padding: 14px 0; border-bottom: 1px solid #e8e8e8;">
                     <div style="font-size: 14px; line-height: 1.4; margin-bottom: 6px;">
@@ -1598,7 +1654,8 @@ def format_morning_report_html(
             paragraphs = s_content.replace("\\n", "\n").split("\n\n")
             content_html = "".join(
                 f'<p style="margin: 0 0 10px 0; font-size: 13px; color: #3f3f46; line-height: 1.85;">{p.strip()}</p>'
-                for p in paragraphs if p.strip()
+                for p in paragraphs
+                if p.strip()
             )
             subsections_html += f"""
                 <div style="margin-bottom: 16px;">

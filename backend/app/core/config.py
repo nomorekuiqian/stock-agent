@@ -44,5 +44,10 @@ if _frontend_url:
 if GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = GOOGLE_API_KEY
 
+# Resend Segment IDs (for email preference filtering)
+RESEND_SEGMENT_MORNING = os.getenv("RESEND_SEGMENT_MORNING", "")
+RESEND_SEGMENT_EVENING = os.getenv("RESEND_SEGMENT_EVENING", "")
+RESEND_SEGMENT_WEEKLY = os.getenv("RESEND_SEGMENT_WEEKLY", "")
+
 # Cache settings
 STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days

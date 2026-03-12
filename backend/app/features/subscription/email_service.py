@@ -13,7 +13,14 @@ from urllib.parse import quote
 
 import resend
 
-from app.core.config import RESEND_API_KEY, FRONTEND_URL, ENVIRONMENT
+from app.core.config import (
+    RESEND_API_KEY,
+    FRONTEND_URL,
+    ENVIRONMENT,
+    RESEND_SEGMENT_MORNING,
+    RESEND_SEGMENT_EVENING,
+    RESEND_SEGMENT_WEEKLY,
+)
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso, today_str
 from app.features.subscription.service import (
@@ -54,10 +61,12 @@ class EmailService:
         self.api_key = RESEND_API_KEY
         if self.api_key:
             resend.api_key = self.api_key
-        self.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-        self.from_email_morning = "MarketBrew Morning <morning@themarketbrew.com>"
-        self.from_email_weekly = "MarketBrew Weekly <weekly@themarketbrew.com>"
-        self.frontend_url = FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
+        self.from_email = "TheMarketBrew Daily <daily@themarketbrew.com>"
+        self.from_email_morning = "TheMarketBrew Morning <morning@themarketbrew.com>"
+        self.from_email_weekly = "TheMarketBrew Weekly <weekly@themarketbrew.com>"
+        self.frontend_url = (
+            FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
+        )
         self.is_production = ENVIRONMENT == "production"
         self.logo_url = "https://themarketbrew.com/logo-avatar.png"
 
@@ -104,7 +113,8 @@ class EmailService:
         return get_feedback_section(report_date, report_id, report_type)
 
     def _get_email_footer(
-        self, unsubscribe_url: Optional[str] = "{{{RESEND_UNSUBSCRIBE_URL}}}",
+        self,
+        unsubscribe_url: Optional[str] = "{{{RESEND_UNSUBSCRIBE_URL}}}",
     ) -> str:
         return get_email_footer(unsubscribe_url)
 
@@ -112,7 +122,10 @@ class EmailService:
         return get_digest_cta_section()
 
     def _format_html_report(
-        self, data: dict, report_date: Optional[str] = None, report_id: Optional[str] = None
+        self,
+        data: dict,
+        report_date: Optional[str] = None,
+        report_id: Optional[str] = None,
     ) -> str:
         return format_html_report(data, report_date, report_id)
 
@@ -187,7 +200,8 @@ class EmailService:
             logger.info(
                 "[EmailService] Non-production: routing %s broadcast "
                 "to test audience %s",
-                channel.value, forced,
+                channel.value,
+                forced,
             )
             return forced
         if audience_id:
@@ -195,27 +209,47 @@ class EmailService:
         sub_service = get_subscription_service()
         return sub_service.ensure_audience(channel)
 
+    def _resolve_segment(self, segment_id: str) -> Optional[str]:
+        """Return segment_id in production, None in non-production (fallback to audience)."""
+        if not segment_id:
+            return None
+        if not self.is_production:
+            logger.info(
+                "Non-production: segment %s -> test audience fallback",
+                segment_id,
+            )
+            return None
+        return segment_id
+
     def _create_and_send_broadcast(
         self,
         label: str,
-        audience_id: str,
-        subject: str,
-        broadcast_name: str,
+        audience_id: Optional[str] = None,
+        subject: str = "",
+        broadcast_name: str = "",
         html: Optional[str] = None,
         text: Optional[str] = None,
         from_email: Optional[str] = None,
+        segment_id: Optional[str] = None,
     ) -> dict:
         """Create a Resend broadcast, send it, and verify delivery.
+
+        Uses segment_id if provided (for targeted sends), otherwise audience_id.
 
         Returns {"success": True, "broadcast_id": ..., "audience_id": ...}
         or {"success": False, "error": ...}.
         """
         create_params: resend.Broadcasts.CreateParams = {
             "from": from_email or self.from_email,
-            "audience_id": audience_id,
             "subject": subject,
             "name": broadcast_name,
         }
+        if segment_id:
+            create_params["segment_id"] = segment_id
+        elif audience_id:
+            create_params["audience_id"] = audience_id
+        else:
+            return {"success": False, "error": "No audience_id or segment_id provided"}
         if html:
             create_params["html"] = html
         if text:
@@ -230,7 +264,9 @@ class EmailService:
             except Exception as e:
                 if "Too many requests" in str(e) and attempt < max_retries - 1:
                     wait = (attempt + 1) * 2
-                    logger.warning("%s broadcast create rate limited, retry in %ds...", label, wait)
+                    logger.warning(
+                        "%s broadcast create rate limited, retry in %ds...", label, wait
+                    )
                     time.sleep(wait)
                 else:
                     raise
@@ -247,13 +283,17 @@ class EmailService:
         send_result = None
         for attempt in range(max_retries):
             try:
-                send_params: resend.Broadcasts.SendParams = {"broadcast_id": broadcast_id}
+                send_params: resend.Broadcasts.SendParams = {
+                    "broadcast_id": broadcast_id
+                }
                 send_result = resend.Broadcasts.send(send_params)
                 break
             except Exception as e:
                 if "Too many requests" in str(e) and attempt < max_retries - 1:
                     wait = (attempt + 1) * 2
-                    logger.warning("%s broadcast send rate limited, retry in %ds...", label, wait)
+                    logger.warning(
+                        "%s broadcast send rate limited, retry in %ds...", label, wait
+                    )
                     time.sleep(wait)
                 else:
                     raise
@@ -262,7 +302,9 @@ class EmailService:
         logger.info("%s broadcast send result: %s", label, send_result)
 
         if not send_id:
-            logger.warning("%s send returned unexpected result, verifying status...", label)
+            logger.warning(
+                "%s send returned unexpected result, verifying status...", label
+            )
             time.sleep(1)
             verify = resend.Broadcasts.get(broadcast_id)
             status = verify.get("status") if verify else None
@@ -274,19 +316,29 @@ class EmailService:
                     "broadcast_id": broadcast_id,
                 }
 
-        # Count audience contacts for monitoring
+        # Count audience contacts for monitoring (only when audience_id is available)
         total = 0
-        try:
-            contacts = resend.Contacts.list(audience_id=audience_id)
-            total = len([c for c in contacts.get("data", []) if not c.get("unsubscribed")])
-        except Exception as e:
-            logger.warning("%s failed to count audience contacts: %s", label, e)
+        if audience_id:
+            try:
+                contacts = resend.Contacts.list(audience_id=audience_id)
+                total = len(
+                    [c for c in contacts.get("data", []) if not c.get("unsubscribed")]
+                )
+            except Exception as e:
+                logger.warning("%s failed to count audience contacts: %s", label, e)
 
-        logger.info("%s broadcast sent successfully: %s (audience: %d contacts)", label, broadcast_id, total)
+        logger.info(
+            "%s broadcast sent successfully: %s (%s: %s)",
+            label,
+            broadcast_id,
+            "segment" if segment_id else "audience",
+            segment_id if segment_id else "%d contacts" % total,
+        )
         return {
             "success": True,
             "broadcast_id": broadcast_id,
             "audience_id": audience_id,
+            "segment_id": segment_id,
             "total": total,
             "sent": total,
             "failed": 0,
@@ -297,7 +349,10 @@ class EmailService:
     # ------------------------------------------------------------------
 
     async def send_daily_report(
-        self, data: dict, to_email: Optional[str] = None, first_name: Optional[str] = None
+        self,
+        data: dict,
+        to_email: Optional[str] = None,
+        first_name: Optional[str] = None,
     ) -> dict:
         """Send the daily market report email to a single recipient."""
         logger.info("send_daily_report to=%s", to_email)
@@ -447,7 +502,9 @@ class EmailService:
 
         try:
             text_content = format_newsletter_plaintext(data)
-            text_content = text_content.replace("{{{first_name}}}", first_name or "朋友")
+            text_content = text_content.replace(
+                "{{{first_name}}}", first_name or "朋友"
+            )
 
             params = {
                 "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
@@ -464,7 +521,9 @@ class EmailService:
             logger.error("Error sending newsletter: %s", e)
             return {"success": False, "error": str(e)}
 
-    async def send_welcome_email(self, to_email: str, first_name: Optional[str] = None) -> dict:
+    async def send_welcome_email(
+        self, to_email: str, first_name: Optional[str] = None
+    ) -> dict:
         """Send welcome email to new subscriber."""
         logger.info("send_welcome_email to=%s", to_email)
 
@@ -502,9 +561,7 @@ class EmailService:
             today = today_str()
             report_date = data.get("report_date") or today
             report_id = data.get("report_id")
-            html_content = format_morning_report_html(
-                data, report_date, report_id
-            )
+            html_content = format_morning_report_html(data, report_date, report_id)
 
             display_name = first_name or ""
             html_content = html_content.replace("{{{first_name}}}", display_name)
@@ -541,7 +598,9 @@ class EmailService:
     # Broadcast methods
     # ------------------------------------------------------------------
 
-    async def broadcast_daily_report(self, data: dict, audience_id: Optional[str] = None) -> dict:
+    async def broadcast_daily_report(
+        self, data: dict, audience_id: Optional[str] = None
+    ) -> dict:
         """Send the daily market report using Resend Broadcasts."""
         logger.info("broadcast_daily_report called, audience_id=%s", audience_id)
 
@@ -549,7 +608,6 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
             today = today_str()
             report_date = data.get("report_date") or today
             report_id = data.get("report_id")
@@ -562,9 +620,18 @@ class EmailService:
                 else f"[TheMarketBrew] {today}"
             )
 
+            # Use segment for targeted send, fallback to audience
+            segment_id = self._resolve_segment(RESEND_SEGMENT_EVENING)
+            fallback_audience = (
+                self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
+                if not segment_id
+                else None
+            )
+
             return self._create_and_send_broadcast(
                 label="Daily",
-                audience_id=audience_id,
+                audience_id=fallback_audience,
+                segment_id=segment_id,
                 subject=subject,
                 broadcast_name=f"Daily Report {today}",
                 html=html_content,
@@ -584,12 +651,17 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.PERSONAL_DIGEST)
+            audience_id = self._resolve_audience(
+                audience_id, SubscriptionChannel.PERSONAL_DIGEST
+            )
             today = today_str()
             digest_date = data.get("digest_date") or today
             digest_id = data.get("digest_id")
             html_content = format_digest_html(
-                data, first_name=first_name, digest_date=digest_date, digest_id=digest_id
+                data,
+                first_name=first_name,
+                digest_date=digest_date,
+                digest_id=digest_id,
             )
 
             one_line = data.get("one_line_summary", "")
@@ -621,7 +693,6 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
             week_label = data.get("week_label", "")
             report_id = data.get("id")
             html_content = format_weekly_report_html(data, report_id=report_id)
@@ -633,9 +704,18 @@ class EmailService:
                 else f"[TheMarketBrew周报] {week_label}"
             )
 
+            # Use segment for targeted send, fallback to audience
+            segment_id = self._resolve_segment(RESEND_SEGMENT_WEEKLY)
+            fallback_audience = (
+                self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
+                if not segment_id
+                else None
+            )
+
             return self._create_and_send_broadcast(
                 label="Weekly",
-                audience_id=audience_id,
+                audience_id=fallback_audience,
+                segment_id=segment_id,
                 subject=subject,
                 broadcast_name=f"Weekly Report {week_label}",
                 html=html_content,
@@ -656,7 +736,9 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            audience_id = self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
+            audience_id = self._resolve_audience(
+                audience_id, SubscriptionChannel.DAILY_REPORT
+            )
             text_content = format_newsletter_plaintext(data)
             today = today_str()
 
@@ -683,15 +765,10 @@ class EmailService:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            audience_id = self._resolve_audience(
-                audience_id, SubscriptionChannel.DAILY_REPORT
-            )
             today = today_str()
             report_date = data.get("report_date") or today
             report_id = data.get("report_id")
-            html_content = format_morning_report_html(
-                data, report_date, report_id
-            )
+            html_content = format_morning_report_html(data, report_date, report_id)
 
             report_title = data.get("title", "")
             subject = (
@@ -700,9 +777,18 @@ class EmailService:
                 else f"[TheMarketBrew早报] {today}"
             )
 
+            # Use segment for targeted send, fallback to audience
+            segment_id = self._resolve_segment(RESEND_SEGMENT_MORNING)
+            fallback_audience = (
+                self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
+                if not segment_id
+                else None
+            )
+
             return self._create_and_send_broadcast(
                 label="Morning",
-                audience_id=audience_id,
+                audience_id=fallback_audience,
+                segment_id=segment_id,
                 subject=subject,
                 broadcast_name=f"Morning Report {today}",
                 html=html_content,
@@ -755,8 +841,11 @@ class EmailService:
                     self.TEST_AUDIENCE_ID,
                 )
                 import json
+
                 contacts = resend.Contacts.list(audience_id=self.TEST_AUDIENCE_ID)
-                active = [c for c in contacts.get("data", []) if not c.get("unsubscribed")]
+                active = [
+                    c for c in contacts.get("data", []) if not c.get("unsubscribed")
+                ]
                 subscribers = []
                 for c in active:
                     metadata = {}
@@ -765,13 +854,15 @@ class EmailService:
                             metadata = json.loads(c["last_name"])
                         except Exception:
                             pass
-                    subscribers.append({
-                        "email": c.get("email", ""),
-                        "metadata": {
-                            "first_name": c.get("first_name", ""),
-                            "user_id": metadata.get("user_id"),
-                        },
-                    })
+                    subscribers.append(
+                        {
+                            "email": c.get("email", ""),
+                            "metadata": {
+                                "first_name": c.get("first_name", ""),
+                                "user_id": metadata.get("user_id"),
+                            },
+                        }
+                    )
             else:
                 sub_service = get_subscription_service()
                 result = sub_service.list_subscribers(
@@ -872,7 +963,8 @@ class EmailService:
                     logger.warning(
                         "Watchlist query failed for %s (user_id=%s), "
                         "likely Insforge API issue",
-                        email, user_id[:8],
+                        email,
+                        user_id[:8],
                     )
                     return [], "Watchlist query failed (Insforge API error)"
 
@@ -883,7 +975,8 @@ class EmailService:
 
                 logger.info(
                     "Loaded %d symbols from Insforge for %s",
-                    len(symbols), email,
+                    len(symbols),
+                    email,
                 )
                 return symbols, ""
 
@@ -980,12 +1073,19 @@ class EmailService:
                                     else "unknown"
                                 )
                                 send_errors.append(
-                                    {"email": email_addr, "error": err.get("message", "validation error")}
+                                    {
+                                        "email": email_addr,
+                                        "error": err.get("message", "validation error"),
+                                    }
                                 )
                             sent_count += len(chunk) - len(batch_errors)
                         else:
                             sent_count += len(chunk)
-                        logger.info("Batch %d sent: %d ok", batch_num, len(chunk) - len(batch_errors))
+                        logger.info(
+                            "Batch %d sent: %d ok",
+                            batch_num,
+                            len(chunk) - len(batch_errors),
+                        )
                         break
                     except Exception as e:
                         err_str = str(e)
@@ -1060,14 +1160,15 @@ class EmailService:
                                 else "unknown"
                             )
                             send_errors.append(
-                                {"email": email_addr, "error": err.get("message", "retry send error")}
+                                {
+                                    "email": email_addr,
+                                    "error": err.get("message", "retry send error"),
+                                }
                             )
                     except Exception as e:
                         logger.error("Phase 3 batch send failed: %s", e)
                         for p in chunk:
-                            send_errors.append(
-                                {"email": p["to"][0], "error": str(e)}
-                            )
+                            send_errors.append({"email": p["to"][0], "error": str(e)})
 
                 # Replace Phase 1 errors with only the still-failed ones
                 errors = retry_errors

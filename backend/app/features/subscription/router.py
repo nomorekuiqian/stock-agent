@@ -5,13 +5,15 @@ Handles:
 - Subscription management (subscribe, unsubscribe, status, update, list, broadcast, sync)
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-from app.core.deps import verify_cron_secret
+from app.core.deps import verify_cron_secret, verify_user_token_with_email
 from app.utils.timezone import today_str, now_iso
 from app.features.daily_report import db as market_db
 from app.features.subscription.service import (
@@ -30,6 +32,9 @@ from app.features.subscription.models import (
     SyncUserRequest,
     SyncUserResponse,
     SyncedChannelInfo,
+    UpdatePreferencesRequest,
+    PreferencesResponse,
+    EmailPreferences,
 )
 
 router = APIRouter(prefix="/api", tags=["subscription"])
@@ -408,4 +413,99 @@ async def sync_user_subscriptions(request: SyncUserRequest):
 
     except Exception as e:
         logger.exception("Error in sync_user_subscriptions")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/subscriptions/preferences", response_model=PreferencesResponse)
+async def get_email_preferences(
+    user: dict = Depends(verify_user_token_with_email),
+):
+    """Get email subscription preferences for the authenticated user."""
+    email = user["email"]
+    if not email:
+        raise HTTPException(status_code=400, detail="User email not available")
+
+    try:
+        subscription_service = get_subscription_service()
+        prefs = await asyncio.to_thread(
+            subscription_service.get_email_preferences, email
+        )
+
+        # Check personal_digest subscription status
+        digest_status = await asyncio.to_thread(
+            subscription_service.get_status,
+            SubscriptionChannel.PERSONAL_DIGEST,
+            email,
+        )
+        prefs["personal_digest"] = digest_status.get("subscribed", False)
+
+        return PreferencesResponse(
+            success=True,
+            preferences=EmailPreferences(**prefs),
+        )
+    except Exception as e:
+        logger.exception("Error getting email preferences")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/subscriptions/preferences", response_model=PreferencesResponse)
+async def update_email_preferences(
+    request: UpdatePreferencesRequest,
+    user: dict = Depends(verify_user_token_with_email),
+):
+    """Update email subscription preferences for the authenticated user."""
+    email = user["email"]
+    if not email:
+        raise HTTPException(status_code=400, detail="User email not available")
+
+    try:
+        subscription_service = get_subscription_service()
+
+        # Update segment-based preferences (morning, daily, weekly)
+        segment_prefs = {}
+        if request.morning_report is not None:
+            segment_prefs["morning_report"] = request.morning_report
+        if request.daily_report is not None:
+            segment_prefs["daily_report"] = request.daily_report
+        if request.weekly_report is not None:
+            segment_prefs["weekly_report"] = request.weekly_report
+
+        if segment_prefs:
+            await asyncio.to_thread(
+                subscription_service.update_email_preferences, email, segment_prefs
+            )
+
+        # Handle personal_digest separately (audience-based)
+        if request.personal_digest is not None:
+            if request.personal_digest:
+                await asyncio.to_thread(
+                    subscription_service.subscribe_with_welcome,
+                    channel=SubscriptionChannel.PERSONAL_DIGEST,
+                    email=email,
+                    metadata={"user_id": user["user_id"]},
+                )
+            else:
+                await asyncio.to_thread(
+                    subscription_service.unsubscribe,
+                    channel=SubscriptionChannel.PERSONAL_DIGEST,
+                    email=email,
+                )
+
+        # Return current preferences
+        prefs = await asyncio.to_thread(
+            subscription_service.get_email_preferences, email
+        )
+        digest_status = await asyncio.to_thread(
+            subscription_service.get_status,
+            SubscriptionChannel.PERSONAL_DIGEST,
+            email,
+        )
+        prefs["personal_digest"] = digest_status.get("subscribed", False)
+
+        return PreferencesResponse(
+            success=True,
+            preferences=EmailPreferences(**prefs),
+        )
+    except Exception as e:
+        logger.exception("Error updating email preferences")
         raise HTTPException(status_code=500, detail=str(e))
