@@ -26,6 +26,10 @@ async function validateToken(accessToken: string): Promise<{ user: InsforgeUser 
       cache: 'no-store',
     });
     if (!res.ok) {
+      console.warn(
+        '[auth/session] validateToken failed: status=%d',
+        res.status,
+      );
       return null;
     }
 
@@ -37,7 +41,8 @@ async function validateToken(accessToken: string): Promise<{ user: InsforgeUser 
       return { user: data.session.user };
     }
     return null;
-  } catch {
+  } catch (err) {
+    console.error('[auth/session] validateToken error:', err);
     return null;
   }
 }
@@ -66,28 +71,47 @@ async function tryRefreshToken(
       headers,
       cache: 'no-store',
     });
+
     if (!res.ok) {
+      let body: string;
+      try {
+        body = await res.text();
+      } catch {
+        body = '(unreadable)';
+      }
+      console.error(
+        '[auth/session] refresh failed: status=%d hasCsrf=%s body=%s',
+        res.status,
+        !!csrfToken,
+        body.slice(0, 200),
+      );
       return null;
     }
 
     const data = await res.json();
     const newAccessToken = data?.accessToken;
     if (!newAccessToken) {
+      console.error(
+        '[auth/session] refresh returned no accessToken, keys=%s',
+        Object.keys(data ?? {}).join(','),
+      );
       return null;
     }
 
-    const validated = await validateToken(newAccessToken);
-    if (!validated) {
-      return null;
-    }
+    const newRefreshToken = extractRefreshToken(res) ?? refreshToken;
+    console.log(
+      '[auth/session] refresh succeeded, rotated=%s',
+      newRefreshToken !== refreshToken,
+    );
 
     return {
       accessToken: newAccessToken,
-      refreshToken: extractRefreshToken(res) ?? refreshToken,
+      refreshToken: newRefreshToken,
       csrfToken: data?.csrfToken ?? csrfToken,
-      user: validated.user,
+      user: data?.user ?? (await validateToken(newAccessToken))?.user ?? { id: '', email: '' },
     };
-  } catch {
+  } catch (err) {
+    console.error('[auth/session] refresh error:', err);
     return null;
   }
 }
@@ -97,6 +121,13 @@ export async function GET(request: NextRequest) {
   const accessToken = cookieStore.get('insforge-session')?.value;
   const refreshToken = cookieStore.get('insforge-refresh')?.value;
   const csrfToken = cookieStore.get('insforge-csrf')?.value;
+
+  console.log(
+    '[auth/session] cookies: session=%s refresh=%s csrf=%s',
+    accessToken ? 'present' : 'missing',
+    refreshToken ? 'present' : 'missing',
+    csrfToken ? 'present' : 'missing',
+  );
 
   if (!accessToken && !refreshToken) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
@@ -111,6 +142,7 @@ export async function GET(request: NextRequest) {
         user: valid.user,
       });
     }
+    console.log('[auth/session] access token invalid, attempting refresh...');
   }
 
   if (refreshToken) {
@@ -144,6 +176,7 @@ export async function GET(request: NextRequest) {
 
       return response;
     }
+    console.error('[auth/session] refresh failed, clearing cookies');
   }
 
   const response = NextResponse.json({ authenticated: false }, { status: 401 });
