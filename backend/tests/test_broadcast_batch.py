@@ -25,7 +25,7 @@ def email_svc():
     svc = EmailService.__new__(EmailService)
     svc.api_key = "test-key"
     svc.from_email = "test@themarketbrew.com"
-    svc.from_email_morning = "MarketBrew Morning <morning@themarketbrew.com>"
+    svc.from_email_morning = "TheMarketBrew Morning <morning@themarketbrew.com>"
     svc.frontend_url = "https://themarketbrew.com"
     svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
     svc.is_production = True
@@ -167,7 +167,10 @@ class TestBroadcastBatchFlow:
                 return_value={"symbols": ["AAPL"]},
             ),
             patch("app.features.subscription.email_service.resend") as mock_resend,
-            patch("app.features.subscription.email_service.asyncio.sleep", new_callable=AsyncMock),
+            patch(
+                "app.features.subscription.email_service.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_resend.Batch.send.return_value = {
                 "data": [{"id": "email-0"}],
@@ -224,7 +227,10 @@ class TestBroadcastBatchFlow:
                 return_value={"symbols": ["AAPL"]},
             ),
             patch("app.features.subscription.email_service.resend") as mock_resend,
-            patch("app.features.subscription.email_service.asyncio.sleep", new_callable=AsyncMock),
+            patch(
+                "app.features.subscription.email_service.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_resend.Batch.send.return_value = {
                 "data": [{"id": "email-0"}],

@@ -32,9 +32,9 @@ def email_svc():
     """Non-production EmailService: always routes to test audience."""
     svc = EmailService.__new__(EmailService)
     svc.api_key = "test-key"
-    svc.from_email = "MarketBrew Daily <daily@themarketbrew.com>"
-    svc.from_email_morning = "MarketBrew Morning <morning@themarketbrew.com>"
-    svc.from_email_weekly = "MarketBrew Weekly <weekly@themarketbrew.com>"
+    svc.from_email = "TheMarketBrew Daily <daily@themarketbrew.com>"
+    svc.from_email_morning = "TheMarketBrew Morning <morning@themarketbrew.com>"
+    svc.from_email_weekly = "TheMarketBrew Weekly <weekly@themarketbrew.com>"
     svc.frontend_url = "https://themarketbrew.com"
     svc.is_production = False  # always routes to test audience
     svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
@@ -305,7 +305,9 @@ class TestBroadcastDailyReport:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_subject_contains_title(self, email_svc, mock_resend, mock_report_data):
+    async def test_subject_contains_title(
+        self, email_svc, mock_resend, mock_report_data
+    ):
         """Subject line includes the report title."""
         await email_svc.broadcast_daily_report(mock_report_data)
 
@@ -314,7 +316,9 @@ class TestBroadcastDailyReport:
         assert "[TheMarketBrew]" in create_params["subject"]
 
     @pytest.mark.asyncio
-    async def test_subject_fallback_without_title(self, email_svc, mock_resend, mock_report_data):
+    async def test_subject_fallback_without_title(
+        self, email_svc, mock_resend, mock_report_data
+    ):
         """Without title, subject falls back to date."""
         mock_report_data["title"] = ""
         await email_svc.broadcast_daily_report(mock_report_data)
@@ -323,7 +327,9 @@ class TestBroadcastDailyReport:
         assert "[TheMarketBrew]" in create_params["subject"]
 
     @pytest.mark.asyncio
-    async def test_html_contains_report_content(self, email_svc, mock_resend, mock_report_data):
+    async def test_html_contains_report_content(
+        self, email_svc, mock_resend, mock_report_data
+    ):
         """Generated HTML includes report title."""
         await email_svc.broadcast_daily_report(mock_report_data)
 
@@ -347,7 +353,9 @@ class TestBroadcastDailyReport:
     ):
         """Even with explicit audience_id, non-production routes to that ID (not production audience)."""
         custom_id = "custom-audience-id"
-        result = await email_svc.broadcast_daily_report(mock_report_data, audience_id=custom_id)
+        result = await email_svc.broadcast_daily_report(
+            mock_report_data, audience_id=custom_id
+        )
 
         assert result["success"] is True
         # Non-production: _resolve_audience returns the given audience_id (not production lookup)
@@ -355,7 +363,9 @@ class TestBroadcastDailyReport:
         assert create_params["audience_id"] == custom_id
 
     @pytest.mark.asyncio
-    async def test_uses_daily_from_email(self, email_svc, mock_resend, mock_report_data):
+    async def test_uses_daily_from_email(
+        self, email_svc, mock_resend, mock_report_data
+    ):
         """Daily report uses the daily from_email."""
         await email_svc.broadcast_daily_report(mock_report_data)
 
@@ -383,7 +393,9 @@ class TestBroadcastMorningReport:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_subject_contains_title(self, email_svc, mock_resend, mock_morning_data):
+    async def test_subject_contains_title(
+        self, email_svc, mock_resend, mock_morning_data
+    ):
         """Subject line includes the morning report title."""
         await email_svc.broadcast_morning_report(mock_morning_data)
 
@@ -391,7 +403,9 @@ class TestBroadcastMorningReport:
         assert "[TheMarketBrew早报]" in create_params["subject"]
 
     @pytest.mark.asyncio
-    async def test_uses_morning_from_email(self, email_svc, mock_resend, mock_morning_data):
+    async def test_uses_morning_from_email(
+        self, email_svc, mock_resend, mock_morning_data
+    ):
         """Morning report uses the morning-specific from_email."""
         await email_svc.broadcast_morning_report(mock_morning_data)
 
@@ -408,7 +422,9 @@ class TestBroadcastMorningReport:
         mock_resend.Broadcasts.create.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_render_error_returns_failure(self, email_svc, mock_resend):  # noqa: ARG002
+    async def test_render_error_returns_failure(
+        self, email_svc, mock_resend
+    ):  # noqa: ARG002
         """If HTML rendering fails (bad data), returns error not crash."""
         # Completely empty data may cause rendering issues
         result = await email_svc.broadcast_morning_report({})
@@ -437,7 +453,9 @@ class TestBroadcastWeeklyReport:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_subject_contains_title(self, email_svc, mock_resend, mock_weekly_data):
+    async def test_subject_contains_title(
+        self, email_svc, mock_resend, mock_weekly_data
+    ):
         """Subject includes the weekly report title."""
         await email_svc.broadcast_weekly_report(mock_weekly_data)
 
@@ -446,7 +464,9 @@ class TestBroadcastWeeklyReport:
         assert "Test Weekly Title" in create_params["subject"]
 
     @pytest.mark.asyncio
-    async def test_subject_fallback_to_week_label(self, email_svc, mock_resend, mock_weekly_data):
+    async def test_subject_fallback_to_week_label(
+        self, email_svc, mock_resend, mock_weekly_data
+    ):
         """Without title, subject falls back to week_label."""
         mock_weekly_data["title"] = ""
         await email_svc.broadcast_weekly_report(mock_weekly_data)
@@ -455,7 +475,9 @@ class TestBroadcastWeeklyReport:
         assert "2025.W07" in create_params["subject"]
 
     @pytest.mark.asyncio
-    async def test_uses_weekly_from_email(self, email_svc, mock_resend, mock_weekly_data):
+    async def test_uses_weekly_from_email(
+        self, email_svc, mock_resend, mock_weekly_data
+    ):
         """Weekly report uses the weekly-specific from_email."""
         await email_svc.broadcast_weekly_report(mock_weekly_data)
 
@@ -494,7 +516,9 @@ class TestBroadcastNewsletter:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_sends_text_not_html(self, email_svc, mock_resend, mock_newsletter_data):
+    async def test_sends_text_not_html(
+        self, email_svc, mock_resend, mock_newsletter_data
+    ):
         """Newsletter sends plaintext, not HTML."""
         await email_svc.broadcast_newsletter(
             mock_newsletter_data, subject="Test Newsletter"
@@ -505,7 +529,9 @@ class TestBroadcastNewsletter:
         assert "html" not in create_params
 
     @pytest.mark.asyncio
-    async def test_uses_hello_from_email(self, email_svc, mock_resend, mock_newsletter_data):
+    async def test_uses_hello_from_email(
+        self, email_svc, mock_resend, mock_newsletter_data
+    ):
         """Newsletter uses the personal 'Golden from' address."""
         await email_svc.broadcast_newsletter(
             mock_newsletter_data, subject="Test Newsletter"
@@ -535,7 +561,9 @@ class TestNonProductionSafety:
     """Verify that non-production EmailService NEVER reaches production audiences."""
 
     @pytest.mark.asyncio
-    async def test_daily_always_test_audience(self, email_svc, mock_resend, mock_report_data):
+    async def test_daily_always_test_audience(
+        self, email_svc, mock_resend, mock_report_data
+    ):
         """Daily broadcast in non-production always uses test audience."""
         await email_svc.broadcast_daily_report(mock_report_data)
 
@@ -543,7 +571,9 @@ class TestNonProductionSafety:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_morning_always_test_audience(self, email_svc, mock_resend, mock_morning_data):
+    async def test_morning_always_test_audience(
+        self, email_svc, mock_resend, mock_morning_data
+    ):
         """Morning broadcast in non-production always uses test audience."""
         await email_svc.broadcast_morning_report(mock_morning_data)
 
@@ -551,7 +581,9 @@ class TestNonProductionSafety:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_weekly_always_test_audience(self, email_svc, mock_resend, mock_weekly_data):
+    async def test_weekly_always_test_audience(
+        self, email_svc, mock_resend, mock_weekly_data
+    ):
         """Weekly broadcast in non-production always uses test audience."""
         await email_svc.broadcast_weekly_report(mock_weekly_data)
 
@@ -559,7 +591,9 @@ class TestNonProductionSafety:
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
 
     @pytest.mark.asyncio
-    async def test_newsletter_always_test_audience(self, email_svc, mock_resend, mock_newsletter_data):
+    async def test_newsletter_always_test_audience(
+        self, email_svc, mock_resend, mock_newsletter_data
+    ):
         """Newsletter broadcast in non-production always uses test audience."""
         await email_svc.broadcast_newsletter(mock_newsletter_data, subject="Test")
 

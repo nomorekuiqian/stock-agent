@@ -45,9 +45,9 @@ class TestChannelConfig:
         assert SubscriptionChannel.WEEKLY_REPORT in CHANNEL_CONFIG
 
     def test_weekly_report_audience_name(self):
-        """weekly_report audience name is MarketBrew Weekly."""
+        """weekly_report audience name is TheMarketBrew Weekly."""
         config = CHANNEL_CONFIG[SubscriptionChannel.WEEKLY_REPORT]
-        assert config["audience_name"] == "MarketBrew Weekly"
+        assert config["audience_name"] == "TheMarketBrew Weekly"
 
     def test_weekly_report_no_auth_required(self):
         """weekly_report does not require authentication."""
@@ -114,6 +114,7 @@ class TestEmailFormatHelpers:
     def svc(self):
         """Create an EmailService instance for testing helper methods."""
         from app.features.subscription.email_service import EmailService
+
         return EmailService()
 
     # -- _format_change_color --

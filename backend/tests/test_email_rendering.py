@@ -496,12 +496,12 @@ class TestDigestCtaSection:
         assert "/for-you/watchlist" in html
 
 
-class TestBroadcastWeeklyUsesDaily:
-    """Test that broadcast_weekly_report uses DAILY_REPORT audience -- generated from git diff."""
+class TestBroadcastWeeklyUsesSegmentOrAudience:
+    """Test that broadcast_weekly_report uses segment in prod, audience fallback in dev."""
 
     @pytest.mark.asyncio
-    async def test_uses_daily_report_audience(self, email_svc):
-        """broadcast_weekly_report should call ensure_audience with DAILY_REPORT."""
+    async def test_dev_mode_falls_back_to_audience(self, email_svc):
+        """In dev mode, _resolve_segment returns None so broadcast falls back to audience."""
         from unittest.mock import patch, MagicMock
 
         mock_sub_service = MagicMock()
@@ -514,16 +514,34 @@ class TestBroadcastWeeklyUsesDaily:
             mock_resend.Broadcasts.create.return_value = {"id": "broadcast-123"}
             mock_resend.Broadcasts.send.return_value = {"id": "send-123"}
 
-            # Need api_key for broadcast to proceed
             email_svc.api_key = "test-key"
+            email_svc.is_production = False
             result = await email_svc.broadcast_weekly_report({"week_label": "2025.W08", "title": "Test"})
 
-            # Verify ensure_audience was called with DAILY_REPORT
-            from app.features.subscription.service import SubscriptionChannel
-            mock_sub_service.ensure_audience.assert_called_once_with(
-                SubscriptionChannel.DAILY_REPORT
-            )
             assert result["success"] is True
+            # Broadcasts.create receives a single dict param
+            create_params = mock_resend.Broadcasts.create.call_args[0][0]
+            assert "audience_id" in create_params
+            assert "segment_id" not in create_params
+
+    @pytest.mark.asyncio
+    async def test_prod_mode_uses_segment(self, email_svc):
+        """In prod mode, broadcast_weekly_report sends to RESEND_SEGMENT_WEEKLY."""
+        from unittest.mock import patch
+
+        with patch("app.features.subscription.email_service.resend") as mock_resend, \
+             patch("app.features.subscription.email_service.RESEND_SEGMENT_WEEKLY", "seg-weekly-123"):
+            mock_resend.Broadcasts.create.return_value = {"id": "broadcast-123"}
+            mock_resend.Broadcasts.send.return_value = {"id": "send-123"}
+
+            email_svc.api_key = "test-key"
+            email_svc.is_production = True
+            result = await email_svc.broadcast_weekly_report({"week_label": "2025.W08", "title": "Test"})
+
+            assert result["success"] is True
+            create_params = mock_resend.Broadcasts.create.call_args[0][0]
+            assert create_params.get("segment_id") == "seg-weekly-123"
+            assert "audience_id" not in create_params
 
 
 class TestWelcomeQrCode:
