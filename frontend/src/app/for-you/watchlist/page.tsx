@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
+import { Command } from 'cmdk';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { api, SectorInfo, WatchlistData } from '@/lib/api';
 import { clearStaleAuthStateWithoutRedirect } from '@/lib/auth';
@@ -235,16 +236,27 @@ function WatchlistPageContent() {
   }, [addSymbol]);
 
   const {
+    query: searchQuery,
     results: searchResults,
     isSearching,
-    showDropdown: showSearchDropdown,
-    highlightedIndex,
+    open: showSearchDropdown,
     containerRef: searchContainerRef,
-    inputProps: searchInputProps,
-  } = useStockSearch({
-    onSelect: handleSearchAdd,
-    onEnterRaw: handleEnterRaw,
-  });
+    onQueryChange,
+    inputHandlers,
+    resetAfterSelect,
+    closeDropdown,
+    clearSearch,
+  } = useStockSearch();
+
+  const handleSearchAddAndReset = useCallback((result: { symbol: string; name: string }) => {
+    handleSearchAdd(result);
+    resetAfterSelect();
+  }, [handleSearchAdd, resetAfterSelect]);
+
+  const handleSearchNavigateAndReset = useCallback((result: { symbol: string; name: string }) => {
+    handleSearchNavigate(result);
+    resetAfterSelect();
+  }, [handleSearchNavigate, resetAfterSelect]);
 
   const handleAddSectorSymbols = (sectorSymbols: string[]) => {
     const toAdd = sectorSymbols.filter(s => !symbols.includes(s));
@@ -352,38 +364,51 @@ function WatchlistPageContent() {
           )}
 
           <div ref={searchContainerRef} className="relative">
-            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
-              atLimit ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/80 focus-within:border-emerald-500/40'
-            }`}>
-              <svg className="w-5 h-5 text-muted-foreground shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                {...searchInputProps}
-                placeholder="搜索股票代码或公司名称..."
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
-              />
-              <span className={`text-xs font-mono tabular-nums shrink-0 ${
-                atLimit ? 'text-amber-400' : 'text-muted-foreground'
+            <Command shouldFilter={false} loop onKeyDown={(e) => {
+              if (e.key === 'Escape') closeDropdown();
+              if (e.key === 'Enter' && (!showSearchDropdown || searchResults.length === 0) && searchQuery.trim()) {
+                e.preventDefault();
+                handleEnterRaw(searchQuery.trim().toUpperCase());
+                clearSearch();
+              }
+            }}>
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                atLimit ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/80 focus-within:border-emerald-500/40'
               }`}>
-                {symbols.length}/{MAX_WATCHLIST_SIZE}
-              </span>
-            </div>
+                <svg className="w-5 h-5 text-muted-foreground shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <Command.Input
+                  value={searchQuery}
+                  onValueChange={onQueryChange}
+                  {...inputHandlers}
+                  placeholder="搜索股票代码或公司名称..."
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  style={{ textTransform: 'uppercase' }}
+                />
+                <span className={`text-xs font-mono tabular-nums shrink-0 ${
+                  atLimit ? 'text-amber-400' : 'text-muted-foreground'
+                }`}>
+                  {symbols.length}/{MAX_WATCHLIST_SIZE}
+                </span>
+              </div>
 
-            {showSearchDropdown && (
-              <StockSearchDropdown
-                results={searchResults}
-                highlightedIndex={highlightedIndex}
-                isSearching={isSearching}
-                showEmpty={true}
-                mode="watchlist"
-                inListSymbols={symbols}
-                onSelect={handleSearchNavigate}
-                onAdd={handleSearchAdd}
-                atLimit={atLimit}
-              />
-            )}
+              {showSearchDropdown && (
+                <StockSearchDropdown
+                  results={searchResults}
+                  isSearching={isSearching}
+                  showEmpty={true}
+                  mode="watchlist"
+                  inListSymbols={symbols}
+                  onSelect={handleSearchNavigateAndReset}
+                  onAdd={handleSearchAddAndReset}
+                  atLimit={atLimit}
+                />
+              )}
+            </Command>
           </div>
 
           <section>

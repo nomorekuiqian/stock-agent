@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Command } from 'cmdk';
 import { Search } from 'lucide-react';
 import { StockQuote } from '@/lib/api';
 import { STOCK_NAMES } from '@/lib/stock-names';
@@ -141,13 +142,21 @@ export default function StockResearchPage() {
   }, [router]);
 
   const {
+    query: searchQuery,
     results: searchResults,
     isSearching,
-    showDropdown: showSearchDropdown,
-    highlightedIndex,
+    open: showSearchDropdown,
     containerRef: searchContainerRef,
-    inputProps: searchInputProps,
-  } = useStockSearch({ onSelect: handleSearchSelect });
+    onQueryChange,
+    inputHandlers,
+    resetAfterSelect,
+    closeDropdown,
+  } = useStockSearch();
+
+  const handleSearchSelectAndReset = useCallback((result: { symbol: string; name: string }) => {
+    handleSearchSelect(result);
+    resetAfterSelect();
+  }, [handleSearchSelect, resetAfterSelect]);
 
   // Navigation helpers
   const handleStockClick = useCallback((symbol: string) => {
@@ -188,33 +197,41 @@ export default function StockResearchPage() {
             className="relative max-w-xl"
             style={{ zIndex: 50 }}
           >
-            <div className="relative group">
-              <div className="absolute -inset-0.5 bg-emerald-500/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
-              <div className="relative">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-emerald-500 transition-colors" />
-                <input
-                  type="text"
-                  {...searchInputProps}
-                  placeholder="搜索股票代码或公司名称..."
-                  className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-emerald-500/50 focus:bg-card/60 transition-all font-data tracking-wider"
-                />
-                {isSearching && (
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2">
-                    <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
-                  </div>
-                )}
+            <Command shouldFilter={false} loop onKeyDown={(e) => {
+              if (e.key === 'Escape') closeDropdown();
+            }}>
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-emerald-500/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                <div className="relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-emerald-500 transition-colors" />
+                  <Command.Input
+                    value={searchQuery}
+                    onValueChange={onQueryChange}
+                    {...inputHandlers}
+                    placeholder="搜索股票代码或公司名称..."
+                    className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-emerald-500/50 focus:bg-card/60 transition-all font-data tracking-wider"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  {isSearching && (
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {showSearchDropdown && (
-              <StockSearchDropdown
-                results={searchResults}
-                highlightedIndex={highlightedIndex}
-                isSearching={isSearching}
-                mode="navigate"
-                onSelect={handleSearchSelect}
-              />
-            )}
+              {showSearchDropdown && (
+                <StockSearchDropdown
+                  results={searchResults}
+                  isSearching={isSearching}
+                  mode="navigate"
+                  onSelect={handleSearchSelectAndReset}
+                />
+              )}
+            </Command>
           </div>
         </div>
       </section>

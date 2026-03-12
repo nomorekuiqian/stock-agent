@@ -1,34 +1,9 @@
+import { Command } from 'cmdk';
 import { StockSearchResult } from '@/lib/api';
 import { Check, Plus, ArrowRight } from 'lucide-react';
 
-const DROPDOWN_STYLE = { zIndex: 9999, backgroundColor: 'var(--popover)' } as const;
-const POPOVER_BG = { backgroundColor: 'var(--popover)' } as const;
-
-function DropdownShell({ role, children }: { role?: string; children: React.ReactNode }) {
-  return (
-    <div
-      className="absolute left-0 right-0 mt-2 rounded-xl overflow-hidden border border-border shadow-2xl"
-      style={DROPDOWN_STYLE}
-      role={role}
-    >
-      {children}
-    </div>
-  );
-}
-
-function DropdownMessage({ text }: { text: string }) {
-  return (
-    <DropdownShell>
-      <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-        {text}
-      </div>
-    </DropdownShell>
-  );
-}
-
 interface StockSearchDropdownProps {
   results: StockSearchResult[];
-  highlightedIndex: number;
   isSearching: boolean;
   showEmpty?: boolean;
   mode?: 'navigate' | 'add' | 'watchlist';
@@ -40,7 +15,6 @@ interface StockSearchDropdownProps {
 
 export default function StockSearchDropdown({
   results,
-  highlightedIndex,
   isSearching,
   showEmpty = false,
   mode = 'navigate',
@@ -49,36 +23,44 @@ export default function StockSearchDropdown({
   onAdd,
   atLimit = false,
 }: StockSearchDropdownProps) {
-  if (isSearching && results.length === 0) {
-    return <DropdownMessage text="搜索中..." />;
-  }
+  if (!isSearching && results.length === 0 && !showEmpty) return null;
 
-  if (results.length === 0) {
-    if (!showEmpty) return null;
-    return <DropdownMessage text="无结果" />;
-  }
+  const inListSet = mode === 'watchlist' ? new Set(inListSymbols) : null;
 
-  if (mode === 'watchlist') {
-    const inListSet = new Set(inListSymbols);
+  return (
+    <Command.List
+      className="absolute left-0 right-0 mt-2 rounded-xl overflow-hidden border border-border shadow-2xl"
+      style={{ maxHeight: 400, zIndex: 9999 }}
+    >
+      {isSearching && results.length === 0 && (
+        <div className="px-4 py-3 text-sm text-muted-foreground text-center bg-popover">
+          搜索中...
+        </div>
+      )}
 
-    return (
-      <DropdownShell role="listbox">
-        <div className="max-h-[400px] overflow-y-auto" style={POPOVER_BG}>
-          {results.map((result, index) => {
-            const inList = inListSet.has(result.symbol);
+      {!isSearching && results.length === 0 && showEmpty && (
+        <div className="px-4 py-3 text-sm text-muted-foreground text-center bg-popover">
+          无结果
+        </div>
+      )}
 
+      {mode === 'watchlist'
+        ? results.map((result) => {
+            const inList = inListSet!.has(result.symbol);
             return (
-              <div
+              <Command.Item
                 key={result.symbol}
-                role="option"
-                aria-selected={index === highlightedIndex}
-                className={`flex items-center justify-between gap-2 transition-colors ${
-                  index === highlightedIndex ? 'bg-accent' : ''
-                } hover:bg-accent`}
-                style={index !== highlightedIndex ? POPOVER_BG : undefined}
+                value={result.symbol}
+                keywords={[result.name]}
+                onSelect={() => onAdd?.(result)}
+                className="flex items-center justify-between gap-2 transition-colors bg-popover data-[selected=true]:bg-accent hover:bg-accent"
               >
                 <button
-                  onClick={() => onSelect(result)}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(result);
+                  }}
                   className="flex-1 min-w-0 px-4 py-3 text-left flex items-center gap-4"
                 >
                   <span className="font-mono font-semibold text-sm text-foreground shrink-0">
@@ -97,6 +79,7 @@ export default function StockSearchDropdown({
                     </span>
                   ) : (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onAdd?.(result);
@@ -109,42 +92,31 @@ export default function StockSearchDropdown({
                     </button>
                   )}
                 </div>
-              </div>
+              </Command.Item>
+            );
+          })
+        : results.map((result) => {
+            const Icon = mode === 'add' ? Plus : ArrowRight;
+            return (
+              <Command.Item
+                key={result.symbol}
+                value={result.symbol}
+                keywords={[result.name]}
+                onSelect={() => onSelect(result)}
+                className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 group/item transition-colors bg-popover data-[selected=true]:bg-accent hover:bg-accent"
+              >
+                <div className="flex items-center gap-4 min-w-0">
+                  <span className="font-mono font-semibold text-sm text-foreground shrink-0">
+                    {result.symbol}
+                  </span>
+                  <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/80">
+                    {result.name}
+                  </span>
+                </div>
+                <Icon className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100" />
+              </Command.Item>
             );
           })}
-        </div>
-      </DropdownShell>
-    );
-  }
-
-  const Icon = mode === 'add' ? Plus : ArrowRight;
-
-  return (
-    <DropdownShell role="listbox">
-      <div className="max-h-[400px] overflow-y-auto" style={POPOVER_BG}>
-        {results.map((result, index) => (
-          <button
-            key={result.symbol}
-            role="option"
-            aria-selected={index === highlightedIndex}
-            onClick={() => onSelect(result)}
-            className={`w-full px-4 py-3 text-left flex items-center justify-between gap-3 group/item transition-colors ${
-              index === highlightedIndex ? 'bg-accent' : ''
-            } hover:bg-accent`}
-            style={index !== highlightedIndex ? POPOVER_BG : undefined}
-          >
-            <div className="flex items-center gap-4 min-w-0">
-              <span className="font-mono font-semibold text-sm text-foreground shrink-0">
-                {result.symbol}
-              </span>
-              <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/80">
-                {result.name}
-              </span>
-            </div>
-            <Icon className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100" />
-          </button>
-        ))}
-      </div>
-    </DropdownShell>
+    </Command.List>
   );
 }
