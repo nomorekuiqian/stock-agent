@@ -54,6 +54,16 @@ export async function POST(request: NextRequest) {
       const refreshToken = extractRefreshToken(insforgeRes);
       const rememberMe = body.rememberMe !== false;
 
+      const setCookieHeaders = insforgeRes.headers.getSetCookie?.() ?? [];
+      const rawSetCookie = insforgeRes.headers.get('set-cookie');
+      console.log(
+        '[auth/login] extractRefreshToken: got=%s setCookieCount=%d rawSetCookie=%s csrfInBody=%s',
+        refreshToken ? 'yes' : 'null',
+        setCookieHeaders.length,
+        rawSetCookie ? rawSetCookie.slice(0, 200) : 'null',
+        !!data.csrfToken,
+      );
+
       response.cookies.set(
         'insforge-session',
         data.accessToken,
