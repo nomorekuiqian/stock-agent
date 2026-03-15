@@ -573,11 +573,17 @@ export default function Home() {
               <div className="relative rounded-2xl border border-border/50 bg-card p-6 md:p-8">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
-                {/* QR Code Image */}
+                {/*
+                  WeChat QR Code Image
+                  - Insforge Storage bucket: community
+                  - Naming: wechat-qr-MMDD.jpg (MMDD = expiry date)
+                  - Update steps: upload new image to Insforge with new filename, update src below
+                  - Must use new filename each time to bypass Insforge CDN cache
+                */}
                 <div className="w-64 md:w-80 mx-auto mb-5 rounded-xl overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr.jpg"
+                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0321.jpg"
                     alt="TheMarketBrew WeChat Group QR Code"
                     className="w-full h-auto"
                   />
