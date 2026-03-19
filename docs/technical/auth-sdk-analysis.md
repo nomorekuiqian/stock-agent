@@ -233,7 +233,7 @@ Because SDK refresh doesn't work cross-domain, we had to build 5 layers of worka
 | Custom `refresh` action in route handler | Server Proxy: our Next.js server reads our own domain's httpOnly cookie and forwards to InsForge's refresh API | `app/api/auth/route.ts` |
 | `isTokenExpired()` manual check | SDK's `getCurrentSession()` returns expired tokens without checking `exp` | `auth.ts` |
 | 5s timeout on `getCurrentSession()` | Safety net in case SDK refresh hangs | `auth.ts` |
-| `resetStaleAuthState()` | Force cleanup when auth state becomes corrupted | `auth.ts` |
+| `clearStaleAuthStateWithoutRedirect()` | Force cleanup when auth state becomes corrupted | `auth.ts` |
 
 This complexity has caused production bugs including: login state loss on page refresh, race conditions between SDK refresh and our proxy refresh, "ghost login" states where UI shows logged-in but all API calls return 401, and auth cookie naming mismatches.
 

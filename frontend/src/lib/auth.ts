@@ -1,4 +1,3 @@
-import { DEFAULT_AUTH_REDIRECT } from './auth-redirect';
 import { clearClientAuthStorage, INSFORGE_AUTH_TOKEN_KEY, INSFORGE_AUTH_USER_KEY } from './auth-storage';
 import { insforge } from './insforge';
 
@@ -16,15 +15,6 @@ export interface AuthResult {
   user?: User;
   error?: string;
 }
-
-export type AccessTokenResolutionState = 'authenticated' | 'no_session';
-
-export interface AccessTokenResolution {
-  token: string | null;
-  state: AccessTokenResolutionState;
-}
-
-export type AuthResetReason = 'session_reset' | 'session_expired' | 'session_recovery_failed';
 
 export async function signUp(
   email: string,
@@ -105,17 +95,13 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
     const finalDestination = sessionStorage.getItem('auth_redirect') || '/today';
     const redirectTo = `${window.location.origin}${finalDestination}`;
 
-    const { data, error } = await insforge.auth.signInWithOAuth({
+    const { error } = await insforge.auth.signInWithOAuth({
       provider: 'google',
       redirectTo,
     });
 
     if (error) {
       return { success: false, error: error.message };
-    }
-
-    if (data?.url) {
-      window.location.href = data.url;
     }
 
     return { success: true };
@@ -271,21 +257,6 @@ export function cleanupAuthCallbackUrlParams(): boolean {
   return true;
 }
 
-export function consumeForcedReauthReason(): null {
-  return null;
-}
-
-export async function getAccessTokenResolution(
-  options: { forceRefresh?: boolean } = {},
-): Promise<AccessTokenResolution> {
-  void options;
-  const token = await getAccessToken();
-  return {
-    token,
-    state: token ? 'authenticated' : 'no_session',
-  };
-}
-
 export async function getAccessToken(): Promise<string | null> {
   if (_cachedToken && !isTokenExpired(_cachedToken)) {
     return _cachedToken;
@@ -332,25 +303,10 @@ async function recoverTokenFromCookies(): Promise<string | null> {
   }
 }
 
-export function resetStaleAuthState(reason: AuthResetReason = 'session_reset'): Promise<void> {
-  void reason;
-  if (typeof window === 'undefined') {
-    return Promise.resolve();
-  }
-
-  return clearStaleAuthStateWithoutRedirect().finally(() => {
-    window.location.replace(`/login?redirect=${encodeURIComponent(DEFAULT_AUTH_REDIRECT)}`);
-  });
-}
-
 export function _resetAuthStateForTesting(): void {
   _cachedToken = null;
   _refreshPromise = null;
 }
-
-export const _authTimingForTesting = {
-  REFRESH_RETRY_DELAYS_MS: [] as number[],
-};
 
 export async function sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
   try {

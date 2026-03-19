@@ -17,16 +17,16 @@
 | `/for-you/[id]` | 摘要详情 | Insforge (getUserDigestById) | 是 |
 | `/for-you/archive` | 摘要存档 | Backend (digests API) | 是 |
 | `/for-you/watchlist` | 自选股管理 | Backend (watchlist API) + StockQuotes | 是 |
-| `/sectors` | 板块分析 | Backend (sectors API) | 否 |
-| `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 否 |
-| `/macro/liquidity` | 流动性 | Backend (liquidity API) | 否 |
-| `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 否 |
-| `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 否 |
-| `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 否 |
-| `/sectors/archive` | 板块存档 | Backend (sectors API) | 否 |
+| `/sectors` | 板块分析 | Backend (sectors API) | 是 |
+| `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 是 |
+| `/macro/liquidity` | 流动性 | Backend (liquidity API) | 是 |
+| `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 是 |
+| `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 是 |
+| `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 是 |
+| `/sectors/archive` | 板块存档 | Backend (sectors API) | 是 |
 | `/login` | 登录 | Insforge Auth | 否 |
 | `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
-| `/auth/callback` | OAuth 回调 | Insforge Auth (code exchange) | 否 |
+| `/auth/callback` | OAuth 兼容落地页 | Insforge Auth (provider 恢复后跳转) | 否 |
 | `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
 | `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
 | `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
@@ -34,6 +34,7 @@
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
+| `/screener` | AI 选股助手 | Backend (screener API) | 是 |
 
 ### 重定向
 | 旧路由 | 目标 |
@@ -78,22 +79,33 @@
 
 ### `/for-you` 个性化摘要
 - 需要登录，未登录重定向到 /login
+- 首层由 `InsforgeMiddleware` 拦截，页面内 `useAuth()` 跳转作为兜底
 - WatchlistPanel 管理自选股 (最多 25 只)
 - 调用 `api.generateDigest()` 生成摘要
 - Watchlist 保存到 Insforge (user_watchlists 表)
 - 摘要保存到 Insforge (personal_digests 表)
 
 ### `/macro` 宏观仪表盘
+- 需要登录，首层由 `InsforgeMiddleware` 拦截
 - 4 维度卡片: 流动性、经济、通胀、情绪
 - 每个维度显示: 信号灯 (green/yellow/red) + 子维度分析
 - 周报集成: `api.weeklyReport.getLatest()`
 - RiskGauge + RiskSummaryBar 展示综合风险评分
 
 ### `/macro/liquidity` 流动性
+- 需要登录，首层由 `InsforgeMiddleware` 拦截
 - 净流动性图表 (NetLiquidityChart)
 - 全球流动性图表 (GlobalLiquidityChart)
 - 6 个 LiquidityCard 展示关键指标
 - NFCI 仪表盘 (NFCIGauge)
+
+### `/sectors` 板块分析
+- 需要登录，首层由 `InsforgeMiddleware` 拦截
+- 页面内仍保留 `useAuth()` 的登录兜底跳转
+
+### `/screener` AI 选股助手
+- 需要登录，首层由 `InsforgeMiddleware` 拦截
+- 页面内仍保留 `useAuth()` 的登录兜底跳转
 
 ### `/login` 登录
 - Email + Password 表单

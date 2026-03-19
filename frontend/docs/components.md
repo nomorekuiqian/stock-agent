@@ -123,7 +123,7 @@ AI 个股分析卡片，支持三种状态。
 
 ### auth.ts — 认证 SDK 封装
 - **功能**: Insforge Auth 的封装 (signIn/signUp/signOut/OAuth)
-- **OAuth**: Google 登录 + 回调处理
+- **OAuth**: Google 登录走 Insforge SDK 默认回调链路
 - **密码重置**: 完整的重置流程 (发送邮件 -> 验证码 -> 重置)
 
 ### timezone.ts — 时区工具
@@ -146,7 +146,7 @@ AI 个股分析卡片，支持三种状态。
 - **State**: user, isLoading, isAuthenticated
 - **Methods**: signIn, signUp, signOut, signInWithGoogle, refreshUser
 - **自动行为**:
-  - OAuth 回调处理 (insforge_code polling)
+  - Provider 状态恢复 + 必要时的 cookie recovery 兜底
   - 首次登录自动订阅日报
   - 订阅同步 (syncUser)
   - LocalStorage 记录订阅状态 (避免重复)

@@ -8,7 +8,7 @@ import {
   signIn as authSignIn,
   signInWithGoogle,
   updateProfile as authUpdateProfile,
-  isTokenExpired,
+  getAccessToken,
   setCachedToken,
 } from '@/lib/auth';
 import { clearClientAuthStorage } from '@/lib/auth-storage';
@@ -167,18 +167,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (recoveryAttempted.current) return;
     recoveryAttempted.current = true;
 
-    fetch('/api/auth/session')
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (data?.authenticated && data.accessToken && data.user && !isTokenExpired(data.accessToken)) {
-          insforge.getHttpClient().setAuthToken(data.accessToken);
-          setCachedToken(data.accessToken);
-          sdk.setUser({
-            id: data.user.id,
-            email: data.user.email,
-            profile: data.user.profile ?? null,
-          });
+    getAccessToken()
+      .then(async (token) => {
+        if (!token) {
+          return;
         }
+
+        const session = await insforge.auth.getCurrentSession().catch(() => null);
+        const sessionUser = session?.data?.session?.user;
+        if (!sessionUser) {
+          return;
+        }
+
+        await sdk.reloadAuth().catch(() => ({ success: false }));
+        sdk.setUser({
+          id: sessionUser.id,
+          email: sessionUser.email,
+          profile: sessionUser.profile ?? null,
+        });
       })
       .catch(() => {})
       .finally(() => setRecoveryPending(false));
@@ -195,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignIn = useCallback(async (email: string, password: string) => {
     const result = await authSignIn(email, password);
     if (result.success && result.user) {
+      await sdk.reloadAuth().catch(() => ({ success: false }));
       sdk.setUser({
         id: result.user.id,
         email: result.user.email,

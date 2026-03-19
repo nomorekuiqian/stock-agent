@@ -16,9 +16,10 @@ let mockIsLoaded = true;
 
 const mockAuthSignIn = vi.fn();
 const mockAuthSignInWithGoogle = vi.fn();
+const mockGetAccessToken = vi.fn();
 const mockAuthUpdateProfile = vi.fn();
-const mockSetCachedToken = vi.fn();
 const mockSetAuthToken = vi.fn();
+const mockInsforgeGetCurrentSession = vi.fn();
 const originalFetch = globalThis.fetch;
 
 vi.mock('@insforge/nextjs', () => ({
@@ -38,14 +39,17 @@ vi.mock('@insforge/nextjs', () => ({
 vi.mock('@/lib/auth', () => ({
   signIn: (...args: unknown[]) => mockAuthSignIn(...args),
   signInWithGoogle: (...args: unknown[]) => mockAuthSignInWithGoogle(...args),
+  getAccessToken: (...args: unknown[]) => mockGetAccessToken(...args),
   updateProfile: (...args: unknown[]) => mockAuthUpdateProfile(...args),
   isTokenExpired: vi.fn().mockReturnValue(false),
-  setCachedToken: (...args: unknown[]) => mockSetCachedToken(...args),
 }));
 
 vi.mock('@/lib/insforge', () => ({
   insforge: {
     getHttpClient: () => ({ setAuthToken: mockSetAuthToken }),
+    auth: {
+      getCurrentSession: (...args: unknown[]) => mockInsforgeGetCurrentSession(...args),
+    },
   },
 }));
 
@@ -90,6 +94,9 @@ describe('AuthContext', () => {
     vi.clearAllMocks();
     mockSdkUser = null;
     mockIsLoaded = true;
+    mockReloadAuth.mockResolvedValue({ success: true });
+    mockGetAccessToken.mockResolvedValue(null);
+    mockInsforgeGetCurrentSession.mockResolvedValue({ data: { session: null } });
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ authenticated: false }),
@@ -139,13 +146,13 @@ describe('AuthContext', () => {
   });
 
   it('recovers session from cookies when SDK has no user', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        authenticated: true,
-        accessToken: 'fresh-token',
-        user: { id: 'u2', email: 'recovered@test.com', profile: null },
-      }),
+    mockGetAccessToken.mockResolvedValue('fresh-token');
+    mockInsforgeGetCurrentSession.mockResolvedValue({
+      data: {
+        session: {
+          user: { id: 'u2', email: 'recovered@test.com', profile: null },
+        },
+      },
     });
 
     await act(async () => {
@@ -157,16 +164,16 @@ describe('AuthContext', () => {
     });
 
     await waitFor(() => {
-      expect(mockSetUser).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'u2', email: 'recovered@test.com' }),
-      );
+      expect(mockGetAccessToken).toHaveBeenCalled();
     });
-    expect(mockSetAuthToken).toHaveBeenCalledWith('fresh-token');
-    expect(mockSetCachedToken).toHaveBeenCalledWith('fresh-token');
+    expect(mockReloadAuth).toHaveBeenCalled();
+    expect(mockSetUser).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u2', email: 'recovered@test.com' }),
+    );
   });
 
   it('sets unauthenticated state when recovery fails', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
+    mockGetAccessToken.mockResolvedValue(null);
 
     await act(async () => {
       renderWithProviders(
@@ -215,7 +222,7 @@ describe('AuthContext', () => {
     });
   });
 
-  it('syncs sdk user after successful signIn', async () => {
+  it('reloads auth and bridges sdk user after successful signIn', async () => {
     mockAuthSignIn.mockResolvedValue({
       success: true,
       user: {
@@ -248,6 +255,7 @@ describe('AuthContext', () => {
     await waitFor(() => {
       expect(signInResult).toEqual({ success: true, error: undefined });
     });
+    expect(mockReloadAuth).toHaveBeenCalled();
     expect(mockSetUser).toHaveBeenCalledWith({
       id: 'u1',
       email: 'user@example.com',

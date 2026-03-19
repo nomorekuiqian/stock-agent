@@ -1,12 +1,32 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { InsforgeMiddleware } from '@insforge/nextjs/middleware';
 
-export function middleware(request: NextRequest): NextResponse {
-  const response = NextResponse.next();
-  const hasSession = request.cookies.has('insforge-session');
-  response.headers.set('x-has-session', hasSession ? '1' : '0');
-  return response;
-}
+const INSFORGE_BASE_URL =
+  process.env.INSFORGE_BASE_URL || process.env.NEXT_PUBLIC_INSFORGE_URL || 'https://9wmhxyi4.us-east.insforge.app';
+
+export default InsforgeMiddleware({
+  baseUrl: INSFORGE_BASE_URL,
+  useBuiltInAuth: false,
+  signInUrl: '/login',
+  signUpUrl: '/login',
+  forgotPasswordUrl: '/forgot-password',
+  publicRoutes: [
+    '/',
+    '/today*',
+    '/morning*',
+    '/stock*',
+    '/market',
+    '/reports*',
+    '/contact',
+    '/feedback',
+    '/unsubscribe',
+    '/login',
+    '/verify-email',
+    '/forgot-password',
+    '/reset-password',
+    '/auth/callback',
+    '/email-test',
+  ],
+});
 
 export const config = {
   matcher: [

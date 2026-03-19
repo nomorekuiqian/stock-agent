@@ -5,6 +5,7 @@
 当前认证体系已经回撤到更简单的模式：
 
 - 前端重新使用 `@insforge/nextjs` 的 `InsforgeBrowserProvider`
+- 路由保护改为优先使用 `@insforge/nextjs/middleware` 的 `InsforgeMiddleware`
 - 邮箱密码登录仍然走应用域名下的 Server Proxy：`POST /api/auth { action: 'login' }`
 - 页面刷新后的会话恢复只走一条补充链路：`GET /api/auth/session`
 - 注册体验保留当前版本：邮箱验证码、`/verify-email` 页面、密码可见性切换
@@ -34,13 +35,14 @@
 应用挂载
   -> InsforgeBrowserProvider 先恢复 SDK 状态
   -> 如果 SDK 已有 user：直接认为已登录
-  -> 如果 SDK 没有 user：AuthContext 仅额外请求一次 GET /api/auth/session
-    -> 先验证 insforge-session
-    -> access token 失效时，再用 insforge-refresh + insforge-csrf 换新 token
-    -> 成功后把 access token/user 回填到 SDK
+  -> 如果 SDK 没有 user：AuthContext 仅额外调用一次 getAccessToken()
+    -> getAccessToken() 先查内存 token
+    -> 再查 SDK getCurrentSession()
+    -> 只有前两层都拿不到时，才调用 GET /api/auth/session
+    -> token 恢复成功后，再读取当前 session user 并回填到 SDK
 ```
 
-`/api/auth/session` 是唯一的 cookie recovery 入口，不再把刷新、重试、forced reauth、callback 接管等控制逻辑分散在多个地方。
+`/api/auth/session` 仍然是唯一的 cookie recovery 入口，但已经不再由页面层直接发起，而是收敛到 `getAccessToken()` 这一条统一兜底链路里。
 
 ### 3. Google OAuth
 
@@ -55,6 +57,26 @@
 当前不再使用手工 `oauth-exchange`、PKCE verifier 搬运、cookie bridge 这些自定义接管逻辑。Google OAuth 已回到更接近旧版的 provider 默认链路。
 
 `/auth/callback` 页面仍保留为兼容落地页，但不再承担自定义 code exchange 职责。
+
+### 6. 路由保护
+
+```text
+用户访问受保护页面
+  -> Next.js middleware 先执行
+  -> InsforgeMiddleware 检查 insforge-session cookie
+  -> 无登录态时跳到 /login?redirect=当前路径
+  -> 有登录态时放行
+  -> 页面内原有的 useAuth() / router.push('/login') 逻辑只作为兜底
+```
+
+当前由 middleware 优先保护的页面包括：
+
+- `/for-you` 及其子路由
+- `/profile`
+- `/macro` 及其子路由
+- `/sectors` 及其子路由
+- `/screener`
+- 受保护旧别名：`/digest`、`/liquidity`
 
 ### 4. 注册与邮箱验证
 
@@ -149,6 +171,7 @@
 
 - `frontend/src/components/Providers.tsx`
 - `frontend/src/contexts/AuthContext.tsx`
+- `frontend/middleware.ts`
 - `frontend/src/app/login/page.tsx`
 - `frontend/src/app/verify-email/page.tsx`
 - `frontend/src/lib/auth.ts`
@@ -158,7 +181,8 @@
 职责：
 
 - 发起登录、注册、邮箱验证、Google OAuth
-- 在必要时用 `/api/auth/session` 恢复 cookie 会话
+- 用 `InsforgeMiddleware` 做首层受保护路由拦截
+- 在必要时通过 `getAccessToken()` 间接触发 `/api/auth/session` 做 cookie 会话恢复
 - 给受保护请求附带 Bearer token
 
 ### 后端
@@ -179,8 +203,9 @@
 这次回撤的核心不是“完全去掉 proxy”，而是把 auth 控制面重新简化：
 
 - 登录只有一条主链路：Server Proxy login
-- 恢复只有一条补充链路：`/api/auth/session`
+- 恢复只有一条补充链路：`getAccessToken()` 内部按需 fallback 到 `/api/auth/session`
 - 注册体验保留，但不再和复杂恢复状态机绑定
 - Google OAuth 回到 provider 默认链路
+- 路由保护优先交给官方 middleware，而不是继续扩页面内自定义跳转
 
 如果后续还要继续增强 auth，优先保持这几个边界稳定，不要再把 callback、refresh、提示文案和错误恢复堆回同一个状态机里。

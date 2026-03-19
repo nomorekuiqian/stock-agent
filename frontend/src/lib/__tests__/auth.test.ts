@@ -3,6 +3,7 @@ import {
   cleanupAuthCallbackUrlParams,
   isTokenExpired,
   signIn,
+  signInWithGoogle,
   signOut,
   getAccessToken,
   setCachedToken,
@@ -11,6 +12,7 @@ import {
 const mockSetAuthToken = vi.fn();
 const mockGetCurrentSession = vi.fn();
 const mockSignOut = vi.fn();
+const mockSignInWithOAuth = vi.fn();
 const originalFetch = globalThis.fetch;
 const originalLocation = window.location;
 
@@ -20,6 +22,7 @@ vi.mock('@/lib/insforge', () => ({
     auth: {
       getCurrentSession: (...args: unknown[]) => mockGetCurrentSession(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
+      signInWithOAuth: (...args: unknown[]) => mockSignInWithOAuth(...args),
     },
   },
 }));
@@ -122,6 +125,34 @@ describe('signIn', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Invalid credentials');
+  });
+});
+
+describe('signInWithGoogle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('auth_redirect', '/for-you');
+  });
+
+  it('delegates Google OAuth to the official SDK flow', async () => {
+    mockSignInWithOAuth.mockResolvedValue({ error: null });
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ success: true });
+    expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      redirectTo: `${window.location.origin}/for-you`,
+    });
+  });
+
+  it('returns SDK error when OAuth initiation fails', async () => {
+    mockSignInWithOAuth.mockResolvedValue({ error: { message: 'OAuth failed' } });
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ success: false, error: 'OAuth failed' });
   });
 });
 
