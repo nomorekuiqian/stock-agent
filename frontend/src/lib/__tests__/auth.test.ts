@@ -7,7 +7,9 @@ import {
   signOut,
   getAccessToken,
   setCachedToken,
+  _resetAuthStateForTesting,
 } from '../auth';
+import { INSFORGE_AUTH_TOKEN_KEY } from '../auth-storage';
 
 const mockSetAuthToken = vi.fn();
 const mockGetCurrentSession = vi.fn();
@@ -159,12 +161,14 @@ describe('signInWithGoogle', () => {
 describe('getAccessToken', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setCachedToken(null);
+    _resetAuthStateForTesting();
+    window.localStorage.clear();
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    window.localStorage.clear();
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: originalLocation,
@@ -211,20 +215,45 @@ describe('getAccessToken', () => {
     expect(token).toBeNull();
   });
 
+  it('returns localStorage token when SDK session is expired but localStorage has valid token', async () => {
+    const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
+    mockGetCurrentSession.mockResolvedValue({
+      data: { session: { accessToken: expiredToken } },
+    });
+
+    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
+    window.localStorage.setItem(INSFORGE_AUTH_TOKEN_KEY, validToken);
+
+    const token = await getAccessToken();
+    expect(token).toBe(validToken);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(mockSetAuthToken).toHaveBeenCalledWith(validToken);
+  });
+
   it('deduplicates concurrent cookie recovery attempts', async () => {
     mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
 
     const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
     let resolveCount = 0;
-    globalThis.fetch = vi.fn().mockImplementation(async () => {
+    // Use a deferred promise so both calls reach the _refreshPromise check
+    // before the fetch resolves, guaranteeing deduplication.
+    let resolveFetch!: (value: unknown) => void;
+    const fetchPromise = new Promise((resolve) => { resolveFetch = resolve; });
+    globalThis.fetch = vi.fn().mockImplementation(() => {
       resolveCount += 1;
-      return {
-        ok: true,
-        json: async () => ({ authenticated: true, accessToken: freshToken }),
-      };
+      return fetchPromise;
     });
 
-    const [t1, t2] = await Promise.all([getAccessToken(), getAccessToken()]);
+    const resultPromise = Promise.all([getAccessToken(), getAccessToken()]);
+
+    // Allow both calls to reach the _refreshPromise check, then resolve fetch
+    await Promise.resolve();
+    resolveFetch({
+      ok: true,
+      json: async () => ({ authenticated: true, accessToken: freshToken }),
+    });
+
+    const [t1, t2] = await resultPromise;
 
     expect(t1).toBe(freshToken);
     expect(t2).toBe(freshToken);
@@ -235,7 +264,7 @@ describe('getAccessToken', () => {
 describe('token cache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setCachedToken(null);
+    _resetAuthStateForTesting();
   });
 
   afterEach(() => {

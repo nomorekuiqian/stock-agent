@@ -94,6 +94,111 @@ async function loginWithMock(page: Page) {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: mock backend API for self-contained tests
+// ---------------------------------------------------------------------------
+
+const MOCK_AI_RESPONSE = {
+  success: true,
+  message: '根据你的筛选条件，我找到了一些符合要求的股票。以下是初步结果，我们可以进一步细化。',
+  options: ['查看详情', '继续筛选', '换个方向'],
+  candidates: [
+    { symbol: 'AAPL', name: 'Apple Inc.', pe: 28.5, roe: 145.6 },
+    { symbol: 'MSFT', name: 'Microsoft Corp.', pe: 35.2, roe: 38.4 },
+  ],
+  candidate_count: 2,
+  universe_size: 8500,
+  recommendations: [],
+  accumulated_filters: [],
+  reset_results: false,
+  title: '价值筛选',
+  navigate: null,
+  data_freshness: new Date().toISOString(),
+  is_stale: false,
+};
+
+async function mockBackendApi(page: Page) {
+  // Mock research chat endpoint
+  await page.route('**/api/research/chat', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_AI_RESPONSE),
+    });
+  });
+
+  // Mock research conversations endpoints
+  await page.route('**/api/research/conversations', async (route: Route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ conversations: [] }),
+      });
+    } else if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'conv-mock-001' }),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.route('**/api/research/conversations/*', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true }),
+    });
+  });
+
+  // Mock screener conversations endpoints (used by WelcomeScreen)
+  await page.route('**/api/screener/conversations', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ conversations: [] }),
+    });
+  });
+
+  // Mock screener sectors (used by DataStatus)
+  await page.route('**/api/screener/sectors', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, sectors: [{ name: 'Technology', count: 3500 }] }),
+    });
+  });
+
+  // Mock screener status
+  await page.route('**/api/screener/status', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ cached: true, freshness: new Date().toISOString() }),
+    });
+  });
+
+  // Mock cookie session recovery
+  await page.route('**/api/auth/session', async (route: Route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          authenticated: true,
+          accessToken: createFakeJwt(),
+          user: { id: 'user-123', email: 'test@example.com' },
+        }),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -168,8 +273,9 @@ test.describe('Screener page (/screener)', () => {
   // -----------------------------------------------------------------------
 
   test('clicking a strategy card starts a conversation with AI', async ({ page }) => {
-    test.setTimeout(120_000); // LLM calls can be slow
+    test.setTimeout(30_000);
 
+    await mockBackendApi(page);
     await page.goto('/screener');
     await expect(page.locator('text=投资机会')).toBeVisible({ timeout: 15000 });
 
@@ -196,7 +302,7 @@ test.describe('Screener page (/screener)', () => {
 
     // Wait for AI response — max-w-[85%] distinguishes real messages from TypingIndicator
     const aiMessage = page.locator('.max-w-\\[85\\%\\].rounded-tl-sm').first();
-    await expect(aiMessage).toBeVisible({ timeout: 90000 });
+    await expect(aiMessage).toBeVisible({ timeout: 15000 });
 
     // AI response should contain some text (not empty)
     const aiText = await aiMessage.innerText();
@@ -204,8 +310,9 @@ test.describe('Screener page (/screener)', () => {
   });
 
   test('typing a custom query gets AI response with results', async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(30_000);
 
+    await mockBackendApi(page);
     await page.goto('/screener');
     await expect(page.locator('textarea')).toBeVisible({ timeout: 15000 });
 
@@ -213,8 +320,8 @@ test.describe('Screener page (/screener)', () => {
     const textarea = page.locator('textarea');
     await textarea.fill('PE 低于 15 且 ROE 超过 20%');
 
-    // Click send button
-    const sendBtn = page.locator('button:near(textarea)').last();
+    // Click send button — the button is next to the textarea inside the same container
+    const sendBtn = textarea.locator('..').locator('button');
     await sendBtn.click();
 
     // Should transition to chat phase
@@ -222,7 +329,7 @@ test.describe('Screener page (/screener)', () => {
 
     // Wait for AI response
     const aiMessage = page.locator('.max-w-\\[85\\%\\].rounded-tl-sm').first();
-    await expect(aiMessage).toBeVisible({ timeout: 90000 });
+    await expect(aiMessage).toBeVisible({ timeout: 15000 });
 
     // On desktop, results panel should show something
     // (candidate count, funnel steps, or "waiting for results" state)
@@ -235,8 +342,9 @@ test.describe('Screener page (/screener)', () => {
   // -----------------------------------------------------------------------
 
   test('"重新开始" resets back to WelcomeScreen', async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(30_000);
 
+    await mockBackendApi(page);
     await page.goto('/screener');
     await expect(page.locator('text=投资机会')).toBeVisible({ timeout: 15000 });
 
