@@ -716,7 +716,7 @@ describe('CONTEXT_ENTRY', () => {
       params: { symbol: 'NVDA' },
       available_actions: [],
     };
-    let prev = researchReducer(initialState, { type: 'PUSH_CONTENT', content: stockContent });
+    const prev = researchReducer(initialState, { type: 'PUSH_CONTENT', content: stockContent });
     // Now contentStack has 1 item
     expect(prev.contentStack).toHaveLength(1);
 
