@@ -1,20 +1,23 @@
 'use client';
 
-import { useReducer, useCallback, useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useReducer, useCallback, useEffect, useState, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
-import type { ConversationSummary } from '@/lib/api';
+import type { ConversationSummary, ResearchRequest } from '@/lib/api';
 import {
-  pickerReducer,
+  researchReducer,
   initialState,
   loadState,
   saveState,
-} from './_lib/pickerReducer';
-import type { LoadConversationData } from './_lib/pickerReducer';
+} from './_lib/researchReducer';
+import type { LoadConversationData } from './_lib/researchReducer';
 import type { StockContextPayload } from './_components/StockResearchView';
+import type { DailyReportContextPayload } from './_components/DailyReportView';
+import type { MacroContextPayload } from './_components/MacroOverview';
+import type { BrewContextPayload } from './_components/BrewDigestView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
@@ -37,14 +40,89 @@ function formatConversationTitle(agentTitle: string): string {
 
 function ScreenerContent() {
   const router = useRouter();
-  const { isLoading: authLoading, isAuthenticated } = useAuth();
-  const [state, dispatch] = useReducer(pickerReducer, initialState, loadState);
+  const { isLoading: authLoading, isAuthenticated, signOut } = useAuth();
+  const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
   const prevPhaseRef = useRef(state.phase);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const stockContextRef = useRef<StockContextPayload | null>(null);
+  const reportContextRef = useRef<DailyReportContextPayload | null>(null);
+  const macroContextRef = useRef<MacroContextPayload | null>(null);
+  const brewContextRef = useRef<BrewContextPayload | null>(null);
+  const pendingSeed = useRef<string | null>(null);
+  const pendingSeedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
+  const searchParams = useSearchParams();
+  const contextInitialized = useRef(false);
+
+  // URL parameter-driven context entry (e.g. /screener?context=daily_report&date=2026-03-19)
+  // Uses CONTEXT_ENTRY action to skip welcome and start in chat+loading phase.
+  // Sets a pendingSeed message that will be auto-sent when the content panel data is ready.
+  useEffect(() => {
+    if (contextInitialized.current) return;
+    const contextType = searchParams.get('context');
+    if (!contextType) return;
+    contextInitialized.current = true;
+
+    if (contextType === 'daily_report') {
+      const date = searchParams.get('date') || '';
+      dispatch({
+        type: 'CONTEXT_ENTRY',
+        content: {
+          type: 'daily_report',
+          label: date ? `${date} 市场日报` : '市场日报',
+          summary: '',
+          params: date ? { date } : {},
+          available_actions: ['追问日报内容', '查看提到的个股', '查看宏观背景'],
+        },
+      });
+      pendingSeed.current = date
+        ? `帮我解读 ${date} 的市场日报`
+        : '帮我解读今天的市场日报';
+    } else if (contextType === 'macro') {
+      dispatch({
+        type: 'CONTEXT_ENTRY',
+        content: {
+          type: 'macro',
+          label: '宏观风险仪表盘',
+          summary: '',
+          params: {},
+          available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
+        },
+      });
+      pendingSeed.current = '帮我看看当前宏观环境';
+    } else if (contextType === 'stock') {
+      const symbol = searchParams.get('symbol');
+      if (symbol) {
+        dispatch({
+          type: 'CONTEXT_ENTRY',
+          content: {
+            type: 'stock',
+            label: `${symbol} 个股研究`,
+            summary: symbol,
+            params: { symbol },
+            available_actions: ['查看基本面', '技术分析', '返回选股'],
+          },
+        });
+        pendingSeed.current = `帮我分析一下 ${symbol}`;
+      }
+    } else if (contextType === 'brew') {
+      const digestId = searchParams.get('digestId') || '';
+      dispatch({
+        type: 'CONTEXT_ENTRY',
+        content: {
+          type: 'brew',
+          label: '专属日报',
+          summary: '',
+          params: digestId ? { digestId } : {},
+          available_actions: ['追问持仓表现', '查看个股详情', '查看宏观背景'],
+        },
+      });
+      pendingSeed.current = '帮我看看今天我的持仓情况';
+    }
+  }, [searchParams, dispatch]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
@@ -55,7 +133,7 @@ function ScreenerContent() {
   useEffect(() => {
     if (state.phase !== 'welcome' || !isAuthenticated) return;
     let cancelled = false;
-    api.screener.conversations.list()
+    api.research.conversations.list()
       .then(res => {
         if (!cancelled) {
           setConversations(res.conversations || []);
@@ -101,7 +179,7 @@ function ScreenerContent() {
   // Build conversation data for saving
   const buildConversationData = useCallback((
     messages: typeof state.messages,
-    result: { accumulated_filters: typeof state.accumulatedFilters; candidates: typeof state.candidates; candidate_count: number; universe_size: number; pick_reasons: typeof state.pickReasons },
+    result: { accumulated_filters: typeof state.accumulatedFilters; candidates: typeof state.candidates; candidate_count: number; universe_size: number; recommendations: typeof state.recommendations },
     funnelSteps: typeof state.funnelSteps,
     activeContent: typeof state.activeContent,
     contentStack: typeof state.contentStack,
@@ -111,7 +189,7 @@ function ScreenerContent() {
     candidates: result.candidates,
     candidate_count: result.candidate_count,
     universe_size: result.universe_size,
-    pick_reasons: result.pick_reasons,
+    recommendations: result.recommendations,
     funnel_steps: funnelSteps,
     active_content: activeContent,
     content_stack: contentStack,
@@ -127,7 +205,7 @@ function ScreenerContent() {
     setSaveStatus('saving');
     try {
       if (!convId) {
-        const created = await api.screener.conversations.create({
+        const created = await api.research.conversations.create({
           title,
           data,
           message_count: messageCount,
@@ -136,7 +214,7 @@ function ScreenerContent() {
           dispatch({ type: 'SET_CONVERSATION_ID', id: created.id });
         }
       } else {
-        await api.screener.conversations.update(convId, {
+        await api.research.conversations.update(convId, {
           title,
           data,
           message_count: messageCount,
@@ -165,10 +243,41 @@ function ScreenerContent() {
     setMobileTab('results');
   }, []);
 
+  // Auto-send pending seed message when context data is ready
+  const flushPendingSeed = useCallback(() => {
+    if (!pendingSeed.current) return;
+    const seed = pendingSeed.current;
+    pendingSeed.current = null;
+    // Small delay to ensure React state from CONTEXT_ENTRY has settled before sending
+    pendingSeedTimerRef.current = setTimeout(() => {
+      pendingSeedTimerRef.current = null;
+      handleSendRef.current?.(seed);
+    }, 100);
+  }, []);
+
   // Receive stock data from StockResearchView for Agent context
   const handleStockContextReady = useCallback((payload: StockContextPayload) => {
     stockContextRef.current = payload;
-  }, []);
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
+  // Receive daily report data from DailyReportView for Agent context
+  const handleReportContextReady = useCallback((payload: DailyReportContextPayload) => {
+    reportContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
+  // Receive macro data from MacroOverview for Agent context
+  const handleMacroContextReady = useCallback((payload: MacroContextPayload) => {
+    macroContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
+  // Receive brew digest data from BrewDigestView for Agent context
+  const handleBrewContextReady = useCallback((payload: BrewContextPayload) => {
+    brewContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
 
   // Send message handler
   const handleSend = useCallback(async (message: string) => {
@@ -178,19 +287,56 @@ function ScreenerContent() {
     dispatch({ type: 'SEND_MESSAGE', message });
 
     try {
-      // Build active_context from stock research view if viewing a stock
-      const ctx = stockContextRef.current;
-      const activeContext = state.activeContent.type === 'stock' && ctx
-        ? {
-            type: ctx.type,
-            symbol: ctx.symbol,
-            quote: ctx.quote ?? undefined,
-            fundamentals: ctx.fundamentals ?? undefined,
-            ai_analysis: ctx.ai_analysis ?? undefined,
-          }
-        : undefined;
+      // Build active_context from the current content panel view
+      let activeContext: ResearchRequest['active_context'];
+      if (state.activeContent.type === 'stock' && stockContextRef.current) {
+        const ctx = stockContextRef.current;
+        activeContext = {
+          type: ctx.type,
+          symbol: ctx.symbol,
+          quote: ctx.quote ?? undefined,
+          fundamentals: ctx.fundamentals ?? undefined,
+          ai_analysis: ctx.ai_analysis ?? undefined,
+        };
+      } else if (state.activeContent.type === 'daily_report' && reportContextRef.current) {
+        const ctx = reportContextRef.current;
+        activeContext = {
+          type: ctx.type,
+          date: ctx.date,
+          title: ctx.title ?? undefined,
+          summary: ctx.summary ?? undefined,
+          intro: ctx.intro ?? undefined,
+          news: ctx.news ?? undefined,
+          report_summary: ctx.report_summary ?? undefined,
+          calendar: ctx.calendar ?? undefined,
+        };
+      } else if (state.activeContent.type === 'macro' && macroContextRef.current) {
+        const ctx = macroContextRef.current;
+        activeContext = {
+          type: ctx.type,
+          week_label: ctx.week_label ?? undefined,
+          verdict: ctx.verdict ?? undefined,
+          signal_lights: ctx.signal_lights ?? undefined,
+          landscape: ctx.landscape ?? undefined,
+          narrative: ctx.narrative ?? undefined,
+          takeaway: ctx.takeaway ?? undefined,
+        };
+      } else if (state.activeContent.type === 'brew' && brewContextRef.current) {
+        const ctx = brewContextRef.current;
+        activeContext = {
+          type: 'brew',
+          digest_date: ctx.digest_date ?? undefined,
+          symbols_used: ctx.symbols ?? undefined,
+          greeting: ctx.greeting ?? undefined,
+          one_line_summary: ctx.one_line_summary ?? undefined,
+          stocks: ctx.stocks ?? undefined,
+          events: ctx.events ?? undefined,
+          news: ctx.news ?? undefined,
+          summary_content: ctx.summary_content ?? undefined,
+        };
+      }
 
-      const result = await api.screener.pick({
+      const result = await api.research.chat({
         message,
         history: [...buildHistory(), { role: 'user', content: message }],
         accumulated_filters: state.accumulatedFilters.length > 0
@@ -206,9 +352,65 @@ function ScreenerContent() {
 
       dispatch({ type: 'RECEIVE_RESPONSE', result });
 
-      // Handle agent-driven navigation (e.g. "show me NVDA")
+      // Handle agent-driven navigation (e.g. "show me NVDA" or "show daily report")
       if (result.navigate?.type === 'stock' && result.navigate.params?.symbol) {
         handleStockClick(result.navigate.params.symbol);
+      } else if (result.navigate?.type === 'daily_report') {
+        reportContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'daily_report',
+            label: '市场日报',
+            summary: '',
+            params: { date: result.navigate.params?.date ?? '' },
+            available_actions: ['追问日报内容', '查看提到的个股', '查看宏观背景'],
+          },
+        });
+        setMobileTab('results');
+      } else if (result.navigate?.type === 'macro') {
+        macroContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'macro',
+            label: '宏观风险仪表盘',
+            summary: '',
+            params: {},
+            available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
+          },
+        });
+        setMobileTab('results');
+      } else if (result.navigate?.type === 'brew') {
+        brewContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'brew',
+            label: '专属日报',
+            summary: '',
+            params: {},
+            available_actions: ['追问持仓表现', '查看个股详情', '查看宏观背景'],
+          },
+        });
+        setMobileTab('results');
+      } else if (result.navigate?.type === 'screener') {
+        // Navigate back to screener — clear stack, reset context refs
+        stockContextRef.current = null;
+        reportContextRef.current = null;
+        macroContextRef.current = null;
+        brewContextRef.current = null;
+        dispatch({
+          type: 'SWITCH_CONTENT',
+          content: {
+            type: 'screener',
+            label: '选股结果',
+            summary: '',
+            params: {},
+            available_actions: ['继续筛选', '查看个股详情', '重新开始'],
+          },
+        });
+        setMobileTab('results');
       }
 
       // Auto-save conversation (fire-and-forget)
@@ -255,13 +457,27 @@ function ScreenerContent() {
       }
       const authError = getAuthErrorPresentation(err, 'AI 助手暂时无法响应');
       if (authError.shouldRedirectToLogin) {
-        dispatch({ type: 'SET_ERROR', error: authError.message });
+        await signOut().catch(() => {});
         router.push('/login?redirect=/screener');
         return;
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation, handleStockClick]);
+  }, [buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation, handleStockClick, signOut]);
+
+  // Keep ref in sync so flushPendingSeed can call the latest handleSend
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
+  // Cancel pending seed timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingSeedTimerRef.current) {
+        clearTimeout(pendingSeedTimerRef.current);
+      }
+    };
+  }, []);
 
   // Cancel stuck loading — lets user recover without refreshing
   const handleCancelLoading = useCallback(() => {
@@ -272,7 +488,7 @@ function ScreenerContent() {
   // Load a saved conversation
   const handleLoadConversation = useCallback(async (conversationId: string) => {
     try {
-      const conv = await api.screener.conversations.get(conversationId);
+      const conv = await api.research.conversations.get(conversationId);
       if (!conv) return;
       const data = (conv.data || {}) as Record<string, unknown>;
       dispatch({
@@ -285,7 +501,7 @@ function ScreenerContent() {
           candidates: (data.candidates || []) as LoadConversationData['candidates'],
           candidateCount: (data.candidate_count as number) || 0,
           universeSize: (data.universe_size as number) || 0,
-          pickReasons: (data.pick_reasons || []) as LoadConversationData['pickReasons'],
+          recommendations: ((data.recommendations || data.pick_reasons) || []) as LoadConversationData['recommendations'],
           funnelSteps: (data.funnel_steps || []) as LoadConversationData['funnelSteps'],
           activeContent: data.active_content as LoadConversationData['activeContent'],
           contentStack: data.content_stack as LoadConversationData['contentStack'],
@@ -299,7 +515,7 @@ function ScreenerContent() {
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
     try {
-      await api.screener.conversations.delete(conversationId);
+      await api.research.conversations.delete(conversationId);
       setConversations(prev => prev.filter(c => c.id !== conversationId));
     } catch {
       // Ignore delete failures
@@ -412,11 +628,14 @@ function ScreenerContent() {
               candidates: state.candidates,
               candidateCount: state.candidateCount,
               universeSize: state.universeSize,
-              pickReasons: state.pickReasons,
+              recommendations: state.recommendations,
               loading: state.isLoading,
               onStockClick: handleStockClick,
             }}
             onStockContextReady={handleStockContextReady}
+            onReportContextReady={handleReportContextReady}
+            onMacroContextReady={handleMacroContextReady}
+            onBrewContextReady={handleBrewContextReady}
           />
         </div>
       </div>
@@ -431,7 +650,9 @@ function ScreenerContent() {
 export default function ScreenerPage() {
   return (
     <PaywallGuard>
-      <ScreenerContent />
+      <Suspense>
+        <ScreenerContent />
+      </Suspense>
     </PaywallGuard>
   );
 }

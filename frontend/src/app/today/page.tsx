@@ -83,6 +83,15 @@ export default function TodayPage() {
                 </svg>
                 <span className="text-sm font-data text-foreground">{formatDateChinese(report.report_date)}</span>
               </div>
+              <Link
+                href={`/screener?context=daily_report&date=${report.report_date || ''}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                跟 AI 聊聊
+              </Link>
             </div>
 
             {report.title && (

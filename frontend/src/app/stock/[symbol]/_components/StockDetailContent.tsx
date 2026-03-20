@@ -1756,6 +1756,15 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                   {profile.classification.industry && ` / ${translateIndustry(profile.classification.industry)}`}
                 </p>
               )}
+              <Link
+                href={`/screener?context=stock&symbol=${symbol}`}
+                className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-md transition-colors w-fit"
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                AI 深度分析
+              </Link>
             </div>
 
             {/* Price - show loading skeleton while quote is being fetched */}
