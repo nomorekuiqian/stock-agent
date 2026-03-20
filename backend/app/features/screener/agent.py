@@ -1,7 +1,7 @@
 """
 Screener shared infrastructure - tools, ContextVar, and session helper.
 
-Provides the shared FunctionTools and utilities used by the StockPickerAgent.
+Provides the shared FunctionTools and utilities used by the ResearchAgent.
 The tools operate on a per-coroutine universe ContextVar for thread safety.
 """
 

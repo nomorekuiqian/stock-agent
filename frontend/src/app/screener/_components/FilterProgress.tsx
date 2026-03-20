@@ -1,6 +1,6 @@
 'use client';
 
-import type { FilterStep } from '../_lib/pickerReducer';
+import type { FilterStep } from '../_lib/researchReducer';
 
 export type { FilterStep };
 

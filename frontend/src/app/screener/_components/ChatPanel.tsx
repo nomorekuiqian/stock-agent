@@ -5,7 +5,7 @@ import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
 import TypingIndicator from './TypingIndicator';
 import ChatInput from './ChatInput';
-import type { ChatMsg } from '../_lib/pickerReducer';
+import type { ChatMsg } from '../_lib/researchReducer';
 
 export type { ChatMsg };
 

@@ -109,6 +109,7 @@ from app.features.notification.router import router as notification_router
 from app.features.morning_report.router import router as morning_report_router
 from app.features.payment.router import router as payment_router
 from app.features.screener.router import router as screener_router
+from app.features.screener.router import research_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -125,6 +126,7 @@ app.include_router(notification_router)
 app.include_router(payment_router)
 app.include_router(morning_report_router)
 app.include_router(screener_router)
+app.include_router(research_router)
 
 
 # ---------------------------------------------------------------------------

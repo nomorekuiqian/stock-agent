@@ -5,12 +5,19 @@ Endpoints:
   POST /api/screener/refresh       (cron, protected)
   GET  /api/screener/status        (monitoring, public)
   POST /api/screener/filter        (screener queries, public)
-  POST /api/screener/pick          (guided stock picking, auth required)
-  GET  /api/screener/conversations           (list, auth required)
+  POST /api/screener/pick          (guided stock research, auth required) [deprecated -> /api/research/chat]
+  GET  /api/screener/conversations           (list, auth required) [deprecated -> /api/research/conversations]
   GET  /api/screener/conversations/{id}      (get, auth required)
   POST /api/screener/conversations           (create, auth required)
   PUT  /api/screener/conversations/{id}      (update, auth required)
   DELETE /api/screener/conversations/{id}    (delete, auth required)
+
+  POST /api/research/chat                    (guided stock research, auth required)
+  GET  /api/research/conversations           (list, auth required)
+  GET  /api/research/conversations/{id}      (get, auth required)
+  POST /api/research/conversations           (create, auth required)
+  PUT  /api/research/conversations/{id}      (update, auth required)
+  DELETE /api/research/conversations/{id}    (delete, auth required)
 """
 
 import asyncio
@@ -32,8 +39,8 @@ from app.features.screener.models import (
     ConversationSaveRequest,
     FilterRequest,
     FilterResult,
-    PickRequest,
-    PickResult,
+    ResearchRequest,
+    ResearchResult,
 )
 from app.features.screener.suggestions import (
     compute_narrowing_suggestions,
@@ -341,15 +348,15 @@ async def filter_stocks(req: FilterRequest):
     )
 
 
-@router.post("/pick", response_model=PickResult)
-async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token)):
+@router.post("/pick", response_model=ResearchResult)
+async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_token)):
     """
-    Conversation-guided stock picking assistant.
+    Conversation-guided stock research assistant.
     Each call is one turn in an ongoing conversation.
     The agent guides the user to find personalized stocks.
     """
     from app.features.screener.filters import filter_custom
-    from app.features.screener.picker_agent import get_picker_agent
+    from app.features.screener.research_agent import get_research_agent
 
     # Load universe
     cache = await _load_universe()
@@ -358,7 +365,7 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
     is_valid = cache["is_valid"]
 
     if not universe:
-        return PickResult(
+        return ResearchResult(
             success=False,
             message="数据还没准备好，请稍等一下再试",
             data_freshness=freshness,
@@ -366,8 +373,8 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
             universe_size=0,
         )
 
-    # Run picker agent
-    agent = get_picker_agent()
+    # Run research agent
+    agent = get_research_agent()
     try:
         parsed = await agent.guide(
             message=req.message,
@@ -377,8 +384,8 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
             content_context=req.active_context,
         )
     except Exception as e:
-        logger.error("Picker agent error: %s", e)
-        return PickResult(
+        logger.error("Research agent error: %s", e)
+        return ResearchResult(
             success=False,
             message="AI 助手出了点问题，请再试一次",
             universe_size=len(universe),
@@ -390,7 +397,7 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
     agent_message = parsed.get("message", "")
     options_raw = parsed.get("options", [])
     filters = parsed.get("filters", [])
-    pick_reasons_raw = parsed.get("pick_reasons", [])
+    recommendations_raw = parsed.get("recommendations", [])
     update_results = parsed.get("update_results", True)
 
     # Convert options to plain strings
@@ -409,15 +416,15 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
         }
         candidates, total_matches = filter_custom(universe, filter_params)
         logger.info(
-            "Picker filter: %d conditions -> %d matches (%d returned)",
+            "Research filter: %d conditions -> %d matches (%d returned)",
             len(filters), total_matches, len(candidates),
         )
     elif not filters and update_results:
         # Agent cleared all filters (e.g. "change direction") -> reset results
         reset_results = True
-        logger.info("Picker reset: agent cleared all filters")
+        logger.info("Research reset: agent cleared all filters")
     elif not update_results:
-        logger.info("Picker chat turn: skipping filter (update_results=false)")
+        logger.info("Research chat turn: skipping filter (update_results=false)")
 
     # Build lookup tables for symbol validation
     ticker_set: set[str] = set()
@@ -466,9 +473,9 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
 
         return None
 
-    # Format pick_reasons with symbol validation
-    pick_reasons = []
-    for pr in pick_reasons_raw:
+    # Format recommendations with symbol validation
+    recommendations = []
+    for pr in recommendations_raw:
         if not isinstance(pr, dict) or "symbol" not in pr or "reason" not in pr:
             continue
         sym = pr["symbol"].strip()
@@ -476,25 +483,25 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
 
         resolved = _resolve_symbol(sym)
         if resolved:
-            pick_reasons.append({"symbol": resolved, "reason": reason})
+            recommendations.append({"symbol": resolved, "reason": reason})
         else:
-            logger.warning("Picker agent output unresolvable symbol: %s", sym)
+            logger.warning("Research agent output unresolvable symbol: %s", sym)
 
     logger.info(
-        "Picker final: candidates=%d, total_matches=%d, pick_reasons=%d, "
-        "agent_pick_reasons_raw=%d, options=%d",
-        len(candidates), total_matches, len(pick_reasons),
-        len(pick_reasons_raw), len(options),
+        "Research final: candidates=%d, total_matches=%d, recommendations=%d, "
+        "agent_recommendations_raw=%d, options=%d",
+        len(candidates), total_matches, len(recommendations),
+        len(recommendations_raw), len(options),
     )
 
-    return PickResult(
+    return ResearchResult(
         success=True,
         message=agent_message,
         options=options,
         candidates=candidates,
         candidate_count=total_matches if total_matches else len(candidates),
         universe_size=len(universe),
-        pick_reasons=pick_reasons,
+        recommendations=recommendations,
         accumulated_filters=filters,
         reset_results=reset_results,
         title=parsed.get("title", ""),
@@ -505,13 +512,13 @@ async def pick_stocks(req: PickRequest, user_id: str = Depends(verify_user_token
 
 
 # ---------------------------------------------------------------------------
-# Picker Conversation CRUD
+# Research Conversation CRUD
 # ---------------------------------------------------------------------------
 
 
 @router.get("/conversations")
 async def list_conversations(user_id: str = Depends(verify_user_token)):
-    """List user's picker conversations (lightweight, no data field)."""
+    """List user's research conversations (lightweight, no data field)."""
     from app.features.screener.conversation_db import list_conversations as db_list
 
     items = await db_list(user_id)
@@ -541,7 +548,7 @@ async def create_conversation(
     req: ConversationSaveRequest,
     user_id: str = Depends(verify_user_token),
 ):
-    """Create a new picker conversation."""
+    """Create a new research conversation."""
     from app.features.screener.conversation_db import (
         create_conversation as db_create,
     )
@@ -565,7 +572,7 @@ async def update_conversation(
     req: ConversationSaveRequest,
     user_id: str = Depends(verify_user_token),
 ):
-    """Update an existing picker conversation."""
+    """Update an existing research conversation."""
     from app.features.screener.conversation_db import (
         update_conversation as db_update,
     )
@@ -591,7 +598,7 @@ async def delete_conversation(
     conversation_id: str,
     user_id: str = Depends(verify_user_token),
 ):
-    """Delete a picker conversation."""
+    """Delete a research conversation."""
     from app.features.screener.conversation_db import (
         delete_conversation as db_delete,
     )
@@ -602,3 +609,65 @@ async def delete_conversation(
 
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# /api/research/* -- new unified endpoints (delegates to same logic)
+# ---------------------------------------------------------------------------
+
+research_router = APIRouter(prefix="/api/research", tags=["research"])
+
+
+@research_router.post("/chat", response_model=ResearchResult)
+async def research_chat(req: ResearchRequest, user_id: str = Depends(verify_user_token)):
+    """Unified research chat endpoint. Delegates to pick_stocks."""
+    logger.info("research_chat called (new endpoint)")
+    return await pick_stocks(req, user_id)
+
+
+@research_router.get("/conversations")
+async def research_list_conversations(user_id: str = Depends(verify_user_token)):
+    """List research conversations (new endpoint)."""
+    logger.info("research_list_conversations called (new endpoint)")
+    return await list_conversations(user_id)
+
+
+@research_router.get("/conversations/{conversation_id}")
+async def research_get_conversation(
+    conversation_id: str,
+    user_id: str = Depends(verify_user_token),
+):
+    """Get a single conversation (new endpoint)."""
+    logger.info("research_get_conversation called (new endpoint)")
+    return await get_conversation(conversation_id, user_id)
+
+
+@research_router.post("/conversations", status_code=201)
+async def research_create_conversation(
+    req: ConversationSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Create a research conversation (new endpoint)."""
+    logger.info("research_create_conversation called (new endpoint)")
+    return await create_conversation(req, user_id)
+
+
+@research_router.put("/conversations/{conversation_id}")
+async def research_update_conversation(
+    conversation_id: str,
+    req: ConversationSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Update a research conversation (new endpoint)."""
+    logger.info("research_update_conversation called (new endpoint)")
+    return await update_conversation(conversation_id, req, user_id)
+
+
+@research_router.delete("/conversations/{conversation_id}")
+async def research_delete_conversation(
+    conversation_id: str,
+    user_id: str = Depends(verify_user_token),
+):
+    """Delete a research conversation (new endpoint)."""
+    logger.info("research_delete_conversation called (new endpoint)")
+    return await delete_conversation(conversation_id, user_id)

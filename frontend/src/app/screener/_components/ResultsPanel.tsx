@@ -1,7 +1,7 @@
 'use client';
 
 import FilterProgress, { type FilterStep } from './FilterProgress';
-import PickReasonCard from './PickReasonCard';
+import RecommendationCard from './RecommendationCard';
 import CandidateList from './CandidateList';
 
 interface ResultsPanelProps {
@@ -10,7 +10,7 @@ interface ResultsPanelProps {
   candidates: Record<string, unknown>[];
   candidateCount: number;
   universeSize: number;
-  pickReasons: { symbol: string; reason: string }[];
+  recommendations: { symbol: string; reason: string }[];
   loading: boolean;
   /** When provided, clicking a stock opens it in the right panel. */
   onStockClick?: (symbol: string) => void;
@@ -22,7 +22,7 @@ interface ResultsPanelProps {
  * Shows:
  * 1. Filter progress funnel (3,680 -> 45 -> 5)
  * 2. Applied filter condition chips
- * 3. Pick reason cards (when AI makes final recommendations)
+ * 3. Recommendation cards (when AI makes final recommendations)
  * 4. Candidate stock list (table on desktop, cards on mobile)
  *
  * Empty state shown when no results yet.
@@ -33,12 +33,12 @@ export default function ResultsPanel({
   candidates,
   candidateCount,
   universeSize,
-  pickReasons,
+  recommendations,
   loading,
   onStockClick,
 }: ResultsPanelProps) {
   const hasResults = candidates.length > 0;
-  const hasReasons = pickReasons.length > 0;
+  const hasReasons = recommendations.length > 0;
 
   // Empty state
   if (!hasResults && !loading) {
@@ -89,7 +89,7 @@ export default function ResultsPanel({
           <h3 className="text-xs font-medium text-muted-foreground">
             AI 推荐
           </h3>
-          {pickReasons.map((pr, i) => {
+          {recommendations.map((pr, i) => {
             const stock = candidates.find(
               (c) => {
                 const s = String(c.symbol || '');
@@ -98,7 +98,7 @@ export default function ResultsPanel({
               }
             );
             return (
-              <PickReasonCard
+              <RecommendationCard
                 key={pr.symbol}
                 symbol={pr.symbol}
                 name={stock?.name as string}

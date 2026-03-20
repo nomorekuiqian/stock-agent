@@ -1,5 +1,5 @@
 """
-Picker conversation persistence — DB layer via Insforge Edge Functions.
+Research conversation persistence — DB layer via Insforge Edge Functions.
 """
 
 from typing import Any, Optional

@@ -846,9 +846,9 @@ export interface ScreenerAskResult {
   is_stale: boolean;
 }
 
-// Stock Picker Agent types
+// Stock Research Agent types
 
-export interface PickRequest {
+export interface ResearchRequest {
   message: string;
   history?: { role: string; content: string }[];
   accumulated_filters?: { field: string; op: string; value: unknown }[];
@@ -858,17 +858,40 @@ export interface PickRequest {
     quote?: Record<string, unknown>;
     fundamentals?: Record<string, unknown>;
     ai_analysis?: string;
+    // daily_report fields
+    date?: string;
+    title?: string;
+    summary?: string;
+    intro?: string;
+    news?: unknown;
+    report_summary?: unknown;
+    calendar?: unknown;
+    // macro fields
+    week_label?: string;
+    verdict?: string;
+    signal_lights?: Record<string, string>;
+    landscape?: string;
+    narrative?: string;
+    takeaway?: string;
+    // brew (personal digest) fields
+    digest_date?: string;
+    symbols_used?: string[];
+    greeting?: string;
+    one_line_summary?: string;
+    stocks?: unknown;
+    events?: unknown;
+    summary_content?: string;
   };
 }
 
-export interface PickResult {
+export interface ResearchResult {
   success: boolean;
   message: string;
   options: string[];
   candidates: Record<string, unknown>[];
   candidate_count: number;
   universe_size: number;
-  pick_reasons: { symbol: string; reason: string }[];
+  recommendations: { symbol: string; reason: string }[];
   accumulated_filters: { field: string; op: string; value: unknown }[];
   reset_results: boolean;
   title: string;
@@ -877,7 +900,7 @@ export interface PickResult {
   is_stale: boolean;
 }
 
-// Picker Conversation types
+// Research Conversation types
 
 export interface ConversationSummary {
   id: string;
@@ -1648,7 +1671,8 @@ export const api = {
       return response.json();
     },
 
-    pick: async (req: PickRequest): Promise<PickResult> => {
+    // @deprecated Use api.research.chat() instead
+    pick: async (req: ResearchRequest): Promise<ResearchResult> => {
       const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 90_000);
@@ -1757,6 +1781,92 @@ export const api = {
         throw new Error(error.detail || 'Failed to generate weekly report');
       }
       return response.json();
+    },
+  },
+
+  // Research API (unified endpoints, replaces screener.pick + screener.conversations)
+  research: {
+    chat: async (req: ResearchRequest): Promise<ResearchResult> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/research/chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'AI 助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('AI 助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
+    conversations: {
+      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+        const headers = await _authHeaders({}, { required: true });
+        const response = await fetch(`${API_BASE_URL}/research/conversations`, { headers });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch conversations');
+        }
+        return response.json();
+      },
+
+      get: async (id: string): Promise<Record<string, unknown>> => {
+        const headers = await _authHeaders({}, { required: true });
+        const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, { headers });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch conversation');
+        }
+        return response.json();
+      },
+
+      create: async (req: ConversationSaveRequest): Promise<{ id: string }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/research/conversations`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to create conversation');
+        }
+        return response.json();
+      },
+
+      update: async (id: string, req: ConversationSaveRequest): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to update conversation');
+        }
+        return response.json();
+      },
+
+      delete: async (id: string): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({}, { required: true });
+        const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, {
+          method: 'DELETE',
+          headers,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to delete conversation');
+        }
+        return response.json();
+      },
     },
   },
 };

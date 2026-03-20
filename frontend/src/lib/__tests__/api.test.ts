@@ -672,7 +672,7 @@ describe('api (post cache removal)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Screener Pick API (Stock Picker Agent)
+  // Screener Pick API (Stock Research Agent)
   // -------------------------------------------------------------------------
   describe('screener.pick', () => {
     const pickResponse = {
@@ -682,7 +682,7 @@ describe('api (post cache removal)', () => {
       candidates: [{ symbol: 'AAPL', name: 'Apple' }],
       candidate_count: 1,
       universe_size: 3680,
-      pick_reasons: [{ symbol: 'AAPL', reason: 'Great company' }],
+      recommendations: [{ symbol: 'AAPL', reason: 'Great company' }],
       accumulated_filters: [{ field: 'roe', op: 'gt', value: 15 }],
       data_freshness: '2026-03-02T00:00:00Z',
       is_stale: false,
@@ -695,7 +695,7 @@ describe('api (post cache removal)', () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Here are some picks');
-      expect(result.pick_reasons).toHaveLength(1);
+      expect(result.recommendations).toHaveLength(1);
 
       const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(fetchCall[0]).toContain('/screener/pick');
@@ -778,6 +778,169 @@ describe('api (post cache removal)', () => {
 
       await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Research API (unified endpoints)
+  // -------------------------------------------------------------------------
+  describe('research.chat', () => {
+    it('POSTs to /research/chat with auth headers', async () => {
+      const payload = {
+        success: true,
+        message: 'Here are some stocks',
+        options: [],
+        candidates: [],
+      };
+      mockFetchOk(payload);
+
+      const result = await api.research.chat({ message: 'find growth stocks' });
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/chat');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual({ message: 'find growth stocks' });
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on 401 with login expired message', async () => {
+      mockFetchError(401);
+
+      await expect(api.research.chat({ message: 'test' })).rejects.toThrow(
+        /登录/
+      );
+    });
+
+    it('throws with detail message on error', async () => {
+      mockFetchError(500, 'Agent processing failed');
+
+      await expect(api.research.chat({ message: 'test' })).rejects.toThrow(
+        'Agent processing failed'
+      );
+    });
+
+    it('throws fallback message when response is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.research.chat({ message: 'test' })).rejects.toThrow(
+        'AI 助手暂时无法响应'
+      );
+    });
+  });
+
+  describe('research.conversations.list', () => {
+    it('GETs /research/conversations with auth header', async () => {
+      const payload = { conversations: [{ id: 'c1', title: 'Test' }] };
+      mockFetchOk(payload);
+
+      const result = await api.research.conversations.list();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations');
+      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on 401', async () => {
+      mockFetchError(401);
+
+      await expect(api.research.conversations.list()).rejects.toThrow(/登录/);
+    });
+  });
+
+  describe('research.conversations.create', () => {
+    it('POSTs to /research/conversations with body', async () => {
+      const payload = { id: 'new-conv-id' };
+      mockFetchOk(payload);
+
+      const req = { title: 'My Research', data: { messages: [] }, message_count: 3 };
+      const result = await api.research.conversations.create(req);
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(JSON.parse(opts.body)).toEqual(req);
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on error', async () => {
+      mockFetchError(500, 'Failed to create conversation');
+
+      await expect(
+        api.research.conversations.create({ title: '', data: {}, message_count: 0 })
+      ).rejects.toThrow('Failed to create conversation');
+    });
+  });
+
+  describe('research.conversations.get', () => {
+    it('GETs /research/conversations/{id}', async () => {
+      const payload = { id: 'c1', title: 'Test', data: {} };
+      mockFetchOk(payload);
+
+      const result = await api.research.conversations.get('c1');
+
+      const [url] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations/c1');
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on 404', async () => {
+      mockFetchError(404, 'Conversation not found');
+
+      await expect(api.research.conversations.get('bad-id')).rejects.toThrow(
+        'Conversation not found'
+      );
+    });
+  });
+
+  describe('research.conversations.update', () => {
+    it('PUTs to /research/conversations/{id}', async () => {
+      const payload = { success: true };
+      mockFetchOk(payload);
+
+      const req = { title: 'Updated', data: { x: 1 }, message_count: 5 };
+      const result = await api.research.conversations.update('c1', req);
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations/c1');
+      expect(opts.method).toBe('PUT');
+      expect(JSON.parse(opts.body)).toEqual(req);
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on error', async () => {
+      mockFetchError(404, 'Conversation not found or not owned');
+
+      await expect(
+        api.research.conversations.update('c1', { title: '', data: {}, message_count: 0 })
+      ).rejects.toThrow('Conversation not found or not owned');
+    });
+  });
+
+  describe('research.conversations.delete', () => {
+    it('DELETEs /research/conversations/{id}', async () => {
+      const payload = { success: true };
+      mockFetchOk(payload);
+
+      const result = await api.research.conversations.delete('c1');
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations/c1');
+      expect(opts.method).toBe('DELETE');
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on 404', async () => {
+      mockFetchError(404, 'Conversation not found');
+
+      await expect(api.research.conversations.delete('bad-id')).rejects.toThrow(
+        'Conversation not found'
+      );
     });
   });
 
