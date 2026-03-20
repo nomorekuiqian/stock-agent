@@ -9,7 +9,7 @@
 // Core types
 // ---------------------------------------------------------------------------
 
-export type ContentType = 'screener' | 'stock' | 'daily_report' | 'macro' | 'sector';
+export type ContentType = 'screener' | 'stock' | 'daily_report' | 'macro' | 'sector' | 'brew';
 
 export interface ContentContext {
   type: ContentType;
@@ -29,4 +29,28 @@ export const SCREENER_CONTENT: ContentContext = {
   summary: '',
   params: {},
   available_actions: ['继续筛选', '查看个股详情', '重新开始'],
+};
+
+export const DAILY_REPORT_CONTENT: ContentContext = {
+  type: 'daily_report',
+  label: '市场日报',
+  summary: '',
+  params: {},
+  available_actions: ['追问日报内容', '查看提到的个股', '查看宏观背景'],
+};
+
+export const MACRO_CONTENT: ContentContext = {
+  type: 'macro',
+  label: '宏观风险仪表盘',
+  summary: '',
+  params: {},
+  available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
+};
+
+export const BREW_CONTENT: ContentContext = {
+  type: 'brew',
+  label: '专属日报',
+  summary: '',
+  params: {},
+  available_actions: ['追问持仓表现', '查看个股详情', '查看宏观背景'],
 };
