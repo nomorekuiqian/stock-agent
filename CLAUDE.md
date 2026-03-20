@@ -89,7 +89,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 用户说"帮我写个 plan"、"我要做 XX 功能"、"规划一下怎么实现" → 使用 `/plan` skill
 - **Plan Mode 自动保存**：当通过 Plan Mode 生成计划后，在开始实现之前，必须将 plan 内容保存到 `docs/plans/{feature-name}.md`。Plan Mode 的产出不能只留在对话里，必须持久化
 
-**文件命名**：`docs/plans/{feature-name}.md`，用英文短横线命名（如 `morning-report.md`、`stock-picker-agent.md`）。
+**文件命名**：`docs/plans/{feature-name}.md`，用英文短横线命名（如 `morning-report.md`、`research-desk.md`）。
 
 **Plan 生命周期**：
 1. **创建**：通过 `/plan` skill 或 Plan Mode 产生，保存到 `docs/plans/`

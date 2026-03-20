@@ -1,6 +1,6 @@
 # Research Desk (统一研究台) Engineering Plan
 
-> Status: Phase 1 Complete (Steps 1-11 implemented)
+> Status: Phase 3 In Progress (Steps 1-13, 15-16, 18 complete; Step 14 skipped)
 > Related: features/screener/.context.md, app/screener/.context.md
 > Vision: 产品策略.md > 方向三：统一研究台
 
@@ -12,7 +12,7 @@
 
 **已有**：
 - /screener 是唯一的左右分栏页面（ChatPanel + ResultsPanel）
-- Picker Agent 对话系统完整：reducer (8 actions) + sessionStorage + DB 持久化
+- Research Agent 对话系统完整：reducer (8 actions) + sessionStorage + DB 持久化
 - 其他页面（/today, /stock, /macro, /sectors）各自独立，无对话能力
 - 后端各 feature 数据能力齐全（日报、个股研究、宏观分析、板块分析）
 
@@ -153,11 +153,11 @@ tools = [
 
 #### 状态管理演进
 
-从 screener-only 的 `pickerReducer` 演进为通用的 `researchReducer`：
+从 screener-only 的 `researchReducer` 演进为通用的 `researchReducer`：
 
 ```
-当前 (pickerReducer):
-  messages[] + candidates[] + pickReasons[] + funnelSteps[]
+当前 (researchReducer):
+  messages[] + candidates[] + recommendations[] + funnelSteps[]
 
 目标 (researchReducer):
   messages[]           // 对话历史 (跨 context 保留)
@@ -402,7 +402,7 @@ POST /api/research/chat  (相同结构，/pick 保持兼容)
   "messages": [...],
   "accumulated_filters": [...],
   "candidates": [...],
-  "pick_reasons": [...],
+  "recommendations": [...],
   "funnel_steps": [...],
   // 新增
   "content_stack": [
@@ -444,7 +444,7 @@ export const contentProviders: Record<ContentType, ContentProvider> = {
       candidates: state.candidates,
       candidate_count: state.candidateCount,
       universe_size: state.universeSize,
-      pick_reasons: state.pickReasons,
+      recommendations: state.recommendations,
     }),
     fetchData: null,  // 数据来自 reducer state
   },
@@ -545,29 +545,29 @@ export const contentProviders: Record<ContentType, ContentProvider> = {
 
 > 目标：选股完成后，点击候选股直接在右边面板打开个股研究，Agent 保持 context。
 
-1. [ ] **ContentContext 类型定义** — 创建 `_lib/contentTypes.ts`，定义 `ContentType`, `ContentContext`, `ContentProvider` 接口
-2. [ ] **Reducer 扩展** — `pickerReducer` 新增 `activeContent`, `contentStack` 状态 + `PUSH_CONTENT`, `POP_CONTENT`, `SWITCH_CONTENT` actions
-3. [ ] **ContentPanel 组件** — 创建 `ContentPanel.tsx`，根据 `activeContent.type` 渲染不同内容。默认渲染 `ResultsPanel`（保持现有行为）
-4. [ ] **StockResearchView 组件** — 从 `/stock/[symbol]` 提取核心展示逻辑为可嵌入组件（不包含页面 layout/nav）
-5. [ ] **CandidateList 点击行为** — 从"跳转 /stock/{symbol}"改为 `dispatch(PUSH_CONTENT, { type: "stock", params: { symbol } })`
-6. [ ] **ContentHeader 组件** — 面板顶部显示当前内容标题 + 返回按钮（弹栈回到选股结果）
-7. [ ] **Agent context 注入** — 前端用 `buildAgentPayload()` 构建完整数据 payload，随 `/pick` 请求发送 `active_context` 字段
-8. [ ] **后端 Picker Agent 扩展** — 识别 `active_context`，将完整结构化数据格式化为自然语言注入 instruction。增加 `navigate_to_content` tool + 导航规则 instruction
-9. [ ] **Agent 驱动导航** — 前端解析 Agent 响应中的 `navigate` 字段，根据导航类型执行 PUSH/SWITCH，获取目标数据并切换面板
-10. [ ] **持久化扩展** — conversation data JSONB 增加 `content_stack` 和 `active_content_type`
-11. [ ] **SessionStorage 扩展** — 持久化和恢复 `contentStack` 和 `activeContent`
+1. [x] **ContentContext 类型定义** — 创建 `_lib/contentTypes.ts`，定义 `ContentType`, `ContentContext`, `ContentProvider` 接口
+2. [x] **Reducer 扩展** — `researchReducer` 新增 `activeContent`, `contentStack` 状态 + `PUSH_CONTENT`, `POP_CONTENT`, `SWITCH_CONTENT` actions
+3. [x] **ContentPanel 组件** — 创建 `ContentPanel.tsx`，根据 `activeContent.type` 渲染不同内容。默认渲染 `ResultsPanel`（保持现有行为）
+4. [x] **StockResearchView 组件** — 从 `/stock/[symbol]` 提取核心展示逻辑为可嵌入组件（不包含页面 layout/nav）
+5. [x] **CandidateList 点击行为** — 从"跳转 /stock/{symbol}"改为 `dispatch(PUSH_CONTENT, { type: "stock", params: { symbol } })`
+6. [x] **ContentHeader 组件** — 面板顶部显示当前内容标题 + 返回按钮（弹栈回到选股结果）
+7. [x] **Agent context 注入** — 前端用 `buildAgentPayload()` 构建完整数据 payload，随 `/pick` 请求发送 `active_context` 字段
+8. [x] **后端 Picker Agent 扩展** — 识别 `active_context`，将完整结构化数据格式化为自然语言注入 instruction。增加 `navigate_to_content` tool + 导航规则 instruction
+9. [x] **Agent 驱动导航** — 前端解析 Agent 响应中的 `navigate` 字段，根据导航类型执行 PUSH/SWITCH，获取目标数据并切换面板
+10. [x] **持久化扩展** — conversation data JSONB 增加 `content_stack` 和 `active_content_type`
+11. [x] **SessionStorage 扩展** — 持久化和恢复 `contentStack` 和 `activeContent`
 
 ### Phase 3: 加入日报/宏观 context
 
 > 目标：用户可以在研究台内查看日报、宏观数据，Agent 理解这些 context。
 
-12. [ ] **DailyReportView 组件** — 从 `/today` 提取核心展示逻辑为可嵌入组件
-13. [ ] **MacroOverview 组件** — 从 `/macro` 提取风险仪表盘为可嵌入组件
-14. [ ] **SectorView 组件** — 从 `/sectors` 提取板块分析为可嵌入组件
-15. [ ] **ContentHeader tabs** — 在面板顶部增加 content type 切换 tabs
-16. [ ] **Research Agent (后端)** — 从 Picker Agent 演进为通用 Research Agent，注册所有 content type 的 tools
+12. [x] **DailyReportView 组件** — 从 `/today` 提取核心展示逻辑为可嵌入组件
+13. [x] **MacroOverview 组件** — 从 `/macro` 提取风险仪表盘为可嵌入组件
+14. ~~**SectorView 组件**~~ — 跳过（用户决定不做）
+15. [x] **ContentHeader tabs** — 在面板顶部增加 content type 切换 tabs（选股/日报/宏观，desktop only，emerald active indicator）
+16. [x] **Research Agent (后端)** — 重命名 Picker → Research Agent + 注册 stock/daily_report/macro context 注入
 17. [ ] **API 端点** — 新增 `POST /api/research/chat`，替代 `/pick` 作为统一入口（`/pick` 保持兼容）
-18. [ ] **宏观/日报 context 生成器** — 后端为每种 content type 实现 context summary 生成
+18. [x] **宏观/日报 context 生成器** — 后端为 stock/daily_report/macro 实现 context 格式化 + Agent instruction 注入
 
 ### Phase 4: 独立 /research 路由
 
