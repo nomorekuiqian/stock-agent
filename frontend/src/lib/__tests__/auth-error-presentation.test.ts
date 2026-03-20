@@ -11,7 +11,7 @@ describe('getAuthErrorPresentation', () => {
     expect(result).toEqual({
       kind: 'expired',
       message: '登录已过期。请先尝试强制刷新页面：Mac 用 Command + Shift + R，Windows 用 Ctrl + Shift + R；手机端请重新加载当前页面。如果仍然失败，再退出登录后重试。',
-      shouldRedirectToLogin: false,
+      shouldRedirectToLogin: true,
     });
   });
 

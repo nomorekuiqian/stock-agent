@@ -42,6 +42,8 @@ vi.mock('@/lib/auth', () => ({
   getAccessToken: (...args: unknown[]) => mockGetAccessToken(...args),
   updateProfile: (...args: unknown[]) => mockAuthUpdateProfile(...args),
   isTokenExpired: vi.fn().mockReturnValue(false),
+  syncClientAuthSession: vi.fn(),
+  setCachedToken: vi.fn(),
 }));
 
 vi.mock('@/lib/insforge', () => ({

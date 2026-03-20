@@ -42,7 +42,7 @@ export function getAuthErrorPresentation(
     return {
       kind: 'expired',
       message: EXPIRED_MESSAGE,
-      shouldRedirectToLogin: false,
+      shouldRedirectToLogin: true,
     };
   }
 

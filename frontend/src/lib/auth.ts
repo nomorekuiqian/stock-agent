@@ -274,6 +274,26 @@ export async function getAccessToken(): Promise<string | null> {
     // SDK session unavailable.
   }
 
+  // After page reload, InsforgeBrowserProvider may have recovered sdk.user from
+  // localStorage without populating the standalone @insforge/sdk tokenManager.
+  // Check localStorage before falling back to the full cookie round-trip.
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem(INSFORGE_AUTH_TOKEN_KEY);
+      if (stored && !isTokenExpired(stored)) {
+        _cachedToken = stored;
+        try {
+          insforge.getHttpClient().setAuthToken(stored);
+        } catch {
+          // Best-effort SDK sync.
+        }
+        return stored;
+      }
+    }
+  } catch {
+    // localStorage unavailable.
+  }
+
   if (!_refreshPromise) {
     _refreshPromise = recoverTokenFromCookies().finally(() => {
       _refreshPromise = null;

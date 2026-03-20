@@ -26,12 +26,17 @@ import {
   GlobalLiquidityMetrics,
   GlobalLiquidityHistoryObservation,
 } from '@/lib/api';
-import { useLiquidityHistory, useGlobalLiquidity, useGlobalLiquidityHistory } from '@/hooks/queries/use-liquidity-data';
+import { useLiquidityMetrics, useLiquidityHistory, useGlobalLiquidity, useGlobalLiquidityHistory } from '@/hooks/queries/use-liquidity-data';
 import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
 import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatCompareDateLabel, formatDateTimePacific } from '@/lib/timezone';
 import { Droplets, Layers, Gauge, Globe, Banknote } from 'lucide-react';
+import {
+  formatLiquidityValue,
+  getLatestNonNullObservation,
+  mergeLiquidityMetricsForDisplay,
+} from './liquidity-metrics';
 
 const FRED_SYMBOLS: Record<string, string> = {
   fedAssets: 'FRED:WALCL',
@@ -168,22 +173,6 @@ const EMPTY_METRICS: LiquidityMetrics = {
   nfci: { ...EMPTY_METRIC, series_id: 'NFCI', title: 'Chicago Fed NFCI', units: 'Index' },
   net_liquidity: { ...EMPTY_METRIC, series_id: 'CALCULATED', title: 'Net Liquidity', units: 'Billions of Dollars' },
 };
-
-function formatValue(value: number | null, units: string): string {
-  if (value === null) return 'N/A';
-  if (units.toLowerCase().includes('billion')) {
-    if (value >= 1000) return `$${(value / 1000).toFixed(2)}T`;
-    return `$${value.toFixed(0)}B`;
-  }
-  if (units.toLowerCase().includes('million')) {
-    if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}T`;
-    if (value >= 1000) return `$${(value / 1000).toFixed(0)}B`;
-    return `$${value.toFixed(0)}M`;
-  }
-  if (units.toLowerCase().includes('percent')) return `${value.toFixed(2)}%`;
-  if (units.toLowerCase() === 'rate') return value.toFixed(4);
-  return value.toFixed(2);
-}
 
 function getColorClass(color: string) {
   if (color === 'emerald') return 'text-emerald-400';
@@ -367,7 +356,7 @@ function LiquidityMetricPanel({
 
   const hasChange = metric.change != null;
   const isPositive = hasChange && metric.change! >= 0;
-  const primaryDisplay = formatValue(metric.value, metric.units);
+  const primaryDisplay = formatLiquidityValue(metric.value, metric.units);
 
   return (
     <div
@@ -572,7 +561,7 @@ function USLiquidityDeepDive({
                       {labels[key]}
                     </p>
                     <p className="text-xl font-bold font-data text-foreground tracking-tight">
-                      {formatValue(m.value, m.units)}
+                      {formatLiquidityValue(m.value, m.units)}
                     </p>
                     {hasChange && (
                       <div className="flex items-center gap-1 mt-1">
@@ -813,7 +802,7 @@ function GlobalMetricCard({
     >
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className="text-xl font-bold font-data text-foreground tracking-tight">
-        {formatValue(val, units)}
+        {formatLiquidityValue(val, units)}
       </p>
       {change != null && (
         <span
@@ -851,6 +840,10 @@ function GlobalLiquidityDeepDive({
   theme: 'light' | 'dark';
 }) {
   const { ref, isVisible } = useInView();
+  const latestGlobalObservation = useMemo(
+    () => getLatestNonNullObservation(globalHistoryData),
+    [globalHistoryData],
+  );
 
   const toMetricProp = (m: GlobalLiquidityMetrics[keyof GlobalLiquidityMetrics] | undefined) =>
     m && typeof m === 'object' && 'series_id' in m
@@ -936,13 +929,15 @@ function GlobalLiquidityDeepDive({
                       全球流动性指数 (Global Liquidity Index)
                     </p>
                     <p className="text-3xl font-bold font-data text-foreground tracking-tight">
-                      {globalMetrics.global_liquidity?.value != null
-                        ? formatValue(globalMetrics.global_liquidity.value, 'Billions of U.S. Dollars')
+                      {latestGlobalObservation?.value != null
+                        ? formatLiquidityValue(latestGlobalObservation.value, 'Billions of U.S. Dollars')
+                        : globalMetrics.global_liquidity?.value != null
+                        ? formatLiquidityValue(globalMetrics.global_liquidity.value, 'Billions of U.S. Dollars')
                         : 'N/A'}
                     </p>
-                    {globalMetrics.global_liquidity?.date && (
+                    {(latestGlobalObservation?.time || globalMetrics.global_liquidity?.date) && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {globalMetrics.global_liquidity.date}
+                        {latestGlobalObservation?.time ?? globalMetrics.global_liquidity?.date}
                       </p>
                     )}
                   </div>
@@ -1096,6 +1091,7 @@ export default function LiquidityPage() {
   const queryClient = useQueryClient();
 
   // TanStack Query hooks
+  const { data: metricsResponse } = useLiquidityMetrics();
   const { data: historyResponse, isLoading: historyLoading, error: historyError } = useLiquidityHistory(365);
   const { data: globalResponse, isLoading: globalLoading } = useGlobalLiquidity();
   const { data: globalHistoryResponse, isLoading: globalHistoryLoading, error: globalHistoryErr } = useGlobalLiquidityHistory(365);
@@ -1120,9 +1116,18 @@ export default function LiquidityPage() {
     return { metrics: m, historyData: obs, lastUpdated: res.timestamp, dataUnavailable: unavailable };
   }, [historyResponse, historyError]);
 
+  const latestMetrics = metricsResponse?.success ? metricsResponse.metrics : null;
+  const displayMetrics = useMemo(
+    () => mergeLiquidityMetricsForDisplay(metrics, latestMetrics),
+    [metrics, latestMetrics],
+  );
   const globalMetrics: GlobalLiquidityMetrics | null = globalResponse?.success ? globalResponse.data : null;
   const globalHistoryData: GlobalLiquidityHistoryObservation[] = globalHistoryResponse?.success ? globalHistoryResponse.data.observations : [];
   const globalHistoryError: string | null = globalHistoryErr ? 'Failed to load global liquidity history' : null;
+  const latestGlobalObservation = useMemo(
+    () => getLatestNonNullObservation(globalHistoryData),
+    [globalHistoryData],
+  );
 
   const INTERVAL_MAP: Record<string, string> = {
     '1M': 'D', '3M': 'D', '6M': 'W', '1Y': 'W', 'ALL': 'M',
@@ -1151,27 +1156,32 @@ export default function LiquidityPage() {
   // Build hero card data for each tab
   const getHeroProps = (tabId: TabId) => {
     if (tabId === 'us_liquidity') {
-      const primary = metrics?.net_liquidity ?? EMPTY_METRIC;
-      const secondary = metrics?.sofr ?? EMPTY_METRIC;
+      const primary = displayMetrics?.net_liquidity ?? EMPTY_METRIC;
+      const secondary = displayMetrics?.sofr ?? EMPTY_METRIC;
       return {
         primaryLabel: 'WALCL - TGA - RRP',
-        primaryFormatted: formatValue(primary.value, primary.units),
+        primaryFormatted: formatLiquidityValue(primary.value, primary.units),
         secondaryLabel: 'SOFR',
         secondaryFormatted: secondary.value !== null ? `${secondary.value.toFixed(2)}%` : 'N/A',
         accentColor: interpretChange(primary.change),
       };
     }
-    // global_liquidity — show Global Liquidity Index as primary
-    const glIndex = globalMetrics?.global_liquidity;
+    // Keep the global-liquidity headline number aligned with the history chart's latest point.
+    const glIndex = latestGlobalObservation
+      ? {
+          value: latestGlobalObservation.value,
+          units: 'Billions of U.S. Dollars',
+        }
+      : globalMetrics?.global_liquidity;
     const secondary = globalMetrics?.ecb_assets;
     return {
       primaryLabel: 'Fed + ECB + BOJ - TGA - RRP',
       primaryFormatted: glIndex?.value != null
-        ? formatValue(glIndex.value, 'Billions of U.S. Dollars')
+        ? formatLiquidityValue(glIndex.value, 'Billions of U.S. Dollars')
         : globalLoading ? '...' : 'N/A',
       secondaryLabel: '欧洲央行 (ECB) 总资产',
       secondaryFormatted: secondary?.value != null
-        ? formatValue(secondary.value, 'Billions of U.S. Dollars')
+        ? formatLiquidityValue(secondary.value, 'Billions of U.S. Dollars')
         : 'N/A',
       accentColor: glIndex?.value != null ? 'emerald' : 'amber',
     };
@@ -1253,9 +1263,9 @@ export default function LiquidityPage() {
               : 'opacity-100 translate-y-0'
           }`}
         >
-          {selectedTab === 'us_liquidity' && metrics && (
+          {selectedTab === 'us_liquidity' && displayMetrics && (
             <USLiquidityDeepDive
-              metrics={metrics}
+              metrics={displayMetrics}
               historyData={historyData}
               historyLoading={loading}
               historyError={error}

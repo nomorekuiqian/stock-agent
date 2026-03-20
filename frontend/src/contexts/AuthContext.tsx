@@ -10,8 +10,9 @@ import {
   updateProfile as authUpdateProfile,
   getAccessToken,
   setCachedToken,
+  syncClientAuthSession,
 } from '@/lib/auth';
-import { clearClientAuthStorage } from '@/lib/auth-storage';
+import { clearClientAuthStorage, INSFORGE_AUTH_USER_KEY } from '@/lib/auth-storage';
 import { insforge } from '@/lib/insforge';
 import { buildAbsoluteVerifyEmailUrl } from '@/lib/auth-verification';
 import { api } from '@/lib/api';
@@ -173,8 +174,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Try SDK session first (works when InsforgeBrowserProvider already loaded state).
+        // Fall back to localStorage user set by syncClientAuthSession() during login/recovery.
         const session = await insforge.auth.getCurrentSession().catch(() => null);
-        const sessionUser = session?.data?.session?.user;
+        let sessionUser = session?.data?.session?.user ?? null;
+        if (!sessionUser) {
+          try {
+            const stored = typeof window !== 'undefined'
+              ? window.localStorage.getItem(INSFORGE_AUTH_USER_KEY)
+              : null;
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (parsed?.id) sessionUser = parsed;
+            }
+          } catch {
+            // localStorage unavailable.
+          }
+        }
+
         if (!sessionUser) {
           return;
         }
@@ -196,6 +213,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       syncUserWithSubscriptions(user);
     }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Proactive silent refresh: keep access token fresh before it expires.
+  // Access token lifetime is ~1 hour; refresh every 45 minutes while the user is logged in.
+  // This prevents the "token expired mid-session" error window entirely.
+  useEffect(() => {
+    if (!user) return;
+
+    async function silentRefresh() {
+      try {
+        const res = await fetch('/api/auth/session', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.authenticated && data.accessToken) {
+          syncClientAuthSession(data.accessToken, data.user);
+        }
+      } catch {
+        // Best-effort background refresh; failures are non-fatal.
+      }
+    }
+
+    silentRefresh(); // immediate refresh on mount to catch near-expiry tokens
+    const INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
+    const timer = setInterval(silentRefresh, INTERVAL_MS);
+    return () => clearInterval(timer);
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
