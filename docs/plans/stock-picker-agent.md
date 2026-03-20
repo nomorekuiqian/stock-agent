@@ -1,6 +1,6 @@
 # Stock Picker Agent - 对话引导式选股助手
 
-> Status: Draft
+> Status: All Phases Complete
 > Related: `backend/app/features/screener/.context.md`, `frontend/src/app/screener/.context.md`
 
 ## Context
@@ -294,31 +294,31 @@ Turn 4: Agent 主动推荐 → pick_reasons=[...] → 右侧切换推荐卡片 (
 
 ### Phase 1: 后端 Agent + API
 
-- [ ] 1. `models.py` — 新增 PickerOption, PickRequest, PickResult
-- [ ] 2. `picker_agent.py` — 新文件: StockPickerAgent 类 + PickerAgentOutput schema + PICKER_AGENT_INSTRUCTION。复用 agent.py 的 ContextVar + 3 FunctionTool
-- [ ] 3. `router.py` — 新增 `POST /api/screener/pick` 端点
-- [ ] 4. 手动测试 Agent 对话质量（curl 3-5 个对话流程）
+- [x] 1. `models.py` — 新增 PickerOption, PickRequest, PickResult
+- [x] 2. `picker_agent.py` — 新文件: StockPickerAgent 类 + PickerAgentOutput schema + PICKER_AGENT_INSTRUCTION。复用 agent.py 的 ContextVar + 3 FunctionTool
+- [x] 3. `router.py` — 新增 `POST /api/screener/pick` 端点
+- [x] 4. 手动测试 Agent 对话质量（curl 3-5 个对话流程）
 
 ### Phase 2: 前端 UI 重构
 
-- [ ] 5. `api.ts` — 新增 PickRequest/PickResult 类型 + api.screener.pick()
-- [ ] 6. `page.tsx` — 重写: useReducer + 左右分栏布局 + 移动端 Tab
-- [ ] 7. `ChatPanel.tsx` — 对话面板 (消息列表 + 自动滚动)
-- [ ] 8. `ChatMessage.tsx` — 消息 bubble + 入场动画
-- [ ] 9. `OptionChips.tsx` — 可点击选项 (点击后 disabled)
-- [ ] 10. `ChatInput.tsx` — 底部输入框
-- [ ] 11. `ResultsPanel.tsx` — 右侧结果面板
-- [ ] 12. `FilterProgress.tsx` — 筛选进度
-- [ ] 13. `PickReasonCard.tsx` — 推荐理由卡片
-- [ ] 14. `MobileTabSwitch.tsx` — 移动端 Tab 切换
+- [x] 5. `api.ts` — 新增 PickRequest/PickResult 类型 + api.screener.pick()
+- [x] 6. `page.tsx` — 重写: useReducer + 左右分栏布局 + 移动端 Tab
+- [x] 7. `ChatPanel.tsx` — 对话面板 (消息列表 + 自动滚动)
+- [x] 8. `ChatMessage.tsx` — 消息 bubble + 入场动画
+- [x] 9. `OptionChips.tsx` — 可点击选项 (点击后 disabled)
+- [x] 10. `ChatInput.tsx` — 底部输入框
+- [x] 11. `ResultsPanel.tsx` — 右侧结果面板
+- [x] 12. `FilterProgress.tsx` — 筛选进度
+- [x] 13. `PickReasonCard.tsx` — 推荐理由卡片
+- [x] 14. `MobileTabSwitch.tsx` — 移动端 Tab 切换
 
 ### Phase 3: 集成与打磨
 
-- [ ] 15. Welcome 消息硬编码（前端，零延迟首屏）
-- [ ] 16. 清理废弃组件 (StrategyCards, NarrowingSuggestions, AppliedFilters, AiSummary, FunnelProgress, SectorSelector)
-- [ ] 17. 移动端适配测试
-- [ ] 18. 错误处理: 超时/空结果/网络错误
-- [ ] 19. 更新 .context.md (后端 + 前端)
+- [x] 15. Welcome 消息硬编码（前端，零延迟首屏）
+- [x] 16. 清理废弃组件 (StrategyCards, NarrowingSuggestions, AppliedFilters, AiSummary, FunnelProgress, SectorSelector)
+- [x] 17. 移动端适配测试
+- [x] 18. 错误处理: 超时/空结果/网络错误
+- [x] 19. 更新 .context.md (后端 + 前端)
 
 ## 验证方案
 
