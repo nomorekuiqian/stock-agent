@@ -55,7 +55,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | /for-you | brew | `features/brew/.context.md` | 现有模块演进 > /for-you + 模块 1 |
 | /stock | stock | `features/stock/.context.md` | 现有模块演进 > /stock + 模块 3 |
 | /macro | macro/risk, liquidity, weekly | `features/macro/*/.context.md` (3 个) | 现有模块演进 > /macro |
-| /sectors | sector | `features/sector/.context.md` | 现有模块演进 > /sectors |
 | /screener | screener | `features/screener/.context.md` + `app/screener/.context.md` | 模块 4 (机会发现) |
 
 ### Obsidian 产品知识库
@@ -113,7 +112,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `backend/app/features/macro/cache/.context.md` — 宏观数据缓存系统
 - `backend/app/features/macro/risk/.context.md` — 宏观风险评估
 - `backend/app/features/screener/.context.md` — Stock Screener 数据层
-- `backend/app/features/sector/.context.md` — 板块分析
 - `backend/app/features/subscription/.context.md` — 邮件订阅管理
 - `backend/app/features/notification/.context.md` — 邮件发送与广播
 - `backend/app/features/feedback/.context.md` — 用户反馈
@@ -127,7 +125,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `frontend/src/app/for-you/.context.md` — 个性化 Brew 页面
 - `frontend/src/app/stock/.context.md` — 个股研究页面
 - `frontend/src/app/macro/.context.md` — 宏观仪表盘页面
-- `frontend/src/app/sectors/.context.md` — 板块分析页面
 - `frontend/src/app/screener/.context.md` — 个股筛选页面
 - `frontend/src/app/api/auth/.context.md` — Server Proxy 认证路由
 - `frontend/src/lib/.context.md` — 共享工具库 (api/auth/insforge)
@@ -228,7 +225,6 @@ backend/app/
 │   ├── stock/           # 个股投研
 │   ├── macro/           # 宏观体系 (risk/ + liquidity/ + weekly/ + cache/)
 │   ├── screener/        # Stock Screener (tvscreener 全市场筛选)
-│   ├── sector/          # 板块分析
 │   ├── subscription/    # 订阅管理
 │   ├── notification/    # 邮件发送与广播
 │   ├── feedback/        # 用户反馈

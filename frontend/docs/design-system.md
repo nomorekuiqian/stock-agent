@@ -172,7 +172,6 @@
 **应用页面：**
 - `/today` - DAILY REPORT
 - `/for-you` - FOR YOU
-- `/sectors` - SECTORS
 - `/stock` - STOCK RESEARCH
 - `/tools` - DATA TOOLS
 - `/contact` - CONTACT

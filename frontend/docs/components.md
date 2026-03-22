@@ -10,7 +10,6 @@
 | 图表 | 8 | 各类金融图表 (基于 Lightweight Charts) |
 | 风险指标 | 4 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
 | 个股 | 4 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
-| 板块 | 4 | SectorPanel, SectorSelector, SectorPreview, SectorDigestContent |
 | 技术分析 | 6 | SignalCard, TechnicalTooltip, TechnicalAnalysisContent, IndicatorBar, TechnicalSignalDashboard, TechnicalChart |
 | 个性化 (for-you) | 5 | PortfolioSnapshotBar, OnboardingSection, DigestInlineReport, FeatureCards, RecentReports |
 | 订阅 | 2 | SubscribeForm, PaywallGuard |
@@ -113,7 +112,7 @@ AI 个股分析卡片，支持三种状态。
 - **核心**: 统一封装所有 Backend API 调用
 - **缓存**: `cachedFetch(key, fetcher, ttl)` — 5 分钟默认 TTL，最多 100 条
 - **请求去重**: inflight deduplication (同一请求不重复发送)
-- **模块化**: `api.subscriptions.*`, `api.sectors.*`, `api.weeklyReport.*`
+- **模块化**: `api.subscriptions.*`, `api.weeklyReport.*`
 - **类型**: 45+ TypeScript 接口定义
 
 ### insforge.ts — Insforge 数据库直连
@@ -146,7 +145,7 @@ AI 个股分析卡片，支持三种状态。
 - **State**: user, isLoading, isAuthenticated
 - **Methods**: signIn, signUp, signOut, signInWithGoogle, refreshUser
 - **自动行为**:
-  - Provider 状态恢复 + 必要时的 cookie recovery 兜底
+  - mount 时通过同源 `/api/auth` 恢复当前会话
   - 首次登录自动订阅日报
   - 订阅同步 (syncUser)
   - LocalStorage 记录订阅状态 (避免重复)
@@ -154,5 +153,5 @@ AI 个股分析卡片，支持三种状态。
 
 ### Providers.tsx — 全局 Provider 包裹
 - ThemeProvider (next-themes)
-- InsforgeBrowserProvider (Insforge SDK)
 - AuthProvider (自定义认证)
+- SubscriptionProvider
