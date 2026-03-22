@@ -24,12 +24,6 @@ export function MobileMenu() {
         { href: '/for-you', label: '专属日报' },
       ],
     },
-    ...(process.env.NODE_ENV === 'development' ? [{
-      title: '板块',
-      links: [
-        { href: '/sectors', label: '板块追踪' },
-      ],
-    }] : []),
     {
       title: '个股',
       links: [

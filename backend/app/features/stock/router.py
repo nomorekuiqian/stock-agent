@@ -825,16 +825,6 @@ async def generate_news_analysis_endpoint(
 # =============================================================================
 
 
-def _find_sector_id_for_symbol(symbol: str) -> str | None:
-    """Find sector_id for a symbol by searching SECTORS list."""
-    from app.features.sector.models import SECTORS
-
-    symbol_upper = symbol.upper()
-    for sector in SECTORS:
-        if symbol_upper in sector.symbols:
-            return sector.id
-    return None
-
 
 @router.post("/{symbol}/macro")
 @limiter.limit("5/minute")
@@ -879,7 +869,6 @@ async def generate_macro_analysis_endpoint(
             get_inflation_rates,
             get_treasury_and_commodities,
         )
-        from app.features.sector.db import get_latest_sector_digest
         from app.features.stock.agent import (
             _prepare_macro_sector_context,
             get_macro_sector_agent,
@@ -890,41 +879,31 @@ async def generate_macro_analysis_endpoint(
         profile = stock_data.get("profile", {})
         quote = stock_data.get("quote", {})
 
-        # Find sector_id for this symbol
-        sector_id = _find_sector_id_for_symbol(symbol)
-
-        # Parallel fetch: macro dashboard, sentiment, sector digest,
-        # inflation/rates, treasury/commodities
+        # Parallel fetch: macro dashboard, sentiment, inflation/rates, treasury/commodities
         macro_task = get_macro_risk_dashboard()
         sentiment_task = get_market_sentiment()
         inflation_task = get_inflation_rates()
         treasury_task = get_treasury_and_commodities()
 
-        async def _noop():
-            return None
-
-        sector_task = get_latest_sector_digest(sector_id) if sector_id else _noop()
-
         results = await asyncio.gather(
-            macro_task, sentiment_task, sector_task,
+            macro_task, sentiment_task,
             inflation_task, treasury_task,
             return_exceptions=True,
         )
 
         macro_dashboard = results[0] if not isinstance(results[0], Exception) else None
         market_sentiment = results[1] if not isinstance(results[1], Exception) else None
-        sector_digest = results[2] if not isinstance(results[2], Exception) else None
-        inflation_rates = results[3] if not isinstance(results[3], Exception) else None
-        treasury_commodities = results[4] if not isinstance(results[4], Exception) else None
+        inflation_rates = results[2] if not isinstance(results[2], Exception) else None
+        treasury_commodities = results[3] if not isinstance(results[3], Exception) else None
 
-        for i, name in enumerate(["Macro dashboard", "Market sentiment", "Sector digest",
+        for i, name in enumerate(["Macro dashboard", "Market sentiment",
                                    "Inflation rates", "Treasury commodities"]):
             if isinstance(results[i], Exception):
                 logger.warning("%s fetch failed: %s", name, results[i])
 
         # Prepare context
         macro_context = _prepare_macro_sector_context(
-            macro_dashboard, market_sentiment, sector_digest, profile,
+            macro_dashboard, market_sentiment, None, profile,
             inflation_rates=inflation_rates,
             treasury_commodities=treasury_commodities,
         )

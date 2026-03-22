@@ -98,7 +98,6 @@ async def request_logging_middleware(request: Request, call_next):
 from app.features.daily_report.router import router as daily_report_router
 from app.features.brew.router import router as brew_router
 from app.features.stock.router import router as stock_router, legacy_router as stock_legacy_router
-from app.features.sector.router import router as sector_router
 from app.features.macro.liquidity.router import router as liquidity_router
 from app.features.subscription.router import router as subscription_router
 from app.features.feedback.router import router as feedback_router
@@ -115,7 +114,6 @@ app.include_router(daily_report_router)
 app.include_router(brew_router)
 app.include_router(stock_router)
 app.include_router(stock_legacy_router)
-app.include_router(sector_router)
 app.include_router(liquidity_router)
 app.include_router(subscription_router)
 app.include_router(feedback_router)

@@ -404,88 +404,6 @@ export interface StockQuotesResponse {
   quotes: StockQuote[];
 }
 
-// Sector Digest Types
-export interface SectorInfo {
-  id: string;
-  name_en: string;
-  name_zh: string;
-  description: string;
-  symbols: string[];
-  symbol_count: number;
-}
-
-export interface SectorStockAnalysis {
-  symbol: string;
-  name: string;
-  change_percent: number;
-  analysis: string;
-}
-
-export interface SectorNews {
-  title: string;
-  summary: string;
-  url?: string;
-  published_at?: string;
-}
-
-export interface SectorEvent {
-  date: string;
-  title: string;
-  description?: string;
-}
-
-export interface SectorDigestData {
-  success: boolean;
-  timestamp: string;
-  sector_id: string;
-  sector_name: string;
-  greeting: string;
-  intro: string;
-  stocks: SectorStockAnalysis[];
-  news: SectorNews[];
-  events: SectorEvent[];
-  summary: string;
-  error?: string;
-}
-
-export interface SectorSubscription {
-  id: string;
-  sector_id: string;
-  subscribed_at: string;
-}
-
-export interface SectorSubscriptionsResponse {
-  success: boolean;
-  subscriptions: SectorSubscription[];
-}
-
-export interface SectorSubscribeResponse {
-  success: boolean;
-  message: string;
-  sector_id: string;
-}
-
-export interface SectorUnsubscribeResponse {
-  success: boolean;
-  message: string;
-  sector_id: string;
-}
-
-export interface SectorDigestHistoryItem {
-  id: string;
-  sector_id: string;
-  digest_date: string;
-  greeting?: string;
-  generated_at: string;
-}
-
-export interface SectorDigestHistoryResponse {
-  success: boolean;
-  sector_id: string;
-  digests: SectorDigestHistoryItem[];
-  total: number;
-}
-
 // Macro Risk Dashboard Types
 export interface RiskIndicator {
   series_id: string;
@@ -826,6 +744,16 @@ export interface ScreenerSectorsResponse {
   success: boolean;
   sectors: ScreenerSector[];
   count: number;
+}
+
+export interface SectorInfo {
+  id: string;
+  label: string;
+  name_zh: string;
+  name_en: string;
+  symbols: string[];
+  symbol_count: number;
+  description: string;
 }
 
 export interface ScreenerAskRequest {
@@ -1366,101 +1294,6 @@ export const api = {
     return response.json();
   },
 
-  // Sector APIs
-  sectors: {
-    list: async (): Promise<SectorInfo[]> => {
-      const response = await fetch(`${API_BASE_URL}/sectors/`);
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to fetch sectors' }));
-        throw new Error(error.detail || 'Failed to fetch sectors');
-      }
-      const data = await response.json();
-      return data.sectors;
-    },
-
-    generateDigest: async (sectorId: string): Promise<SectorDigestData> => {
-      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/digest`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to generate sector digest' }));
-        throw new Error(error.detail || 'Failed to generate sector digest');
-      }
-      return response.json();
-    },
-
-    getLatestDigest: async (sectorId: string): Promise<SectorDigestData | null> => {
-      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/digest/latest`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null;
-        }
-        const error = await response.json().catch(() => ({ detail: 'Failed to fetch sector digest' }));
-        throw new Error(error.detail || 'Failed to fetch sector digest');
-      }
-      const data = await response.json();
-      // Backend returns { success, digest, digest_date, generated_at }
-      // Extract the digest field which contains the full SectorDigestData
-      return data.digest || null;
-    },
-
-    subscribe: async (sectorId: string): Promise<SectorSubscribeResponse> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-      const response = await fetch(`${API_BASE_URL}/sectors/subscribe`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ sector_id: sectorId }),
-      });
-      if (!response.ok) {
-        await throwProtectedApiError(response, 'Failed to subscribe to sector');
-      }
-      return response.json();
-    },
-
-    unsubscribe: async (sectorId: string): Promise<SectorUnsubscribeResponse> => {
-      const headers = await _authHeaders({}, { required: true });
-      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/unsubscribe`, {
-        method: 'DELETE',
-        headers,
-      });
-      if (!response.ok) {
-        await throwProtectedApiError(response, 'Failed to unsubscribe from sector');
-      }
-      return response.json();
-    },
-
-    getSubscriptions: async (): Promise<SectorSubscription[]> => {
-      const headers = await _authHeaders({}, { required: true });
-      const maxAttempts = 2;
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const response = await fetch(`${API_BASE_URL}/sectors/subscriptions`, { headers });
-        if (!response.ok) {
-          if (response.status === 401) {
-            await throwProtectedApiError(response, 'Failed to fetch subscriptions');
-          }
-          const msg = await readApiError(response, 'Failed to fetch subscriptions');
-          if (attempt < maxAttempts && response.status === 400 && msg.includes('schema cache')) {
-            await new Promise(r => setTimeout(r, 2000));
-            continue;
-          }
-          throw new Error(msg);
-        }
-        const data = await response.json();
-        return data.subscriptions;
-      }
-      return [];
-    },
-
-    getHistory: async (sectorId: string, days: number = 30): Promise<SectorDigestHistoryResponse> => {
-      const response = await fetch(`${API_BASE_URL}/sectors/${sectorId}/digest/history?days=${days}`);
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to fetch digest history' }));
-        throw new Error(error.detail || 'Failed to fetch digest history');
-      }
-      return response.json();
-    },
-  },
-
   // --- Backend-proxied data reads (replaces direct Insforge SDK queries) ---
 
   morningReports: {
@@ -1542,6 +1375,15 @@ export const api = {
       }
       const json = await response.json();
       return { data: json.data || [], total: json.total ?? json.data?.length ?? 0 };
+    },
+  },
+
+  sectors: {
+    list: async (): Promise<SectorInfo[]> => {
+      const response = await fetchProtected(`${API_BASE_URL}/sectors`, {}, 'Failed to fetch sectors');
+      if (!response.ok) throw new Error('Failed to fetch sectors');
+      const json = await response.json();
+      return json.data ?? json ?? [];
     },
   },
 

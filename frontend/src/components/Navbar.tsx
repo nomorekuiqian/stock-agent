@@ -63,9 +63,6 @@ export function Navbar() {
               ]}
             />
             <NavLink href="/for-you">专属</NavLink>
-            {process.env.NODE_ENV === 'development' && (
-              <NavLink href="/sectors">板块</NavLink>
-            )}
             <NavLink href="/stock">个股</NavLink>
             {(process.env.NODE_ENV === 'development' || isPro) && (
               <NavLink href="/screener">筛选</NavLink>
