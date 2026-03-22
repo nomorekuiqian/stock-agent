@@ -1,21 +1,20 @@
 'use client';
 
-import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo, useState, useRef } from 'react';
-import { useInsforge } from '@insforge/nextjs';
+import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  User,
+  getCurrentAuthSession,
   signIn as authSignIn,
-  signInWithGoogle,
+  signOut as authSignOut,
+  signUp as authSignUp,
+  signInWithGoogle as authSignInWithGoogle,
   updateProfile as authUpdateProfile,
-  getAccessToken,
-  setCachedToken,
-  syncClientAuthSession,
+  resendVerificationEmail as authResendVerificationEmail,
+  verifyEmail as authVerifyEmail,
 } from '@/lib/auth';
-import { clearClientAuthStorage, INSFORGE_AUTH_USER_KEY } from '@/lib/auth-storage';
-import { insforge } from '@/lib/insforge';
-import { buildAbsoluteVerifyEmailUrl } from '@/lib/auth-verification';
+import type { User } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { authDebug, authDebugWarn, getBrowserAuthSnapshot } from '@/lib/auth-debug';
 
 function getAutoSubscribedKey(userId: string): string {
   return `auto_subscribed_${userId}`;
@@ -96,6 +95,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  setAuthenticatedUser: (user: User | null) => void;
   signIn: (email: string, password: string) => Promise<AuthActionResult>;
   signUp: (email: string, password: string, name?: string, redirectPath?: string) => Promise<SignUpResult>;
   signOut: () => Promise<AuthActionResult>;
@@ -108,106 +108,49 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getSdkError(result: unknown): string | undefined {
-  if (!result || typeof result !== 'object') return undefined;
-  if (!('error' in result)) return undefined;
-  const error = (result as { error?: unknown }).error;
-  if (typeof error === 'string' && error.trim()) {
-    return error;
-  }
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) {
-      return message;
-    }
-  }
-  return undefined;
-}
-
-function needsEmailVerification(result: unknown): boolean {
-  if (!result || typeof result !== 'object') return false;
-  const payload = 'data' in result
-    ? (result as { data?: unknown }).data
-    : result;
-
-  if (!payload || typeof payload !== 'object') return false;
-  if ('requireEmailVerification' in payload && (payload as { requireEmailVerification?: boolean }).requireEmailVerification === true) {
-    return true;
-  }
-
-  const signupResult = payload as {
-    accessToken?: string | null;
-    user?: { email?: string | null } | null;
-  };
-
-  return Boolean(signupResult.user?.email && signupResult.accessToken === null);
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const sdk = useInsforge();
   const queryClient = useQueryClient();
-  const [recoveryPending, setRecoveryPending] = useState(true);
-  const recoveryAttempted = useRef(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const user: User | null = useMemo(() => {
-    if (!sdk.user) return null;
-    return {
-      id: sdk.user.id,
-      email: sdk.user.email || '',
-      name: sdk.user.profile?.name,
-      avatarUrl: sdk.user.profile?.avatar_url,
-    };
-  }, [sdk.user]);
+  const hydrateSession = useCallback(async (force: boolean = false) => {
+    authDebug('AuthContext', 'hydrateSession() start', {
+      force,
+      ...getBrowserAuthSnapshot(),
+    });
+    const session = await getCurrentAuthSession(force);
+    authDebug('AuthContext', 'hydrateSession() result', {
+      authenticated: session.authenticated,
+      userId: session.user?.id ?? null,
+      email: session.user?.email ?? null,
+    });
+    setUser(session.user);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (!sdk.isLoaded) return;
-    if (sdk.user) return;
-    if (recoveryAttempted.current) return;
-    recoveryAttempted.current = true;
+    let cancelled = false;
 
-    getAccessToken()
-      .then(async (token) => {
-        if (!token) {
-          return;
-        }
+    void (async () => {
+      authDebug('AuthContext', 'Initial auth hydration start', getBrowserAuthSnapshot());
+      const session = await getCurrentAuthSession();
+      if (cancelled) {
+        authDebugWarn('AuthContext', 'Initial auth hydration resolved after cancellation');
+        return;
+      }
+      authDebug('AuthContext', 'Initial auth hydration result', {
+        authenticated: session.authenticated,
+        userId: session.user?.id ?? null,
+        email: session.user?.email ?? null,
+      });
+      setUser(session.user);
+      setIsLoading(false);
+    })();
 
-        // Try SDK session first (works when InsforgeBrowserProvider already loaded state).
-        // Fall back to localStorage user set by syncClientAuthSession() during login/recovery.
-        const session = await insforge.auth.getCurrentSession().catch(() => null);
-        let sessionUser = session?.data?.session?.user ?? null;
-        if (!sessionUser) {
-          try {
-            const stored = typeof window !== 'undefined'
-              ? window.localStorage.getItem(INSFORGE_AUTH_USER_KEY)
-              : null;
-            if (stored) {
-              const parsed = JSON.parse(stored);
-              if (parsed?.id) sessionUser = parsed;
-            }
-          } catch {
-            // localStorage unavailable.
-          }
-        }
-
-        if (!sessionUser) {
-          return;
-        }
-
-        await sdk.reloadAuth().catch(() => ({ success: false }));
-        sdk.setUser({
-          id: sessionUser.id,
-          email: sessionUser.email,
-          profile: sessionUser.profile ?? null,
-        });
-      })
-      .catch(() => {})
-      .finally(() => setRecoveryPending(false));
-  }, [sdk.isLoaded, sdk.user, sdk]);
-
-  const isLoading = !sdk.isLoaded || (recoveryPending && !sdk.user);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -215,46 +158,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Proactive silent refresh: keep access token fresh before it expires.
-  // Access token lifetime is ~1 hour; refresh every 45 minutes while the user is logged in.
-  // This prevents the "token expired mid-session" error window entirely.
-  useEffect(() => {
-    if (!user) return;
-
-    async function silentRefresh() {
-      try {
-        const res = await fetch('/api/auth/session', { credentials: 'include' });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.authenticated && data.accessToken) {
-          syncClientAuthSession(data.accessToken, data.user);
-        }
-      } catch {
-        // Best-effort background refresh; failures are non-fatal.
-      }
-    }
-
-    silentRefresh(); // immediate refresh on mount to catch near-expiry tokens
-    const INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
-    const timer = setInterval(silentRefresh, INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleSignIn = useCallback(async (email: string, password: string) => {
+    authDebug('AuthContext', 'handleSignIn() called', { email });
     const result = await authSignIn(email, password);
     if (result.success && result.user) {
-      await sdk.reloadAuth().catch(() => ({ success: false }));
-      sdk.setUser({
-        id: result.user.id,
+      authDebug('AuthContext', 'handleSignIn() success', {
+        userId: result.user.id,
         email: result.user.email,
-        profile: {
-          name: result.user.name,
-          avatar_url: result.user.avatarUrl,
-        },
+      });
+      setUser(result.user);
+    } else {
+      authDebugWarn('AuthContext', 'handleSignIn() failed', {
+        email,
+        error: result.error ?? null,
       });
     }
     return { success: result.success, error: result.error };
-  }, [sdk]);
+  }, []);
 
   const handleSignUp = useCallback(async (
     email: string,
@@ -262,131 +182,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name?: string,
     redirectPath?: string,
   ) => {
-    try {
-      const emailRedirectTo = typeof window === 'undefined'
-        ? undefined
-        : buildAbsoluteVerifyEmailUrl(window.location.origin, redirectPath);
-      const result = await sdk.signUp(
-        email,
-        password,
-        emailRedirectTo ? { emailRedirectTo } : undefined,
-      );
-      const error = getSdkError(result);
-      if (error) {
-        return { success: false, error };
-      }
+    const emailRedirectTo = typeof window === 'undefined'
+      ? undefined
+      : `${window.location.origin}/verify-email${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`;
+    const result = await authSignUp(email, password, name, emailRedirectTo);
 
-      if (needsEmailVerification(result)) {
-        return {
-          success: true,
-          requiresEmailVerification: true,
-          email,
-        };
-      }
-
-      if (name?.trim()) {
-        const updateResult = await sdk.updateUser({ name: name.trim() });
-        if (updateResult?.error) {
-          console.warn('[AuthContext] Set signup profile name failed:', updateResult.error);
-        }
-      }
-
-      await sdk.reloadAuth();
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+    if (result.success && result.user) {
+      setUser(result.user);
     }
-  }, [sdk]);
+
+    return {
+      success: result.success,
+      error: result.error,
+      requiresEmailVerification: result.requiresEmailVerification,
+      email: result.email,
+    };
+  }, []);
 
   const handleSignOut = useCallback(async () => {
-    try {
-      await sdk.signOut();
-      setCachedToken(null);
-      clearClientAuthStorage();
-      try {
-        insforge.getHttpClient().setAuthToken('');
-      } catch {
-        // Best-effort cleanup only.
-      }
-      try {
-        await fetch('/api/auth', { method: 'DELETE', credentials: 'include' });
-      } catch {
-        // Best-effort server cookie cleanup.
-      }
+    const result = await authSignOut();
+    if (result.success) {
+      setUser(null);
       queryClient.clear();
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
     }
-  }, [sdk, queryClient]);
+    return result;
+  }, [queryClient]);
 
   const handleUpdateProfile = useCallback(async (profile: { name?: string }) => {
     const result = await authUpdateProfile(profile);
-    if (result.success && result.user && user) {
-      api.subscriptions.syncUser(user.id, user.email, result.user.name).catch(() => {});
-      await sdk.reloadAuth();
+    if (result.success && result.user) {
+      setUser(result.user);
+      api.subscriptions.syncUser(result.user.id, result.user.email, result.user.name).catch(() => {});
     }
     return { success: result.success, error: result.error };
-  }, [user, sdk]);
+  }, []);
 
   const handleResendVerificationEmail = useCallback(async (email: string) => {
-    try {
-      const result = await sdk.resendVerificationEmail(email);
-      const error = getSdkError(result);
-      if (error) {
-        return { success: false, error };
-      }
-      if (!result) {
-        return { success: false, error: '重新发送失败，请稍后重试' };
-      }
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }, [sdk]);
+    return authResendVerificationEmail(email);
+  }, []);
 
   const handleVerifyEmail = useCallback(async (otp: string, email?: string) => {
-    try {
-      const result = await sdk.verifyEmail(otp, email);
-      const error = getSdkError(result);
-      if (error) {
-        return { success: false, error };
-      }
-      await sdk.reloadAuth();
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+    const result = await authVerifyEmail(otp, email);
+    if (result.success && result.user) {
+      setUser(result.user);
     }
-  }, [sdk]);
+    return { success: result.success, error: result.error };
+  }, []);
 
   const handleSignInWithGoogle = useCallback(async () => {
-    return signInWithGoogle();
+    authDebug('AuthContext', 'handleSignInWithGoogle() called', getBrowserAuthSnapshot());
+    return authSignInWithGoogle();
+  }, []);
+
+  const setAuthenticatedUser = useCallback((nextUser: User | null) => {
+    authDebug('AuthContext', 'setAuthenticatedUser()', {
+      userId: nextUser?.id ?? null,
+      email: nextUser?.email ?? null,
+      ...getBrowserAuthSnapshot(),
+    });
+    setUser(nextUser);
   }, []);
 
   const refreshUser = useCallback(async () => {
-    try {
-      await sdk.reloadAuth();
-    } catch (error) {
-      console.error('[AuthContext] Refresh user error:', error);
-    }
-  }, [sdk]);
+    await hydrateSession(true);
+  }, [hydrateSession]);
 
   const value = useMemo<AuthContextType>(() => ({
     user,
     isLoading,
     isAuthenticated: !!user,
+    setAuthenticatedUser,
     signIn: handleSignIn,
     signUp: handleSignUp,
     signOut: handleSignOut,
@@ -398,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }), [
     user,
     isLoading,
+    setAuthenticatedUser,
     handleSignIn,
     handleSignUp,
     handleSignOut,

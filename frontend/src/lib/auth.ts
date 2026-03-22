@@ -1,7 +1,6 @@
-import { clearClientAuthStorage, INSFORGE_AUTH_TOKEN_KEY, INSFORGE_AUTH_USER_KEY } from './auth-storage';
 import { insforge } from './insforge';
-
-let _cachedToken: string | null = null;
+import type { UserSchema } from '@insforge/sdk';
+import { authDebug, authDebugWarn, getBrowserAuthSnapshot } from './auth-debug';
 
 export interface User {
   id: string;
@@ -16,381 +15,352 @@ export interface AuthResult {
   error?: string;
 }
 
+interface AuthActionResult extends AuthResult {
+  requiresEmailVerification?: boolean;
+  email?: string;
+}
+
+function mapUser(sdkUser: UserSchema | null | undefined): User | undefined {
+  if (!sdkUser) return undefined;
+  return {
+    id: sdkUser.id,
+    email: sdkUser.email,
+    name: sdkUser.profile?.name ?? undefined,
+    avatarUrl: sdkUser.profile?.avatar_url ?? undefined,
+  };
+}
+
+// Simple in-memory session cache with JWT expiry tracking
+let _sessionCache: { user: UserSchema; accessToken: string; expiresAt: number } | null = null;
+
+function isOAuthCallbackRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname === '/auth/callback';
+}
+
+function getJwtExp(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedSession(user: UserSchema, accessToken: string): void {
+  const expiresAt = getJwtExp(accessToken) ?? (Date.now() + 3600_000);
+  _sessionCache = { user, accessToken, expiresAt };
+  insforge.getHttpClient().setAuthToken(accessToken);
+  authDebug('auth.ts', 'Cached session updated', {
+    userId: user.id,
+    email: user.email,
+    expiresAtIso: new Date(expiresAt).toISOString(),
+  });
+}
+
+function getSdkSession(): { user: UserSchema; accessToken: string } | null {
+  const session = (insforge as unknown as {
+    tokenManager?: {
+      getSession?: () => { user: UserSchema; accessToken: string } | null;
+    };
+  }).tokenManager?.getSession?.();
+
+  if (!session?.user || !session.accessToken) {
+    authDebug('auth.ts', 'SDK in-memory session missing');
+    return null;
+  }
+
+  const expiresAt = getJwtExp(session.accessToken);
+  if (expiresAt !== null && expiresAt <= Date.now() + 60_000) {
+    authDebugWarn('auth.ts', 'SDK in-memory session expired or near expiry', {
+      userId: session.user.id,
+      email: session.user.email,
+      expiresAtIso: new Date(expiresAt).toISOString(),
+    });
+    return null;
+  }
+
+  authDebug('auth.ts', 'SDK in-memory session available', {
+    userId: session.user.id,
+    email: session.user.email,
+    expiresAtIso: expiresAt ? new Date(expiresAt).toISOString() : null,
+  });
+  return session;
+}
+
+async function refreshAndCacheSession(): Promise<{ user: UserSchema; accessToken: string } | null> {
+  authDebug('auth.ts', 'Calling insforge.auth.refreshSession()', getBrowserAuthSnapshot());
+  const { data, error } = await insforge.auth.refreshSession();
+  if (!data?.accessToken || !data.user) {
+    authDebugWarn('auth.ts', 'refreshSession returned no usable session', {
+      hasData: !!data,
+      hasAccessToken: !!data?.accessToken,
+      hasUser: !!data?.user,
+      error: error?.message ?? null,
+      ...getBrowserAuthSnapshot(),
+    });
+    return null;
+  }
+
+  setCachedSession(data.user, data.accessToken);
+  authDebug('auth.ts', 'refreshSession succeeded', {
+    userId: data.user.id,
+    email: data.user.email,
+  });
+  return _sessionCache;
+}
+
+async function getCallbackRouteSession(): Promise<{ user: UserSchema; accessToken: string } | null> {
+  if (!isOAuthCallbackRoute()) {
+    return null;
+  }
+
+  authDebug('auth.ts', 'OAuth callback route detected; waiting for SDK callback handling');
+  const { data, error } = await insforge.auth.getCurrentUser();
+  authDebug('auth.ts', 'OAuth callback route getCurrentUser() result', {
+    hasUser: !!data?.user,
+    error: error?.message ?? null,
+    ...getBrowserAuthSnapshot(),
+  });
+
+  // getCurrentUser() already tried both code exchange AND refresh internally.
+  // Check tokenManager (populated by saveSessionFromResponse inside the SDK).
+  const sdkSession = getSdkSession();
+  if (sdkSession) {
+    setCachedSession(sdkSession.user, sdkSession.accessToken);
+    return _sessionCache;
+  }
+
+  // Whether getCurrentUser() succeeded or failed, we must not fall through to
+  // refreshAndCacheSession() — getCurrentUser() already attempted a refresh.
+  // Returning null here stops getSessionWithRefresh() from making a duplicate
+  // refresh call (which always 401s since getCurrentUser() just tried it).
+  return null;
+}
+
+async function getSessionWithRefresh(): Promise<{ user: UserSchema; accessToken: string } | null> {
+  // Return cached session if still valid (with 60s buffer)
+  if (_sessionCache && _sessionCache.expiresAt > Date.now() + 60_000) {
+    authDebug('auth.ts', 'Using module session cache', {
+      userId: _sessionCache.user.id,
+      email: _sessionCache.user.email,
+      expiresAtIso: new Date(_sessionCache.expiresAt).toISOString(),
+    });
+    return _sessionCache;
+  }
+
+  // On OAuth callback route, delegate entirely to getCurrentUser() which correctly
+  // awaits authCallbackHandled (the PKCE code exchange promise).
+  // Do NOT fall through to refreshAndCacheSession() — getCurrentUser() already
+  // attempts a refresh internally, so a duplicate call would always 401.
+  if (isOAuthCallbackRoute()) {
+    return await getCallbackRouteSession();
+  }
+
+  const sdkSession = getSdkSession();
+  if (sdkSession) {
+    setCachedSession(sdkSession.user, sdkSession.accessToken);
+    return _sessionCache;
+  }
+
+  const refreshedSession = await refreshAndCacheSession();
+  if (refreshedSession) {
+    return refreshedSession;
+  }
+
+  _sessionCache = null;
+  authDebugWarn('auth.ts', 'No session available after cache/sdk/refresh checks', getBrowserAuthSnapshot());
+  return null;
+}
+
+export async function getCurrentAuthSession(force?: boolean): Promise<{ authenticated: boolean; user: User | null; accessToken: string | null }> {
+  authDebug('auth.ts', 'getCurrentAuthSession() start', {
+    force: !!force,
+    hasModuleCache: !!_sessionCache,
+    ...getBrowserAuthSnapshot(),
+  });
+  if (force) _sessionCache = null;
+  const session = await getSessionWithRefresh();
+  if (!session) {
+    authDebugWarn('auth.ts', 'getCurrentAuthSession() resolved unauthenticated');
+    return { authenticated: false, user: null, accessToken: null };
+  }
+  authDebug('auth.ts', 'getCurrentAuthSession() resolved authenticated', {
+    userId: session.user.id,
+    email: session.user.email,
+  });
+  return {
+    authenticated: true,
+    user: mapUser(session.user) ?? null,
+    accessToken: session.accessToken,
+  };
+}
+
+export async function signIn(email: string, password: string): Promise<AuthActionResult> {
+  const { data, error } = await insforge.auth.signInWithPassword({ email, password });
+  if (error || !data) {
+    return { success: false, error: error?.message ?? 'Authentication failed' };
+  }
+  setCachedSession(data.user, data.accessToken);
+  return { success: true, user: mapUser(data.user) };
+}
+
 export async function signUp(
   email: string,
   password: string,
   name?: string,
-): Promise<AuthResult> {
-  try {
-    const { data, error } = await insforge.auth.signUp({ email, password, name });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    if (data?.user) {
-      return {
-        success: true,
-        user: {
-          id: data.user.id,
-          email: data.user.email || email,
-          name: data.user.profile?.name || '',
-        },
-      };
-    }
-
-    return {
-      success: false,
-      error: '注册失败，请重试',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+  emailRedirectTo?: string,
+): Promise<AuthActionResult> {
+  const { data, error } = await insforge.auth.signUp({
+    email,
+    password,
+    name,
+    options: emailRedirectTo ? { emailRedirectTo } : undefined,
+  });
+  if (error || !data) {
+    return { success: false, error: error?.message ?? 'Sign up failed' };
   }
-}
-
-export async function signIn(
-  email: string,
-  password: string,
-  rememberMe: boolean = true,
-): Promise<AuthResult> {
-  try {
-    const res = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, password, rememberMe }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      return { success: false, error: data.error || 'Sign in failed' };
-    }
-
-    syncClientAuthSession(data.accessToken, data.user);
-
-    return {
-      success: true,
-      user: {
-        id: data.user.id,
-        email: data.user.email || email,
-        name: data.user.profile?.name || '',
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+  if (data.requireEmailVerification) {
+    return { success: true, requiresEmailVerification: true, email };
   }
+  if (data.user && data.accessToken) {
+    setCachedSession(data.user, data.accessToken);
+  }
+  return { success: true, user: mapUser(data.user ?? undefined) };
 }
 
 export async function signInWithGoogle(): Promise<{ success: boolean; error?: string }> {
-  try {
-    if (typeof window === 'undefined') {
-      return { success: false, error: 'OAuth can only be initiated in browser' };
-    }
-
-    const finalDestination = sessionStorage.getItem('auth_redirect') || '/today';
-    const redirectTo = `${window.location.origin}${finalDestination}`;
-
-    const { error } = await insforge.auth.signInWithOAuth({
-      provider: 'google',
-      redirectTo,
+  const callbackUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/auth/callback`
+    : '/auth/callback';
+  authDebug('auth.ts', 'Starting Google OAuth', {
+    callbackUrl,
+    ...getBrowserAuthSnapshot(),
+  });
+  const { error } = await insforge.auth.signInWithOAuth({
+    provider: 'google',
+    redirectTo: callbackUrl,
+  });
+  if (error) {
+    authDebugWarn('auth.ts', 'Google OAuth init failed', {
+      error: error.message,
+      ...getBrowserAuthSnapshot(),
     });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    return { success: false, error: error.message };
   }
+  authDebug('auth.ts', 'Google OAuth init succeeded; browser redirect should follow');
+  return { success: true };
 }
 
-export async function updateProfile(profile: { name?: string }): Promise<{ success: boolean; user?: User; error?: string }> {
-  try {
-    const { data, error } = await insforge.auth.setProfile(profile);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    const session = await insforge.auth.getCurrentSession();
-    const sessionUser = session?.data?.session?.user;
-    if (!sessionUser) {
-      return { success: false, error: 'Session expired. Please sign in again.' };
-    }
-
-    return {
-      success: true,
-      user: {
-        id: sessionUser.id,
-        email: sessionUser.email || '',
-        name: data?.profile?.name,
-        avatarUrl: data?.profile?.avatar_url,
-      },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+export async function completeOAuthSignIn(): Promise<AuthActionResult> {
+  authDebug('auth.ts', 'Completing OAuth sign-in', getBrowserAuthSnapshot());
+  const { data, error } = await insforge.auth.getCurrentUser();
+  if (!data?.user) {
+    authDebugWarn('auth.ts', 'getCurrentUser returned no user during OAuth callback', {
+      error: error?.message ?? null,
+      ...getBrowserAuthSnapshot(),
+    });
+    return { success: false, error: 'OAuth authentication failed' };
   }
+  authDebug('auth.ts', 'OAuth callback produced current user', {
+    userId: data.user.id,
+    email: data.user.email,
+    ...getBrowserAuthSnapshot(),
+  });
+  // getCurrentUser() already awaited authCallbackHandled and populated tokenManager.
+  // Read directly from tokenManager to warm _sessionCache — no second getCurrentUser() call.
+  const sdkSession = getSdkSession();
+  if (sdkSession) {
+    setCachedSession(sdkSession.user, sdkSession.accessToken);
+  }
+  return { success: true, user: mapUser(sdkSession?.user ?? data.user) };
+}
+
+export async function verifyEmail(otp: string, email?: string): Promise<AuthActionResult> {
+  const { data, error } = await insforge.auth.verifyEmail({ otp, email });
+  if (error || !data) {
+    return { success: false, error: error?.message ?? 'Verification failed' };
+  }
+  setCachedSession(data.user, data.accessToken);
+  return { success: true, user: mapUser(data.user) };
+}
+
+export async function resendVerificationEmail(
+  email: string,
+  _emailRedirectTo?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await insforge.auth.resendVerificationEmail({ email });
+  if (error || !data) {
+    return { success: false, error: error?.message ?? '重新发送失败，请稍后重试' };
+  }
+  return { success: data.success };
+}
+
+export async function updateProfile(
+  profile: { name?: string },
+): Promise<{ success: boolean; user?: User; error?: string }> {
+  const { error } = await insforge.auth.setProfile(profile);
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  _sessionCache = null; // clear cache to pick up updated profile
+  const session = await getSessionWithRefresh();
+  return { success: true, user: mapUser(session?.user) };
 }
 
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
-  setCachedToken(null);
-  clearClientAuthStorage();
-
-  try {
-    const { error } = await insforge.auth.signOut();
-    if (error) {
-      return { success: false, error: error.message };
-    }
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-export function isTokenExpired(token: string): boolean {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(base64));
-    if (!payload.exp) return false;
-    return Date.now() / 1000 > payload.exp - 60;
-  } catch {
-    return true;
-  }
-}
-
-let _refreshPromise: Promise<string | null> | null = null;
-
-export function setCachedToken(token: string | null): void {
-  _cachedToken = token;
-}
-
-export function syncClientAuthSession(
-  accessToken: string,
-  user?: { id: string; email?: string | null; profile?: unknown } | null,
-): void {
-  _cachedToken = accessToken;
-
-  try {
-    insforge.getHttpClient().setAuthToken(accessToken);
-  } catch {
-    // Best-effort SDK sync.
-  }
-
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(INSFORGE_AUTH_TOKEN_KEY, accessToken);
-    if (user) {
-      window.localStorage.setItem(INSFORGE_AUTH_USER_KEY, JSON.stringify(user));
-    }
-  } catch {
-    // localStorage might be unavailable.
-  }
-}
-
-export async function clearStaleAuthStateWithoutRedirect(): Promise<void> {
-  setCachedToken(null);
-  clearClientAuthStorage();
-
-  try {
-    insforge.getHttpClient().setAuthToken('');
-  } catch {
-    // Best-effort cleanup only.
-  }
-
-  try {
-    await insforge.auth.signOut();
-  } catch {
-    // Best-effort cleanup only.
-  }
-
-  try {
-    await fetch('/api/auth', {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-  } catch {
-    // Best-effort cleanup only.
-  }
-}
-
-export function cleanupAuthCallbackUrlParams(): boolean {
-  if (typeof window === 'undefined' || typeof window.history?.replaceState !== 'function') {
-    return false;
-  }
-
-  const url = new URL(window.location.href);
-  const callbackParams = ['insforge_code', 'access_token', 'user_id', 'email'];
-  let changed = false;
-
-  for (const param of callbackParams) {
-    if (url.searchParams.has(param)) {
-      url.searchParams.delete(param);
-      changed = true;
-    }
-  }
-
-  if (!changed) {
-    return false;
-  }
-
-  window.history.replaceState({}, document.title, url.toString());
-  return true;
+  const { error } = await insforge.auth.signOut();
+  if (error) return { success: false, error: error.message };
+  _sessionCache = null;
+  insforge.getHttpClient().setAuthToken(null);
+  return { success: true };
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  if (_cachedToken && !isTokenExpired(_cachedToken)) {
-    return _cachedToken;
-  }
-  _cachedToken = null;
-
-  try {
-    const result = await insforge.auth.getCurrentSession();
-    const token = result?.data?.session?.accessToken;
-    if (token && !isTokenExpired(token)) {
-      _cachedToken = token;
-      return token;
-    }
-  } catch {
-    // SDK session unavailable.
-  }
-
-  // After page reload, InsforgeBrowserProvider may have recovered sdk.user from
-  // localStorage without populating the standalone @insforge/sdk tokenManager.
-  // Check localStorage before falling back to the full cookie round-trip.
-  try {
-    if (typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem(INSFORGE_AUTH_TOKEN_KEY);
-      if (stored && !isTokenExpired(stored)) {
-        _cachedToken = stored;
-        try {
-          insforge.getHttpClient().setAuthToken(stored);
-        } catch {
-          // Best-effort SDK sync.
-        }
-        return stored;
-      }
-    }
-  } catch {
-    // localStorage unavailable.
-  }
-
-  if (!_refreshPromise) {
-    _refreshPromise = recoverTokenFromCookies().finally(() => {
-      _refreshPromise = null;
-    });
-  }
-
-  const token = await _refreshPromise;
-  if (token) {
-    _cachedToken = token;
-  }
-  return token;
+  authDebug('auth.ts', 'getAccessToken() start', {
+    hasModuleCache: !!_sessionCache,
+  });
+  const session = await getSessionWithRefresh();
+  authDebug('auth.ts', 'getAccessToken() result', {
+    hasToken: !!session?.accessToken,
+    userId: session?.user.id ?? null,
+    email: session?.user.email ?? null,
+  });
+  return session?.accessToken ?? null;
 }
 
-async function recoverTokenFromCookies(): Promise<string | null> {
-  try {
-    const res = await fetch('/api/auth/session');
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    if (data.authenticated && data.accessToken && !isTokenExpired(data.accessToken)) {
-      syncClientAuthSession(data.accessToken, data.user);
-      return data.accessToken;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+export async function clearStaleAuthStateWithoutRedirect(): Promise<void> {
+  _sessionCache = null;
+  await insforge.auth.signOut().catch(() => {});
 }
 
-export function _resetAuthStateForTesting(): void {
-  _cachedToken = null;
-  _refreshPromise = null;
-}
-
-export async function sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { data, error } = await insforge.auth.sendResetPasswordEmail({ email });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: data?.success ?? false };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+export async function sendPasswordResetEmail(
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await insforge.auth.sendResetPasswordEmail({ email });
+  if (error) return { success: false, error: error.message };
+  return { success: data?.success ?? false };
 }
 
 export async function exchangeResetPasswordCode(
   email: string,
   code: string,
 ): Promise<{ success: boolean; token?: string; error?: string }> {
-  try {
-    const { data, error } = await insforge.auth.exchangeResetPasswordToken({
-      email,
-      code,
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    if (!data?.token) {
-      return { success: false, error: 'Invalid reset code' };
-    }
-
-    return { success: true, token: data.token };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+  const { data, error } = await insforge.auth.exchangeResetPasswordToken({ email, code });
+  if (error) return { success: false, error: error.message };
+  if (!data?.token) return { success: false, error: 'Invalid reset code' };
+  return { success: true, token: data.token };
 }
 
 export async function resetPassword(
   newPassword: string,
   otp: string,
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { data, error } = await insforge.auth.resetPassword({
-      newPassword,
-      otp,
-    });
+  const { data, error } = await insforge.auth.resetPassword({ newPassword, otp });
+  if (error) return { success: false, error: error.message };
+  return { success: !!data?.message };
+}
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: !!data?.message };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+export function __resetAuthTestState() {
+  _sessionCache = null;
 }

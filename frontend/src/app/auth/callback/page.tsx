@@ -3,7 +3,9 @@
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { completeOAuthSignIn } from '@/lib/auth';
 import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect } from '@/lib/auth-redirect';
+import { authDebug, authDebugWarn, getBrowserAuthSnapshot } from '@/lib/auth-debug';
 
 function Spinner() {
   return (
@@ -14,35 +16,51 @@ function Spinner() {
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { setAuthenticatedUser } = useAuth();
 
   useEffect(() => {
     const error = searchParams.get('error');
+    authDebug('auth/callback', 'Callback page mounted', {
+      error,
+      insforgeCodePresent: !!searchParams.get('insforge_code'),
+      ...getBrowserAuthSnapshot(),
+    });
     if (error) {
+      authDebugWarn('auth/callback', 'Callback page received error query param', { error });
       router.push('/login?error=' + encodeURIComponent(error));
       return;
     }
 
-    // Wait for AuthContext init to complete.
-    // On this page, the init effect detects the OAuth code (captured before
-    // SDK cleaned the URL) and exchanges it through Server Proxy.
-    if (isLoading) return;
+    void (async () => {
+      const result = await completeOAuthSignIn();
+      authDebug('auth/callback', 'completeOAuthSignIn() result', {
+        success: result.success,
+        userId: result.user?.id ?? null,
+        email: result.user?.email ?? null,
+        error: result.error ?? null,
+      });
+      if (!result.success || !result.user) {
+        router.push('/login?error=' + encodeURIComponent(result.error || 'auth_failed'));
+        return;
+      }
 
-    if (isAuthenticated) {
+      setAuthenticatedUser(result.user);
       const redirectUrl = getStoredAuthRedirect(DEFAULT_AUTH_REDIRECT);
+      authDebug('auth/callback', 'Redirecting after successful callback', {
+        redirectUrl,
+        ...getBrowserAuthSnapshot(),
+      });
       sessionStorage.removeItem('auth_redirect');
       router.push(redirectUrl);
-    } else {
-      router.push('/login?error=auth_failed');
-    }
-  }, [isAuthenticated, isLoading, router, searchParams]);
+    })();
+  }, [router, searchParams, setAuthenticatedUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center space-y-4">
         <Spinner />
         <p className="text-gray-500 text-sm">
-          {isLoading ? 'Processing...' : 'Redirecting...'}
+          Processing...
         </p>
       </div>
     </div>
