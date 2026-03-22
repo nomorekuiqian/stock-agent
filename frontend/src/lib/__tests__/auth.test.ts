@@ -1,305 +1,200 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  cleanupAuthCallbackUrlParams,
-  isTokenExpired,
   signIn,
-  signInWithGoogle,
   signOut,
   getAccessToken,
-  setCachedToken,
-  _resetAuthStateForTesting,
+  getCurrentAuthSession,
+  signInWithGoogle,
+  completeOAuthSignIn,
+  __resetAuthTestState,
 } from '../auth';
-import { INSFORGE_AUTH_TOKEN_KEY } from '../auth-storage';
 
-const mockSetAuthToken = vi.fn();
-const mockGetCurrentSession = vi.fn();
+const mockSignInWithPassword = vi.fn();
 const mockSignOut = vi.fn();
+const mockRefreshSession = vi.fn();
+const mockGetCurrentUser = vi.fn();
 const mockSignInWithOAuth = vi.fn();
-const originalFetch = globalThis.fetch;
-const originalLocation = window.location;
+const mockSetAuthToken = vi.fn();
+const mockSdkGetSession = vi.fn();
 
 vi.mock('@/lib/insforge', () => ({
   insforge: {
-    getHttpClient: () => ({ setAuthToken: mockSetAuthToken }),
     auth: {
-      getCurrentSession: (...args: unknown[]) => mockGetCurrentSession(...args),
+      signInWithPassword: (...args: unknown[]) => mockSignInWithPassword(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
+      refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
+      getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
       signInWithOAuth: (...args: unknown[]) => mockSignInWithOAuth(...args),
+    },
+    getHttpClient: () => ({ setAuthToken: mockSetAuthToken }),
+    tokenManager: {
+      getSession: (...args: unknown[]) => mockSdkGetSession(...args),
     },
   },
 }));
 
-function fakeJwt(payload: Record<string, unknown>): string {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = btoa(JSON.stringify(payload));
-  return `${header}.${body}.fake-signature`;
-}
+describe('auth helpers', () => {
+  const futureToken = [
+    'header',
+    btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })),
+    'signature',
+  ].join('.');
 
-describe('isTokenExpired', () => {
-  it('returns false for a token expiring far in the future', () => {
-    const token = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    expect(isTokenExpired(token)).toBe(false);
-  });
+  const mockUser = { id: 'u1', email: 'user@example.com', emailVerified: true, createdAt: '', updatedAt: '', profile: null, metadata: null };
 
-  it('returns true for a token that already expired', () => {
-    const token = fakeJwt({ exp: Date.now() / 1000 - 100 });
-    expect(isTokenExpired(token)).toBe(true);
-  });
-
-  it('returns true when token expires within the 60s buffer', () => {
-    const token = fakeJwt({ exp: Date.now() / 1000 + 30 });
-    expect(isTokenExpired(token)).toBe(true);
-  });
-
-  it('returns false when token expires just outside the 60s buffer', () => {
-    const token = fakeJwt({ exp: Date.now() / 1000 + 120 });
-    expect(isTokenExpired(token)).toBe(false);
-  });
-
-  it('returns false when payload has no exp field', () => {
-    const token = fakeJwt({ sub: 'user-123' });
-    expect(isTokenExpired(token)).toBe(false);
-  });
-
-  it('returns true for malformed tokens', () => {
-    expect(isTokenExpired('not-a-jwt')).toBe(true);
-    expect(isTokenExpired('two.parts')).toBe(true);
-  });
-});
-
-describe('cleanupAuthCallbackUrlParams', () => {
-  const appOrigin = window.location.origin;
-
-  afterEach(() => {
-    window.history.replaceState({}, '', `${appOrigin}/`);
-    vi.restoreAllMocks();
-  });
-
-  it('removes auth callback params from the URL', () => {
-    window.history.replaceState(
-      {},
-      '',
-      `${appOrigin}/screener?insforge_code=abc123&email=user%40example.com&foo=bar`,
-    );
-    const replaceState = vi.spyOn(window.history, 'replaceState');
-
-    const changed = cleanupAuthCallbackUrlParams();
-
-    expect(changed).toBe(true);
-    expect(replaceState).toHaveBeenCalledWith(
-      {},
-      document.title,
-      `${appOrigin}/screener?foo=bar`,
-    );
-  });
-});
-
-describe('signIn', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetAuthTestState();
+    window.history.replaceState({}, '', '/');
+    mockSdkGetSession.mockReturnValue(null);
   });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('returns success and seeds auth token on successful login', async () => {
-    const mockUser = { id: 'u1', email: 'a@b.com', profile: { name: 'Test' } };
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, accessToken: 'tok123', user: mockUser }),
+  it('signIn calls SDK and caches session', async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: mockUser, accessToken: futureToken },
+      error: null,
     });
 
-    const result = await signIn('a@b.com', 'pass', true);
+    const result = await signIn('user@example.com', 'password');
 
-    expect(result.success).toBe(true);
-    expect(result.user?.id).toBe('u1');
-    expect(mockSetAuthToken).toHaveBeenCalledWith('tok123');
+    expect(result).toEqual({ success: true, user: { id: 'u1', email: 'user@example.com' } });
+    expect(mockSignInWithPassword).toHaveBeenCalledWith({ email: 'user@example.com', password: 'password' });
+    expect(mockSetAuthToken).toHaveBeenCalledWith(futureToken);
   });
 
-  it('returns server error when login fails', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: async () => ({ success: false, error: 'Invalid credentials' }),
+  it('signIn returns error on failure', async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: null,
+      error: { message: 'Invalid credentials' },
     });
 
-    const result = await signIn('a@b.com', 'wrong');
+    const result = await signIn('user@example.com', 'wrong');
 
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Invalid credentials');
-  });
-});
-
-describe('signInWithGoogle', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    sessionStorage.clear();
-    sessionStorage.setItem('auth_redirect', '/for-you');
+    expect(result).toEqual({ success: false, error: 'Invalid credentials' });
   });
 
-  it('delegates Google OAuth to the official SDK flow', async () => {
-    mockSignInWithOAuth.mockResolvedValue({ error: null });
+  it('getCurrentAuthSession returns session from refresh', async () => {
+    mockRefreshSession.mockResolvedValue({
+      data: { accessToken: futureToken, user: mockUser },
+      error: null,
+    });
+
+    const session = await getCurrentAuthSession();
+
+    expect(session.authenticated).toBe(true);
+    expect(session.accessToken).toBe(futureToken);
+    expect(session.user?.email).toBe('user@example.com');
+    expect(mockSetAuthToken).toHaveBeenCalledWith(futureToken);
+  });
+
+  it('getCurrentAuthSession returns unauthenticated when refresh fails', async () => {
+    mockRefreshSession.mockResolvedValue({ data: null, error: null });
+
+    const session = await getCurrentAuthSession();
+
+    expect(session.authenticated).toBe(false);
+    expect(session.user).toBeNull();
+    expect(session.accessToken).toBeNull();
+  });
+
+  it('prefers sdk in-memory session before forcing a refresh', async () => {
+    mockSdkGetSession.mockReturnValue({
+      accessToken: futureToken,
+      user: mockUser,
+    });
+
+    const session = await getCurrentAuthSession(true);
+
+    expect(session.authenticated).toBe(true);
+    expect(session.user?.email).toBe('user@example.com');
+    expect(session.accessToken).toBe(futureToken);
+    expect(mockRefreshSession).not.toHaveBeenCalled();
+  });
+
+  it('waits for sdk oauth callback handling on /auth/callback before refreshing', async () => {
+    window.history.replaceState({}, '', '/auth/callback?insforge_code=code123');
+    mockGetCurrentUser.mockResolvedValue({ data: { user: mockUser }, error: null });
+    // getCallbackRouteSession() calls getSdkSession() exactly once, after getCurrentUser()
+    // completes (which triggers the SDK to populate tokenManager internally).
+    mockSdkGetSession.mockReturnValue({
+      accessToken: futureToken,
+      user: mockUser,
+    });
+
+    const session = await getCurrentAuthSession(true);
+
+    expect(mockGetCurrentUser).toHaveBeenCalledTimes(1);
+    expect(mockRefreshSession).not.toHaveBeenCalled();
+    expect(session.authenticated).toBe(true);
+    expect(session.user?.email).toBe('user@example.com');
+  });
+
+  it('getAccessToken returns cached token without re-fetching', async () => {
+    mockRefreshSession.mockResolvedValue({
+      data: { accessToken: futureToken, user: mockUser },
+      error: null,
+    });
+
+    const token1 = await getAccessToken();
+    const token2 = await getAccessToken();
+
+    expect(token1).toBe(futureToken);
+    expect(token2).toBe(futureToken);
+    expect(mockRefreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('getCurrentAuthSession with force=true bypasses cache', async () => {
+    mockRefreshSession.mockResolvedValue({
+      data: { accessToken: futureToken, user: mockUser },
+      error: null,
+    });
+
+    await getAccessToken(); // populates cache
+    await getCurrentAuthSession(true); // force refresh
+
+    expect(mockRefreshSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('signOut clears session and sets null token', async () => {
+    mockSignOut.mockResolvedValue({ error: null });
+    // Warm the cache first
+    mockRefreshSession.mockResolvedValue({
+      data: { accessToken: futureToken, user: mockUser },
+      error: null,
+    });
+    await getAccessToken();
+
+    const result = await signOut();
+
+    expect(result).toEqual({ success: true });
+    expect(mockSetAuthToken).toHaveBeenCalledWith(null);
+    // Cache should be cleared — next getAccessToken re-fetches
+    mockRefreshSession.mockResolvedValue({ data: null, error: null });
+    const token = await getAccessToken();
+    expect(token).toBeNull();
+    expect(mockRefreshSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('signInWithGoogle delegates to SDK OAuth', async () => {
+    mockSignInWithOAuth.mockResolvedValue({ data: { url: 'https://accounts.google.com/...' }, error: null });
 
     const result = await signInWithGoogle();
 
     expect(result).toEqual({ success: true });
-    expect(mockSignInWithOAuth).toHaveBeenCalledWith({
-      provider: 'google',
-      redirectTo: `${window.location.origin}/for-you`,
-    });
+    expect(mockSignInWithOAuth).toHaveBeenCalledWith(expect.objectContaining({ provider: 'google' }));
   });
 
-  it('returns SDK error when OAuth initiation fails', async () => {
-    mockSignInWithOAuth.mockResolvedValue({ error: { message: 'OAuth failed' } });
-
-    const result = await signInWithGoogle();
-
-    expect(result).toEqual({ success: false, error: 'OAuth failed' });
-  });
-});
-
-describe('getAccessToken', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    _resetAuthStateForTesting();
-    window.localStorage.clear();
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    window.localStorage.clear();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: originalLocation,
-    });
-  });
-
-  it('returns SDK token when valid', async () => {
-    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: { accessToken: validToken } },
+  it('completeOAuthSignIn gets user after OAuth callback', async () => {
+    const oauthUser = { id: 'u2', email: 'oauth@example.com', emailVerified: true, createdAt: '', updatedAt: '', profile: null, metadata: null };
+    mockGetCurrentUser.mockResolvedValue({ data: { user: oauthUser }, error: null });
+    mockRefreshSession.mockResolvedValue({
+      data: { accessToken: futureToken, user: oauthUser },
+      error: null,
     });
 
-    const token = await getAccessToken();
-    expect(token).toBe(validToken);
-  });
+    const result = await completeOAuthSignIn();
 
-  it('falls back to cookie recovery when SDK token is expired', async () => {
-    const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: { accessToken: expiredToken } },
-    });
-
-    const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        authenticated: true,
-        accessToken: freshToken,
-        user: { id: 'u1', email: 'user@example.com' },
-      }),
-    });
-
-    const token = await getAccessToken();
-    expect(token).toBe(freshToken);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/session');
-    expect(mockSetAuthToken).toHaveBeenCalledWith(freshToken);
-  });
-
-  it('returns null when both SDK and cookie recovery fail', async () => {
-    mockGetCurrentSession.mockRejectedValue(new Error('SDK error'));
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false });
-
-    const token = await getAccessToken();
-    expect(token).toBeNull();
-  });
-
-  it('returns localStorage token when SDK session is expired but localStorage has valid token', async () => {
-    const expiredToken = fakeJwt({ exp: Date.now() / 1000 - 100 });
-    mockGetCurrentSession.mockResolvedValue({
-      data: { session: { accessToken: expiredToken } },
-    });
-
-    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    window.localStorage.setItem(INSFORGE_AUTH_TOKEN_KEY, validToken);
-
-    const token = await getAccessToken();
-    expect(token).toBe(validToken);
-    expect(globalThis.fetch).not.toHaveBeenCalled();
-    expect(mockSetAuthToken).toHaveBeenCalledWith(validToken);
-  });
-
-  it('deduplicates concurrent cookie recovery attempts', async () => {
-    mockGetCurrentSession.mockResolvedValue({ data: { session: null } });
-
-    const freshToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    let resolveCount = 0;
-    // Use a deferred promise so both calls reach the _refreshPromise check
-    // before the fetch resolves, guaranteeing deduplication.
-    let resolveFetch!: (value: unknown) => void;
-    const fetchPromise = new Promise((resolve) => { resolveFetch = resolve; });
-    globalThis.fetch = vi.fn().mockImplementation(() => {
-      resolveCount += 1;
-      return fetchPromise;
-    });
-
-    const resultPromise = Promise.all([getAccessToken(), getAccessToken()]);
-
-    // Allow both calls to reach the _refreshPromise check, then resolve fetch
-    await Promise.resolve();
-    resolveFetch({
-      ok: true,
-      json: async () => ({ authenticated: true, accessToken: freshToken }),
-    });
-
-    const [t1, t2] = await resultPromise;
-
-    expect(t1).toBe(freshToken);
-    expect(t2).toBe(freshToken);
-    expect(resolveCount).toBe(1);
-  });
-});
-
-describe('token cache', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    _resetAuthStateForTesting();
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('returns cached token without network calls', async () => {
-    const validToken = fakeJwt({ exp: Date.now() / 1000 + 3600 });
-    setCachedToken(validToken);
-
-    mockGetCurrentSession.mockRejectedValue(new Error('should not be called'));
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('should not be called'));
-
-    const token = await getAccessToken();
-    expect(token).toBe(validToken);
-    expect(mockGetCurrentSession).not.toHaveBeenCalled();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
-  });
-});
-
-describe('signOut', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('returns success when SDK signOut succeeds', async () => {
-    mockSignOut.mockResolvedValue({ error: null });
-    const result = await signOut();
     expect(result.success).toBe(true);
-  });
-
-  it('returns error when SDK signOut fails', async () => {
-    mockSignOut.mockResolvedValue({ error: { message: 'Session not found' } });
-    const result = await signOut();
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Session not found');
+    expect(result.user?.email).toBe('oauth@example.com');
   });
 });

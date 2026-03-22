@@ -1,58 +1,27 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../AuthContext';
 
-const mockSetUser = vi.fn();
-const mockReloadAuth = vi.fn();
-const mockSdkSignOut = vi.fn();
-const mockSdkSignUp = vi.fn();
-const mockUpdateUser = vi.fn();
+const mockGetCurrentAuthSession = vi.fn();
+const mockSignIn = vi.fn();
+const mockSignOut = vi.fn();
+const mockSignUp = vi.fn();
+const mockSignInWithGoogle = vi.fn();
+const mockUpdateProfile = vi.fn();
 const mockResendVerificationEmail = vi.fn();
 const mockVerifyEmail = vi.fn();
-let mockSdkUser: Record<string, unknown> | null = null;
-let mockIsLoaded = true;
-
-const mockAuthSignIn = vi.fn();
-const mockAuthSignInWithGoogle = vi.fn();
-const mockGetAccessToken = vi.fn();
-const mockAuthUpdateProfile = vi.fn();
-const mockSetAuthToken = vi.fn();
-const mockInsforgeGetCurrentSession = vi.fn();
-const originalFetch = globalThis.fetch;
-
-vi.mock('@insforge/nextjs', () => ({
-  useInsforge: () => ({
-    user: mockSdkUser,
-    isLoaded: mockIsLoaded,
-    setUser: mockSetUser,
-    reloadAuth: mockReloadAuth,
-    signOut: mockSdkSignOut,
-    signUp: mockSdkSignUp,
-    updateUser: mockUpdateUser,
-    resendVerificationEmail: mockResendVerificationEmail,
-    verifyEmail: mockVerifyEmail,
-  }),
-}));
 
 vi.mock('@/lib/auth', () => ({
-  signIn: (...args: unknown[]) => mockAuthSignIn(...args),
-  signInWithGoogle: (...args: unknown[]) => mockAuthSignInWithGoogle(...args),
-  getAccessToken: (...args: unknown[]) => mockGetAccessToken(...args),
-  updateProfile: (...args: unknown[]) => mockAuthUpdateProfile(...args),
-  isTokenExpired: vi.fn().mockReturnValue(false),
-  syncClientAuthSession: vi.fn(),
-  setCachedToken: vi.fn(),
-}));
-
-vi.mock('@/lib/insforge', () => ({
-  insforge: {
-    getHttpClient: () => ({ setAuthToken: mockSetAuthToken }),
-    auth: {
-      getCurrentSession: (...args: unknown[]) => mockInsforgeGetCurrentSession(...args),
-    },
-  },
+  getCurrentAuthSession: (...args: unknown[]) => mockGetCurrentAuthSession(...args),
+  signIn: (...args: unknown[]) => mockSignIn(...args),
+  signOut: (...args: unknown[]) => mockSignOut(...args),
+  signUp: (...args: unknown[]) => mockSignUp(...args),
+  signInWithGoogle: (...args: unknown[]) => mockSignInWithGoogle(...args),
+  updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
+  resendVerificationEmail: (...args: unknown[]) => mockResendVerificationEmail(...args),
+  verifyEmail: (...args: unknown[]) => mockVerifyEmail(...args),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -93,52 +62,33 @@ function renderWithProviders(ui: React.ReactElement) {
 
 describe('AuthContext', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockSdkUser = null;
-    mockIsLoaded = true;
-    mockReloadAuth.mockResolvedValue({ success: true });
-    mockGetAccessToken.mockResolvedValue(null);
-    mockInsforgeGetCurrentSession.mockResolvedValue({ data: { session: null } });
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ authenticated: false }),
-    });
-    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {});
-    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
     cleanup();
-    globalThis.fetch = originalFetch;
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    mockGetCurrentAuthSession.mockResolvedValue({
+      authenticated: false,
+      user: null,
+      accessToken: null,
+      expiresAt: null,
+    });
   });
 
-  it('renders children', async () => {
-    await act(async () => {
-      renderWithProviders(
-        <AuthProvider>
-          <span data-testid="child">Hello</span>
-        </AuthProvider>,
-      );
+  it('hydrates initial session from auth route helper', async () => {
+    mockGetCurrentAuthSession.mockResolvedValue({
+      authenticated: true,
+      user: {
+        id: 'u1',
+        email: 'test@test.com',
+        name: 'Test User',
+      },
+      accessToken: 'tok123',
+      expiresAt: null,
     });
-    expect(screen.getByTestId('child')).toHaveTextContent('Hello');
-  });
 
-  it('exposes authenticated user from SDK', async () => {
-    mockSdkUser = {
-      id: 'u1',
-      email: 'test@test.com',
-      profile: { name: 'Test User' },
-    };
-
-    await act(async () => {
-      renderWithProviders(
-        <AuthProvider>
-          <AuthConsumer />
-        </AuthProvider>,
-      );
-    });
+    renderWithProviders(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('loading')).toHaveTextContent('false');
@@ -147,52 +97,48 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user-email')).toHaveTextContent('test@test.com');
   });
 
-  it('recovers session from cookies when SDK has no user', async () => {
-    mockGetAccessToken.mockResolvedValue('fresh-token');
-    mockInsforgeGetCurrentSession.mockResolvedValue({
-      data: {
-        session: {
-          user: { id: 'u2', email: 'recovered@test.com', profile: null },
-        },
+  it('calls signIn helper and updates user state', async () => {
+    mockSignIn.mockResolvedValue({
+      success: true,
+      user: {
+        id: 'u1',
+        email: 'user@example.com',
       },
     });
 
-    await act(async () => {
-      renderWithProviders(
-        <AuthProvider>
-          <AuthConsumer />
-        </AuthProvider>,
-      );
-    });
+    let signInResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signIn']>> | null = null;
 
-    await waitFor(() => {
-      expect(mockGetAccessToken).toHaveBeenCalled();
-    });
-    expect(mockReloadAuth).toHaveBeenCalled();
-    expect(mockSetUser).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u2', email: 'recovered@test.com' }),
-    );
-  });
-
-  it('sets unauthenticated state when recovery fails', async () => {
-    mockGetAccessToken.mockResolvedValue(null);
+    function SignInConsumer() {
+      const auth = useAuth();
+      useEffect(() => {
+        void auth.signIn('user@example.com', 'Password123!').then((result) => {
+          signInResult = result;
+        });
+      }, [auth]);
+      return null;
+    }
 
     await act(async () => {
       renderWithProviders(
         <AuthProvider>
           <AuthConsumer />
+          <SignInConsumer />
         </AuthProvider>,
       );
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+      expect(signInResult).toEqual({ success: true, error: undefined });
     });
-    expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('user-email')).toHaveTextContent('user@example.com');
   });
 
   it('returns verification-required state from signUp', async () => {
-    mockSdkSignUp.mockResolvedValue({ data: { requireEmailVerification: true }, error: null });
+    mockSignUp.mockResolvedValue({
+      success: true,
+      requiresEmailVerification: true,
+      email: 'user@example.com',
+    });
 
     let signUpResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signUp']>> | null = null;
 
@@ -218,96 +164,28 @@ describe('AuthContext', () => {
     await waitFor(() => {
       expect(signUpResult).toEqual({
         success: true,
+        error: undefined,
         requiresEmailVerification: true,
         email: 'user@example.com',
       });
     });
   });
 
-  it('reloads auth and bridges sdk user after successful signIn', async () => {
-    mockAuthSignIn.mockResolvedValue({
+  it('updates user state after verifyEmail succeeds', async () => {
+    mockVerifyEmail.mockResolvedValue({
       success: true,
       user: {
-        id: 'u1',
-        email: 'user@example.com',
-        name: 'Tester',
+        id: 'u2',
+        email: 'verified@example.com',
       },
     });
-
-    let signInResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signIn']>> | null = null;
-
-    function SignInConsumer() {
-      const auth = useAuth();
-      useEffect(() => {
-        void auth.signIn('user@example.com', 'Password123!').then((result) => {
-          signInResult = result;
-        });
-      }, [auth]);
-      return null;
-    }
-
-    await act(async () => {
-      renderWithProviders(
-        <AuthProvider>
-          <SignInConsumer />
-        </AuthProvider>,
-      );
-    });
-
-    await waitFor(() => {
-      expect(signInResult).toEqual({ success: true, error: undefined });
-    });
-    expect(mockReloadAuth).toHaveBeenCalled();
-    expect(mockSetUser).toHaveBeenCalledWith({
-      id: 'u1',
-      email: 'user@example.com',
-      profile: {
-        name: 'Tester',
-        avatar_url: undefined,
-      },
-    });
-  });
-
-  it('treats empty resend verification result as failure', async () => {
-    mockResendVerificationEmail.mockResolvedValue(null);
-
-    let resendResult: Awaited<ReturnType<ReturnType<typeof useAuth>['resendVerificationEmail']>> | null = null;
-
-    function ResendConsumer() {
-      const auth = useAuth();
-      useEffect(() => {
-        void auth.resendVerificationEmail('user@example.com').then((result) => {
-          resendResult = result;
-        });
-      }, [auth]);
-      return null;
-    }
-
-    await act(async () => {
-      renderWithProviders(
-        <AuthProvider>
-          <ResendConsumer />
-        </AuthProvider>,
-      );
-    });
-
-    await waitFor(() => {
-      expect(resendResult).toEqual({
-        success: false,
-        error: '重新发送失败，请稍后重试',
-      });
-    });
-  });
-
-  it('reloads auth after successful email verification', async () => {
-    mockVerifyEmail.mockResolvedValue({ data: { success: true }, error: null });
 
     let verifyResult: Awaited<ReturnType<ReturnType<typeof useAuth>['verifyEmail']>> | null = null;
 
     function VerifyConsumer() {
       const auth = useAuth();
       useEffect(() => {
-        void auth.verifyEmail('123456', 'user@example.com').then((result) => {
+        void auth.verifyEmail('123456', 'verified@example.com').then((result) => {
           verifyResult = result;
         });
       }, [auth]);
@@ -317,19 +195,20 @@ describe('AuthContext', () => {
     await act(async () => {
       renderWithProviders(
         <AuthProvider>
+          <AuthConsumer />
           <VerifyConsumer />
         </AuthProvider>,
       );
     });
 
     await waitFor(() => {
-      expect(verifyResult).toEqual({ success: true });
+      expect(verifyResult).toEqual({ success: true, error: undefined });
     });
-    expect(mockReloadAuth).toHaveBeenCalled();
+    expect(screen.getByTestId('user-email')).toHaveTextContent('verified@example.com');
   });
 
   it('delegates Google OAuth to auth helper', async () => {
-    mockAuthSignInWithGoogle.mockResolvedValue({ success: true });
+    mockSignInWithGoogle.mockResolvedValue({ success: true });
 
     let oauthResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithGoogle']>> | null = null;
 
@@ -354,6 +233,6 @@ describe('AuthContext', () => {
     await waitFor(() => {
       expect(oauthResult).toEqual({ success: true });
     });
-    expect(mockAuthSignInWithGoogle).toHaveBeenCalled();
+    expect(mockSignInWithGoogle).toHaveBeenCalled();
   });
 });

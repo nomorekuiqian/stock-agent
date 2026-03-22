@@ -17,35 +17,17 @@ function createFakeJwt(): string {
 
 async function loginWithMock(page: Page) {
   const accessToken = createFakeJwt();
-  const mockUser = {
-    id: 'user-123',
-    email: 'test@example.com',
-    profile: { name: 'Playwright User' },
-  };
+  // Shared state persists across page navigations within the same route handler
+  let currentUser: Record<string, unknown> | null = null;
 
-  // Mock our Server Proxy auth endpoint (POST /api/auth with action: 'sign-in')
-  await page.route('**/api/auth', async (route: Route) => {
-    if (route.request().method() === 'POST') {
-      let body: Record<string, unknown> = {};
-      try { body = route.request().postDataJSON(); } catch { /* not JSON */ }
-
-      if (body.action === 'login') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ success: true, accessToken, csrfToken: 'csrf-token', user: mockUser }),
-        });
-        return;
-      }
-    }
-    await route.continue();
-  });
-
-  // Mock Insforge auth sub-path endpoints (SDK direct calls)
+  // Mock Insforge SDK auth endpoints (SDK Direct — no /api/auth server bridge).
+  // currentUser is captured in closure so refreshSession can recover session on
+  // subsequent page.goto() calls (full page reloads clear in-memory auth state).
   await page.route('**/api/auth/**', async (route: Route) => {
     const url = new URL(route.request().url());
+    const path = url.pathname;
 
-    if (url.pathname.endsWith('/api/auth/public-config')) {
+    if (path.endsWith('/api/auth/public-config')) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -58,20 +40,49 @@ async function loginWithMock(page: Page) {
       return;
     }
 
-    if (url.pathname.endsWith('/api/auth/refresh')) {
-      await route.fulfill({
-        status: 404,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'Not found' }),
-      });
-      return;
-    }
-
-    if (url.pathname.endsWith('/api/auth/sessions/current')) {
+    // signInWithPassword → POST /api/auth/sessions
+    if (path.endsWith('/api/auth/sessions') && route.request().method() === 'POST') {
+      currentUser = { id: 'user-123', email: 'test@example.com', profile: { name: 'Playwright User' } };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ user: mockUser }),
+        body: JSON.stringify({ accessToken, csrfToken: 'test-csrf-token', user: currentUser }),
+      });
+      // Set first-party CSRF cookie so middleware allows protected routes
+      await page.context().addCookies([{
+        name: 'insforge_csrf_token',
+        value: 'test-csrf-token',
+        domain: 'localhost',
+        path: '/',
+        sameSite: 'Lax',
+      }]);
+      return;
+    }
+
+    // refreshSession — succeeds if user is logged in so page reloads recover session
+    if (path.endsWith('/api/auth/refresh')) {
+      if (currentUser) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ accessToken, user: currentUser }),
+        });
+      } else {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Unauthorized' }),
+        });
+      }
+      return;
+    }
+
+    // getCurrentUser (session check)
+    if (path.endsWith('/api/auth/sessions/current')) {
+      await route.fulfill({
+        status: currentUser ? 200 : 401,
+        contentType: 'application/json',
+        body: JSON.stringify(currentUser ? { user: currentUser } : { message: 'Unauthorized' }),
       });
       return;
     }
@@ -84,13 +95,6 @@ async function loginWithMock(page: Page) {
   await page.locator('#password').fill('Password123');
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15000 });
-
-  // Set auth cookies so full page reloads recover the session
-  // (simulates what the real Server Proxy sets via Set-Cookie headers)
-  await page.context().addCookies([
-    { name: 'insforge-session', value: accessToken, domain: 'localhost', path: '/' },
-    { name: 'insforge-user', value: JSON.stringify({ id: mockUser.id, email: mockUser.email, profile: mockUser.profile || null }), domain: 'localhost', path: '/' },
-  ]);
 }
 
 // ---------------------------------------------------------------------------

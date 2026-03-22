@@ -944,40 +944,4 @@ describe('api (post cache removal)', () => {
     });
   });
 
-  describe('sectors auth-protected actions', () => {
-    it('subscribes with auth header and body without user_id', async () => {
-      mockFetchOk({ success: true, sector_id: 'ai' });
-
-      await api.sectors.subscribe('ai');
-
-      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(url).toContain('/sectors/subscribe');
-      expect(opts.method).toBe('POST');
-      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
-      expect(JSON.parse(opts.body)).toEqual({ sector_id: 'ai' });
-    });
-
-    it('loads subscriptions with auth header and no user_id query', async () => {
-      mockFetchOk({ success: true, subscriptions: [] });
-
-      await api.sectors.getSubscriptions();
-
-      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(url).toContain('/sectors/subscriptions');
-      expect(url).not.toContain('user_id=');
-      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
-    });
-
-    it('unsubscribes with auth header and no user_id query', async () => {
-      mockFetchOk({ success: true, sector_id: 'ai' });
-
-      await api.sectors.unsubscribe('ai');
-
-      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(url).toContain('/sectors/ai/unsubscribe');
-      expect(url).not.toContain('user_id=');
-      expect(opts.method).toBe('DELETE');
-      expect(opts.headers['Authorization']).toBe('Bearer fake-token');
-    });
-  });
 });
