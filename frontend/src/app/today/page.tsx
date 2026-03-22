@@ -1,12 +1,11 @@
-'use client';
-
-import { useMemo } from 'react';
 import Link from 'next/link';
 import { ReportContent } from '@/components/ReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
-import { marketTodayStr, formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { TodayActions } from './_components/TodayActions';
-import { useReportByDate, useLatestReport, useReportList } from '@/hooks/queries/use-report-data';
+import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
+import type { MarketData, ReportListItem } from '@/lib/api';
+
+export const revalidate = 300; // ISR: 5 分钟
 
 interface IndexData {
   name: string;
@@ -14,22 +13,62 @@ interface IndexData {
   change_percent?: number;
 }
 
-export default function TodayPage() {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+
+async function getReportByDate(date: string): Promise<MarketData | null> {
+  try {
+    const res = await fetch(`${API_BASE}/market/reports/date/${date}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getLatestReport(): Promise<MarketData | null> {
+  try {
+    const res = await fetch(`${API_BASE}/market/reports/latest`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getReportList(): Promise<{ data: ReportListItem[]; total: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/market/reports?limit=6&offset=0`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return { data: [], total: 0 };
+    const json = await res.json();
+    return { data: json.data ?? [], total: json.total ?? json.data?.length ?? 0 };
+  } catch {
+    return { data: [], total: 0 };
+  }
+}
+
+export default async function TodayPage() {
   const today = marketTodayStr();
 
-  const { data: todayReport, isLoading: loadingToday } = useReportByDate(today);
-  const { data: latestReport, isLoading: loadingLatest } = useLatestReport();
-  const { data: historicalResult, isLoading: loadingHistory } = useReportList(6, 0);
+  const [todayReport, latestReport, historyResult] = await Promise.all([
+    getReportByDate(today),
+    getLatestReport(),
+    getReportList(),
+  ]);
 
   const report = todayReport ?? latestReport ?? null;
-  const isToday = todayReport ? true : (latestReport?.report_date === today);
-  const isLoading = loadingToday || (loadingLatest && !todayReport);
-
-  const historicalReports = useMemo(() => {
-    if (!historicalResult?.data) return [];
-    return historicalResult.data.filter(r => r.report_date !== today).slice(0, 5);
-  }, [historicalResult, today]);
-  const totalReports = historicalResult?.total ?? 0;
+  const isToday = todayReport ? true : latestReport?.report_date === today;
+  const historicalReports = (historyResult.data ?? [])
+    .filter(r => r.report_date !== today)
+    .slice(0, 5);
+  const totalReports = historyResult.total;
 
   return (
     <main className="min-h-screen bg-background">
@@ -49,7 +88,7 @@ export default function TodayPage() {
                 今日日报
               </h1>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg">
-                AI 驱动的市场分析,提供可操作的投资洞察,助力明智决策
+                AI 驱动的市场分析，提供可操作的投资洞察，助力明智决策
               </p>
             </div>
 
@@ -61,27 +100,16 @@ export default function TodayPage() {
         </div>
       </section>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">加载报告中...</p>
-          </div>
-        </div>
-      )}
-
       {/* Report Content */}
-      {!isLoading && report ? (
+      {report ? (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          {/* Report Header */}
           <section>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
                 <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-sm font-data text-foreground">{formatDateChinese(report.report_date)}</span>
+                <span className="text-sm font-data text-foreground">{formatReportDate(report.report_date)}</span>
               </div>
               <Link
                 href={`/screener?context=daily_report&date=${report.report_date || ''}`}
@@ -116,8 +144,7 @@ export default function TodayPage() {
             showDisclaimer={false}
           />
         </div>
-      ) : !isLoading ? (
-        /* Empty State */
+      ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="text-center space-y-6">
             <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center">
@@ -128,15 +155,15 @@ export default function TodayPage() {
             <div>
               <h3 className="text-xl font-medium text-foreground mb-2">暂无报告</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                市场报告每日生成,请稍后再来查看
+                市场报告每日生成，请稍后再来查看
               </p>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Historical Reports Section */}
-      {!loadingHistory && historicalReports.length > 0 && (
+      {historicalReports.length > 0 && (
         <section className="border-t border-border/50 mt-12">
           <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
             <div className="flex items-center justify-between mb-8">
@@ -166,7 +193,7 @@ export default function TodayPage() {
                   className="group terminal-card p-6 hover:border-emerald-500/30 hover:bg-card/80 transition-all"
                 >
                   <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-relaxed mb-4">
-                    {r.title || formatDateChinese(r.report_date)}
+                    {r.title || formatReportDate(r.report_date)}
                   </h4>
                   <div className="flex items-center justify-between pt-4 border-t border-border/30">
                     <span className="text-xs font-data text-muted-foreground">

@@ -25,10 +25,11 @@ export function MorningActions({ reportExists }: MorningActionsProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isDev = process.env.NODE_ENV === 'development';
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const { data: preferences } = useEmailPreferences(!!user);
   const isSubscribed = preferences?.morning_report ?? false;
+  const prefsLoading = authLoading || (!!user && preferences === undefined);
 
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -102,6 +103,9 @@ export function MorningActions({ reportExists }: MorningActionsProps) {
 
   return (
     <div className="flex items-center gap-3">
+      {prefsLoading ? (
+        <div className="w-24 h-9 rounded-lg bg-muted animate-pulse" />
+      ) : (
       <button
         onClick={handleToggleSubscription}
         disabled={subscriptionLoading}
@@ -129,6 +133,7 @@ export function MorningActions({ reportExists }: MorningActionsProps) {
           </>
         )}
       </button>
+      )}
 
       {isDev && user && (
         <button

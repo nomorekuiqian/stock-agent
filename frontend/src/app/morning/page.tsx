@@ -1,29 +1,68 @@
-'use client';
-
-import { useMemo } from 'react';
 import Link from 'next/link';
 import { MorningReportContent } from '@/components/MorningReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
-import { useMorningReportByDate, useMorningReportLatest, useMorningReportList } from '@/hooks/queries/use-morning-report-data';
+import type { MorningReport, MorningReportListItem } from '@/lib/api';
 
-export default function MorningPage() {
+export const revalidate = 300;
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+
+async function getMorningReportByDate(date: string): Promise<MorningReport | null> {
+  try {
+    const res = await fetch(`${API_BASE}/morning/reports/date/${date}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getMorningReportLatest(): Promise<MorningReport | null> {
+  try {
+    const res = await fetch(`${API_BASE}/morning/reports/latest`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getMorningReportList(): Promise<{ data: MorningReportListItem[]; total: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/morning/reports?limit=6&offset=0`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return { data: [], total: 0 };
+    const json = await res.json();
+    return { data: json.data ?? [], total: json.total ?? json.data?.length ?? 0 };
+  } catch {
+    return { data: [], total: 0 };
+  }
+}
+
+export default async function MorningPage() {
   const today = marketTodayStr();
 
-  const { data: todayReport, isLoading: loadingToday } = useMorningReportByDate(today);
-  const { data: latestReport, isLoading: loadingLatest } = useMorningReportLatest();
-  const { data: historicalResult, isLoading: loadingHistory } = useMorningReportList(6, 0);
+  const [todayReport, latestReport, historyResult] = await Promise.all([
+    getMorningReportByDate(today),
+    getMorningReportLatest(),
+    getMorningReportList(),
+  ]);
 
   const report = todayReport ?? latestReport ?? null;
-  const isToday = todayReport ? true : (latestReport?.report_date === today);
-  const isLoading = loadingToday || (loadingLatest && !todayReport);
-
-  const historicalReports = useMemo(() => {
-    if (!historicalResult?.data) return [];
-    return historicalResult.data.filter(r => r.report_date !== today).slice(0, 5);
-  }, [historicalResult, today]);
-  const totalReports = historicalResult?.total ?? 0;
+  const isToday = todayReport ? true : latestReport?.report_date === today;
+  const historicalReports = (historyResult.data ?? [])
+    .filter(r => r.report_date !== today)
+    .slice(0, 5);
+  const totalReports = historyResult.total;
 
   return (
     <main className="min-h-screen bg-background">
@@ -55,20 +94,9 @@ export default function MorningPage() {
         </div>
       </section>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-amber-500/20 border-t-amber-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">加载早报中...</p>
-          </div>
-        </div>
-      )}
-
       {/* Report Content */}
-      {!isLoading && report ? (
+      {report ? (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          {/* Report Header */}
           <section>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
@@ -104,8 +132,7 @@ export default function MorningPage() {
             summary={report.summary || []}
           />
         </div>
-      ) : !isLoading ? (
-        /* Empty State */
+      ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="text-center space-y-6">
             <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center">
@@ -121,10 +148,10 @@ export default function MorningPage() {
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Historical Reports Section */}
-      {!loadingHistory && (
+      {historicalReports.length > 0 && (
         <section className="border-t border-border/50 mt-12">
           <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
             <div className="flex items-center justify-between mb-8">
@@ -146,31 +173,27 @@ export default function MorningPage() {
               </Link>
             </div>
 
-            {historicalReports.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {historicalReports.map((r) => (
-                  <Link
-                    key={r.id}
-                    href={`/morning/${r.id}`}
-                    className="group terminal-card p-6 hover:border-amber-500/30 hover:bg-card/80 transition-all"
-                  >
-                    <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-amber-400 transition-colors leading-relaxed mb-4">
-                      {r.title || formatReportDate(r.report_date)}
-                    </h4>
-                    <div className="flex items-center justify-between pt-4 border-t border-border/30">
-                      <span className="text-xs font-data text-muted-foreground">
-                        {formatDateShort(r.report_date)}
-                      </span>
-                      <svg className="w-4 h-4 text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">暂无往期早报</p>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {historicalReports.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/morning/${r.id}`}
+                  className="group terminal-card p-6 hover:border-amber-500/30 hover:bg-card/80 transition-all"
+                >
+                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-amber-400 transition-colors leading-relaxed mb-4">
+                    {r.title || formatReportDate(r.report_date)}
+                  </h4>
+                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
+                    <span className="text-xs font-data text-muted-foreground">
+                      {formatDateShort(r.report_date)}
+                    </span>
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       )}
