@@ -82,6 +82,7 @@ async def api_subscription_status(user_id: str = Depends(verify_user_token)):
         plan=sub.get("plan", "free"),
         status=sub.get("status", "none"),
         current_period_end=sub.get("current_period_end"),
+        access_expires_at=sub.get("access_expires_at"),
     )
 
 
@@ -133,6 +134,7 @@ async def api_sync_subscription(
             status="active",
             current_period_start=period_start,
             current_period_end=period_end,
+            clear_access_expires_at=True,
         )
         logger.info("Manual sync: subscription %s for user %s", sub["id"], user_id)
         return {"synced": True, "subscription_id": sub["id"]}
@@ -175,6 +177,7 @@ async def stripe_webhook(request: Request):
                 status="active",
                 current_period_start=period_start,
                 current_period_end=period_end,
+                clear_access_expires_at=True,
             )
             logger.info("Subscription activated for user %s", user_id)
 
@@ -190,6 +193,7 @@ async def stripe_webhook(request: Request):
                     plan=plan,
                     status=status,
                     current_period_end=period_end,
+                    clear_access_expires_at=(plan == "pro"),
                 )
                 logger.info("Subscription updated for user %s: %s", user_id, status)
         except Exception as e:

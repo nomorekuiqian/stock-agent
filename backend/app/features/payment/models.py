@@ -20,6 +20,7 @@ class SubscriptionStatusResponse(BaseModel):
     plan: str
     status: str
     current_period_end: Optional[str] = None
+    access_expires_at: Optional[str] = None
 
 
 class PortalSessionResponse(BaseModel):

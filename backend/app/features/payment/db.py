@@ -48,8 +48,18 @@ async def upsert_subscription(
     status: Optional[str] = None,
     current_period_start: Optional[str] = None,
     current_period_end: Optional[str] = None,
+    invite_code: Optional[str] = None,
+    access_expires_at: Optional[str] = None,
+    clear_access_expires_at: bool = False,
+    referred_by: Optional[str] = None,
+    referral_code: Optional[str] = None,
+    referral_count: Optional[int] = None,
 ) -> bool:
-    """Insert or update a subscription record."""
+    """Insert or update a subscription record.
+
+    Pass clear_access_expires_at=True to explicitly null out the invite trial
+    expiry (e.g. when a real Stripe subscription is activated).
+    """
     body: Dict[str, Any] = {"user_id": user_id}
     if stripe_customer_id is not None:
         body["stripe_customer_id"] = stripe_customer_id
@@ -63,6 +73,18 @@ async def upsert_subscription(
         body["current_period_start"] = current_period_start
     if current_period_end is not None:
         body["current_period_end"] = current_period_end
+    if invite_code is not None:
+        body["invite_code"] = invite_code
+    if access_expires_at is not None:
+        body["access_expires_at"] = access_expires_at
+    elif clear_access_expires_at:
+        body["access_expires_at"] = None
+    if referred_by is not None:
+        body["referred_by"] = referred_by
+    if referral_code is not None:
+        body["referral_code"] = referral_code
+    if referral_count is not None:
+        body["referral_count"] = referral_count
 
     service = get_insforge_service()
     result = await service.call_function(
