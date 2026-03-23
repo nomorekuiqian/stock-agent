@@ -141,7 +141,7 @@ export function HistoryAreaChart({
         chart.applyOptions({ width: containerRef.current.clientWidth });
       }
     }
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
     handleResize();
 
     return () => {

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    optimizePackageImports: ['lightweight-charts'],
+    optimizePackageImports: ['lightweight-charts', 'lucide-react'],
   },
   images: {
     remotePatterns: [

@@ -138,7 +138,7 @@ export function GlobalLiquidityChart({
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
     handleResize();
 
     return () => {
