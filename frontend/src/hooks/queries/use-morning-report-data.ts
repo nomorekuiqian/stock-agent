@@ -21,10 +21,11 @@ export function useMorningReportByDate(date: string) {
   });
 }
 
-export function useMorningReportLatest() {
+export function useMorningReportLatest(enabled = true) {
   return useQuery({
     queryKey: queryKeys.morningReports.latest(),
     queryFn: () => api.morningReports.getLatest(),
+    enabled,
     staleTime: 30 * 60 * 1000,  // 30 min
     gcTime: 2 * 60 * 60 * 1000, // 2 hours
   });
