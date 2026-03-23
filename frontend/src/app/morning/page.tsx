@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { MorningReportContent } from '@/components/MorningReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
+import { AiChatLink } from '@/components/AiChatLink';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MorningReport, MorningReportListItem } from '@/lib/api';
 
@@ -88,7 +89,12 @@ export default async function MorningPage() {
 
             <div className="flex flex-col items-start md:items-end gap-4">
               <ReportTabs />
-              <MorningActions reportExists={!!report} />
+              <div className="flex items-center gap-3">
+                {report && (
+                  <AiChatLink href={`/screener?context=morning_report&date=${report.report_date || ''}`} />
+                )}
+                <MorningActions />
+              </div>
             </div>
           </div>
         </div>
@@ -114,7 +120,7 @@ export default async function MorningPage() {
             )}
 
             {report.market_pulse && (
-              <div className="mt-4 p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+              <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
                 <p className="text-foreground/80 leading-relaxed text-sm">
                   {report.market_pulse}
                 </p>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -9,7 +10,7 @@ import { useEmailPreferences } from '@/hooks/queries/use-preferences';
 import { queryKeys } from '@/hooks/queries/query-keys';
 
 interface TodayActionsProps {
-  reportExists: boolean;
+  chatHref?: string;
 }
 
 function Spinner() {
@@ -21,10 +22,9 @@ function Spinner() {
   );
 }
 
-export function TodayActions({ reportExists }: TodayActionsProps) {
+export function TodayActions({ chatHref }: TodayActionsProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const isDev = process.env.NODE_ENV === 'development';
   const { user, isLoading: authLoading } = useAuth();
 
   const { data: preferences } = useEmailPreferences(!!user);
@@ -32,8 +32,6 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
   const prefsLoading = authLoading || (!!user && preferences === undefined);
 
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
 
   async function handleToggleSubscription() {
     if (!user?.email) {
@@ -74,35 +72,23 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
     }
   }
 
-  async function handleGenerate() {
-    setGenerating(true);
-    try {
-      await api.getMarketAnalysis(true);
-      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
-    } catch {
-      // generation error is non-critical for dev tool
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function handleSendEmail() {
-    if (!user?.email) {
-      router.push('/login?redirect=/today');
-      return;
-    }
-    setSendingEmail(true);
-    try {
-      await api.sendReportEmail(user.email);
-    } catch {
-      // send error is non-critical
-    } finally {
-      setSendingEmail(false);
-    }
-  }
-
   return (
     <div className="flex items-center gap-3">
+      {chatHref && (
+        <Link
+          href={chatHref}
+          className="group inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-all duration-200 hover:bg-primary/90 shadow-sm hover:shadow-lg hover:shadow-primary/20 shrink-0"
+        >
+          <svg
+            className="w-4 h-4 transition-transform duration-300 group-hover:scale-110"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+          </svg>
+          和 AI 聊聊
+        </Link>
+      )}
       {prefsLoading ? (
         <div className="w-24 h-9 rounded-lg bg-muted animate-pulse" />
       ) : (
@@ -111,8 +97,8 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
         disabled={subscriptionLoading}
         className={`px-4 py-2.5 rounded-lg font-medium text-sm border transition-all flex items-center gap-2 group ${
           isSubscribed
-            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
-            : 'bg-card text-foreground border-border/50 hover:border-emerald-500/30'
+            ? 'bg-primary/10 text-primary border-primary/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
+            : 'bg-card text-foreground border-border/50 hover:border-primary/30'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {subscriptionLoading ? (
@@ -126,7 +112,7 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
           </>
         ) : (
           <>
-            <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             <span>订阅</span>
@@ -135,49 +121,6 @@ export function TodayActions({ reportExists }: TodayActionsProps) {
       </button>
       )}
 
-      {isDev && user && (
-        <button
-          onClick={handleSendEmail}
-          disabled={sendingEmail || !reportExists}
-          className="px-4 py-2.5 bg-card text-foreground rounded-lg font-medium text-sm border border-border/50 transition-all hover:border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {sendingEmail ? (
-            <>
-              <Spinner />
-              <span>发送中...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span>发送邮件</span>
-            </>
-          )}
-        </button>
-      )}
-
-      {isDev && (
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
-        >
-          {generating ? (
-            <>
-              <Spinner />
-              <span>生成中...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>生成报告</span>
-            </>
-          )}
-        </button>
-      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import { TechnicalSignalDashboard, type Timeframe } from '@/components/technical
 import { TechnicalChart } from '@/components/technical/TechnicalChart';
 import { TechnicalAnalysisContent } from '@/components/technical/TechnicalAnalysisContent';
 import { useAuth } from '@/contexts/AuthContext';
+import { AiChatLink } from '@/components/AiChatLink';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import {
   useStockProfile,
@@ -822,12 +823,12 @@ export function SectionCard({ title, titleEn, children, className = '', action, 
         <div className="flex items-center justify-between">
           <div>
             {numberLabel && (
-              <p className="font-data text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-500/60 light:text-emerald-600/70 mb-1.5">
+              <p className="font-data text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/60 mb-1.5">
                 Section {numberLabel}
               </p>
             )}
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2.5">
-              <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+              <div className="w-1 h-5 bg-primary rounded-full" />
               <span>{title}</span>
               <span className="text-muted-foreground/60 text-sm font-normal">{titleEn}</span>
             </h2>
@@ -1034,8 +1035,8 @@ export function ValuationComparisonSection({
               </thead>
               <tbody className="font-data">
                 {/* Current company row */}
-                <tr className="border-b border-border/30 bg-emerald-500/5">
-                  <td className="py-3 px-4 font-medium text-emerald-400">{peer_comparison.symbol}</td>
+                <tr className="border-b border-border/30 bg-primary/5">
+                  <td className="py-3 px-4 font-medium text-primary">{peer_comparison.symbol}</td>
                   <td className="text-right py-3 px-3 text-foreground">{formatVal(peer_comparison.company_metrics?.pe_ratio)}</td>
                   <td className="text-right py-3 px-3 text-foreground">{formatVal(peer_comparison.company_metrics?.pb_ratio)}</td>
                   <td className="text-right py-3 px-3 text-foreground">
@@ -1077,14 +1078,14 @@ function AnalysisTabBar({
 }) {
   const tabs: { id: AnalysisTab; label: string; labelEn: string; desc: string; color: string; activeBg: string }[] = [
     { id: 'fundamental', label: '基本面', labelEn: 'Fundamentals', desc: '财务 / 估值 / AI 投资分析', color: 'amber', activeBg: 'bg-amber-500/[0.07]' },
-    { id: 'technical', label: '技术面', labelEn: 'Technical', desc: '趋势 / 信号 / AI 技术分析', color: 'emerald', activeBg: 'bg-emerald-500/[0.07]' },
+    { id: 'technical', label: '技术面', labelEn: 'Technical', desc: '趋势 / 信号 / AI 技术分析', color: 'primary', activeBg: 'bg-primary/[0.07]' },
     { id: 'news', label: '新闻面', labelEn: 'News', desc: '新闻 / 分析师 / 催化事件', color: 'blue', activeBg: 'bg-blue-500/[0.07]' },
     { id: 'macro', label: '宏观面', labelEn: 'Macro', desc: '宏观 / 板块 / 市场环境', color: 'violet', activeBg: 'bg-violet-500/[0.07]' },
   ];
 
   const colorMap: Record<string, { text: string; bar: string }> = {
     amber: { text: 'text-amber-400 light:text-amber-600', bar: 'bg-amber-500' },
-    emerald: { text: 'text-emerald-400 light:text-emerald-600', bar: 'bg-emerald-500' },
+    primary: { text: 'text-primary', bar: 'bg-primary' },
     blue: { text: 'text-blue-400 light:text-blue-600', bar: 'bg-blue-500' },
     violet: { text: 'text-violet-400 light:text-violet-600', bar: 'bg-violet-500' },
   };
@@ -1198,10 +1199,10 @@ function AIAnalysisSection({
                 {{ fundamental: 'AI 投研', technical: 'AI 技术分析', news: 'AI 新闻分析', macro: 'AI 宏观分析' }[activeTab]}
               </p>
               <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
-                {{ fundamental: 'amber', technical: 'emerald', news: 'blue', macro: 'violet' }[activeTab] === 'amber' ? (
+                {{ fundamental: 'amber', technical: 'primary', news: 'blue', macro: 'violet' }[activeTab] === 'amber' ? (
                   <>解锁 <span className="text-amber-400 light:text-amber-600">{symbol}</span> 深度洞察</>
-                ) : { technical: 'emerald', news: 'blue', macro: 'violet' }[activeTab as 'technical' | 'news' | 'macro'] === 'emerald' ? (
-                  <><span className="text-emerald-400 light:text-emerald-600">{symbol}</span> 技术面透视</>
+                ) : activeTab === 'technical' ? (
+                  <><span className="text-primary">{symbol}</span> 技术面透视</>
                 ) : activeTab === 'news' ? (
                   <><span className="text-blue-400 light:text-blue-600">{symbol}</span> 新闻速递</>
                 ) : (
@@ -1277,7 +1278,7 @@ function AIAnalysisSection({
         <div className="px-5 py-4 border-b border-border/30 bg-card/40">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <div className={`w-1 h-5 rounded-full ${{ fundamental: 'bg-amber-500', technical: 'bg-emerald-500', news: 'bg-blue-500', macro: 'bg-violet-500' }[activeTab]}`} />
+              <div className={`w-1 h-5 rounded-full ${{ fundamental: 'bg-amber-500', technical: 'bg-primary', news: 'bg-blue-500', macro: 'bg-violet-500' }[activeTab]}`} />
               <span>{{ fundamental: '投资分析', technical: '技术分析', news: '新闻分析', macro: '宏观分析' }[activeTab]}</span>
               <span className="text-muted-foreground text-sm font-normal font-data">{symbol}</span>
             </h2>
@@ -1285,7 +1286,7 @@ function AIAnalysisSection({
               onClick={handleRegenerateClick}
               disabled={currentLoading}
               className={`p-2 text-muted-foreground transition-colors disabled:opacity-50 ${{
-                fundamental: 'hover:text-amber-400', technical: 'hover:text-emerald-400',
+                fundamental: 'hover:text-amber-400', technical: 'hover:text-primary',
                 news: 'hover:text-blue-400', macro: 'hover:text-violet-400',
               }[activeTab]}`}
               title="重新生成"
@@ -1318,8 +1319,8 @@ function AIAnalysisSection({
               {(analysis.financial_health || analysis.financials_analysis) && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">财务体检</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                    <span className="text-primary">财务体检</span>
                     <span className="text-muted-foreground/50 text-xs font-normal">Financial Health</span>
                   </h3>
                   <MarkdownContent content={analysis.financial_health || analysis.financials_analysis || ''} />
@@ -1377,8 +1378,8 @@ function AIAnalysisSection({
               {technicalAnalysis.technical_summary && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">技术总结</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                    <span className="text-primary">技术总结</span>
                     <span className="text-muted-foreground/50 text-xs font-normal">Summary</span>
                   </h3>
                   <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
@@ -1391,8 +1392,8 @@ function AIAnalysisSection({
               {technicalAnalysis.trend_analysis && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">趋势分析</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                    <span className="text-primary">趋势分析</span>
                     <span className="text-muted-foreground/50 text-xs font-normal">Trend</span>
                   </h3>
                   <TechnicalAnalysisContent content={technicalAnalysis.trend_analysis} />
@@ -1403,8 +1404,8 @@ function AIAnalysisSection({
               {technicalAnalysis.entry_exit_signals && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">关键价位</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                    <span className="text-primary">关键价位</span>
                     <span className="text-muted-foreground/50 text-xs font-normal">Key Levels</span>
                   </h3>
                   <TechnicalAnalysisContent content={technicalAnalysis.entry_exit_signals} />
@@ -1415,8 +1416,8 @@ function AIAnalysisSection({
               {technicalAnalysis.pattern_analysis && (
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-medium tracking-wide mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span className="text-emerald-400">信号与风险</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                    <span className="text-primary">信号与风险</span>
                     <span className="text-muted-foreground/50 text-xs font-normal">Signals & Risk</span>
                   </h3>
                   <TechnicalAnalysisContent content={technicalAnalysis.pattern_analysis} />
@@ -1670,7 +1671,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
           <p className="text-sm text-muted-foreground">{error || `未找到 ${symbol} 的数据`}</p>
           <button
             onClick={() => router.back()}
-            className="mt-2 px-5 py-2 bg-card border border-border rounded-lg text-sm font-medium hover:border-emerald-500/30 transition-all"
+            className="mt-2 px-5 py-2 bg-card border border-border rounded-lg text-sm font-medium hover:border-primary/30 transition-all"
           >
             返回
           </button>
@@ -1697,11 +1698,11 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-5">
-          <Link href="/" className="hover:text-emerald-400 transition-colors">首页</Link>
+          <Link href="/" className="hover:text-primary transition-colors">首页</Link>
           <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <Link href="/stock" className="hover:text-emerald-400 transition-colors">个股调研</Link>
+          <Link href="/stock" className="hover:text-primary transition-colors">个股调研</Link>
           <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -1727,8 +1728,8 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                   />
                 </div>
               ) : (
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/20 flex items-center justify-center">
-                  <span className="font-data font-bold text-emerald-400 text-base">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 flex items-center justify-center">
+                  <span className="font-data font-bold text-primary text-base">
                     {symbol.slice(0, 2)}
                   </span>
                 </div>
@@ -1756,15 +1757,12 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                   {profile.classification.industry && ` / ${translateIndustry(profile.classification.industry)}`}
                 </p>
               )}
-              <Link
+              <AiChatLink
                 href={`/screener?context=stock&symbol=${symbol}`}
-                className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-md transition-colors w-fit"
-              >
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                AI 深度分析
-              </Link>
+                label="AI 深度分析"
+                size="sm"
+                className="mt-1.5 w-fit"
+              />
             </div>
 
             {/* Price - show loading skeleton while quote is being fetched */}
@@ -1817,7 +1815,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                 onClick={() => setTechnicalTimeframe('daily')}
                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   technicalTimeframe === 'daily'
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                    ? 'bg-primary/15 text-primary border border-primary/30 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground border border-transparent'
                 }`}
               >
@@ -1827,7 +1825,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                 onClick={() => setTechnicalTimeframe('weekly')}
                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   technicalTimeframe === 'weekly'
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                    ? 'bg-primary/15 text-primary border border-primary/30 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground border border-transparent'
                 }`}
               >
@@ -1916,7 +1914,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
               {/* Header */}
               <div className="px-5 py-3 border-b border-border/30 bg-card/40">
                 <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <div className="w-1 h-4 rounded-full bg-emerald-500" />
+                  <div className="w-1 h-4 rounded-full bg-primary" />
                   <span>技术信号</span>
                   <span className="text-muted-foreground/40 text-xs font-normal">Signals</span>
                 </h3>
@@ -1959,7 +1957,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             <p className="mt-2 text-sm text-muted-foreground">{analysisMutation.error instanceof Error ? analysisMutation.error.message : '生成分析失败，请重试'}</p>
             <button
               onClick={() => handleGenerateAnalysis(false)}
-              className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+              className="mt-3 text-sm text-primary hover:text-primary/80 transition-colors"
             >
               重试
             </button>

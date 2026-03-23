@@ -79,9 +79,9 @@ export default async function TodayPage() {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">DAILY REPORT</span>
+                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">今日日报</span>
                 {report && !isToday && (
-                  <span className="text-amber-500 text-xs font-medium tracking-[0.15em] uppercase ml-2">/ ARCHIVE</span>
+                  <span className="text-amber-500 text-xs font-medium tracking-[0.15em] ml-2">/ 归档</span>
                 )}
               </div>
               <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
@@ -94,7 +94,9 @@ export default async function TodayPage() {
 
             <div className="flex flex-col items-start md:items-end gap-4">
               <ReportTabs />
-              <TodayActions reportExists={!!report} />
+              <TodayActions
+                chatHref={report ? `/screener?context=daily_report&date=${report.report_date || ''}` : undefined}
+              />
             </div>
           </div>
         </div>
@@ -106,20 +108,11 @@ export default async function TodayPage() {
           <section>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="text-sm font-data text-foreground">{formatReportDate(report.report_date)}</span>
               </div>
-              <Link
-                href={`/screener?context=daily_report&date=${report.report_date || ''}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                跟 AI 聊聊
-              </Link>
             </div>
 
             {report.title && (
@@ -169,14 +162,14 @@ export default async function TodayPage() {
             <div className="flex items-center justify-between mb-8">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+                  <div className="w-1 h-5 bg-primary rounded-full" />
                   <h3 className="text-xl font-medium text-foreground">往期报告</h3>
                 </div>
                 <p className="text-sm text-muted-foreground pl-3">{totalReports} 份报告存档</p>
               </div>
               <Link
                 href="/today/archive"
-                className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 group"
+                className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1 group"
               >
                 查看全部
                 <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,16 +183,16 @@ export default async function TodayPage() {
                 <Link
                   key={r.id}
                   href={`/today/${r.id}`}
-                  className="group terminal-card p-6 hover:border-emerald-500/30 hover:bg-card/80 transition-all"
+                  className="group terminal-card p-6 hover:border-primary/30 hover:bg-card/80 transition-all"
                 >
-                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-emerald-400 transition-colors leading-relaxed mb-4">
+                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-relaxed mb-4">
                     {r.title || formatReportDate(r.report_date)}
                   </h4>
                   <div className="flex items-center justify-between pt-4 border-t border-border/30">
                     <span className="text-xs font-data text-muted-foreground">
                       {formatDateShort(r.report_date)}
                     </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>

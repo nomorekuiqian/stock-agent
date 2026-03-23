@@ -8,6 +8,7 @@ import {
   SignalLights,
 } from '@/lib/api';
 import { MacroActions } from './_components/MacroActions';
+import { AiChatLink } from '@/components/AiChatLink';
 
 export const metadata: Metadata = {
   title: '美股宏观周报 - 经济、流动性、通胀与市场情绪',
@@ -29,13 +30,13 @@ const SIGNAL_LABELS: Record<string, string> = {
 };
 
 const SIGNAL_COLORS: Record<string, string> = {
-  green: 'bg-emerald-500',
+  green: 'bg-primary',
   yellow: 'bg-amber-400',
   red: 'bg-red-500',
 };
 
 const SIGNAL_TEXT_COLORS: Record<string, string> = {
-  green: 'text-emerald-500',
+  green: 'text-primary',
   yellow: 'text-amber-400',
   red: 'text-red-500',
 };
@@ -71,7 +72,7 @@ function formatWeekLabel(label: string): string {
 const MACRO_MD_COMPONENTS = {
   h3: ({ children }: { children?: ReactNode }) => (
     <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mt-6 mb-2 first:mt-0 flex items-center gap-2">
-      <span className="w-1 h-4 bg-emerald-500/60 rounded-full shrink-0" />
+      <span className="w-1 h-4 bg-primary/60 rounded-full shrink-0" />
       {children}
     </h3>
   ),
@@ -91,7 +92,7 @@ const MACRO_MD_COMPONENTS = {
     <li className="text-foreground/80 leading-relaxed pl-1">{children}</li>
   ),
   code: ({ children }: { children?: ReactNode }) => (
-    <code className="font-data text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded text-sm">{children}</code>
+    <code className="font-data text-primary bg-primary/10 px-1 py-0.5 rounded text-sm">{children}</code>
   ),
 };
 
@@ -106,7 +107,7 @@ function MacroMarkdown({ content }: { content: string }) {
 function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+      <div className="w-1 h-5 bg-primary rounded-full" />
       <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h4>
     </div>
   );
@@ -137,9 +138,9 @@ function DimensionNav({ report }: { report: WeeklyMacroReport }) {
 
         return (
           <Link key={dim.id} href={dim.href} className="group">
-            <div className="relative rounded-xl border border-border/40 bg-card/60 p-4 h-full flex flex-col hover:border-emerald-500/40 hover:bg-card transition-all duration-300 cursor-pointer">
+            <div className="relative rounded-xl border border-border/40 bg-card/60 p-4 h-full flex flex-col hover:border-primary/40 hover:bg-card transition-all duration-300 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-foreground group-hover:text-emerald-400 transition-colors duration-300">
+                <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
                   {dim.nameZh}
                 </h3>
                 <div className="flex items-center gap-1.5">
@@ -153,10 +154,10 @@ function DimensionNav({ report }: { report: WeeklyMacroReport }) {
                 {summary || dim.question}
               </p>
               <div className="flex items-center gap-1 mt-3 pt-2.5 border-t border-border/30">
-                <span className="text-xs font-medium text-emerald-500/70 group-hover:text-emerald-400 transition-colors duration-300">
+                <span className="text-xs font-medium text-primary/70 group-hover:text-primary transition-colors duration-300">
                   查看详情
                 </span>
-                <svg className="w-3.5 h-3.5 text-emerald-500/70 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 text-primary/70 group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
@@ -206,15 +207,7 @@ export default async function MacroPage() {
               )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <Link
-                href="/screener?context=macro"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                跟 AI 聊聊
-              </Link>
+              <AiChatLink href="/screener?context=macro" />
               <MacroActions />
             </div>
           </div>
@@ -233,7 +226,7 @@ export default async function MacroPage() {
               {report.verdict && (
                 <div className="bg-card rounded-xl border border-border p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       核心判断
                     </span>
@@ -260,7 +253,7 @@ export default async function MacroPage() {
             {/* Dimension Navigation */}
             <section className="space-y-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+                <div className="w-1 h-5 bg-primary rounded-full" />
                 <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">四维分析</h4>
                 <span className="text-xs text-muted-foreground/60 ml-1">点击查看详情</span>
               </div>
@@ -284,19 +277,19 @@ export default async function MacroPage() {
                   {report.week_ahead.map((event, i) => (
                     <div key={i} className={`px-5 py-4 ${i < report.week_ahead.length - 1 ? 'border-b border-border/50' : ''}`}>
                       <div className="hidden md:grid grid-cols-[100px_1fr_1fr_1fr] gap-4 items-start">
-                        <span className="font-data text-sm text-emerald-500">{event.date}</span>
+                        <span className="font-data text-sm text-primary">{event.date}</span>
                         <span className="text-sm text-foreground font-medium">{event.event}</span>
                         <span className="text-sm text-muted-foreground">{event.if_above}</span>
                         <span className="text-sm text-muted-foreground">{event.if_below}</span>
                       </div>
                       <div className="md:hidden space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-data text-sm text-emerald-500">{event.date}</span>
+                          <span className="font-data text-sm text-primary">{event.date}</span>
                           <span className="text-sm text-foreground font-medium">{event.event}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                           <div>
-                            <span className="text-emerald-500/70 mr-1">高于预期:</span>
+                            <span className="text-primary/70 mr-1">高于预期:</span>
                             {event.if_above}
                           </div>
                           <div>
