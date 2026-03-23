@@ -292,11 +292,11 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await expect(page).toHaveURL(/\/login.*redirect.*profile/, { timeout: 10000 });
   });
 
-  test('redirects unauthenticated user from /screener to /login with redirect param', async ({ page }) => {
+  test('redirects unauthenticated user from /research to /login with redirect param', async ({ page }) => {
     await setupAuthMocks(page);
-    await page.goto('/screener');
+    await page.goto('/research');
 
-    await expect(page).toHaveURL(/\/login.*redirect.*screener/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/login.*redirect.*research/, { timeout: 10000 });
   });
 
   // ── Section J: Post-logout redirect ─────────────────────────────────────────

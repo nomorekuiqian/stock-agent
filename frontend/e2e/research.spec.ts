@@ -206,7 +206,7 @@ async function mockBackendApi(page: Page) {
 // Tests
 // ---------------------------------------------------------------------------
 
-test.describe('Screener page (/screener)', () => {
+test.describe('Screener page (/research)', () => {
   test.beforeEach(async ({ page }) => {
     await loginWithMock(page);
   });
@@ -216,7 +216,7 @@ test.describe('Screener page (/screener)', () => {
   // -----------------------------------------------------------------------
 
   test('displays WelcomeScreen with all key elements', async ({ page }) => {
-    await page.goto('/screener');
+    await page.goto('/research');
 
     // Editorial title (use heading role to avoid matching nav link)
     await expect(page.getByRole('heading', { name: '投研助手' })).toBeVisible({ timeout: 15000 });
@@ -246,7 +246,7 @@ test.describe('Screener page (/screener)', () => {
   });
 
   test('shuffle buttons refresh strategy cards and theme chips', async ({ page }) => {
-    await page.goto('/screener');
+    await page.goto('/research');
     await expect(page.locator('text=热门策略')).toBeVisible({ timeout: 15000 });
 
     // Two refresh buttons (strategies + themes)
@@ -280,7 +280,7 @@ test.describe('Screener page (/screener)', () => {
     test.setTimeout(30_000);
 
     await mockBackendApi(page);
-    await page.goto('/screener');
+    await page.goto('/research');
     await expect(page.locator('textarea')).toBeVisible({ timeout: 15000 });
 
     // Click the first visible strategy card
@@ -317,7 +317,7 @@ test.describe('Screener page (/screener)', () => {
     test.setTimeout(30_000);
 
     await mockBackendApi(page);
-    await page.goto('/screener');
+    await page.goto('/research');
     await expect(page.locator('textarea')).toBeVisible({ timeout: 15000 });
 
     // Type a custom query
@@ -349,7 +349,7 @@ test.describe('Screener page (/screener)', () => {
     test.setTimeout(30_000);
 
     await mockBackendApi(page);
-    await page.goto('/screener');
+    await page.goto('/research');
     await expect(page.locator('textarea')).toBeVisible({ timeout: 15000 });
 
     // Start a conversation — click any visible strategy card
@@ -420,7 +420,7 @@ test.describe('Screener page (/screener)', () => {
       await route.continue();
     });
 
-    await page.goto('/screener');
+    await page.goto('/research');
 
     // Should redirect to /login
     await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
