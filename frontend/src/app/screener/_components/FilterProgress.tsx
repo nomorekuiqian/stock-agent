@@ -73,7 +73,7 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
               <span
                 className={`animate-number-pop font-data tabular-nums ${
                   i === steps.length - 1
-                    ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                    ? 'text-primary font-medium'
                     : 'text-muted-foreground'
                 }`}
                 style={{ animationDelay: `${i * 100}ms` }}
@@ -94,10 +94,10 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
           {appliedFilters.map((f, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-emerald-500/8 border border-emerald-500/15 text-emerald-600/80 dark:text-emerald-400/80"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-primary/8 border border-primary/15 text-primary/80"
             >
               <span>{FIELD_LABELS[f.field] || f.field}</span>
-              <span className="text-emerald-500/50">{OP_LABELS[f.op] || f.op}</span>
+              <span className="text-primary/50">{OP_LABELS[f.op] || f.op}</span>
               <span className="font-data">{formatFilterValue(f.value)}</span>
             </span>
           ))}

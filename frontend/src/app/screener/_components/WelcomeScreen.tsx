@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { ConversationSummary } from '@/lib/api';
+import { marketTodayStr } from '@/lib/timezone';
 import ChatInput from './ChatInput';
 
 // ---------------------------------------------------------------------------
@@ -195,6 +196,8 @@ function formatRelativeTime(dateStr: string): string {
 
 interface WelcomeScreenProps {
   onSelect: (value: string) => void;
+  onEnterDailyReport?: () => void;
+  onEnterMacro?: () => void;
   universeSize?: number;
   conversations?: ConversationSummary[];
   conversationsLoading?: boolean;
@@ -202,8 +205,15 @@ interface WelcomeScreenProps {
   onDeleteConversation?: (id: string) => void;
 }
 
+function todayLabel(): string {
+  const [, month, day] = marketTodayStr().split('-');
+  return `${parseInt(month)}月${parseInt(day)}日`;
+}
+
 export default function WelcomeScreen({
   onSelect,
+  onEnterDailyReport,
+  onEnterMacro,
   universeSize,
   conversations = [],
   conversationsLoading = false,
@@ -237,8 +247,8 @@ export default function WelcomeScreen({
       {/* ── Background layers ── */}
       <DotGrid />
       {/* Emerald gradient orb — Apple-style ambient glow */}
-      <div className="absolute top-1/3 -left-32 w-[500px] h-[500px] rounded-full bg-emerald-500/[0.07] blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full bg-emerald-500/[0.04] blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 -left-32 w-[500px] h-[500px] rounded-full bg-primary/[0.07] blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full bg-primary/[0.04] blur-[100px] pointer-events-none" />
 
       <div className="relative w-full max-w-5xl z-10">
         {/* Split layout: stack on mobile, side-by-side on lg */}
@@ -248,7 +258,7 @@ export default function WelcomeScreen({
           <div className="lg:w-[400px] shrink-0 flex flex-col justify-center lg:py-12">
             {/* Brand mark */}
             <div className="animate-fade-in-up">
-              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
                 <svg className="w-6 h-6" viewBox="0 0 32 32" fill="none">
                   <path
                     d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
@@ -268,15 +278,15 @@ export default function WelcomeScreen({
               </div>
 
               <h1 className="text-3xl lg:text-4xl font-editorial text-foreground tracking-tight leading-tight">
-                找到适合你的
+                你的 AI
                 <br />
-                <span className="text-emerald-600 dark:text-emerald-500">投资机会</span>
+                <span className="text-primary">投研助手</span>
               </h1>
 
               <p className="mt-4 text-sm lg:text-base text-muted-foreground leading-relaxed max-w-sm">
                 {universeSize
-                  ? `覆盖 ${universeSize.toLocaleString()}+ 只美股，AI 逐步引导你筛选出心仪标的`
-                  : 'AI 帮你从全美股中，逐步筛选出适合你的投资标的'
+                  ? `覆盖 ${universeSize.toLocaleString()}+ 只美股，从选股筛选到深度研究，随时开聊`
+                  : '从选股筛选到个股研究，AI 随时陪你深入分析'
                 }
               </p>
             </div>
@@ -286,23 +296,25 @@ export default function WelcomeScreen({
               {universeSize ? (
                 <div>
                   <p className="text-lg font-data font-medium text-foreground">{universeSize.toLocaleString()}+</p>
-                  <p className="text-xs text-muted-foreground/70">可筛选股票</p>
+                  <p className="text-xs text-muted-foreground/70">覆盖美股</p>
                 </div>
               ) : null}
               <div>
                 <p className="text-lg font-data font-medium text-foreground">50+</p>
-                <p className="text-xs text-muted-foreground/70">筛选维度</p>
+                <p className="text-xs text-muted-foreground/70">分析维度</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <div>
-                  <p className="text-lg font-data font-medium text-foreground">实时</p>
-                  <p className="text-xs text-muted-foreground/70">数据更新</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-lg font-data font-medium text-foreground leading-none">实时</p>
+                    {/* Live pulse indicator */}
+                    <span className="relative flex h-2 w-2 mt-0.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground/70 mt-1">数据更新</p>
                 </div>
-                {/* Live pulse indicator */}
-                <span className="relative flex h-2 w-2 mt-[-12px]">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </span>
               </div>
             </div>
 
@@ -319,11 +331,14 @@ export default function WelcomeScreen({
                   {conversations.map((conv) => (
                     <div
                       key={conv.id}
-                      className="group flex items-center justify-between px-3 py-2.5 -mx-3 rounded-lg hover:bg-card/80 border border-transparent hover:border-border/40 transition-all duration-200 cursor-pointer"
-                      onClick={() => onLoadConversation?.(conv.id)}
+                      className="group flex items-center justify-between px-3 py-2.5 -mx-3 rounded-lg hover:bg-card/80 border border-transparent hover:border-border/40 transition-all duration-200"
                     >
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <svg className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                        onClick={() => onLoadConversation?.(conv.id)}
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
                         <div className="flex-1 min-w-0">
@@ -334,16 +349,14 @@ export default function WelcomeScreen({
                             {formatRelativeTime(conv.updated_at)} · {conv.message_count} 条消息
                           </p>
                         </div>
-                      </div>
+                      </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteConversation?.(conv.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 transition-all duration-150"
-                        title="删除"
+                        type="button"
+                        onClick={() => onDeleteConversation?.(conv.id)}
+                        aria-label={`删除对话：${conv.title || '未命名对话'}`}
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 focus:text-red-500 transition-all duration-150 rounded"
                       >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                       </button>
@@ -359,8 +372,65 @@ export default function WelcomeScreen({
             <div className="w-px h-96 bg-gradient-to-b from-transparent via-border/60 to-transparent" />
           </div>
 
-          {/* ── Right column: Strategies + Themes + Input ── */}
+          {/* ── Right column: Quick Entry + Strategies + Themes + Input ── */}
           <div className="flex-1 flex flex-col justify-center mt-10 lg:mt-0 lg:py-12">
+
+            {/* ── Quick context entry ── */}
+            <div className="animate-fade-in-up delay-100">
+              <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
+                快速进入
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Today's Daily Report */}
+                <button
+                  type="button"
+                  onClick={onEnterDailyReport}
+                  className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/[0.04] transition-all duration-200 cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/[0.08] border border-amber-500/10 flex items-center justify-center mb-3 text-amber-600 dark:text-amber-400/80 group-hover:bg-amber-500/15 group-hover:border-amber-500/20 transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                      <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" />
+                      <path d="M14 2v6h6" />
+                      <path d="M2 13h10M2 17h6M2 9h4" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    今日日报
+                  </p>
+                  <p className="text-xs text-muted-foreground/50 mt-1">
+                    {todayLabel()} · 市场综述
+                  </p>
+                </button>
+
+                {/* Macro Overview */}
+                <button
+                  type="button"
+                  onClick={onEnterMacro}
+                  className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/[0.04] transition-all duration-200 cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/[0.08] border border-violet-500/10 flex items-center justify-center mb-3 text-violet-600 dark:text-violet-400/80 group-hover:bg-violet-500/15 group-hover:border-violet-500/20 transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                    宏观快览
+                  </p>
+                  <p className="text-xs text-muted-foreground/50 mt-1">
+                    流动性 · 风险信号
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* ── Divider: quick entry → screener ── */}
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-border/30" />
+              <span className="text-xs text-muted-foreground/40 tracking-widest">或者选股</span>
+              <div className="flex-1 h-px bg-border/30" />
+            </div>
+
             {/* Strategy cards - 2x2 grid, rotating pool */}
             <div className="animate-fade-in-up delay-200">
               <div className="flex items-center justify-between mb-3">
@@ -368,11 +438,12 @@ export default function WelcomeScreen({
                   热门策略
                 </p>
                 <button
+                  type="button"
                   onClick={rotateStrategies}
-                  className="p-1 rounded-md text-muted-foreground/30 hover:text-emerald-500 hover:bg-emerald-500/5 transition-colors cursor-pointer"
-                  title="换一批"
+                  aria-label="换一批策略"
+                  className="p-1 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
                     <path d="M21 3v5h-5" />
                     <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
@@ -383,16 +454,18 @@ export default function WelcomeScreen({
               <div className={`grid grid-cols-2 gap-2.5 transition-all duration-300 ease-out ${
                 strategyExiting ? 'opacity-0 translate-y-1.5' : 'opacity-100 translate-y-0'
               }`}>
-                {strategies.map((preset) => (
+                {strategies.map((preset, idx) => (
                   <button
+                    type="button"
                     key={preset.label}
                     onClick={() => onSelect(preset.label)}
-                    className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm hover:bg-card/70 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/[0.03] transition-all duration-200 cursor-pointer"
+                    className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/[0.03] transition-all duration-200 cursor-pointer animate-fade-in-up"
+                    style={{ animationDelay: `${idx * 60}ms` }}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/[0.08] border border-emerald-500/10 flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-500/80 group-hover:bg-emerald-500/15 group-hover:border-emerald-500/20 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-primary/[0.08] border border-primary/10 flex items-center justify-center mb-3 text-primary group-hover:bg-primary/15 group-hover:border-primary/20 transition-colors">
                       {preset.icon}
                     </div>
-                    <p className="text-sm font-medium text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                       {preset.label}
                     </p>
                     <p className="text-xs text-muted-foreground/50 mt-1">
@@ -410,11 +483,12 @@ export default function WelcomeScreen({
                   试试这些
                 </p>
                 <button
+                  type="button"
                   onClick={rotateThemes}
-                  className="p-1 rounded-md text-muted-foreground/30 hover:text-emerald-500 hover:bg-emerald-500/5 transition-colors cursor-pointer"
-                  title="换一批"
+                  aria-label="换一批主题"
+                  className="p-1 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
                     <path d="M21 3v5h-5" />
                     <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
@@ -425,11 +499,13 @@ export default function WelcomeScreen({
               <div className={`flex flex-wrap gap-2 transition-all duration-300 ease-out ${
                 themeExiting ? 'opacity-0 translate-y-1.5' : 'opacity-100 translate-y-0'
               }`}>
-                {themes.map((theme) => (
+                {themes.map((theme, idx) => (
                   <button
+                    type="button"
                     key={theme}
                     onClick={() => onSelect(theme)}
-                    className="px-3.5 py-1.5 rounded-full text-xs border border-border/40 bg-card/20 backdrop-blur-sm text-muted-foreground hover:border-emerald-500/30 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 transition-all duration-200 cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-full text-xs border border-border/40 bg-card/20 text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5 active:scale-95 transition-all duration-200 cursor-pointer animate-fade-in-up"
+                    style={{ animationDelay: `${idx * 40}ms` }}
                   >
                     {theme}
                   </button>
@@ -447,7 +523,7 @@ export default function WelcomeScreen({
               </p>
               <ChatInput
                 onSubmit={onSelect}
-                placeholder="比如：帮我找市盈率低于 15、ROE 超过 20% 的股票..."
+                placeholder="聊聊日报、宏观，或描述你的选股想法..."
                 autoFocus={false}
               />
             </div>
@@ -462,11 +538,14 @@ export default function WelcomeScreen({
                   {conversations.map((conv) => (
                     <div
                       key={conv.id}
-                      className="group flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-card/80 border border-transparent hover:border-border/40 transition-all duration-200 cursor-pointer"
-                      onClick={() => onLoadConversation?.(conv.id)}
+                      className="group flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-card/80 border border-transparent hover:border-border/40 transition-all duration-200"
                     >
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <svg className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                        onClick={() => onLoadConversation?.(conv.id)}
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
                         <div className="flex-1 min-w-0">
@@ -477,16 +556,14 @@ export default function WelcomeScreen({
                             {formatRelativeTime(conv.updated_at)} · {conv.message_count} 条消息
                           </p>
                         </div>
-                      </div>
+                      </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteConversation?.(conv.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 transition-all duration-150"
-                        title="删除"
+                        type="button"
+                        onClick={() => onDeleteConversation?.(conv.id)}
+                        aria-label={`删除对话：${conv.title || '未命名对话'}`}
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 focus:text-red-500 transition-all duration-150 rounded"
                       >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                       </button>

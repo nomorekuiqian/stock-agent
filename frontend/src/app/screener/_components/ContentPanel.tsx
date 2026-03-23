@@ -4,11 +4,13 @@ import type { ContentContext } from '../_lib/contentTypes';
 import type { FilterStep } from './FilterProgress';
 import type { StockContextPayload } from './StockResearchView';
 import type { DailyReportContextPayload } from './DailyReportView';
+import type { MorningReportContextPayload } from './MorningReportView';
 import type { MacroContextPayload } from './MacroOverview';
 import type { BrewContextPayload } from './BrewDigestView';
 import ResultsPanel from './ResultsPanel';
 import StockResearchView from './StockResearchView';
 import DailyReportView from './DailyReportView';
+import MorningReportView from './MorningReportView';
 import MacroOverview from './MacroOverview';
 import BrewDigestView from './BrewDigestView';
 
@@ -35,6 +37,8 @@ interface ContentPanelProps {
   onStockContextReady?: (payload: StockContextPayload) => void;
   /** Called when daily report data is loaded in DailyReportView, for Agent context. */
   onReportContextReady?: (payload: DailyReportContextPayload) => void;
+  /** Called when morning report data is loaded in MorningReportView, for Agent context. */
+  onMorningContextReady?: (payload: MorningReportContextPayload) => void;
   /** Called when macro data is loaded in MacroOverview, for Agent context. */
   onMacroContextReady?: (payload: MacroContextPayload) => void;
   /** Called when brew digest data is loaded in BrewDigestView, for Agent context. */
@@ -48,6 +52,7 @@ export default function ContentPanel({
   screenerProps,
   onStockContextReady,
   onReportContextReady,
+  onMorningContextReady,
   onMacroContextReady,
   onBrewContextReady,
 }: ContentPanelProps) {
@@ -109,6 +114,14 @@ export default function ContentPanel({
             key={activeContent.params.date || 'latest'}
             date={activeContent.params.date || undefined}
             onContextReady={onReportContextReady}
+          />
+        )}
+
+        {activeContent.type === 'morning_report' && (
+          <MorningReportView
+            key={activeContent.params.date || 'latest'}
+            date={activeContent.params.date || undefined}
+            onContextReady={onMorningContextReady}
           />
         )}
 

@@ -218,8 +218,8 @@ test.describe('Screener page (/screener)', () => {
   test('displays WelcomeScreen with all key elements', async ({ page }) => {
     await page.goto('/screener');
 
-    // Editorial title
-    await expect(page.locator('text=投资机会')).toBeVisible({ timeout: 15000 });
+    // Editorial title (use heading role to avoid matching nav link)
+    await expect(page.getByRole('heading', { name: '投研助手' })).toBeVisible({ timeout: 15000 });
 
     // Strategy cards section
     await expect(page.locator('text=热门策略')).toBeVisible();
@@ -250,7 +250,7 @@ test.describe('Screener page (/screener)', () => {
     await expect(page.locator('text=热门策略')).toBeVisible({ timeout: 15000 });
 
     // Two refresh buttons (strategies + themes)
-    const refreshButtons = page.locator('button[title="换一批"]');
+    const refreshButtons = page.locator('button[aria-label="换一批策略"], button[aria-label="换一批主题"]');
     expect(await refreshButtons.count()).toBe(2);
 
     // Click strategy shuffle — cards should still be visible after animation
@@ -281,7 +281,7 @@ test.describe('Screener page (/screener)', () => {
 
     await mockBackendApi(page);
     await page.goto('/screener');
-    await expect(page.locator('text=投资机会')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('textarea')).toBeVisible({ timeout: 15000 });
 
     // Click the first visible strategy card
     const firstCard = page
@@ -301,7 +301,7 @@ test.describe('Screener page (/screener)', () => {
 
     // User message should appear in the chat
     // The card label becomes the user's first message
-    const userBubble = page.locator('.bg-emerald-600').first();
+    const userBubble = page.locator('.bg-primary').first();
     await expect(userBubble).toBeVisible({ timeout: 5000 });
 
     // Wait for AI response — max-w-[85%] distinguishes real messages from TypingIndicator
@@ -350,7 +350,7 @@ test.describe('Screener page (/screener)', () => {
 
     await mockBackendApi(page);
     await page.goto('/screener');
-    await expect(page.locator('text=投资机会')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('textarea')).toBeVisible({ timeout: 15000 });
 
     // Start a conversation — click any visible strategy card
     const firstCard = page
@@ -374,7 +374,7 @@ test.describe('Screener page (/screener)', () => {
     await page.locator('text=重新开始').click();
 
     // Should return to WelcomeScreen
-    await expect(page.locator('text=投资机会')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=热门策略')).toBeVisible();
   });
 

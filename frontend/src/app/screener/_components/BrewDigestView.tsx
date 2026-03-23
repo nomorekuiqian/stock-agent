@@ -89,10 +89,10 @@ export default function BrewDigestView({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border border-emerald-500/20" />
-          <div className="absolute inset-0 rounded-full border-t border-emerald-500 animate-spin" />
+          <div className="absolute inset-0 rounded-full border border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-t border-primary animate-spin" />
           <svg
-            className="absolute inset-0 m-auto w-5 h-5 text-emerald-500/60"
+            className="absolute inset-0 m-auto w-5 h-5 text-primary/60"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

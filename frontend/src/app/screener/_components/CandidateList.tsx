@@ -249,7 +249,7 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
               setVisibleCount(PAGE_SIZE);
             }}
             placeholder="搜索代码、名称或板块..."
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border/50 bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors"
+            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border/50 bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
           />
           {search && (
             <button
@@ -317,14 +317,14 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
                     {onStockClick ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onStockClick(cleanSymbol); }}
-                        className="font-semibold font-data text-foreground hover:text-emerald-500 transition-colors"
+                        className="font-semibold font-data text-foreground hover:text-primary transition-colors"
                       >
                         {cleanSymbol}
                       </button>
                     ) : (
                       <Link
                         href={`/stock/${cleanSymbol}`}
-                        className="font-semibold font-data text-foreground hover:text-emerald-500 transition-colors"
+                        className="font-semibold font-data text-foreground hover:text-primary transition-colors"
                       >
                         {cleanSymbol}
                       </Link>
@@ -420,7 +420,7 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
           return (
             <div
               key={cleanSymbol}
-              className="relative p-3 rounded-lg border border-border/50 bg-card hover:border-emerald-500/30 transition-colors"
+              className="relative p-3 rounded-lg border border-border/50 bg-card hover:border-primary/30 transition-colors"
             >
               {onStockClick ? (
                 <button onClick={() => onStockClick(cleanSymbol)} className="block w-full text-left">
@@ -450,7 +450,7 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
         {hasMore && (
           <button
             onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -461,7 +461,7 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
         <div className="text-xs text-muted-foreground">
           {search ? `${filtered.length} / ${candidates.length}` : `共 ${candidates.length}`} 只候选股
           {candidates.length <= 5 && (
-            <span className="ml-2 text-emerald-500">点击查看个股深研</span>
+            <span className="ml-2 text-primary">点击查看个股深研</span>
           )}
         </div>
       </div>
@@ -483,7 +483,7 @@ function WatchlistBtn({
 }) {
   if (inWatchlist) {
     return (
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-md text-emerald-500" title="已在持仓中">
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-md text-primary" title="已在持仓中">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
@@ -495,7 +495,7 @@ function WatchlistBtn({
     <button
       onClick={(e) => onClick(cleanSymbol, e)}
       disabled={atLimit}
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground/50 hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
       title={atLimit ? '持仓已满 (25)' : '加入持仓'}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

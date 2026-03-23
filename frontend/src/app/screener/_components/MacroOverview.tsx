@@ -75,7 +75,7 @@ const DIMENSIONS: DimensionInfo[] = [
 const MACRO_MD_COMPONENTS = {
   h3: ({ children }: { children?: ReactNode }) => (
     <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mt-6 mb-2 first:mt-0 flex items-center gap-2">
-      <span className="w-1 h-4 bg-emerald-500/60 rounded-full shrink-0" />
+      <span className="w-1 h-4 bg-primary/60 rounded-full shrink-0" />
       {children}
     </h3>
   ),
@@ -95,7 +95,7 @@ const MACRO_MD_COMPONENTS = {
     <li className="text-foreground/80 leading-relaxed pl-1">{children}</li>
   ),
   code: ({ children }: { children?: ReactNode }) => (
-    <code className="font-data text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded text-sm">{children}</code>
+    <code className="font-data text-primary bg-primary/10 px-1 py-0.5 rounded text-sm">{children}</code>
   ),
 };
 
@@ -114,7 +114,7 @@ function MacroMarkdown({ content }: { content: string }) {
 function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+      <div className="w-1 h-5 bg-primary rounded-full" />
       <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h4>
     </div>
   );
@@ -166,10 +166,10 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border border-emerald-500/20" />
-          <div className="absolute inset-0 rounded-full border-t border-emerald-500 animate-spin" />
+          <div className="absolute inset-0 rounded-full border border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-t border-primary animate-spin" />
           <svg
-            className="absolute inset-0 m-auto w-5 h-5 text-emerald-500/60"
+            className="absolute inset-0 m-auto w-5 h-5 text-primary/60"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -234,7 +234,7 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
         {report.verdict && (
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 核心判断
               </span>
@@ -263,7 +263,7 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
         {/* Dimension Cards */}
         <section className="space-y-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">四维分析</h4>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

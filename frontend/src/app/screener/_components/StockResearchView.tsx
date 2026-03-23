@@ -141,9 +141,9 @@ export default function StockResearchView({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border border-emerald-500/20" />
-          <div className="absolute inset-0 rounded-full border-t border-emerald-500 animate-spin" />
-          <span className="absolute inset-0 flex items-center justify-center font-data text-xs text-emerald-500">
+          <div className="absolute inset-0 rounded-full border border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-t border-primary animate-spin" />
+          <span className="absolute inset-0 flex items-center justify-center font-data text-xs text-primary">
             {symbol.slice(0, 3)}
           </span>
         </div>
@@ -225,7 +225,7 @@ export default function StockResearchView({
         <div className="flex items-center gap-2 mt-4">
           <Link
             href={`/stock/${symbol}`}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer shadow-sm shadow-emerald-500/20"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer shadow-sm shadow-primary/20"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" strokeLinecap="round" strokeLinejoin="round" />
@@ -238,8 +238,8 @@ export default function StockResearchView({
             disabled={isInWatchlist || saveWatchlist.isPending}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
               isInWatchlist || justAdded
-                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-500'
-                : 'bg-card/80 border border-border/50 text-foreground hover:border-emerald-500/40 hover:text-emerald-500'
+                ? 'bg-primary/10 border border-primary/30 text-primary'
+                : 'bg-card/80 border border-border/50 text-foreground hover:border-primary/40 hover:text-primary'
             }`}
           >
             {isInWatchlist || justAdded ? (
@@ -283,11 +283,11 @@ function StatPill({ label, value, accent }: { label: string; value: string; acce
   return (
     <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs ${
       accent
-        ? 'bg-emerald-500/10 border border-emerald-500/20'
+        ? 'bg-primary/10 border border-primary/20'
         : 'bg-card/80 border border-border/30'
     }`}>
       <span className="text-muted-foreground/60">{label}</span>
-      <span className={`font-data tabular-nums ${accent ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
+      <span className={`font-data tabular-nums ${accent ? 'text-primary' : 'text-foreground'}`}>
         {value}
       </span>
     </div>
@@ -367,7 +367,7 @@ function FundamentalTab({
       {metricGroups.map((group) => (
         <div key={group.title}>
           <div className="flex items-center gap-2 mb-2.5">
-            <div className="w-1 h-3.5 rounded-full bg-emerald-500/60" />
+            <div className="w-1 h-3.5 rounded-full bg-primary/60" />
             <h3 className="text-xs font-medium text-muted-foreground">
               {group.title}
             </h3>
@@ -470,9 +470,9 @@ function AnalysisSection({
     return (
       <div className="flex flex-col items-center gap-3 py-10">
         <div className="relative w-10 h-10">
-          <div className="absolute inset-0 rounded-full border border-emerald-500/20" />
-          <div className="absolute inset-0 rounded-full border-t border-emerald-500 animate-spin" />
-          <svg className="absolute inset-0 m-auto w-4 h-4 text-emerald-500/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <div className="absolute inset-0 rounded-full border border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-t border-primary animate-spin" />
+          <svg className="absolute inset-0 m-auto w-4 h-4 text-primary/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
           </svg>
         </div>
@@ -486,8 +486,8 @@ function AnalysisSection({
   if (!analysis) {
     return (
       <div className="flex flex-col items-center gap-4 py-10">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 flex items-center justify-center">
-          <svg className="w-6 h-6 text-emerald-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+          <svg className="w-6 h-6 text-primary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
           </svg>
         </div>
@@ -497,7 +497,7 @@ function AnalysisSection({
         </div>
         <button
           onClick={onGenerate}
-          className="px-5 py-2 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer shadow-sm shadow-emerald-500/20"
+          className="px-5 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer shadow-sm shadow-primary/20"
         >
           生成分析
         </button>
@@ -509,7 +509,7 @@ function AnalysisSection({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-3.5 rounded-full bg-emerald-500/60" />
+          <div className="w-1 h-3.5 rounded-full bg-primary/60" />
           <h3 className="text-xs font-medium text-muted-foreground">
             {title}
           </h3>

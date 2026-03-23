@@ -59,7 +59,7 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
   );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       {/* Messages area */}
       <div
         ref={scrollRef}
@@ -96,7 +96,7 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
           >
             <TypingIndicator />
             {onCancelLoading && (
-              <p className="text-[10px] text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
+              <p className="text-micro text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
                 点击取消等待
               </p>
             )}

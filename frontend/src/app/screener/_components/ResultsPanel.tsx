@@ -66,7 +66,7 @@ export default function ResultsPanel({
       {/* Result count */}
       {hasResults && (
         <div className="flex items-baseline gap-2">
-          <span className="font-data text-lg text-emerald-600 dark:text-emerald-400 tabular-nums">
+          <span className="font-data text-lg text-primary tabular-nums">
             {candidateCount}
           </span>
           <span className="text-xs text-muted-foreground">
@@ -78,7 +78,7 @@ export default function ResultsPanel({
       {/* Loading overlay */}
       {loading && hasResults && (
         <div className="flex items-center gap-2 py-2">
-          <div className="w-4 h-4 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+          <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
           <span className="text-xs text-muted-foreground">更新中...</span>
         </div>
       )}
@@ -135,7 +135,7 @@ export default function ResultsPanel({
       {/* Prompt for deep research */}
       {candidateCount > 0 && candidateCount <= 5 && (
         <div className="text-center py-3">
-          <p className="text-xs text-emerald-600/70 dark:text-emerald-500/70">
+          <p className="text-xs text-primary/70">
             点击股票代码查看详细分析
           </p>
         </div>

@@ -39,10 +39,10 @@ export default function OptionChips({
               px-3.5 py-1.5 rounded-full text-sm
               border transition-all duration-200
               ${isSelected
-                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+                ? 'bg-primary/10 border-primary/40 text-primary'
                 : isDisabled
                   ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-default'
-                  : 'bg-card/60 border-border/50 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 active:scale-95 cursor-pointer'
+                  : 'bg-card/60 border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-95 cursor-pointer'
               }
             `}
             style={{ animationDelay: `${i * 60}ms` }}

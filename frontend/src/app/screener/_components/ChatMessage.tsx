@@ -50,7 +50,7 @@ export default function ChatMessage({ role, content, animate = false, isError = 
   if (role === 'user') {
     return (
       <div className="flex justify-end animate-msg-enter">
-        <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-tr-sm bg-emerald-600 text-white text-sm leading-relaxed">
+        <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-tr-sm bg-primary text-primary-foreground text-sm leading-relaxed">
           {content}
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function ChatMessage({ role, content, animate = false, isError = 
   return (
     <div className="flex items-start gap-3 animate-msg-enter">
       {/* AI avatar — brand "M" mark */}
-      <div className="shrink-0 w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mt-0.5">
+      <div className="shrink-0 w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mt-0.5">
         <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
           <path
             d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
@@ -106,8 +106,8 @@ export default function ChatMessage({ role, content, animate = false, isError = 
             prose-strong:text-foreground prose-strong:font-medium
             prose-ul:my-1.5 prose-li:my-0.5 prose-li:text-inherit
             prose-ol:my-1.5
-            prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
-            prose-blockquote:border-l-emerald-500/50 prose-blockquote:text-muted-foreground prose-blockquote:not-italic
+            prose-code:text-primary prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
+            prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground prose-blockquote:not-italic
             prose-table:text-xs
             prose-th:text-foreground prose-th:font-medium prose-th:pb-2 prose-th:border-b prose-th:border-border
             prose-td:py-1.5 prose-td:text-inherit prose-td:border-b prose-td:border-border/30

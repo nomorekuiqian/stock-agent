@@ -41,11 +41,11 @@ export default function RecommendationCard({
   const wrapperStyle = { animationDelay: `${index * 80}ms` };
 
   const cardContent = (
-    <div className="p-4 rounded-xl border border-border/50 bg-card/80 hover:border-emerald-500/30 hover:bg-card transition-all duration-200">
+    <div className="p-4 rounded-xl border border-border/50 bg-card/80 hover:border-primary/30 hover:bg-card transition-all duration-200">
       {/* Header: symbol + price */}
       <div className="flex items-baseline justify-between mb-2">
         <div className="flex items-baseline gap-2">
-          <span className="font-data text-sm font-medium text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-500 dark:group-hover:text-emerald-300">
+          <span className="font-data text-sm font-medium text-primary group-hover:text-primary/80">
             {cleanSymbol}
           </span>
           {name && (
@@ -74,7 +74,7 @@ export default function RecommendationCard({
       </p>
 
       {/* Subtle link indicator */}
-      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground/60 group-hover:text-emerald-600/60 dark:group-hover:text-emerald-500/50 transition-colors">
+      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground/60 group-hover:text-primary/60 transition-colors">
         <span>查看详情</span>
         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M5 12h14M12 5l7 7-7 7" />
