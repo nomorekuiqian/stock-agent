@@ -243,7 +243,7 @@ DIGEST_INSTRUCTION = """
 
 personal_digest_agent = LlmAgent(
     name="personal_digest",
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.1-pro-preview",
     description="Generates personalized daily digest based on user's watchlist",
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,
@@ -325,13 +325,16 @@ class PersonalDigest:
                         summary_data = digest_data.get("summary", {})
                         summary_content = (
                             summary_data.get("content", "")
-                            if isinstance(summary_data, dict) else ""
+                            if isinstance(summary_data, dict)
+                            else ""
                         )
-                        previous_digests.append({
-                            "date": d.get("digest_date", "")[:10],
-                            "one_line_summary": d.get("one_line_summary", ""),
-                            "summary": summary_content,
-                        })
+                        previous_digests.append(
+                            {
+                                "date": d.get("digest_date", "")[:10],
+                                "one_line_summary": d.get("one_line_summary", ""),
+                                "summary": summary_content,
+                            }
+                        )
                     logger.info("Loaded %d previous digests", len(previous_digests))
                 except Exception as e:
                     logger.warning("Could not load previous digests: %s", e)
@@ -343,8 +346,12 @@ class PersonalDigest:
                 "report_date": report_date,
                 "user_symbols": symbols,
                 "stocks": stock_data.get("stocks", {}),
-                "news": self._clean_news(news_result.get("news", [])[:50]),  # Increased from 30 to 50
-                "economic_calendar": calendar_result.get("events", [])[:25],  # Increased from 15 to 25
+                "news": self._clean_news(
+                    news_result.get("news", [])[:50]
+                ),  # Increased from 30 to 50
+                "economic_calendar": calendar_result.get("events", [])[
+                    :25
+                ],  # Increased from 15 to 25
                 "earnings_calendar": self._filter_earnings(
                     earnings_result.get("earnings", []), symbols
                 ),
@@ -398,12 +405,14 @@ class PersonalDigest:
                 )
             logger.info(
                 "Generation complete. Stocks: %d, News: %d, Events: %d",
-                len(digest_output.get('stocks', [])),
+                len(digest_output.get("stocks", [])),
                 news_count,
-                len(digest_output.get('events', [])),
+                len(digest_output.get("events", [])),
             )
 
-            self._attach_news_metadata(digest_output.get("news"), news_result.get("news", []))
+            self._attach_news_metadata(
+                digest_output.get("news"), news_result.get("news", [])
+            )
 
             return {
                 "success": True,
@@ -446,7 +455,9 @@ class PersonalDigest:
             if n.get("title")
         ]
 
-    def _attach_news_metadata(self, news_section: dict | None, source_news: list) -> None:
+    def _attach_news_metadata(
+        self, news_section: dict | None, source_news: list
+    ) -> None:
         """Attach publish timestamps to digest news using URL/title matching."""
         if not isinstance(news_section, dict) or not source_news:
             return
@@ -467,7 +478,9 @@ class PersonalDigest:
                 continue
             url = item.get("url", "")
             title = item.get("title", "")
-            item["published_at"] = url_to_published_at.get(url) or title_to_published_at.get(title, "")
+            item["published_at"] = url_to_published_at.get(
+                url
+            ) or title_to_published_at.get(title, "")
 
     def _filter_earnings(self, earnings: list, user_symbols: list) -> list:
         """Filter earnings to user's watchlist + major tech + related companies."""
@@ -475,7 +488,20 @@ class PersonalDigest:
         # Always include major tech earnings as reference
         always_show = {"NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "TSLA", "AMD"}
         # Add semiconductor ecosystem if user watches any chip stocks
-        chip_stocks = {"NVDA", "AMD", "INTC", "AVGO", "QCOM", "MU", "TSM", "ARM", "SMCI", "AMAT", "LRCX", "KLAC"}
+        chip_stocks = {
+            "NVDA",
+            "AMD",
+            "INTC",
+            "AVGO",
+            "QCOM",
+            "MU",
+            "TSM",
+            "ARM",
+            "SMCI",
+            "AMAT",
+            "LRCX",
+            "KLAC",
+        }
         if user_set & chip_stocks:
             always_show = always_show.union(chip_stocks)
         relevant = always_show.union(user_set)

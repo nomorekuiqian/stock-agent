@@ -294,7 +294,7 @@ WEEKLY_ANALYST_INSTRUCTION = """
 
 weekly_analyst = LlmAgent(
     name="weekly_macro_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.1-pro-preview",
     description="Analyzes macro data and generates structured weekly report in Chinese",
     instruction=WEEKLY_ANALYST_INSTRUCTION,
     output_schema=WeeklyReportOutput,
@@ -317,8 +317,14 @@ def _prepare_data_for_agent(raw_data: WeeklyRawData) -> dict:
 
     # ── CORE: Four macro dimensions (primary data sources) ──
     core = {}
-    for field in ("liquidity", "economy", "inflation_rates",
-                  "sentiment", "cpi_breakdown", "liquidity_historical"):
+    for field in (
+        "liquidity",
+        "economy",
+        "inflation_rates",
+        "sentiment",
+        "cpi_breakdown",
+        "liquidity_historical",
+    ):
         value = getattr(raw_data, field)
         if value:
             core[field] = value
@@ -360,9 +366,7 @@ class WeeklyReportAgent:
     """Wrapper class to run the weekly analyst agent with structured output."""
 
     def __init__(self):
-        self.runner = InMemoryRunner(
-            agent=weekly_analyst, app_name="weekly_report"
-        )
+        self.runner = InMemoryRunner(agent=weekly_analyst, app_name="weekly_report")
 
     async def generate(self, raw_data: WeeklyRawData) -> dict:
         """
@@ -418,15 +422,20 @@ class WeeklyReportAgent:
 
         logger.info(
             "Generation complete. Title: %s, Signal lights: %s",
-            result.get('title', ''),
-            result.get('signal_lights', {}),
+            result.get("title", ""),
+            result.get("signal_lights", {}),
         )
 
         return result
 
     @staticmethod
     def _empty_section() -> dict:
-        return {"summary": "", "data_changes": "", "trend_interpretation": "", "market_implication": ""}
+        return {
+            "summary": "",
+            "data_changes": "",
+            "trend_interpretation": "",
+            "market_implication": "",
+        }
 
     @staticmethod
     def _default_signal_lights() -> dict:
@@ -481,7 +490,10 @@ class WeeklyReportAgent:
         def _safe_signal_lights() -> dict:
             lights = report_data.get("signal_lights", {})
             if isinstance(lights, dict):
-                return {k: lights.get(k, "yellow") for k in ("liquidity", "economy", "inflation", "sentiment")}
+                return {
+                    k: lights.get(k, "yellow")
+                    for k in ("liquidity", "economy", "inflation", "sentiment")
+                }
             return self._default_signal_lights()
 
         return {
