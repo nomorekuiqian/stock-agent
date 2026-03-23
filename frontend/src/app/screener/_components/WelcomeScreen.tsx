@@ -354,7 +354,7 @@ export default function WelcomeScreen({
                         type="button"
                         onClick={() => onDeleteConversation?.(conv.id)}
                         aria-label={`删除对话：${conv.title || '未命名对话'}`}
-                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 focus:text-red-500 transition-all duration-150 rounded"
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-40 ml-2 p-1.5 text-muted-foreground/40 hover:text-red-500 focus:text-red-500 transition-all duration-150 rounded"
                       >
                         <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M18 6L6 18M6 6l12 12" />
@@ -441,7 +441,7 @@ export default function WelcomeScreen({
                   type="button"
                   onClick={rotateStrategies}
                   aria-label="换一批策略"
-                  className="p-1 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+                  className="p-2 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
@@ -486,7 +486,7 @@ export default function WelcomeScreen({
                   type="button"
                   onClick={rotateThemes}
                   aria-label="换一批主题"
-                  className="p-1 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+                  className="p-2 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
                 >
                   <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
@@ -561,7 +561,7 @@ export default function WelcomeScreen({
                         type="button"
                         onClick={() => onDeleteConversation?.(conv.id)}
                         aria-label={`删除对话：${conv.title || '未命名对话'}`}
-                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 ml-2 p-1 text-muted-foreground/40 hover:text-red-500 focus:text-red-500 transition-all duration-150 rounded"
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-40 ml-2 p-1.5 text-muted-foreground/40 hover:text-red-500 focus:text-red-500 transition-all duration-150 rounded"
                       >
                         <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M18 6L6 18M6 6l12 12" />
