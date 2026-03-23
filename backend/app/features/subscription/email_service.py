@@ -20,6 +20,7 @@ from app.core.config import (
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
     RESEND_SEGMENT_WEEKLY,
+    EMAIL_PRO_GATE,
 )
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso, today_str
@@ -986,6 +987,31 @@ class EmailService:
                 metadata = sub.get("metadata", {})
                 first_name = metadata.get("first_name", "")
                 user_id = metadata.get("user_id")
+
+                # Pro gate: skip non-Pro subscribers when EMAIL_PRO_GATE is enabled.
+                # Users without a linked account (no user_id) are always skipped.
+                if EMAIL_PRO_GATE:
+                    if not user_id:
+                        logger.info(
+                            "Pro gate: skipping %s (no linked account)", email
+                        )
+                        return {"email": email, "success": False, "error": "pro_gate_no_account"}
+                    from app.features.payment.db import get_subscription
+                    from datetime import datetime, timezone
+                    sub_record = await get_subscription(user_id)
+                    is_pro = (
+                        sub_record is not None
+                        and sub_record.get("plan") == "pro"
+                        and sub_record.get("status") == "active"
+                        and (
+                            not sub_record.get("access_expires_at")
+                            or datetime.fromisoformat(sub_record["access_expires_at"])
+                            > datetime.now(timezone.utc)
+                        )
+                    )
+                    if not is_pro:
+                        logger.info("Pro gate: skipping %s (not Pro)", email)
+                        return {"email": email, "success": False, "error": "pro_gate_not_pro"}
 
                 symbols, reason = await get_symbols_for_user(user_id, email)
                 if not symbols:

@@ -84,6 +84,64 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=find_by_referral_code&referral_code=xxx
+    if (request.method === "GET" && action === "find_by_referral_code") {
+      const referralCode = url.searchParams.get("referral_code");
+      if (!referralCode) {
+        return new Response(
+          JSON.stringify({ success: false, error: "referral_code required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .select("user_id")
+        .eq("referral_code", referralCode)
+        .maybeSingle();
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=invite_stats
+    if (request.method === "GET" && action === "invite_stats") {
+      const { count: totalRedeemed, error: e1 } = await client.database
+        .from("subscriptions")
+        .select("*", { count: "exact", head: true })
+        .not("invite_code", "is", null);
+
+      const { count: totalReferrals, error: e2 } = await client.database
+        .from("subscriptions")
+        .select("*", { count: "exact", head: true })
+        .not("referred_by", "is", null);
+
+      if (e1 || e2) {
+        return new Response(
+          JSON.stringify({ success: false, error: e1?.message ?? e2?.message ?? "query failed" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          total_redeemed: totalRedeemed ?? 0,
+          total_referrals: totalReferrals ?? 0,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // POST ?action=cancel
     if (request.method === "POST" && action === "cancel") {
       const body = await request.json();
@@ -126,7 +184,7 @@ module.exports = async function(request) {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ success: false, error: err.message }),
+      JSON.stringify({ success: false, error: err instanceof Error ? err.message : String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -49,5 +49,13 @@ RESEND_SEGMENT_MORNING = os.getenv("RESEND_SEGMENT_MORNING", "")
 RESEND_SEGMENT_EVENING = os.getenv("RESEND_SEGMENT_EVENING", "")
 RESEND_SEGMENT_WEEKLY = os.getenv("RESEND_SEGMENT_WEEKLY", "")
 
+# Invite codes (comma-separated shared codes for public distribution)
+INVITE_CODES = os.getenv("INVITE_CODES", "")
+
+# Feature flags
+# EMAIL_PRO_GATE: when true, only Pro subscribers receive email broadcasts.
+# Default false — logic is deployed but inactive, same pattern as NEXT_PUBLIC_ENABLE_PAYWALL.
+EMAIL_PRO_GATE = os.getenv("EMAIL_PRO_GATE", "false").lower() == "true"
+
 # Cache settings
 STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days
