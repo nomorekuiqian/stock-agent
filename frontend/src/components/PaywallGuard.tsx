@@ -80,21 +80,8 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
   } = useSubscription();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // DEBUG: Visible state indicator (remove after debugging)
-  const debugInfo = process.env.NODE_ENV === 'development' ? (
-    <div className="fixed bottom-4 right-4 z-[9999] bg-black/90 text-xs text-white p-3 rounded-lg font-mono max-w-xs border border-zinc-700">
-      <div>PAYWALL_ENABLED: {String(PAYWALL_ENABLED)}</div>
-      <div>authLoading: {String(authLoading)}</div>
-      <div>subLoading: {String(subLoading)}</div>
-      <div>isAuthenticated: {String(isAuthenticated)}</div>
-      <div>isPro: {String(isPro)}</div>
-      <div>plan: {plan}</div>
-      <div>status: {status}</div>
-    </div>
-  ) : null;
-
   if (!PAYWALL_ENABLED) {
-    return <>{debugInfo}{children}</>;
+    return <>{children}</>;
   }
 
   if (authLoading || subLoading) {
