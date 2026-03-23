@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import FundamentalsReport from './FundamentalsReport';
@@ -31,6 +31,7 @@ import {
   useGenerateNewsAnalysis,
   useGenerateMacroAnalysis,
 } from '@/hooks/queries/use-stock-data';
+import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
 
 // =============================================================================
 // Types
@@ -1560,7 +1561,25 @@ function LoadingSkeleton() {
 export default function StockDetailContent({ symbol }: { symbol: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  // Watchlist
+  const { data: watchlistData } = useWatchlist(user?.id);
+  const saveWatchlist = useSaveWatchlist();
+  const [justAdded, setJustAdded] = useState(false);
+  const isInWatchlist = watchlistData?.symbols?.includes(symbol) ?? false;
+
+  const handleAddToWatchlist = useCallback(() => {
+    if (!user || isInWatchlist) return;
+    const current = watchlistData?.symbols ?? [];
+    saveWatchlist.mutate({
+      userId: user.id,
+      symbols: [...current, symbol],
+      email: user.email,
+      baseUpdatedAt: watchlistData?.updated_at,
+    });
+    setJustAdded(true);
+  }, [user, isInWatchlist, watchlistData, saveWatchlist, symbol]);
   const { isPro, createCheckout } = useSubscription();
 
   // --- TanStack Query hooks (4 parallel data queries) ---
@@ -1757,12 +1776,33 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                   {profile.classification.industry && ` / ${translateIndustry(profile.classification.industry)}`}
                 </p>
               )}
-              <AiChatLink
-                href={`/screener?context=stock&symbol=${symbol}`}
-                label="AI 深度分析"
-                size="sm"
-                className="mt-1.5 w-fit"
-              />
+              <div className="flex items-center gap-2 mt-1.5">
+                <AiChatLink
+                  href={`/research?context=stock&symbol=${symbol}`}
+                  size="sm"
+                />
+                <button
+                  onClick={isAuthenticated ? handleAddToWatchlist : handleLoginRequired}
+                  disabled={isInWatchlist || saveWatchlist.isPending}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                    isInWatchlist || justAdded
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-border/50 bg-background text-muted-foreground hover:border-primary/40 hover:text-primary'
+                  }`}
+                >
+                  {isInWatchlist || justAdded ? (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" />
+                      <line x1="5" y1="12" x2="19" y2="12" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {isInWatchlist || justAdded ? '已在持仓' : '加入持仓'}
+                </button>
+              </div>
             </div>
 
             {/* Price - show loading skeleton while quote is being fetched */}

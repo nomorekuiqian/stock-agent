@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 
 const itemBase =
-  'flex items-center gap-3 mx-2 px-3 py-2 rounded-lg text-sm transition-colors outline-none cursor-pointer';
+  'flex items-center gap-3 mx-2 px-3 py-2 rounded-lg text-sm transition-colors outline-none focus-visible:outline-none cursor-pointer';
 const itemDefault = `${itemBase} text-muted-foreground hover:text-foreground hover:bg-muted/50 data-[highlighted]:bg-muted/50 data-[highlighted]:text-foreground`;
 
 export function NavAuth() {
@@ -25,12 +25,12 @@ export function NavAuth() {
     return (
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button className="flex items-center gap-2 group relative">
+          <button className="flex items-center gap-2 group relative focus-visible:outline-none">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 group-hover:shadow-lg ${
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105 ${
                 isPro
-                  ? 'bg-gradient-to-br from-amber-500/30 to-primary/30 border border-amber-400/50 group-hover:border-amber-400/70 group-hover:shadow-amber-500/10'
-                  : 'bg-gradient-to-br from-primary/20 to-primary/30 border border-primary/30 group-hover:border-primary/50 group-hover:shadow-primary/10'
+                  ? 'bg-gradient-to-br from-amber-500/30 to-primary/30 group-hover:shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                  : 'bg-gradient-to-br from-primary/20 to-primary/30 group-hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]'
               }`}
             >
               <span
