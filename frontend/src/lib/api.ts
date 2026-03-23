@@ -801,6 +801,13 @@ export interface ResearchRequest {
     landscape?: string;
     narrative?: string;
     takeaway?: string;
+    // morning_report fields
+    market_pulse?: string;
+    futures?: unknown;
+    global_markets?: unknown;
+    overnight_news?: unknown;
+    today_focus?: unknown;
+    morning_summary?: unknown;
     // brew (personal digest) fields
     digest_date?: string;
     symbols_used?: string[];

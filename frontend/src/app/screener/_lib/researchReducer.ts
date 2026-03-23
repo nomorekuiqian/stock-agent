@@ -44,6 +44,8 @@ export interface ResearchState {
   // Research Desk: content panel state
   activeContent: ContentContext;
   contentStack: ContentContext[];
+  // Context entry key — used to detect page refresh vs fresh navigation
+  contextEntryKey: string | null;
 }
 
 export type ResearchAction =
@@ -60,7 +62,7 @@ export type ResearchAction =
   | { type: 'POP_CONTENT' }
   | { type: 'SWITCH_CONTENT'; content: ContentContext }
   // Context entry from external pages (skips welcome, starts in chat+loading)
-  | { type: 'CONTEXT_ENTRY'; content: ContentContext };
+  | { type: 'CONTEXT_ENTRY'; content: ContentContext; key: string };
 
 export interface LoadConversationData {
   conversationId: string;
@@ -99,6 +101,7 @@ export const initialState: ResearchState = {
   conversationTitle: '',
   activeContent: SCREENER_CONTENT,
   contentStack: [],
+  contextEntryKey: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -335,6 +338,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         isLoading: true,
         activeContent: action.content,
         contentStack: [],
+        contextEntryKey: action.key,
       };
 
     case 'RESET':

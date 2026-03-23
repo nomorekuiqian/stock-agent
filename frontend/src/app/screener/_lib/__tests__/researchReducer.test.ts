@@ -670,7 +670,7 @@ describe('CONTEXT_ENTRY', () => {
       params: { date: '2026-03-18' },
       available_actions: ['Ask about report'],
     };
-    const state = researchReducer(prev, { type: 'CONTEXT_ENTRY', content });
+    const state = researchReducer(prev, { type: 'CONTEXT_ENTRY', content, key: 'test-key' });
     expect(state.phase).toBe('chat');
     expect(state.isLoading).toBe(true);
     expect(state.activeContent).toBe(content);
@@ -690,7 +690,7 @@ describe('CONTEXT_ENTRY', () => {
       params: {},
       available_actions: [],
     };
-    researchReducer(initialState, { type: 'CONTEXT_ENTRY', content });
+    researchReducer(initialState, { type: 'CONTEXT_ENTRY', content, key: 'test-key' });
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
@@ -702,7 +702,7 @@ describe('CONTEXT_ENTRY', () => {
       params: {},
       available_actions: ['Ask about holdings'],
     };
-    const state = researchReducer(initialState, { type: 'CONTEXT_ENTRY', content });
+    const state = researchReducer(initialState, { type: 'CONTEXT_ENTRY', content, key: 'test-key' });
     expect(state.activeContent.type).toBe('brew');
     expect(state.activeContent.label).toBe('Brew Digest');
     expect(state.activeContent.summary).toBe('Your personalized digest');
@@ -727,7 +727,7 @@ describe('CONTEXT_ENTRY', () => {
       params: {},
       available_actions: [],
     };
-    const state = researchReducer(prev, { type: 'CONTEXT_ENTRY', content: newContent });
+    const state = researchReducer(prev, { type: 'CONTEXT_ENTRY', content: newContent, key: 'test-key' });
     expect(state.contentStack).toEqual([]);
     expect(state.activeContent).toBe(newContent);
   });

@@ -139,6 +139,69 @@ def _format_macro_context(ctx: dict) -> str:
     return "\n\n".join(parts)
 
 
+def _format_morning_report_context(ctx: dict) -> str:
+    """Format morning report data as natural language context for the Agent."""
+    parts = []
+    parts.append(
+        "## User is currently viewing: %s Pre-Market Morning Report"
+        % ctx.get("date", "latest")
+    )
+    if ctx.get("title"):
+        parts.append("### Title\n%s" % ctx["title"])
+    if ctx.get("market_pulse"):
+        parts.append("### Market Pulse\n%s" % ctx["market_pulse"])
+    futures = ctx.get("futures")
+    if futures and isinstance(futures, list):
+        fut_lines = []
+        for f in futures[:8]:
+            if isinstance(f, dict):
+                symbol = f.get("symbol", "")
+                price = f.get("price", "")
+                change_pct = f.get("change_pct", "")
+                name = f.get("name", symbol)
+                fut_lines.append("- %s (%s): %s, %s%%" % (symbol, name, price, change_pct))
+        if fut_lines:
+            parts.append("### Futures\n%s" % "\n".join(fut_lines))
+    global_markets = ctx.get("global_markets")
+    if global_markets and isinstance(global_markets, dict):
+        market_lines = []
+        for region in ("asia", "europe", "other"):
+            region_data = global_markets.get(region, [])
+            if isinstance(region_data, list):
+                for m in region_data[:4]:
+                    if isinstance(m, dict):
+                        name = m.get("name", "")
+                        change_pct = m.get("change_pct", "")
+                        market_lines.append("- %s: %s%%" % (name, change_pct))
+        if market_lines:
+            parts.append("### Global Markets\n%s" % "\n".join(market_lines))
+    overnight_news = ctx.get("overnight_news")
+    if overnight_news and isinstance(overnight_news, list):
+        news_lines = [
+            "- %s" % (n.get("title", n) if isinstance(n, dict) else n)
+            for n in overnight_news[:6]
+        ]
+        if news_lines:
+            parts.append("### Overnight News\n%s" % "\n".join(news_lines))
+    today_focus = ctx.get("today_focus")
+    if today_focus and isinstance(today_focus, list):
+        focus_lines = [
+            "- %s" % (f.get("title", f) if isinstance(f, dict) else f)
+            for f in today_focus[:6]
+        ]
+        if focus_lines:
+            parts.append("### Today's Focus\n%s" % "\n".join(focus_lines))
+    summary = ctx.get("morning_summary")
+    if summary and isinstance(summary, list):
+        for section in summary:
+            if isinstance(section, dict):
+                parts.append(
+                    "### %s\n%s"
+                    % (section.get("title", "Summary"), section.get("content", ""))
+                )
+    return "\n\n".join(parts)
+
+
 def _format_brew_context(ctx: dict) -> str:
     """Format personalized brew digest data as context for the Agent."""
     parts = []
@@ -272,6 +335,7 @@ class ResearchAgentOutput(BaseModel):
             '"stock" (params: {symbol}), '
             '"screener" (params: {}), '
             '"daily_report" (params: {date}), '
+            '"morning_report" (params: {date}), '
             '"macro" (params: {}), '
             '"brew" (params: {}). '
             'Example: {"type": "screener", "params": {}, "reason": "User wants to find new stocks"}'
@@ -460,6 +524,10 @@ When conversation history is empty (this is the first turn), your reply needs sp
 - Welcome: Extract the 1-2 most important points from today's report
 - Options: Generate questions based on actual news/events in the report, e.g. "XX company rose 5%, why?", "What does the Fed's statement mean?"
 
+**Morning report mode** (type=morning_report):
+- Welcome: Extract the 1-2 most important pre-market signals (futures direction, key overnight news)
+- Options: Generate questions based on actual data in the report, e.g. "What does today's futures decline mean?", "Which overnight news item is most market-moving?"
+
 **Macro mode** (type=macro):
 - Welcome: Summarize the 4 signal lights' status in one sentence with overall assessment
 - Options: Generate questions based on signal light states, e.g. "Why is liquidity green?", "How does the inflation yellow light affect tech stocks?"
@@ -629,6 +697,8 @@ You can navigate the user's right panel to show a stock's detailed research view
 - User says "look at today's report", "what's happening in the market today" -> navigate to daily_report
 - User in daily report says "let me look at NVDA in detail" -> navigate to stock
 - User says "go back to the report" -> navigate to daily_report
+- User says "show me the morning report", "what's pre-market like", "how are futures today" -> navigate to morning_report
+- User in morning report says "let me look at a stock in detail" -> navigate to stock
 - User says "look at macro", "how's the macro", "how's liquidity" -> navigate to macro
 - User in macro dashboard says "how does this affect my stocks" -> combine macro data with user's watchlist/sectors to analyze
 - User says "go back to screener", "find new stocks", "screen stocks", "help me pick stocks" -> navigate to screener
@@ -649,6 +719,8 @@ Set the `navigate` field in your output:
 - For stock: type: "stock", params: {"symbol": "AAPL"}, reason: "..."
 - For daily report: type: "daily_report", params: {"date": "2026-03-18"}, reason: "..."
   (include the date in YYYY-MM-DD format so the panel navigates to that specific report)
+- For morning report: type: "morning_report", params: {"date": "2026-03-18"}, reason: "..."
+  (include the date in YYYY-MM-DD format so the panel navigates to that specific morning report)
 - For macro dashboard: type: "macro", params: {}, reason: "..."
 - For brew digest: type: "brew", params: {}, reason: "..."
 
@@ -843,6 +915,18 @@ class ResearchAgent:
                     "The user can see the daily report in the right panel. "
                     "Answer questions about market news and trends using the report data above. "
                     "If the user is interested in a specific stock mentioned in the report, "
+                    "use the navigate field to switch to that stock's research view."
+                )
+                prompt_parts.append("")
+            elif ctx_type == "morning_report":
+                morning_context = _format_morning_report_context(content_context)
+                prompt_parts.append(morning_context)
+                prompt_parts.append("")
+                prompt_parts.append(
+                    "The user can see the pre-market morning report in the right panel. "
+                    "Answer questions about overnight news, futures movements, and today's key events "
+                    "using the report data above. "
+                    "If the user is interested in a specific stock or sector mentioned in the report, "
                     "use the navigate field to switch to that stock's research view."
                 )
                 prompt_parts.append("")
