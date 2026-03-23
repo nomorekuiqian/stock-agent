@@ -28,11 +28,12 @@
 | `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
 | `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
 | `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
+| `/request-access` | 申请邀请码 | Backend (invites/request) | 否 |
 | `/contact` | 联系/反馈 | Backend (feedback/user) | 否 |
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
-| `/screener` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
+| `/research` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
 
 ### 重定向
 | 旧路由 | 目标 |
@@ -98,7 +99,7 @@
 - 6 个 LiquidityCard 展示关键指标
 - NFCI 仪表盘 (NFCIGauge)
 
-### `/screener` AI 选股助手
+### `/research` AI 选股助手
 - 需要登录，首层由项目自定义 middleware 拦截
 - 页面内仍保留 `useAuth()` 的登录兜底跳转
 
