@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -8,13 +9,17 @@ import { formatReportDate } from '@/lib/timezone';
 // ISR: revalidate every hour (reports don't change after generation)
 export const revalidate = 3600;
 
+// cache() deduplicates this fetch across generateMetadata + page component
+// in the same render pass — prevents two separate backend calls for the same id
+const getReport = cache((id: string) => api.reports.getById(id));
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const report = await api.reports.getById(id);
+  const report = await getReport(id);
 
   if (!report) {
     return {
@@ -92,7 +97,7 @@ interface IndexData {
 
 export default async function ReportDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const report = await api.reports.getById(id);
+  const report = await getReport(id);
 
   if (!report) {
     notFound();

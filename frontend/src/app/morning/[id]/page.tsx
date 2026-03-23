@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -7,6 +8,8 @@ import { formatReportDate } from '@/lib/timezone';
 
 // ISR: revalidate every hour (reports don't change after generation)
 export const revalidate = 3600;
+
+const getMorningReport = cache((id: string) => api.morningReports.getById(id));
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -23,7 +26,7 @@ function formatDateForSEO(dateStr: string): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const report = await api.morningReports.getById(id);
+  const report = await getMorningReport(id);
 
   if (!report) {
     return {
@@ -86,7 +89,7 @@ function generateJsonLd(report: { title?: string; report_date?: string; timestam
 
 export default async function MorningReportDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const report = await api.morningReports.getById(id);
+  const report = await getMorningReport(id);
 
   if (!report) {
     notFound();

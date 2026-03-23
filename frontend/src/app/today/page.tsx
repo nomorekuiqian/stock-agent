@@ -4,6 +4,7 @@ import { ReportTabs } from '@/components/ReportTabs';
 import { TodayActions } from './_components/TodayActions';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MarketData, ReportListItem } from '@/lib/api';
+import PaywallGuard from '@/components/PaywallGuard';
 
 export const revalidate = 300; // ISR: 5 分钟
 
@@ -71,6 +72,7 @@ export default async function TodayPage() {
   const totalReports = historyResult.total;
 
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">
@@ -95,7 +97,7 @@ export default async function TodayPage() {
             <div className="flex flex-col items-start md:items-end gap-4">
               <ReportTabs />
               <TodayActions
-                chatHref={report ? `/screener?context=daily_report&date=${report.report_date || ''}` : undefined}
+                chatHref={report ? `/research?context=daily_report&date=${report.report_date || ''}` : undefined}
               />
             </div>
           </div>
@@ -203,5 +205,6 @@ export default async function TodayPage() {
         </section>
       )}
     </main>
+    </PaywallGuard>
   );
 }

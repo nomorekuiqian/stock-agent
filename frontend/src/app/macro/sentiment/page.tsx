@@ -274,7 +274,7 @@ function formatIndicatorValue(indicator: RiskIndicator): string {
 function HeroCardSkeleton({ index }: { index: number }) {
   return (
     <div
-      className="bg-card rounded-2xl border border-border/50 p-5"
+      className="bg-card rounded-2xl border border-border/50 p-3 sm:p-5"
       style={{ animationDelay: `${index * 100}ms` }}
     >
       <div className="animate-pulse">
@@ -336,7 +336,7 @@ function HeroCard({
       type="button"
       onClick={onSelect}
       className={`
-        group relative rounded-2xl p-5 flex flex-col text-left
+        group relative rounded-2xl p-3 sm:p-5 flex flex-col text-left
         transition-all duration-300 ease-out cursor-pointer
         ${selected
           ? 'bg-card border-2 translate-y-[-3px]'
@@ -359,21 +359,21 @@ function HeroCard({
       }}
     >
       {/* Tab label */}
-      <div className="mb-3">
+      <div className="mb-2 sm:mb-3">
         <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
           {SUB_DIM_NAMES[dim.name] || dim.name_zh}
         </span>
       </div>
 
       {/* Primary big number + optional rating */}
-      <div className="mb-1 flex items-baseline gap-2">
-        <span className={`text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+      <div className="mb-1 flex items-baseline gap-1.5">
+        <span className={`text-2xl sm:text-[2.5rem] font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
           selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'
         }`}>
           {formatted}
         </span>
         {ratingLabel && (
-          <span className={`text-sm font-medium ${selected ? getColorClass(accentColor) : 'text-muted-foreground'}`}>
+          <span className={`text-xs sm:text-sm font-medium ${selected ? getColorClass(accentColor) : 'text-muted-foreground'}`}>
             {ratingLabel}
           </span>
         )}
@@ -674,7 +674,7 @@ export default function SentimentPage() {
 
         {/* Hero Cards = Tab Buttons */}
         <section>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {loading ? (
               [0, 1, 2].map((i) => <HeroCardSkeleton key={i} index={i} />)
             ) : (

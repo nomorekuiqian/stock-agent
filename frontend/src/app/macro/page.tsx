@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -183,129 +184,174 @@ async function fetchWeeklyReport(): Promise<WeeklyMacroReport | null> {
   }
 }
 
-export default async function MacroPage() {
-  const report = await fetchWeeklyReport();
-
+export default function MacroPage() {
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header — static shell, renders immediately without waiting for data */}
       <section className="border-b border-border/50">
         <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
             <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">MACRO WEEKLY</span>
           </div>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="font-editorial text-3xl md:text-4xl text-foreground tracking-tight mb-1">
-                {report?.title || '宏观周报'}
-              </h1>
-              {report && (
-                <p className="text-muted-foreground text-sm">
-                  {formatWeekLabel(report.week_label)} &middot; {new Date(report.generated_at).toLocaleDateString('zh-CN')}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <AiChatLink href="/screener?context=macro" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <h1 className="font-editorial text-3xl md:text-4xl text-foreground tracking-tight">
+              宏观周报
+            </h1>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <AiChatLink href="/research?context=macro" />
               <MacroActions />
             </div>
           </div>
         </div>
       </section>
 
+      {/* Report body — streams in after header */}
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-10">
-        {!report ? (
-          <div className="rounded-xl bg-card border border-border p-8 text-center">
-            <p className="text-muted-foreground">暂无周报数据</p>
-          </div>
-        ) : (
-          <>
-            {/* LAYER 1: Verdict + Signal Lights */}
-            <section className="space-y-5">
-              {report.verdict && (
-                <div className="bg-card rounded-xl border border-border p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      核心判断
-                    </span>
-                  </div>
-                  <p className="text-base text-foreground/90 leading-relaxed">
-                    {report.verdict}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2.5">
-                {(Object.entries(report.signal_lights) as [keyof SignalLights, string][]).map(([key, color]) => (
-                  <div key={key} className="flex items-center gap-2 rounded-full bg-card border border-border/60 px-3.5 py-1.5">
-                    <div className={`w-2 h-2 rounded-full ${SIGNAL_COLORS[color] || 'bg-muted'}`} />
-                    <span className="text-sm text-foreground">{DIMENSION_NAMES[key]}</span>
-                    <span className={`text-xs font-medium ${SIGNAL_TEXT_COLORS[color] || 'text-muted-foreground'}`}>
-                      {SIGNAL_LABELS[color] || color}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Dimension Navigation */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-1 h-5 bg-primary rounded-full" />
-                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">四维分析</h4>
-                <span className="text-xs text-muted-foreground/60 ml-1">点击查看详情</span>
-              </div>
-              <DimensionNav report={report} />
-            </section>
-
-            <NarrativeSection title="宏观格局" content={report.landscape} />
-            <NarrativeSection title="本周回顾" content={report.narrative} />
-            <NarrativeSection title="策略启示" content={report.takeaway} />
-
-            {report.week_ahead && report.week_ahead.length > 0 && (
-              <section className="space-y-4">
-                <SectionHeader title="下周关注" />
-                <div className="bg-card rounded-xl border border-border overflow-hidden">
-                  <div className="hidden md:grid grid-cols-[100px_1fr_1fr_1fr] gap-4 px-5 py-3 border-b border-border bg-muted/30">
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">日期</span>
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">事件</span>
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">高于预期</span>
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">低于预期</span>
-                  </div>
-                  {report.week_ahead.map((event, i) => (
-                    <div key={i} className={`px-5 py-4 ${i < report.week_ahead.length - 1 ? 'border-b border-border/50' : ''}`}>
-                      <div className="hidden md:grid grid-cols-[100px_1fr_1fr_1fr] gap-4 items-start">
-                        <span className="font-data text-sm text-primary">{event.date}</span>
-                        <span className="text-sm text-foreground font-medium">{event.event}</span>
-                        <span className="text-sm text-muted-foreground">{event.if_above}</span>
-                        <span className="text-sm text-muted-foreground">{event.if_below}</span>
-                      </div>
-                      <div className="md:hidden space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-data text-sm text-primary">{event.date}</span>
-                          <span className="text-sm text-foreground font-medium">{event.event}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-                          <div>
-                            <span className="text-primary/70 mr-1">高于预期:</span>
-                            {event.if_above}
-                          </div>
-                          <div>
-                            <span className="text-red-500/70 mr-1">低于预期:</span>
-                            {event.if_below}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        )}
+        <Suspense fallback={<MacroReportSkeleton />}>
+          <MacroReportContent />
+        </Suspense>
       </div>
     </main>
+  );
+}
+
+function MacroReportSkeleton() {
+  return (
+    <div className="space-y-10 animate-pulse">
+      {/* Verdict skeleton */}
+      <div className="rounded-xl bg-card border border-border p-5 space-y-3">
+        <div className="h-3 w-20 bg-muted rounded" />
+        <div className="h-4 w-full bg-muted rounded" />
+        <div className="h-4 w-3/4 bg-muted rounded" />
+      </div>
+      {/* Signal lights skeleton */}
+      <div className="flex flex-wrap gap-2.5">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-8 w-24 rounded-full bg-muted" />
+        ))}
+      </div>
+      {/* Dimension nav skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-32 rounded-xl bg-card border border-border" />
+        ))}
+      </div>
+      {/* Narrative sections skeleton */}
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-3">
+          <div className="h-3 w-16 bg-muted rounded" />
+          <div className="rounded-xl bg-card border border-border p-5 space-y-2">
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-5/6 bg-muted rounded" />
+            <div className="h-4 w-4/5 bg-muted rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+async function MacroReportContent() {
+  const report = await fetchWeeklyReport();
+
+  if (!report) {
+    return (
+      <div className="rounded-xl bg-card border border-border p-8 text-center">
+        <p className="text-muted-foreground">暂无周报数据</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Week label + date subtitle */}
+      <p className="text-muted-foreground text-sm -mt-6">
+        {formatWeekLabel(report.week_label)} &middot; {new Date(report.generated_at).toLocaleDateString('zh-CN')}
+      </p>
+
+      {/* LAYER 1: Verdict + Signal Lights */}
+      <section className="space-y-5">
+        {report.verdict && (
+          <div className="bg-card rounded-xl border border-border p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                核心判断
+              </span>
+            </div>
+            <p className="text-base text-foreground/90 leading-relaxed">
+              {report.verdict}
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2.5">
+          {(Object.entries(report.signal_lights) as [keyof SignalLights, string][]).map(([key, color]) => (
+            <div key={key} className="flex items-center gap-2 rounded-full bg-card border border-border/60 px-3.5 py-1.5">
+              <div className={`w-2 h-2 rounded-full ${SIGNAL_COLORS[color] || 'bg-muted'}`} />
+              <span className="text-sm text-foreground">{DIMENSION_NAMES[key]}</span>
+              <span className={`text-xs font-medium ${SIGNAL_TEXT_COLORS[color] || 'text-muted-foreground'}`}>
+                {SIGNAL_LABELS[color] || color}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Dimension Navigation */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-1 h-5 bg-primary rounded-full" />
+          <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">四维分析</h4>
+          <span className="text-xs text-muted-foreground/60 ml-1">点击查看详情</span>
+        </div>
+        <DimensionNav report={report} />
+      </section>
+
+      <NarrativeSection title="宏观格局" content={report.landscape} />
+      <NarrativeSection title="本周回顾" content={report.narrative} />
+      <NarrativeSection title="策略启示" content={report.takeaway} />
+
+      {report.week_ahead && report.week_ahead.length > 0 && (
+        <section className="space-y-4">
+          <SectionHeader title="下周关注" />
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="hidden md:grid grid-cols-[100px_1fr_1fr_1fr] gap-4 px-5 py-3 border-b border-border bg-muted/30">
+              <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">日期</span>
+              <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">事件</span>
+              <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">高于预期</span>
+              <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">低于预期</span>
+            </div>
+            {report.week_ahead.map((event, i) => (
+              <div key={i} className={`px-5 py-4 ${i < report.week_ahead.length - 1 ? 'border-b border-border/50' : ''}`}>
+                <div className="hidden md:grid grid-cols-[100px_1fr_1fr_1fr] gap-4 items-start">
+                  <span className="font-data text-sm text-primary">{event.date}</span>
+                  <span className="text-sm text-foreground font-medium">{event.event}</span>
+                  <span className="text-sm text-muted-foreground">{event.if_above}</span>
+                  <span className="text-sm text-muted-foreground">{event.if_below}</span>
+                </div>
+                <div className="md:hidden space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-data text-sm text-primary">{event.date}</span>
+                    <span className="text-sm text-foreground font-medium">{event.event}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                    <div>
+                      <span className="text-primary/70 mr-1">高于预期:</span>
+                      {event.if_above}
+                    </div>
+                    <div>
+                      <span className="text-red-500/70 mr-1">低于预期:</span>
+                      {event.if_below}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
   );
 }

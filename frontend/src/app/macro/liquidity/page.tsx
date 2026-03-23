@@ -421,7 +421,7 @@ function SectionHeader({
   onTimeRangeChange: (range: string) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-5">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-5">
       <div className="flex items-start gap-3 min-w-0">
         <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
           {number}
@@ -436,7 +436,7 @@ function SectionHeader({
         </div>
       </div>
 
-      <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0">
+      <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30 shrink-0 self-start">
         {TIME_RANGES.map((range) => (
           <button
             key={range}
@@ -908,9 +908,9 @@ function GlobalLiquidityDeepDive({
                 <div className="h-3 w-24 bg-muted rounded" />
               </div>
               {/* 3-col component breakdown skeleton */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="bg-card/60 rounded-xl border border-border/40 p-4 animate-pulse">
+                  <div key={i} className="bg-card/60 rounded-xl border border-border/40 p-3 sm:p-4 animate-pulse">
                     <div className="h-3 w-16 bg-muted rounded mb-2" />
                     <div className="h-7 w-20 bg-muted rounded" />
                   </div>
@@ -951,7 +951,7 @@ function GlobalLiquidityDeepDive({
               </div>
 
               {/* Component breakdown */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 <GlobalMetricCard label="美联储 (Fed) 总资产" metric={globalMetrics.fed_assets} />
                 <GlobalMetricCard label="欧洲央行 (ECB) 总资产" metric={globalMetrics.ecb_assets} />
                 <GlobalMetricCard label="日本央行 (BOJ) 总资产" metric={globalMetrics.boj_assets} />

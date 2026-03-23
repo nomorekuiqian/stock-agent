@@ -20,15 +20,12 @@ function Spinner() {
 export function MacroActions() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const isDev = process.env.NODE_ENV === 'development';
   const { user } = useAuth();
 
   const { data: preferences } = useEmailPreferences(!!user);
   const isSubscribed = preferences?.weekly_report ?? false;
 
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
 
   async function handleToggleSubscription() {
     if (!user?.email) {
@@ -69,21 +66,6 @@ export function MacroActions() {
     }
   }
 
-  async function handleGenerate() {
-    setGenerating(true);
-    setGenerateError(null);
-    try {
-      await api.weeklyReport.generate(true);
-      router.refresh();
-    } catch (err) {
-      setGenerateError(
-        err instanceof Error ? err.message : 'Failed to generate weekly report',
-      );
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   return (
     <div className="flex items-center gap-3 shrink-0">
       <button
@@ -114,29 +96,6 @@ export function MacroActions() {
         )}
       </button>
 
-      {isDev && (
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
-        >
-          {generating ? (
-            <>
-              <Spinner />
-              <span>生成中...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>生成周报</span>
-            </>
-          )}
-        </button>
-      )}
-
-      {generateError && <p className="text-sm text-red-500">{generateError}</p>}
     </div>
   );
 }

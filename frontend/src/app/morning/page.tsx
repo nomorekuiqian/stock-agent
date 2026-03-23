@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PaywallGuard from '@/components/PaywallGuard';
 import { MorningReportContent } from '@/components/MorningReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
@@ -66,6 +67,7 @@ export default async function MorningPage() {
   const totalReports = historyResult.total;
 
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">
@@ -91,7 +93,7 @@ export default async function MorningPage() {
               <ReportTabs />
               <div className="flex items-center gap-3">
                 {report && (
-                  <AiChatLink href={`/screener?context=morning_report&date=${report.report_date || ''}`} />
+                  <AiChatLink href={`/research?context=morning_report&date=${report.report_date || ''}`} />
                 )}
                 <MorningActions />
               </div>
@@ -204,5 +206,6 @@ export default async function MorningPage() {
         </section>
       )}
     </main>
+    </PaywallGuard>
   );
 }
