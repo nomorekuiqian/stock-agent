@@ -15,9 +15,6 @@ vi.mock('next/navigation', () => ({
 }));
 
 const mockUpdatePreferences = vi.fn();
-const mockSubscribe = vi.fn();
-const mockSendEmail = vi.fn();
-const mockGenerate = vi.fn();
 vi.mock('@/lib/api', () => ({
   api: {
     subscriptions: {
@@ -26,10 +23,7 @@ vi.mock('@/lib/api', () => ({
         preferences: { morning_report: false, daily_report: true, weekly_report: true, personal_digest: false },
       }),
       updatePreferences: (...args: unknown[]) => mockUpdatePreferences(...args),
-      subscribe: (...args: unknown[]) => mockSubscribe(...args),
     },
-    sendMorningReportEmail: (...args: unknown[]) => mockSendEmail(...args),
-    generateMorningReport: (...args: unknown[]) => mockGenerate(...args),
   },
 }));
 
@@ -76,7 +70,7 @@ describe('MorningActions', () => {
 
   it('shows subscribe button when not subscribed', async () => {
     setLoggedIn();
-    renderWithProviders(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions />);
 
     await waitFor(() => {
       expect(screen.getByText('订阅')).toBeTruthy();
@@ -89,7 +83,7 @@ describe('MorningActions', () => {
       preferences: { morning_report: true, daily_report: true, weekly_report: true, personal_digest: false },
     });
     setLoggedIn('alice@example.com');
-    renderWithProviders(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions />);
 
     await waitFor(() => {
       expect(screen.getByText('订阅')).toBeTruthy();
@@ -101,11 +95,10 @@ describe('MorningActions', () => {
     });
   });
 
-  it('falls back to subscribe when updatePreferences fails', async () => {
-    mockUpdatePreferences.mockRejectedValue(new Error('contact not found'));
-    mockSubscribe.mockResolvedValue({ success: true });
+  it('silently fails when updatePreferences throws — button stays unsubscribed', async () => {
+    mockUpdatePreferences.mockRejectedValue(new Error('network error'));
     setLoggedIn('alice@example.com');
-    renderWithProviders(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions />);
 
     await waitFor(() => {
       expect(screen.getByText('订阅')).toBeTruthy();
@@ -113,17 +106,15 @@ describe('MorningActions', () => {
     fireEvent.click(screen.getByText('订阅'));
 
     await waitFor(() => {
-      expect(mockSubscribe).toHaveBeenCalledWith('daily_report', {
-        email: 'alice@example.com',
-        user_id: 'u1',
-        first_name: 'Test User',
-      });
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ morning_report: true });
     });
+    // Button stays in unsubscribed state — no fallback subscription
+    expect(screen.getByText('订阅')).toBeTruthy();
   });
 
   it('redirects to login when subscribe clicked without user', () => {
     setLoggedOut();
-    renderWithProviders(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions />);
 
     fireEvent.click(screen.getByText('订阅'));
 
@@ -132,7 +123,7 @@ describe('MorningActions', () => {
 
   it('send email and generate buttons hidden in non-dev env', () => {
     setLoggedIn();
-    renderWithProviders(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions />);
     expect(screen.queryByText('发送邮件')).toBeNull();
     expect(screen.queryByText('生成报告')).toBeNull();
   });
@@ -143,7 +134,7 @@ describe('MorningActions', () => {
       preferences: { morning_report: true, daily_report: true, weekly_report: true, personal_digest: false },
     });
     setLoggedIn();
-    renderWithProviders(<MorningActions reportExists />);
+    renderWithProviders(<MorningActions />);
 
     await waitFor(() => {
       expect(screen.getByText('订阅')).toBeTruthy();
