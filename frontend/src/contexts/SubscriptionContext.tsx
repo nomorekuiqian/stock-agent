@@ -15,9 +15,11 @@ interface SubscriptionContextType {
   plan: string;
   status: string;
   currentPeriodEnd: string | null;
+  accessExpiresAt: string | null;
   createCheckout: (returnPath?: string) => Promise<void>;
   openBillingPortal: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
+  redeemInviteCode: (code: string) => Promise<{ success: boolean; error?: string; accessExpiresAt?: string }>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -36,12 +38,17 @@ function readCache(userId: string) {
   } catch { return null; }
 }
 
-function writeCache(userId: string, plan: string, status: string, periodEnd: string | null) {
+function writeCache(userId: string, plan: string, status: string, periodEnd: string | null, accessExpiresAt: string | null) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
-      userId, plan, status, periodEnd, ts: Date.now(),
+      userId, plan, status, periodEnd, accessExpiresAt, ts: Date.now(),
     }));
   } catch {}
+}
+
+function isExpired(accessExpiresAt: string | null): boolean {
+  if (!accessExpiresAt) return false;
+  return new Date(accessExpiresAt) <= new Date();
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -49,11 +56,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [plan, setPlan] = useState('free');
   const [status, setStatus] = useState('none');
   const [currentPeriodEnd, setCurrentPeriodEnd] = useState<string | null>(null);
+  const [accessExpiresAt, setAccessExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const isPro = !PAYWALL_ENABLED || (plan === 'pro' && status === 'active');
+  const isPro = !PAYWALL_ENABLED || (
+    plan === 'pro' && status === 'active' && !isExpired(accessExpiresAt)
+  );
 
   // Detect checkout return once on mount
   const isCheckoutReturn = typeof window !== 'undefined' &&
@@ -64,6 +74,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setPlan('free');
       setStatus('none');
       setCurrentPeriodEnd(null);
+      setAccessExpiresAt(null);
       setIsLoading(false);
       return;
     }
@@ -83,10 +94,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         const p = data.plan || 'free';
         const s = data.status || 'none';
         const pe = data.current_period_end || null;
+        const ae = data.access_expires_at || null;
         setPlan(p);
         setStatus(s);
         setCurrentPeriodEnd(pe);
-        writeCache(user.id, p, s, pe);
+        setAccessExpiresAt(ae);
+        writeCache(user.id, p, s, pe, ae);
       }
     } catch (err) {
       console.error('[Subscription] Failed to fetch status:', err);
@@ -99,7 +112,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const pollForProStatus = useCallback(async () => {
     if (!PAYWALL_ENABLED || !user?.id) return;
     const maxAttempts = 10;
-    const interval = 1000; // 1 second between polls
+    const interval = 1000;
 
     for (let i = 0; i < maxAttempts; i++) {
       try {
@@ -114,14 +127,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           const p = data.plan || 'free';
           const s = data.status || 'none';
           const pe = data.current_period_end || null;
+          const ae = data.access_expires_at || null;
           setPlan(p);
           setStatus(s);
           setCurrentPeriodEnd(pe);
-          writeCache(user.id, p, s, pe);
+          setAccessExpiresAt(ae);
+          writeCache(user.id, p, s, pe, ae);
 
           if (p === 'pro' && s === 'active') {
             setIsLoading(false);
-            // Clean up URL query param
             if (typeof window !== 'undefined' && window.history.replaceState) {
               const url = new URL(window.location.href);
               url.searchParams.delete('checkout');
@@ -135,12 +149,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       }
       await new Promise(resolve => setTimeout(resolve, interval));
     }
-    // After max attempts, stop loading regardless
     setIsLoading(false);
   }, [user?.id]);
 
   useEffect(() => {
-    // Wait for auth to finish loading before making any decisions
     if (authLoading) return;
 
     if (!PAYWALL_ENABLED) {
@@ -150,18 +162,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
     if (isAuthenticated && user?.id) {
       if (isCheckoutReturn) {
-        // Checkout return: invalidate cache, keep loading, poll for pro status
         localStorage.removeItem(CACHE_KEY);
         pollForProStatus();
       } else {
-        // Normal flow: try loading from cache first for instant render
         const cached = readCache(user.id);
         if (cached) {
           setPlan(cached.plan);
           setStatus(cached.status);
           setCurrentPeriodEnd(cached.periodEnd);
+          setAccessExpiresAt(cached.accessExpiresAt ?? null);
           setIsLoading(false);
-          // Refresh in background to keep fresh
           refreshSubscription();
         } else {
           refreshSubscription();
@@ -171,6 +181,46 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, [authLoading, isAuthenticated, user?.id, refreshSubscription, isCheckoutReturn, pollForProStatus]);
+
+  const redeemInviteCode = useCallback(async (code: string) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return { success: false, error: '请先登录' };
+
+      const res = await fetch(`${API_BASE_URL}/invites/redeem`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errorMap: Record<string, string> = {
+          invalid_code: '邀请码无效或已过期',
+          already_redeemed: '你已经兑换过邀请码了',
+        };
+        return { success: false, error: errorMap[data.detail] || data.detail || '兑换失败，请稍后再试' };
+      }
+
+      // Refresh subscription state after successful redemption
+      if (user?.id) {
+        localStorage.removeItem(CACHE_KEY);
+        await refreshSubscription();
+      }
+
+      return {
+        success: true,
+        accessExpiresAt: data.access_expires_at,
+      };
+    } catch (err) {
+      console.error('[Subscription] Redeem invite failed:', err);
+      return { success: false, error: '网络错误，请稍后再试' };
+    }
+  }, [user?.id, refreshSubscription]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createCheckout = useCallback(async (returnPath?: string) => {
     if (!user?.id) {
@@ -187,7 +237,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     setIsCheckoutLoading(true);
     setCheckoutError(null);
 
-    // Use provided path or current page path
     const currentPath = returnPath || (typeof window !== 'undefined' ? window.location.pathname : '/for-you');
 
     try {
@@ -253,9 +302,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         plan,
         status,
         currentPeriodEnd,
+        accessExpiresAt,
         createCheckout,
         openBillingPortal,
         refreshSubscription,
+        redeemInviteCode,
       }}
     >
       {children}
