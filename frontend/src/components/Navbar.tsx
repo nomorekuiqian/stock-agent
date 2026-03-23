@@ -65,7 +65,7 @@ export function Navbar() {
             <NavLink href="/for-you">专属</NavLink>
             <NavLink href="/stock">个股</NavLink>
             {(process.env.NODE_ENV === 'development' || isPro) && (
-              <NavLink href="/screener">筛选</NavLink>
+              <NavLink href="/screener">投研助手</NavLink>
             )}
             <NavLink href="/macro">宏观</NavLink>
             <NavLink href="/contact">联系</NavLink>
@@ -118,6 +118,7 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const menuId = `nav-dropdown-${label}`;
   const isActive = items.some(item => pathname === item.href || pathname.startsWith(item.href + '/'));
 
   const handleMouseEnter = useCallback(() => {
@@ -134,14 +135,35 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
     }, 150);
   }, []);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  }, []);
+
+  const handleBlur = useCallback((e: React.FocusEvent) => {
+    if (!ref.current?.contains(e.relatedTarget as Node)) {
+      setOpen(false);
+    }
+  }, []);
+
   return (
     <div
       ref={ref}
       className="relative flex items-center"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onBlur={handleBlur}
     >
       <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-controls={menuId}
+        onKeyDown={handleKeyDown}
         className={`flex items-center gap-1 px-4 transition-colors duration-200 ${
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
@@ -153,6 +175,7 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
           )}
         </span>
         <svg
+          aria-hidden="true"
           className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
@@ -162,6 +185,8 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
         </svg>
       </button>
       <div
+        id={menuId}
+        role="menu"
         className={`absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1.5 min-w-[120px] bg-background/95 backdrop-blur-md border border-border/50 rounded-lg shadow-lg shadow-black/10 transition-all duration-200 ${
           open ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-1 invisible'
         }`}
@@ -172,7 +197,9 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
             <Link
               key={item.href}
               href={item.href}
+              role="menuitem"
               onClick={() => setOpen(false)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
               className={`block px-4 py-2 text-sm transition-colors ${
                 itemActive
                   ? 'text-foreground bg-muted/50'
