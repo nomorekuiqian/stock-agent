@@ -406,15 +406,15 @@ export default function WelcomeScreen({
                 <button
                   type="button"
                   onClick={onEnterMacro}
-                  className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/[0.04] transition-all duration-200 cursor-pointer"
+                  className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/[0.04] transition-all duration-200 cursor-pointer"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-violet-500/[0.08] border border-violet-500/10 flex items-center justify-center mb-3 text-violet-600 dark:text-violet-400/80 group-hover:bg-violet-500/15 group-hover:border-violet-500/20 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-primary/[0.08] border border-primary/10 flex items-center justify-center mb-3 text-primary group-hover:bg-primary/15 group-hover:border-primary/20 transition-colors">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                     宏观快览
                   </p>
                   <p className="text-xs text-muted-foreground/50 mt-1">
