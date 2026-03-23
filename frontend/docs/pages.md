@@ -32,7 +32,7 @@
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
-| `/screener` | AI 选股助手 | Backend (screener API) | 是 |
+| `/screener` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
 
 ### 重定向
 | 旧路由 | 目标 |
