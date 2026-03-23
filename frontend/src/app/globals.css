@@ -443,6 +443,13 @@ h6 {
   opacity: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: fade-in 0.01s forwards;
+    transform: none;
+  }
+}
+
 /* Fade In - Subtle entrance */
 @keyframes fade-in {
   from {
@@ -455,6 +462,12 @@ h6 {
 
 .animate-fade-in {
   animation: fade-in 0.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: fade-in 0.01s forwards;
+  }
 }
 
 /* Slide In - Horizontal entrance */
