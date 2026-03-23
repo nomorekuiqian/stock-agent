@@ -139,17 +139,17 @@ describe('for-you watchlist page', () => {
 
     renderPage();
 
-    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'remove-AAPL' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'remove-AAPL' }));
-    expect(screen.queryByText('AAPL')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'remove-AAPL' })).not.toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(500);
       await Promise.resolve();
     });
 
-    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'remove-AAPL' })).toBeInTheDocument();
     expect(screen.getByText('保存失败')).toBeInTheDocument();
     expect(mutate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -180,7 +180,7 @@ describe('for-you watchlist page', () => {
 
     renderPage();
 
-    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'remove-AAPL' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'remove-AAPL' }));
 
     await act(async () => {
@@ -189,6 +189,6 @@ describe('for-you watchlist page', () => {
     });
 
     expect(screen.getByText('持仓已在其他页面被更新，已恢复到最新保存版本，请刷新后重试。')).toBeInTheDocument();
-    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'remove-AAPL' })).toBeInTheDocument();
   });
 });

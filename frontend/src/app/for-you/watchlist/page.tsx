@@ -9,7 +9,7 @@ import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
 import { Command } from 'cmdk';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
-import { api, SectorInfo, WatchlistData } from '@/lib/api';
+import { WatchlistData } from '@/lib/api';
 import { clearStaleAuthStateWithoutRedirect } from '@/lib/auth';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { STOCK_NAMES } from '@/lib/stock-names';
@@ -20,11 +20,13 @@ import { queryKeys } from '@/hooks/queries/query-keys';
 
 const MAX_WATCHLIST_SIZE = 25;
 
-const SECTOR_CATEGORIES: { label: string; ids: string[] }[] = [
-  { label: '核心科技', ids: ['mag7', 'ai', 'chips', 'software'] },
-  { label: '金融消费', ids: ['finance', 'payments', 'consumer'] },
-  { label: '行业板块', ids: ['ev', 'healthcare', 'energy', 'defense'] },
-  { label: '热门主题', ids: ['china', 'crypto', 'streaming'] },
+const POPULAR_GROUPS: { label: string; symbols: string[] }[] = [
+  { label: 'Mag 7', symbols: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'] },
+  { label: 'AI & 芯片', symbols: ['AMD', 'AVGO', 'TSM', 'ARM', 'QCOM', 'MU', 'ASML'] },
+  { label: '云 & 软件', symbols: ['CRM', 'ORCL', 'NOW', 'PLTR', 'SNOW', 'DDOG', 'NET', 'CRWD'] },
+  { label: '金融', symbols: ['JPM', 'GS', 'V', 'MA', 'BRK.B', 'BLK', 'AXP'] },
+  { label: '消费', symbols: ['COST', 'WMT', 'MCD', 'SBUX', 'NKE', 'KO', 'PEP'] },
+  { label: '中概', symbols: ['BABA', 'PDD', 'BIDU', 'NIO', 'LI', 'XPEV'] },
 ];
 
 function normalizeSymbols(symbols?: string[]) {
@@ -74,16 +76,12 @@ function WatchlistPageContent() {
     return map;
   }, [quotesResponse]);
 
-  const [sectors, setSectors] = useState<SectorInfo[]>([]);
   const loading = watchlistLoading;
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraNames, setExtraNames] = useState<Record<string, { en: string; zh: string }>>({});
 
-  const [expandedSector, setExpandedSector] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [confirmingSectorRemove, setConfirmingSectorRemove] = useState<string | null>(null);
-  const sectorRemoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadErrorMessage = getAuthErrorPresentation(
     watchlistError,
     '无法连接到服务器，请刷新页面重试。为保护你的数据，在加载成功前无法编辑持仓。'
@@ -133,23 +131,10 @@ function WatchlistPageContent() {
 
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Load sectors (no TanStack Query hook for this)
-  useEffect(() => {
-    const loadSectors = async () => {
-      try {
-        const sectorList = await api.sectors.list();
-        setSectors(sectorList);
-      } catch (err) {
-        console.error('Failed to load sectors:', err);
-      }
-    };
-    if (user?.id) loadSectors();
-  }, [user?.id]);
 
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (sectorRemoveTimerRef.current) clearTimeout(sectorRemoveTimerRef.current);
     };
   }, []);
 
@@ -257,16 +242,6 @@ function WatchlistPageContent() {
     handleSearchNavigate(result);
     resetAfterSelect();
   }, [handleSearchNavigate, resetAfterSelect]);
-
-  const handleAddSectorSymbols = (sectorSymbols: string[]) => {
-    const toAdd = sectorSymbols.filter(s => !symbols.includes(s));
-    if (toAdd.length === 0) return;
-    const available = MAX_WATCHLIST_SIZE - symbols.length;
-    const adding = toAdd.slice(0, available);
-    const newSymbols = [...symbols, ...adding];
-    setSymbols(newSymbols);
-    persist(newSymbols);
-  };
 
   const handleClearAll = () => {
     setSymbols([]);
@@ -479,197 +454,46 @@ function WatchlistPageContent() {
             )}
           </section>
 
-          {sectors.length > 0 && (
-            <section className="space-y-8">
-              <div className="flex items-center gap-3">
-                <div className="w-1 h-5 bg-amber-400 rounded-full" />
-                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">按板块添加</h2>
-                <span className="text-xs text-muted-foreground font-data">{sectors.length} 个板块</span>
-              </div>
-
-              {SECTOR_CATEGORIES.map(category => {
-                const categorySectors = category.ids
-                  .map(id => sectors.find(s => s.id === id))
-                  .filter((s): s is SectorInfo => !!s);
-                if (categorySectors.length === 0) return null;
-
-                return (
-                  <div key={category.label}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-px flex-1 max-w-[40px] bg-border/50" />
-                      <span className="text-xs text-muted-foreground tracking-widest uppercase">{category.label}</span>
-                      <div className="h-px flex-1 bg-border/30" />
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {categorySectors.map((sector, idx) => {
-                        const inWatchlist = sector.symbols.filter(s => symbols.includes(s)).length;
-                        const allAdded = inWatchlist === sector.symbols.length;
-                        const isExpanded = expandedSector === sector.id;
-                        const progress = sector.symbols.length > 0 ? inWatchlist / sector.symbols.length : 0;
-
-                        return (
-                          <div
-                            key={sector.id}
-                            className="group relative animate-fade-in-up"
-                            style={{ animationDelay: `${idx * 40}ms` }}
-                          >
-                            <div className={`absolute -inset-0.5 rounded-xl transition-opacity duration-500 blur-sm ${
-                              isExpanded
-                                ? 'opacity-100 bg-primary/25'
-                                : allAdded
-                                  ? 'opacity-0'
-                                  : 'opacity-0 group-hover:opacity-100 bg-primary/15'
-                            }`} />
-
-                            <button
-                              onClick={() => {
-                                setExpandedSector(isExpanded ? null : sector.id);
-                                setConfirmingSectorRemove(null);
-                                if (sectorRemoveTimerRef.current) {
-                                  clearTimeout(sectorRemoveTimerRef.current);
-                                  sectorRemoveTimerRef.current = null;
-                                }
-                              }}
-                              className={`relative w-full text-left bg-card/50 border rounded-xl p-4 transition-all duration-300 cursor-pointer ${
-                                isExpanded
-                                  ? 'border-primary/50 shadow-lg shadow-primary/10'
-                                  : allAdded
-                                    ? 'border-border/30 opacity-60 hover:opacity-80'
-                                    : 'border-border/50 group-hover:border-primary/30 group-hover:translate-y-[-2px] group-hover:shadow-lg group-hover:shadow-black/10'
-                              }`}
-                            >
-                              {allAdded && (
-                                <div className="absolute top-2 right-2 p-1 rounded-md bg-primary/10 border border-primary/20">
-                                  <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </div>
-                              )}
-
-                              <div className="font-semibold text-sm text-foreground mb-0.5 pr-6">{sector.name_zh}</div>
-                              <div className="text-xs text-muted-foreground mb-3 group-hover:text-foreground/70 transition-colors">{sector.name_en}</div>
-
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs text-muted-foreground font-data">{sector.symbol_count} 只股票</span>
-                                {inWatchlist > 0 && !allAdded && (
-                                  <span className="text-xs font-data text-primary">{inWatchlist}/{sector.symbols.length}</span>
-                                )}
-                              </div>
-
-                              <div className="h-1 rounded-full bg-border/50 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    allAdded ? 'bg-primary/40' : 'bg-primary'
-                                  }`}
-                                  style={{ width: `${progress * 100}%` }}
-                                />
-                              </div>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {expandedSector && categorySectors.some(s => s.id === expandedSector) && (() => {
-                      const sector = sectors.find(s => s.id === expandedSector);
-                      if (!sector) return null;
-
-                      const notAdded = sector.symbols.filter(s => !symbols.includes(s));
-                      const remaining = MAX_WATCHLIST_SIZE - symbols.length;
-                      const canAdd = Math.min(notAdded.length, remaining);
-
+          <section>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-1 h-5 bg-amber-400 rounded-full" />
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">热门股票</h2>
+            </div>
+            <div className="space-y-5">
+              {POPULAR_GROUPS.map(group => (
+                <div key={group.label}>
+                  <p className="text-xs text-muted-foreground/60 font-medium mb-2">{group.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.symbols.map(sym => {
+                      const inList = symbols.includes(sym);
+                      const name = STOCK_NAMES[sym];
                       return (
-                        <div className="mt-3 rounded-xl border border-primary/20 bg-card/50 p-5 animate-fade-in-up">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1 h-4 bg-primary rounded-full" />
-                              <h3 className="text-sm font-semibold text-foreground">{sector.name_zh}</h3>
-                              <span className="text-xs text-muted-foreground font-data">{sector.symbol_count} 只</span>
-                            </div>
-                            {notAdded.length > 0 ? (
-                              <button
-                                onClick={() => handleAddSectorSymbols(notAdded)}
-                                disabled={atLimit}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-xs font-medium text-primary hover:bg-primary/20 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                添加全部 (+{canAdd})
-                              </button>
-                            ) : (
-                              <span className="text-xs text-primary/60">已全部添加</span>
-                            )}
-                          </div>
-
-                          <p className="text-xs text-muted-foreground mb-4 ml-3 leading-relaxed">{sector.description}</p>
-
-                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-2">
-                            {sector.symbols.map(sym => {
-                              const inList = symbols.includes(sym);
-                              const isConfirming = confirmingSectorRemove === sym;
-                              const name = STOCK_NAMES[sym];
-
-                              const handleSectorStockClick = () => {
-                                if (inList) {
-                                  if (isConfirming) {
-                                    if (sectorRemoveTimerRef.current) clearTimeout(sectorRemoveTimerRef.current);
-                                    setConfirmingSectorRemove(null);
-                                    handleRemoveSymbol(sym);
-                                  } else {
-                                    setConfirmingSectorRemove(sym);
-                                    sectorRemoveTimerRef.current = setTimeout(() => {
-                                      setConfirmingSectorRemove(null);
-                                    }, 3000);
-                                  }
-                                } else {
-                                  addSymbol(sym);
-                                }
-                              };
-
-                              return (
-                                <button
-                                  key={sym}
-                                  onClick={handleSectorStockClick}
-                                  disabled={!inList && atLimit}
-                                  className={`group flex flex-col items-center gap-1 p-2.5 rounded-lg text-center transition-all border ${
-                                    isConfirming
-                                      ? 'border-red-400/40 bg-red-500/10 cursor-pointer'
-                                      : inList
-                                        ? 'border-primary/30 bg-primary/10 cursor-pointer'
-                                        : 'border-border/40 bg-muted/10 hover:border-primary/40 hover:bg-primary/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
-                                  }`}
-                                >
-                                  <span className={`font-mono text-xs font-semibold flex items-center gap-0.5 ${
-                                    isConfirming ? 'text-red-400' : inList ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                                  }`}>
-                                    {isConfirming ? (
-                                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    ) : inList ? (
-                                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                      </svg>
-                                    ) : null}
-                                    {isConfirming ? '移除?' : sym}
-                                  </span>
-                                  {!isConfirming && name && (
-                                    <span className={`text-micro truncate w-full ${inList ? 'text-primary/60' : 'text-muted-foreground'}`}>{name.zh || name.en}</span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() => inList ? handleRemoveSymbol(sym) : addSymbol(sym, name?.en)}
+                          disabled={!inList && atLimit}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                            inList
+                              ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/5 hover:border-primary/20'
+                              : 'border-border/50 bg-card/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'
+                          }`}
+                        >
+                          {inList && (
+                            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          <span className="font-data font-semibold">{sym}</span>
+                          {name?.zh && <span className="text-muted-foreground/70">{name.zh}</span>}
+                        </button>
                       );
-                    })()}
+                    })}
                   </div>
-                );
-              })}
-            </section>
-          )}
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       )}
     </main>
