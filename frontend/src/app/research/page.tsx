@@ -203,7 +203,7 @@ function ScreenerContent() {
   // Auth redirect
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login?redirect=/screener');
+      router.push('/login?redirect=/research');
     }
   }, [authLoading, isAuthenticated, router]);
 
@@ -548,7 +548,7 @@ function ScreenerContent() {
       const authError = getAuthErrorPresentation(err, 'AI 助手暂时无法响应');
       if (authError.shouldRedirectToLogin) {
         await signOut().catch(() => {});
-        router.push('/login?redirect=/screener');
+        router.push('/login?redirect=/research');
         return;
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });

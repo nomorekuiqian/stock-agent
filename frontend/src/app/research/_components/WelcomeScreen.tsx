@@ -15,32 +15,62 @@ import ChatInput from './ChatInput';
 
 const ALL_STRATEGIES = [
   {
-    label: '稳定收益',
-    desc: '高股息、持续派息',
+    label: 'AI 相关的好标的',
+    desc: '半导体、算力、大模型受益股',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+        <rect x="6" y="6" width="12" height="12" rx="1" />
+        <path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4" />
+      </svg>
+    ),
+  },
+  {
+    label: '最近被错杀的好公司',
+    desc: '从高位大幅回调，基本面完好',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+        <path d="M22 17l-8.5-8.5-5 5L2 7" />
+        <path d="M12 17c0 0 2-4 6-4" />
+        <path d="M18 17h4v-4" />
+      </svg>
+    ),
+  },
+  {
+    label: '适合长期拿着的分红股',
+    desc: '股息率高、连续多年派息',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
         <ellipse cx="12" cy="6" rx="8" ry="3" />
         <path d="M4 6v4c0 1.657 3.582 3 8 3s8-1.343 8-3V6" />
         <path d="M4 10v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4" />
-        <path d="M4 14v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4" />
       </svg>
     ),
   },
   {
-    label: '成长动能',
-    desc: '营收加速、赛道领先',
+    label: '成长最快的中小盘',
+    desc: '营收高速增长、估值还没跑高',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <path d="M22 7l-8.5 8.5-5-5L2 17" />
-        <path d="M16 7h6v6" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+        <path d="M7 17L17 7M17 7H7M17 7v10" />
       </svg>
     ),
   },
   {
-    label: '价值发现',
-    desc: '低估值、高质量',
+    label: '上季度财报超预期',
+    desc: 'EPS 好于市场预期，业绩加速',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M9 15l2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    label: '被低估的白马股',
+    desc: 'ROE 强劲、PE 合理、护城河宽',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
         <path d="M6 3h12l4 6-10 13L2 9z" />
         <path d="M2 9h20" />
         <path d="M10 3l-2 6 4 13 4-13-2-6" />
@@ -48,92 +78,66 @@ const ALL_STRATEGIES = [
     ),
   },
   {
-    label: '趋势策略',
-    desc: '量价配合、均线突破',
+    label: '分析师一致推荐的股',
+    desc: '机构共识买入，评级近期上调',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
       </svg>
     ),
   },
   {
-    label: '科技前沿',
-    desc: '大市值科技领军',
+    label: '大市值稳健蓝筹',
+    desc: '低波动、现金流充沛、抗跌',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <rect x="6" y="6" width="12" height="12" rx="1" />
-        <path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4" />
-      </svg>
-    ),
-  },
-  {
-    label: '防御配置',
-    desc: '低波动、稳健经营',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-  },
-  {
-    label: '现金流优选',
-    desc: '自由现金流充沛',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <circle cx="12" cy="12" r="3" />
-        <path d="M2 10h2M20 10h2M2 14h2M20 14h2" />
-      </svg>
-    ),
-  },
-  {
-    label: '高速成长',
-    desc: '中小市值、增速领先',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <path d="M7 17L17 7M17 7H7M17 7v10" />
       </svg>
     ),
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Theme pool (28 total, show 6 at a time, rotate every 10s)
+// Theme pool (show 6 at a time, rotate on demand)
 // ---------------------------------------------------------------------------
 
-const ALL_THEMES = [
-  // Sector + quality long-tail
-  '最近被低估的软件股',
-  '近期涨幅领先的芯片公司',
-  '盈利能力最强的云计算公司',
-  '被华尔街看好的生物科技股',
-  '营收增速最快的网络安全公司',
-  '自由现金流最强的科技巨头',
-  '利润率最高的医药公司',
-  '增长最快的数字支付公司',
-  '估值最低的工业股',
-  '现金流最好的新能源公司',
-  // Metric-driven
-  'PE 低于 15 且 ROE 超过 20%',
-  '股息率超过 4% 的蓝筹股',
-  '毛利率超过 60% 的高壁垒公司',
-  '连续 3 年营收增长超 30%',
-  '负债率低于 30% 的优质公司',
-  '研发投入占比最高的科技公司',
-  // Timing + quality
-  '最近从高位回调 20% 的好公司',
-  '近期突破 52 周新高的强势股',
-  'RSI 超跌的优质成长股',
-  '最近成交量明显放大的股票',
-  '最近财报超预期的公司',
-  // Style + characteristic
-  '机构持仓比例最高的中盘股',
-  '回购力度最大的公司',
-  '海外营收占比超 50% 的跨国企业',
-  '分析师一致给出买入评级的标的',
-  '连续 10 年以上稳定分红的公司',
-  '增速最快的 AI 应用公司',
-  '市盈率最低的消费龙头',
+type ThemeChip = { label: string; type: 'screen' | 'stock' | 'macro' };
+
+const ALL_THEMES: ThemeChip[] = [
+  // 选股型
+  { label: '最近被低估的软件股', type: 'screen' },
+  { label: '盈利能力最强的云计算公司', type: 'screen' },
+  { label: '估值合理但赚钱能力强的公司', type: 'screen' },
+  { label: '年年分红超 4% 的稳健大公司', type: 'screen' },
+  { label: '利润空间大、竞争对手难追上的公司', type: 'screen' },
+  { label: '连续 3 年营收增长超 30%', type: 'screen' },
+  { label: '几乎不借钱、财务特别稳健的公司', type: 'screen' },
+  { label: '最近从高位回调 20% 的好公司', type: 'screen' },
+  { label: '近期突破 52 周新高的强势股', type: 'screen' },
+  { label: '最近财报超预期的公司', type: 'screen' },
+  { label: '华尔街分析师普遍一致看好的股票', type: 'screen' },
+  { label: '近一年涨幅最强的半导体股', type: 'screen' },
+  { label: '中小市值、成长飞快的潜力黑马', type: 'screen' },
+  { label: '躺着就能赚大钱、现金极其充沛的公司', type: 'screen' },
+  { label: '技术面超卖、可能快要反弹的好股', type: 'screen' },
+  { label: '赚钱效率极高的科技公司', type: 'screen' },
+  // 个股研究型
+  { label: 'NVDA 当前技术面信号', type: 'stock' },
+  { label: 'AAPL 最新财报关键数字', type: 'stock' },
+  { label: 'META 现在估值贵不贵', type: 'stock' },
+  { label: 'TSLA 今年的投资逻辑', type: 'stock' },
+  { label: 'MSFT AI 布局对估值的影响', type: 'stock' },
+  { label: 'AMZN 云业务增速还能维持吗', type: 'stock' },
+  { label: 'GOOGL 广告护城河还在吗', type: 'stock' },
+  { label: 'BABA 当前性价比如何', type: 'stock' },
+  { label: '英伟达和 AMD 哪个更值得持有', type: 'stock' },
+  // 市场宏观型
+  { label: '科技股这波回调的宏观原因', type: 'macro' },
+  { label: '美联储政策对成长股的影响', type: 'macro' },
+  { label: '当前流动性对美股意味着什么', type: 'macro' },
+  { label: '关税新政对各板块有什么影响', type: 'macro' },
+  { label: '今天市场最重要的信号是什么', type: 'macro' },
+  { label: '日元走势对美股有什么影响', type: 'macro' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -148,28 +152,11 @@ function pickStrategies(count: number, excludeLabels: string[] = []): StrategyPr
   return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
-function pickThemes(count: number, exclude: string[] = []): string[] {
-  const available = ALL_THEMES.filter(t => !exclude.includes(t));
-  const pool = available.length >= count ? available : ALL_THEMES;
-  return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
-}
-
-// ---------------------------------------------------------------------------
-// Decorative SVGs
-// ---------------------------------------------------------------------------
-
-/** Dot grid background pattern (Vercel-style) */
-function DotGrid() {
-  return (
-    <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <pattern id="screener-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-          <circle cx="1.5" cy="1.5" r="0.75" className="fill-foreground/[0.04]" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#screener-dots)" />
-    </svg>
-  );
+function pickThemesByType(type: ThemeChip['type'], count: number, exclude: string[] = []): ThemeChip[] {
+  const pool = ALL_THEMES.filter(t => t.type === type);
+  const available = pool.filter(t => !exclude.includes(t.label));
+  const source = available.length >= count ? available : pool;
+  return [...source].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +185,7 @@ interface WelcomeScreenProps {
   onSelect: (value: string) => void;
   onEnterDailyReport?: () => void;
   onEnterMacro?: () => void;
+  onEnterPersonalReport?: () => void;
   universeSize?: number;
   conversations?: ConversationSummary[];
   conversationsLoading?: boolean;
@@ -214,17 +202,16 @@ export default function WelcomeScreen({
   onSelect,
   onEnterDailyReport,
   onEnterMacro,
+  onEnterPersonalReport,
   universeSize,
   conversations = [],
   conversationsLoading = false,
   onLoadConversation,
   onDeleteConversation,
 }: WelcomeScreenProps) {
-  // Rotating pools
   const [strategies, setStrategies] = useState(() => pickStrategies(4));
-  const [themes, setThemes] = useState(() => pickThemes(6));
   const [strategyExiting, setStrategyExiting] = useState(false);
-  const [themeExiting, setThemeExiting] = useState(false);
+  const [screenChips] = useState(() => pickThemesByType('screen', 6));
 
   const rotateStrategies = useCallback(() => {
     setStrategyExiting(true);
@@ -234,23 +221,9 @@ export default function WelcomeScreen({
     }, 300);
   }, []);
 
-  const rotateThemes = useCallback(() => {
-    setThemeExiting(true);
-    setTimeout(() => {
-      setThemes(prev => pickThemes(6, prev));
-      setThemeExiting(false);
-    }, 300);
-  }, []);
-
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 lg:py-0 overflow-hidden">
-      {/* ── Background layers ── */}
-      <DotGrid />
-      {/* Emerald gradient orb — Apple-style ambient glow */}
-      <div className="absolute top-1/3 -left-32 w-[500px] h-[500px] rounded-full bg-primary/[0.07] blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full bg-primary/[0.04] blur-[100px] pointer-events-none" />
-
-      <div className="relative w-full max-w-5xl z-10">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 lg:py-0">
+      <div className="w-full max-w-5xl">
         {/* Split layout: stack on mobile, side-by-side on lg */}
         <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-16">
 
@@ -295,26 +268,19 @@ export default function WelcomeScreen({
             <div className="flex items-center gap-6 mt-6 animate-fade-in-up delay-100">
               {universeSize ? (
                 <div>
-                  <p className="text-lg font-data font-medium text-foreground">{universeSize.toLocaleString()}+</p>
+                  <p className="text-lg font-data font-medium text-primary">{universeSize.toLocaleString()}+</p>
                   <p className="text-xs text-muted-foreground/70">覆盖美股</p>
                 </div>
               ) : null}
               <div>
-                <p className="text-lg font-data font-medium text-foreground">50+</p>
-                <p className="text-xs text-muted-foreground/70">分析维度</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-lg font-data font-medium text-foreground leading-none">实时</p>
-                    {/* Live pulse indicator */}
-                    <span className="relative flex h-2 w-2 mt-0.5 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground/70 mt-1">数据更新</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-lg font-data font-medium text-primary leading-none">实时</p>
+                  <span className="relative flex h-2 w-2 mt-0.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                  </span>
                 </div>
+                <p className="text-xs text-muted-foreground/70 mt-1">数据更新</p>
               </div>
             </div>
 
@@ -324,7 +290,7 @@ export default function WelcomeScreen({
             {/* Recent conversations - desktop only for left column */}
             {!conversationsLoading && conversations.length > 0 && (
               <div className="hidden lg:block animate-fade-in-up delay-300">
-                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
+                <p className="text-sm font-semibold text-foreground/75 mb-3">
                   继续之前的对话
                 </p>
                 <div className="space-y-1 max-h-64 overflow-y-auto overflow-x-hidden conversation-scroll">
@@ -338,14 +304,14 @@ export default function WelcomeScreen({
                         className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
                         onClick={() => onLoadConversation?.(conv.id)}
                       >
-                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-primary/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-foreground truncate">
                             {conv.title || '未命名对话'}
                           </p>
-                          <p className="text-xs text-muted-foreground/50 mt-0.5">
+                          <p className="text-xs text-muted-foreground/60 mt-0.5">
                             {formatRelativeTime(conv.updated_at)} · {conv.message_count} 条消息
                           </p>
                         </div>
@@ -369,74 +335,98 @@ export default function WelcomeScreen({
 
           {/* ── Vertical divider (desktop only) ── */}
           <div className="hidden lg:flex items-center">
-            <div className="w-px h-96 bg-gradient-to-b from-transparent via-border/60 to-transparent" />
+            <div className="w-px h-96 bg-gradient-to-b from-transparent via-primary/[0.18] to-transparent" />
           </div>
 
-          {/* ── Right column: Quick Entry + Strategies + Themes + Input ── */}
+          {/* ── Right column: Three sections + Input ── */}
           <div className="flex-1 flex flex-col justify-center mt-10 lg:mt-0 lg:py-12">
 
-            {/* ── Quick context entry ── */}
+            {/* ── Section 1: 聊聊当前行情 ── */}
             <div className="animate-fade-in-up delay-100">
-              <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
-                快速进入
+              <p className="text-sm font-semibold text-foreground/75 mb-3">
+                跟 AI 聊聊
               </p>
-              <div className="grid grid-cols-2 gap-2.5">
-                {/* Today's Daily Report */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* 今日日报 */}
                 <button
                   type="button"
                   onClick={onEnterDailyReport}
-                  className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/[0.04] transition-all duration-200 cursor-pointer"
+                  className="group text-left p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/[0.04] transition-all duration-200 cursor-pointer flex items-center gap-3"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/[0.08] border border-amber-500/10 flex items-center justify-center mb-3 text-amber-600 dark:text-amber-400/80 group-hover:bg-amber-500/15 group-hover:border-amber-500/20 transition-colors">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/[0.08] border border-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400/80 group-hover:bg-amber-500/15 group-hover:border-amber-500/20 transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
                       <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" />
                       <path d="M14 2v6h6" />
                       <path d="M2 13h10M2 17h6M2 9h4" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                    今日日报
-                  </p>
-                  <p className="text-xs text-muted-foreground/50 mt-1">
-                    {todayLabel()} · 市场综述
-                  </p>
+                  <div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">今日日报</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">{todayLabel()} · 市场综述</p>
+                  </div>
                 </button>
 
-                {/* Macro Overview */}
+                {/* 深研个股 */}
+                <button
+                  type="button"
+                  onClick={() => onSelect("帮我深度研究一只个股")}
+                  className="group text-left p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-border/60 transition-all duration-200 cursor-pointer flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-muted/40 border border-border/40 flex items-center justify-center shrink-0 text-muted-foreground/60 group-hover:bg-muted/60 group-hover:text-foreground/70 transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+                      <path d="M3 3v18h18" />
+                      <path d="M7 16l4-4 4 4 4-4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">深研个股</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">基本面 · 技术面 · 深度分析</p>
+                  </div>
+                </button>
+
+                {/* 宏观快览 */}
                 <button
                   type="button"
                   onClick={onEnterMacro}
-                  className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/[0.04] transition-all duration-200 cursor-pointer"
+                  className="group text-left p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-border/60 transition-all duration-200 cursor-pointer flex items-center gap-3"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-primary/[0.08] border border-primary/10 flex items-center justify-center mb-3 text-primary group-hover:bg-primary/15 group-hover:border-primary/20 transition-colors">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+                  <div className="w-7 h-7 rounded-lg bg-muted/40 border border-border/40 flex items-center justify-center shrink-0 text-muted-foreground/60 group-hover:bg-muted/60 group-hover:text-foreground/70 transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                    宏观快览
-                  </p>
-                  <p className="text-xs text-muted-foreground/50 mt-1">
-                    流动性 · 风险信号
-                  </p>
+                  <div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">宏观快览</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">流动性 · 风险信号</p>
+                  </div>
+                </button>
+
+                {/* 专属日报 */}
+                <button
+                  type="button"
+                  onClick={onEnterPersonalReport ?? (() => onSelect("帮我看看我的专属日报"))}
+                  className="group text-left p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-border/60 transition-all duration-200 cursor-pointer flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-muted/40 border border-border/40 flex items-center justify-center shrink-0 text-muted-foreground/60 group-hover:bg-muted/60 group-hover:text-foreground/70 transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">专属日报</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">基于你的持仓</p>
+                  </div>
                 </button>
               </div>
+
             </div>
 
-            {/* ── Divider: quick entry → screener ── */}
-            <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-border/30" />
-              <span className="text-xs text-muted-foreground/40 tracking-widest">或者选股</span>
-              <div className="flex-1 h-px bg-border/30" />
-            </div>
-
-            {/* Strategy cards - 2x2 grid, rotating pool */}
-            <div className="animate-fade-in-up delay-200">
+            {/* ── Section 2: 选股 ── */}
+            <div className="mt-8 animate-fade-in-up delay-200">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
-                  热门策略
-                </p>
+                <p className="text-sm font-semibold text-foreground/75">AI 智能选股</p>
                 <button
                   type="button"
                   onClick={rotateStrategies}
@@ -459,68 +449,39 @@ export default function WelcomeScreen({
                     type="button"
                     key={preset.label}
                     onClick={() => onSelect(preset.label)}
-                    className="group text-left p-4 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/[0.03] transition-all duration-200 cursor-pointer animate-fade-in-up"
+                    className="group text-left p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/70 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/[0.03] transition-all duration-200 cursor-pointer flex items-center gap-3 animate-fade-in-up"
                     style={{ animationDelay: `${idx * 60}ms` }}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-primary/[0.08] border border-primary/10 flex items-center justify-center mb-3 text-primary group-hover:bg-primary/15 group-hover:border-primary/20 transition-colors">
+                    <div className="w-7 h-7 rounded-lg bg-primary/[0.08] border border-primary/10 flex items-center justify-center shrink-0 text-primary group-hover:bg-primary/15 group-hover:border-primary/20 transition-colors">
                       {preset.icon}
                     </div>
-                    <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                      {preset.label}
-                    </p>
-                    <p className="text-xs text-muted-foreground/50 mt-1">
-                      {preset.desc}
-                    </p>
+                    <div>
+                      <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{preset.label}</p>
+                      <p className="text-xs text-muted-foreground/60 mt-0.5">{preset.desc}</p>
+                    </div>
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Theme chips - rotating pool */}
-            <div className="mt-6 animate-fade-in-up delay-300">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
-                  试试这些
-                </p>
-                <button
-                  type="button"
-                  onClick={rotateThemes}
-                  aria-label="换一批主题"
-                  className="p-2 rounded-md text-muted-foreground/30 hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
-                >
-                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                    <path d="M21 3v5h-5" />
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                    <path d="M3 21v-5h5" />
-                  </svg>
-                </button>
-              </div>
-              <div className={`flex flex-wrap gap-2 transition-all duration-300 ease-out ${
-                themeExiting ? 'opacity-0 translate-y-1.5' : 'opacity-100 translate-y-0'
-              }`}>
-                {themes.map((theme, idx) => (
+              {/* Small screen chips */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {screenChips.map((chip) => (
                   <button
                     type="button"
-                    key={theme}
-                    onClick={() => onSelect(theme)}
-                    className="px-3.5 py-1.5 rounded-full text-xs border border-border/40 bg-card/20 text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5 active:scale-95 transition-all duration-200 cursor-pointer animate-fade-in-up"
-                    style={{ animationDelay: `${idx * 40}ms` }}
+                    key={chip.label}
+                    onClick={() => onSelect(chip.label)}
+                    className="px-3.5 py-1.5 rounded-full text-xs border border-border/40 bg-card/20 text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5 active:scale-95 transition-all duration-200 cursor-pointer"
                   >
-                    {theme}
+                    {chip.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Divider */}
+            {/* Divider + Input */}
             <div className="w-full h-px bg-border/30 my-6" />
-
-            {/* Input */}
             <div className="welcome-input animate-fade-in-up delay-500">
-              <p className="text-xs text-muted-foreground/50 mb-2">
-                或者，用你自己的话描述
-              </p>
+              <p className="text-sm font-semibold text-foreground/75 mb-2">或者，用你自己的话描述</p>
               <ChatInput
                 onSubmit={onSelect}
                 placeholder="聊聊日报、宏观，或描述你的选股想法..."
@@ -531,7 +492,7 @@ export default function WelcomeScreen({
             {/* Mobile recent conversations */}
             {!conversationsLoading && conversations.length > 0 && (
               <div className="lg:hidden mt-8 animate-fade-in-up delay-500">
-                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
+                <p className="text-sm font-semibold text-foreground/75 mb-3">
                   继续之前的对话
                 </p>
                 <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-hidden conversation-scroll">
@@ -545,14 +506,12 @@ export default function WelcomeScreen({
                         className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
                         onClick={() => onLoadConversation?.(conv.id)}
                       >
-                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-primary/35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground truncate">
-                            {conv.title || '未命名对话'}
-                          </p>
-                          <p className="text-xs text-muted-foreground/50 mt-0.5">
+                          <p className="text-sm text-foreground truncate">{conv.title || '未命名对话'}</p>
+                          <p className="text-xs text-muted-foreground/60 mt-0.5">
                             {formatRelativeTime(conv.updated_at)} · {conv.message_count} 条消息
                           </p>
                         </div>

@@ -2,39 +2,149 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+
+interface NavChild {
+  href: string;
+  label: string;
+}
+
+interface NavSection {
+  label: string;
+  href: string;
+  children?: NavChild[];
+}
+
+function MobileNavItem({
+  section,
+  onClose,
+}: {
+  section: NavSection;
+  onClose: () => void;
+}) {
+  const pathname = usePathname();
+  const hasChildren = !!(section.children && section.children.length > 0);
+
+  const isChildActive =
+    hasChildren &&
+    section.children!.some(
+      (c) => pathname === c.href || pathname.startsWith(c.href + '/'),
+    );
+  const isSectionActive =
+    pathname === section.href || pathname.startsWith(section.href + '/');
+
+  const [expanded, setExpanded] = useState(isChildActive);
+
+  if (!hasChildren) {
+    return (
+      <Link
+        href={section.href}
+        onClick={onClose}
+        className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+          isSectionActive
+            ? 'text-foreground bg-muted/50'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+        }`}
+      >
+        {section.label}
+      </Link>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className={`flex items-center rounded-lg ${
+          isSectionActive ? 'text-foreground' : 'text-muted-foreground'
+        }`}
+      >
+        <Link
+          href={section.href}
+          onClick={onClose}
+          className="flex-1 px-4 py-3 text-sm font-medium hover:text-foreground transition-colors"
+        >
+          {section.label}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          aria-label={expanded ? '收起' : '展开'}
+          className="px-3 py-3 hover:text-foreground transition-colors"
+        >
+          <svg
+            aria-hidden="true"
+            className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="ml-4 pl-3 border-l border-border/40 mt-0.5 space-y-0.5">
+          {section.children!.map((child) => {
+            const childActive =
+              pathname === child.href || pathname.startsWith(child.href + '/');
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                onClick={onClose}
+                className={`block px-3 py-2 text-sm rounded-lg transition-colors ${
+                  childActive
+                    ? 'text-foreground bg-muted/50'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                }`}
+              >
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
   const { isPro } = useSubscription();
 
-  const navSections = [
+  const navSections: NavSection[] = [
     {
-      title: '日报',
-      links: [
+      label: '日报',
+      href: '/today',
+      children: [
         { href: '/morning', label: '盘前早报' },
         { href: '/today', label: '盘后晚报' },
       ],
     },
     {
-      title: '专属',
-      links: [
-        { href: '/for-you', label: '专属日报' },
+      label: '专属',
+      href: '/for-you',
+      children: [
+        { href: '/for-you/watchlist', label: '我的自选股' },
       ],
     },
     {
-      title: '个股',
-      links: [
-        { href: '/stock', label: '个股研究' },
-        ...((process.env.NODE_ENV === 'development' || isPro) ? [{ href: '/screener', label: '投研助手' }] : []),
+      label: '个股',
+      href: '/stock',
+      children: [
+        ...(process.env.NODE_ENV === 'development' || isPro
+          ? [{ href: '/research', label: '投研助手' }]
+          : []),
       ],
     },
     {
-      title: '宏观',
-      links: [
-        { href: '/macro', label: '宏观总览' },
+      label: '宏观',
+      href: '/macro',
+      children: [
         { href: '/macro/liquidity', label: '流动性环境' },
         { href: '/macro/economy', label: '经济基本面' },
         { href: '/macro/inflation-rates', label: '通胀与利率' },
@@ -42,10 +152,8 @@ export function MobileMenu() {
       ],
     },
     {
-      title: '联系',
-      links: [
-        { href: '/contact', label: '联系我们' },
-      ],
+      label: '联系',
+      href: '/contact',
     },
   ];
 
@@ -81,27 +189,18 @@ export function MobileMenu() {
           />
 
           {/* Menu Panel */}
-          <div id="mobile-menu-panel" className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
-            <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
+          <div
+            id="mobile-menu-panel"
+            className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up"
+          >
+            <div className="max-w-6xl mx-auto px-4 py-3 space-y-0.5">
               {/* Nav Sections */}
               {navSections.map((section) => (
-                <div key={section.title}>
-                  <div className="px-4 py-1 text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
-                    {section.title}
-                  </div>
-                  <div className="space-y-1">
-                    {section.links.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setIsOpen(false)}
-                        className="block px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                <MobileNavItem
+                  key={section.href}
+                  section={section}
+                  onClose={() => setIsOpen(false)}
+                />
               ))}
 
               {/* Divider */}

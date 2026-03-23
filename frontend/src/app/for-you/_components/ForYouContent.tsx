@@ -183,7 +183,7 @@ function ForYouPageContent() {
 
                     {/* Chat with AI about digest */}
                     {displayDigest && (
-                      <AiChatLink href="/screener?context=brew" />
+                      <AiChatLink href="/research?context=brew" />
                     )}
 
                     {/* Subscription toggle */}

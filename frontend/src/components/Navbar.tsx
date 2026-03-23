@@ -62,11 +62,11 @@ export function Navbar() {
                 { href: '/today', label: '晚报' },
               ]}
             />
+            {(process.env.NODE_ENV === 'development' || isPro) && (
+              <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
+            )}
             <NavLink href="/for-you">专属</NavLink>
             <NavLink href="/stock">个股</NavLink>
-            {(process.env.NODE_ENV === 'development' || isPro) && (
-              <NavLink href="/screener">投研助手</NavLink>
-            )}
             <NavLink href="/macro">宏观</NavLink>
             <NavLink href="/contact">联系</NavLink>
           </div>
@@ -96,6 +96,31 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         isActive
           ? 'text-foreground'
           : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
+        {children}
+        {isActive && (
+          <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
+            <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
+          </span>
+        )}
+      </span>
+    </Link>
+  );
+}
+
+function NavLinkHighlight({ href, children }: { href: string; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isActive = pathname === href || pathname.startsWith(href + '/');
+
+  return (
+    <Link
+      href={href}
+      className={`group flex items-center px-4 transition-colors duration-200 rounded-none ${
+        isActive
+          ? 'text-primary'
+          : 'text-primary/70 hover:text-primary hover:bg-primary/5'
       }`}
     >
       <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
