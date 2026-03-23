@@ -470,6 +470,29 @@ h6 {
   }
 }
 
+/* Navbar active indicator — scales in from center */
+@keyframes indicator-in {
+  from {
+    transform: scaleX(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.animate-indicator-in {
+  animation: indicator-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-indicator-in {
+    animation: none;
+  }
+}
+
 /* Slide In - Horizontal entrance */
 @keyframes slide-in-right {
   0% {
@@ -889,8 +912,10 @@ h6 {
     0 0 0 1px rgba(5, 150, 105, 0.15);
 }
 
-/* Focus Ring */
-:focus-visible {
+/* Focus Ring - only for form inputs that need explicit keyboard focus indicator */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }

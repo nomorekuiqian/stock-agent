@@ -42,19 +42,19 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <Link href="/" className="flex items-center gap-3 group">
-            <Logo className="w-8 h-8 transition-transform duration-300 group-hover:scale-105" />
+            <Logo className="w-8 h-8 transition-[transform,filter] duration-300 group-hover:scale-105 group-hover:drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
             <div className="flex flex-col">
               <span className="font-semibold text-base tracking-tight text-foreground leading-tight">
                 TheMarketBrew
               </span>
-              <span className="text-micro text-muted-foreground/60 tracking-widest uppercase hidden sm:block">
+              <span className="text-micro text-muted-foreground/70 tracking-widest uppercase hidden sm:block transition-colors duration-300 group-hover:text-muted-foreground/90">
                 Market Intelligence
               </span>
             </div>
           </Link>
 
           {/* Navigation Links */}
-          <div className="hidden md:flex items-stretch h-16 gap-1">
+          <div className="hidden md:flex items-stretch h-16 gap-0">
             <NavDropdown
               label="日报"
               items={[
@@ -72,7 +72,7 @@ export function Navbar() {
           </div>
 
           {/* Right Side Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
             <div className="hidden md:flex items-center">
               <NavAuth />
@@ -92,16 +92,18 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className={`flex items-center px-4 transition-colors duration-200 ${
+      className={`group flex items-center px-4 transition-colors duration-200 ${
         isActive
           ? 'text-foreground'
           : 'text-muted-foreground hover:text-foreground'
       }`}
     >
-      <span className="relative text-sm font-medium tracking-wide">
+      <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
         {children}
         {isActive && (
-          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[2px] rounded-full bg-primary" />
+          <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
+            <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
+          </span>
         )}
       </span>
     </Link>
@@ -164,14 +166,16 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
         aria-haspopup="true"
         aria-controls={menuId}
         onKeyDown={handleKeyDown}
-        className={`flex items-center gap-1 px-4 transition-colors duration-200 ${
+        className={`group h-full flex items-center gap-1 px-4 transition-colors duration-200 ${
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
       >
-        <span className="relative text-sm font-medium tracking-wide">
+        <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
           {label}
           {isActive && (
-            <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-[2px] rounded-full bg-primary" />
+            <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
+              <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
+            </span>
           )}
         </span>
         <svg
