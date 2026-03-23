@@ -51,8 +51,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     }));
-  } catch (error) {
-    console.error('[Sitemap] Error fetching reports:', error);
+  } catch {
+    // Backend unavailable during build — sitemap will only contain static pages.
   }
 
   return [...staticPages, ...reportPages];
