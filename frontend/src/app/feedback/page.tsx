@@ -8,7 +8,7 @@ function LoadingState() {
   return (
     <main className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
-        <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto" />
+        <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
       </div>
     </main>
   );
@@ -110,9 +110,9 @@ function FeedbackContent() {
       <main className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <svg
-                className="w-8 h-8 text-emerald-600"
+                className="w-8 h-8 text-primary"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -137,7 +137,7 @@ function FeedbackContent() {
             </p>
             <Link
               href={reportLink}
-              className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
+              className="inline-block px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm transition-all hover:bg-primary/90"
             >
               {reportLabel}
             </Link>
@@ -191,7 +191,7 @@ function FeedbackContent() {
             </p>
             <Link
               href={reportLink}
-              className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
+              className="inline-block px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm transition-all hover:bg-primary/90"
             >
               {reportLabel}
             </Link>
@@ -258,7 +258,7 @@ function FeedbackContent() {
           </p>
           <Link
             href={reportLink}
-            className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
+            className="inline-block px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm transition-all hover:bg-primary/90"
           >
             {reportLabel}
           </Link>

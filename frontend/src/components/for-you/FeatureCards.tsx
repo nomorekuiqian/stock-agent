@@ -55,23 +55,23 @@ export default function FeatureCards({
         {/* Manage Holdings */}
         <button
           onClick={onToggleHoldings}
-          className="terminal-card p-5 hover:border-emerald-500/30 transition-all group text-left cursor-pointer focus:ring-2 focus:ring-emerald-500/50 focus:outline-none"
+          className="terminal-card p-5 hover:border-primary/30 transition-all group text-left cursor-pointer focus:ring-2 focus:ring-primary/50 focus:outline-none"
         >
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
               </svg>
             </div>
             <div className="min-w-0">
-              <h4 className="text-sm font-medium text-foreground group-hover:text-emerald-400 transition-colors">
+              <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                 管理持仓
               </h4>
               <p className="text-xs text-muted-foreground mt-0.5">
                 搜索、添加或移除关注的股票
               </p>
             </div>
-            <svg className="w-4 h-4 text-muted-foreground/50 group-hover:text-emerald-400 shrink-0 ml-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary shrink-0 ml-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -93,7 +93,7 @@ export default function FeatureCards({
                 深度分析你的投资组合
               </p>
             </div>
-            <span className="px-2 py-0.5 bg-muted text-muted-foreground text-[10px] rounded-md shrink-0 ml-auto tracking-wide uppercase">
+            <span className="px-2 py-0.5 bg-muted text-muted-foreground text-micro rounded-md shrink-0 ml-auto tracking-wide uppercase">
               Soon
             </span>
           </div>
@@ -123,7 +123,7 @@ function DigestReadyCard({
   return (
     <div className="relative terminal-card overflow-hidden">
       {/* Subtle emerald gradient accent at top */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
       <div className="p-6 md:p-8">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -131,9 +131,9 @@ function DigestReadyCard({
           <div className="space-y-3 min-w-0 flex-1">
             {/* Badge row */}
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-emerald-400 text-xs font-medium">今日日报已就绪</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-primary text-xs font-medium">今日日报已就绪</span>
               </span>
               <span className="text-xs text-muted-foreground font-data">
                 {formatDateShort(digest.digest_date)}
@@ -158,13 +158,13 @@ function DigestReadyCard({
                 {digest.symbols.slice(0, 6).map((sym) => (
                   <span
                     key={sym}
-                    className="px-1.5 py-0.5 bg-card border border-border/50 rounded text-[10px] font-data text-muted-foreground"
+                    className="px-1.5 py-0.5 bg-card border border-border/50 rounded text-micro font-data text-muted-foreground"
                   >
                     {sym}
                   </span>
                 ))}
                 {digest.symbols.length > 6 && (
-                  <span className="px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="px-1.5 py-0.5 text-micro text-muted-foreground">
                     +{digest.symbols.length - 6}
                   </span>
                 )}
@@ -176,7 +176,7 @@ function DigestReadyCard({
           <div className="flex sm:flex-col items-center sm:items-end gap-3 shrink-0">
             <Link
               href={`/for-you/${digest.id}`}
-              className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 inline-flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 inline-flex items-center gap-2 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -245,7 +245,7 @@ function DigestGenerateCard({
             <button
               onClick={onGenerate}
               disabled={generating}
-              className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none inline-flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none inline-flex items-center gap-2 cursor-pointer"
             >
               {generating ? (
                 <>
@@ -297,7 +297,7 @@ function SubscriptionToggle({
       disabled={loading}
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
         isSubscribed
-          ? 'text-emerald-400 hover:text-red-400'
+          ? 'text-primary hover:text-destructive'
           : 'text-muted-foreground hover:text-foreground'
       }`}
       aria-label={isSubscribed ? '取消邮件订阅' : '开启邮件订阅'}

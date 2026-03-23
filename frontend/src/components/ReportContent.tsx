@@ -36,7 +36,7 @@ const INDICATOR_NAMES: Record<string, string> = {
 // Section header component (matching email style)
 const SectionHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="flex items-center gap-3 mb-5">
-    <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+    <div className="w-1 h-5 bg-primary rounded-full" />
     <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
       {children}
     </h2>
@@ -113,7 +113,7 @@ export function ReportContent({
                       ? index.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
                       : index.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
-                  <p className={`text-sm font-semibold mt-1 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+                  <p className={`text-sm font-semibold mt-1 ${isPositive ? 'text-primary' : 'text-destructive'}`}>
                     {isPositive ? '+' : ''}{change.toFixed(2)}%
                   </p>
                 </div>
@@ -149,7 +149,7 @@ export function ReportContent({
                       href={headline.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-base font-semibold text-foreground hover:text-emerald-500 transition-colors block mb-2"
+                      className="text-base font-semibold text-foreground hover:text-primary transition-colors block mb-2"
                     >
                       {headline.title}
                     </a>
@@ -177,7 +177,7 @@ export function ReportContent({
                       href={brief.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-foreground hover:text-emerald-500 transition-colors block"
+                      className="text-sm font-medium text-foreground hover:text-primary transition-colors block"
                     >
                       {brief.title}
                     </a>
@@ -206,13 +206,13 @@ export function ReportContent({
                   {/* Date Block */}
                   <div className={`flex-shrink-0 w-14 rounded-lg p-2 text-center ${
                     isToday
-                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      ? 'bg-primary/10 border border-primary/20'
                       : 'bg-secondary border border-border'
                   }`}>
-                    <p className={`text-xs uppercase ${isToday ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                    <p className={`text-xs uppercase ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                       {calendarDate.month}
                     </p>
-                    <p className={`text-xl font-semibold ${isToday ? 'text-emerald-500' : 'text-foreground'}`}>
+                    <p className={`text-xl font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>
                       {calendarDate.day}
                     </p>
                   </div>
@@ -238,7 +238,7 @@ export function ReportContent({
               {report_summary.map((section, idx) => (
                 <div key={idx}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                     <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
                   </div>
                   <div className="space-y-3">
@@ -267,7 +267,7 @@ export function ReportContent({
                     {parsed.map((section, idx) => (
                       <div key={idx}>
                         <div className="flex items-center gap-2 mb-3">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                           <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
                         </div>
                         <div className="space-y-3">

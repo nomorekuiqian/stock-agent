@@ -102,8 +102,8 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
       <main className="min-h-screen bg-background">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            <p className="text-muted-foreground text-sm">加载中...</p>
           </div>
         </div>
       </main>
@@ -128,15 +128,15 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
         <section className="border-b border-border/50">
           <div className="max-w-3xl mx-auto px-4 md:px-6 pt-16 pb-12 text-center">
             <div className="flex items-center justify-center gap-2 mb-6">
-              <div className="h-px w-12 bg-gradient-to-r from-transparent to-emerald-500/50" />
-              <span className="text-emerald-400 text-xs font-medium tracking-[0.2em] uppercase">Pro</span>
-              <div className="h-px w-12 bg-gradient-to-l from-transparent to-emerald-500/50" />
+              <div className="h-px w-12 bg-gradient-to-r from-transparent to-primary/50" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">Pro</span>
+              <div className="h-px w-12 bg-gradient-to-l from-transparent to-primary/50" />
             </div>
 
             <h1 className="text-3xl md:text-4xl font-editorial text-foreground mb-4 leading-tight">
               专业级市场分析
               <br />
-              <span className="text-emerald-400">为你的每个决策赋能</span>
+              <span className="text-primary">为你的每个决策赋能</span>
             </h1>
 
             <p className="text-muted-foreground text-base max-w-lg mx-auto mb-8 leading-relaxed">
@@ -147,15 +147,15 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
 
             <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 500+ 美股标的
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 4 大数据源
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 每日更新
               </span>
             </div>
@@ -185,7 +185,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
               ].map((item) => (
                 <div key={item.pain} className="terminal-card p-5">
                   <div className="text-sm text-muted-foreground mb-1 line-through decoration-red-400/50">{item.pain}</div>
-                  <div className="text-sm font-medium text-emerald-400 mb-3">{item.solution}</div>
+                  <div className="text-sm font-medium text-primary mb-3">{item.solution}</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
                 </div>
               ))}
@@ -196,7 +196,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
         {/* Feature Comparison */}
         <section className="border-b border-border/50">
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-12">
-            <h2 className="text-xl font-editorial text-foreground text-center mb-8">Free vs Pro</h2>
+            <h2 className="text-xl font-editorial text-foreground text-center mb-8">免费版 vs Pro 版</h2>
 
             {/* Desktop table */}
             <div className="hidden md:block terminal-card overflow-hidden">
@@ -205,7 +205,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                   <tr className="border-b border-border/50">
                     <th className="text-left text-sm font-medium text-muted-foreground p-4">功能</th>
                     <th className="text-center text-sm font-medium text-muted-foreground p-4 w-24">Free</th>
-                    <th className="text-center text-sm font-medium text-emerald-400 p-4 w-24 bg-emerald-500/5">Pro</th>
+                    <th className="text-center text-sm font-medium text-primary p-4 w-24 bg-primary/5">Pro</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -217,7 +217,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                       </td>
                       <td className="text-center p-4 w-24">
                         {f.free ? (
-                          <svg className="w-5 h-5 text-emerald-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5 text-primary mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         ) : (
@@ -226,8 +226,8 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                           </svg>
                         )}
                       </td>
-                      <td className="text-center p-4 w-24 bg-emerald-500/5">
-                        <svg className="w-5 h-5 text-emerald-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <td className="text-center p-4 w-24 bg-primary/5">
+                        <svg className="w-5 h-5 text-primary mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       </td>
@@ -248,9 +248,9 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                     </div>
                     <div className="flex items-center gap-3 shrink-0 pt-0.5">
                       <div className="text-center">
-                        <div className="text-[10px] text-muted-foreground mb-1">Free</div>
+                        <div className="text-micro text-muted-foreground mb-1">Free</div>
                         {f.free ? (
-                          <svg className="w-4 h-4 text-emerald-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-primary mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                           </svg>
                         ) : (
@@ -260,8 +260,8 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                         )}
                       </div>
                       <div className="text-center">
-                        <div className="text-[10px] text-emerald-400 mb-1">Pro</div>
-                        <svg className="w-4 h-4 text-emerald-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="text-micro text-primary mb-1">Pro</div>
+                        <svg className="w-4 h-4 text-primary mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
@@ -276,15 +276,11 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
         {/* Pricing Card */}
         <section className="border-b border-border/50">
           <div className="max-w-md mx-auto px-4 md:px-6 py-12">
-            <div className="terminal-card p-8 relative overflow-hidden">
-              {/* Glow border effect */}
-              <div className="absolute inset-0 rounded-lg border border-emerald-500/30 pointer-events-none" />
-              <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-              <div className="relative">
+            <div className="terminal-card p-8">
+              <div>
                 {/* Plan name */}
                 <div className="text-center mb-6">
-                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium tracking-wider uppercase mb-4">
+                  <span className="inline-block px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium tracking-wider uppercase mb-4">
                     Pro
                   </span>
 
@@ -294,7 +290,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                     <span className="text-muted-foreground text-sm">/ 月</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    每天不到 <span className="text-emerald-400 font-data">$0.33</span> &mdash; 一杯咖啡的零头
+                    每天不到 <span className="text-primary font-data">$0.33</span> &mdash; 一杯咖啡的零头
                   </p>
                 </div>
 
@@ -302,7 +298,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                 <div className="space-y-3 mb-8 pt-6 border-t border-border/30">
                   {FEATURES.filter((f) => f.pro).map((f, i) => (
                     <div key={i} className="flex items-start gap-2.5">
-                      <svg className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-primary mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
                       <span className="text-sm text-foreground">{f.title}</span>
@@ -314,25 +310,25 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                 <button
                   onClick={handleCtaClick}
                   disabled={isCheckoutLoading}
-                  className="w-full px-6 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
                 >
                   {isCheckoutLoading ? (
                     <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      <span>Redirecting to Stripe...</span>
+                      <span>正在跳转至 Stripe...</span>
                     </>
                   ) : needsLogin ? (
                     <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                       </svg>
-                      <span>Sign In to Subscribe</span>
+                      <span>登录后订阅</span>
                     </>
                   ) : (
-                    <span>Subscribe to Pro</span>
+                    <span>订阅 Pro</span>
                   )}
                 </button>
 
@@ -345,29 +341,29 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                 {!needsLogin && status === 'canceled' && (
                   <button
                     onClick={openBillingPortal}
-                    className="w-full mt-2 text-xs text-muted-foreground hover:text-emerald-400 transition-colors py-2"
+                    className="w-full mt-2 text-xs text-muted-foreground hover:text-primary transition-colors py-2"
                   >
-                    Manage existing subscription
+                    管理现有订阅
                   </button>
                 )}
 
                 {/* Trust signals */}
                 <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-border/30">
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    Stripe Security
+                    Stripe 安全支付
                   </span>
                   <span className="text-border">|</span>
-                  <span className="text-[11px] text-muted-foreground">Cancel Anytime</span>
+                  <span className="text-[11px] text-muted-foreground">随时取消</span>
                 </div>
               </div>
             </div>
 
             {/* Value anchoring */}
             <p className="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
-              Research Terminal + AI Analysis: $30+/mo elsewhere
+              同类研究终端 + AI 分析工具：同行定价 $30+/月
             </p>
           </div>
         </section>
@@ -380,11 +376,15 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
               {FAQS.map((faq, i) => (
                 <div key={i} className="terminal-card overflow-hidden">
                   <button
+                    type="button"
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    aria-expanded={openFaq === i}
+                    aria-controls={`faq-answer-${i}`}
                     className="w-full flex items-center justify-between p-4 text-left"
                   >
                     <span className="text-sm font-medium text-foreground">{faq.q}</span>
                     <svg
+                      aria-hidden="true"
                       className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ml-4 ${openFaq === i ? 'rotate-180' : ''}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24"
                     >
@@ -392,7 +392,7 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
                     </svg>
                   </button>
                   {openFaq === i && (
-                    <div className="px-4 pb-4">
+                    <div id={`faq-answer-${i}`} className="px-4 pb-4">
                       <p className="text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
                     </div>
                   )}
@@ -406,18 +406,19 @@ export default function PaywallGuard({ children }: { children: ReactNode }) {
         <section className="border-t border-border/50">
           <div className="max-w-2xl mx-auto px-4 md:px-6 py-12 text-center">
             <p className="text-lg font-editorial text-foreground mb-4">
-              Ready to upgrade your research?
+              准备好提升你的投研效率了吗？
             </p>
             <button
+              type="button"
               onClick={handleCtaClick}
               disabled={isCheckoutLoading}
-              className="px-8 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-70 disabled:cursor-wait"
+              className="px-8 py-3 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-70 disabled:cursor-wait"
             >
               {isCheckoutLoading
-                ? 'Redirecting...'
+                ? '正在跳转...'
                 : needsLogin
-                  ? 'Sign In to Subscribe'
-                  : 'Subscribe to Pro - $9.99/mo'}
+                  ? '登录后订阅'
+                  : '订阅 Pro · $9.99/月'}
             </button>
             {checkoutError && (
               <p className="mt-3 text-xs text-red-400">{checkoutError}</p>

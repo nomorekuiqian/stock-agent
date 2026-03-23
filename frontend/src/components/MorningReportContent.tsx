@@ -25,7 +25,7 @@ function formatChange(change: number): string {
 }
 
 function changeColor(change: number): string {
-  if (change > 0) return 'text-emerald-500';
+  if (change > 0) return 'text-primary';
   if (change < 0) return 'text-red-500';
   return 'text-muted-foreground';
 }
@@ -37,7 +37,7 @@ function formatValue(value: number): string {
 
 const SectionHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="flex items-center gap-3 mb-5">
-    <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+    <div className="w-1 h-5 bg-primary rounded-full" />
     <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
       {children}
     </h2>
@@ -181,7 +181,7 @@ export function MorningReportContent({
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-base font-semibold text-foreground hover:text-emerald-500 transition-colors block mb-2"
+                    className="text-base font-semibold text-foreground hover:text-primary transition-colors block mb-2"
                   >
                     {item.title}
                   </a>
@@ -211,7 +211,7 @@ export function MorningReportContent({
               <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
                 <div className="flex items-start gap-3">
                   {item.time && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-wide uppercase shrink-0 mt-0.5">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-micro font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-wide uppercase shrink-0 mt-0.5">
                       {item.time}
                     </span>
                   )}

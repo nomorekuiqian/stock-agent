@@ -122,7 +122,7 @@ function EmailTestContent() {
 
   const sendTestEmail = async () => {
     if (!email) {
-      setSendResult({ success: false, message: 'Please enter an email address' });
+      setSendResult({ success: false, message: '请输入邮箱地址' });
       return;
     }
 
@@ -134,27 +134,27 @@ function EmailTestContent() {
         setSendResult({
           success: result.success,
           message: result.success
-            ? `Email sent successfully to ${result.sent_to}`
-            : result.message || 'Failed to send email',
+            ? `邮件已发送至 ${result.sent_to}`
+            : result.message || '发送失败',
         });
       } else if (activeChannel === 'weekly_report') {
         const result = await api.sendWeeklyReportEmail(email);
         setSendResult({
           success: result.success,
           message: result.success
-            ? `Weekly report sent to ${result.sent_to}`
-            : result.message || 'Failed to send weekly report',
+            ? `周报已发送至 ${result.sent_to}`
+            : result.message || '发送失败',
         });
       } else {
         setSendResult({
           success: false,
-          message: 'Send test for personal digest not yet implemented. Use broadcast instead.',
+          message: '个人摘要暂不支持发送测试，请使用广播功能。',
         });
       }
     } catch (err) {
       setSendResult({
         success: false,
-        message: err instanceof Error ? err.message : 'Failed to send email',
+        message: err instanceof Error ? err.message : '发送失败',
       });
     } finally {
       setSending(false);
@@ -224,7 +224,7 @@ function EmailTestContent() {
               <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh
+              刷新
             </button>
           </div>
 
@@ -234,7 +234,7 @@ function EmailTestContent() {
               onClick={() => handleChannelChange('daily_report')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'daily_report'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  ? 'bg-primary/10 text-primary border-primary/30'
                   : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
               }`}
             >
@@ -249,7 +249,7 @@ function EmailTestContent() {
               onClick={() => handleChannelChange('personal_digest')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'personal_digest'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  ? 'bg-primary/10 text-primary border-primary/30'
                   : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
               }`}
             >
@@ -264,7 +264,7 @@ function EmailTestContent() {
               onClick={() => handleChannelChange('weekly_report')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'weekly_report'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  ? 'bg-primary/10 text-primary border-primary/30'
                   : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
               }`}
             >
@@ -285,38 +285,38 @@ function EmailTestContent() {
           <div className="lg:col-span-1 space-y-4">
             {/* Send Test Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">Send Test Email</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">发送测试邮件</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                    Recipient Email
+                    收件人邮箱
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="test@example.com"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
                 <button
                   onClick={sendTestEmail}
                   disabled={sending || !email}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {sending ? (
                     <>
                       <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      Sending...
+                      发送中...
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                       </svg>
-                      Send Test Email
+                      发送测试邮件
                     </>
                   )}
                 </button>
@@ -325,7 +325,7 @@ function EmailTestContent() {
                   <div
                     className={`p-3 rounded-lg text-sm ${
                       sendResult.success
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                        ? 'bg-primary/10 text-primary border border-primary/20'
                         : 'bg-red-50 text-red-700 border border-red-100'
                     }`}
                   >
@@ -343,7 +343,7 @@ function EmailTestContent() {
               {loading ? (
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
                   <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
-                  Loading...
+                  加载中...
                 </div>
               ) : error ? (
                 <p className="text-sm text-red-500">{error}</p>
@@ -361,7 +361,7 @@ function EmailTestContent() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Source</span>
-                    <span className="text-emerald-600 font-medium">Backend API</span>
+                    <span className="text-primary font-medium">Backend API</span>
                   </div>
                 </div>
               ) : activeChannel === 'personal_digest' && digestInfo ? (
@@ -388,7 +388,7 @@ function EmailTestContent() {
                       {digestInfo.symbols.map((sym) => (
                         <span
                           key={sym}
-                          className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-xs font-medium"
+                          className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium"
                         >
                           {sym}
                         </span>
@@ -422,7 +422,7 @@ function EmailTestContent() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">No data available</p>
+                <p className="text-sm text-gray-400">暂无数据</p>
               )}
 
               {/* Load Specific Report/Digest/Weekly */}
@@ -438,7 +438,7 @@ function EmailTestContent() {
                         value={reportId}
                         onChange={(e) => setReportId(e.target.value)}
                         placeholder="Report ID (UUID)"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadEmailPreview(reportId || undefined, user?.name)}
@@ -473,7 +473,7 @@ function EmailTestContent() {
                         value={digestId}
                         onChange={(e) => setDigestId(e.target.value)}
                         placeholder="Digest ID (UUID)"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadDigestPreview({ userId: user?.id, digestId: digestId || undefined })}
@@ -495,7 +495,7 @@ function EmailTestContent() {
                         value={weekLabel}
                         onChange={(e) => setWeekLabel(e.target.value)}
                         placeholder="e.g. 2025.W06"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name })}
@@ -512,27 +512,27 @@ function EmailTestContent() {
 
             {/* View Mode Toggle */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">View Mode</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">查看模式</h2>
               <div className="flex gap-2">
                 <button
                   onClick={() => setViewMode('preview')}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     viewMode === 'preview'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      ? 'bg-primary/10 text-primary border-primary/30'
                       : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
                   }`}
                 >
-                  Preview
+                  预览
                 </button>
                 <button
                   onClick={() => setViewMode('html')}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     viewMode === 'html'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      ? 'bg-primary/10 text-primary border-primary/30'
                       : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
                   }`}
                 >
-                  HTML Code
+                  HTML 源码
                 </button>
               </div>
             </div>

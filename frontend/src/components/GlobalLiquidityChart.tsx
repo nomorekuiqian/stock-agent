@@ -160,7 +160,7 @@ export function GlobalLiquidityChart({
         </div>
         <div className="text-right">
           {latestValue !== null && (
-            <span className="text-lg font-semibold text-emerald-500 font-data">
+            <span className="text-lg font-semibold text-primary font-data">
               {formatBillions(latestValue)}
             </span>
           )}
@@ -175,7 +175,7 @@ export function GlobalLiquidityChart({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <span className="text-sm">loading...</span>
+              <span className="text-sm">加载图表数据...</span>
             </div>
           </div>
         )}
@@ -187,9 +187,9 @@ export function GlobalLiquidityChart({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                 >
-                  retry
+                  重试
                 </button>
               )}
             </div>

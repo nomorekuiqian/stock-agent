@@ -58,22 +58,22 @@ export default function OnboardingSection({
               disabled={activatingId !== null}
               className={`terminal-card p-5 text-left transition-all group ${
                 isActivating
-                  ? 'border-emerald-500/60 bg-card/80'
+                  ? 'border-primary/60 bg-card/80'
                   : isDisabled
                     ? 'opacity-50 pointer-events-none'
-                    : 'hover:border-emerald-500/40 hover:bg-card/80'
+                    : 'hover:border-primary/40 hover:bg-card/80'
               }`}
             >
               {isActivating ? (
                 <div className="flex flex-col items-center justify-center py-4 gap-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-                  <p className="text-sm text-emerald-400 font-medium">
+                  <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                  <p className="text-sm text-primary font-medium">
                     正在生成你的首份日报...
                   </p>
                 </div>
               ) : (
                 <>
-                  <h3 className="text-base font-medium text-foreground group-hover:text-emerald-400 transition-colors mb-2">
+                  <h3 className="text-base font-medium text-foreground group-hover:text-primary transition-colors mb-2">
                     {template.name}
                   </h3>
                   <p className="text-xs text-muted-foreground mb-4 leading-relaxed">

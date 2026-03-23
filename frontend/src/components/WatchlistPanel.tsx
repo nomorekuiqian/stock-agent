@@ -32,12 +32,9 @@ interface WatchlistPanelProps {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
-      {/* Animated icon */}
-      <div className="relative mb-6">
-        <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse" />
-        <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20 flex items-center justify-center">
-          <BarChart3 className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
-        </div>
+      {/* Icon */}
+      <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
+        <BarChart3 className="w-7 h-7 text-primary" />
       </div>
 
       {/* Text */}
@@ -74,19 +71,15 @@ export default function WatchlistPanel({
   return (
     <section className="border-b border-border/50">
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-8">
-        {/* Main card with glassmorphism */}
-        <div className="relative">
-          {/* Subtle glow behind card */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/5 via-transparent to-emerald-500/5 rounded-2xl blur-xl opacity-50" />
-
-          <div className="relative bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-6 md:p-8 shadow-sm">
+        {/* Main card */}
+        <div className="bg-card/50 border border-border/50 rounded-2xl p-6 md:p-8">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 {/* Animated accent bar */}
                 <div className="relative w-1 h-6 rounded-full overflow-hidden">
-                  <div className="absolute inset-0 bg-emerald-500" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-emerald-400 to-emerald-600 animate-pulse-subtle" />
+                  <div className="absolute inset-0 bg-primary" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-primary animate-pulse-subtle" />
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -117,7 +110,7 @@ export default function WatchlistPanel({
 
             {isLoading ? (
               <div className="flex items-center gap-3 py-8 justify-center">
-                <div className="w-5 h-5 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
+                <div className="w-5 h-5 rounded-full border-2 border-border border-t-primary animate-spin" />
                 <span className="text-sm text-muted-foreground">加载关注列表...</span>
               </div>
             ) : (
@@ -126,10 +119,10 @@ export default function WatchlistPanel({
                 <div ref={searchContainerRef} className="relative">
                   <div className="relative group">
                     {/* Search glow on focus */}
-                    <div className="absolute -inset-0.5 bg-emerald-500/20 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                    <div className="absolute -inset-0.5 bg-primary/20 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
 
                     <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-emerald-500 transition-colors" />
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <input
                         ref={searchInputRef}
                         type="text"
@@ -139,11 +132,11 @@ export default function WatchlistPanel({
                         onFocus={onSearchFocus}
                         disabled={atLimit}
                         placeholder={atLimit ? "已达上限，请先移除股票" : "搜索股票代码或公司名称..."}
-                        className="w-full pl-11 pr-4 py-3 bg-background border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full pl-11 pr-4 py-3 bg-background border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       {isSearching && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
+                          <div className="w-4 h-4 rounded-full border-2 border-border border-t-primary animate-spin" />
                         </div>
                       )}
                     </div>
@@ -156,14 +149,14 @@ export default function WatchlistPanel({
                         <button
                           key={result.symbol}
                           onClick={() => onAddSymbol(result.symbol, result.name)}
-                          className="w-full px-4 py-3 text-left hover:bg-emerald-500/10 transition-all duration-200 flex items-center justify-between gap-3 border-b border-border/50 last:border-0 group/item animate-fade-in-up"
+                          className="w-full px-4 py-3 text-left hover:bg-primary/10 transition-all duration-200 flex items-center justify-between gap-3 border-b border-border/50 last:border-0 group/item animate-fade-in-up"
                           style={{ animationDelay: `${idx * 30}ms` }}
                         >
                           <div className="flex items-center gap-4 min-w-0">
                             <span className="font-mono font-semibold text-sm text-foreground shrink-0">{result.symbol}</span>
                             <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/70 transition-colors">{result.name}</span>
                           </div>
-                          <Plus className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                          <Plus className="w-4 h-4 text-primary shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
                         </button>
                       ))}
                     </div>
@@ -198,7 +191,6 @@ export default function WatchlistPanel({
             )}
           </div>
         </div>
-      </div>
     </section>
   );
 }

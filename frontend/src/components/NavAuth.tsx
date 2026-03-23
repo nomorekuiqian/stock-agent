@@ -29,12 +29,12 @@ export function NavAuth() {
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 group-hover:shadow-lg ${
                 isPro
-                  ? 'bg-gradient-to-br from-amber-500/30 to-emerald-500/30 border border-amber-400/50 group-hover:border-amber-400/70 group-hover:shadow-amber-500/10'
-                  : 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border border-emerald-500/30 group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/10'
+                  ? 'bg-gradient-to-br from-amber-500/30 to-primary/30 border border-amber-400/50 group-hover:border-amber-400/70 group-hover:shadow-amber-500/10'
+                  : 'bg-gradient-to-br from-primary/20 to-primary/30 border border-primary/30 group-hover:border-primary/50 group-hover:shadow-primary/10'
               }`}
             >
               <span
-                className={`text-xs font-semibold ${isPro ? 'text-amber-400' : 'text-emerald-400'}`}
+                className={`text-xs font-semibold ${isPro ? 'text-amber-400' : 'text-primary'}`}
               >
                 {initials}
               </span>
@@ -60,7 +60,7 @@ export function NavAuth() {
                   {user.name || 'User'}
                 </p>
                 {isPro && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
+                  <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
                     PRO
                   </span>
                 )}
@@ -133,7 +133,7 @@ export function NavAuth() {
               ) : (
                 <DropdownMenu.Item
                   asChild
-                  className={`${itemBase} text-emerald-400 hover:bg-emerald-500/10 data-[highlighted]:bg-emerald-500/10`}
+                  className={`${itemBase} text-primary hover:bg-primary/10 data-[highlighted]:bg-primary/10`}
                 >
                   <Link href="/for-you">
                     <svg
@@ -149,7 +149,7 @@ export function NavAuth() {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    Upgrade to Pro
+                    升级到 Pro
                   </Link>
                 </DropdownMenu.Item>
               )}

@@ -78,7 +78,7 @@ export function PasswordField({
           required={required}
           minLength={minLength}
           disabled={disabled}
-          className="w-full px-4 py-3 pr-12 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 pr-12 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           type="button"

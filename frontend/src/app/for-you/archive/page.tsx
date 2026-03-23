@@ -39,7 +39,7 @@ export default function ForYouArchivePage() {
       <main className="min-h-screen bg-background">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
             <p className="text-muted-foreground text-sm">加载中...</p>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function ForYouArchivePage() {
       {loading && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
             <p className="text-muted-foreground text-sm">加载报告...</p>
           </div>
         </div>
@@ -104,7 +104,7 @@ export default function ForYouArchivePage() {
               <Link
                 key={digest.id}
                 href={`/for-you/${digest.id}`}
-                className="group terminal-card p-5 hover:border-emerald-500/30 transition-all"
+                className="group terminal-card p-5 hover:border-primary/30 transition-all"
               >
                 {/* Date Badge */}
                 <div className="flex items-center justify-between mb-4">
@@ -114,7 +114,7 @@ export default function ForYouArchivePage() {
                     </svg>
                     {formatDateShort(digest.digest_date)}
                   </div>
-                  <svg className="w-4 h-4 text-muted-foreground group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
@@ -122,7 +122,7 @@ export default function ForYouArchivePage() {
                 {/* Symbols */}
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {digest.symbols.slice(0, 4).map((sym) => (
-                    <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
+                    <span key={sym} className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
                       {sym}
                     </span>
                   ))}
@@ -134,7 +134,7 @@ export default function ForYouArchivePage() {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-sm font-medium text-foreground mb-2 group-hover:text-emerald-400 transition-colors line-clamp-2">
+                <h3 className="text-sm font-medium text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-2">
                   {digest.greeting || formatDateChinese(digest.digest_date)}
                 </h3>
 
@@ -150,8 +150,8 @@ export default function ForYouArchivePage() {
                   <span className="text-xs text-muted-foreground">
                     查看报告
                   </span>
-                  <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-all">
-                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-all">
+                    <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>
                   </div>
@@ -191,7 +191,7 @@ export default function ForYouArchivePage() {
                       onClick={() => setPage(pageNum)}
                       className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
                         page === pageNum
-                          ? 'bg-emerald-500 text-white'
+                          ? 'bg-primary text-white'
                           : 'text-muted-foreground hover:bg-card hover:text-foreground'
                       }`}
                     >
@@ -232,7 +232,7 @@ export default function ForYouArchivePage() {
             </div>
             <Link
               href="/for-you"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

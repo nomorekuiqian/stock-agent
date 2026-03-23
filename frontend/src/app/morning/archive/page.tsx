@@ -47,7 +47,7 @@ export default function MorningArchivePage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="w-12 h-12 rounded-full border-3 border-amber-400/20 border-t-amber-400 animate-spin" />
-            <p className="text-muted-foreground">Loading...</p>
+            <p className="text-muted-foreground">加载中...</p>
           </div>
         </div>
       )}

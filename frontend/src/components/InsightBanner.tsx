@@ -65,7 +65,7 @@ const INSIGHT_MD_COMPONENTS = {
     </li>
   ),
   code: ({ children }: { children?: ReactNode }) => (
-    <code className="font-data text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded text-xs">
+    <code className="font-data text-primary bg-primary/10 px-1 py-0.5 rounded text-xs">
       {children}
     </code>
   ),
@@ -108,7 +108,7 @@ export function InsightBanner({
           <span className="text-sm text-muted-foreground/40">
             {sectionTitle} &middot; AI 解读
           </span>
-          <span className="text-[10px] text-muted-foreground/30 ml-auto">
+          <span className="text-micro text-muted-foreground/30 ml-auto">
             暂无数据
           </span>
         </div>
@@ -139,7 +139,7 @@ export function InsightBanner({
         </div>
         <div className="flex items-center gap-2">
           {weekLabel && (
-            <span className="text-[10px] font-data text-muted-foreground/50 tracking-wider">
+            <span className="text-micro font-data text-muted-foreground/50 tracking-wider">
               {weekLabel}
             </span>
           )}
@@ -168,7 +168,7 @@ export function InsightBanner({
                   className={i > 0 ? 'pt-4 mt-4 border-t border-border/30' : ''}
                 >
                   <div className="flex items-center gap-2 mb-2.5">
-                    <div className="w-0.5 h-3.5 bg-emerald-500/60 rounded-full" />
+                    <div className="w-0.5 h-3.5 bg-primary/60 rounded-full" />
                     <span className="text-xs font-semibold text-foreground/70 tracking-wide">
                       {section.label}
                     </span>

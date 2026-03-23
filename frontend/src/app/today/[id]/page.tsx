@@ -117,21 +117,21 @@ export default async function ReportDetailPage({ params }: PageProps) {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to Today
+              返回日报
             </Link>
           </div>
         </div>
 
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
           <section className="text-center space-y-4 animate-fade-in-up">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/20 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               {formatReportDate(report.report_date || '')}
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-              {report.title || 'Market Report'}
+              {report.title || '市场报告'}
             </h1>
             {report.summary && (
               <p className="text-base text-muted-foreground max-w-2xl mx-auto">

@@ -19,11 +19,11 @@ export function TechnicalTooltip({ term, children }: TechnicalTooltipProps) {
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
           <span className="inline-flex items-center cursor-help">
-            <span className="border-b border-dotted border-emerald-500/40 text-foreground">
+            <span className="border-b border-dotted border-primary/40 text-foreground">
               {children}
             </span>
             <svg
-              className="w-3 h-3 ml-0.5 text-emerald-500/50 flex-shrink-0"
+              className="w-3 h-3 ml-0.5 text-primary/50 flex-shrink-0"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

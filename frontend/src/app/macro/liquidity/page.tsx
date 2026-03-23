@@ -327,7 +327,7 @@ function LiquidityHeroCard({
             : 'opacity-0 group-hover:opacity-100'
         }`}
       >
-        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">
           点击查看详情
         </span>
       </div>
@@ -443,7 +443,7 @@ function SectionHeader({
             onClick={() => onTimeRangeChange(range)}
             className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
               timeRange === range
-                ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
+                ? 'bg-primary/15 text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -509,8 +509,8 @@ function USLiquidityDeepDive({
           {/* Educational banner */}
           <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Droplets className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Droplets className="w-4 h-4 text-primary" strokeWidth={1.5} />
               </div>
               <div>
                 <h3 className="text-base font-medium text-foreground mb-2">
@@ -522,7 +522,7 @@ function USLiquidityDeepDive({
                   (RRP) 是在「抽水」。放的水减去抽的水,就是市场上真正能用的钱。
                 </p>
                 <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                  <code className="bg-muted px-2 py-1 rounded text-emerald-500">
+                  <code className="bg-muted px-2 py-1 rounded text-primary">
                     净流动性 = 美联储总资产 (WALCL) - TGA - RRP
                   </code>
                 </p>
@@ -553,7 +553,7 @@ function USLiquidityDeepDive({
                     key={key}
                     className={`bg-card/60 rounded-xl border p-4 ${
                       isHighlight
-                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        ? 'border-primary/30 bg-primary/5'
                         : 'border-border/40'
                     }`}
                   >
@@ -610,8 +610,8 @@ function USLiquidityDeepDive({
         {/* Educational banner */}
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Layers className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Layers className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -622,19 +622,19 @@ function USLiquidityDeepDive({
               </p>
               <ul className="text-sm text-muted-foreground leading-relaxed mt-2 space-y-1.5 list-none">
                 <li>
-                  <span className="text-emerald-500 font-medium">WALCL (美联储总资产)</span>
+                  <span className="text-primary font-medium">WALCL (美联储总资产)</span>
                   {' '}&mdash; 美联储一共往市场里放了多少钱。这个数在涨,说明美联储在「印钱」;在跌,说明在「缩表」回收资金。
                 </li>
                 <li>
-                  <span className="text-emerald-500 font-medium">TGA (财政部账户)</span>
+                  <span className="text-primary font-medium">TGA (财政部账户)</span>
                   {' '}&mdash; 政府存在美联储的钱。政府发债收钱时 TGA 上升,市场上的钱就少了;政府花钱时 TGA 下降,钱就流回市场。
                 </li>
                 <li>
-                  <span className="text-emerald-500 font-medium">RRP (隔夜逆回购)</span>
+                  <span className="text-primary font-medium">RRP (隔夜逆回购)</span>
                   {' '}&mdash; 金融机构暂时「停放」在美联储的闲钱。RRP 下降 = 钱回到市场;RRP 接近零时,市场就少了一个缓冲垫。
                 </li>
                 <li>
-                  <span className="text-emerald-500 font-medium">Reserves (银行准备金)</span>
+                  <span className="text-primary font-medium">Reserves (银行准备金)</span>
                   {' '}&mdash; 银行手里的现金储备。低于 3 万亿美元时可能出现资金紧张。
                 </li>
               </ul>
@@ -669,8 +669,8 @@ function USLiquidityDeepDive({
         {/* Educational banner */}
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Banknote className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Banknote className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -682,7 +682,7 @@ function USLiquidityDeepDive({
                 也就是实体经济中实际流通的钱有多少。
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                <span className="text-emerald-500 font-medium">M2</span> = 现金 + 活期存款 + 储蓄存款 + 货币市场基金。
+                <span className="text-primary font-medium">M2</span> = 现金 + 活期存款 + 储蓄存款 + 货币市场基金。
                 当美联储放水 (QE) 且银行积极放贷时,M2 增长;
                 当美联储缩表 (QT) 或银行收紧信贷时,M2 收缩。
                 2022 年 M2 出现了 1930 年代大萧条以来的首次同比下降,是当年股市下跌的重要驱动力。
@@ -691,7 +691,7 @@ function USLiquidityDeepDive({
                 <p className="text-xs text-muted-foreground font-medium mb-1.5">传导链条</p>
                 <p className="text-xs text-muted-foreground font-data">
                   美联储操作 (QE/QT) &rarr; 银行准备金 &rarr; 净流动性 &rarr;{' '}
-                  <span className="text-emerald-500 font-semibold">银行信贷 &rarr; M2 货币供应</span>
+                  <span className="text-primary font-semibold">银行信贷 &rarr; M2 货币供应</span>
                   {' '}&rarr; 金融条件
                 </p>
               </div>
@@ -722,8 +722,8 @@ function USLiquidityDeepDive({
         {/* Educational banner */}
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Gauge className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Gauge className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -734,11 +734,11 @@ function USLiquidityDeepDive({
               </p>
               <ul className="text-sm text-muted-foreground leading-relaxed mt-2 space-y-1.5 list-none">
                 <li>
-                  <span className="text-emerald-500 font-medium">SOFR / EFFR (隔夜利率)</span>
+                  <span className="text-primary font-medium">SOFR / EFFR (隔夜利率)</span>
                   {' '}&mdash; 银行之间互相借钱过夜的「价格」。这个价格稳定在美联储设定的范围内就正常;如果突然飙升,说明市场上的钱不够用了。
                 </li>
                 <li>
-                  <span className="text-emerald-500 font-medium">NFCI (金融条件指数)</span>
+                  <span className="text-primary font-medium">NFCI (金融条件指数)</span>
                   {' '}&mdash; 一个综合打分,告诉你现在金融环境是「宽松」还是「紧缩」。负值 = 宽松 (借钱容易,对股市有利);正值 = 紧缩 (借钱难,股市承压)。
                 </li>
               </ul>
@@ -797,7 +797,7 @@ function GlobalMetricCard({
   return (
     <div
       className={`bg-card/60 rounded-xl border p-4 ${
-        highlighted ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border/40'
+        highlighted ? 'border-primary/30 bg-primary/5' : 'border-border/40'
       }`}
     >
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
@@ -878,8 +878,8 @@ function GlobalLiquidityDeepDive({
           {/* Educational banner */}
           <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Globe className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Globe className="w-4 h-4 text-primary" strokeWidth={1.5} />
               </div>
               <div>
                 <h3 className="text-base font-medium text-foreground mb-2">
@@ -890,7 +890,7 @@ function GlobalLiquidityDeepDive({
                   指数越高,全球市场上的「钱」越多,对风险资产通常是利好。
                 </p>
                 <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                  <code className="bg-muted px-2 py-1 rounded text-emerald-500">
+                  <code className="bg-muted px-2 py-1 rounded text-primary">
                     全球流动性 = Fed + ECB + BOJ - TGA - RRP
                   </code>
                 </p>
@@ -922,7 +922,7 @@ function GlobalLiquidityDeepDive({
           {globalMetrics && (
             <div className="space-y-3 mb-5">
               {/* Global Liquidity Index - prominent card */}
-              <div className="bg-card/60 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+              <div className="bg-card/60 rounded-xl border border-primary/30 bg-primary/5 p-5">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">
@@ -982,8 +982,8 @@ function GlobalLiquidityDeepDive({
 
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Layers className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Layers className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -1035,8 +1035,8 @@ function GlobalLiquidityDeepDive({
 
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Layers className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Layers className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </div>
             <div>
               <h3 className="text-base font-medium text-foreground mb-2">
@@ -1300,7 +1300,7 @@ export default function LiquidityPage() {
         <section className="text-center py-4">
           <Link
             href="/macro"
-            className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald-400 transition-colors duration-200"
+            className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors duration-200"
           >
             <svg
               className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1"
@@ -1323,7 +1323,7 @@ export default function LiquidityPage() {
               href="https://fred.stlouisfed.org/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-500 hover:text-emerald-400 transition-colors"
+              className="text-primary hover:text-primary/80 transition-colors"
             >
               FRED
             </a>
@@ -1332,7 +1332,7 @@ export default function LiquidityPage() {
               href="https://www.tradingview.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-500 hover:text-emerald-400 transition-colors"
+              className="text-primary hover:text-primary/80 transition-colors"
             >
               TradingView
             </a>

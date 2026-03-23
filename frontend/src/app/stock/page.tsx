@@ -174,10 +174,8 @@ export default function StockResearchPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero / Header */}
-      <section className="relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/[0.02] to-transparent pointer-events-none" />
-
-        <div className="relative max-w-5xl mx-auto px-4 md:px-6 pt-16 pb-10 md:pt-24 md:pb-14">
+      <section>
+        <div className="max-w-5xl mx-auto px-4 md:px-6 pt-16 pb-10 md:pt-24 md:pb-14">
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
@@ -201,15 +199,15 @@ export default function StockResearchPage() {
               if (e.key === 'Escape') closeDropdown();
             }}>
               <div className="relative group">
-                <div className="absolute -inset-0.5 bg-emerald-500/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                <div className="absolute -inset-0.5 bg-primary/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
                 <div className="relative">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-emerald-500 transition-colors" />
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                   <Command.Input
                     value={searchQuery}
                     onValueChange={onQueryChange}
                     {...inputHandlers}
                     placeholder="搜索股票代码或公司名称..."
-                    className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-emerald-500/50 focus:bg-card/60 transition-all font-data tracking-wider"
+                    className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:bg-card/60 transition-all font-data tracking-wider"
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
@@ -217,7 +215,7 @@ export default function StockResearchPage() {
                   />
                   {isSearching && (
                     <div className="absolute right-5 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
+                      <div className="w-4 h-4 rounded-full border-2 border-border border-t-primary animate-spin" />
                     </div>
                   )}
                 </div>
@@ -300,33 +298,33 @@ export default function StockResearchPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
             <div>
               <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-3">
-                Explore
+                探索
               </p>
               <div className="flex flex-wrap gap-x-6 gap-y-2">
                 <Link
                   href="/today"
-                  className="text-sm text-muted-foreground hover:text-emerald-400 transition-colors"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  Daily Report
+                  市场日报
                 </Link>
                 <Link
                   href="/liquidity"
-                  className="text-sm text-muted-foreground hover:text-emerald-400 transition-colors"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  Liquidity
+                  流动性
                 </Link>
                 <Link
                   href="/for-you"
-                  className="text-sm text-muted-foreground hover:text-emerald-400 transition-colors"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  For You
+                  个性化
                 </Link>
               </div>
             </div>
 
             <div className="flex items-center gap-2 text-muted-foreground/40">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
-              <span className="text-xs font-data">Market Data</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+              <span className="text-xs font-data">市场数据</span>
             </div>
           </div>
         </div>

@@ -210,7 +210,7 @@ export function StockPriceChart({
       <div className="px-4 py-3 border-b border-border/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground">股价走势</h3>
           </div>
           {priceStats && (
@@ -230,7 +230,7 @@ export function StockPriceChart({
                 onClick={() => setTimeRange(range)}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                   timeRange === range
-                    ? 'bg-emerald-500/20 text-emerald-400'
+                    ? 'bg-primary/20 text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -244,7 +244,7 @@ export function StockPriceChart({
             <button
               onClick={() => setChartType('area')}
               className={`p-1.5 rounded-md transition-colors ${
-                chartType === 'area' ? 'bg-emerald-500/20 text-emerald-400' : 'text-muted-foreground hover:text-foreground'
+                chartType === 'area' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
               }`}
               title="面积图"
             >
@@ -255,7 +255,7 @@ export function StockPriceChart({
             <button
               onClick={() => setChartType('candle')}
               className={`p-1.5 rounded-md transition-colors ${
-                chartType === 'candle' ? 'bg-emerald-500/20 text-emerald-400' : 'text-muted-foreground hover:text-foreground'
+                chartType === 'candle' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
               }`}
               title="K 线图"
             >
@@ -288,7 +288,7 @@ export function StockPriceChart({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                 >
                   重试
                 </button>

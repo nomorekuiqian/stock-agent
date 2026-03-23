@@ -28,7 +28,7 @@ export function MacroPageHeader({
   return (
     <header className="relative overflow-hidden">
       {/* Subtle background gradient for depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/[0.03] to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.03] to-transparent pointer-events-none" />
 
       <div className="relative max-w-6xl mx-auto px-4 md:px-6 pt-4 pb-5 md:pt-5 md:pb-6">
         {/* Row 1: Section path + Controls */}
@@ -37,12 +37,12 @@ export function MacroPageHeader({
           <nav className="flex items-center gap-2 text-xs tracking-[0.15em] uppercase">
             <Link
               href="/macro"
-              className="text-muted-foreground/60 hover:text-emerald-500 transition-colors"
+              className="text-muted-foreground/60 hover:text-primary transition-colors"
             >
               Macro
             </Link>
             <span className="text-muted-foreground/30">/</span>
-            <span className="text-emerald-500 font-medium">{section}</span>
+            <span className="text-primary font-medium">{section}</span>
           </nav>
 
           {/* Controls */}
@@ -51,7 +51,7 @@ export function MacroPageHeader({
               <button
                 onClick={onRefresh}
                 disabled={loading}
-                className="group p-2 rounded-lg text-muted-foreground/60 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all disabled:opacity-40"
+                className="group p-2 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
                 aria-label="Refresh data"
               >
                 <svg
@@ -78,7 +78,7 @@ export function MacroPageHeader({
                     onClick={() => onTimeRangeChange(range)}
                     className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                       timeRange === range
-                        ? 'bg-emerald-500/15 text-emerald-500 shadow-sm'
+                        ? 'bg-primary/15 text-primary shadow-sm'
                         : 'text-muted-foreground/60 hover:text-foreground'
                     }`}
                   >
@@ -91,7 +91,7 @@ export function MacroPageHeader({
         </div>
 
         {/* Row 2: Title block with emerald accent bar */}
-        <div className="border-l-2 border-emerald-500/70 pl-5 md:pl-6">
+        <div className="border-l-2 border-primary/70 pl-5 md:pl-6">
           <h1 className="font-editorial text-2xl md:text-3xl text-foreground leading-[1.15] tracking-tight">
             {title}
           </h1>
@@ -103,7 +103,7 @@ export function MacroPageHeader({
         {/* Row 3: Timestamp */}
         {lastUpdated && (
           <div className="mt-3 md:mt-4 flex items-center gap-2 text-xs text-muted-foreground/40">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
             <span className="font-data tracking-wide">
               {lastUpdated}
             </span>
@@ -112,7 +112,7 @@ export function MacroPageHeader({
       </div>
 
       {/* Bottom accent line */}
-      <div className="h-px bg-gradient-to-r from-emerald-500/40 via-border/50 to-transparent" />
+      <div className="h-px bg-gradient-to-r from-primary/40 via-border/50 to-transparent" />
     </header>
   );
 }

@@ -231,7 +231,7 @@ function AICta({
           </p>
           <button
             onClick={onGenerate}
-            className="group relative inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10"
+            className="group relative inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background font-medium rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-primary/10"
           >
             {/* TODO: temporarily bypass auth/pro check for dev */}
             <span className="text-sm">生成分析报告</span>

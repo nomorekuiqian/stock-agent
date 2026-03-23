@@ -15,8 +15,8 @@ function LoadingSpinner(): ReactNode {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="relative">
-        <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-r-emerald-400/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-r-primary/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
       </div>
     </div>
   );
@@ -227,8 +227,8 @@ function VerifyEmailContent(): ReactNode {
       <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="fixed inset-0 bg-gradient-mesh opacity-30" />
         <div className="relative max-w-md w-full space-y-8 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
-            <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -254,8 +254,8 @@ function VerifyEmailContent(): ReactNode {
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-primary" />
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" />
             验证邮件已发送
           </div>
 
@@ -278,14 +278,14 @@ function VerifyEmailContent(): ReactNode {
         )}
 
         {resent && !error && (
-          <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 animate-scale-in">
-            <p className="text-emerald-400 text-sm text-center">验证邮件已重新发送</p>
+          <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 animate-scale-in">
+            <p className="text-primary text-sm text-center">验证邮件已重新发送</p>
           </div>
         )}
 
         {verificationMethod === 'code' && (!token || tokenFailed) && (
           <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in-up delay-100">
-            <div className="rounded-2xl border border-border/60 bg-card/70 p-6 backdrop-blur-sm">
+            <div className="rounded-2xl border border-border/60 bg-card/70 p-6">
               <label className="block text-sm font-medium text-foreground/90 mb-2 text-center">
                 输入 6 位验证码
               </label>
@@ -307,7 +307,7 @@ function VerifyEmailContent(): ReactNode {
                     onKeyDown={(e) => handleCodeKeyDown(index, e)}
                     onPaste={(e) => handleCodePaste(index, e)}
                     onFocus={(e) => e.target.select()}
-                    className="h-14 w-12 rounded-xl border border-border bg-background text-center text-lg font-data text-foreground shadow-sm outline-none transition-all duration-200 focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/10"
+                    className="h-14 w-12 rounded-xl border border-border bg-background text-center text-lg font-data text-foreground shadow-sm outline-none transition-all duration-200 focus:border-primary/60 focus:ring-2 focus:ring-primary/10"
                   />
                 ))}
               </div>
@@ -316,7 +316,7 @@ function VerifyEmailContent(): ReactNode {
             <button
               type="submit"
               disabled={loading || code.join('').length !== 6}
-              className="w-full px-4 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full px-4 py-3.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
             >
               {loading ? '验证中...' : '验证邮箱'}
             </button>
@@ -343,7 +343,7 @@ function VerifyEmailContent(): ReactNode {
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-200">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
           >
             返回登录
           </Link>

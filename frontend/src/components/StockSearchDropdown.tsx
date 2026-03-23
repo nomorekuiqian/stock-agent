@@ -73,7 +73,7 @@ export default function StockSearchDropdown({
 
                 <div className="pr-3 shrink-0">
                   {inList ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs text-emerald-500/70">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary/70">
                       <Check className="w-3 h-3" />
                       已添加
                     </span>
@@ -85,7 +85,7 @@ export default function StockSearchDropdown({
                         onAdd?.(result);
                       }}
                       disabled={atLimit}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Plus className="w-3 h-3" />
                       添加
@@ -113,7 +113,7 @@ export default function StockSearchDropdown({
                     {result.name}
                   </span>
                 </div>
-                <Icon className="w-4 h-4 text-emerald-500 shrink-0 opacity-0 group-hover/item:opacity-100" />
+                <Icon className="w-4 h-4 text-primary shrink-0 opacity-0 group-hover/item:opacity-100" />
               </Command.Item>
             );
           })}

@@ -15,7 +15,7 @@ export default function TodayLoading() {
       </section>
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
         <div className="flex flex-col items-center justify-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+          <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
           <p className="text-muted-foreground text-sm">加载市场数据...</p>
         </div>
       </div>

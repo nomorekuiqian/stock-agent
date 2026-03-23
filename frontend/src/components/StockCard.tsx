@@ -90,7 +90,7 @@ export default function StockCard({
       style={{ animationDelay: `${index * 40}ms` }}
       onClick={onClick}
     >
-      <div className="relative bg-card border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-emerald-500/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
+      <div className="relative bg-card border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-primary/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
         {onRemove && (
           <button
             onClick={handleRemoveClick}
@@ -140,7 +140,7 @@ export default function StockCard({
 
         {isLoading && !quote && (
           <div className="absolute inset-0 bg-background/95 rounded-xl flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full border-2 border-border border-t-emerald-500 animate-spin" />
+            <div className="w-5 h-5 rounded-full border-2 border-border border-t-primary animate-spin" />
           </div>
         )}
       </div>

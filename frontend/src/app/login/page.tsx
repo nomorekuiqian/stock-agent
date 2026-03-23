@@ -12,8 +12,8 @@ function LoadingSpinner(): ReactNode {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="relative">
-        <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-r-emerald-400/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-r-primary/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
       </div>
     </div>
   );
@@ -182,8 +182,8 @@ function LoginPageContent() {
           )}
 
           {successMessage && (
-            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 animate-scale-in">
-              <p className="text-emerald-400 text-sm text-center">{successMessage}</p>
+            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 animate-scale-in">
+              <p className="text-primary text-sm text-center">{successMessage}</p>
             </div>
           )}
         </div>
@@ -241,7 +241,7 @@ function LoginPageContent() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="你的姓名"
                 required
-                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
+                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
               />
             </div>
           )}
@@ -257,7 +257,7 @@ function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
+              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
             />
           </div>
 
@@ -273,7 +273,7 @@ function LoginPageContent() {
             labelAction={!isSignUp ? (
               <Link
                 href="/forgot-password"
-                className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="text-xs text-primary hover:text-primary/80 transition-colors"
               >
                 忘记密码?
               </Link>
@@ -283,7 +283,7 @@ function LoginPageContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+            className="w-full px-4 py-3.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -309,7 +309,7 @@ function LoginPageContent() {
               setError('');
               setSuccessMessage('');
             }}
-            className="text-emerald-400 font-medium hover:text-emerald-300 transition-colors"
+            className="text-primary font-medium hover:text-primary/80 transition-colors"
           >
             {isSignUp ? '登录' : '注册'}
           </button>

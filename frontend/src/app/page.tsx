@@ -247,7 +247,7 @@ export default function Home() {
                     <div>
                       {/* Dark gradient header - matching real email */}
                       <div className="px-4 py-4 text-center" style={{ background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)' }}>
-                        <p className="text-[8px] text-emerald-400 font-bold tracking-[0.25em] mb-0.5">THEMARKETBREW</p>
+                        <p className="text-[8px] text-primary font-bold tracking-[0.25em] mb-0.5">THEMARKETBREW</p>
                         <p className="text-[7px] text-white/40 tracking-[0.15em] mb-1">DAILY BRIEF</p>
                         <p className="text-[7px] text-white/30 font-data">2025-01-24 Friday</p>
                       </div>
@@ -291,15 +291,15 @@ export default function Home() {
                           <p className="text-[8px] text-zinc-800 font-bold mb-1.5">Key Takeaways</p>
                           <div className="space-y-1">
                             <div className="flex items-start gap-1.5">
-                              <div className="w-1 h-1 rounded-full bg-emerald-500 mt-[3px] flex-shrink-0" />
+                              <div className="w-1 h-1 rounded-full bg-primary mt-[3px] flex-shrink-0" />
                               <p className="text-[7px] text-zinc-600 leading-relaxed">Nvidia 领涨芯片板块，AI 基础设施投资加速</p>
                             </div>
                             <div className="flex items-start gap-1.5">
-                              <div className="w-1 h-1 rounded-full bg-emerald-500 mt-[3px] flex-shrink-0" />
+                              <div className="w-1 h-1 rounded-full bg-primary mt-[3px] flex-shrink-0" />
                               <p className="text-[7px] text-zinc-600 leading-relaxed">关税担忧缓解，投资者重新布局风险资产</p>
                             </div>
                             <div className="flex items-start gap-1.5">
-                              <div className="w-1 h-1 rounded-full bg-emerald-500 mt-[3px] flex-shrink-0" />
+                              <div className="w-1 h-1 rounded-full bg-primary mt-[3px] flex-shrink-0" />
                               <p className="text-[7px] text-zinc-600 leading-relaxed">VIX 回落至 15 以下，市场恐慌情绪消退</p>
                             </div>
                           </div>
@@ -716,19 +716,19 @@ export default function Home() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/stock"
-              className="px-4 py-2 rounded-lg bg-card/60 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
+              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
             >
               个股研究
             </Link>
             <Link
               href="/macro/liquidity"
-              className="px-4 py-2 rounded-lg bg-card/60 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
+              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
             >
               流动性监控
             </Link>
             <Link
               href="/today/archive"
-              className="px-4 py-2 rounded-lg bg-card/60 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors text-sm text-muted-foreground hover:text-foreground"
+              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-muted-foreground hover:text-foreground"
             >
               浏览历史报告
             </Link>

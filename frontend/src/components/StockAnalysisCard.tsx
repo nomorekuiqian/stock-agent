@@ -44,7 +44,7 @@ function CardShell({ children }: { children: React.ReactNode }) {
     <div className="bg-card/50 border border-border/40 rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border/30 bg-card/40">
         <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-          <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+          <div className="w-1 h-5 bg-primary rounded-full" />
           <span>AI 分析</span>
           <span className="text-muted-foreground text-sm font-normal">Investment View</span>
         </h2>
@@ -76,8 +76,8 @@ function LoadingState() {
 function EmptyState({ onGenerate, loading }: { onGenerate: () => void; loading: boolean }) {
   return (
     <div className="text-center py-8">
-      <div className="w-14 h-14 mx-auto rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4">
-        <svg className="w-7 h-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+        <svg className="w-7 h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
         </svg>
       </div>
@@ -88,7 +88,7 @@ function EmptyState({ onGenerate, loading }: { onGenerate: () => void; loading: 
       <button
         onClick={onGenerate}
         disabled={loading}
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
@@ -122,7 +122,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
       <p className="text-sm text-muted-foreground mb-3">{error}</p>
       <button
         onClick={onRetry}
-        className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+        className="text-sm text-primary hover:text-primary/70 transition-colors"
       >
         重试
       </button>
@@ -223,7 +223,7 @@ export function StockAnalysisCard({
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-1">
-              <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+              <div className="w-1 h-5 bg-primary rounded-full" />
               <span>AI Analysis</span>
               <span className="text-muted-foreground text-sm font-normal">Investment View</span>
             </h2>
@@ -238,7 +238,7 @@ export function StockAnalysisCard({
             <button
               onClick={() => handleGenerate(true)}
               disabled={isLoading}
-              className="p-2 text-muted-foreground hover:text-emerald-400 transition-colors disabled:opacity-50"
+              className="p-2 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
               title="重新生成"
             >
               <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">

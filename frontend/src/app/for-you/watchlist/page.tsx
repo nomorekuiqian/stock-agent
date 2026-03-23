@@ -288,7 +288,7 @@ function WatchlistPageContent() {
       <main className="min-h-screen bg-background">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
             <p className="text-muted-foreground text-sm">...</p>
           </div>
         </div>
@@ -329,7 +329,7 @@ function WatchlistPageContent() {
       {loading ? (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
             <p className="text-muted-foreground text-sm">加载中...</p>
           </div>
         </div>
@@ -349,7 +349,7 @@ function WatchlistPageContent() {
               type="button"
               onClick={handleReLogin}
               disabled={isReauthenticating}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/20 bg-background/80 text-sm font-medium text-foreground transition-all hover:border-emerald-500/30 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/20 bg-background/80 text-sm font-medium text-foreground transition-all hover:border-primary/30 hover:text-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isReauthenticating ? '跳转中...' : '重新登录'}
             </button>
@@ -373,7 +373,7 @@ function WatchlistPageContent() {
               }
             }}>
               <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                atLimit ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/80 focus-within:border-emerald-500/40'
+                atLimit ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/80 focus-within:border-primary/40'
               }`}>
                 <svg className="w-5 h-5 text-muted-foreground shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -414,7 +414,7 @@ function WatchlistPageContent() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+                <div className="w-1 h-5 bg-primary rounded-full" />
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">当前持仓</h2>
                 {symbols.length > 0 && (
                   <span className="text-xs text-muted-foreground">{symbols.length} 只</span>
@@ -452,8 +452,8 @@ function WatchlistPageContent() {
 
             {symbols.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-16 rounded-xl border border-dashed border-border/50 bg-card/30">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                   </svg>
                 </div>
@@ -516,10 +516,10 @@ function WatchlistPageContent() {
                           >
                             <div className={`absolute -inset-0.5 rounded-xl transition-opacity duration-500 blur-sm ${
                               isExpanded
-                                ? 'opacity-100 bg-emerald-500/25'
+                                ? 'opacity-100 bg-primary/25'
                                 : allAdded
                                   ? 'opacity-0'
-                                  : 'opacity-0 group-hover:opacity-100 bg-emerald-500/15'
+                                  : 'opacity-0 group-hover:opacity-100 bg-primary/15'
                             }`} />
 
                             <button
@@ -531,17 +531,17 @@ function WatchlistPageContent() {
                                   sectorRemoveTimerRef.current = null;
                                 }
                               }}
-                              className={`relative w-full text-left bg-card/80 backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 cursor-pointer ${
+                              className={`relative w-full text-left bg-card/50 border rounded-xl p-4 transition-all duration-300 cursor-pointer ${
                                 isExpanded
-                                  ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10'
+                                  ? 'border-primary/50 shadow-lg shadow-primary/10'
                                   : allAdded
                                     ? 'border-border/30 opacity-60 hover:opacity-80'
-                                    : 'border-border/50 group-hover:border-emerald-500/30 group-hover:translate-y-[-2px] group-hover:shadow-lg group-hover:shadow-black/10'
+                                    : 'border-border/50 group-hover:border-primary/30 group-hover:translate-y-[-2px] group-hover:shadow-lg group-hover:shadow-black/10'
                               }`}
                             >
                               {allAdded && (
-                                <div className="absolute top-2 right-2 p-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-                                  <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="absolute top-2 right-2 p-1 rounded-md bg-primary/10 border border-primary/20">
+                                  <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                   </svg>
                                 </div>
@@ -553,14 +553,14 @@ function WatchlistPageContent() {
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs text-muted-foreground font-data">{sector.symbol_count} 只股票</span>
                                 {inWatchlist > 0 && !allAdded && (
-                                  <span className="text-xs font-data text-emerald-400">{inWatchlist}/{sector.symbols.length}</span>
+                                  <span className="text-xs font-data text-primary">{inWatchlist}/{sector.symbols.length}</span>
                                 )}
                               </div>
 
                               <div className="h-1 rounded-full bg-border/50 overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${
-                                    allAdded ? 'bg-emerald-500/40' : 'bg-emerald-500'
+                                    allAdded ? 'bg-primary/40' : 'bg-primary'
                                   }`}
                                   style={{ width: `${progress * 100}%` }}
                                 />
@@ -580,10 +580,10 @@ function WatchlistPageContent() {
                       const canAdd = Math.min(notAdded.length, remaining);
 
                       return (
-                        <div className="mt-3 rounded-xl border border-emerald-500/20 bg-card/60 backdrop-blur-sm p-5 animate-fade-in-up">
+                        <div className="mt-3 rounded-xl border border-primary/20 bg-card/50 p-5 animate-fade-in-up">
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                              <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                              <div className="w-1 h-4 bg-primary rounded-full" />
                               <h3 className="text-sm font-semibold text-foreground">{sector.name_zh}</h3>
                               <span className="text-xs text-muted-foreground font-data">{sector.symbol_count} 只</span>
                             </div>
@@ -591,7 +591,7 @@ function WatchlistPageContent() {
                               <button
                                 onClick={() => handleAddSectorSymbols(notAdded)}
                                 disabled={atLimit}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-xs font-medium text-primary hover:bg-primary/20 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -599,7 +599,7 @@ function WatchlistPageContent() {
                                 添加全部 (+{canAdd})
                               </button>
                             ) : (
-                              <span className="text-xs text-emerald-400/60">已全部添加</span>
+                              <span className="text-xs text-primary/60">已全部添加</span>
                             )}
                           </div>
 
@@ -637,12 +637,12 @@ function WatchlistPageContent() {
                                     isConfirming
                                       ? 'border-red-400/40 bg-red-500/10 cursor-pointer'
                                       : inList
-                                        ? 'border-emerald-500/30 bg-emerald-500/10 cursor-pointer'
-                                        : 'border-border/40 bg-muted/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
+                                        ? 'border-primary/30 bg-primary/10 cursor-pointer'
+                                        : 'border-border/40 bg-muted/10 hover:border-primary/40 hover:bg-primary/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
                                   }`}
                                 >
                                   <span className={`font-mono text-xs font-semibold flex items-center gap-0.5 ${
-                                    isConfirming ? 'text-red-400' : inList ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground'
+                                    isConfirming ? 'text-red-400' : inList ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                                   }`}>
                                     {isConfirming ? (
                                       <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -656,7 +656,7 @@ function WatchlistPageContent() {
                                     {isConfirming ? '移除?' : sym}
                                   </span>
                                   {!isConfirming && name && (
-                                    <span className={`text-[10px] truncate w-full ${inList ? 'text-emerald-400/60' : 'text-muted-foreground'}`}>{name.zh || name.en}</span>
+                                    <span className={`text-micro truncate w-full ${inList ? 'text-primary/60' : 'text-muted-foreground'}`}>{name.zh || name.en}</span>
                                   )}
                                 </button>
                               );

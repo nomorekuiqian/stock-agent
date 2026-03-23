@@ -267,8 +267,8 @@ function SectionExplainerBanner({ sectionName }: { sectionName: string }) {
   return (
     <div className="bg-muted/30 rounded-xl border border-border/40 p-5">
       <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Icon className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Icon className="w-4 h-4 text-primary" strokeWidth={1.5} />
         </div>
         <div>
           <h3 className="text-base font-medium text-foreground mb-2">
@@ -283,7 +283,7 @@ function SectionExplainerBanner({ sectionName }: { sectionName: string }) {
             <ul className="text-sm text-muted-foreground leading-relaxed mt-3 space-y-1.5 list-none">
               {explainer.items.map((item, i) => (
                 <li key={i}>
-                  <span className="text-emerald-500 font-medium">{item.label}</span>
+                  <span className="text-primary font-medium">{item.label}</span>
                   {' '}&mdash; {item.text}
                 </li>
               ))}
@@ -422,7 +422,7 @@ function HeroCard({
       <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${
         selected ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
       }`}>
-        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">
           点击查看详情
         </span>
       </div>
@@ -758,7 +758,7 @@ export default function InflationRatesPage() {
                   <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${
                     selectedDim === 'commodities' ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
                   }`}>
-                    <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">
                       点击查看详情
                     </span>
                   </div>
@@ -884,7 +884,7 @@ export default function InflationRatesPage() {
                   onClick={() => setCommodityTimeRange(range)}
                   className={`px-3 py-1.5 text-xs font-data rounded-lg transition-colors ${
                     commodityTimeRange === range
-                      ? 'bg-emerald-500/15 text-emerald-400 font-medium'
+                      ? 'bg-primary/15 text-primary font-medium'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
@@ -1007,7 +1007,7 @@ export default function InflationRatesPage() {
         <section className="text-center py-4">
           <Link
             href="/macro"
-            className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald-400 transition-colors duration-200"
+            className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors duration-200"
           >
             <svg className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
@@ -1016,15 +1016,15 @@ export default function InflationRatesPage() {
           </Link>
           <p className="text-xs text-muted-foreground/60 mt-3">
             数据来源{' '}
-            <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               FRED
             </a>
             {' '}&middot;{' '}
-            <a href="https://financialmodelingprep.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            <a href="https://financialmodelingprep.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               FMP
             </a>
             {' '}&middot;{' '}图表{' '}
-            <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               TradingView
             </a>
           </p>

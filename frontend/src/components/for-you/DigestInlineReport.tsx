@@ -31,7 +31,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
         {/* Date */}
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-            <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span className="text-sm font-data text-foreground">{formatReportDate(digest.timestamp.split('T')[0])}</span>
@@ -53,7 +53,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
         {/* Tracked symbols */}
         <div className="flex flex-wrap gap-1.5 mt-4">
           {digest.symbols_used.map((sym) => (
-            <span key={sym} className="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
+            <span key={sym} className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
               {sym}
             </span>
           ))}
@@ -64,7 +64,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
       {digest.stocks.length > 0 && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
           </div>
           <div className="divide-y divide-border/30">
@@ -100,7 +100,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
       {digest.news.headlines && digest.news.headlines.length > 0 && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">头条新闻</h3>
           </div>
           <div className="divide-y divide-border/30">
@@ -111,14 +111,14 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-semibold text-foreground hover:text-emerald-400 transition-colors text-sm"
+                    className="font-semibold text-foreground hover:text-primary transition-colors text-sm"
                   >
                     {item.title}
                   </a>
                   {item.related_symbols.length > 0 && (
                     <div className="flex flex-wrap gap-1 sm:shrink-0">
                       {item.related_symbols.map((sym: string) => (
-                        <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
+                        <span key={sym} className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
                           {sym}
                         </span>
                       ))}
@@ -138,7 +138,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
       {digest.news.briefs && digest.news.briefs.length > 0 && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">更多新闻</h3>
           </div>
           <div className="divide-y divide-border/30">
@@ -149,14 +149,14 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-foreground hover:text-emerald-400 transition-colors text-sm"
+                    className="font-medium text-foreground hover:text-primary transition-colors text-sm"
                   >
                     {item.title}
                   </a>
                   {item.related_symbols.length > 0 && (
                     <div className="flex flex-wrap gap-1 sm:shrink-0">
                       {item.related_symbols.map((sym: string) => (
-                        <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
+                        <span key={sym} className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
                           {sym}
                         </span>
                       ))}
@@ -176,7 +176,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
       {digest.events.length > 0 && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">重要事件</h3>
           </div>
           <div className="space-y-4">
@@ -189,13 +189,13 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                 <div key={index} className="flex gap-4">
                   <div className={`flex-shrink-0 w-14 rounded-lg p-2 text-center border ${
                     isToday
-                      ? 'bg-emerald-500/10 border-emerald-500/20'
+                      ? 'bg-primary/10 border-primary/20'
                       : 'bg-card border-border/30'
                   }`}>
-                    <p className={`text-xs font-data uppercase ${isToday ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                    <p className={`text-xs font-data uppercase ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                       {calendarDate.month}
                     </p>
-                    <p className={`text-xl font-semibold font-data ${isToday ? 'text-emerald-400' : 'text-foreground'}`}>
+                    <p className={`text-xl font-semibold font-data ${isToday ? 'text-primary' : 'text-foreground'}`}>
                       {calendarDate.day}
                     </p>
                   </div>
@@ -205,7 +205,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                       {event.related_symbols.length > 0 && (
                         <div className="flex flex-wrap gap-1 sm:shrink-0">
                           {event.related_symbols.map((sym: string) => (
-                            <span key={sym} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-xs font-data">
+                            <span key={sym} className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
                               {sym}
                             </span>
                           ))}
@@ -225,7 +225,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
       {digest.summary?.content && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-1 h-5 bg-emerald-500 rounded-full" />
+            <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">总结</h3>
           </div>
           <div className="space-y-4">

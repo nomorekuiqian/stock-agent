@@ -160,8 +160,8 @@ export default function ForgotPasswordPage(): ReactNode {
       <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="fixed inset-0 bg-gradient-mesh opacity-30" />
         <div className="relative max-w-md w-full space-y-8 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
-            <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -175,7 +175,7 @@ export default function ForgotPasswordPage(): ReactNode {
           </div>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
           >
             立即登录
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -223,9 +223,9 @@ export default function ForgotPasswordPage(): ReactNode {
                 key={s}
                 className={`h-1 rounded-full transition-all duration-300 ${
                   s === step
-                    ? 'w-8 bg-emerald-500'
+                    ? 'w-8 bg-primary'
                     : i < ['email', 'code', 'password'].indexOf(step)
-                      ? 'w-8 bg-emerald-500/40'
+                      ? 'w-8 bg-primary/40'
                       : 'w-8 bg-border'
                 }`}
               />
@@ -254,14 +254,14 @@ export default function ForgotPasswordPage(): ReactNode {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
+                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full px-4 py-3.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -296,7 +296,7 @@ export default function ForgotPasswordPage(): ReactNode {
                     value={digit}
                     onChange={(e) => handleCodeChange(index, e.target.value)}
                     onKeyDown={(e) => handleCodeKeyDown(index, e)}
-                    className="w-12 h-14 text-center text-lg font-data bg-card border border-border rounded-lg text-foreground focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
+                    className="w-12 h-14 text-center text-lg font-data bg-card border border-border rounded-lg text-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
                   />
                 ))}
               </div>
@@ -305,7 +305,7 @@ export default function ForgotPasswordPage(): ReactNode {
             <button
               type="submit"
               disabled={loading || code.join('').length !== 6}
-              className="w-full px-4 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full px-4 py-3.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -326,7 +326,7 @@ export default function ForgotPasswordPage(): ReactNode {
                 type="button"
                 onClick={handleResendCode}
                 disabled={loading}
-                className="text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50"
+                className="text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
               >
                 重新发送
               </button>
@@ -363,7 +363,7 @@ export default function ForgotPasswordPage(): ReactNode {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2 mt-6"
+              className="w-full px-4 py-3.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
@@ -384,7 +384,7 @@ export default function ForgotPasswordPage(): ReactNode {
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-200">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

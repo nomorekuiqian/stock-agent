@@ -14,7 +14,7 @@ export default function UnsubscribePage() {
 
     if (!email) {
       setStatus('error');
-      setMessage('Please enter your email address');
+      setMessage('请输入您的邮箱地址');
       return;
     }
 
@@ -27,7 +27,7 @@ export default function UnsubscribePage() {
       setMessage(result.message);
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Failed to unsubscribe');
+      setMessage(error instanceof Error ? error.message : '退订失败，请重试');
     }
   };
 
@@ -41,35 +41,35 @@ export default function UnsubscribePage() {
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-            Unsubscribe
+            退订
           </h1>
           <p className="text-sm text-gray-500">
-            We&apos;re sorry to see you go. Enter your email to unsubscribe from daily reports.
+            很遗憾您要离开。请输入您的邮箱以退订每日报告。
           </p>
         </div>
 
         {status === 'success' ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              You&apos;ve been unsubscribed
+              您已成功退订
             </h2>
             <p className="text-sm text-gray-500 mb-6">
               {message}
             </p>
             <div className="space-y-3">
               <p className="text-xs text-gray-400">
-                Changed your mind?
+                改变主意了？
               </p>
               <Link
                 href="/#subscribe"
-                className="inline-block px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm transition-all hover:bg-emerald-700"
+                className="inline-block px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm transition-all hover:bg-primary/90"
               >
-                Re-subscribe
+                重新订阅
               </Link>
             </div>
           </div>
@@ -77,7 +77,7 @@ export default function UnsubscribePage() {
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
+                邮箱地址
               </label>
               <input
                 type="email"
@@ -87,7 +87,7 @@ export default function UnsubscribePage() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={status === 'loading'}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
 
@@ -108,15 +108,15 @@ export default function UnsubscribePage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Processing...
+                  处理中...
                 </>
               ) : (
-                'Unsubscribe'
+                '退订'
               )}
             </button>
 
             <p className="text-xs text-gray-400 text-center pt-2">
-              You can always re-subscribe later from our homepage.
+              你可以随时在首页重新订阅。
             </p>
           </form>
         )}
@@ -126,7 +126,7 @@ export default function UnsubscribePage() {
             href="/"
             className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
           >
-            Back to homepage
+            返回首页
           </Link>
         </div>
       </div>

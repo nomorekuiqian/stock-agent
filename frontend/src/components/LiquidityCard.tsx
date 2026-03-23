@@ -25,7 +25,7 @@ export function LiquidityCard({
 
   if (loading) {
     return (
-      <div className={`bg-card rounded-xl border border-border p-4 ${highlight ? 'ring-1 ring-emerald-500/50' : ''}`}>
+      <div className={`bg-card rounded-xl border border-border p-4 ${highlight ? 'ring-1 ring-primary/50' : ''}`}>
         <div className="animate-pulse">
           <div className="h-3 w-20 bg-muted rounded mb-2" />
           <div className="h-8 w-24 bg-muted rounded mb-1" />
@@ -36,7 +36,7 @@ export function LiquidityCard({
   }
 
   return (
-    <div className={`bg-card rounded-xl border border-border p-4 transition-all hover:border-emerald-500/30 ${highlight ? 'ring-1 ring-emerald-500/50 bg-emerald-500/5' : ''}`}>
+    <div className={`bg-card rounded-xl border border-border p-4 transition-all hover:border-primary/30 ${highlight ? 'ring-1 ring-primary/50 bg-primary/5' : ''}`}>
       <p className="text-xs text-muted-foreground mb-1">{title}</p>
       <p className="text-2xl font-bold text-foreground tracking-tight">
         {value}

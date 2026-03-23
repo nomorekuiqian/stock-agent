@@ -47,12 +47,12 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={status === 'loading'}
-          className="flex-1 px-4 py-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm text-foreground text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 disabled:bg-muted disabled:text-muted-foreground transition-all"
+          className="flex-1 px-4 py-3 rounded-lg border border-border/50 bg-card/50 text-foreground text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 disabled:bg-muted disabled:text-muted-foreground transition-all"
         />
         <button
           type="submit"
           disabled={status === 'loading'}
-          className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:bg-emerald-900 disabled:text-emerald-300/50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
         >
           {status === 'loading' ? (
             <>
@@ -67,7 +67,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           )}
         </button>
         {message && (
-          <p className={`text-xs mt-1 sm:mt-0 sm:ml-2 self-center ${status === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+          <p className={`text-xs mt-1 sm:mt-0 sm:ml-2 self-center ${status === 'success' ? 'text-primary' : 'text-destructive'}`}>
             {message}
           </p>
         )}
@@ -79,12 +79,12 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
   return (
     <div className={`relative rounded-xl border border-[#2a2a2e] bg-[#141416] overflow-hidden ${className}`}>
       {/* Top accent line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
       <div className="p-7">
         {/* Header - Editorial style */}
         <div className="mb-6">
-          <p className="text-xs font-medium tracking-[0.15em] uppercase text-emerald-500/80 mb-2">
+          <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-2">
             免费订阅 / 收盘后送达
           </p>
           <h3 className="font-editorial text-xl text-foreground leading-tight">
@@ -96,17 +96,17 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
         </div>
 
         {status === 'success' ? (
-          <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-5 text-center">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="rounded-lg bg-primary/5 border border-primary/15 p-5 text-center">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-emerald-400">订阅成功</p>
+            <p className="text-sm font-medium text-primary">订阅成功</p>
             <p className="text-xs text-muted-foreground mt-1">{message}</p>
             <button
               onClick={() => setStatus('idle')}
-              className="mt-4 text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors cursor-pointer"
+              className="mt-4 text-xs text-primary/70 hover:text-primary transition-colors cursor-pointer"
             >
               订阅其他邮箱
             </button>
@@ -125,14 +125,14 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={status === 'loading'}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-emerald-500/40 disabled:opacity-50 transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 disabled:opacity-50 transition-colors"
               />
             </div>
 
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-xs text-muted-foreground/70 mb-1.5">
-                邮箱地址 <span className="text-emerald-500/70">*</span>
+                邮箱地址 <span className="text-primary/70">*</span>
               </label>
               <input
                 type="email"
@@ -142,7 +142,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={status === 'loading'}
                 required
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-emerald-500/40 disabled:opacity-50 transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] text-foreground text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 disabled:opacity-50 transition-colors"
               />
             </div>
 
@@ -155,7 +155,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/15 disabled:bg-emerald-900/50 disabled:text-emerald-300/40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer mt-1"
+              className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/15 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer mt-1"
             >
               {status === 'loading' ? (
                 <>

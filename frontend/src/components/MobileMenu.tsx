@@ -28,7 +28,7 @@ export function MobileMenu() {
       title: '个股',
       links: [
         { href: '/stock', label: '个股研究' },
-        ...((process.env.NODE_ENV === 'development' || isPro) ? [{ href: '/screener', label: '个股筛选' }] : []),
+        ...((process.env.NODE_ENV === 'development' || isPro) ? [{ href: '/screener', label: '投研助手' }] : []),
       ],
     },
     {
@@ -53,18 +53,19 @@ export function MobileMenu() {
     <div className="md:hidden">
       {/* Hamburger Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls="mobile-menu-panel"
+        aria-label={isOpen ? '关闭导航菜单' : '打开导航菜单'}
         className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-        aria-label="Toggle menu"
       >
         {isOpen ? (
-          // X icon
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          // Hamburger icon
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         )}
@@ -80,7 +81,7 @@ export function MobileMenu() {
           />
 
           {/* Menu Panel */}
-          <div className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
+          <div id="mobile-menu-panel" className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up">
             <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
               {/* Nav Sections */}
               {navSections.map((section) => (
@@ -132,12 +133,13 @@ export function MobileMenu() {
                     <Link
                       href="/for-you"
                       onClick={() => setIsOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-emerald-400 font-medium hover:bg-emerald-500/10 rounded-lg transition-colors"
+                      className="block px-4 py-2.5 text-sm text-primary font-medium hover:bg-primary/10 rounded-lg transition-colors"
                     >
-                      Upgrade to Pro
+                      升级到 Pro
                     </Link>
                   )}
                   <button
+                    type="button"
                     onClick={() => {
                       signOut();
                       setIsOpen(false);
@@ -151,7 +153,7 @@ export function MobileMenu() {
                 <Link
                   href="/login"
                   onClick={() => setIsOpen(false)}
-                  className="block px-4 py-3 text-sm text-emerald-500 font-medium hover:bg-emerald-500/10 rounded-lg transition-colors"
+                  className="block px-4 py-3 text-sm text-primary font-medium hover:bg-primary/10 rounded-lg transition-colors"
                 >
                   登录
                 </Link>

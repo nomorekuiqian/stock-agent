@@ -159,7 +159,7 @@ export function NetLiquidityChart({
         </div>
         <div className="text-right">
           {latestValue !== null && (
-            <span className="text-lg font-semibold text-emerald-500">
+            <span className="text-lg font-semibold text-primary">
               ${(latestValue / 1000).toFixed(2)}T
             </span>
           )}
@@ -186,7 +186,7 @@ export function NetLiquidityChart({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                 >
                   重试
                 </button>

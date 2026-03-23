@@ -10,8 +10,8 @@ function LoadingSpinner(): ReactNode {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="relative">
-        <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-r-emerald-400/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-r-primary/40 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
       </div>
     </div>
   );
@@ -87,8 +87,8 @@ function ResetPasswordContent(): ReactNode {
 
         <div className="relative max-w-md w-full space-y-8 text-center">
           {/* Success Icon */}
-          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
-            <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -104,7 +104,7 @@ function ResetPasswordContent(): ReactNode {
 
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
           >
             立即登录
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,7 +141,7 @@ function ResetPasswordContent(): ReactNode {
 
           <Link
             href="/forgot-password"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
           >
             重新申请重置
           </Link>
@@ -205,7 +205,7 @@ function ResetPasswordContent(): ReactNode {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3.5 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2 mt-6"
+            className="w-full px-4 py-3.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2 mt-6"
           >
             {loading ? (
               <>
@@ -225,7 +225,7 @@ function ResetPasswordContent(): ReactNode {
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-200">
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

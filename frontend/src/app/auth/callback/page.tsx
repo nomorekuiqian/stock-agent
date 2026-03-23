@@ -9,7 +9,7 @@ import { authDebug, authDebugWarn, getBrowserAuthSnapshot } from '@/lib/auth-deb
 
 function Spinner() {
   return (
-    <div className="w-10 h-10 mx-auto border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+    <div className="w-10 h-10 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
   );
 }
 
@@ -60,7 +60,7 @@ function AuthCallbackContent() {
       <div className="text-center space-y-4">
         <Spinner />
         <p className="text-gray-500 text-sm">
-          Processing...
+          正在处理...
         </p>
       </div>
     </div>

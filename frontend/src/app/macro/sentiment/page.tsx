@@ -410,7 +410,7 @@ function HeroCard({
       <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${
         selected ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
       }`}>
-        <span className="text-[10px] text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">
           点击查看详情
         </span>
       </div>
@@ -433,7 +433,7 @@ function CnnComponentCard({ indicator }: { indicator: RiskIndicator }) {
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <h4 className="text-sm font-medium text-foreground">{indicator.name}</h4>
-        <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${getBgColorClass(color)} ${getColorClass(color)}`}>
+        <div className={`px-2 py-0.5 rounded-full text-micro font-medium shrink-0 ${getBgColorClass(color)} ${getColorClass(color)}`}>
           {label}
         </div>
       </div>
@@ -564,8 +564,8 @@ function DeepDiveSection({
         <div className="bg-muted/30 rounded-xl border border-border/40 p-5 mb-5">
           <div className="flex items-start gap-3">
             {(() => { const Icon = explainer.icon; return (
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Icon className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Icon className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </div>
             ); })()}
             <div>
@@ -581,7 +581,7 @@ function DeepDiveSection({
                 <ul className="text-sm text-muted-foreground leading-relaxed mt-3 space-y-1.5 list-none">
                   {explainer.items.map((item, i) => (
                     <li key={i}>
-                      <span className="text-emerald-500 font-medium">{item.label}</span>
+                      <span className="text-primary font-medium">{item.label}</span>
                       {' '}&mdash; {item.text}
                     </li>
                   ))}
@@ -744,7 +744,7 @@ export default function SentimentPage() {
         <section className="text-center py-4">
           <Link
             href="/macro"
-            className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-emerald-400 transition-colors duration-200"
+            className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors duration-200"
           >
             <svg className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
@@ -753,15 +753,15 @@ export default function SentimentPage() {
           </Link>
           <p className="text-xs text-muted-foreground/60 mt-3">
             数据来源{' '}
-            <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               CNN Fear & Greed
             </a>
             {' '}&middot;{' '}
-            <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               FRED
             </a>
             {' '}&middot;{' '}
-            <a href="https://finance.yahoo.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+            <a href="https://finance.yahoo.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               Yahoo Finance
             </a>
           </p>

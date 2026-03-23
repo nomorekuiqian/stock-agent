@@ -54,7 +54,7 @@ export default function ProfilePage(): ReactNode {
   if (isLoading || !isAuthenticated || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
       </div>
     );
   }
@@ -137,8 +137,8 @@ export default function ProfilePage(): ReactNode {
 
           {/* Avatar + Email */}
           <div className="flex items-center gap-4 p-4 bg-card border border-border/50 rounded-xl">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-emerald-600/30 border border-emerald-500/30">
-              <span className="text-lg font-semibold text-emerald-400">{initials}</span>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/30 border border-primary/30">
+              <span className="text-lg font-semibold text-primary">{initials}</span>
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-foreground truncate">
@@ -154,11 +154,11 @@ export default function ProfilePage(): ReactNode {
           {message && (
             <div className={`p-4 rounded-lg border animate-scale-in ${
               message.type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/20'
+                ? 'bg-primary/10 border-primary/20'
                 : 'bg-red-500/10 border-red-500/20'
             }`}>
               <p className={`text-sm text-center ${
-                message.type === 'success' ? 'text-emerald-400' : 'text-red-400'
+                message.type === 'success' ? 'text-primary' : 'text-red-400'
               }`}>
                 {message.text}
               </p>
@@ -177,7 +177,7 @@ export default function ProfilePage(): ReactNode {
               onChange={(e) => { setName(e.target.value); setMessage(null); }}
               placeholder="输入你的昵称"
               maxLength={50}
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all duration-200"
+              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
             />
             <p className="mt-2 text-xs text-muted-foreground">
               此昵称将用于每日邮件的称呼
@@ -194,7 +194,7 @@ export default function ProfilePage(): ReactNode {
             {prefsLoading ? (
               <div className="p-4 bg-card border border-border/50 rounded-xl">
                 <div className="flex items-center justify-center py-4">
-                  <div className="w-5 h-5 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+                  <div className="w-5 h-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
                 </div>
               </div>
             ) : prefsError || !localPrefs ? (
@@ -218,8 +218,8 @@ export default function ProfilePage(): ReactNode {
                       aria-label={`${label} ${localPrefs[key] ? '已开启' : '已关闭'}`}
                       disabled={saving}
                       onClick={() => handleToggle(key)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        localPrefs[key] ? 'bg-emerald-600' : 'bg-zinc-700'
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed ${
+                        localPrefs[key] ? 'bg-primary' : 'bg-zinc-700'
                       }`}
                     >
                       <span
@@ -238,7 +238,7 @@ export default function ProfilePage(): ReactNode {
           <button
             type="submit"
             disabled={!hasChanges || saving}
-            className="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
           >
             {saving ? (
               <>

@@ -53,7 +53,7 @@ interface FeedbackData {
 }
 
 const RATING_LABELS: Record<string, { label: string; color: string }> = {
-  helpful: { label: '很有帮助', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  helpful: { label: '很有帮助', color: 'bg-primary/20 text-primary border-primary/30' },
   neutral: { label: '还行', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
   not_helpful: { label: '不太行', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
 };
@@ -281,7 +281,7 @@ export default function FeedbackDashboard() {
           {/* Email Feedback Section */}
           <section className="mb-8">
             <h2 className="text-sm font-mono text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
               邮件反馈（日报用户）
             </h2>
 
