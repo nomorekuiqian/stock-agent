@@ -1178,60 +1178,62 @@ def format_welcome_html(first_name: str = "") -> str:
                 <!-- Welcome Card -->
                 <div style="background: #ffffff; padding: 32px 24px;">
                     <h1 style="color: #0a0a0a; font-size: 24px; font-weight: 600; margin: 0 0 20px 0;">
-                        {greeting}欢迎加入 TheMarketBrew!
+                        {greeting}欢迎加入 TheMarketBrew！
                     </h1>
 
                     <!-- Personal story -->
                     <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 12px 0;">
-                        我是 Golden，一个在硅谷写代码的程序员，也是一个投了十多年美股的散户。
+                        我是 Golden，一个在硅谷写代码的程序员，也投了十多年美股。
                     </p>
                     <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 12px 0;">
-                        和你一样，我也曾每天被市场噪音搞得焦虑——涨的时候不知道为什么涨，跌的时候更不知道该不该跑。所以我做了 TheMarketBrew：让 AI 帮我们从噪音中提炼出清晰的逻辑，省下时间和精力，更理性地面对投资。
+                        我做 TheMarketBrew，是因为我自己也被同样的问题困扰过：信息太多、太分散，每天花大量时间刷新闻，却还是不知道市场在发生什么、跟我的持仓有什么关系。
                     </p>
                     <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 28px 0;">
-                        这个工具帮我调整了投资心态，希望也能帮到你。以下是你可以用到的功能：
+                        TheMarketBrew 让 AI 做那些耗时又重复的工作——筛信息、读财报、追宏观——把清晰的结论直接呈现给你。以下是你现在可以用到的全部功能：
                     </p>
 
-                    <!-- What you get -->
+                    <!-- Section 1: Daily flow -->
                     <div style="{card_style}">
                         <div style="{section_header_style}">
-                            你会收到什么
+                            每日市场情报
                         </div>
-                        <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 12px 0;">
-                            每个<strong>美股交易日</strong>收盘后（约美东下午 6:00 / 北京时间次日早 7:00），你会收到一份市场简报，包含：
-                        </p>
                         <table style="width: 100%;" cellpadding="0" cellspacing="0">
                             <tr>
-                                <td style="padding: 6px 0; vertical-align: top; width: 24px;">
-                                    <span style="color: #10b981;">&#10003;</span>
+                                <td style="padding: 12px 0; vertical-align: top; width: 36px;">
+                                    <span style="font-size: 20px;">&#9728;&#65039;</span>
                                 </td>
-                                <td style="padding: 6px 0; color: #3f3f46; font-size: 14px;">
-                                    股指、利率、商品等核心数据速览
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 6px 0; vertical-align: top; width: 24px;">
-                                    <span style="color: #10b981;">&#10003;</span>
-                                </td>
-                                <td style="padding: 6px 0; color: #3f3f46; font-size: 14px;">
-                                    重要新闻的因果分析，不只是搬运标题
+                                <td style="padding: 12px 0;">
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">盘前早报</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        开盘前 5 分钟速读：美股期货、全球市场、今日关键新闻。带着判断进场，不再盲目跟风开盘波动。
+                                    </p>
+                                    <a href="{_FRONTEND_URL}/morning" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                                        查看今日早报
+                                    </a>
                                 </td>
                             </tr>
+                            <tr><td colspan="2" style="padding: 0;"><div style="border-top: 1px solid #f4f4f5;"></div></td></tr>
                             <tr>
-                                <td style="padding: 6px 0; vertical-align: top; width: 24px;">
-                                    <span style="color: #10b981;">&#10003;</span>
+                                <td style="padding: 12px 0; vertical-align: top; width: 36px;">
+                                    <span style="font-size: 20px;">&#127761;</span>
                                 </td>
-                                <td style="padding: 6px 0; color: #3f3f46; font-size: 14px;">
-                                    未来一周值得关注的事件和判断框架
+                                <td style="padding: 12px 0;">
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">收盘日报</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        每个交易日收盘后自动发送（美东 ~6pm / 北京时间次日早 7am）。今天发生了什么、为什么、明天值得关注什么——AI 整理好了，你直接读结论。
+                                    </p>
+                                    <a href="{_FRONTEND_URL}/today" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                                        查看最新日报
+                                    </a>
                                 </td>
                             </tr>
                         </table>
                     </div>
 
-                    <!-- Explore more features -->
+                    <!-- Section 2: Deep tools -->
                     <div style="{card_style}">
                         <div style="{section_header_style}">
-                            探索更多功能
+                            深度分析工具
                         </div>
                         <table style="width: 100%;" cellpadding="0" cellspacing="0">
                             <tr>
@@ -1239,10 +1241,12 @@ def format_welcome_html(first_name: str = "") -> str:
                                     <span style="font-size: 20px;">&#128203;</span>
                                 </td>
                                 <td style="padding: 12px 0;">
-                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个性化日报</p>
-                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">添加你的持仓，每天只看跟你相关的新闻和分析</p>
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个性化摘要</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        把你的自选股加进来，AI 每天只给你看真正跟你持仓相关的新闻和分析。市场有 5000 只股票，但你只需要关注你买的那几只。
+                                    </p>
                                     <a href="{_FRONTEND_URL}/for-you" style="display: inline-block; padding: 7px 14px; background-color: #10b981; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                                        设置我的关注列表
+                                        设置我的自选股
                                     </a>
                                 </td>
                             </tr>
@@ -1253,9 +1257,11 @@ def format_welcome_html(first_name: str = "") -> str:
                                 </td>
                                 <td style="padding: 12px 0;">
                                     <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">个股投研</p>
-                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">搜索任意美股，AI 帮你拆解基本面和财务数据</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        搜索任意美股，AI 帮你整理基本面、财务健康度、估值区间和近期催化剂。看财报不再需要从头啃原文。
+                                    </p>
                                     <a href="{_FRONTEND_URL}/stock" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                                        开始个股分析
+                                        分析一只股票
                                     </a>
                                 </td>
                             </tr>
@@ -1265,10 +1271,30 @@ def format_welcome_html(first_name: str = "") -> str:
                                     <span style="font-size: 20px;">&#127758;</span>
                                 </td>
                                 <td style="padding: 12px 0;">
-                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">宏观投研</p>
-                                    <p style="color: #71717a; font-size: 13px; line-height: 1.5; margin: 0 0 10px 0;">利率、通胀、流动性，看懂影响大盘的底层逻辑</p>
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 4px 0;">宏观仪表盘</p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        流动性、通胀、经济、情绪四个维度，信号灯一眼判断大盘底层环境。不再被单一数据带跑，看懂驱动市场的真正变量。
+                                    </p>
                                     <a href="{_FRONTEND_URL}/macro" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                                        查看宏观数据
+                                        查看宏观仪表盘
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr><td colspan="2" style="padding: 0;"><div style="border-top: 1px solid #f4f4f5;"></div></td></tr>
+                            <tr>
+                                <td style="padding: 12px 0; vertical-align: top; width: 36px;">
+                                    <span style="font-size: 20px;">&#129302;</span>
+                                </td>
+                                <td style="padding: 12px 0;">
+                                    <p style="color: #0a0a0a; font-size: 14px; font-weight: 500; margin: 0 0 2px 0;">
+                                        AI 投研助手
+                                        <span style="display: inline-block; margin-left: 6px; padding: 2px 7px; background: #ecfdf5; color: #059669; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;">Pro</span>
+                                    </p>
+                                    <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+                                        用自然语言描述你的选股标准，AI 从全市场帮你筛候选。"找盈利增速超过 20%、负债率低的科技股"——说出来就有结果。
+                                    </p>
+                                    <a href="{_FRONTEND_URL}/research" style="display: inline-block; padding: 7px 14px; border: 1px solid #d4d4d8; color: #0a0a0a; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                                        试试 AI 选股
                                     </a>
                                 </td>
                             </tr>
@@ -1281,10 +1307,10 @@ def format_welcome_html(first_name: str = "") -> str:
                             加入社群
                         </div>
                         <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
-                            扫码加入 TheMarketBrew 微信交流群，和其他投资者一起交流市场观点。
+                            扫码加入 TheMarketBrew 微信交流群，和其他投资者一起交流市场观点、分享持仓思路。
                         </p>
                         <div style="text-align: center;">
-                            <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr.jpg"
+                            <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0329.jpg"
                                  alt="TheMarketBrew WeChat Group QR Code"
                                  style="width: 100%; max-width: 360px; border-radius: 8px; border: 1px solid #e4e4e7;"
                             />
@@ -1292,7 +1318,7 @@ def format_welcome_html(first_name: str = "") -> str:
                     </div>
 
                     <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 24px 0 0 0;">
-                        如果在使用中有任何想法或建议，欢迎直接回复这封邮件，我会亲自查看每一封。
+                        有任何问题或建议，欢迎直接回复这封邮件，我会亲自看每一封。
                     </p>
                     <p style="color: #71717a; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
                         祝投资顺利！<br>

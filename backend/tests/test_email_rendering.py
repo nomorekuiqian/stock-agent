@@ -550,7 +550,7 @@ class TestWelcomeQrCode:
     def test_qrcode_image_in_html(self, email_svc):
         """QR code img tag with insforge storage URL is present in welcome email."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "insforge.app/api/storage/buckets/community/objects/wechat-qr.jpg" in html
+        assert "insforge.app/api/storage/buckets/community/objects/wechat-qr-0329.jpg" in html
         assert "<img" in html
 
     def test_community_section_header(self, email_svc):
