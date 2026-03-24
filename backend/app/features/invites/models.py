@@ -29,9 +29,10 @@ class AccessRequestResponse(BaseModel):
 
 class QualifyInput(BaseModel):
     background: str
-    features_wanted: list[str] = []
+    markets: list[str] = []
+    trading_style: list[str] = []
+    pain_points: list[str] = []
     feedback: str = ""
-    email: str = ""
 
 
 class QualifyResponse(BaseModel):

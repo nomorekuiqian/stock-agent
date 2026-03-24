@@ -46,7 +46,9 @@ async def redeem_code(
 
 async def save_qualify_response(
     background: str,
-    features_wanted: list[str],
+    markets: list[str],
+    trading_style: list[str],
+    pain_points: list[str],
     feedback: str,
     email: str,
 ) -> bool:
@@ -58,7 +60,9 @@ async def save_qualify_response(
         params={"action": "insert"},
         json_body={
             "background": background,
-            "features_wanted": features_wanted,
+            "markets": markets or [],
+            "trading_style": trading_style or [],
+            "pain_points": pain_points or [],
             "feedback": feedback or None,
             "email": email or None,
         },

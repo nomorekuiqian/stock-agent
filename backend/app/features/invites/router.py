@@ -2,11 +2,13 @@
 Invite code API endpoints.
 """
 
+from typing import Optional
+
 import resend
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.config import INVITE_CODES, RESEND_API_KEY
-from app.core.deps import verify_user_token
+from app.core.deps import verify_user_token, get_optional_user_email
 from app.core.logging import get_logger
 from app.features.invites.models import (
     RedeemInviteRequest,
@@ -105,16 +107,21 @@ async def api_request_access(body: AccessRequestInput):
 
 
 @router.post("/qualify", response_model=QualifyResponse)
-async def api_qualify(body: QualifyInput):
+async def api_qualify(
+    body: QualifyInput,
+    email: Optional[str] = Depends(get_optional_user_email),
+):
     """Submit questionnaire and receive invite code directly."""
     valid_codes = [c.strip() for c in INVITE_CODES.split(",") if c.strip()]
     invite_code = valid_codes[0] if valid_codes else "BREW2026"
 
     saved = await save_qualify_response(
         background=body.background,
-        features_wanted=body.features_wanted,
+        markets=body.markets,
+        trading_style=body.trading_style,
+        pain_points=body.pain_points,
         feedback=body.feedback,
-        email=body.email,
+        email=email or "",
     )
     if not saved:
         logger.warning("qualify: failed to save questionnaire response")

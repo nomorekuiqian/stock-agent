@@ -10,6 +10,9 @@ import httpx
 from fastapi import Header, HTTPException
 
 from app.core.config import CRON_SECRET, INSFORGE_BASE_URL, INSFORGE_ANON_KEY
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Simple in-memory cache: token -> (user_id, email, expiry_timestamp)
 _token_cache: dict[str, tuple[str, str, float]] = {}
@@ -101,6 +104,20 @@ async def verify_user_token_with_email(
     cached = _token_cache.get(token)
     email = cached[1] if cached else ""
     return {"user_id": user_id, "email": email}
+
+
+async def get_optional_user_email(
+    authorization: Optional[str] = Header(None),
+) -> Optional[str]:
+    """Try to get user email from token. Returns None if no token or invalid."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        user_info = await verify_user_token_with_email(authorization)
+        return user_info.get("email") or None
+    except Exception:
+        logger.debug("get_optional_user_email: failed to resolve email from token", exc_info=True)
+        return None
 
 
 async def verify_cron_secret(

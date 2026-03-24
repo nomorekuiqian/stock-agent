@@ -23,7 +23,7 @@ module.exports = async function (request) {
   try {
     // POST ?action=insert
     if (request.method === "POST" && action === "insert") {
-      const { background, features_wanted, feedback, email } = await request.json();
+      const { background, markets, trading_style, pain_points, feedback, email } = await request.json();
 
       if (!background) {
         return new Response(
@@ -36,7 +36,9 @@ module.exports = async function (request) {
         .from("access_requests")
         .insert({
           background,
-          features_wanted: features_wanted || [],
+          markets: markets || [],
+          trading_style: trading_style || [],
+          pain_points: pain_points || [],
           feedback: feedback || null,
           email: email || null,
         })
