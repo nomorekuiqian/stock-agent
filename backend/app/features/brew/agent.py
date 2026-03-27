@@ -243,7 +243,7 @@ DIGEST_INSTRUCTION = """
 
 personal_digest_agent = LlmAgent(
     name="personal_digest",
-    model="gemini-3.1-pro-preview",
+    model="gemini-3-flash-preview",
     description="Generates personalized daily digest based on user's watchlist",
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,
