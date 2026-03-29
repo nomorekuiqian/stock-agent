@@ -7,12 +7,9 @@ import { NavAuth } from '@/components/NavAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileMenu } from '@/components/MobileMenu';
 import { Logo } from '@/components/Logo';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
-  const { isPro, isLoading: subLoading } = useSubscription();
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -62,9 +59,7 @@ export function Navbar() {
                 { href: '/today', label: '晚报' },
               ]}
             />
-            {(process.env.NODE_ENV === 'development' || isPro || subLoading) && (
-              <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
-            )}
+            <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
             <NavLink href="/for-you">专属</NavLink>
             <NavLink href="/stock">个股</NavLink>
             <NavLink href="/macro">宏观</NavLink>

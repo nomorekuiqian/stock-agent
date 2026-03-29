@@ -133,13 +133,12 @@ export function MobileMenu() {
       ],
     },
     {
+      label: '投研助手',
+      href: '/research',
+    },
+    {
       label: '个股',
       href: '/stock',
-      children: [
-        ...(process.env.NODE_ENV === 'development' || isPro || subLoading
-          ? [{ href: '/research', label: '投研助手' }]
-          : []),
-      ],
     },
     {
       label: '宏观',
