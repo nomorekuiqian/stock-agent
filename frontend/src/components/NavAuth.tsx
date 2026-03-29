@@ -11,9 +11,9 @@ const itemDefault = `${itemBase} text-muted-foreground hover:text-foreground hov
 
 export function NavAuth() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro, openBillingPortal } = useSubscription();
+  const { isPro, isLoading: subLoading, openBillingPortal } = useSubscription();
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && subLoading)) {
     return <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />;
   }
 
@@ -39,7 +39,7 @@ export function NavAuth() {
                 {initials}
               </span>
             </div>
-            {isPro && (
+            {!subLoading && isPro && (
               <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-[8px] font-bold tracking-wider bg-amber-500 text-black leading-none">
                 PRO
               </span>
@@ -59,11 +59,13 @@ export function NavAuth() {
                 <p className="text-sm font-medium text-foreground truncate">
                   {user.name || 'User'}
                 </p>
-                {isPro && (
+                {subLoading ? (
+                  <span className="w-8 h-3 rounded bg-muted animate-pulse" />
+                ) : isPro ? (
                   <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
                     PRO
                   </span>
-                )}
+                ) : null}
               </div>
               <p className="text-xs text-muted-foreground truncate mt-0.5">{user.email}</p>
             </DropdownMenu.Label>
@@ -113,7 +115,12 @@ export function NavAuth() {
                 </Link>
               </DropdownMenu.Item>
 
-              {isPro ? (
+              {subLoading ? (
+                <DropdownMenu.Item disabled className={`${itemBase} text-muted-foreground/50`}>
+                  <div className="w-4 h-4 rounded bg-muted animate-pulse" />
+                  <div className="w-16 h-3 rounded bg-muted animate-pulse" />
+                </DropdownMenu.Item>
+              ) : isPro ? (
                 <DropdownMenu.Item onSelect={openBillingPortal} className={itemDefault}>
                   <svg
                     className="w-4 h-4"

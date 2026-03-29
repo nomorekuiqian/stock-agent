@@ -114,7 +114,7 @@ function MobileNavItem({
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro } = useSubscription();
+  const { isPro, isLoading: subLoading } = useSubscription();
 
   const navSections: NavSection[] = [
     {
@@ -136,7 +136,7 @@ export function MobileMenu() {
       label: '个股',
       href: '/stock',
       children: [
-        ...(process.env.NODE_ENV === 'development' || isPro
+        ...(process.env.NODE_ENV === 'development' || isPro || subLoading
           ? [{ href: '/research', label: '投研助手' }]
           : []),
       ],
@@ -215,11 +215,13 @@ export function MobileMenu() {
                 <>
                   <div className="px-4 py-2 flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">{user.name || user.email}</span>
-                    {isPro && (
+                    {subLoading ? (
+                      <span className="w-8 h-3 rounded bg-muted animate-pulse" />
+                    ) : isPro ? (
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
                         PRO
                       </span>
-                    )}
+                    ) : null}
                   </div>
                   <Link
                     href="/profile"
@@ -228,7 +230,7 @@ export function MobileMenu() {
                   >
                     个人资料
                   </Link>
-                  {!isPro && (
+                  {!subLoading && !isPro && (
                     <Link
                       href="/for-you"
                       onClick={() => setIsOpen(false)}

@@ -12,7 +12,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
-  const { isPro } = useSubscription();
+  const { isPro, isLoading: subLoading } = useSubscription();
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export function Navbar() {
                 { href: '/today', label: '晚报' },
               ]}
             />
-            {(process.env.NODE_ENV === 'development' || isPro) && (
+            {(process.env.NODE_ENV === 'development' || isPro || subLoading) && (
               <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
             )}
             <NavLink href="/for-you">专属</NavLink>

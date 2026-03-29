@@ -34,7 +34,7 @@ export default function ProfilePage(): ReactNode {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
-  const { isPro, accessExpiresAt, redeemInviteCode, refreshSubscription } = useSubscription();
+  const { isPro, isLoading: subLoading, accessExpiresAt, redeemInviteCode, refreshSubscription } = useSubscription();
 
   const { data: serverPrefs, isLoading: prefsLoading, isError: prefsError } = useEmailPreferences(
     isAuthenticated
@@ -183,11 +183,13 @@ export default function ProfilePage(): ReactNode {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground truncate">{user.name || '未设置昵称'}</p>
-              {isPro && (
+              {subLoading ? (
+                <span className="shrink-0 w-8 h-4 rounded bg-muted animate-pulse" />
+              ) : isPro ? (
                 <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/15 text-primary border border-primary/20 uppercase tracking-wide">
                   Pro
                 </span>
-              )}
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           </div>
@@ -197,15 +199,25 @@ export default function ProfilePage(): ReactNode {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-editorial text-foreground">订阅状态</h2>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-              isPro ? urgencyStyles.badge : 'bg-muted border-border/50 text-muted-foreground'
-            }`}>
-              {isPro ? 'Pro' : '免费版'}
-            </span>
+            {subLoading ? (
+              <span className="w-12 h-5 rounded-full bg-muted animate-pulse" />
+            ) : (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                isPro ? urgencyStyles.badge : 'bg-muted border-border/50 text-muted-foreground'
+              }`}>
+                {isPro ? 'Pro' : '免费版'}
+              </span>
+            )}
           </div>
 
           <div className="bg-card border border-border/50 rounded-xl overflow-hidden">
-            {isPro && daysLeft !== null ? (
+            {subLoading ? (
+              <div className="p-5 space-y-3">
+                <div className="w-32 h-4 rounded bg-muted animate-pulse" />
+                <div className="w-full h-2 rounded-full bg-muted animate-pulse" />
+                <div className="w-20 h-3 rounded bg-muted animate-pulse" />
+              </div>
+            ) : isPro && daysLeft !== null ? (
               /* Active trial — show progress */
               <div className="p-5">
                 <div className="flex items-start justify-between mb-3">
