@@ -11,3 +11,4 @@ globalThis.ResizeObserver ??= class ResizeObserver {
 } as unknown as typeof globalThis.ResizeObserver;
 
 Element.prototype.scrollIntoView ??= function () {};
+
