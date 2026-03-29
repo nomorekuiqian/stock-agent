@@ -37,7 +37,8 @@ export async function GET() {
       const client = createServerClient();
       const { data, error } = await client.auth.refreshSession({ refreshToken });
       if (data?.accessToken && data.user) {
-        await setAuthCookies(data.accessToken);
+        // Pass refreshToken to renew cookie TTL on every successful refresh
+        await setAuthCookies(data.accessToken, data.refreshToken);
         return NextResponse.json({
           user: {
             id: data.user.id,
