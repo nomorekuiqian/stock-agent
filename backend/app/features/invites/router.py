@@ -31,7 +31,7 @@ async def api_redeem_invite(
     user_id: str = Depends(verify_user_token),
 ):
     """Redeem a universal invite code to get 14-day Pro access."""
-    valid_codes = [c.strip() for c in INVITE_CODES.split(",") if c.strip()]
+    valid_codes = [c.strip() for c in INVITE_CODES.split(",") if c.strip()] or ["BREW2026"]
 
     result = await redeem_code(
         user_id=user_id,
