@@ -4,7 +4,11 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PasswordField } from '@/components/PasswordField';
-import { sendPasswordResetEmail, exchangeResetPasswordCode, resetPassword } from '@/lib/auth';
+import {
+  sendPasswordResetEmailAction as sendPasswordResetEmail,
+  exchangeResetPasswordCodeAction as exchangeResetPasswordCode,
+  resetPasswordAction as resetPassword,
+} from '@/app/actions/auth';
 
 type Step = 'email' | 'code' | 'password' | 'success';
 

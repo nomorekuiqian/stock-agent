@@ -15,12 +15,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock auth module before importing api
-vi.mock('@/lib/auth', () => ({
-  getAccessToken: vi.fn().mockResolvedValue('fake-token'),
+vi.mock('@/contexts/AuthContext', () => ({
+  getAccessTokenAsync: vi.fn().mockResolvedValue('fake-token'),
 }));
 
 import { api, ApiError } from '../api';
-import { getAccessToken } from '../auth';
+import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Helpers

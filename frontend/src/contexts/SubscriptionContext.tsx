@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAccessToken } from '@/lib/auth';
+import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';

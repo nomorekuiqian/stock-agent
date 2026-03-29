@@ -10,7 +10,7 @@ import StockCard from '@/components/StockCard';
 import { Command } from 'cmdk';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { WatchlistData } from '@/lib/api';
-import { clearStaleAuthStateWithoutRedirect } from '@/lib/auth';
+import { clearStaleAuthAction } from '@/app/actions/auth';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import { useStockSearch } from '@/hooks/useStockSearch';
@@ -252,7 +252,7 @@ function WatchlistPageContent() {
   const handleReLogin = async () => {
     setIsReauthenticating(true);
     try {
-      await clearStaleAuthStateWithoutRedirect();
+      await clearStaleAuthAction();
     } finally {
       window.location.assign('/login?redirect=/for-you/watchlist');
     }

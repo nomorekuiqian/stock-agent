@@ -3,18 +3,47 @@
 import { createContext, useContext, useEffect, useCallback, ReactNode, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getCurrentAuthSession,
-  signIn as authSignIn,
-  signOut as authSignOut,
-  signUp as authSignUp,
-  signInWithGoogle as authSignInWithGoogle,
-  updateProfile as authUpdateProfile,
-  resendVerificationEmail as authResendVerificationEmail,
-  verifyEmail as authVerifyEmail,
-} from '@/lib/auth';
-import type { User } from '@/lib/auth';
+  signInAction,
+  signOutAction,
+  signUpAction,
+  startOAuthAction,
+  updateProfileAction,
+  resendVerificationEmailAction,
+  verifyEmailAction,
+} from '@/app/actions/auth';
+import type { User } from '@/app/actions/auth';
 import { api } from '@/lib/api';
-import { authDebug, authDebugWarn, getBrowserAuthSnapshot } from '@/lib/auth-debug';
+
+export type { User } from '@/app/actions/auth';
+
+// --- Module-level access token cache ---
+
+let _cachedAccessToken: string | null = null;
+
+export function getAccessTokenSync(): string | null {
+  return _cachedAccessToken;
+}
+
+export async function getAccessTokenAsync(): Promise<string | null> {
+  if (_cachedAccessToken) return _cachedAccessToken;
+  const session = await fetchSession();
+  _cachedAccessToken = session.accessToken;
+  return _cachedAccessToken;
+}
+
+// --- Session fetch ---
+
+async function fetchSession(): Promise<{ user: User | null; accessToken: string | null }> {
+  try {
+    const res = await fetch('/api/auth/session');
+    if (!res.ok) return { user: null, accessToken: null };
+    return await res.json();
+  } catch {
+    return { user: null, accessToken: null };
+  }
+}
+
+// --- Subscription sync (unchanged from previous AuthContext) ---
 
 function getAutoSubscribedKey(userId: string): string {
   return `auto_subscribed_${userId}`;
@@ -81,6 +110,8 @@ async function syncUserWithSubscriptions(user: User): Promise<void> {
   }
 }
 
+// --- Context types ---
+
 interface AuthActionResult {
   success: boolean;
   error?: string;
@@ -113,45 +144,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const hydrateSession = useCallback(async (force: boolean = false) => {
-    authDebug('AuthContext', 'hydrateSession() start', {
-      force,
-      ...getBrowserAuthSnapshot(),
-    });
-    const session = await getCurrentAuthSession(force);
-    authDebug('AuthContext', 'hydrateSession() result', {
-      authenticated: session.authenticated,
-      userId: session.user?.id ?? null,
-      email: session.user?.email ?? null,
-    });
-    setUser(session.user);
-    setIsLoading(false);
-  }, []);
-
+  // Hydrate session from server on mount
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      authDebug('AuthContext', 'Initial auth hydration start', getBrowserAuthSnapshot());
-      const session = await getCurrentAuthSession();
-      if (cancelled) {
-        authDebugWarn('AuthContext', 'Initial auth hydration resolved after cancellation');
-        return;
-      }
-      authDebug('AuthContext', 'Initial auth hydration result', {
-        authenticated: session.authenticated,
-        userId: session.user?.id ?? null,
-        email: session.user?.email ?? null,
-      });
+      const session = await fetchSession();
+      if (cancelled) return;
+      _cachedAccessToken = session.accessToken;
       setUser(session.user);
       setIsLoading(false);
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
+  // Subscription sync on user change
   useEffect(() => {
     if (user) {
       syncUserWithSubscriptions(user);
@@ -159,19 +167,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
-    authDebug('AuthContext', 'handleSignIn() called', { email });
-    const result = await authSignIn(email, password);
+    const result = await signInAction(email, password);
     if (result.success && result.user) {
-      authDebug('AuthContext', 'handleSignIn() success', {
-        userId: result.user.id,
-        email: result.user.email,
-      });
+      // Fetch session to get the access token from the newly set cookies
+      const session = await fetchSession();
+      _cachedAccessToken = session.accessToken;
       setUser(result.user);
-    } else {
-      authDebugWarn('AuthContext', 'handleSignIn() failed', {
-        email,
-        error: result.error ?? null,
-      });
     }
     return { success: result.success, error: result.error };
   }, []);
@@ -185,9 +186,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const emailRedirectTo = typeof window === 'undefined'
       ? undefined
       : `${window.location.origin}/verify-email${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`;
-    const result = await authSignUp(email, password, name, emailRedirectTo);
+    const result = await signUpAction(email, password, name, emailRedirectTo);
 
     if (result.success && result.user) {
+      const session = await fetchSession();
+      _cachedAccessToken = session.accessToken;
       setUser(result.user);
     }
 
@@ -200,16 +203,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleSignOut = useCallback(async () => {
-    const result = await authSignOut();
+    const result = await signOutAction();
     if (result.success) {
+      _cachedAccessToken = null;
       setUser(null);
       queryClient.clear();
     }
     return result;
   }, [queryClient]);
 
+  const handleSignInWithGoogle = useCallback(async () => {
+    const redirect = typeof window !== 'undefined'
+      ? sessionStorage.getItem('auth_redirect') || '/today'
+      : '/today';
+    const callbackUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`
+      : '/auth/callback';
+
+    const result = await startOAuthAction('google', callbackUrl);
+    if (result.success && result.url) {
+      window.location.href = result.url;
+      return { success: true };
+    }
+    return { success: false, error: result.error };
+  }, []);
+
   const handleUpdateProfile = useCallback(async (profile: { name?: string }) => {
-    const result = await authUpdateProfile(profile);
+    const result = await updateProfileAction(profile);
     if (result.success && result.user) {
       setUser(result.user);
       api.subscriptions.syncUser(result.user.id, result.user.email, result.user.name).catch(() => {});
@@ -218,34 +238,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleResendVerificationEmail = useCallback(async (email: string) => {
-    return authResendVerificationEmail(email);
+    return resendVerificationEmailAction(email);
   }, []);
 
   const handleVerifyEmail = useCallback(async (otp: string, email?: string) => {
-    const result = await authVerifyEmail(otp, email);
+    const result = await verifyEmailAction(otp, email);
     if (result.success && result.user) {
+      const session = await fetchSession();
+      _cachedAccessToken = session.accessToken;
       setUser(result.user);
     }
     return { success: result.success, error: result.error };
   }, []);
 
-  const handleSignInWithGoogle = useCallback(async () => {
-    authDebug('AuthContext', 'handleSignInWithGoogle() called', getBrowserAuthSnapshot());
-    return authSignInWithGoogle();
-  }, []);
-
   const setAuthenticatedUser = useCallback((nextUser: User | null) => {
-    authDebug('AuthContext', 'setAuthenticatedUser()', {
-      userId: nextUser?.id ?? null,
-      email: nextUser?.email ?? null,
-      ...getBrowserAuthSnapshot(),
-    });
     setUser(nextUser);
   }, []);
 
   const refreshUser = useCallback(async () => {
-    await hydrateSession(true);
-  }, [hydrateSession]);
+    const session = await fetchSession();
+    _cachedAccessToken = session.accessToken;
+    setUser(session.user);
+  }, []);
 
   const value = useMemo<AuthContextType>(() => ({
     user,

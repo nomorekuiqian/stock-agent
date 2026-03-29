@@ -14,10 +14,7 @@ vi.mock('@/contexts/AuthContext', () => ({
     isAuthenticated: true,
     isLoading: false,
   })),
-}));
-
-vi.mock('@/lib/auth', () => ({
-  getAccessToken: vi.fn().mockResolvedValue('fake-token'),
+  getAccessTokenAsync: vi.fn().mockResolvedValue('fake-token'),
 }));
 
 import { useAuth } from '@/contexts/AuthContext';

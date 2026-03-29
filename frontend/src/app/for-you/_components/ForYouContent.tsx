@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, DigestResponse } from '@/lib/api';
-import { clearStaleAuthStateWithoutRedirect } from '@/lib/auth';
+import { clearStaleAuthAction } from '@/app/actions/auth';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
@@ -111,7 +111,7 @@ function ForYouPageContent() {
   const handleReLogin = async () => {
     setIsReauthenticating(true);
     try {
-      await clearStaleAuthStateWithoutRedirect();
+      await clearStaleAuthAction();
     } finally {
       window.location.assign('/login?redirect=/for-you');
     }

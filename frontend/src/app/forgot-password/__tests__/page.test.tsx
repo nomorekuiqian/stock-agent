@@ -19,10 +19,10 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@/lib/auth', () => ({
-  sendPasswordResetEmail: (...args: unknown[]) => mockSendPasswordResetEmail(...args),
-  exchangeResetPasswordCode: (...args: unknown[]) => mockExchangeResetPasswordCode(...args),
-  resetPassword: (...args: unknown[]) => mockResetPassword(...args),
+vi.mock('@/app/actions/auth', () => ({
+  sendPasswordResetEmailAction: (...args: unknown[]) => mockSendPasswordResetEmail(...args),
+  exchangeResetPasswordCodeAction: (...args: unknown[]) => mockExchangeResetPasswordCode(...args),
+  resetPasswordAction: (...args: unknown[]) => mockResetPassword(...args),
 }));
 
 describe('/forgot-password page', () => {

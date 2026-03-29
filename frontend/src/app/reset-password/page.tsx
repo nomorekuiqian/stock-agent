@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PasswordField } from '@/components/PasswordField';
-import { resetPassword } from '@/lib/auth';
+import { resetPasswordAction as resetPassword } from '@/app/actions/auth';
 
 function LoadingSpinner(): ReactNode {
   return (

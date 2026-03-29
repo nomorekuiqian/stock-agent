@@ -1,27 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../AuthContext';
 
-const mockGetCurrentAuthSession = vi.fn();
-const mockSignIn = vi.fn();
-const mockSignOut = vi.fn();
-const mockSignUp = vi.fn();
-const mockSignInWithGoogle = vi.fn();
-const mockUpdateProfile = vi.fn();
-const mockResendVerificationEmail = vi.fn();
-const mockVerifyEmail = vi.fn();
+const mockSignInAction = vi.fn();
+const mockSignOutAction = vi.fn();
+const mockSignUpAction = vi.fn();
+const mockStartOAuthAction = vi.fn();
+const mockUpdateProfileAction = vi.fn();
+const mockResendVerificationEmailAction = vi.fn();
+const mockVerifyEmailAction = vi.fn();
 
-vi.mock('@/lib/auth', () => ({
-  getCurrentAuthSession: (...args: unknown[]) => mockGetCurrentAuthSession(...args),
-  signIn: (...args: unknown[]) => mockSignIn(...args),
-  signOut: (...args: unknown[]) => mockSignOut(...args),
-  signUp: (...args: unknown[]) => mockSignUp(...args),
-  signInWithGoogle: (...args: unknown[]) => mockSignInWithGoogle(...args),
-  updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
-  resendVerificationEmail: (...args: unknown[]) => mockResendVerificationEmail(...args),
-  verifyEmail: (...args: unknown[]) => mockVerifyEmail(...args),
+vi.mock('@/app/actions/auth', () => ({
+  signInAction: (...args: unknown[]) => mockSignInAction(...args),
+  signOutAction: (...args: unknown[]) => mockSignOutAction(...args),
+  signUpAction: (...args: unknown[]) => mockSignUpAction(...args),
+  startOAuthAction: (...args: unknown[]) => mockStartOAuthAction(...args),
+  updateProfileAction: (...args: unknown[]) => mockUpdateProfileAction(...args),
+  resendVerificationEmailAction: (...args: unknown[]) => mockResendVerificationEmailAction(...args),
+  verifyEmailAction: (...args: unknown[]) => mockVerifyEmailAction(...args),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -33,6 +31,15 @@ vi.mock('@/lib/api', () => ({
     },
   },
 }));
+
+const originalFetch = globalThis.fetch;
+
+function mockSessionResponse(user: unknown, accessToken: string | null = 'tok123') {
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({ user, accessToken }),
+  });
+}
 
 function AuthConsumer() {
   const auth = useAuth();
@@ -64,25 +71,19 @@ describe('AuthContext', () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
-    mockGetCurrentAuthSession.mockResolvedValue({
-      authenticated: false,
-      user: null,
-      accessToken: null,
-      expiresAt: null,
-    });
+    // Default: unauthenticated session
+    mockSessionResponse(null, null);
   });
 
-  it('hydrates initial session from auth route helper', async () => {
-    mockGetCurrentAuthSession.mockResolvedValue({
-      authenticated: true,
-      user: {
-        id: 'u1',
-        email: 'test@test.com',
-        name: 'Test User',
-      },
-      accessToken: 'tok123',
-      expiresAt: null,
-    });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('hydrates initial session from /api/auth/session', async () => {
+    mockSessionResponse(
+      { id: 'u1', email: 'test@test.com', name: 'Test User' },
+      'tok123',
+    );
 
     renderWithProviders(
       <AuthProvider>
@@ -97,13 +98,10 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user-email')).toHaveTextContent('test@test.com');
   });
 
-  it('calls signIn helper and updates user state', async () => {
-    mockSignIn.mockResolvedValue({
+  it('calls signInAction and updates user state', async () => {
+    mockSignInAction.mockResolvedValue({
       success: true,
-      user: {
-        id: 'u1',
-        email: 'user@example.com',
-      },
+      user: { id: 'u1', email: 'user@example.com' },
     });
 
     let signInResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signIn']>> | null = null;
@@ -134,7 +132,7 @@ describe('AuthContext', () => {
   });
 
   it('returns verification-required state from signUp', async () => {
-    mockSignUp.mockResolvedValue({
+    mockSignUpAction.mockResolvedValue({
       success: true,
       requiresEmailVerification: true,
       email: 'user@example.com',
@@ -172,13 +170,26 @@ describe('AuthContext', () => {
   });
 
   it('updates user state after verifyEmail succeeds', async () => {
-    mockVerifyEmail.mockResolvedValue({
+    mockVerifyEmailAction.mockResolvedValue({
       success: true,
-      user: {
-        id: 'u2',
-        email: 'verified@example.com',
-      },
+      user: { id: 'u2', email: 'verified@example.com' },
     });
+    // After verify, fetchSession is called — mock the response
+    const fetchMock = vi.fn()
+      // First call: initial hydration (unauthenticated)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ user: null, accessToken: null }),
+      })
+      // Second call: after verifyEmail — authenticated
+      .mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          user: { id: 'u2', email: 'verified@example.com' },
+          accessToken: 'tok-verified',
+        }),
+      });
+    globalThis.fetch = fetchMock;
 
     let verifyResult: Awaited<ReturnType<ReturnType<typeof useAuth>['verifyEmail']>> | null = null;
 
@@ -207,8 +218,15 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user-email')).toHaveTextContent('verified@example.com');
   });
 
-  it('delegates Google OAuth to auth helper', async () => {
-    mockSignInWithGoogle.mockResolvedValue({ success: true });
+  it('delegates Google OAuth to startOAuthAction', async () => {
+    mockStartOAuthAction.mockResolvedValue({ success: true, url: 'https://accounts.google.com/oauth' });
+
+    // Mock window.location
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { ...originalLocation, href: '', origin: 'http://localhost:3000' },
+    });
 
     let oauthResult: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithGoogle']>> | null = null;
 
@@ -233,6 +251,11 @@ describe('AuthContext', () => {
     await waitFor(() => {
       expect(oauthResult).toEqual({ success: true });
     });
-    expect(mockSignInWithGoogle).toHaveBeenCalled();
+    expect(mockStartOAuthAction).toHaveBeenCalled();
+
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: originalLocation,
+    });
   });
 });

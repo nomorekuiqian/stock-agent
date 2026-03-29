@@ -19,8 +19,8 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@/lib/auth', () => ({
-  resetPassword: (...args: unknown[]) => mockResetPassword(...args),
+vi.mock('@/app/actions/auth', () => ({
+  resetPasswordAction: (...args: unknown[]) => mockResetPassword(...args),
 }));
 
 describe('/reset-password page', () => {
