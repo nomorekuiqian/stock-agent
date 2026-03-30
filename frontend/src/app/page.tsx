@@ -58,7 +58,7 @@ export default function Home() {
 
               {/* Quick Value Points */}
               <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-6">
-                {["AI 智能提炼", "收盘后送达", "完全免费"].map((item, i) => (
+                {["AI 智能提炼", "收盘后送达", "限时早鸟价"].map((item, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground"
@@ -101,28 +101,24 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Secondary CTA - View Sample */}
-              <div className="animate-fade-in-up delay-500 mt-6">
+              {/* CTAs */}
+              <div className="animate-fade-in-up delay-500 mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98]"
+                >
+                  查看定价方案
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
                 <Link
                   href="/today"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors group"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
                 >
-                  <span className="border-b border-primary/30 group-hover:border-primary/60 transition-colors">
+                  <span className="border-b border-border/40 group-hover:border-foreground/40 transition-colors">
                     先看一份样本报告
                   </span>
-                  <svg
-                    className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
                 </Link>
               </div>
             </div>
@@ -494,6 +490,112 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section className="relative py-20 md:py-28 overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
+        <div className="relative max-w-5xl mx-auto px-4 md:px-6">
+          {/* Section Header */}
+          <div className="text-center mb-12 md:mb-16">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+                Pricing
+              </span>
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
+            </div>
+            <h2 className="font-editorial text-3xl md:text-5xl text-foreground tracking-tight mb-4">
+              所有功能，一个价格
+            </h2>
+            <p className="text-muted-foreground text-sm md:text-base max-w-md mx-auto">
+              从市场日报到 AI 深度投研，一个订阅全部解锁
+            </p>
+          </div>
+
+          {/* Two Column Comparison */}
+          <div className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto mb-10">
+            {/* Free */}
+            <div className="rounded-xl border border-border/40 bg-card/30 p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-1">免费版</h3>
+              <p className="text-xs text-muted-foreground mb-4">邮件订阅</p>
+              <div className="text-2xl font-data font-bold text-foreground mb-5">$0<span className="text-sm text-muted-foreground font-normal ml-1">/月</span></div>
+              <div className="space-y-3">
+                {[
+                  { ok: true, text: '每日市场日报（邮件）' },
+                  { ok: false, text: 'AI 专属日报' },
+                  { ok: false, text: 'AI 个股深度分析' },
+                  { ok: false, text: '投研助手' },
+                  { ok: false, text: '宏观仪表盘' },
+                ].map((item) => (
+                  <div key={item.text} className="flex items-center gap-2.5">
+                    {item.ok ? (
+                      <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-muted-foreground/30 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    )}
+                    <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/40'}`}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Pro */}
+            <div className="relative rounded-xl border border-primary/30 bg-card/50 p-6 ring-1 ring-primary/10">
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-primary/8 blur-[60px] pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-semibold text-foreground">Pro</h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
+                    <span className="text-xs font-medium text-amber-400 light:text-amber-600">早鸟价</span>
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">全部功能解锁</p>
+                <div className="flex items-baseline gap-2 mb-5">
+                  <span className="text-2xl font-data font-bold text-foreground">$9.99</span>
+                  <span className="text-sm text-muted-foreground">/月</span>
+                  <span className="text-sm text-muted-foreground/60 line-through font-data">$19.99</span>
+                  <span className="text-xs font-medium text-primary">省 50%</span>
+                </div>
+                <div className="space-y-3 mb-6">
+                  {[
+                    '完整市场日报（网站 + 邮件）',
+                    'AI 专属日报（基于你的持仓）',
+                    'AI 深度个股分析',
+                    '投研助手（AI 对话）',
+                    '宏观四维度仪表盘',
+                  ].map((text) => (
+                    <div key={text} className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <span className="text-sm text-foreground">{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link
+                  href="/pricing"
+                  className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
+                >
+                  立即订阅 — $9.99/月
+                </Link>
+                <p className="text-xs text-muted-foreground/60 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Social proof bar */}
+          <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+            <span>34 位用户正在使用</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span>50 名早鸟名额</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span>
+              <Link href="/pricing" className="text-primary hover:text-primary/80 transition-colors">
+                查看完整定价 →
+              </Link>
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* About Us Section */}
       <section className="relative py-20 md:py-28 overflow-hidden">
         <div className="absolute inset-0 bg-muted/20" />
@@ -568,8 +670,9 @@ export default function Home() {
               和 100+ 美股投资者一起交流市场观点、分享投资心得。扫码加入微信群，与志同道合的人一起成长。
             </p>
 
-            {/* QR Code Card */}
-            <div className="inline-block">
+            {/* QR Code Cards */}
+            <div className="inline-flex flex-col sm:flex-row gap-6">
+              {/* Group QR Code */}
               <div className="relative rounded-2xl border border-border/50 bg-card p-6 md:p-8">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
@@ -580,10 +683,10 @@ export default function Home() {
                   - Update steps: upload new image to Insforge with new filename, update src below
                   - Must use new filename each time to bypass Insforge CDN cache
                 */}
-                <div className="w-64 md:w-80 mx-auto mb-5 rounded-xl overflow-hidden">
+                <div className="w-52 md:w-64 mx-auto mb-5 rounded-xl overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0329.jpg"
+                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0405.jpg"
                     alt="TheMarketBrew WeChat Group QR Code"
                     className="w-full h-auto"
                   />
@@ -591,6 +694,24 @@ export default function Home() {
 
                 <p className="text-sm text-foreground font-medium">
                   微信扫码加入社群
+                </p>
+              </div>
+
+              {/* Personal QR Code */}
+              <div className="relative rounded-2xl border border-border/50 bg-card p-6 md:p-8">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+                <div className="w-52 md:w-64 mx-auto mb-5 rounded-xl overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-personal-qr.jpg"
+                    alt="Add WeChat Personal Contact"
+                    className="w-full h-auto"
+                  />
+                </div>
+
+                <p className="text-sm text-foreground font-medium">
+                  群满或过期？加我拉你入群
                 </p>
               </div>
             </div>
