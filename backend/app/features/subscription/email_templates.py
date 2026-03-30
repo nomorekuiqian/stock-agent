@@ -1309,12 +1309,24 @@ def format_welcome_html(first_name: str = "") -> str:
                         <p style="color: #3f3f46; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
                             扫码加入 TheMarketBrew 微信交流群，和其他投资者一起交流市场观点、分享持仓思路。
                         </p>
-                        <div style="text-align: center;">
-                            <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0329.jpg"
-                                 alt="TheMarketBrew WeChat Group QR Code"
-                                 style="width: 100%; max-width: 360px; border-radius: 8px; border: 1px solid #e4e4e7;"
-                            />
-                        </div>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                            <tr>
+                                <td width="50%" style="padding: 0 6px 0 0; text-align: center; vertical-align: top;">
+                                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0405.jpg"
+                                         alt="TheMarketBrew WeChat Group QR Code"
+                                         style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
+                                    />
+                                    <p style="color: #3f3f46; font-size: 12px; margin: 8px 0 0 0;">微信扫码加入社群</p>
+                                </td>
+                                <td width="50%" style="padding: 0 0 0 6px; text-align: center; vertical-align: top;">
+                                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-personal-qr.jpg"
+                                         alt="Add WeChat Personal Contact"
+                                         style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
+                                    />
+                                    <p style="color: #3f3f46; font-size: 12px; margin: 8px 0 0 0;">群满或过期？加我拉你入群</p>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
 
                     <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 24px 0 0 0;">
