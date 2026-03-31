@@ -29,6 +29,13 @@ stripe.api_key = STRIPE_SECRET_KEY
 router = APIRouter(prefix="/api/payment", tags=["payment"])
 
 
+def _to_dict(obj):
+    """Convert Stripe object to dict if needed (SDK v15 compat)."""
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    return obj
+
+
 def _get_period(sub_obj) -> Tuple[Optional[str], Optional[str]]:
     """Extract current_period_start/end from a Stripe subscription object.
 
@@ -36,14 +43,19 @@ def _get_period(sub_obj) -> Tuple[Optional[str], Optional[str]]:
     top-level to items.data[*].  Fall back to items when top-level
     keys are absent.
     """
-    start_ts = sub_obj.get("current_period_start")
-    end_ts = sub_obj.get("current_period_end")
+    d = _to_dict(sub_obj)
+    start_ts = d.get("current_period_start")
+    end_ts = d.get("current_period_end")
 
     if start_ts is None or end_ts is None:
-        items = sub_obj.get("items", {}).get("data", [])
-        if items:
-            start_ts = start_ts or items[0].get("current_period_start")
-            end_ts = end_ts or items[0].get("current_period_end")
+        items = d.get("items", {})
+        if hasattr(items, "to_dict"):
+            items = items.to_dict()
+        items_data = items.get("data", [])
+        if items_data:
+            item = _to_dict(items_data[0])
+            start_ts = start_ts or item.get("current_period_start")
+            end_ts = end_ts or item.get("current_period_end")
 
     period_start = (
         datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat()
@@ -124,12 +136,13 @@ async def api_sync_subscription(
             return {"synced": False, "reason": "No active subscription found"}
 
         sub = subs.data[0]
+        sub_dict = _to_dict(sub)
         period_start, period_end = _get_period(sub)
 
         await upsert_subscription(
             user_id=user_id,
             stripe_customer_id=customer_id,
-            stripe_subscription_id=sub["id"],
+            stripe_subscription_id=sub_dict["id"],
             plan="pro",
             status="active",
             current_period_start=period_start,
@@ -157,6 +170,9 @@ async def stripe_webhook(request: Request):
 
     event_type = event["type"]
     obj = event["data"]["object"]
+    # Stripe SDK v15 StripeObject no longer has .get() — convert to dict
+    if hasattr(obj, "to_dict"):
+        obj = obj.to_dict()
     logger.info("Webhook received: %s", event_type)
 
     if event_type == "checkout.session.completed":
