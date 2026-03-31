@@ -3,6 +3,9 @@
  * The actual charge amount is controlled by STRIPE_PRO_PRICE_ID on the backend.
  */
 
+/** Stripe live mode not yet configured. Set NEXT_PUBLIC_STRIPE_LIVE=true to enable checkout. */
+export const STRIPE_LIVE = process.env.NEXT_PUBLIC_STRIPE_LIVE === 'true';
+
 export const PRICING = {
   /** Current early-access price */
   pro: '$9.99',

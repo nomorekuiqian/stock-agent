@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Check, X, Zap, Mail, BarChart3, Brain, LineChart, Shield } from 'lucide-react';
-import { PRICING } from '@/lib/pricing';
+import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 
 // ─── Free vs Pro comparison data ─────────────────────────────────────────────
 const COMPARISON = [
@@ -245,11 +245,13 @@ export default function PricingPage() {
                 </div>
               ) : (
                 <button
-                  onClick={handleCheckout}
-                  disabled={checkoutLoading}
-                  className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70"
+                  onClick={STRIPE_LIVE ? handleCheckout : undefined}
+                  disabled={!STRIPE_LIVE || checkoutLoading}
+                  className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {checkoutLoading ? (
+                  {!STRIPE_LIVE ? (
+                    '即将开放订阅'
+                  ) : checkoutLoading ? (
                     <>
                       <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
                       跳转中...
@@ -262,7 +264,7 @@ export default function PricingPage() {
                 </button>
               )}
               <p className="text-xs text-muted-foreground/60 text-center mt-3">
-                随时取消 · Stripe 安全支付
+                {STRIPE_LIVE ? '随时取消 · Stripe 安全支付' : '订阅功能即将上线，敬请期待'}
               </p>
             </div>
           </div>

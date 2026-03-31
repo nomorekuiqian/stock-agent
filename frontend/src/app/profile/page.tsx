@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { api, type EmailPreferences } from '@/lib/api';
 import { useEmailPreferences } from '@/hooks/queries/use-preferences';
-import { PRICING } from '@/lib/pricing';
+import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 import { queryKeys } from '@/hooks/queries/query-keys';
 
 const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; description: string }[] = [
@@ -352,10 +352,11 @@ export default function ProfilePage(): ReactNode {
 
                 <button
                   type="button"
-                  onClick={() => createCheckout('/profile')}
-                  className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  onClick={STRIPE_LIVE ? () => createCheckout('/profile') : undefined}
+                  disabled={!STRIPE_LIVE}
+                  className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  重新订阅 Pro
+                  {STRIPE_LIVE ? '重新订阅 Pro' : '订阅即将开放'}
                 </button>
               </div>
             ) : (
