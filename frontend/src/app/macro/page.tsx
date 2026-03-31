@@ -10,6 +10,7 @@ import {
 } from '@/lib/api';
 import { MacroActions } from './_components/MacroActions';
 import { AiChatLink } from '@/components/AiChatLink';
+import PaywallGuard from '@/components/PaywallGuard';
 
 export const metadata: Metadata = {
   title: '美股宏观周报 - 经济、流动性、通胀与市场情绪',
@@ -186,6 +187,7 @@ async function fetchWeeklyReport(): Promise<WeeklyMacroReport | null> {
 
 export default function MacroPage() {
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Header — static shell, renders immediately without waiting for data */}
       <section className="border-b border-border/50">
@@ -213,6 +215,7 @@ export default function MacroPage() {
         </Suspense>
       </div>
     </main>
+    </PaywallGuard>
   );
 }
 

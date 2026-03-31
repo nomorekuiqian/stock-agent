@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { formatDateChinese, formatDateShort, formatTimePacific } from '@/lib/timezone';
 import { useReportList } from '@/hooks/queries/use-report-data';
+import PaywallGuard from '@/components/PaywallGuard';
 
 export default function ArchivePage() {
   const [page, setPage] = useState(0);
@@ -17,6 +18,7 @@ export default function ArchivePage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Header */}
       <section className="border-b border-border">
@@ -192,5 +194,6 @@ export default function ArchivePage() {
         </div>
       )}
     </main>
+    </PaywallGuard>
   );
 }

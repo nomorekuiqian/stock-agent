@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import PaywallGuard from '@/components/PaywallGuard';
 import dynamic from 'next/dynamic';
 
 const TradingViewWidget = dynamic(
@@ -651,6 +652,7 @@ export default function SentimentPage() {
     : [];
 
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Sentiment"
@@ -768,5 +770,6 @@ export default function SentimentPage() {
         </section>
       </div>
     </main>
+    </PaywallGuard>
   );
 }

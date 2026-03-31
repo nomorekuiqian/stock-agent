@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import PaywallGuard from '@/components/PaywallGuard';
 import dynamic from 'next/dynamic';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 
@@ -679,6 +680,7 @@ export default function InflationRatesPage() {
   }, [selectedDim]);
 
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Inflation & Rates"
@@ -1031,5 +1033,6 @@ export default function InflationRatesPage() {
         </section>
       </div>
     </main>
+    </PaywallGuard>
   );
 }

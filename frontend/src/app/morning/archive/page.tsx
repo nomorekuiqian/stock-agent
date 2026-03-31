@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { formatDateShort, formatTimePacific } from '@/lib/timezone';
 import { useMorningReportList } from '@/hooks/queries/use-morning-report-data';
+import PaywallGuard from '@/components/PaywallGuard';
 
 export default function MorningArchivePage() {
   const [page, setPage] = useState(0);
@@ -17,6 +18,7 @@ export default function MorningArchivePage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
+    <PaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Header */}
       <section className="border-b border-border">
@@ -189,5 +191,6 @@ export default function MorningArchivePage() {
         </div>
       )}
     </main>
+    </PaywallGuard>
   );
 }

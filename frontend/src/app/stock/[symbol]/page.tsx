@@ -3,6 +3,7 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient } from '@/hooks/queries/query-client';
 import { queryKeys } from '@/hooks/queries/query-keys';
 import StockDetailContent from './_components/StockDetailContent';
+import PaywallGuard from '@/components/PaywallGuard';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -94,8 +95,10 @@ export default async function StockPage({ params }: PageProps) {
   ]);
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <StockDetailContent symbol={upperSymbol} />
-    </HydrationBoundary>
+    <PaywallGuard>
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <StockDetailContent symbol={upperSymbol} />
+      </HydrationBoundary>
+    </PaywallGuard>
   );
 }
