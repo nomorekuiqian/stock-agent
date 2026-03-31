@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import SubscribeForm from "@/components/SubscribeForm";
 import LogoMarquee from "@/components/LogoMarquee";
+import { PRICING } from "@/lib/pricing";
 
 export default function Home() {
   return (
@@ -58,7 +59,7 @@ export default function Home() {
 
               {/* Quick Value Points */}
               <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-6">
-                {["AI 智能提炼", "收盘后送达", "限时早鸟价"].map((item, i) => (
+                {["AI 智能提炼", "收盘后送达", "抢先体验价"].map((item, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground"
@@ -546,15 +547,15 @@ export default function Home() {
                   <h3 className="text-lg font-semibold text-foreground">Pro</h3>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
-                    <span className="text-xs font-medium text-amber-400 light:text-amber-600">早鸟价</span>
+                    <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">全部功能解锁</p>
                 <div className="flex items-baseline gap-2 mb-5">
-                  <span className="text-2xl font-data font-bold text-foreground">$9.99</span>
-                  <span className="text-sm text-muted-foreground">/月</span>
-                  <span className="text-sm text-muted-foreground/60 line-through font-data">$19.99</span>
-                  <span className="text-xs font-medium text-primary">省 50%</span>
+                  <span className="text-2xl font-data font-bold text-foreground">{PRICING.pro}</span>
+                  <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
+                  <span className="text-sm text-muted-foreground/60 line-through font-data">{PRICING.original}</span>
+                  <span className="text-xs font-medium text-primary">{PRICING.discount}</span>
                 </div>
                 <div className="space-y-3 mb-6">
                   {[
@@ -574,7 +575,7 @@ export default function Home() {
                   href="/pricing"
                   className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
                 >
-                  立即订阅 — $9.99/月
+                  立即订阅 — {PRICING.proPerMonth}
                 </Link>
                 <p className="text-xs text-muted-foreground/60 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
               </div>
@@ -585,7 +586,7 @@ export default function Home() {
           <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
             <span>34 位用户正在使用</span>
             <span className="w-1 h-1 rounded-full bg-border" />
-            <span>50 名早鸟名额</span>
+            <span>前 50 名抢先体验</span>
             <span className="w-1 h-1 rounded-full bg-border" />
             <span>
               <Link href="/pricing" className="text-primary hover:text-primary/80 transition-colors">
