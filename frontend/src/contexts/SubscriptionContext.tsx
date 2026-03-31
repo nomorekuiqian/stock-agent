@@ -69,7 +69,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const isCheckoutReturn = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('checkout') === 'success';
 
-  const refreshSubscription = useCallback(async () => {
+  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
     if (!PAYWALL_ENABLED || !user?.id) {
       setPlan('free');
       setStatus('none');
@@ -81,13 +81,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = await getAccessToken();
-      if (!token) {
+      if (!token || signal?.aborted) {
         setIsLoading(false);
         return;
       }
       const res = await fetch(
         `${API_BASE_URL}/payment/subscription-status`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        { headers: { 'Authorization': `Bearer ${token}` }, signal }
       );
       if (res.ok) {
         const data = await res.json();
@@ -102,7 +102,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         writeCache(user.id, p, s, pe, ae);
       }
     } catch (err) {
-      console.error('[Subscription] Failed to fetch status:', err);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.warn('[Subscription] Failed to fetch status:', err);
     } finally {
       setIsLoading(false);
     }
@@ -160,6 +161,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const controller = new AbortController();
+
     if (isAuthenticated && user?.id) {
       if (isCheckoutReturn) {
         localStorage.removeItem(CACHE_KEY);
@@ -172,14 +175,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           setCurrentPeriodEnd(cached.periodEnd);
           setAccessExpiresAt(cached.accessExpiresAt ?? null);
           setIsLoading(false);
-          refreshSubscription();
+          refreshSubscription(controller.signal);
         } else {
-          refreshSubscription();
+          refreshSubscription(controller.signal);
         }
       }
     } else {
       setIsLoading(false);
     }
+
+    return () => controller.abort();
   }, [authLoading, isAuthenticated, user?.id, refreshSubscription, isCheckoutReturn, pollForProStatus]);
 
   const redeemInviteCode = useCallback(async (code: string) => {
