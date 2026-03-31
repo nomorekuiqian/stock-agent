@@ -116,6 +116,16 @@
       "sourceType": "github",
       "computedHash": "dca928180e73ee3dd3bfe1c921b96198c2b7d6733c06bf35c40fa343b4037a55"
     },
+    "stripe-best-practices": {
+      "source": "docs.stripe.com",
+      "sourceType": "well-known",
+      "computedHash": "e35a14609076a8a7ffeec41b449dd2d36eebea6c278e73d83f86db40e6232031"
+    },
+    "stripe-projects": {
+      "source": "docs.stripe.com",
+      "sourceType": "well-known",
+      "computedHash": "74b5f9e1e24d7662000c28d6572e438ac71847d60ea0a8704b088441355e3371"
+    },
     "teach-impeccable": {
       "source": "pbakaus/impeccable",
       "sourceType": "github",
@@ -125,6 +135,11 @@
       "source": "pbakaus/impeccable",
       "sourceType": "github",
       "computedHash": "566473e23aa6230a40ddfad43e2da496e40314523bd20af8a677f0d40e1430f3"
+    },
+    "upgrade-stripe": {
+      "source": "docs.stripe.com",
+      "sourceType": "well-known",
+      "computedHash": "06c5c3fd85657ff9aaadff65bd2d63f606da8e44802dc1f9aaf42c73263a11b7"
     }
   }
 }
