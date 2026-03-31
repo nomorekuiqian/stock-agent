@@ -142,7 +142,7 @@ export function NavAuth() {
                   asChild
                   className={`${itemBase} text-primary hover:bg-primary/10 data-[highlighted]:bg-primary/10`}
                 >
-                  <Link href="/for-you">
+                  <Link href="/pricing">
                     <svg
                       className="w-4 h-4"
                       fill="none"

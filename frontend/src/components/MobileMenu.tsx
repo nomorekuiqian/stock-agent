@@ -151,6 +151,10 @@ export function MobileMenu() {
       ],
     },
     {
+      label: '定价',
+      href: '/pricing',
+    },
+    {
       label: '联系',
       href: '/contact',
     },
@@ -231,7 +235,7 @@ export function MobileMenu() {
                   </Link>
                   {!subLoading && !isPro && (
                     <Link
-                      href="/for-you"
+                      href="/pricing"
                       onClick={() => setIsOpen(false)}
                       className="block px-4 py-2.5 text-sm text-primary font-medium hover:bg-primary/10 rounded-lg transition-colors"
                     >

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PasswordField } from '@/components/PasswordField';
 import { buildVerifyEmailPath, storePendingVerification } from '@/lib/auth-verification';
 import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
+import { isInAppBrowser } from '@/lib/utils';
 
 function LoadingSpinner(): ReactNode {
   return (
@@ -67,7 +68,13 @@ function LoginPageContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [webviewInfo, setWebviewInfo] = useState<{ inApp: boolean; name: string }>({ inApp: false, name: '' });
+  const [copied, setCopied] = useState(false);
   const effectiveAuthError = authError;
+
+  useEffect(() => {
+    setWebviewInfo(isInAppBrowser());
+  }, []);
 
   useEffect(() => {
     sessionStorage.setItem('auth_redirect', redirectUrl);
@@ -188,12 +195,35 @@ function LoginPageContent() {
           )}
         </div>
 
+        {/* WebView Warning */}
+        {webviewInfo.inApp && (
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 animate-scale-in">
+            <p className="text-amber-400 text-sm font-medium mb-2">
+              检测到你正在{webviewInfo.name}内置浏览器中访问
+            </p>
+            <p className="text-amber-400/80 text-xs mb-3">
+              Google 登录不支持在 App 内打开，请复制链接到 Safari 或 Chrome 中打开。邮箱登录不受影响。
+            </p>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="w-full px-3 py-2.5 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-300 text-sm font-medium hover:bg-amber-500/30 transition-all duration-200"
+            >
+              {copied ? '已复制 ✓' : '复制链接到浏览器打开'}
+            </button>
+          </div>
+        )}
+
         {/* Google Sign In */}
         <div className="animate-fade-in-up delay-100">
           <button
             onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 border border-border rounded-lg bg-card text-foreground font-medium text-sm hover:border-border/80 hover:bg-card/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            disabled={loading || webviewInfo.inApp}
+            title={webviewInfo.inApp ? '请在系统浏览器中使用 Google 登录' : undefined}
+            className={`w-full flex items-center justify-center gap-3 px-4 py-3.5 border border-border rounded-lg bg-card text-foreground font-medium text-sm hover:border-border/80 hover:bg-card/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${webviewInfo.inApp ? 'opacity-40' : ''}`}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -213,7 +243,7 @@ function LoginPageContent() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            使用 Google 登录
+            {webviewInfo.inApp ? '请在浏览器中使用 Google 登录' : '使用 Google 登录'}
           </button>
         </div>
 

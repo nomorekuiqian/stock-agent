@@ -1,6 +1,6 @@
 # Monetization: 邀请码启动 + Paywall 激活 Engineering Plan
 
-> Status: In Progress
+> Status: In Progress (Phase 1 基本完成，Phase 2 准备中)
 > Vision: 全功能付费 + 邀请码内测 → 用户帮拉新 → 两周后开收费
 
 ## 目标
@@ -120,7 +120,7 @@ isPro = !PAYWALL_ENABLED ||
 - [x] **前端**：`/today` 和 `/morning` 页面加 `PaywallGuard`
 - [x] **前端**：`StockAnalysisCard` 加 `isPro` 门控
 - [x] **前端**：兑换成功后展示推荐链接（InviteCodeModal 成功页面）
-- [ ] **前端**：AI 对话完成后展示推荐链接提示
+- [ ] **前端**：AI 对话完成后展示推荐链接提示（低优先级，推荐系统暂未启用）
 
 ### Phase 2：激活与分发（Phase 1 完成后）
 

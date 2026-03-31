@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/auth/callback',
   '/email-test',
+  '/pricing',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';
