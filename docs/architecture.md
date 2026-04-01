@@ -1,6 +1,6 @@
 # TheMarketBrew 系统架构文档
 
-> 面试准备用。最后更新：2026-03-26
+> 最后更新：2026-03-31
 
 ---
 
@@ -189,40 +189,98 @@ AI 驱动的美股市场分析平台，为散户投资者提供机构级的市�
 
 ## 五、AI Agent 体系
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    9 个 AI Agent                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  📊 报告类 (单轮, Structured Output)                          │
-│  ┌──────────────────┬────────────────┬────────────────┐     │
-│  │ MarketAgent      │ MorningAgent   │ PersonalDigest │     │
-│  │ 日报 (Pro)       │ 早报 (Flash)   │ 摘要 (Pro)     │     │
-│  └──────────────────┴────────────────┴────────────────┘     │
-│  ┌──────────────────┐                                       │
-│  │ WeeklyAgent      │                                       │
-│  │ 周报 (Pro)       │                                       │
-│  └──────────────────┘                                       │
-│                                                              │
-│  🔬 个股四维分析 (并行, 独立缓存)                               │
-│  ┌───────────┬───────────┬───────────┬───────────┐          │
-│  │ 基本面     │ 技术面     │ 新闻面    │ 宏观面     │          │
-│  │ Flash Lite│ Flash Lite│ Flash Lite│ Flash Lite │          │
-│  │ 7天缓存   │ 24h缓存   │ 8h缓存    │ 24h缓存    │          │
-│  └───────────┴───────────┴───────────┴───────────┘          │
-│                                                              │
-│  🤖 对话类 (多轮, Tool-Use)                                   │
-│  ┌──────────────────────────────────────────────┐           │
-│  │ ResearchAgent — AI 选股助手                    │           │
-│  │ 6 个 Tools + 上下文感知 + 累积式筛选            │           │
-│  └──────────────────────────────────────────────┘           │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+### 框架选型：Google ADK
+
+```python
+agent = LlmAgent(
+    model="gemini-3.1-flash-lite-preview",
+    name="analyst",
+    instruction=SYSTEM_PROMPT,
+    output_schema=AnalysisOutput,      # Pydantic -> 强制结构化 JSON
+    output_key="analysis",
+)
+runner = InMemoryRunner(agent=agent, app_name="stock_analysis")
 ```
 
-**统一模式**：Python 获取数据 → 清洗减 token → Gemini 生成 → Pydantic 校验 → 缓存
+**为什么不用 LangChain？** 我们的场景是确定性 pipeline（数据进 -> 报告出），ADK 的 Pydantic output_schema 原生强制输出格式，20 行代码搞定一个 Agent。
+
+### 两种 Agent 范式
+
+```
+Structured Output (8 个)              Tool-Use 对话 (1 个)
+数据 -> LLM -> 结构化 JSON             多轮对话 + Function Tools
+单轮，无工具调用                       累积式筛选 + 面板导航
+日报/早报/摘要/周报/个股x4             ResearchAgent (AI 选股助手)
+```
+
+### 统一数据流 (Structured Output Agent)
+
+```
+Step 1  asyncio.gather() 并行获取多源数据
+Step 2  Python 清洗 (减少 30-45% tokens，去垃圾新闻/截断/过滤)
+Step 3  Gemini LLM -> Pydantic output_schema 强制结构化输出
+Step 4  Python 后处理 (URL 解析、时间戳补全)
+Step 5  异步写入 DB (非阻塞)
+```
+
+### Agent 清单
+
+| Agent | 模型 | 缓存 | 核心能力 |
+|-------|------|------|---------|
+| MarketAgent | Pro | 按日期 | 市场日报，加载前5天实现叙事连续性 |
+| MorningAgent | Flash Lite | 按日期 | 盘前早报，仅隔夜数据+今日关注 |
+| PersonalDigest | Pro | user+日期 | 围绕用户自选股定制，检测自选股变化 |
+| WeeklyAgent | Pro | 按周标签 | 4维宏观分析+信号灯，最复杂的 prompt |
+| StockAnalysis x4 | Flash Lite | 8h-7天 | 基本面/技术面/新闻面/宏观面，4个独立Agent并行 |
+| **ResearchAgent** | **Flash** | **无** | **多轮对话选股，6+Tools，上下文感知，面板导航** |
 
 **个股拆成 4 个 Agent 的原因**：并行请求、独立缓存 TTL、Token 效率、容错隔离
+
+### 容错机制
+
+```
+正常执行 -> Gemini Pro/Flash
+    |
+    +-- 503 (模型过载) -> 自动切换 Flash Lite -> 执行 -> 恢复原模型
+```
+
+### Research Agent 深度解析
+
+对话式选股助手，面向投资新手。通过自然对话找到符合偏好的股票。
+
+```
++---------------------+  +-----------------------------+
+|     左侧: 对话面板    |  |    右侧: 结果/内容面板        |
+|                     |  |                             |
+|  用户: "稳定分红的"   |  |  [股票卡片列表]              |
+|  Agent: "找到23只"   |  |  或: 日报/个股/宏观等视图     |
+|  [只看科技] [提高股息] |  |                             |
++---------------------+  +-----------------------------+
+```
+
+**核心机制**：
+
+1. **对话循环** — 每轮判断意图：改变筛选条件(`update_results=true`)、回答问题(`false`)、或重置(`filters=[]`)
+2. **两种筛选模式** — 结构化筛选(`execute_screener`，字段条件过滤 5800+ 只股票)+ 主题筛选(`filter_by_tickers`，LLM 知识映射概念到公司列表)
+3. **累积式筛选** — 每轮输出完整 filters 数组，前端直接使用。条件可追加、替换、移除
+4. **上下文感知** — Agent 感知用户当前浏览的页面，生成个性化首轮回复（日报/个股/宏观/选股等不同 context）
+5. **面板导航** — Agent 通过 `navigate_to_content` 工具控制右侧面板显示内容（选股结果/个股研究/日报/宏观）
+6. **智能推荐触发** — 结果 <=15 只时自动写推荐理由，>15 只时引导缩小范围
+
+**线程安全**：股票数据通过 `ContextVar` 传递，每个请求独立副本，避免并发污染。
+
+**可用筛选字段**：估值(PE/PB/PS/EV-EBITDA/PEG)、盈利(毛利率/ROE/ROA/ROIC)、增长(营收/EPS)、股息(股息率/派息年限)、价格表现(日/月/年涨跌)、其他(市值/板块/beta/RSI/分析师评级)。
+
+### Prompt Engineering 设计哲学
+
+| 原则 | 说明 |
+|------|------|
+| **数据准确性绝对** | 禁止编造数据，缺失时明确说"暂无" |
+| **"So What?" 框架** | 每个数据都要解释意义 |
+| **结论前置** | 先亮立场，再给证据 |
+| **叙事连续性** | 加载前 5 份历史报告，串联上下文 |
+| **情绪校准** | 大涨不盲目乐观，结合成交量/VIX |
+| **禁止清单** | 无比喻、无投资建议、无套话 |
 
 ---
 
@@ -294,4 +352,4 @@ Financial Terminal + Editorial Luxury
 
 ---
 
-> 详见 `docs/agent-architecture.md` 了解 AI Agent 的完整实现细节。
+> 产品路线图见 [docs/product/roadmap.md](product/roadmap.md)。
