@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +20,14 @@ const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; descriptio
 
 const INVITE_DAYS = 14;
 
+type TabId = 'account' | 'subscription' | 'email';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'account', label: '账户信息' },
+  { id: 'subscription', label: '订阅管理' },
+  { id: 'email', label: '邮件偏好' },
+];
+
 function getDaysLeft(accessExpiresAt: string | null): number | null {
   if (!accessExpiresAt) return null;
   const ms = new Date(accessExpiresAt).getTime() - Date.now();
@@ -34,6 +42,7 @@ function formatDate(iso: string) {
 
 export default function ProfilePage(): ReactNode {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
   const {
@@ -45,6 +54,20 @@ export default function ProfilePage(): ReactNode {
   const { data: serverPrefs, isLoading: prefsLoading, isError: prefsError } = useEmailPreferences(
     isAuthenticated
   );
+
+  // Tab state synced with URL param
+  const tabFromUrl = TABS.find(t => t.id === searchParams.get('tab'))?.id ?? 'account';
+  const [activeTab, setActiveTab] = useState<TabId>(tabFromUrl);
+
+  useEffect(() => {
+    setActiveTab(tabFromUrl);
+  }, [tabFromUrl]);
+
+  function switchTab(tab: TabId) {
+    setActiveTab(tab);
+    const url = tab === 'account' ? '/profile' : `/profile?tab=${tab}`;
+    router.replace(url, { scroll: false });
+  }
 
   // Profile form state
   const [name, setName] = useState(user?.name || '');
@@ -70,12 +93,22 @@ export default function ProfilePage(): ReactNode {
   const [codeSuccess, setCodeSuccess] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState('');
 
   async function handleManageSubscription() {
     setIsPortalLoading(true);
-    await openBillingPortal();
-    // openBillingPortal redirects; reset only if it fails
-    setTimeout(() => setIsPortalLoading(false), 3000);
+    setPortalError('');
+    try {
+      await openBillingPortal();
+      // openBillingPortal redirects on success; reset after timeout if it didn't
+      setTimeout(() => {
+        setIsPortalLoading(false);
+        setPortalError('无法打开订阅管理页面，请稍后再试');
+      }, 5000);
+    } catch {
+      setIsPortalLoading(false);
+      setPortalError('无法打开订阅管理页面，请稍后再试');
+    }
   }
 
   useEffect(() => {
@@ -93,10 +126,23 @@ export default function ProfilePage(): ReactNode {
   }
 
   const nameChanged = name.trim() !== (user.name || '');
+
+  async function handleSaveName(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nameChanged || saving) return;
+    setSaving(true);
+    setMessage(null);
+    const result = await updateProfile({ name: name.trim() });
+    setMessage(result.success
+      ? { type: 'success', text: '已保存' }
+      : { type: 'error', text: result.error || '保存失败，请重试' }
+    );
+    setSaving(false);
+  }
+
   const prefsChanged = serverPrefs && localPrefs
     ? PREFERENCE_ITEMS.some(({ key }) => serverPrefs[key] !== localPrefs[key])
     : false;
-  const hasChanges = nameChanged || prefsChanged;
 
   function handleToggle(key: keyof EmailPreferences) {
     if (!localPrefs || saving) return;
@@ -104,38 +150,27 @@ export default function ProfilePage(): ReactNode {
     setMessage(null);
   }
 
-  async function handleSave(e: React.FormEvent) {
+  async function handleSavePrefs(e: React.FormEvent) {
     e.preventDefault();
-    if (!hasChanges || saving) return;
+    if (!prefsChanged || !localPrefs || !serverPrefs || saving) return;
     setSaving(true);
     setMessage(null);
-    const results: { success: boolean; error?: string }[] = [];
-    if (nameChanged) {
-      results.push(await updateProfile({ name: name.trim() }));
+    const diff: Partial<EmailPreferences> = {};
+    for (const { key } of PREFERENCE_ITEMS) {
+      if (localPrefs[key] !== serverPrefs[key]) diff[key] = localPrefs[key];
     }
-    if (prefsChanged && localPrefs && serverPrefs) {
-      const diff: Partial<EmailPreferences> = {};
-      for (const { key } of PREFERENCE_ITEMS) {
-        if (localPrefs[key] !== serverPrefs[key]) diff[key] = localPrefs[key];
+    try {
+      const result = await api.subscriptions.updatePreferences(diff);
+      if (result.success) {
+        queryClient.setQueryData(queryKeys.subscriptions.preferences(), result.preferences);
+        setLocalPrefs(result.preferences);
+        setMessage({ type: 'success', text: '已保存' });
+      } else {
+        setMessage({ type: 'error', text: '偏好保存失败' });
       }
-      try {
-        const result = await api.subscriptions.updatePreferences(diff);
-        if (result.success) {
-          queryClient.setQueryData(queryKeys.subscriptions.preferences(), result.preferences);
-          setLocalPrefs(result.preferences);
-          results.push({ success: true });
-        } else {
-          results.push({ success: false, error: '偏好保存失败' });
-        }
-      } catch {
-        results.push({ success: false, error: '偏好保存失败' });
-      }
+    } catch {
+      setMessage({ type: 'error', text: '偏好保存失败' });
     }
-    const failed = results.find((r) => !r.success);
-    setMessage(failed
-      ? { type: 'error', text: failed.error || '保存失败，请重试' }
-      : { type: 'success', text: '已保存' }
-    );
     setSaving(false);
   }
 
@@ -186,11 +221,11 @@ export default function ProfilePage(): ReactNode {
 
   return (
     <div className="min-h-screen bg-background py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-lg mx-auto space-y-10">
+      <div className="max-w-lg mx-auto space-y-8">
         {/* Header */}
         <div className="space-y-2">
           <h1 className="text-2xl font-editorial text-foreground tracking-tight">个人资料</h1>
-          <p className="text-sm text-muted-foreground">管理你的账户信息和邮件偏好</p>
+          <p className="text-sm text-muted-foreground">管理你的账户、订阅和邮件偏好</p>
         </div>
 
         {/* Avatar + Email */}
@@ -213,243 +248,320 @@ export default function ProfilePage(): ReactNode {
           </div>
         </div>
 
-        {/* ─── Subscription Status ─── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-editorial text-foreground">订阅状态</h2>
-            {subLoading ? (
-              <span className="w-12 h-5 rounded-full bg-muted animate-pulse" />
-            ) : (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                isPro ? urgencyStyles.badge
-                  : isCanceled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
-                  : 'bg-muted border-border/50 text-muted-foreground'
+        {/* Tabs */}
+        <div className="flex border-b border-border/50">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => switchTab(id)}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === id
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/70'
+              }`}
+            >
+              {label}
+              {activeTab === id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'account' && (
+          <form onSubmit={handleSaveName} className="space-y-6">
+            {message && (
+              <div className={`p-4 rounded-lg border ${
+                message.type === 'success'
+                  ? 'bg-primary/10 border-primary/20'
+                  : 'bg-red-500/10 border-red-500/20'
               }`}>
-                {isPro ? 'Pro' : isCanceled ? '已取消' : '免费版'}
-              </span>
-            )}
-          </div>
-
-          <div className="bg-card border border-border/50 rounded-xl overflow-hidden">
-            {subLoading ? (
-              <div className="p-5 space-y-3">
-                <div className="w-32 h-4 rounded bg-muted animate-pulse" />
-                <div className="w-full h-2 rounded-full bg-muted animate-pulse" />
-                <div className="w-20 h-3 rounded bg-muted animate-pulse" />
+                <p className={`text-sm text-center ${
+                  message.type === 'success' ? 'text-primary' : 'text-red-400'
+                }`}>{message.text}</p>
               </div>
-            ) : isTrial ? (
-              /* ── Active trial — countdown + upgrade CTA ── */
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">邀请码体验</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      有效期至 <span className="text-foreground">{formatDate(accessExpiresAt!)}</span>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-2xl font-bold font-mono ${urgencyStyles.text}`}>{daysLeft}</p>
-                    <p className="text-xs text-muted-foreground">天后到期</p>
-                  </div>
-                </div>
+            )}
 
-                {/* Progress bar */}
-                <div className="h-1.5 bg-background rounded-full overflow-hidden mb-1">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${urgencyStyles.bar}`}
-                    style={{ width: `${progressPct}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground/60">
-                  <span>{INVITE_DAYS - (daysLeft ?? 0)} 天已用</span>
-                  <span>共 {INVITE_DAYS} 天</span>
-                </div>
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-foreground/90 mb-2">昵称</label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setMessage(null); }}
+                placeholder="输入你的昵称"
+                maxLength={50}
+                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">此昵称将用于每日邮件的称呼</p>
+            </div>
 
-                <div className="mt-4 pt-4 border-t border-border/40">
-                  {daysLeft !== null && daysLeft <= 7 && (
-                    <p className={`text-xs mb-3 ${urgencyStyles.text}`}>
-                      {daysLeft <= 3 ? '体验即将到期' : '体验即将结束'}
-                    </p>
+            <div className="bg-card border border-border/50 rounded-xl p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">邮箱</span>
+                <span className="text-foreground font-medium">{user.email}</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={!nameChanged || saving}
+              className="w-full px-4 py-3 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  保存中...
+                </>
+              ) : '保存'}
+            </button>
+          </form>
+        )}
+
+        {activeTab === 'subscription' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-editorial text-foreground">订阅状态</h2>
+              {subLoading ? (
+                <span className="w-12 h-5 rounded-full bg-muted animate-pulse" />
+              ) : (
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                  isPro ? urgencyStyles.badge
+                    : isCanceled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
+                    : 'bg-muted border-border/50 text-muted-foreground'
+                }`}>
+                  {isPro ? 'Pro' : isCanceled ? '已取消' : '免费版'}
+                </span>
+              )}
+            </div>
+
+            <div className="bg-card border border-border/50 rounded-xl overflow-hidden">
+              {subLoading ? (
+                <div className="p-5 space-y-3">
+                  <div className="w-32 h-4 rounded bg-muted animate-pulse" />
+                  <div className="w-full h-2 rounded-full bg-muted animate-pulse" />
+                  <div className="w-20 h-3 rounded bg-muted animate-pulse" />
+                </div>
+              ) : isTrial ? (
+                /* ── Active trial ── */
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">邀请码体验</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        有效期至 <span className="text-foreground">{formatDate(accessExpiresAt!)}</span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold font-mono ${urgencyStyles.text}`}>{daysLeft}</p>
+                      <p className="text-xs text-muted-foreground">天后到期</p>
+                    </div>
+                  </div>
+
+                  <div className="h-1.5 bg-background rounded-full overflow-hidden mb-1">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${urgencyStyles.bar}`}
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground/60">
+                    <span>{INVITE_DAYS - (daysLeft ?? 0)} 天已用</span>
+                    <span>共 {INVITE_DAYS} 天</span>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-border/40">
+                    {daysLeft !== null && daysLeft <= 7 && (
+                      <p className={`text-xs mb-3 ${urgencyStyles.text}`}>
+                        {daysLeft <= 3 ? '体验即将到期' : '体验即将结束'}
+                      </p>
+                    )}
+                    <Link
+                      href="/pricing"
+                      className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors text-center"
+                    >
+                      升级到 Pro — {PRICING.proPerMonth}
+                    </Link>
+                  </div>
+                </div>
+              ) : isPaidPro ? (
+                /* ── Paid Pro ── */
+                <div className="p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Pro 会员</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{PRICING.proPerMonth} · 自动续费</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 mb-4">
+                    {currentPeriodEnd && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">下次续费</span>
+                        <span className="text-foreground font-medium">{formatDate(currentPeriodEnd)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">方案</span>
+                      <span className="text-foreground font-medium">Pro</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">状态</span>
+                      <span className="text-primary font-medium">活跃</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleManageSubscription}
+                    disabled={isPortalLoading}
+                    className="w-full px-4 py-2.5 bg-background border border-border/60 rounded-lg text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isPortalLoading ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                    管理订阅
+                  </button>
+                  {portalError ? (
+                    <p className="text-xs text-red-400 text-center mt-2">{portalError}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
                   )}
+                </div>
+              ) : isCanceled ? (
+                /* ── Canceled ── */
+                <div className="p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-full bg-amber-400/10 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">订阅已取消</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {currentPeriodEnd
+                          ? <>Pro 权限有效至 <span className="text-foreground">{formatDate(currentPeriodEnd)}</span></>
+                          : '你的 Pro 权限已结束'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={STRIPE_LIVE ? () => createCheckout('/profile?tab=subscription') : undefined}
+                    disabled={!STRIPE_LIVE}
+                    className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {STRIPE_LIVE ? '重新订阅 Pro' : '订阅即将开放'}
+                  </button>
+                </div>
+              ) : (
+                /* ── Free ── */
+                <div className="p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-3-3v6" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">暂无订阅</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">升级 Pro 解锁全部功能</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-background/50 rounded-lg mb-4">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Pro 会员权益</p>
+                    <ul className="space-y-2.5">
+                      {[
+                        '每日个性化投研摘要',
+                        '盘前早报 & 收盘日报',
+                        '宏观周报 & 流动性监控',
+                        '个股深度分析',
+                      ].map((item) => (
+                        <li key={item} className="flex items-center gap-2 text-sm text-foreground/80">
+                          <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
                   <Link
                     href="/pricing"
                     className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors text-center"
                   >
-                    升级到 Pro — {PRICING.proPerMonth}
+                    查看方案 — {PRICING.proPerMonth}
                   </Link>
                 </div>
-              </div>
-            ) : isPaidPro ? (
-              /* ── Paid Pro — renewal info + manage button ── */
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+              )}
+
+              {/* Invite code section (hidden for paid Pro) */}
+              {!isPaidPro && (
+                <div className="border-t border-border/40 px-5 py-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                    {isTrial && daysLeft !== null && daysLeft <= 7 ? '兑换新邀请码延续访问' : isTrial ? '兑换邀请码' : '使用邀请码'}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={codeInput}
+                      onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); setCodeSuccess(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleRedeemCode()}
+                      placeholder="例如：BREW2026"
+                      className="flex-1 px-3 py-2 bg-background border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRedeemCode}
+                      disabled={isRedeeming || !codeInput.trim()}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap flex items-center gap-1.5"
+                    >
+                      {isRedeeming ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+                      ) : '兑换'}
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Pro 会员</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{PRICING.proPerMonth} · 自动续费</p>
-                  </div>
+                  {codeError && <p className="text-xs text-red-400 mt-2">{codeError}</p>}
+                  {codeSuccess && <p className="text-xs text-primary mt-2">{codeSuccess}</p>}
                 </div>
-
-                {/* Subscription details */}
-                <div className="space-y-2.5 mb-4">
-                  {currentPeriodEnd && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">下次续费</span>
-                      <span className="text-foreground font-medium">{formatDate(currentPeriodEnd)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">方案</span>
-                    <span className="text-foreground font-medium">Pro</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">状态</span>
-                    <span className="text-primary font-medium">活跃</span>
-                  </div>
-                </div>
-
-                {/* Manage subscription */}
-                <button
-                  type="button"
-                  onClick={handleManageSubscription}
-                  disabled={isPortalLoading}
-                  className="w-full px-4 py-2.5 bg-background border border-border/60 rounded-lg text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  {isPortalLoading ? (
-                    <div className="w-4 h-4 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />
-                  ) : (
-                    <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                  管理订阅
-                </button>
-                <p className="text-xs text-muted-foreground/60 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
-              </div>
-            ) : isCanceled ? (
-              /* ── Canceled — resubscribe CTA ── */
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-amber-400/10 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">订阅已取消</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {currentPeriodEnd
-                        ? <>Pro 权限有效至 <span className="text-foreground">{formatDate(currentPeriodEnd)}</span></>
-                        : '你的 Pro 权限已结束'}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={STRIPE_LIVE ? () => createCheckout('/profile') : undefined}
-                  disabled={!STRIPE_LIVE}
-                  className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {STRIPE_LIVE ? '重新订阅 Pro' : '订阅即将开放'}
-                </button>
-              </div>
-            ) : (
-              /* ── Free — upgrade prompts ── */
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">当前为免费版</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">升级 Pro 解锁全部功能</p>
-                  </div>
-                </div>
-
-                <Link
-                  href="/pricing"
-                  className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors text-center"
-                >
-                  查看方案
-                </Link>
-              </div>
-            )}
-
-            {/* ── Invite code section (hidden for paid Pro) ── */}
-            {!isPaidPro && (
-              <div className="border-t border-border/40 px-5 py-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  {isTrial && daysLeft !== null && daysLeft <= 7 ? '兑换新邀请码延续访问' : isTrial ? '兑换邀请码' : '使用邀请码'}
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={codeInput}
-                    onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); setCodeSuccess(''); }}
-                    onKeyDown={e => e.key === 'Enter' && handleRedeemCode()}
-                    placeholder="例如：BREW2026"
-                    className="flex-1 px-3 py-2 bg-background border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRedeemCode}
-                    disabled={isRedeeming || !codeInput.trim()}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap flex items-center gap-1.5"
-                  >
-                    {isRedeeming ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-                    ) : '兑换'}
-                  </button>
-                </div>
-                {codeError && <p className="text-xs text-red-400 mt-2">{codeError}</p>}
-                {codeSuccess && <p className="text-xs text-primary mt-2">{codeSuccess}</p>}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Profile Form */}
-        <form onSubmit={handleSave} className="space-y-10">
-          {/* Message */}
-          {message && (
-            <div className={`p-4 rounded-lg border ${
-              message.type === 'success'
-                ? 'bg-primary/10 border-primary/20'
-                : 'bg-red-500/10 border-red-500/20'
-            }`}>
-              <p className={`text-sm text-center ${
-                message.type === 'success' ? 'text-primary' : 'text-red-400'
-              }`}>
-                {message.text}
-              </p>
+              )}
             </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-foreground/90 mb-2">昵称</label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); setMessage(null); }}
-              placeholder="输入你的昵称"
-              maxLength={50}
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">此昵称将用于每日邮件的称呼</p>
           </div>
+        )}
 
-          {/* Email Preferences */}
-          <div className="space-y-4">
+        {activeTab === 'email' && (
+          <form onSubmit={handleSavePrefs} className="space-y-6">
+            {message && (
+              <div className={`p-4 rounded-lg border ${
+                message.type === 'success'
+                  ? 'bg-primary/10 border-primary/20'
+                  : 'bg-red-500/10 border-red-500/20'
+              }`}>
+                <p className={`text-sm text-center ${
+                  message.type === 'success' ? 'text-primary' : 'text-red-400'
+                }`}>{message.text}</p>
+              </div>
+            )}
+
             <div>
               <h2 className="text-lg font-editorial text-foreground">邮件订阅偏好</h2>
               <p className="text-sm text-muted-foreground mt-1">选择你想接收的报告类型</p>
@@ -492,24 +604,24 @@ export default function ProfilePage(): ReactNode {
                 ))}
               </div>
             )}
-          </div>
 
-          <button
-            type="submit"
-            disabled={!hasChanges || saving}
-            className="w-full px-4 py-3 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                保存中...
-              </>
-            ) : '保存'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={!prefsChanged || saving}
+              className="w-full px-4 py-3 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  保存中...
+                </>
+              ) : '保存'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

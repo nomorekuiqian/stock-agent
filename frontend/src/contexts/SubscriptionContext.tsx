@@ -278,23 +278,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const openBillingPortal = useCallback(async () => {
     if (!user?.id) return;
 
-    try {
-      const token = await getAccessToken();
-      if (!token) return;
-      const res = await fetch(
-        `${API_BASE_URL}/payment/portal-session`,
-        {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        window.location.href = data.portal_url;
+    const token = await getAccessToken();
+    if (!token) return;
+    const res = await fetch(
+      `${API_BASE_URL}/payment/portal-session`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
       }
-    } catch (err) {
-      console.error('[Subscription] Failed to open portal:', err);
+    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || 'Failed to open billing portal');
     }
+    const data = await res.json();
+    window.location.href = data.portal_url;
   }, [user?.id]);
 
   return (
