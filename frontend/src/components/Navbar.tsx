@@ -63,7 +63,7 @@ export function Navbar() {
             <NavLink href="/for-you">专属</NavLink>
             <NavLink href="/stock">个股</NavLink>
             <NavLink href="/macro">宏观</NavLink>
-            <NavLink href="/pricing">定价</NavLink>
+            <NavLink href="/pricing">高级订阅</NavLink>
             <NavLink href="/contact">联系</NavLink>
           </div>
 
