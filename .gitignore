@@ -45,9 +45,18 @@ htmlcov/
 .cursor/
 .gemini/
 .opencode/
-.claude/
 skills/
 .github/skills/
+
+# Claude Code: track shared config (settings.json, skills/, hooks)
+!.claude/
+!.claude/settings.json
+!.claude/skills/
+!.claude/skills/**
+# Re-ignore personal config within .claude/
+.claude/settings.local.json
+.claude/worktrees/
+test-results/
 
 # Node (covered by frontend/.gitignore but listed for clarity)
 node_modules/
@@ -66,7 +75,6 @@ yarn-error.log*
 .agent
 .agents
 .augment
-.claude
 .cline
 .github/copilot*
 .kilocode
