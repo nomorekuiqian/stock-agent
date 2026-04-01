@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { Suspense, useState, useEffect, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,18 @@ function formatDate(iso: string) {
 }
 
 export default function ProfilePage(): ReactNode {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    }>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent(): ReactNode {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
