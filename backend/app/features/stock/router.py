@@ -553,6 +553,32 @@ async def get_technical_snapshot_endpoint(symbol: str):
 
 
 
+@router.get("/{symbol}/technical/cache")
+async def get_technical_analysis_cache(symbol: str, timeframe: str = Query(default="daily", pattern="^(daily|weekly)$")):
+    """Return cached technical analysis if available, without triggering generation."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    analysis_type = f"technical_{timeframe}"
+    try:
+        cached = await get_stock_analysis(symbol, analysis_type=analysis_type)
+        if cached:
+            return {
+                "success": True,
+                "analysis": cached.get("content"),
+                "meta": {
+                    "symbol": symbol,
+                    "generated_at": cached.get("generated_at"),
+                    "from_cache": True,
+                },
+            }
+        return {"success": True, "analysis": None}
+    except Exception:
+        logger.exception("Error checking technical cache for %s", symbol)
+        return {"success": True, "analysis": None}
+
+
 @router.post("/{symbol}/technical")
 @limiter.limit("5/minute")
 async def generate_technical_analysis_endpoint(
@@ -674,6 +700,31 @@ def _get_peer_symbols(symbol: str) -> list[str]:
     except Exception as e:
         logger.warning("Failed to get peers for %s: %s", symbol, e)
     return []
+
+
+@router.get("/{symbol}/news/cache")
+async def get_news_analysis_cache(symbol: str):
+    """Return cached news analysis if available, without triggering generation."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        cached = await get_stock_analysis(symbol, analysis_type="news_context")
+        if cached:
+            return {
+                "success": True,
+                "analysis": cached.get("content"),
+                "meta": {
+                    "symbol": symbol,
+                    "generated_at": cached.get("generated_at"),
+                    "from_cache": True,
+                },
+            }
+        return {"success": True, "analysis": None}
+    except Exception:
+        logger.exception("Error checking news cache for %s", symbol)
+        return {"success": True, "analysis": None}
 
 
 @router.post("/{symbol}/news")
@@ -824,6 +875,31 @@ async def generate_news_analysis_endpoint(
 # Macro-Sector Analysis
 # =============================================================================
 
+
+
+@router.get("/{symbol}/macro/cache")
+async def get_macro_analysis_cache(symbol: str):
+    """Return cached macro analysis if available, without triggering generation."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        cached = await get_stock_analysis(symbol, analysis_type="macro_sector")
+        if cached:
+            return {
+                "success": True,
+                "analysis": cached.get("content"),
+                "meta": {
+                    "symbol": symbol,
+                    "generated_at": cached.get("generated_at"),
+                    "from_cache": True,
+                },
+            }
+        return {"success": True, "analysis": None}
+    except Exception:
+        logger.exception("Error checking macro cache for %s", symbol)
+        return {"success": True, "analysis": None}
 
 
 @router.post("/{symbol}/macro")

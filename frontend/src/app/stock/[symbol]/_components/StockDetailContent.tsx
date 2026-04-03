@@ -26,6 +26,9 @@ import {
   useValuationComparison,
   useTechnicalSnapshot,
   useStockAnalysisCache,
+  useTechnicalAnalysisCache,
+  useNewsAnalysisCache,
+  useMacroAnalysisCache,
   useGenerateStockAnalysis,
   useGenerateTechnicalAnalysis,
   useGenerateNewsAnalysis,
@@ -1188,15 +1191,24 @@ function AIAnalysisSection({
     current.regenerate();
   };
 
+  const tabAccentColors: Record<AnalysisTab, { line: string; text: string; spinner: string }> = {
+    fundamental: { line: 'via-amber-500/50', text: 'text-amber-500/80 light:text-amber-600', spinner: 'text-amber-500/70' },
+    technical: { line: 'via-emerald-500/50', text: 'text-emerald-500/80 light:text-emerald-600', spinner: 'text-emerald-500/70' },
+    news: { line: 'via-blue-500/50', text: 'text-blue-500/80 light:text-blue-600', spinner: 'text-blue-500/70' },
+    macro: { line: 'via-violet-500/50', text: 'text-violet-500/80 light:text-violet-600', spinner: 'text-violet-500/70' },
+  };
+
+  const accent = tabAccentColors[activeTab];
+
   // State A: Not analyzed yet - show CTA
   if (!currentAnalysis && !currentLoading) {
     return (
       <div className="relative">
         <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+          <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent.line} to-transparent`} />
           <div className="px-6 py-8 md:px-10 md:py-10">
             <div className="max-w-2xl mx-auto text-center">
-              <p className="text-xs uppercase tracking-[0.2em] text-amber-500/80 light:text-amber-600 mb-4">
+              <p className={`text-xs uppercase tracking-[0.2em] ${accent.text} mb-4`}>
                 {{ fundamental: 'AI 投研', technical: 'AI 技术分析', news: 'AI 新闻分析', macro: 'AI 宏观分析' }[activeTab]}
               </p>
               <h3 className="font-editorial text-2xl md:text-3xl text-foreground mb-3 leading-tight">
@@ -1244,11 +1256,11 @@ function AIAnalysisSection({
     return (
       <div className="relative">
         <div className="relative bg-card/30 border border-border/50 rounded-xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+          <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent.line} to-transparent`} />
           <div className="px-6 py-10 md:px-10 md:py-12">
             <div className="max-w-md mx-auto text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 mb-6">
-                <svg className="animate-spin w-8 h-8 text-amber-500/70" fill="none" viewBox="0 0 24 24">
+                <svg className={`animate-spin w-8 h-8 ${accent.spinner}`} fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
@@ -1593,8 +1605,12 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   // UI state
   const [logoError, setLogoError] = useState(false);
 
-  // Auto-fetch cached analysis on page load
+  // Auto-fetch cached analysis on page load (all 4 types)
   const { data: cachedAnalysis, isLoading: cacheLoading } = useStockAnalysisCache(symbol);
+  const { data: cachedDailyTechnical } = useTechnicalAnalysisCache(symbol, 'daily');
+  const { data: cachedWeeklyTechnical } = useTechnicalAnalysisCache(symbol, 'weekly');
+  const { data: cachedNews } = useNewsAnalysisCache(symbol);
+  const { data: cachedMacro } = useMacroAnalysisCache(symbol);
 
   // AI Analysis mutations (for generate/regenerate)
   const analysisMutation = useGenerateStockAnalysis(symbol);
@@ -1606,15 +1622,15 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const analysis = (analysisMutation.data as StockAIAnalysis | null) ?? (cachedAnalysis as StockAIAnalysis | null) ?? null;
   const analysisLoading = analysisMutation.isPending || cacheLoading;
 
-  // Technical Analysis state (separate per timeframe, kept local)
+  // Technical Analysis state (separate per timeframe, with cache fallback)
   const [dailyTechnicalAnalysis, setDailyTechnicalAnalysis] = useState<StockTechnicalAnalysis | null>(null);
   const [weeklyTechnicalAnalysis, setWeeklyTechnicalAnalysis] = useState<StockTechnicalAnalysis | null>(null);
   const technicalLoading = technicalMutation.isPending;
 
-  // News & Macro analysis
-  const newsAnalysis = (newsMutation.data as StockNewsAnalysis | null) ?? null;
+  // News & Macro analysis (with cache fallback)
+  const newsAnalysis = (newsMutation.data as StockNewsAnalysis | null) ?? (cachedNews as StockNewsAnalysis | null) ?? null;
   const newsLoading = newsMutation.isPending;
-  const macroAnalysis = (macroMutation.data as StockMacroAnalysis | null) ?? null;
+  const macroAnalysis = (macroMutation.data as StockMacroAnalysis | null) ?? (cachedMacro as StockMacroAnalysis | null) ?? null;
   const macroLoading = macroMutation.isPending;
 
   // Active analysis tab (synced from AIAnalysisSection to control chart)
@@ -1652,8 +1668,10 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
     );
   };
 
-  // Computed: current timeframe's technical analysis
-  const technicalAnalysis = technicalTimeframe === 'daily' ? dailyTechnicalAnalysis : weeklyTechnicalAnalysis;
+  // Computed: current timeframe's technical analysis (mutation result > local state > cache)
+  const technicalAnalysis = technicalTimeframe === 'daily'
+    ? (dailyTechnicalAnalysis ?? (cachedDailyTechnical as StockTechnicalAnalysis | null) ?? null)
+    : (weeklyTechnicalAnalysis ?? (cachedWeeklyTechnical as StockTechnicalAnalysis | null) ?? null);
 
   // Handle analysis tab change (enable snapshot fetch on first technical tab visit)
   const handleAnalysisTabChange = (tab: AnalysisTab) => {

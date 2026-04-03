@@ -121,6 +121,54 @@ export function useGenerateStockAnalysis(symbol: string) {
   });
 }
 
+// Auto-fetch cached technical analysis on page load (GET, no AI generation)
+export function useTechnicalAnalysisCache(symbol: string, timeframe: string = 'daily') {
+  return useQuery({
+    queryKey: [...queryKeys.stocks.technical(symbol), 'cache', timeframe],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/technical/cache?timeframe=${timeframe}`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    enabled: !!symbol,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
+// Auto-fetch cached news analysis on page load (GET, no AI generation)
+export function useNewsAnalysisCache(symbol: string) {
+  return useQuery({
+    queryKey: [...queryKeys.stocks.newsAnalysis(symbol), 'cache'],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/news/cache`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    enabled: !!symbol,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
+// Auto-fetch cached macro analysis on page load (GET, no AI generation)
+export function useMacroAnalysisCache(symbol: string) {
+  return useQuery({
+    queryKey: [...queryKeys.stocks.macroAnalysis(symbol), 'cache'],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/macro/cache`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    enabled: !!symbol,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
 export function useGenerateTechnicalAnalysis(symbol: string) {
   const queryClient = useQueryClient();
   return useMutation({
