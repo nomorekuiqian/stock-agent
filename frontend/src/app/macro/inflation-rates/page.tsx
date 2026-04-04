@@ -7,9 +7,13 @@ import PaywallGuard from '@/components/PaywallGuard';
 import dynamic from 'next/dynamic';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 
+const FredAreaChart = dynamic(
+  () => import('@/components/FredAreaChart').then(mod => mod.FredAreaChart),
+  { ssr: false, loading: () => <div className="h-[300px] bg-card animate-pulse rounded-lg" /> },
+);
 const TradingViewWidget = dynamic(
   () => import('@/components/TradingViewWidget').then(mod => mod.TradingViewWidget),
-  { ssr: false, loading: () => <div className="h-[400px] bg-card animate-pulse rounded-lg" /> },
+  { ssr: false, loading: () => <div className="h-[300px] bg-card animate-pulse rounded-lg" /> },
 );
 const CommodityAreaChart = dynamic(
   () => import('@/components/CommodityAreaChart').then(mod => mod.CommodityAreaChart),
@@ -32,24 +36,32 @@ import { formatTimestamp } from '@/lib/timezone';
 import { DollarSign, Percent, BarChart3, type LucideIcon } from 'lucide-react';
 
 
-const FRED_SYMBOLS: Record<string, string> = {
-  cpi: 'FRED:CPIAUCSL',
-  core_pce: 'FRED:PCEPILFE',
-  inflation_expectations_5y: 'FRED:T5YIE',
-  michigan_inflation: 'FRED:MICH',
-  fed_funds_rate: 'FRED:FEDFUNDS',
-  treasury_10y: 'FRED:DGS10',
-  real_rate_10y: 'FRED:DFII10',
+const FRED_SERIES: Record<string, string> = {
+  cpi: 'CPIAUCSL',
+  core_pce: 'PCEPILFE',
+  ppi: 'PPIFIS',
+  fed_funds_rate: 'FEDFUNDS',
+  treasury_10y: 'DGS10',
+  real_rate_10y: 'DFII10',
 };
 
 const SERIES_TO_CHART: Record<string, string> = {
   CPIAUCSL: 'cpi',
   PCEPILFE: 'core_pce',
-  T5YIE: 'inflation_expectations_5y',
-  MICH: 'michigan_inflation',
+  PPIFIS: 'ppi',
   FEDFUNDS: 'fed_funds_rate',
   DGS10: 'treasury_10y',
   DFII10: 'real_rate_10y',
+};
+
+// Inflation indicators: use FredAreaChart with YoY% trend
+const YOY_CHART_SERIES = new Set(['cpi', 'core_pce', 'ppi']);
+
+// Rates indicators: keep TradingView (real-time, no delay issues)
+const TV_SYMBOLS: Record<string, string> = {
+  fed_funds_rate: 'FRED:FEDFUNDS',
+  treasury_10y: 'FRED:DGS10',
+  real_rate_10y: 'FRED:DFII10',
 };
 
 const HERO_CONFIG: Record<string, {
@@ -61,14 +73,14 @@ const HERO_CONFIG: Record<string, {
 }> = {
   inflation: {
     primary: 'CPIAUCSL',
-    secondary: 'T5YIE',
-    label: 'CPI 消费者价格指数',
-    format: (ind) => ind.value != null ? ind.value.toFixed(1) : 'N/A',
+    secondary: 'PPIFIS',
+    label: 'CPI 同比通胀率',
+    format: (ind) => ind.value != null ? `${ind.value.toFixed(1)}%` : 'N/A',
     interpret: (ind) => {
-      const c = ind.change;
-      if (c == null) return { color: 'amber' };
-      if (Math.abs(c) <= 0.2) return { color: 'emerald' };
-      if (Math.abs(c) <= 0.4) return { color: 'amber' };
+      const v = ind.value;
+      if (v == null) return { color: 'amber' };
+      if (v <= 2.5) return { color: 'emerald' };
+      if (v <= 3.5) return { color: 'amber' };
       return { color: 'red' };
     },
   },
@@ -91,9 +103,9 @@ const SECONDARY_FORMAT: Record<string, {
   label: string;
   format: (ind: RiskIndicator) => string;
 }> = {
-  T5YIE: {
-    label: '5Y Breakeven',
-    format: (ind) => ind.value != null ? `${ind.value.toFixed(2)}%` : 'N/A',
+  PPIFIS: {
+    label: 'PPI 同比',
+    format: (ind) => ind.value != null ? `${ind.value.toFixed(1)}%` : 'N/A',
   },
   DGS10: {
     label: '10Y Treasury',
@@ -110,13 +122,9 @@ const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
     title: '核心 PCE 物价指数',
     description: '剔除食品和能源的个人消费支出物价指数，是美联储首选的通胀度量。美联储的目标是核心PCE年化率回到2%。',
   },
-  inflation_expectations_5y: {
-    title: '5年期通胀预期',
-    description: '由5年期TIPS与名义国债的利差推导，反映市场对未来5年平均通胀的定价。超过2.5%表明市场认为通胀将持续高于目标。',
-  },
-  michigan_inflation: {
-    title: '密歇根通胀预期',
-    description: '密歇根大学调查的1年期消费者通胀预期。消费者预期自我实现：预期上升会推动工资要求和提前消费，形成通胀螺旋。',
+  ppi: {
+    title: 'PPI 生产者价格指数',
+    description: '衡量生产端出厂价格变动的指标，是通胀的领先信号。PPI上升意味着企业成本增加，最终会传导到消费者价格(CPI)。PPI持续高于CPI暗示企业利润率承压。',
   },
   fed_funds_rate: {
     title: '联邦基金利率',
@@ -135,14 +143,11 @@ const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
 const CHANGE_PERIOD: Record<string, string> = {
   cpi: 'MoM',
   core_pce: 'MoM',
-  inflation_expectations_5y: 'DoD',
-  michigan_inflation: 'MoM',
+  ppi: 'MoM',
   fed_funds_rate: 'MoM',
   treasury_10y: 'DoD',
   real_rate_10y: 'DoD',
 };
-
-const CHANGE_AS_PRIMARY = new Set(['cpi', 'core_pce']);
 
 const SUB_DIM_NAMES: Record<string, string> = {
   inflation: '通胀',
@@ -151,7 +156,7 @@ const SUB_DIM_NAMES: Record<string, string> = {
 };
 
 const SECTION_META: Record<string, { number: string; subtitle: string }> = {
-  inflation: { number: '01', subtitle: 'CPI / 核心 PCE / 通胀预期 / 密歇根预期' },
+  inflation: { number: '01', subtitle: 'CPI / 核心 PCE / PPI' },
   rates: { number: '02', subtitle: '收益率曲线 / 关键利差 / 联邦基金利率 / 10Y 国债 / 实际利率' },
   commodities: { number: '03', subtitle: '黄金 / 白银 / 原油 / 铜 / 美元指数' },
 };
@@ -171,7 +176,7 @@ const SECTION_EXPLAINER: Record<string, {
     items: [
       { label: 'CPI', text: '覆盖面最广的物价指数，包含食品、能源、住房等。月环比超过 0.3% 就意味着年化通胀率在 3.5% 以上，远高于 2% 目标，股市通常会下跌。' },
       { label: '核心 PCE', text: '剔除食品和能源后的物价指数，美联储制定利率政策时主要看这个。核心 PCE 持续高于 2.5%，市场就会预期美联储不会降息。' },
-      { label: '通胀预期 (T5YIE / 密歇根)', text: '市场和消费者认为未来通胀会是多少。如果预期大幅上升，美联储会被迫更激进地加息，对股市冲击更大。' },
+      { label: 'PPI', text: '衡量生产端出厂价格变动。PPI 是通胀的领先信号 -- PPI 上升意味着企业成本增加，最终会传导到 CPI。PPI 持续高于 CPI 暗示企业利润率承压。' },
     ],
   },
   rates: {
@@ -339,13 +344,11 @@ function HeroCard({
   index,
   selected,
   onSelect,
-  cpiYoy,
 }: {
   dim: SubDimension;
   index: number;
   selected: boolean;
   onSelect: () => void;
-  cpiYoy?: number | null;
 }) {
   const config = HERO_CONFIG[dim.name];
   if (!config) return null;
@@ -353,15 +356,9 @@ function HeroCard({
   const primaryInd = findIndicator(dim, config.primary);
   const secondaryInd = findIndicator(dim, config.secondary);
 
-  // Override inflation hero with CPI YoY% when available
-  const hasCpiOverride = dim.name === 'inflation' && cpiYoy != null;
-  const formatted = hasCpiOverride
-    ? `${cpiYoy!.toFixed(1)}%`
-    : primaryInd ? config.format(primaryInd) : 'N/A';
-  const interpretation = hasCpiOverride
-    ? { color: cpiYoy! <= 2.5 ? 'emerald' : cpiYoy! <= 3.5 ? 'amber' : 'red' }
-    : primaryInd ? config.interpret(primaryInd) : { color: 'amber' };
-  const heroLabel = hasCpiOverride ? 'CPI 同比通胀率' : config.label;
+  const formatted = primaryInd ? config.format(primaryInd) : 'N/A';
+  const interpretation = primaryInd ? config.interpret(primaryInd) : { color: 'amber' };
+  const heroLabel = config.label;
 
   const secConfig = SECONDARY_FORMAT[config.secondary];
   const secFormatted = secondaryInd && secConfig ? secConfig.format(secondaryInd) : null;
@@ -434,34 +431,23 @@ function HeroCard({
 function MetricPanel({
   indicator,
   chartKey,
-  theme,
-  interval,
+  timeRange,
 }: {
   indicator: RiskIndicator;
   chartKey: string;
-  theme: 'light' | 'dark';
-  interval: string;
+  timeRange: string;
 }) {
   const { ref, isVisible } = useInView(0.05);
   const info = INDICATOR_INFO[chartKey];
-  const symbol = FRED_SYMBOLS[chartKey];
+  const seriesId = FRED_SERIES[chartKey];
   const period = CHANGE_PERIOD[chartKey];
 
-  if (!info || !symbol) return null;
+  if (!info || !seriesId) return null;
 
-  const isIndexSeries = CHANGE_AS_PRIMARY.has(chartKey);
   const hasChange = indicator.change != null;
   const isPositive = hasChange && indicator.change! >= 0;
-
-  let primaryDisplay: string;
-  let secondaryDisplay: string | null = null;
-
-  if (isIndexSeries && hasChange) {
-    primaryDisplay = `${isPositive ? '+' : ''}${indicator.change!.toFixed(2)}%`;
-    secondaryDisplay = formatRiskValue(indicator.value, indicator.units);
-  } else {
-    primaryDisplay = formatRiskValue(indicator.value, indicator.units);
-  }
+  const primaryDisplay = formatRiskValue(indicator.value, indicator.units);
+  const isYoy = YOY_CHART_SERIES.has(chartKey);
 
   return (
     <div
@@ -474,25 +460,13 @@ function MetricPanel({
         <div className="flex items-baseline justify-between gap-3">
           <h4 className="text-sm font-medium text-foreground truncate">{info.title}</h4>
           <div className="flex items-baseline gap-2 shrink-0">
-            <span className={`text-xl font-bold font-data tracking-tight ${
-              isIndexSeries && hasChange
-                ? isPositive ? 'text-emerald-500' : 'text-red-500'
-                : 'text-foreground'
-            }`}>
+            <span className="text-xl font-bold font-data tracking-tight text-foreground">
               {primaryDisplay}
             </span>
-            {isIndexSeries ? (
-              secondaryDisplay && (
-                <span className="text-xs font-data text-muted-foreground">
-                  {period} / {secondaryDisplay}
-                </span>
-              )
-            ) : (
-              hasChange && (
-                <span className={`text-xs font-data font-medium ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-                  {period} {isPositive ? '+' : ''}{indicator.change!.toFixed(2)}%
-                </span>
-              )
+            {hasChange && (
+              <span className={`text-xs font-data font-medium ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+                {period} {isPositive ? '+' : ''}{indicator.change!.toFixed(2)}%
+              </span>
             )}
           </div>
         </div>
@@ -503,7 +477,11 @@ function MetricPanel({
       </div>
 
       <div className="border-t border-border/30">
-        <TradingViewWidget symbol={symbol} height={300} interval={interval} theme={theme} />
+        {TV_SYMBOLS[chartKey] ? (
+          <TradingViewWidget symbol={TV_SYMBOLS[chartKey]} height={300} interval="W" theme="dark" />
+        ) : (
+          <FredAreaChart seriesId={seriesId} timeRange={timeRange} height={300} units={isYoy ? 'pc1' : undefined} />
+        )}
       </div>
     </div>
   );
@@ -511,12 +489,10 @@ function MetricPanel({
 
 function DeepDiveSection({
   dim,
-  theme,
-  interval,
+  timeRange,
 }: {
   dim: SubDimension;
-  theme: 'light' | 'dark';
-  interval: string;
+  timeRange: string;
 }) {
   const { ref, isVisible } = useInView();
 
@@ -549,8 +525,7 @@ function DeepDiveSection({
               key={chartKey}
               indicator={indicator}
               chartKey={chartKey}
-              theme={theme}
-              interval={interval}
+              timeRange={timeRange}
             />
           ))}
         </div>
@@ -638,9 +613,9 @@ function CommodityPanel({
 
 
 export default function InflationRatesPage() {
-  const [theme] = useState<'light' | 'dark'>('dark');
   const [selectedDim, setSelectedDim] = useState<string>('inflation');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [fredTimeRange, setFredTimeRange] = useState('1Y');
   const [commodityTimeRange, setCommodityTimeRange] = useState('1Y');
   const queryClient = useQueryClient();
 
@@ -660,9 +635,6 @@ export default function InflationRatesPage() {
   const inflationDim = data?.sub_dimensions.find((d) => d.name === 'inflation');
   const ratesDim = data?.sub_dimensions.find((d) => d.name === 'rates');
   const orderedDims = [inflationDim, ratesDim].filter((d): d is SubDimension => d != null);
-
-  const cpiHeadline = cpiComponents.find((c) => c.series_id === 'CPIAUCSL');
-  const cpiYoy = cpiHeadline?.yoy_pct ?? null;
 
   // Commodity hero data
   const goldData = tcData?.commodities?.Gold;
@@ -713,7 +685,6 @@ export default function InflationRatesPage() {
                     dim={dim}
                     index={i}
                     selected={selectedDim === dim.name}
-                    cpiYoy={cpiYoy}
                     onSelect={() => handleDimSelect(dim.name)}
                   />
                 ))}
@@ -777,6 +748,25 @@ export default function InflationRatesPage() {
           weekLabel={weeklyReport?.week_label ?? null}
           loading={weeklyLoading}
         />
+
+        {selectedDim === 'inflation' && (
+          <div className="flex items-center gap-1">
+            {['1Y', '2Y', '5Y', 'ALL'].map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setFredTimeRange(range)}
+                className={`px-3 py-1.5 text-xs font-data rounded-lg transition-colors ${
+                  fredTimeRange === range
+                    ? 'bg-primary/15 text-primary font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        )}
 
         {selectedDim === 'inflation' && cpiComponents.length > 0 && (
           <section>
@@ -857,7 +847,7 @@ export default function InflationRatesPage() {
             )}
 
             {ratesDim && (
-              <DeepDiveSection dim={ratesDim} theme={theme} interval="W" />
+              <DeepDiveSection dim={ratesDim} timeRange={fredTimeRange} />
             )}
           </div>
         )}
@@ -866,7 +856,7 @@ export default function InflationRatesPage() {
           <div className={`transition-all duration-300 ease-out ${
             isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
           }`}>
-            <DeepDiveSection dim={inflationDim} theme={theme} interval="W" />
+            <DeepDiveSection dim={inflationDim} timeRange={fredTimeRange} />
           </div>
         )}
 

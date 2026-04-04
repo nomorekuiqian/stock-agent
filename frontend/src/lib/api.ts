@@ -1244,6 +1244,27 @@ export const api = {
 
   getCommodityHistory: fetchOhlcvHistory('commodity'),
 
+  getFredHistory: async (seriesId: string, days: number = 730, units?: string): Promise<{
+    success: boolean;
+    data: Array<{ date: string; close: number }>;
+  }> => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (units) params.set('units', units);
+    const response = await fetch(`${API_BASE_URL}/macro-risk/history/${seriesId}?${params}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch FRED history' }));
+      throw new Error(error.detail || 'Failed to fetch FRED history');
+    }
+    const json = await response.json();
+    const observations: Array<{ date: string; value: number }> = json.data?.observations ?? [];
+    return {
+      success: true,
+      data: observations
+        .map((obs) => ({ date: obs.date, close: obs.value }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    };
+  },
+
   // Inflation & Rates API
   getInflationRates: async (): Promise<EconomicFundamentalsResponse> => {
     const response = await fetch(`${API_BASE_URL}/macro-risk/inflation-rates`);

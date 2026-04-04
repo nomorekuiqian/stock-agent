@@ -24,6 +24,8 @@ const TIME_RANGE_DAYS: Record<string, number> = {
   '3M': 90,
   '6M': 180,
   '1Y': 365,
+  '2Y': 730,
+  '5Y': 1825,
   'ALL': 9999,
 };
 
@@ -73,7 +75,7 @@ export function HistoryAreaChart({
   useEffect(() => {
     let cancelled = false;
 
-    fetcher(symbol, 730)
+    fetcher(symbol, 1825)
       .then((res) => {
         if (!cancelled && res.success) {
           rawDataRef.current = res.data.map(d => ({ date: d.date, close: d.close }));
