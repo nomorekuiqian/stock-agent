@@ -151,7 +151,7 @@ export function MobileMenu() {
       ],
     },
     {
-      label: '定价',
+      label: '高级订阅',
       href: '/pricing',
     },
     {

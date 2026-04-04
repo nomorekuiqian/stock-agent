@@ -6,8 +6,12 @@ import ProfilePage from '../page';
 // Mocks
 // ---------------------------------------------------------------------------
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
+const mockSearchParams = new URLSearchParams();
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 const mockUseAuth = vi.fn();
@@ -38,6 +42,11 @@ vi.mock('@/hooks/queries/query-keys', () => ({
 
 vi.mock('@/lib/api', () => ({
   api: { subscriptions: { updatePreferences: vi.fn() } },
+}));
+
+vi.mock('@/lib/pricing', () => ({
+  STRIPE_LIVE: true,
+  PRICING: { proPerMonth: '$9.99/月' },
 }));
 
 vi.mock('next/link', () => ({
@@ -76,14 +85,24 @@ function subState(overrides = {}) {
   };
 }
 
+/** Switch to subscription tab by setting URL param before render */
+function setTabParam(tab: string) {
+  mockSearchParams.delete('tab');
+  if (tab !== 'account') {
+    mockSearchParams.set('tab', tab);
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockUseAuth.mockReturnValue(authState());
   mockUseSubscription.mockReturnValue(subState());
+  setTabParam('subscription');
 });
 
 afterEach(() => {
   cleanup();
+  mockSearchParams.delete('tab');
 });
 
 // ---------------------------------------------------------------------------
@@ -93,9 +112,9 @@ describe('ProfilePage subscription states', () => {
   it('renders free state with pricing link', () => {
     render(<ProfilePage />);
 
-    expect(screen.getByText('当前为免费版')).toBeDefined();
-    expect(screen.getByText('查看方案')).toBeDefined();
-    const link = screen.getByText('查看方案').closest('a');
+    expect(screen.getByText('暂无订阅')).toBeDefined();
+    expect(screen.getByText(/查看方案/)).toBeDefined();
+    const link = screen.getByText(/查看方案/).closest('a');
     expect(link?.getAttribute('href')).toBe('/pricing');
   });
 
@@ -110,7 +129,6 @@ describe('ProfilePage subscription states', () => {
     expect(screen.getByText('Pro 会员')).toBeDefined();
     expect(screen.getByRole('button', { name: /管理订阅/ })).toBeDefined();
     expect(screen.getByText('活跃')).toBeDefined();
-    // Renewal date renders (locale formatting varies in jsdom, just check the row exists)
     expect(screen.getByText('下次续费')).toBeDefined();
   });
 
@@ -127,7 +145,6 @@ describe('ProfilePage subscription states', () => {
 
     expect(screen.getByText('邀请码体验')).toBeDefined();
     expect(screen.getByText('天后到期')).toBeDefined();
-    // Upgrade link always visible for trial users
     const link = screen.getByText(/升级到 Pro/).closest('a');
     expect(link?.getAttribute('href')).toBe('/pricing');
   });
@@ -159,7 +176,6 @@ describe('ProfilePage subscription states', () => {
   });
 
   it('shows correct badge per state', () => {
-    // Canceled badge
     mockUseSubscription.mockReturnValue(subState({
       isPro: false, status: 'canceled',
     }));
@@ -172,20 +188,25 @@ describe('ProfilePage subscription states', () => {
 
 describe('ProfilePage manage subscription', () => {
   it('calls openBillingPortal on manage click', async () => {
-    const mockPortal = vi.fn().mockResolvedValue(undefined);
-    mockUseSubscription.mockReturnValue(subState({
+    vi.useFakeTimers();
+    // Mock portal to never resolve — simulates redirect (page unloads)
+    const mockPortal = vi.fn().mockReturnValue(new Promise(() => {}));
+    const state = subState({
       isPro: true, plan: 'pro', status: 'active',
       currentPeriodEnd: '2026-05-01T00:00:00Z',
       openBillingPortal: mockPortal,
-    }));
+    });
+    mockUseSubscription.mockReturnValue(state);
 
-    render(<ProfilePage />);
+    const { unmount } = render(<ProfilePage />);
 
     screen.getByRole('button', { name: /管理订阅/ }).click();
 
-    await vi.waitFor(() => {
-      expect(mockPortal).toHaveBeenCalled();
-    });
+    expect(mockPortal).toHaveBeenCalled();
+
+    // Cleanup before timers fire to prevent state updates on unmounted component
+    unmount();
+    vi.useRealTimers();
   });
 
   it('upgrade link points to pricing in trial', () => {

@@ -11,7 +11,7 @@ const itemDefault = `${itemBase} text-muted-foreground hover:text-foreground hov
 
 export function NavAuth() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro, isLoading: subLoading, openBillingPortal } = useSubscription();
+  const { isPro, isLoading: subLoading } = useSubscription();
 
   if (isLoading || (isAuthenticated && subLoading)) {
     return <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />;
@@ -115,13 +115,8 @@ export function NavAuth() {
                 </Link>
               </DropdownMenu.Item>
 
-              {subLoading ? (
-                <DropdownMenu.Item disabled className={`${itemBase} text-muted-foreground/50`}>
-                  <div className="w-4 h-4 rounded bg-muted animate-pulse" />
-                  <div className="w-16 h-3 rounded bg-muted animate-pulse" />
-                </DropdownMenu.Item>
-              ) : isPro ? (
-                <DropdownMenu.Item onSelect={openBillingPortal} className={itemDefault}>
+              <DropdownMenu.Item asChild className={itemDefault}>
+                <Link href="/profile?tab=subscription">
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -136,30 +131,8 @@ export function NavAuth() {
                     />
                   </svg>
                   订阅管理
-                </DropdownMenu.Item>
-              ) : (
-                <DropdownMenu.Item
-                  asChild
-                  className={`${itemBase} text-primary hover:bg-primary/10 data-[highlighted]:bg-primary/10`}
-                >
-                  <Link href="/pricing">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                    升级到 Pro
-                  </Link>
-                </DropdownMenu.Item>
-              )}
+                </Link>
+              </DropdownMenu.Item>
 
               <DropdownMenu.Item
                 onSelect={signOut}
