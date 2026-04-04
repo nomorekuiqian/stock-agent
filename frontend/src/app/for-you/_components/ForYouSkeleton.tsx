@@ -7,7 +7,7 @@ export function ForYouSkeleton() {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">MYBREW</span>
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MYBREW</span>
             </div>
             <div className="h-10 w-44 bg-muted rounded-lg animate-pulse" />
             <div className="h-4 w-60 bg-muted rounded animate-pulse" />

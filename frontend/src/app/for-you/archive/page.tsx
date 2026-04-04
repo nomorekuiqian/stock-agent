@@ -59,7 +59,7 @@ export default function ForYouArchivePage() {
           <div className="text-center space-y-5">
             <div className="flex items-center justify-center gap-3">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">ARCHIVE</span>
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">ARCHIVE</span>
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
             </div>
             <h1 className="text-3xl md:text-4xl font-editorial tracking-tight text-foreground">

@@ -192,15 +192,15 @@ export default function MacroPage() {
       {/* Header — static shell, renders immediately without waiting for data */}
       <section className="border-b border-border/50">
         <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">MACRO WEEKLY</span>
+          <div className="flex items-center gap-3 mb-3 animate-fade-in-up">
+            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">Macro Weekly</span>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <h1 className="font-editorial text-3xl md:text-4xl text-foreground tracking-tight">
+            <h1 className="font-editorial text-3xl md:text-5xl text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
               宏观周报
             </h1>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 animate-fade-in-up delay-200">
               <AiChatLink href="/research?context=macro" />
               <MacroActions />
             </div>

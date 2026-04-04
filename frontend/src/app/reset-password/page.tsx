@@ -159,7 +159,7 @@ function ResetPasswordContent(): ReactNode {
         <div className="text-center space-y-4 animate-fade-in-up">
           <div className="flex items-center justify-center gap-3">
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-primary" />
-            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">THEMARKETBREW</span>
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">THEMARKETBREW</span>
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-primary" />
           </div>
 

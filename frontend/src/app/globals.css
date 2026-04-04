@@ -978,6 +978,34 @@ select:focus-visible {
   }
 }
 
+/* Eyebrow Line Expand - decorative line draws in from left */
+@keyframes line-expand {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.animate-line-expand {
+  transform-origin: left;
+  animation: line-expand 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
+}
+
+/* Card Glow - subtle emerald border glow on hover */
+.hover-glow {
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+}
+
+.hover-glow:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.08), 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
 /* ============================================
    PREFERS-REDUCED-MOTION
    保护运动敏感用户，禁用所有 CSS 动画

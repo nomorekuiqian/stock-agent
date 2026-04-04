@@ -37,8 +37,8 @@ export default function Home() {
             <div>
               {/* Product Positioning Tag */}
               <div className="animate-fade-in-up flex items-center gap-3 mb-6">
-                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
+                <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                   美股 AI 投资助理
                 </span>
               </div>
@@ -159,7 +159,7 @@ export default function Home() {
             <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-                <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+                <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                   Preview
                 </span>
               </div>
@@ -342,7 +342,7 @@ export default function Home() {
           <div className="mb-12 md:mb-16">
             <div className="flex items-center gap-3 mb-6">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                 Features
               </span>
             </div>
@@ -355,7 +355,7 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-6">
             {/* Feature 1: Daily Report */}
             <Link href="/today" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
@@ -386,7 +386,7 @@ export default function Home() {
 
             {/* Feature 2: Personalization */}
             <Link href="/for-you" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
@@ -427,7 +427,7 @@ export default function Home() {
 
             {/* Feature 3: Stock Research */}
             <Link href="/stock" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
@@ -458,7 +458,7 @@ export default function Home() {
 
             {/* Feature 4: Macro Analysis (NEW) */}
             <Link href="/macro" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
@@ -499,7 +499,7 @@ export default function Home() {
           <div className="text-center mb-12 md:mb-16">
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                 Pricing
               </span>
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
@@ -522,7 +522,7 @@ export default function Home() {
               <div className="space-y-3">
                 {[
                   { ok: true, text: '每日市场日报（邮件）' },
-                  { ok: false, text: 'AI 专属日报' },
+                  { ok: false, text: '专属持仓日报' },
                   { ok: false, text: 'AI 个股深度分析' },
                   { ok: false, text: '投研助手' },
                   { ok: false, text: '宏观仪表盘' },
@@ -554,13 +554,13 @@ export default function Home() {
                 <div className="flex items-baseline gap-2 mb-5">
                   <span className="text-2xl font-data font-bold text-foreground">{PRICING.pro}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                  <span className="text-sm text-muted-foreground/60 line-through font-data">{PRICING.original}</span>
-                  <span className="text-xs font-medium text-primary">{PRICING.discount}</span>
+                  <span className="text-sm text-muted-foreground/60 line-through font-data">{PRICING.maxOriginal}</span>
+                  <span className="text-xs font-medium text-primary">{PRICING.maxDiscount}</span>
                 </div>
                 <div className="space-y-3 mb-6">
                   {[
                     '完整市场日报（网站 + 邮件）',
-                    'AI 专属日报（基于你的持仓）',
+                    '专属持仓日报（只属于你的分析）',
                     'AI 深度个股分析',
                     '投研助手（AI 对话）',
                     '宏观四维度仪表盘',
@@ -605,7 +605,7 @@ export default function Home() {
             {/* Section Label */}
             <div className="flex items-center gap-3 mb-8">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                 Our Story
               </span>
             </div>
@@ -658,7 +658,7 @@ export default function Home() {
             {/* Section Label */}
             <div className="inline-flex items-center gap-3 justify-center mb-6">
               <div className="h-px w-12 bg-gradient-to-r from-transparent to-primary/50" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                 Community
               </span>
               <div className="h-px w-12 bg-gradient-to-r from-primary/50 to-transparent" />
@@ -730,7 +730,7 @@ export default function Home() {
           <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
             <div className="inline-flex items-center gap-3 justify-center mb-6">
               <div className="h-px w-12 bg-gradient-to-r from-transparent to-primary/50" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
                 Get Started
               </span>
               <div className="h-px w-12 bg-gradient-to-r from-primary/50 to-transparent" />
@@ -747,7 +747,7 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-10">
             {/* Card 1: Read Today's Report */}
             <Link href="/today" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
@@ -776,7 +776,7 @@ export default function Home() {
 
             {/* Card 2: Subscribe Email */}
             <Link href="/login" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
@@ -805,7 +805,7 @@ export default function Home() {
 
             {/* Card 3: Personalized Report */}
             <Link href="/for-you" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all duration-300 h-full">
+              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover-glow h-full">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 <div className="p-7 flex flex-col h-full">
                   <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">

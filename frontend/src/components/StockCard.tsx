@@ -90,7 +90,7 @@ export default function StockCard({
       style={{ animationDelay: `${index * 40}ms` }}
       onClick={onClick}
     >
-      <div className="relative bg-card border border-border/50 rounded-xl p-4 transition-all duration-300 group-hover:border-primary/30 group-hover:translate-y-[-1px] group-hover:shadow-md group-hover:shadow-black/5 dark:group-hover:shadow-black/15">
+      <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px] hover-glow">
         {onRemove && (
           <button
             onClick={handleRemoveClick}

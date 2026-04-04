@@ -84,15 +84,15 @@ export default function ContactPage() {
         <div className="relative max-w-4xl mx-auto px-4 md:px-6 pt-20 pb-16 md:pt-28 md:pb-20">
           {/* Header */}
           <div className="text-center mb-12 md:mb-16">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">CONTACT</span>
+            <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">Contact</span>
             </div>
 
-            <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-tight mb-4">
+            <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.1] mb-4 animate-fade-in-up delay-100">
               联系我们
             </h1>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto leading-relaxed animate-fade-in-up delay-200">
               有问题或建议？直接告诉我们
             </p>
           </div>

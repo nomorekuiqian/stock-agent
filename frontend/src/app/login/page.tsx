@@ -163,12 +163,12 @@ function LoginPageContent() {
           {/* Brand Label */}
           <div className="flex items-center justify-center gap-3">
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-primary" />
-            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">THEMARKETBREW</span>
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">TheMarketBrew</span>
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-primary" />
           </div>
 
           {/* Main Title */}
-          <h1 className="text-3xl font-editorial text-foreground tracking-tight">
+          <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight leading-[1.1]">
             {isSignUp ? '创建账户' : '欢迎回来'}
           </h1>
 

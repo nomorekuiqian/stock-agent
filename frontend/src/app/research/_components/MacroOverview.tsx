@@ -215,7 +215,7 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
       {/* Header */}
       <div className="px-5 pt-4 pb-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">MACRO WEEKLY</span>
+          <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MACRO WEEKLY</span>
         </div>
         <h2 className="text-xl font-editorial text-foreground leading-tight">
           {report.title || '宏观周报'}
