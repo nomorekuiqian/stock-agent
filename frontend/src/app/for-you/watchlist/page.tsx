@@ -292,7 +292,7 @@ function WatchlistPageContent() {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">FOR YOU</span>
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">FOR YOU</span>
               <span className="text-muted-foreground text-xs font-medium tracking-[0.15em]">/ WATCHLIST</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">管理持仓</h1>

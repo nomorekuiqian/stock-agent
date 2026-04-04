@@ -173,20 +173,20 @@ export default function StockResearchPage() {
   };
 
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredPlan="max">
     <div className="min-h-screen bg-background">
       {/* Hero / Header */}
       <section>
         <div className="max-w-5xl mx-auto px-4 md:px-6 pt-16 pb-10 md:pt-24 md:pb-14">
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">STOCK RESEARCH</span>
+            <div className="flex items-center gap-3 mb-4 animate-fade-in-up">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">Stock Research</span>
             </div>
-            <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground tracking-tight leading-[1.1] mb-4">
+            <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground tracking-tight leading-[1.1] mb-4 animate-fade-in-up delay-100">
               个股研究
             </h1>
-            <p className="text-muted-foreground text-lg md:text-xl max-w-lg leading-relaxed mb-10">
+            <p className="text-muted-foreground text-lg md:text-xl max-w-lg leading-relaxed mb-10 animate-fade-in-up delay-200">
               按赛道浏览龙头股，实时行情一目了然
             </p>
           </div>
@@ -194,7 +194,7 @@ export default function StockResearchPage() {
           {/* Search Bar */}
           <div
             ref={searchContainerRef}
-            className="relative max-w-xl"
+            className="relative max-w-xl animate-fade-in-up delay-300"
             style={{ zIndex: 50 }}
           >
             <Command shouldFilter={false} loop onKeyDown={(e) => {
@@ -299,8 +299,8 @@ export default function StockResearchPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-14 md:py-16">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
             <div>
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-3">
-                探索
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-[0.25em] font-semibold mb-3">
+                Explore
               </p>
               <div className="flex flex-wrap gap-x-6 gap-y-2">
                 <Link

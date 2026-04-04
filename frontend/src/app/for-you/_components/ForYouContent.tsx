@@ -138,11 +138,11 @@ function ForYouPageContent() {
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">MYBREW</span>
+            <div className="flex items-center gap-3 animate-fade-in-up">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MyBrew</span>
               {!dataLoading && symbols.length > 0 && (
-                <span className="text-muted-foreground text-xs font-medium tracking-[0.15em] ml-2">/ {symbols.length} STOCKS</span>
+                <span className="text-muted-foreground text-xs font-semibold tracking-[0.2em] ml-2">/ {symbols.length} Stocks</span>
               )}
             </div>
 
@@ -158,10 +158,10 @@ function ForYouPageContent() {
               </>
             ) : (
               <>
-                <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">
+                <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
                   {isOnboarding ? 'MyBrew' : '持仓总览'}
                 </h1>
-                <p className="text-muted-foreground text-sm md:text-base max-w-lg">
+                <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
                   {isOnboarding
                     ? '添加你的持仓，获取专属投资日报'
                     : '你的持仓和市场动态，一目了然'}
@@ -169,7 +169,7 @@ function ForYouPageContent() {
 
                 {/* Toolbar buttons - only show for dashboard state */}
                 {!isOnboarding && symbols.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-3 pt-1 animate-fade-in-up delay-300">
                     {/* Manage watchlist */}
                     <Link
                       href="/for-you/watchlist"
@@ -258,14 +258,14 @@ function ForYouPageContent() {
       {/* State A: Empty watchlist - direct to watchlist management */}
       {!dataLoading && isOnboarding && user && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
-          <div className="flex flex-col items-center justify-center gap-6 py-16 rounded-xl border border-dashed border-border/50 bg-card/30">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center gap-6 py-16 rounded-xl border border-dashed border-border/50 bg-card/30 animate-fade-in-up">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center animate-float">
               <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
               </svg>
             </div>
             <div className="text-center space-y-2">
-              <h2 className="text-lg font-medium text-foreground">
+              <h2 className="text-lg font-editorial text-foreground">
                 添加你的持仓
               </h2>
               <p className="text-sm text-muted-foreground max-w-sm">
@@ -274,7 +274,7 @@ function ForYouPageContent() {
             </div>
             <Link
               href="/for-you/watchlist"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 active:scale-[0.97]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

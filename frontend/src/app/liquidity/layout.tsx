@@ -8,7 +8,7 @@ export default function LiquidityLayout({
   children: React.ReactNode;
 }) {
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredPlan="max">
       {children}
     </PaywallGuard>
   );

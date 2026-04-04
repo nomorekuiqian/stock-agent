@@ -95,7 +95,7 @@ export default async function StockPage({ params }: PageProps) {
   ]);
 
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredPlan="max">
       <HydrationBoundary state={dehydrate(queryClient)}>
         <StockDetailContent symbol={upperSymbol} />
       </HydrationBoundary>

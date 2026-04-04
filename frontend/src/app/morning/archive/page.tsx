@@ -18,7 +18,7 @@ export default function MorningArchivePage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredPlan="max">
     <main className="min-h-screen bg-background">
       {/* Header */}
       <section className="border-b border-border">
@@ -26,7 +26,7 @@ export default function MorningArchivePage() {
           <div className="text-center space-y-5">
             <div className="flex items-center justify-center gap-3">
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-amber-400 to-transparent" />
-              <span className="text-amber-400 text-xs font-medium tracking-[0.2em] uppercase">ARCHIVE</span>
+              <span className="text-amber-400 text-xs font-semibold tracking-[0.25em] uppercase">ARCHIVE</span>
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-amber-400 to-transparent" />
             </div>
             <h1 className="text-3xl md:text-4xl font-editorial tracking-tight text-foreground">

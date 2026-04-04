@@ -821,7 +821,7 @@ function ScreenerContent() {
 
 export default function ScreenerPage() {
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredPlan="max">
       <Suspense>
         <ScreenerContent />
       </Suspense>
