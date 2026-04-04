@@ -12,6 +12,7 @@ interface SubscriptionContextType {
   isLoading: boolean;
   isCheckoutLoading: boolean;
   checkoutError: string | null;
+  portalError: string | null;
   plan: string;
   status: string;
   currentPeriodEnd: string | null;
@@ -275,12 +276,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, user?.email]);
 
+  const [portalError, setPortalError] = useState<string | null>(null);
+
   const openBillingPortal = useCallback(async () => {
     if (!user?.id) return;
+    setPortalError(null);
 
     try {
       const token = await getAccessToken();
-      if (!token) return;
+      if (!token) {
+        setPortalError('登录已过期，请重新登录');
+        return;
+      }
       const res = await fetch(
         `${API_BASE_URL}/payment/portal-session`,
         {
@@ -291,9 +298,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         window.location.href = data.portal_url;
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[Subscription] Portal session failed:', res.status, errorData);
+        setPortalError(errorData.detail || '无法打开订阅管理，请稍后再试');
       }
     } catch (err) {
       console.error('[Subscription] Failed to open portal:', err);
+      setPortalError('网络错误，请检查连接后重试');
     }
   }, [user?.id]);
 
@@ -304,6 +316,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         isLoading,
         isCheckoutLoading,
         checkoutError,
+        portalError,
         plan,
         status,
         currentPeriodEnd,

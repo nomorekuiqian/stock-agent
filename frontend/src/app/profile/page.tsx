@@ -38,7 +38,7 @@ export default function ProfilePage(): ReactNode {
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
   const {
     isPro, isLoading: subLoading, status,
-    currentPeriodEnd, accessExpiresAt,
+    currentPeriodEnd, accessExpiresAt, portalError,
     createCheckout, openBillingPortal, redeemInviteCode, refreshSubscription,
   } = useSubscription();
 
@@ -329,6 +329,9 @@ export default function ProfilePage(): ReactNode {
                   )}
                   管理订阅
                 </button>
+                {portalError && (
+                  <p className="text-xs text-red-400 text-center mt-2">{portalError}</p>
+                )}
                 <p className="text-xs text-muted-foreground/60 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
               </div>
             ) : isCanceled ? (
