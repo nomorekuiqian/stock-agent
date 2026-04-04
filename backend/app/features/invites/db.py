@@ -32,7 +32,7 @@ async def redeem_code(
 
     await upsert_subscription(
         user_id=user_id,
-        plan="pro",
+        plan="max",
         status="active",
         invite_code=code_upper,
         access_expires_at=access_expires_at,

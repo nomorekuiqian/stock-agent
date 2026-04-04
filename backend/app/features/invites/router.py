@@ -30,7 +30,7 @@ async def api_redeem_invite(
     body: RedeemInviteRequest,
     user_id: str = Depends(verify_user_token),
 ):
-    """Redeem a universal invite code to get 14-day Pro access."""
+    """Redeem a universal invite code to get 14-day Max access."""
     valid_codes = [c.strip() for c in INVITE_CODES.split(",") if c.strip()] or ["BREW2026"]
 
     result = await redeem_code(
@@ -73,7 +73,7 @@ async def api_request_access(body: AccessRequestInput):
   </div>
 
   <p style="font-size: 15px; color: #a1a1aa; line-height: 1.6; margin: 0 0 24px;">
-    Hi {body.name}，感谢你的申请！这是你的专属邀请码，可解锁 14 天 Pro 免费体验：
+    Hi {body.name}，感谢你的申请！这是你的专属邀请码，可解锁 14 天全功能免费体验：
   </p>
 
   <div style="background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 24px; text-align: center; margin: 0 0 28px;">
