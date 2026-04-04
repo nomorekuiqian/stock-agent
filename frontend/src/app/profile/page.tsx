@@ -58,9 +58,9 @@ function ProfileContent(): ReactNode {
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
   const {
-    isPro, isLoading: subLoading, status,
+    isPro, isMax, isLoading: subLoading, status, plan,
     currentPeriodEnd, accessExpiresAt,
-    createCheckout, openBillingPortal, redeemInviteCode, refreshSubscription,
+    openBillingPortal, redeemInviteCode, refreshSubscription,
     portalError,
   } = useSubscription();
 
@@ -205,9 +205,12 @@ function ProfileContent(): ReactNode {
     ? Math.round((daysLeft / INVITE_DAYS) * 100)
     : 0;
 
-  const isPaidPro = isPro && daysLeft === null;
+  const isPaid = isPro && daysLeft === null;
+  const isPaidPro = isPaid && !isMax;
+  const isPaidMax = isPaid && isMax;
   const isTrial = isPro && daysLeft !== null;
   const isCanceled = !isPro && status === 'canceled';
+  const tierLabel = isMax ? 'Max' : isPro ? 'Pro' : null;
 
   const urgency = daysLeft !== null
     ? daysLeft <= 3 ? 'red'
@@ -225,9 +228,9 @@ function ProfileContent(): ReactNode {
     <div className="min-h-screen bg-background py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-lg mx-auto space-y-8">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-2xl font-editorial text-foreground tracking-tight">个人资料</h1>
-          <p className="text-sm text-muted-foreground">管理你的账户、订阅和邮件偏好</p>
+        <div className="space-y-2 animate-fade-in-up">
+          <h1 className="text-2xl md:text-3xl font-editorial text-foreground tracking-tight leading-[1.1]">个人资料</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">管理你的账户、订阅和邮件偏好</p>
         </div>
 
         {/* Avatar + Email */}
@@ -241,8 +244,10 @@ function ProfileContent(): ReactNode {
               {subLoading ? (
                 <span className="shrink-0 w-8 h-4 rounded bg-muted animate-pulse" />
               ) : isPro ? (
-                <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/15 text-primary border border-primary/20 uppercase tracking-wide">
-                  Pro
+                <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${
+                  isMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' : 'bg-primary/15 text-primary border border-primary/20'
+                }`}>
+                  {tierLabel}
                 </span>
               ) : null}
             </div>
@@ -337,7 +342,7 @@ function ProfileContent(): ReactNode {
                     : isCanceled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
                     : 'bg-muted border-border/50 text-muted-foreground'
                 }`}>
-                  {isPro ? 'Pro' : isCanceled ? '已取消' : '免费版'}
+                  {isPro ? tierLabel : isCanceled ? '已取消' : '免费版'}
                 </span>
               )}
             </div>
@@ -390,18 +395,18 @@ function ProfileContent(): ReactNode {
                     </Link>
                   </div>
                 </div>
-              ) : isPaidPro ? (
-                /* ── Paid Pro ── */
+              ) : isPaid ? (
+                /* ── Paid (Pro or Max) ── */
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isMax ? 'bg-amber-400/10' : 'bg-primary/10'}`}>
+                      <svg className={`w-4 h-4 ${isMax ? 'text-amber-400' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Pro 会员</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{PRICING.proPerMonth} · 自动续费</p>
+                      <p className="text-sm font-medium text-foreground">{tierLabel} 会员</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{isMax ? PRICING.maxPerMonth : PRICING.proPerMonth} · 自动续费</p>
                     </div>
                   </div>
 
@@ -414,13 +419,23 @@ function ProfileContent(): ReactNode {
                     )}
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">方案</span>
-                      <span className="text-foreground font-medium">Pro</span>
+                      <span className="text-foreground font-medium">{tierLabel}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">状态</span>
-                      <span className="text-primary font-medium">活跃</span>
+                      <span className={`font-medium ${isMax ? 'text-amber-400' : 'text-primary'}`}>活跃</span>
                     </div>
                   </div>
+
+                  {/* Pro users: upgrade to Max CTA */}
+                  {isPaidPro && (
+                    <Link
+                      href="/pricing"
+                      className="block w-full px-4 py-2.5 mb-3 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-600/90 transition-colors text-center"
+                    >
+                      升级到 Max — {PRICING.maxPerMonth}
+                    </Link>
+                  )}
 
                   <button
                     type="button"
@@ -457,19 +472,19 @@ function ProfileContent(): ReactNode {
                       <p className="text-sm font-medium text-foreground">订阅已取消</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {currentPeriodEnd
-                          ? <>Pro 权限有效至 <span className="text-foreground">{formatDate(currentPeriodEnd)}</span></>
-                          : '你的 Pro 权限已结束'}
+                          ? <>权限有效至 <span className="text-foreground">{formatDate(currentPeriodEnd)}</span></>
+                          : '你的付费权限已结束'}
                       </p>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={STRIPE_LIVE ? () => createCheckout('/profile?tab=subscription') : undefined}
+                    onClick={STRIPE_LIVE ? () => router.push('/pricing') : undefined}
                     disabled={!STRIPE_LIVE}
                     className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {STRIPE_LIVE ? '重新订阅 Pro' : '订阅即将开放'}
+                    {STRIPE_LIVE ? '查看订阅方案' : '订阅即将开放'}
                   </button>
                 </div>
               ) : (
@@ -484,12 +499,12 @@ function ProfileContent(): ReactNode {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">暂无订阅</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">升级 Pro 解锁全部功能</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">升级 Pro 或 Max 解锁更多功能</p>
                     </div>
                   </div>
 
                   <div className="p-4 bg-background/50 rounded-lg mb-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Pro 会员权益</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">付费会员权益</p>
                     <ul className="space-y-2.5">
                       {[
                         '每日个性化投研摘要',
@@ -511,13 +526,13 @@ function ProfileContent(): ReactNode {
                     href="/pricing"
                     className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors text-center"
                   >
-                    查看方案 — {PRICING.proPerMonth}
+                    查看方案
                   </Link>
                 </div>
               )}
 
               {/* Invite code section (hidden for paid Pro) */}
-              {!isPaidPro && (
+              {!isPaid && (
                 <div className="border-t border-border/40 px-5 py-4">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
                     {isTrial && daysLeft !== null && daysLeft <= 7 ? '兑换新邀请码延续访问' : isTrial ? '兑换邀请码' : '使用邀请码'}

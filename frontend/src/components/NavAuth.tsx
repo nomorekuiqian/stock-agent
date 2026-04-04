@@ -11,7 +11,7 @@ const itemDefault = `${itemBase} text-muted-foreground hover:text-foreground hov
 
 export function NavAuth() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro, isLoading: subLoading } = useSubscription();
+  const { isPro, isMax, isLoading: subLoading } = useSubscription();
 
   if (isLoading || (isAuthenticated && subLoading)) {
     return <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />;
@@ -41,7 +41,7 @@ export function NavAuth() {
             </div>
             {!subLoading && isPro && (
               <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-[8px] font-bold tracking-wider bg-amber-500 text-black leading-none">
-                PRO
+                {isMax ? 'MAX' : 'PRO'}
               </span>
             )}
           </button>
@@ -63,7 +63,7 @@ export function NavAuth() {
                   <span className="w-8 h-3 rounded bg-muted animate-pulse" />
                 ) : isPro ? (
                   <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
-                    PRO
+                    {isMax ? 'MAX' : 'PRO'}
                   </span>
                 ) : null}
               </div>
