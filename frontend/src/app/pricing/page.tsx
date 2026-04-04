@@ -5,30 +5,25 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { Check, X, Zap, Mail, BarChart3, Brain, LineChart, Shield } from 'lucide-react';
+import { Check, Zap, Crown } from 'lucide-react';
 import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 
-// ─── Free vs Pro comparison data ─────────────────────────────────────────────
-const COMPARISON = [
-  { feature: '每日市场日报（邮件）', free: true, pro: true, desc: 'AI 生成的每日市场分析，直达收件箱' },
-  { feature: '完整市场日报（网站）', free: false, pro: true, desc: '盘前早报 + 盘后晚报，图表与深度解读' },
-  { feature: 'AI 专属日报', free: false, pro: true, desc: '基于你的自选股，每日生成个性化分析' },
-  { feature: 'AI 深度个股分析', free: false, pro: true, desc: '基本面、技术面、估值对比一键生成' },
-  { feature: '投研助手', free: false, pro: true, desc: 'AI 驱动的交互式投研对话' },
-  { feature: '宏观仪表盘', free: false, pro: true, desc: '流动性、经济、通胀、情绪四维度监控' },
-  { feature: '自选股管理', free: false, pro: true, desc: '追踪最多 25 只股票，个性化推送' },
-  { feature: 'AI 选股助手', free: false, pro: true, desc: '全市场筛选 + AI 对话式选股' },
+// ── Feature comparison data ──────────────────────────────────────────────────
+const PRO_FEATURES = [
+  { feature: '每日市场日报（邮件）', desc: 'AI 生成的每日市场分析，直达收件箱' },
+  { feature: '盘前早报 + 盘后晚报', desc: '网站查看完整报告与图表' },
+  { feature: '专属持仓日报（邮件）', desc: '基于你的实际持仓，每日生成只属于你的分析报告' },
+  { feature: '宏观周报（邮件）',    desc: '每周宏观要点汇总，直达收件箱' },
+  { feature: '自选股管理',          desc: '追踪最多 25 只股票，个性化推送' },
 ];
 
-// ─── Pro feature highlights ──────────────────────────────────────────────────
-const HIGHLIGHTS = [
-  { icon: BarChart3, title: '每日市场简报', desc: '5 分钟掌握市场全貌，不遗漏重要信号' },
-  { icon: Brain, title: 'AI 专属分析', desc: '不是通用报告，是只与你的持仓相关的分析' },
-  { icon: LineChart, title: '深度个股研究', desc: '估值、同行对比、多空观点，一键生成' },
-  { icon: Shield, title: '宏观风险监控', desc: '30+ 指标实时追踪，提前预警市场风险' },
+const MAX_ONLY_FEATURES = [
+  { feature: 'AI 深度个股分析',     desc: '基本面、技术面、估值对比一键生成' },
+  { feature: 'AI 投研引擎',        desc: '对话式投研 + 全市场选股，一个 Agent 搞定' },
+  { feature: '宏观仪表盘',         desc: '流动性、经济、通胀、情绪四维度监控' },
 ];
 
-// ─── Real user quotes from questionnaire ─────────────────────────────────────
+// ── Testimonials ─────────────────────────────────────────────────────────────
 const TESTIMONIALS = [
   {
     quote: '这是我用过最好的平台。我已经推荐了不下于五个人注册了。我很喜欢这种极简的风格。',
@@ -50,7 +45,7 @@ export default function PricingPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const {
-    isPro,
+    isPro, isMax,
     isLoading: subLoading,
     createCheckout,
     redeemInviteCode,
@@ -62,11 +57,11 @@ export default function PricingPage() {
   const [codeError, setCodeError] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [redeemSuccess, setRedeemSuccess] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutTier, setCheckoutTier] = useState<'pro' | 'max' | null>(null);
 
   const isExpiredTrial =
     isAuthenticated &&
-    plan === 'pro' &&
+    (plan === 'pro' || plan === 'max') &&
     accessExpiresAt &&
     new Date(accessExpiresAt) < new Date();
 
@@ -76,19 +71,20 @@ export default function PricingPage() {
     accessExpiresAt &&
     new Date(accessExpiresAt) > new Date();
 
-  // Paid Pro = isPro without trial expiry
-  const isPaidPro = isPro && !accessExpiresAt;
+  const isPaidPro = isPro && !accessExpiresAt && plan === 'pro';
+  const isPaidMax = isMax && !accessExpiresAt;
+  const isPaidAny = isPaidPro || isPaidMax;
 
   const loading = authLoading || subLoading;
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (tier: 'pro' | 'max') => {
     if (!isAuthenticated) {
       router.push('/login?redirect=/pricing');
       return;
     }
-    setCheckoutLoading(true);
-    await createCheckout();
-    setCheckoutLoading(false);
+    setCheckoutTier(tier);
+    await createCheckout(tier);
+    setCheckoutTier(null);
   };
 
   const handleRedeem = async () => {
@@ -104,37 +100,45 @@ export default function PricingPage() {
     if (result.success) {
       setRedeemSuccess(true);
     } else {
-      setCodeError(result.error || '兑换失败，请稍后再试');
+      setCodeError(result.error || '兑换失败');
     }
   };
 
   return (
     <main className="min-h-screen bg-background pt-24 pb-20 px-4">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
 
-        {/* ─── Hero ─────────────────────────────────────────────── */}
+        {/* ── Hero ─────────────────────────────────────────────── */}
         <div className="text-center mb-16 md:mb-20 space-y-5">
-          <div className="flex items-center justify-center gap-3">
-            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+          <div className="flex items-center justify-center gap-3 animate-fade-in-up">
+            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
               Pricing
             </span>
-            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
+            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent animate-line-expand" style={{ animationDirection: 'reverse', transformOrigin: 'right' }} />
           </div>
-          <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight">
-            所有功能，一个价格
+          <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
+            选择适合你的方案
           </h1>
-          <p className="text-muted-foreground text-sm md:text-lg max-w-lg mx-auto leading-relaxed">
-            从市场日报到 AI 个股深研，一个订阅解锁全部专业分析工具
+          <p className="text-muted-foreground text-sm md:text-lg max-w-lg mx-auto leading-relaxed animate-fade-in-up delay-200">
+            从邮件订阅到全平台 AI 分析工具，按需选择
           </p>
         </div>
 
-        {/* ─── Status Banners ───────────────────────────────────── */}
+        {/* ── Status Banners ───────────────────────────────────── */}
+        {!loading && isPaidMax && (
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-400/10 border border-amber-400/20">
+              <Crown className="w-4 h-4 text-amber-400" />
+              <span className="text-sm text-amber-400 font-medium">你已是 Max 会员</span>
+            </div>
+          </div>
+        )}
         {!loading && isPaidPro && (
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
               <Check className="w-4 h-4 text-primary" />
-              <span className="text-sm text-primary font-medium">你已是 Pro 会员</span>
+              <span className="text-sm text-primary font-medium">你已是 Pro 会员 — 升级 Max 解锁全部功能</span>
             </div>
           </div>
         )}
@@ -152,151 +156,220 @@ export default function PricingPage() {
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <span className="text-sm text-amber-400 light:text-amber-600 font-medium">
-                你的体验期已结束，升级 Pro 继续使用全部功能
+                你的体验期已结束，选择一个方案继续使用
               </span>
             </div>
           </div>
         )}
 
-        {/* ─── Free vs Pro Comparison ──────────────────────────── */}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-16 md:mb-20 max-w-4xl mx-auto">
+        {/* ── Two-column Pricing + Free aside ─────────────────── */}
+        <div className="max-w-4xl mx-auto mb-16 md:mb-20">
 
-          {/* Free Column */}
-          <div className="rounded-xl border border-border/40 bg-card/30 overflow-hidden">
-            <div className="px-6 py-5 border-b border-border/30">
-              <div className="flex items-center gap-2 mb-1">
-                <Mail className="w-4 h-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold text-foreground">免费版</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">邮件订阅，接收每日市场日报</p>
-              <div className="mt-4">
-                <span className="text-3xl font-data font-bold text-foreground">$0</span>
-                <span className="text-sm text-muted-foreground ml-1">/月</span>
-              </div>
-            </div>
-            <div className="px-6 py-5 space-y-3.5">
-              {COMPARISON.map((item) => (
-                <div key={item.feature} className="flex items-start gap-3">
-                  {item.free ? (
-                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  ) : (
-                    <X className="w-4 h-4 text-muted-foreground/30 mt-0.5 shrink-0" />
-                  )}
-                  <span className={`text-sm ${item.free ? 'text-foreground' : 'text-muted-foreground/40'}`}>
-                    {item.feature}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="px-6 pb-6">
-              <Link
-                href="/"
-                className="block w-full px-4 py-2.5 border border-border/60 rounded-lg text-sm font-medium text-muted-foreground text-center hover:border-border transition-colors"
-              >
-                订阅邮件 — 免费
-              </Link>
-            </div>
+          {/* Free tier — compact inline banner */}
+          <div className="flex items-center justify-center gap-3 mb-6 py-3 px-5 rounded-lg border border-border/30 bg-card/20 max-w-md mx-auto">
+            <span className="text-sm text-muted-foreground">免费版</span>
+            <span className="text-xs text-muted-foreground/60">|</span>
+            <span className="text-sm text-muted-foreground">每日市场日报邮件</span>
+            <Link
+              href="/#subscribe"
+              className="ml-auto text-xs text-primary hover:text-primary/80 transition-colors shrink-0"
+            >
+              免费订阅 &rarr;
+            </Link>
           </div>
 
-          {/* Pro Column */}
-          <div className="relative rounded-xl border border-primary/30 bg-card/50 overflow-hidden ring-1 ring-primary/10">
-            {/* Glow */}
-            <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-60 h-40 bg-primary/10 blur-[80px] pointer-events-none" />
+          {/* Pro + Max columns */}
+          <div className="grid md:grid-cols-2 gap-4 md:gap-6">
 
-            <div className="relative px-6 py-5 border-b border-primary/20">
-              <div className="flex items-center gap-2 mb-1">
-                <Zap className="w-4 h-4 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Pro</h3>
-                <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
-                  <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
-                </span>
+            {/* Pro Column */}
+            <div className="relative rounded-xl border border-primary/30 bg-card/50 overflow-hidden ring-1 ring-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-none">
+              <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-60 h-40 bg-primary/10 blur-[80px] pointer-events-none" />
+
+              <div className="relative px-6 py-5 border-b border-primary/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">Pro</h3>
+                  <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span className="text-xs font-medium text-primary">抢先体验价</span>
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">邮件全解锁 + 市场日报网站</p>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-data font-bold text-foreground">{PRICING.pro}</span>
+                  <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
+                  <span className="text-sm text-muted-foreground/60 line-through font-data ml-1">{PRICING.proOriginal}</span>
+                  <span className="text-xs font-medium text-primary">{PRICING.proDiscount}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">终身锁定此价格 · 仅限前 {EARLY_BIRD_TOTAL} 名</p>
               </div>
-              <p className="text-xs text-muted-foreground">全部功能解锁，AI 驱动专业分析</p>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-data font-bold text-foreground">{PRICING.pro}</span>
-                <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                <span className="text-sm text-muted-foreground/60 line-through font-data ml-1">{PRICING.original}</span>
-                <span className="text-xs font-medium text-primary">{PRICING.discount}</span>
+
+              <div className="relative px-6 py-5 space-y-3.5">
+                {PRO_FEATURES.map((item) => (
+                  <div key={item.feature} className="flex items-start gap-3">
+                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <span className="text-sm text-foreground">{item.feature}</span>
+                      <span className="text-xs text-muted-foreground/60 block">{item.desc}</span>
+                    </div>
+                  </div>
+                ))}
+                {/* Max-only teaser */}
+                <div className="pt-2 border-t border-border/20">
+                  <p className="text-xs text-muted-foreground/50">
+                    个股投研、AI 投研引擎、宏观仪表盘 → 升级 Max
+                  </p>
+                </div>
               </div>
-              <div className="mt-3 flex flex-col gap-1">
-                <p className="text-xs text-muted-foreground">终身锁定此价格 · 仅限前 {EARLY_BIRD_TOTAL} 名</p>
+
+              <div className="px-6 pb-6">
+                {loading ? (
+                  <div className="w-full h-11 rounded-lg bg-muted animate-pulse" />
+                ) : isPaidPro ? (
+                  <div className="text-center text-sm text-muted-foreground py-2.5 border border-primary/20 rounded-lg bg-primary/5">
+                    当前方案
+                  </div>
+                ) : isPaidMax ? (
+                  <div className="text-center text-sm text-muted-foreground py-2.5 border border-border/40 rounded-lg">
+                    已包含在 Max 中
+                  </div>
+                ) : (
+                  <button
+                    onClick={STRIPE_LIVE ? () => handleCheckout('pro') : undefined}
+                    disabled={!STRIPE_LIVE || checkoutTier === 'pro'}
+                    className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold transition-all duration-200 hover:bg-primary/90 hover:shadow-[0_4px_20px_rgba(5,150,105,0.25)] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                  >
+                    {!STRIPE_LIVE ? (
+                      '即将开放'
+                    ) : checkoutTier === 'pro' ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+                        跳转中...
+                      </>
+                    ) : isAuthenticated ? (
+                      `订阅 Pro — ${PRICING.proPerMonth}`
+                    ) : (
+                      '登录后订阅'
+                    )}
+                  </button>
+                )}
+                <p className="text-xs text-muted-foreground/60 text-center mt-3">
+                  {STRIPE_LIVE ? '随时取消 · Stripe 安全支付' : '订阅功能即将上线，敬请期待'}
+                </p>
               </div>
             </div>
 
-            <div className="relative px-6 py-5 space-y-3.5">
-              {COMPARISON.map((item) => (
-                <div key={item.feature} className="flex items-start gap-3">
-                  <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-sm text-foreground">{item.feature}</span>
-                    <span className="text-xs text-muted-foreground/60 block">{item.desc}</span>
+            {/* Max Column */}
+            <div className="relative rounded-xl border border-amber-400/30 bg-card/50 overflow-hidden ring-1 ring-amber-400/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-400/8 motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-none">
+              <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-60 h-40 bg-amber-400/10 blur-[80px] pointer-events-none" />
+
+              <div className="relative px-6 py-5 border-b border-amber-400/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Crown className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-lg font-semibold text-foreground">Max</h3>
+                  <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
+                    <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">全部功能解锁，AI 驱动专业分析</p>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-data font-bold text-foreground">{PRICING.max}</span>
+                  <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
+                  <span className="text-sm text-muted-foreground/60 line-through font-data ml-1">{PRICING.maxOriginal}</span>
+                  <span className="text-xs font-medium text-amber-400">{PRICING.maxDiscount}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">终身锁定此价格 · 仅限前 {EARLY_BIRD_TOTAL} 名</p>
+              </div>
+
+              <div className="relative px-6 py-5 space-y-3.5">
+                {/* Pro features included */}
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Pro 全部功能，加上</p>
+                {MAX_ONLY_FEATURES.map((item) => (
+                  <div key={item.feature} className="flex items-start gap-3">
+                    <Check className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="text-sm text-foreground">{item.feature}</span>
+                      <span className="text-xs text-muted-foreground/60 block">{item.desc}</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-border/20">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {PRO_FEATURES.map((item) => (
+                      <span key={item.feature} className="text-xs text-muted-foreground/50 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-muted-foreground/30 shrink-0" />
+                        {item.feature}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="relative px-6 pb-6">
-              {loading ? (
-                <div className="w-full h-11 rounded-lg bg-muted animate-pulse" />
-              ) : isPaidPro ? (
-                <div className="text-center text-sm text-muted-foreground py-2.5 border border-primary/20 rounded-lg bg-primary/5">
-                  当前已订阅
-                </div>
-              ) : (
-                <button
-                  onClick={STRIPE_LIVE ? handleCheckout : undefined}
-                  disabled={!STRIPE_LIVE || checkoutLoading}
-                  className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {!STRIPE_LIVE ? (
-                    '即将开放订阅'
-                  ) : checkoutLoading ? (
-                    <>
-                      <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-                      跳转中...
-                    </>
-                  ) : isAuthenticated ? (
-                    isActiveTrial ? `升级为付费订阅 — ${PRICING.proPerMonth}` : `立即订阅 — ${PRICING.proPerMonth}`
-                  ) : (
-                    '登录后订阅'
-                  )}
-                </button>
-              )}
-              <p className="text-xs text-muted-foreground/60 text-center mt-3">
-                {STRIPE_LIVE ? '随时取消 · Stripe 安全支付' : '订阅功能即将上线，敬请期待'}
-              </p>
+              <div className="relative px-6 pb-6">
+                {loading ? (
+                  <div className="w-full h-11 rounded-lg bg-muted animate-pulse" />
+                ) : isPaidMax ? (
+                  <div className="text-center text-sm text-muted-foreground py-2.5 border border-amber-400/20 rounded-lg bg-amber-400/5">
+                    当前方案
+                  </div>
+                ) : (
+                  <button
+                    onClick={STRIPE_LIVE ? () => handleCheckout('max') : undefined}
+                    disabled={!STRIPE_LIVE || checkoutTier === 'max'}
+                    className="w-full px-4 py-3 bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all duration-200 hover:bg-amber-600/90 hover:shadow-[0_4px_20px_rgba(217,119,6,0.3)] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                  >
+                    {!STRIPE_LIVE ? (
+                      '即将开放'
+                    ) : checkoutTier === 'max' ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        跳转中...
+                      </>
+                    ) : isAuthenticated ? (
+                      isPaidPro ? `升级到 Max — ${PRICING.maxPerMonth}` : `订阅 Max — ${PRICING.maxPerMonth}`
+                    ) : (
+                      '登录后订阅'
+                    )}
+                  </button>
+                )}
+                <p className="text-xs text-muted-foreground/60 text-center mt-3">
+                  {STRIPE_LIVE ? '随时取消 · Stripe 安全支付' : '订阅功能即将上线，敬请期待'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ─── Feature Highlights ──────────────────────────────── */}
+        {/* ── Why TheMarketBrew (replaces redundant feature highlights) ── */}
         <section className="mb-16 md:mb-20">
           <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
-              What you get
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
+              Why us
             </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {HIGHLIGHTS.map((h) => (
-              <div
-                key={h.title}
-                className="p-5 rounded-xl border border-border/30 bg-card/30 hover:border-primary/20 transition-colors"
-              >
-                <h.icon className="w-5 h-5 text-primary mb-3" />
-                <h4 className="text-sm font-semibold text-foreground mb-1.5">{h.title}</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed">{h.desc}</p>
-              </div>
-            ))}
+          <div className="grid md:grid-cols-3 gap-4 max-w-4xl">
+            <div className="p-5 rounded-xl border border-border/30 bg-card/30 transition-colors duration-200 hover:border-primary/20">
+              <h4 className="text-sm font-semibold text-foreground mb-1.5">5 分钟掌握全貌</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">不用刷新闻、不用翻 K 线，每天一份报告覆盖市场全局</p>
+            </div>
+            <div className="p-5 rounded-xl border border-border/30 bg-card/30 transition-colors duration-200 hover:border-primary/20">
+              <h4 className="text-sm font-semibold text-foreground mb-1.5">只属于你的分析</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">基于你的真实持仓生成，不是通用文章的复制粘贴</p>
+            </div>
+            <div className="p-5 rounded-xl border border-border/30 bg-card/30 transition-colors duration-200 hover:border-primary/20">
+              <h4 className="text-sm font-semibold text-foreground mb-1.5">宏观到个股，一站式</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">从美联储到你持仓的具体标的，用一个工具搞定</p>
+            </div>
           </div>
         </section>
 
-        {/* ─── Social Proof ────────────────────────────────────── */}
+        {/* ── Social Proof ────────────────────────────────────── */}
         <section className="mb-16 md:mb-20">
           <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
               Users
             </span>
           </div>
@@ -309,19 +382,19 @@ export default function PricingPage() {
                 <p className="text-sm text-foreground/90 leading-relaxed mb-4">
                   &ldquo;{t.quote}&rdquo;
                 </p>
-                <p className="text-xs text-muted-foreground">— {t.role}</p>
+                <p className="text-xs text-muted-foreground">&mdash; {t.role}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ─── Invite Code ─────────────────────────────────────── */}
-        {!loading && !isPaidPro && (
+        {/* ── Invite Code ─────────────────────────────────────── */}
+        {!loading && !isPaidAny && (
           <section className="max-w-md mx-auto mb-16 md:mb-20">
             <div className="text-center mb-5">
               <div className="h-px bg-border/30 mb-5" />
               <p className="text-xs text-muted-foreground tracking-wide uppercase">
-                {isActiveTrial ? '还没准备好付费？' : '或使用邀请码'}
+                {isActiveTrial ? '还没准备好付费?' : '或使用邀请码'}
               </p>
             </div>
 
@@ -331,12 +404,12 @@ export default function PricingPage() {
                   <Check className="w-5 h-5 text-primary" />
                 </div>
                 <p className="text-sm font-medium text-foreground mb-1">兑换成功</p>
-                <p className="text-xs text-muted-foreground">你已获得 14 天 Pro 体验</p>
+                <p className="text-xs text-muted-foreground">你已获得 14 天全功能体验</p>
                 <Link
                   href="/today"
                   className="inline-block mt-4 text-xs text-primary hover:text-primary/80 transition-colors"
                 >
-                  开始探索 →
+                  开始探索 &rarr;
                 </Link>
               </div>
             ) : (
@@ -374,33 +447,41 @@ export default function PricingPage() {
                   href="/request-access"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  没有邀请码？填写问卷免费获取 →
+                  没有邀请码? 填写问卷免费获取 &rarr;
                 </Link>
               </p>
             )}
           </section>
         )}
 
-        {/* ─── FAQ ─────────────────────────────────────────────── */}
+        {/* ── FAQ ─────────────────────────────────────────────── */}
         <div className="max-w-lg mx-auto">
           <h2 className="text-center text-sm font-medium text-foreground mb-6 tracking-wide">
             常见问题
           </h2>
           <div className="space-y-0 divide-y divide-border/30">
             <FaqItem
-              q="抢先体验价会持续多久？"
-              a={`${PRICING.proPerMonth}的抢先体验价限前 ${EARLY_BIRD_TOTAL} 名用户，订阅后终身锁定此价格（原价 ${PRICING.original}${PRICING.interval}）。未来产品成熟后将推出不同价格层级。`}
+              q="Pro 和 Max 有什么区别?"
+              a="Pro 包含所有邮件订阅（早报、晚报、专属持仓日报、宏观周报）以及网站上的市场日报和专属页面。Max 在此基础上解锁 AI 深度个股分析、AI 投研引擎、宏观仪表盘等全部网站功能。"
             />
             <FaqItem
-              q="可以随时取消吗？"
+              q="抢先体验价会持续多久?"
+              a={`Max ${PRICING.maxPerMonth} 的抢先体验价限前 ${EARLY_BIRD_TOTAL} 名用户，订阅后终身锁定此价格（原价 ${PRICING.maxOriginal}${PRICING.interval}）。Pro 同样享受早期锁定价。`}
+            />
+            <FaqItem
+              q="可以从 Pro 升级到 Max 吗?"
+              a="可以。在订阅管理页面直接升级，Stripe 会按剩余天数自动折算差价。"
+            />
+            <FaqItem
+              q="可以随时取消吗?"
               a="可以。通过 Stripe 管理订阅，取消后当前计费周期内仍可使用，不会额外收费。"
             />
             <FaqItem
-              q="邀请码和付费订阅有什么区别？"
-              a="邀请码提供 14 天免费 Pro 体验，到期后需要续码或订阅。付费订阅按月自动续费，持续享有全部功能。"
+              q="邀请码体验包含哪些功能?"
+              a="邀请码提供 14 天全功能（Max 级别）体验，到期后可选择 Pro 或 Max 继续使用。"
             />
             <FaqItem
-              q="支持哪些支付方式？"
+              q="支持哪些支付方式?"
               a="通过 Stripe 支付，支持 Visa、Mastercard、American Express 等主流信用卡和借记卡。"
             />
           </div>
@@ -420,11 +501,11 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between text-left cursor-pointer group"
       >
-        <span className="text-sm text-foreground group-hover:text-primary transition-colors">
+        <span className="text-sm text-foreground group-hover:text-primary transition-colors duration-200">
           {q}
         </span>
         <svg
-          className={`w-4 h-4 text-muted-foreground shrink-0 ml-4 transition-transform duration-200 ${
+          className={`w-4 h-4 text-muted-foreground shrink-0 ml-4 transition-transform duration-300 ease-out ${
             open ? 'rotate-180' : ''
           }`}
           fill="none"
@@ -434,11 +515,16 @@ function FaqItem({ q, a }: { q: string; a: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {open && (
-        <p className="text-sm text-muted-foreground mt-2 pr-8 leading-relaxed">
-          {a}
-        </p>
-      )}
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-out"
+        style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden">
+          <p className="text-sm text-muted-foreground mt-2 pr-8 leading-relaxed pb-1">
+            {a}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
