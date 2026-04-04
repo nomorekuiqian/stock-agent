@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 
 import stripe
 
-from app.core.config import STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+from app.core.config import STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_MAX_PRICE_ID
 from app.core.deps import verify_user_token, verify_cron_secret
 from app.features.payment.models import (
     CreateCheckoutRequest,
@@ -27,6 +27,33 @@ logger = get_logger(__name__)
 stripe.api_key = STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/payment", tags=["payment"])
+
+
+def _resolve_plan_from_subscription(sub_obj) -> str:
+    """Determine plan tier ('pro' or 'max') from a Stripe subscription object.
+
+    Checks metadata.tier first, then falls back to matching price IDs.
+    """
+    d = _to_dict(sub_obj)
+    tier = d.get("metadata", {}).get("tier")
+    if tier in ("pro", "max"):
+        return tier
+
+    items = d.get("items", {})
+    if hasattr(items, "to_dict"):
+        items = items.to_dict()
+    for item in items.get("data", []):
+        item_d = _to_dict(item)
+        price = item_d.get("price", {})
+        if hasattr(price, "to_dict"):
+            price = price.to_dict()
+        price_id = price.get("id", "")
+        if price_id == STRIPE_MAX_PRICE_ID:
+            return "max"
+        if price_id == STRIPE_PRO_PRICE_ID:
+            return "pro"
+
+    return "pro"
 
 
 def _to_dict(obj):
@@ -76,8 +103,10 @@ async def api_create_checkout(
     """Create a Stripe Checkout Session and return the URL."""
     if req.user_id != token_user_id:
         raise HTTPException(status_code=403, detail="User ID mismatch")
+    if req.tier not in ("pro", "max"):
+        raise HTTPException(status_code=400, detail="Invalid tier, must be 'pro' or 'max'")
     try:
-        url = await create_checkout_session(req.user_id, req.email, req.return_path)
+        url = await create_checkout_session(req.user_id, req.email, req.return_path, req.tier)
         return CheckoutSessionResponse(checkout_url=url)
     except Exception as e:
         logger.error("Checkout session error: %s", e)
@@ -138,12 +167,13 @@ async def api_sync_subscription(
         sub = subs.data[0]
         sub_dict = _to_dict(sub)
         period_start, period_end = _get_period(sub)
+        plan = _resolve_plan_from_subscription(sub)
 
         await upsert_subscription(
             user_id=user_id,
             stripe_customer_id=customer_id,
             stripe_subscription_id=sub_dict["id"],
-            plan="pro",
+            plan=plan,
             status="active",
             current_period_start=period_start,
             current_period_end=period_end,
@@ -185,24 +215,25 @@ async def stripe_webhook(request: Request):
         if user_id and sub_id:
             stripe_sub = await asyncio.to_thread(stripe.Subscription.retrieve, sub_id)
             period_start, period_end = _get_period(stripe_sub)
+            plan = _resolve_plan_from_subscription(stripe_sub)
             await upsert_subscription(
                 user_id=user_id,
                 stripe_customer_id=obj.get("customer"),
                 stripe_subscription_id=sub_id,
-                plan="pro",
+                plan=plan,
                 status="active",
                 current_period_start=period_start,
                 current_period_end=period_end,
                 clear_access_expires_at=True,
             )
-            logger.info("Subscription activated for user %s", user_id)
+            logger.info("Subscription activated for user %s (plan=%s)", user_id, plan)
 
     elif event_type == "customer.subscription.updated":
         try:
             user_id = obj.get("metadata", {}).get("user_id")
             if user_id:
                 status = obj.get("status", "active")
-                plan = "free" if status in ("canceled", "unpaid") else "pro"
+                plan = "free" if status in ("canceled", "unpaid") else _resolve_plan_from_subscription(obj)
                 _, period_end = _get_period(obj)
                 await upsert_subscription(
                     user_id=user_id,
@@ -237,11 +268,12 @@ async def stripe_webhook(request: Request):
                             has_active = True
                             active_sub = active_subs.data[0]
                             period_start, period_end = _get_period(active_sub)
+                            active_plan = _resolve_plan_from_subscription(active_sub)
                             await upsert_subscription(
                                 user_id=user_id,
                                 stripe_customer_id=customer_id,
                                 stripe_subscription_id=active_sub["id"],
-                                plan="pro",
+                                plan=active_plan,
                                 status="active",
                                 current_period_start=period_start,
                                 current_period_end=period_end,

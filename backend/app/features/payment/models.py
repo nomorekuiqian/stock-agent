@@ -10,6 +10,7 @@ class CreateCheckoutRequest(BaseModel):
     user_id: str
     email: str
     return_path: Optional[str] = None
+    tier: str = "pro"  # "pro" ($4.99) or "max" ($9.99)
 
 
 class CheckoutSessionResponse(BaseModel):

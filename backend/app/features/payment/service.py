@@ -8,7 +8,7 @@ import time
 
 import stripe
 
-from app.core.config import STRIPE_SECRET_KEY, STRIPE_PRO_PRICE_ID, FRONTEND_URL
+from app.core.config import STRIPE_SECRET_KEY, STRIPE_PRO_PRICE_ID, STRIPE_MAX_PRICE_ID, FRONTEND_URL
 from app.core.logging import get_logger
 from app.features.payment.db import get_subscription, upsert_subscription
 
@@ -25,8 +25,13 @@ async def get_or_create_stripe_customer(user_id: str, email: str) -> str:
     t0 = time.time()
     sub = await get_subscription(user_id)
     if sub and sub.get("stripe_customer_id"):
-        logger.info("get_customer: cache hit %.2fs", time.time() - t0)
-        return sub["stripe_customer_id"]
+        cid = sub["stripe_customer_id"]
+        try:
+            await asyncio.to_thread(stripe.Customer.retrieve, cid)
+            logger.info("get_customer: cache hit %.2fs", time.time() - t0)
+            return cid
+        except stripe.InvalidRequestError:
+            logger.warning("Cached customer %s not found (live/test mode mismatch), creating new", cid)
 
     t1 = time.time()
     existing = await asyncio.to_thread(stripe.Customer.list, email=email, limit=1)
@@ -49,13 +54,24 @@ async def get_or_create_stripe_customer(user_id: str, email: str) -> str:
     return customer_id
 
 
+PRICE_ID_MAP = {
+    "pro": STRIPE_PRO_PRICE_ID,
+    "max": STRIPE_MAX_PRICE_ID,
+}
+
+
 async def create_checkout_session(
-    user_id: str, email: str, return_path: str | None = None
+    user_id: str, email: str, return_path: str | None = None,
+    tier: str = "pro",
 ) -> str:
     """
-    Create a Stripe Checkout Session for Pro subscription.
+    Create a Stripe Checkout Session for Pro or Max subscription.
     Returns the checkout URL.
     """
+    price_id = PRICE_ID_MAP.get(tier, STRIPE_PRO_PRICE_ID)
+    if not price_id:
+        raise ValueError("No Stripe Price ID configured for tier: %s" % tier)
+
     t0 = time.time()
     customer_id = await get_or_create_stripe_customer(user_id, email)
 
@@ -66,14 +82,14 @@ async def create_checkout_session(
         stripe.checkout.Session.create,
         customer=customer_id,
         mode="subscription",
-        line_items=[{"price": STRIPE_PRO_PRICE_ID, "quantity": 1}],
+        line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{FRONTEND_URL}{path}?checkout=success",
         cancel_url=f"{FRONTEND_URL}{path}?checkout=cancel",
-        metadata={"user_id": user_id},
-        subscription_data={"metadata": {"user_id": user_id}},
+        metadata={"user_id": user_id, "tier": tier},
+        subscription_data={"metadata": {"user_id": user_id, "tier": tier}},
     )
     logger.info("Session.create: %.2fs", time.time() - t1)
-    logger.info("checkout total: %.2fs", time.time() - t0)
+    logger.info("checkout total: %.2fs (tier=%s)", time.time() - t0, tier)
     return session.url
 
 
