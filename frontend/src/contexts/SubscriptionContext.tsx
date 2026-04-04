@@ -9,6 +9,7 @@ const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
 
 interface SubscriptionContextType {
   isPro: boolean;
+  isMax: boolean;
   isLoading: boolean;
   isCheckoutLoading: boolean;
   checkoutError: string | null;
@@ -17,7 +18,7 @@ interface SubscriptionContextType {
   status: string;
   currentPeriodEnd: string | null;
   accessExpiresAt: string | null;
-  createCheckout: (returnPath?: string) => Promise<void>;
+  createCheckout: (tier?: 'pro' | 'max', returnPath?: string) => Promise<void>;
   openBillingPortal: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
   redeemInviteCode: (code: string) => Promise<{ success: boolean; error?: string; accessExpiresAt?: string }>;
@@ -62,9 +63,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+  const isActive = status === 'active' && !isExpired(accessExpiresAt);
+  // isPro: user has Pro OR Max (any paid tier)
   const isPro = !PAYWALL_ENABLED || (
-    plan === 'pro' && status === 'active' && !isExpired(accessExpiresAt)
+    (plan === 'pro' || plan === 'max') && isActive
   );
+  // isMax: user has Max tier specifically
+  const isMax = !PAYWALL_ENABLED || (plan === 'max' && isActive);
 
   // Detect checkout return once on mount
   const isCheckoutReturn = typeof window !== 'undefined' &&
@@ -136,7 +141,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           setAccessExpiresAt(ae);
           writeCache(user.id, p, s, pe, ae);
 
-          if (p === 'pro' && s === 'active') {
+          if ((p === 'pro' || p === 'max') && s === 'active') {
             setIsLoading(false);
             if (typeof window !== 'undefined' && window.history.replaceState) {
               const url = new URL(window.location.href);
@@ -228,7 +233,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, refreshSubscription]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const createCheckout = useCallback(async (returnPath?: string) => {
+  const createCheckout = useCallback(async (tier: 'pro' | 'max' = 'pro', returnPath?: string) => {
     if (!user?.id) {
       setCheckoutError('Please sign in first.');
       return;
@@ -258,7 +263,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ user_id: user.id, email, return_path: currentPath }),
+        body: JSON.stringify({ user_id: user.id, email, return_path: currentPath, tier }),
       });
 
       if (res.ok) {
@@ -313,6 +318,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     <SubscriptionContext.Provider
       value={{
         isPro,
+        isMax,
         isLoading,
         isCheckoutLoading,
         checkoutError,
