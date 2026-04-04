@@ -54,6 +54,7 @@ MACRO_RISK_FRED_SERIES = {
     # Economic Fundamentals - Inflation
     "cpi": "CPIAUCSL",
     "core_pce": "PCEPILFE",
+    "ppi": "PPIFIS",
     "inflation_expectations_5y": "T5YIE",
     "michigan_inflation": "MICH",
     # Inflation & Rates - Interest Rates
@@ -584,10 +585,9 @@ _CREDIT_INDICATORS = [
 
 # Inflation & Rates page: 2 sub-dimensions (inflation 60%, rates 40%)
 _INFLATION_RATES_INFLATION = [
-    ("cpi", "CPIAUCSL", None, None, None, 0.30),
+    ("cpi", "CPIAUCSL", None, None, None, 0.35),
     ("core_pce", "PCEPILFE", None, None, None, 0.35),
-    ("inflation_expectations_5y", "T5YIE", 2.5, 3.5, False, 0.20),
-    ("michigan_inflation", "MICH", 3.0, 4.5, False, 0.15),
+    ("ppi", "PPIFIS", None, None, None, 0.30),
 ]
 
 _INFLATION_RATES_RATES = [
@@ -671,6 +671,8 @@ def _compute_subdimension(
             s = _score_change_based(indicators, key, (0.15, 0.25, 0.35, 0.50), "higher")
         elif key == "core_pce":
             s = _score_change_based(indicators, key, (0.15, 0.20, 0.30, 0.40), "higher")
+        elif key == "ppi":
+            s = _score_change_based(indicators, key, (0.15, 0.25, 0.40, 0.60), "higher")
         elif key == "retail_sales":
             s = _score_change_based(indicators, key, (0.5, 0.0, -0.3, -1.0), "lower")
         elif key == "industrial_production":
@@ -913,7 +915,7 @@ async def get_inflation_rates(
 
         # DB cache layer
         if not skip_db_cache:
-            db_data, db_valid = await try_db_cache("macro:inflation_rates")
+            db_data, db_valid = await try_db_cache("macro:inflation_rates:v2")
             if db_valid and db_data:
                 logger.info("Returning DB-cached inflation rates data")
                 result = EconomicFundamentals(**db_data)
@@ -943,6 +945,31 @@ async def get_inflation_rates(
         )
 
         indicators = {key: data for key, data in results_raw}
+
+        # Fetch YoY% for inflation indicators so the display shows
+        # human-readable percentages instead of raw index levels.
+        _YOY_KEYS = {"cpi", "core_pce", "ppi"}
+
+        async def fetch_yoy(key: str, series_id: str):
+            try:
+                data = await fetch_fred_series(series_id, limit=2, units="pc1")
+                if data["observations"]:
+                    return key, data["observations"][0]["value"]
+            except Exception as e:
+                logger.error("Error fetching YoY for %s: %s", series_id, e)
+            return key, None
+
+        yoy_results = await asyncio.gather(
+            *[
+                fetch_yoy(k, MACRO_RISK_FRED_SERIES[k])
+                for k in _YOY_KEYS
+                if k in indicators and MACRO_RISK_FRED_SERIES.get(k)
+            ]
+        )
+        for key, yoy_val in yoy_results:
+            if yoy_val is not None and key in indicators:
+                indicators[key]["value"] = yoy_val
+                indicators[key]["units"] = "Percent Change from Year Ago"
 
         inflation = _compute_subdimension("inflation", "通胀", 0.60, _INFLATION_RATES_INFLATION, indicators)
         rates = _compute_subdimension("rates", "利率", 0.40, _INFLATION_RATES_RATES, indicators)

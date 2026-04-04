@@ -145,6 +145,7 @@ async def get_treasury_commodities():
 async def get_series_history(
     series_id: str,
     days: int = Query(default=365, ge=30, le=1825, description="Number of days of history"),
+    units: str | None = Query(default=None, description="FRED units transform: pc1=YoY%, pch=MoM%"),
 ):
     """
     Get raw FRED series history for charting.
@@ -156,7 +157,7 @@ async def get_series_history(
     try:
         start_date = days_ago(days)
         end_date = today_str()
-        data = await fetch_fred_series(series_id, start_date, end_date, limit=500)
+        data = await fetch_fred_series(series_id, start_date, end_date, limit=500, units=units)
         return {
             "success": True,
             "timestamp": now_iso(),
