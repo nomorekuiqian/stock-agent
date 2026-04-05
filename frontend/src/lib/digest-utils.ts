@@ -1,4 +1,4 @@
-import { DigestResponse, UserDigestItem } from './api';
+import { DigestResponse, StockAnalysis, UserDigestItem } from './api';
 
 /**
  * Convert a UserDigestItem (database record) to DigestResponse (display format).
@@ -18,6 +18,31 @@ export function userDigestToResponse(item: UserDigestItem): DigestResponse {
       content: item.bottom_line || item.analysis || '',
     },
   };
+}
+
+/**
+ * Parse percentage string like "+2.35%" or "-4.2%" to number.
+ */
+export function parseChangePercent(change: string): number {
+  return parseFloat(change.replace('%', '').replace('+', '')) || 0;
+}
+
+/**
+ * Sort stocks by absolute daily change (highest volatility first).
+ */
+export function sortByVolatility(stocks: StockAnalysis[]): StockAnalysis[] {
+  return [...stocks].sort(
+    (a, b) =>
+      Math.abs(parseChangePercent(b.daily_change)) -
+      Math.abs(parseChangePercent(a.daily_change))
+  );
+}
+
+/**
+ * Whether a stock's daily move is notable (>=3%).
+ */
+export function isNotableMove(change: string): boolean {
+  return Math.abs(parseChangePercent(change)) >= 3;
 }
 
 /**

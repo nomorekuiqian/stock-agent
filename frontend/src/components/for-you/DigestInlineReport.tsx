@@ -1,8 +1,8 @@
 'use client';
 
-import { DigestResponse, StockAnalysis, DigestHeadlineNews, DigestBriefNews, DigestEvent } from '@/lib/api';
+import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent } from '@/lib/api';
 import { formatReportDate, formatCalendarDate, isMarketToday, formatCompactTimestamp } from '@/lib/timezone';
-import { getStatusColor } from '@/lib/digest-utils';
+import StockOverviewPanel from './StockOverviewPanel';
 
 interface DigestInlineReportProps {
   digest: DigestResponse;
@@ -67,32 +67,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
             <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
           </div>
-          <div className="divide-y divide-border/30">
-            {digest.stocks.map((stock: StockAnalysis) => (
-              <div key={stock.symbol} className="py-4 first:pt-0 last:pb-0">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold font-data text-foreground">{stock.symbol}</span>
-                    <span className="text-sm text-muted-foreground">{stock.name}</span>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(stock.status)}`}>
-                    {stock.status}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-sm mb-2">
-                  <span className="text-foreground font-medium font-data">${stock.price.toFixed(2)}</span>
-                  <span className={`font-data ${stock.daily_change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {stock.daily_change}
-                  </span>
-                  <span className="text-muted-foreground/50">|</span>
-                  <span className={`font-data ${stock.week_change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {stock.week_change} (周)
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">{stock.quick_take}</p>
-              </div>
-            ))}
-          </div>
+          <StockOverviewPanel stocks={digest.stocks} />
         </section>
       )}
 
