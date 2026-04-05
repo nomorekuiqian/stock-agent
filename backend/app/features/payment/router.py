@@ -240,7 +240,7 @@ async def stripe_webhook(request: Request):
                     plan=plan,
                     status=status,
                     current_period_end=period_end,
-                    clear_access_expires_at=(plan == "pro"),
+                    clear_access_expires_at=(plan in ("pro", "max")),
                 )
                 logger.info("Subscription updated for user %s: %s", user_id, status)
         except Exception as e:

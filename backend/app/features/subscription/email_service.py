@@ -1001,7 +1001,7 @@ class EmailService:
                     sub_record = await get_subscription(user_id)
                     is_pro = (
                         sub_record is not None
-                        and sub_record.get("plan") == "pro"
+                        and sub_record.get("plan") in ("pro", "max")
                         and sub_record.get("status") == "active"
                         and (
                             not sub_record.get("access_expires_at")
