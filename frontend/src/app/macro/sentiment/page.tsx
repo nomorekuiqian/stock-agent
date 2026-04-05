@@ -24,7 +24,7 @@ import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
 import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
 import { formatTimestamp } from '@/lib/timezone';
-import { ShieldAlert, Activity, BarChart3, type LucideIcon } from 'lucide-react';
+import { ShieldAlert, Activity, type LucideIcon } from 'lucide-react';
 
 // ============================================================================
 // Constants
@@ -33,10 +33,9 @@ import { ShieldAlert, Activity, BarChart3, type LucideIcon } from 'lucide-react'
 const SUB_DIM_NAMES: Record<string, string> = {
   cnn_indicators: '恐慌贪婪',
   volatility: '波动率',
-  breadth_options: '市场宽度',
 };
 
-const DIM_ORDER = ['cnn_indicators', 'volatility', 'breadth_options'];
+const DIM_ORDER = ['cnn_indicators', 'volatility'];
 
 function getRatingZh(score: number): { label: string; color: string } {
   if (score <= 25) return { label: '极度恐慌', color: 'red' };
@@ -88,21 +87,6 @@ const HERO_CONFIG: Record<string, {
       return { color: 'red' };
     },
   },
-  breadth_options: {
-    primary: 'BREADTH',
-    secondary: 'PCCE',
-    label: 'S&P 500 上涨比例',
-    secondaryLabel: '看跌/看涨比率',
-    format: (ind) => ind.value != null ? `${ind.value.toFixed(0)}%` : 'N/A',
-    secondaryFormat: (ind) => ind.value != null ? ind.value.toFixed(2) : 'N/A',
-    interpret: (ind) => {
-      const v = ind?.value;
-      if (v == null) return { color: 'amber' };
-      if (v >= 70) return { color: 'emerald' };
-      if (v >= 30) return { color: 'amber' };
-      return { color: 'red' };
-    },
-  },
 };
 
 const CNN_COMPONENT_INFO: Record<string, { description: string }> = {
@@ -151,14 +135,6 @@ const CHART_CONFIG: Record<string, {
     yfSymbol: 'SKEW',
     description: 'CBOE SKEW 指数，衡量 S&P 500 期权市场对尾部风险（黑天鹅事件）的定价。SKEW > 150 表示市场对极端下行风险的对冲需求异常高。',
   },
-  BREADTH: {
-    chartType: 'none',
-    description: '当日 S&P 500 代表股中上涨的比例。> 70% 表示广泛上涨（强势市场），< 30% 表示广泛下跌（恐慌抛售）。',
-  },
-  PCCE: {
-    chartType: 'none',
-    description: 'CBOE 看跌/看涨期权总量比率。> 1.0 表示看跌者多于看涨者（偏恐慌），< 0.7 表示看涨者占优（偏贪婪）。极端读数往往是反向指标。',
-  },
 };
 
 const SECTION_EXPLAINER: Record<string, {
@@ -190,17 +166,6 @@ const SECTION_EXPLAINER: Record<string, {
       { label: 'VIX', text: '> 30 通常意味着市场恐慌，< 15 意味着市场异常平静（可能是暴风雨前的宁静）。2020 年 3 月 VIX 曾飙升至 82。' },
       { label: 'VVIX', text: 'VIX 的波动率。高 VVIX 意味着市场对波动率方向存在高度不确定性，通常出现在重大事件前后。' },
       { label: 'SKEW', text: '衡量尾部风险定价。> 150 表示市场对黑天鹅事件的对冲需求异常高，投资者在为极端下行情景买保险。' },
-    ],
-  },
-  breadth_options: {
-    icon: BarChart3,
-    title: '市场宽度与期权情绪',
-    paragraphs: [
-      '市场宽度衡量「上涨是否广泛参与」。如果指数上涨但只有少数大盘股带动（宽度差），说明上涨基础脆弱。Put/Call Ratio 则直接反映期权市场的看空/看多力量对比。',
-    ],
-    items: [
-      { label: '市场宽度', text: '> 70% 表示多数股票参与上涨（健康牛市），< 30% 表示下跌广泛（恐慌抛售）。50% 左右是中性。' },
-      { label: 'Put/Call 比率', text: '> 1.0 看跌情绪主导（恐慌），< 0.7 看涨情绪主导（贪婪）。极端值往往是反转信号 -- 当所有人都在恐慌时，反弹可能即将到来。' },
     ],
   },
 };

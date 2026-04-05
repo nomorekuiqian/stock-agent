@@ -1130,23 +1130,6 @@ _CNN_COMPONENT_NAMES_ZH = {
     "safe_haven_demand": "避险资产需求",
 }
 
-# S&P 500 sector ETFs for breadth — 11 sectors cover the full market
-# Much faster than 100 individual stocks (~1s vs ~30s on yfinance)
-_BREADTH_BASKET = [
-    "XLK",   # Technology
-    "XLF",   # Financials
-    "XLV",   # Health Care
-    "XLY",   # Consumer Discretionary
-    "XLP",   # Consumer Staples
-    "XLE",   # Energy
-    "XLI",   # Industrials
-    "XLB",   # Materials
-    "XLRE",  # Real Estate
-    "XLU",   # Utilities
-    "XLC",   # Communication Services
-]
-
-
 async def _fetch_cnn_fear_greed() -> dict | None:
     """Fetch CNN Fear & Greed Index data."""
     try:
@@ -1160,17 +1143,18 @@ async def _fetch_cnn_fear_greed() -> dict | None:
 
 
 async def _fetch_sentiment_market_data() -> dict[str, list[RiskIndicator]]:
-    """Fetch volatility (VIX/VVIX/SKEW) and breadth indicators.
-    Credit spreads (HY OAS/BBB) are covered in Economic Fundamentals."""
+    """Fetch volatility indicators (VIX/VVIX/SKEW).
+    Breadth and put/call are already covered by CNN Fear & Greed components
+    (stock_price_breadth, put_call_options)."""
     yf_service = get_yfinance_service()
 
-    symbols = ["^VIX", "^VVIX", "^SKEW"] + _BREADTH_BASKET
-    yf_result = await asyncio.to_thread(yf_service.get_stock_quotes, symbols)
+    yf_result = await asyncio.to_thread(
+        yf_service.get_stock_quotes, ["^VIX", "^VVIX", "^SKEW"]
+    )
 
     quotes = yf_result.get("quotes", [])
     quotes_by_symbol = {q["symbol"]: q for q in quotes}
 
-    # -- Volatility --
     volatility = []
     for sym, sid, name in [
         ("^VIX", "VIX", "VIX 波动率指数"),
@@ -1187,34 +1171,8 @@ async def _fetch_sentiment_market_data() -> dict[str, list[RiskIndicator]]:
             source="yfinance",
         ))
 
-    # -- Breadth & Options --
-    breadth_options = []
-
-    breadth_quotes = [quotes_by_symbol.get(s) for s in _BREADTH_BASKET if s in quotes_by_symbol]
-    if breadth_quotes:
-        up_count = sum(1 for q in breadth_quotes if q and q.get("daily_change", 0) > 0)
-        breadth_pct = round(up_count / len(breadth_quotes) * 100, 1)
-    else:
-        breadth_pct = None
-    breadth_options.append(RiskIndicator(
-        series_id="BREADTH",
-        name="S&P 500 市场宽度",
-        value=breadth_pct,
-        units="Percent",
-        source="yfinance",
-    ))
-    # Put/Call: yfinance ^PCCE delisted, use CNN score as reference
-    breadth_options.append(RiskIndicator(
-        series_id="PCCE",
-        name="看跌/看涨比率 (CBOE)",
-        value=None,
-        units="Ratio",
-        source="cnn",
-    ))
-
     return {
         "volatility": volatility,
-        "breadth_options": breadth_options,
     }
 
 
@@ -1335,29 +1293,7 @@ async def get_market_sentiment(
             indicators=vol_indicators,
         )
 
-        # -- 3. Breadth & Options sub-dimension --
-        bo_indicators = market_groups.get("breadth_options", [])
-        breadth_val = next((i.value for i in bo_indicators if i.series_id == "BREADTH"), None)
-        bo_headline = "市场宽度与期权情绪"
-        if breadth_val is not None:
-            if breadth_val >= 70:
-                bo_headline = f"上涨比例 {breadth_val:.0f}% - 多数股票参与上涨，市场广度健康"
-            elif breadth_val >= 40:
-                bo_headline = f"上涨比例 {breadth_val:.0f}% - 市场涨跌分化，广度一般"
-            else:
-                bo_headline = f"上涨比例 {breadth_val:.0f}% - 多数股票下跌，市场广度疲弱"
-
-        bo_dim = SubDimension(
-            name="breadth_options",
-            name_zh="市场宽度与期权",
-            score=5.0,
-            risk_level="medium",
-            weight=0.0,
-            headline=bo_headline,
-            indicators=bo_indicators,
-        )
-
-        sub_dims = [cnn_dim, vol_dim, bo_dim]
+        sub_dims = [cnn_dim, vol_dim]
 
         overall_level = (
             "low" if overall_score >= 60
