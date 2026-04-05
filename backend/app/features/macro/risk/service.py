@@ -1130,17 +1130,20 @@ _CNN_COMPONENT_NAMES_ZH = {
     "safe_haven_demand": "避险资产需求",
 }
 
+# S&P 500 sector ETFs for breadth — 11 sectors cover the full market
+# Much faster than 100 individual stocks (~1s vs ~30s on yfinance)
 _BREADTH_BASKET = [
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V",
-    "UNH", "XOM", "JNJ", "WMT", "PG", "MA", "HD", "CVX", "MRK", "ABBV",
-    "KO", "PEP", "COST", "LLY", "AVGO", "TMO", "MCD", "CSCO", "ACN", "ABT",
-    "CRM", "DHR", "TXN", "NEE", "LIN", "PM", "UNP", "RTX", "AMGN", "CMCSA",
-    "LOW", "HON", "IBM", "QCOM", "CAT", "BA", "GE", "INTC", "AMAT", "ISRG",
-    "MDLZ", "ADI", "BKNG", "ADP", "PLD", "GILD", "SYK", "MMC", "CB", "BDX",
-    "VRTX", "CI", "DE", "AMT", "SO", "DUK", "ZTS", "MO", "PGR", "CL",
-    "SHW", "BSX", "REGN", "AON", "CME", "FIS", "NSC", "ICE", "TGT", "WM",
-    "APD", "EMR", "FCX", "SLB", "ETN", "PH", "ORLY", "ECL", "ADSK", "KLAC",
-    "PSA", "AEP", "D", "GIS", "SRE", "FTNT", "CTAS", "AZO", "WELL", "MNST",
+    "XLK",   # Technology
+    "XLF",   # Financials
+    "XLV",   # Health Care
+    "XLY",   # Consumer Discretionary
+    "XLP",   # Consumer Staples
+    "XLE",   # Energy
+    "XLI",   # Industrials
+    "XLB",   # Materials
+    "XLRE",  # Real Estate
+    "XLU",   # Utilities
+    "XLC",   # Communication Services
 ]
 
 
