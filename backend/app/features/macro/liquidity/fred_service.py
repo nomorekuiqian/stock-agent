@@ -159,13 +159,14 @@ async def get_latest_value(series_id: str) -> dict:
     latest = data["observations"][0]
 
     change = None
+    previous_value = None
     previous_date = None
     if len(data["observations"]) >= 2:
         current = latest["value"]
-        previous = data["observations"][1]["value"]
+        previous_value = data["observations"][1]["value"]
         previous_date = data["observations"][1]["date"]
-        if current and previous and previous != 0:
-            change = ((current - previous) / abs(previous)) * 100
+        if current and previous_value and previous_value != 0:
+            change = ((current - previous_value) / abs(previous_value)) * 100
 
     return {
         "series_id": series_id,
@@ -174,6 +175,7 @@ async def get_latest_value(series_id: str) -> dict:
         "date": latest["date"],
         "units": data["units"],
         "change": change,
+        "previous_value": previous_value,
         "previous_date": previous_date,
     }
 
@@ -224,20 +226,16 @@ async def get_all_liquidity_metrics() -> dict:
             if fed_assets is not None and tga is not None and rrp is not None:
                 net_liquidity = fed_assets - tga - rrp
 
-                # Get previous values for change calculation
-                fed_data = await fetch_fred_series("WALCL", limit=5)
-                tga_data = await fetch_fred_series("WDTGAL", limit=5)
-                rrp_data = await fetch_fred_series("RRPONTSYD", limit=5)
+                # Use previous values already fetched by get_latest_value (no extra API calls)
+                prev_fed_v = metrics["fed_assets"].get("previous_value")
+                prev_tga_v = metrics["tga"].get("previous_value")
+                prev_rrp_v = metrics["rrp"].get("previous_value")
 
-                prev_fed_v = fed_data["observations"][1]["value"] if len(fed_data["observations"]) >= 2 else None
-                prev_tga_v = tga_data["observations"][1]["value"] if len(tga_data["observations"]) >= 2 else None
-                prev_rrp_v = rrp_data["observations"][1]["value"] if len(rrp_data["observations"]) >= 2 else None
-
+                net_change = None
                 if prev_fed_v is not None and prev_tga_v is not None and prev_rrp_v is not None:
                     prev_net = prev_fed_v / 1000 - prev_tga_v / 1000 - prev_rrp_v
-                    net_change = ((net_liquidity - prev_net) / abs(prev_net)) * 100 if prev_net else None
-                else:
-                    net_change = None
+                    if prev_net:
+                        net_change = ((net_liquidity - prev_net) / abs(prev_net)) * 100
 
                 metrics["net_liquidity"] = {
                     "series_id": "CALCULATED",
@@ -246,7 +244,7 @@ async def get_all_liquidity_metrics() -> dict:
                     "date": metrics["fed_assets"]["date"],
                     "units": "Billions of Dollars",
                     "change": net_change,
-                    "previous_date": fed_data["observations"][1]["date"] if len(fed_data["observations"]) >= 2 else None,
+                    "previous_date": metrics["fed_assets"].get("previous_date"),
                     "formula": "Fed Assets - TGA - RRP"
                 }
             else:

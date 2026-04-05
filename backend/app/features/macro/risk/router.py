@@ -258,7 +258,10 @@ async def _get_yf_history(
         }
 
     try:
-        data = await asyncio.to_thread(_fetch_yf_history, yf_symbol, days)
+        data = await asyncio.wait_for(
+            asyncio.to_thread(_fetch_yf_history, yf_symbol, days),
+            timeout=20,
+        )
         _yf_history_cache[cache_key] = (data, now)
         return {
             "success": True,

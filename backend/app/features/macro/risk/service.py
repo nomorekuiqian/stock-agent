@@ -6,8 +6,22 @@ Fetches FRED data, yfinance AI basket quotes, and computes risk scores.
 
 import asyncio
 import time
+from functools import partial
 import httpx
 from app.core.logging import get_logger
+
+_THREAD_TIMEOUT = 20  # seconds — prevent yfinance/FMP hangs from blocking endpoints
+
+
+async def _to_thread_with_timeout(func, *args, timeout: int = _THREAD_TIMEOUT, **kwargs):
+    """Run a sync function in a thread with a timeout guard."""
+    if kwargs:
+        func = partial(func, *args, **kwargs)
+        args = ()
+    return await asyncio.wait_for(
+        asyncio.to_thread(func, *args),
+        timeout=timeout,
+    )
 from app.features.macro.liquidity.fred_service import (
     get_latest_value,
     get_all_liquidity_metrics,
@@ -499,7 +513,7 @@ async def get_macro_risk_dashboard(
 
         fred_results_raw, yf_result = await asyncio.gather(
             asyncio.gather(*fred_tasks),
-            asyncio.to_thread(yf_service.get_stock_quotes, AI_STOCK_BASKET),
+            _to_thread_with_timeout(yf_service.get_stock_quotes, AI_STOCK_BASKET),
         )
 
         indicators = {key: data for key, data in fred_results_raw}
@@ -930,11 +944,30 @@ async def get_inflation_rates(
             for defn in defs
         }
 
+        # Keys that should show YoY% instead of raw index level
+        _YOY_KEYS = {"cpi", "core_pce", "ppi"}
+
         async def fetch_indicator(key: str):
             series_id = MACRO_RISK_FRED_SERIES.get(key)
             if not series_id:
                 return key, {"value": None, "error": f"Unknown series key: {key}"}
             try:
+                if key in _YOY_KEYS:
+                    # Fetch YoY% directly — avoids a second API call
+                    data = await fetch_fred_series(series_id, limit=5, units="pc1")
+                    if not data["observations"]:
+                        return key, {"value": None, "date": None}
+                    obs = data["observations"][0]
+                    return key, {
+                        "series_id": series_id,
+                        "title": data["title"],
+                        "value": obs["value"],
+                        "date": obs["date"],
+                        "units": "Percent Change from Year Ago",
+                        "change": None,
+                        "previous_value": None,
+                        "previous_date": None,
+                    }
                 return key, await get_latest_value(series_id)
             except Exception as e:
                 logger.error("Error fetching %s: %s", series_id, e)
@@ -945,31 +978,6 @@ async def get_inflation_rates(
         )
 
         indicators = {key: data for key, data in results_raw}
-
-        # Fetch YoY% for inflation indicators so the display shows
-        # human-readable percentages instead of raw index levels.
-        _YOY_KEYS = {"cpi", "core_pce", "ppi"}
-
-        async def fetch_yoy(key: str, series_id: str):
-            try:
-                data = await fetch_fred_series(series_id, limit=2, units="pc1")
-                if data["observations"]:
-                    return key, data["observations"][0]["value"]
-            except Exception as e:
-                logger.error("Error fetching YoY for %s: %s", series_id, e)
-            return key, None
-
-        yoy_results = await asyncio.gather(
-            *[
-                fetch_yoy(k, MACRO_RISK_FRED_SERIES[k])
-                for k in _YOY_KEYS
-                if k in indicators and MACRO_RISK_FRED_SERIES.get(k)
-            ]
-        )
-        for key, yoy_val in yoy_results:
-            if yoy_val is not None and key in indicators:
-                indicators[key]["value"] = yoy_val
-                indicators[key]["units"] = "Percent Change from Year Ago"
 
         inflation = _compute_subdimension("inflation", "通胀", 0.60, _INFLATION_RATES_INFLATION, indicators)
         rates = _compute_subdimension("rates", "利率", 0.40, _INFLATION_RATES_RATES, indicators)
@@ -1148,7 +1156,7 @@ async def _fetch_sentiment_market_data() -> dict[str, list[RiskIndicator]]:
     (stock_price_breadth, put_call_options)."""
     yf_service = get_yfinance_service()
 
-    yf_result = await asyncio.to_thread(
+    yf_result = await _to_thread_with_timeout(
         yf_service.get_stock_quotes, ["^VIX", "^VVIX", "^SKEW"]
     )
 
@@ -1374,7 +1382,7 @@ async def get_treasury_and_commodities() -> dict:
                     logger.info("Returning DB-cached treasury data")
                 else:
                     fmp = get_fmp_service()
-                    treasury_result = await asyncio.to_thread(fmp.get_treasury_rates_with_change)
+                    treasury_result = await _to_thread_with_timeout(fmp.get_treasury_rates_with_change)
                     _set_cached(_get_cache("treasury_rates"), treasury_result)
                     logger.info("Fetched fresh treasury: %d tenors", len(treasury_result.get('rates', {})))
 
@@ -1397,11 +1405,11 @@ async def get_treasury_and_commodities() -> dict:
             else:
                 fmp = get_fmp_service()
                 commodities_result, dollar_result = await asyncio.gather(
-                    asyncio.to_thread(
+                    _to_thread_with_timeout(
                         fmp.get_commodity_quotes,
                         ["GCUSD", "BZUSD", "HGUSD", "SIUSD"],
                     ),
-                    asyncio.to_thread(_fetch_dollar_index),
+                    _to_thread_with_timeout(_fetch_dollar_index),
                 )
                 commodities_map = commodities_result.get("commodities", {})
                 _set_cached(
