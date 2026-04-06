@@ -33,13 +33,16 @@ function TradingViewWidgetComponent({
     const container = containerRef.current;
     if (!container) return;
 
+    let mounted = true;
+
     // Clear previous widget
     container.innerHTML = '';
 
-    // Create widget container
+    // Create widget container — TradingView script looks for this child
     const widgetContainer = document.createElement('div');
     widgetContainer.className = 'tradingview-widget-container__widget';
     widgetContainer.style.height = `${height}px`;
+    widgetContainer.style.width = '100%';
     container.appendChild(widgetContainer);
 
     // Create script
@@ -71,10 +74,21 @@ function TradingViewWidgetComponent({
     }
     script.innerHTML = JSON.stringify(config);
 
-    container.appendChild(script);
+    // Only append if still mounted (guard against strict mode double-invoke)
+    if (mounted) {
+      container.appendChild(script);
+    }
 
     return () => {
-      container.innerHTML = '';
+      mounted = false;
+      // Remove script first to prevent it from running querySelector on removed DOM
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      // Then clear the rest
+      if (container) {
+        container.innerHTML = '';
+      }
     };
   }, [symbol, height, interval, range, theme, showToolbar, style, studies, hideVolume]);
 
