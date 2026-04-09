@@ -26,6 +26,10 @@ from app.features.subscription.email_styles import (
 # ---------------------------------------------------------------------------
 _FRONTEND_URL: str = FRONTEND_URL if FRONTEND_URL else "https://themarketbrew.com"
 _LOGO_URL: str = "https://themarketbrew.com/logo-avatar.png"
+# All user-visible CTA links in emails must point to the production domain,
+# regardless of the environment rendering the template. Dev/staging previews
+# should still link to production so recipients never land on localhost.
+_EMAIL_LINK_BASE: str = "https://themarketbrew.com"
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +192,7 @@ def get_feedback_section(
     report_type: str = "daily",
 ) -> str:
     """Generate email feedback survey section."""
-    feedback_frontend_url = "https://themarketbrew.com"
+    feedback_frontend_url = _EMAIL_LINK_BASE
 
     base_params = f"report_date={report_date}&report_type={report_type}"
     if report_id:
@@ -295,38 +299,136 @@ def get_email_footer(
 
 
 def get_digest_cta_section() -> str:
-    """CTA block promoting personal digest, shown only in daily report emails."""
-    watchlist_url = f"{_FRONTEND_URL}/for-you/watchlist"
+    """Pain-point driven Pro vs Max CTA at the bottom of the free daily report.
+
+    The only promotional surface in the email — no mid-email banners —
+    so this block carries the full conversion load. Each tier opens with
+    a reflective question ("没看到你持仓的股票?" / "想深度研究一只股票?")
+    that maps a specific reader frustration onto a specific feature.
+    Readers self-diagnose and click the card that matches their pain.
+
+    Layout / responsiveness (fluid hybrid)
+    --------------------------------------
+    * Wide viewports (>= 560px): two 272px inline-block cards side-by-side.
+    * Narrow viewports (< 540px): embedded media query overrides the
+      inline ``max-width: 272px`` with ``100% !important`` so each card
+      stretches full-width and the second card wraps to a new line.
+    * ``font-size: 0`` outer wrapper kills inter-inline-block whitespace.
+    * MSO conditional-comment ``<table>`` fallback for Outlook 2007-2019.
+
+    Card structure (both tiers)
+    ---------------------------
+    1. Recommended badge (Pro) or spacer div (Max) — keeps optical
+       alignment between the two tier labels on desktop; the spacer is
+       hidden on mobile since stacked cards no longer need alignment.
+    2. Tier label (PRO / MAX).
+    3. Pain-point headline — 15px bold, the question the reader is
+       silently asking right now.
+    4. Solution description — 12px, names the exact feature that answers
+       the question, with the feature name bolded in a darker brand tone.
+    5. Price — 22px 700 weight as the typographic anchor.
+    6. Subscribe button — full-width, brand-colored.
+    7. Dashed divider — separates the primary offer from the bonus list.
+    8. "以及：…" footnote — 11px muted list of additional included
+       features, framed as bonus value on top of the main offer.
+
+    Visual hierarchy / color
+    ------------------------
+    * Pro is the RECOMMENDED tier: emerald-700 border (2px), emerald
+      "推荐" badge. Dominant.
+    * Max is the premium tier: amber-200 border (1px), no badge,
+      amber-700 accent. Secondary but visually distinct.
+    * All text meets WCAG AA: dark brand tones (emerald-800 ``#065f46``
+      / amber-900 ``#78350f``) for feature emphasis in descriptions,
+      neutral-600 ``#52525b`` for body copy.
+    """
+    pro_url = f"{_EMAIL_LINK_BASE}/pricing"
+    max_url = f"{_EMAIL_LINK_BASE}/pricing"
     return f"""
-        <div style="background: #ffffff; padding: 28px 24px; border-top: 1px solid #e5e7eb;">
-            <table style="width: 100%;" cellpadding="0" cellspacing="0">
-                <tr>
-                    <td style="text-align: center; padding-bottom: 14px;">
-                        <span style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 4px; text-transform: uppercase;">NEW</span>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="text-align: center; padding-bottom: 6px;">
-                        <p style="margin: 0; font-size: 17px; font-weight: 600; color: #0a0a0a;">
-                            没看到你最关心的股票?
-                        </p>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="text-align: center; padding-bottom: 18px;">
-                        <p style="margin: 0; font-size: 13px; color: #71717a; line-height: 1.6;">
-                            添加你的持仓到 Watchlist，每天收到一份只分析你的股票的专属日报。
-                        </p>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="text-align: center;">
-                        <a href="{watchlist_url}" style="display: inline-block; padding: 12px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
-                            获取我的专属日报
+        <style>
+            @media only screen and (max-width: 540px) {{
+                .tmb-tier-card {{
+                    max-width: 100% !important;
+                    margin: 0 0 12px !important;
+                }}
+                /* Hide the Max card's badge-row spacer on mobile:
+                   cards stack vertically so we no longer need to
+                   optically align the "Max" label with Pro's "Pro" label. */
+                .tmb-tier-spacer {{
+                    display: none !important;
+                    height: 0 !important;
+                    margin: 0 !important;
+                }}
+            }}
+        </style>
+        <div style="background: #ffffff; padding: 28px 20px 32px; border-top: 1px solid #e4e4e7;">
+            <div style="text-align: center; margin-bottom: 22px;">
+                <div style="font-size: 11px; font-weight: 600; color: #71717a; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px;">升级订阅</div>
+                <div style="font-size: 16px; color: #0a0a0a; font-weight: 600;">解锁更多 · 找到最适合你的方案</div>
+            </div>
+            <!--[if mso]>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="560" style="width:560px;">
+            <tr>
+            <td valign="top" width="272" style="padding:0 4px;">
+            <![endif]-->
+            <div style="font-size: 0; line-height: 0; text-align: center;">
+                <!-- Pro card (RECOMMENDED) -->
+                <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #ecfdf5; border: 2px solid #047857; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div style="display: inline-block; background: #047857; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;">推荐</div>
+                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Pro</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
+                            没看到你持仓的股票?
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
+                            Pro 会员每天多收到一份<strong style="color: #065f46; font-weight: 600;">专属持仓日报</strong>，只分析你自选股里的股票。
+                        </div>
+                        <div style="margin-bottom: 14px; line-height: 1;">
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$4.99</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                        </div>
+                        <a href="{pro_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center; margin-bottom: 16px;">
+                            订阅 Pro &rarr;
                         </a>
-                    </td>
-                </tr>
+                        <div style="border-top: 1px dashed #a7f3d0; padding-top: 12px;">
+                            <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
+                                <span style="color: #71717a;">以及&nbsp;</span>盘前早报 &middot; 宏观周报 &middot; 自选股 25 只
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!--[if mso]></td><td valign="top" width="272" style="padding:0 4px;"><![endif]-->
+                <!-- Max card -->
+                <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div class="tmb-tier-spacer" style="height: 18px; margin-bottom: 12px; line-height: 0; font-size: 0;"><!-- spacer to align "Max" label with Pro's "Pro" label (matches 18px badge + 12px margin) --></div>
+                        <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Max</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
+                            想深度研究一只股票?
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
+                            Max 独享 <strong style="color: #78350f; font-weight: 600;">AI 投研引擎</strong>，一键生成基本面、技术面、估值深度分析。
+                        </div>
+                        <div style="margin-bottom: 14px; line-height: 1;">
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$9.99</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                        </div>
+                        <a href="{max_url}" style="display: block; padding: 11px 20px; background-color: #b45309; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #b45309; text-align: center; margin-bottom: 16px;">
+                            订阅 Max &rarr;
+                        </a>
+                        <div style="border-top: 1px dashed #fcd34d; padding-top: 12px;">
+                            <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
+                                <span style="color: #71717a;">以及&nbsp;</span>Pro 全部功能 &middot; AI 深度个股分析 &middot; 宏观仪表盘
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!--[if mso]>
+            </td>
+            </tr>
             </table>
+            <![endif]-->
         </div>
         """
 
@@ -574,7 +676,7 @@ def format_html_report(
 
                 <!-- Content Area -->
                 <div style="background: #f0f0f0; padding: 16px;">
-                    {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">市场概览</div>{indices_html}</div>' if indices_html else ''}
+                    {f'<div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 16px;"><div style="{section_header_style}">市场概览</div>{indices_html}<div style="margin-top: 16px; padding-top: 14px; border-top: 1px dashed #d4d4d8; text-align: center;"><span style="font-size: 12px; color: #71717a;">想看你持仓的涨跌?</span> <a href="{_EMAIL_LINK_BASE}/for-you/watchlist" style="font-size: 12px; color: #047857; text-decoration: none; font-weight: 600;">添加自选股 &rarr;</a></div></div>' if indices_html else ''}
                     {intro_html}
                     {news_html}
                     {calendar_html}
