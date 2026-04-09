@@ -472,7 +472,7 @@ class TestFeedbackSectionReportType:
 
 
 class TestDigestCtaSection:
-    """Tests for _get_digest_cta_section() -- generated from git diff."""
+    """Tests for the bottom Pro vs Max comparison CTA."""
 
     def test_returns_html(self, email_svc):
         """CTA section returns HTML string."""
@@ -480,20 +480,37 @@ class TestDigestCtaSection:
         assert "<div" in html
         assert "</div>" in html
 
-    def test_contains_watchlist_link(self, email_svc):
-        """CTA links to /for-you/watchlist."""
+    def test_contains_pricing_link(self, email_svc):
+        """Both Pro and Max CTAs point to /pricing."""
         html = email_svc._get_digest_cta_section()
-        assert "/for-you/watchlist" in html
-        assert "themarketbrew.com/for-you/watchlist" in html
+        assert "themarketbrew.com/pricing" in html
 
-    def test_contains_cta_text(self, email_svc):
+    def test_pro_and_max_tiers_present(self, email_svc):
+        """Comparison shows both tiers with pain-point headlines + prices."""
         html = email_svc._get_digest_cta_section()
-        assert "NEW" in html
+        # Pro tier (RECOMMENDED) — pain point headline + feature emphasis
+        assert "订阅 Pro" in html
+        assert "$4.99" in html
+        assert "推荐" in html  # recommended badge
+        assert "没看到你持仓的股票" in html  # pain point headline
+        assert "专属持仓日报" in html  # bolded feature
+        # Max tier — pain point headline + feature emphasis
+        assert "订阅 Max" in html
+        assert "$9.99" in html
+        assert "想深度研究一只股票" in html  # pain point headline
+        assert "AI 投研引擎" in html  # bolded feature
+        assert "AI 深度个股分析" in html  # in bonus list
+        # No free tier and no old copy
+        assert "添加自选股" not in html
+        assert "立即添加" not in html
+        # Bonus list framing
+        assert "以及" in html
 
     def test_included_in_daily_report(self, email_svc, mock_report_data):
         """Digest CTA section is included in daily report HTML."""
         html = email_svc._format_html_report(mock_report_data)
         assert "/for-you/watchlist" in html
+        assert "/pricing" in html
 
 
 class TestBroadcastWeeklyUsesSegmentOrAudience:

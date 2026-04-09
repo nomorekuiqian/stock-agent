@@ -11,10 +11,11 @@ import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 // ── Feature comparison data ──────────────────────────────────────────────────
 const PRO_FEATURES = [
   { feature: '每日市场日报（邮件）', desc: 'AI 生成的每日市场分析，直达收件箱' },
-  { feature: '盘前早报 + 盘后晚报', desc: '网站查看完整报告与图表' },
+  { feature: '盘前早报（邮件）',    desc: '每个交易日早上推送，帮你预判开盘' },
   { feature: '专属持仓日报（邮件）', desc: '基于你的实际持仓，每日生成只属于你的分析报告' },
   { feature: '宏观周报（邮件）',    desc: '每周宏观要点汇总，直达收件箱' },
   { feature: '自选股管理',          desc: '追踪最多 25 只股票，个性化推送' },
+  { feature: '市场日报网站',        desc: '在 /today 查看完整晚报和历史存档' },
 ];
 
 const MAX_ONLY_FEATURES = [
@@ -462,7 +463,7 @@ export default function PricingPage() {
           <div className="space-y-0 divide-y divide-border/30">
             <FaqItem
               q="Pro 和 Max 有什么区别?"
-              a="Pro 包含所有邮件订阅（早报、晚报、专属持仓日报、宏观周报）以及网站上的市场日报和专属页面。Max 在此基础上解锁 AI 深度个股分析、AI 投研引擎、宏观仪表盘等全部网站功能。"
+              a="Pro 包含全部邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报），以及市场日报网站（/today 和历史存档）和自选股管理。Max 在此基础上解锁 AI 深度个股分析、AI 投研引擎、宏观仪表盘，以及 /morning、/macro、/stock、/research 等全部网站深度功能。"
             />
             <FaqItem
               q="抢先体验价会持续多久?"
