@@ -6,6 +6,8 @@ Handles:
 """
 
 import asyncio
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -16,11 +18,30 @@ logger = get_logger(__name__)
 from app.core.deps import verify_cron_secret, verify_user_token_with_email
 from app.utils.timezone import today_str, now_iso
 from app.features.daily_report import db as market_db
+from app.features.payment.db import get_subscription as get_payment_subscription
 from app.features.subscription.service import (
     get_subscription_service,
     SubscriptionChannel,
 )
 from app.features.subscription.email_service import get_email_service
+
+
+def _is_pro_user(sub_record: Optional[dict[str, Any]]) -> bool:
+    """Check whether a subscription record grants active Pro/Max access."""
+    if not sub_record:
+        return False
+    if sub_record.get("plan") not in ("pro", "max"):
+        return False
+    if sub_record.get("status") != "active":
+        return False
+    expires_at = sub_record.get("access_expires_at")
+    if expires_at:
+        try:
+            if datetime.fromisoformat(expires_at) <= datetime.now(timezone.utc):
+                return False
+        except (ValueError, TypeError):
+            return False
+    return True
 from app.features.subscription.models import (
     SubscribeRequest,
     UnsubscribeRequest,
@@ -457,6 +478,26 @@ async def update_email_preferences(
     email = user["email"]
     if not email:
         raise HTTPException(status_code=400, detail="User email not available")
+
+    # Pro gate: block free users from ENABLING Pro-only email types.
+    # Disabling (setting to False) is always allowed so Pro users who
+    # downgrade can still opt out.
+    wants_pro_feature = (
+        request.morning_report is True
+        or request.weekly_report is True
+        or request.personal_digest is True
+    )
+    if wants_pro_feature:
+        sub_record = await get_payment_subscription(user["user_id"])
+        if not _is_pro_user(sub_record):
+            logger.info(
+                "Pro gate: blocked free user=%s from enabling Pro email preferences",
+                user["user_id"][:8],
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="This feature requires a Pro subscription",
+            )
 
     try:
         subscription_service = get_subscription_service()

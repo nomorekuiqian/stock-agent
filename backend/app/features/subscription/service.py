@@ -157,8 +157,35 @@ class SubscriptionService:
     }
 
     def add_to_default_segments(self, email: str) -> None:
-        """Add a contact to all configured segments (default: all reports on)."""
-        for report_type, seg_id in self.SEGMENT_IDS.items():
+        """Add a new contact to the free-tier default segment (evening daily report only).
+
+        Morning and weekly segments are Pro-only and should NOT be populated
+        on signup. They are added via `add_pro_segments()` when a user upgrades.
+        """
+        seg_id = self.SEGMENT_IDS.get("daily_report")
+        if not seg_id:
+            logger.warning("daily_report segment not configured, skipping default add")
+            return
+        try:
+            _rate_limit_wait()
+            resend.ContactSegments.add(
+                {
+                    "email": email,
+                    "segment_id": seg_id,
+                }
+            )
+            logger.info("Added %s to default (evening) segment", email)
+        except Exception as e:
+            logger.warning("Failed to add %s to default segment: %s", email, e)
+
+    def add_pro_segments(self, email: str) -> None:
+        """Add a contact to Pro-only segments (morning + weekly).
+
+        Call when a user upgrades to Pro/Max so they start receiving the
+        morning briefing and weekly macro report.
+        """
+        for report_type in ("morning_report", "weekly_report"):
+            seg_id = self.SEGMENT_IDS.get(report_type)
             if not seg_id:
                 continue
             try:
@@ -169,10 +196,35 @@ class SubscriptionService:
                         "segment_id": seg_id,
                     }
                 )
-                logger.info("Added %s to segment %s", email, report_type)
+                logger.info("Added %s to Pro segment %s", email, report_type)
             except Exception as e:
                 logger.warning(
-                    "Failed to add %s to segment %s: %s",
+                    "Failed to add %s to Pro segment %s: %s", email, report_type, e
+                )
+
+    def remove_pro_segments(self, email: str) -> None:
+        """Remove a contact from Pro-only segments (morning + weekly).
+
+        Call when a user downgrades from Pro (subscription canceled, invite
+        trial expired). The evening/daily segment is preserved — they continue
+        to receive the free daily report.
+        """
+        for report_type in ("morning_report", "weekly_report"):
+            seg_id = self.SEGMENT_IDS.get(report_type)
+            if not seg_id:
+                continue
+            try:
+                _rate_limit_wait()
+                resend.ContactSegments.remove(
+                    {
+                        "email": email,
+                        "segment_id": seg_id,
+                    }
+                )
+                logger.info("Removed %s from Pro segment %s", email, report_type)
+            except Exception as e:
+                logger.warning(
+                    "Failed to remove %s from Pro segment %s: %s",
                     email,
                     report_type,
                     e,

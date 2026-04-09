@@ -386,7 +386,11 @@ class TestSubscriptionServicePreferences:
         )
 
     def test_add_to_default_segments(self, mock_service_resend):
-        """add_to_default_segments adds contact to all configured segments."""
+        """add_to_default_segments only adds the new contact to the free-tier
+        evening segment. Morning and weekly are Pro-only and must not be
+        auto-populated on signup (otherwise free users would receive Pro
+        emails by default).
+        """
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -400,12 +404,13 @@ class TestSubscriptionServicePreferences:
         with patch("app.features.subscription.service._rate_limit_wait"):
             svc.add_to_default_segments("new@test.com")
 
-        assert mock_service_resend.ContactSegments.add.call_count == 3
-        emails = [
-            call.args[0]["email"]
-            for call in mock_service_resend.ContactSegments.add.call_args_list
-        ]
-        assert all(e == "new@test.com" for e in emails)
+        assert mock_service_resend.ContactSegments.add.call_count == 1
+        mock_service_resend.ContactSegments.add.assert_called_once_with(
+            {
+                "email": "new@test.com",
+                "segment_id": "seg-evening-id",
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
