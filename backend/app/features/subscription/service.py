@@ -159,8 +159,8 @@ class SubscriptionService:
     def add_to_default_segments(self, email: str) -> None:
         """Add a new contact to the free-tier default segment (evening daily report only).
 
-        Morning and weekly segments are Pro-only and should NOT be populated
-        on signup. They are added via `add_pro_segments()` when a user upgrades.
+        Morning and weekly segments are Pro-only and managed by
+        sync_resend_segments() via the Stripe entitlements webhook.
         """
         seg_id = self.SEGMENT_IDS.get("daily_report")
         if not seg_id:
@@ -178,57 +178,51 @@ class SubscriptionService:
         except Exception as e:
             logger.warning("Failed to add %s to default segment: %s", email, e)
 
-    def add_pro_segments(self, email: str) -> None:
-        """Add a contact to Pro-only segments (morning + weekly).
+    def sync_resend_segments(self, email: str, entitlements: set) -> list:
+        """Reconcile Resend segment membership to match entitlements.
 
-        Call when a user upgrades to Pro/Max so they start receiving the
-        morning briefing and weekly macro report.
+        Idempotent. Only touches segments whose state differs from desired.
+        This is the ONLY function that should write Resend segments going forward.
+
+        Returns list of actions taken (for logging/audit).
         """
-        for report_type in ("morning_report", "weekly_report"):
+        self._validate_api_key()
+
+        # Only sync entitlement-controlled segments (morning, weekly).
+        # daily_report (evening) is user-preference only — don't override opt-outs.
+        desired = {
+            "morning_report": "morning_report_email" in entitlements,
+            "weekly_report": "weekly_report_email" in entitlements,
+        }
+
+        current = self.get_email_preferences(email)
+        actions = []
+
+        for report_type, should_be in desired.items():
+            is_in = current.get(report_type, False)
             seg_id = self.SEGMENT_IDS.get(report_type)
             if not seg_id:
                 continue
-            try:
-                _rate_limit_wait()
-                resend.ContactSegments.add(
-                    {
-                        "email": email,
-                        "segment_id": seg_id,
-                    }
-                )
-                logger.info("Added %s to Pro segment %s", email, report_type)
-            except Exception as e:
-                logger.warning(
-                    "Failed to add %s to Pro segment %s: %s", email, report_type, e
-                )
 
-    def remove_pro_segments(self, email: str) -> None:
-        """Remove a contact from Pro-only segments (morning + weekly).
+            if should_be and not is_in:
+                try:
+                    _rate_limit_wait()
+                    resend.ContactSegments.add({"email": email, "segment_id": seg_id})
+                    actions.append("added to %s" % report_type)
+                except Exception as e:
+                    logger.warning("sync_resend: add %s to %s failed: %s", email, report_type, e)
+            elif not should_be and is_in:
+                try:
+                    _rate_limit_wait()
+                    resend.ContactSegments.remove({"email": email, "segment_id": seg_id})
+                    actions.append("removed from %s" % report_type)
+                except Exception as e:
+                    logger.warning("sync_resend: remove %s from %s failed: %s", email, report_type, e)
 
-        Call when a user downgrades from Pro (subscription canceled, invite
-        trial expired). The evening/daily segment is preserved — they continue
-        to receive the free daily report.
-        """
-        for report_type in ("morning_report", "weekly_report"):
-            seg_id = self.SEGMENT_IDS.get(report_type)
-            if not seg_id:
-                continue
-            try:
-                _rate_limit_wait()
-                resend.ContactSegments.remove(
-                    {
-                        "email": email,
-                        "segment_id": seg_id,
-                    }
-                )
-                logger.info("Removed %s from Pro segment %s", email, report_type)
-            except Exception as e:
-                logger.warning(
-                    "Failed to remove %s from Pro segment %s: %s",
-                    email,
-                    report_type,
-                    e,
-                )
+        if actions:
+            logger.info("sync_resend_segments: email=%s actions=%s", email, actions)
+
+        return actions
 
     def get_email_preferences(self, email: str) -> Dict[str, bool]:
         """Get email preferences by checking which segments a contact belongs to."""

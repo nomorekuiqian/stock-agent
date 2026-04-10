@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi.responses import JSONResponse
 
 import stripe
 
@@ -20,7 +21,12 @@ from app.features.payment.models import (
 )
 from app.core.logging import get_logger
 from app.features.payment.service import create_checkout_session, create_portal_session
-from app.features.payment.db import get_subscription, upsert_subscription
+from app.features.payment.db import (
+    get_subscription,
+    get_subscription_by_customer,
+    invalidate_subscription_cache,
+    upsert_subscription,
+)
 
 logger = get_logger(__name__)
 
@@ -127,6 +133,20 @@ async def api_subscription_status(user_id: str = Depends(verify_user_token)):
     )
 
 
+@router.get("/me/entitlements")
+async def api_my_entitlements(
+    fresh: bool = False,
+    user_id: str = Depends(verify_user_token),
+):
+    """Return the current user's feature entitlement set."""
+    from app.features.payment.entitlements import get_user_entitlements
+
+    if fresh:
+        invalidate_subscription_cache(user_id)
+    ents = await get_user_entitlements(user_id)
+    return {"entitlements": sorted(ents)}
+
+
 @router.post("/portal-session", response_model=PortalSessionResponse)
 async def api_portal_session(user_id: str = Depends(verify_user_token)):
     """Create a Stripe Customer Portal session."""
@@ -229,20 +249,20 @@ async def stripe_webhook(request: Request):
             logger.info("Subscription activated for user %s (plan=%s)", user_id, plan)
 
     elif event_type == "customer.subscription.updated":
+        # Identity sync only — plan/entitlements are handled by the
+        # entitlements.active_entitlement_summary.updated webhook.
         try:
             user_id = obj.get("metadata", {}).get("user_id")
             if user_id:
                 status = obj.get("status", "active")
-                plan = "free" if status in ("canceled", "unpaid") else _resolve_plan_from_subscription(obj)
                 _, period_end = _get_period(obj)
                 await upsert_subscription(
                     user_id=user_id,
-                    plan=plan,
+                    stripe_subscription_id=obj.get("id"),
                     status=status,
                     current_period_end=period_end,
-                    clear_access_expires_at=(plan in ("pro", "max")),
                 )
-                logger.info("Subscription updated for user %s: %s", user_id, status)
+                logger.info("Subscription identity updated for user %s: status=%s", user_id, status)
         except Exception as e:
             logger.warning("subscription.updated handler failed: %s", e)
 
@@ -285,9 +305,87 @@ async def stripe_webhook(request: Request):
                             user_id=user_id,
                             plan="free",
                             status="canceled",
+                            entitlements=[],
                         )
                         logger.info("Subscription %s canceled for user %s, no active subs remain", deleted_sub_id, user_id)
         except Exception as e:
             logger.warning("subscription.deleted handler failed: %s", e)
+
+    elif event_type == "entitlements.active_entitlement_summary.updated":
+        customer_id = obj.get("customer")
+        if not customer_id:
+            logger.warning("entitlements webhook missing customer id")
+            return {"received": True}
+
+        # Find user by stripe_customer_id
+        sub_record = await get_subscription_by_customer(customer_id)
+        if not sub_record:
+            logger.warning("entitlements webhook: unknown customer %s", customer_id)
+            return {"received": True}
+
+        user_id = sub_record.get("user_id")
+        if not user_id:
+            logger.warning("entitlements webhook: no user_id for customer %s", customer_id)
+            return {"received": True}
+
+        # Fetch full entitlements from Stripe API
+        try:
+            ents_response = await asyncio.to_thread(
+                stripe.entitlements.ActiveEntitlement.list,
+                customer=customer_id,
+            )
+        except Exception as e:
+            logger.error(
+                "entitlements webhook: Stripe API failed for customer %s: %s",
+                customer_id, e,
+            )
+            return JSONResponse(
+                status_code=502,
+                content={"error": "Stripe entitlements API failed"},
+            )
+
+        ents_data = _to_dict(ents_response)
+        feature_keys = sorted({
+            _to_dict(ent).get("feature", {}).get("lookup_key", "")
+            if isinstance(_to_dict(ent).get("feature"), dict)
+            else _to_dict(ent).get("lookup_key", "")
+            for ent in ents_data.get("data", [])
+        })
+        feature_keys = [k for k in feature_keys if k]  # remove empty
+
+        # Determine plan from entitlements
+        from app.features.payment.entitlements import MAX_ONLY_FEATURES
+        has_max_feature = any(f in MAX_ONLY_FEATURES for f in feature_keys)
+        plan = "max" if has_max_feature else ("pro" if feature_keys else "free")
+
+        # Determine status from subscription
+        status = sub_record.get("status", "active")
+
+        # Layer 2: update Insforge
+        await upsert_subscription(
+            user_id=user_id,
+            stripe_customer_id=customer_id,
+            plan=plan,
+            status=status if feature_keys else "canceled",
+            entitlements=feature_keys,
+        )
+
+        # Layer 3: sync Resend segments
+        try:
+            from app.features.subscription.service import SubscriptionService
+            svc = SubscriptionService()
+            # Get user email from Stripe customer
+            customer = await asyncio.to_thread(stripe.Customer.retrieve, customer_id)
+            customer_dict = _to_dict(customer)
+            email = customer_dict.get("email")
+            if email:
+                svc.sync_resend_segments(email, set(feature_keys))
+        except Exception as e:
+            logger.warning("entitlements webhook: Resend sync failed: %s", e)
+
+        logger.info(
+            "entitlements synced: user=%s plan=%s features=%s",
+            user_id[:8], plan, feature_keys,
+        )
 
     return {"received": True}
