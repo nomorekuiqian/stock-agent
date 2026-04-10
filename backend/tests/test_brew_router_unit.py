@@ -233,7 +233,7 @@ class TestSaveWatchlistEndpoint:
         monkeypatch.setattr("app.features.brew.router.save_user_watchlist", _mock_save_user_watchlist)
 
         body = WatchlistSaveRequest(symbols=["AAPL"], email="tester@example.com", base_updated_at="2026-03-06T10:00:00Z")
-        result = await save_watchlist(body=body, user_id="user-1")
+        result = await save_watchlist(body=body, user_info={"user_id": "user-1", "email": "tester@example.com"})
 
         assert result["success"] is True
         assert calls == {
@@ -256,7 +256,7 @@ class TestSaveWatchlistEndpoint:
         with pytest.raises(HTTPException) as exc:
             await save_watchlist(
                 body=WatchlistSaveRequest(symbols=["AAPL"], base_updated_at="2026-03-06T10:00:00Z"),
-                user_id="user-1",
+                user_info={"user_id": "user-1", "email": "test@example.com"},
             )
 
         assert exc.value.status_code == 409
