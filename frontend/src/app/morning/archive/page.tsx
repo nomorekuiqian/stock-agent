@@ -18,7 +18,7 @@ export default function MorningArchivePage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <PaywallGuard requiredPlan="max">
+    <PaywallGuard requiredFeature="morning_website">
     <main className="min-h-screen bg-background">
       {/* Header */}
       <section className="border-b border-border">

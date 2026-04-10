@@ -652,7 +652,7 @@ export default function InflationRatesPage() {
   }, [selectedDim]);
 
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredFeature="macro_dashboard">
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Inflation & Rates"

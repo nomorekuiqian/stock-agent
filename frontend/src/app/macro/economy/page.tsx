@@ -667,7 +667,7 @@ export default function EconomyPage() {
   const orderedDims = [growthDim, employmentDim, creditDim].filter((d): d is SubDimension => d != null);
 
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredFeature="macro_dashboard">
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Economy"

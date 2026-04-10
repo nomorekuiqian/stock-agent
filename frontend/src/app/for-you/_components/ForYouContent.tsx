@@ -303,7 +303,7 @@ function ForYouPageContent() {
 
 export function ForYouContent() {
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredFeature="for_you_website">
       <ForYouPageContent />
     </PaywallGuard>
   );

@@ -67,7 +67,7 @@ export default async function MorningPage() {
   const totalReports = historyResult.total;
 
   return (
-    <PaywallGuard requiredPlan="max">
+    <PaywallGuard requiredFeature="morning_website">
     <main className="min-h-screen bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">

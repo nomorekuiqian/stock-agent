@@ -240,7 +240,7 @@ function formatWeekLabel(label: string): string {
 
 export default function MacroPage() {
   return (
-    <PaywallGuard requiredPlan="max">
+    <PaywallGuard requiredFeature="macro_dashboard">
     <main className="min-h-screen bg-background">
       <section className="border-b border-border/50">
         <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">

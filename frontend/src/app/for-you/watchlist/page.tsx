@@ -502,7 +502,7 @@ function WatchlistPageContent() {
 
 export default function WatchlistPage() {
   return (
-    <PaywallGuard>
+    <PaywallGuard requiredFeature="for_you_website">
       <WatchlistPageContent />
     </PaywallGuard>
   );

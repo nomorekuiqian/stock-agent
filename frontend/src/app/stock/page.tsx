@@ -173,7 +173,7 @@ export default function StockResearchPage() {
   };
 
   return (
-    <PaywallGuard requiredPlan="max">
+    <PaywallGuard requiredFeature="stock_research">
     <div className="min-h-screen bg-background">
       {/* Hero / Header */}
       <section>
@@ -310,7 +310,7 @@ export default function StockResearchPage() {
                   市场日报
                 </Link>
                 <Link
-                  href="/liquidity"
+                  href="/macro/liquidity"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   流动性

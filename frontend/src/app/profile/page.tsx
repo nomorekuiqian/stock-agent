@@ -1,22 +1,29 @@
 'use client';
 
-import { Suspense, useState, useEffect, type ReactNode } from 'react';
+import { Suspense, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { api, type EmailPreferences } from '@/lib/api';
 import { useEmailPreferences } from '@/hooks/queries/use-preferences';
 import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 import { queryKeys } from '@/hooks/queries/query-keys';
 
-const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; description: string }[] = [
-  { key: 'morning_report', label: '早报', description: '每个交易日早上发送' },
+const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; description: string; entitlement?: string }[] = [
+  { key: 'morning_report', label: '早报', description: '每个交易日早上发送', entitlement: 'morning_report_email' },
   { key: 'daily_report', label: '晚报', description: '每个交易日收盘后发送' },
-  { key: 'weekly_report', label: '宏观周报', description: '每周日发送' },
-  { key: 'personal_digest', label: '专属日报', description: '根据你的持仓每日定制' },
+  { key: 'weekly_report', label: '宏观周报', description: '每周日发送', entitlement: 'weekly_report_email' },
+  { key: 'personal_digest', label: '专属日报', description: '根据你的持仓每日定制', entitlement: 'personal_digest_email' },
 ];
+
+const PREFERENCE_ENTITLEMENTS = new Map(
+  PREFERENCE_ITEMS
+    .filter((item): item is typeof item & { entitlement: string } => Boolean(item.entitlement))
+    .map((item) => [item.key, item.entitlement])
+);
 
 const INVITE_DAYS = 14;
 
@@ -40,6 +47,22 @@ function formatDate(iso: string) {
   } catch { return iso; }
 }
 
+function normalizeEmailPreferences(
+  preferences: EmailPreferences | null | undefined,
+  hasEntitlement: (feature: string) => boolean
+): EmailPreferences | null {
+  if (!preferences) return null;
+
+  const normalized = { ...preferences };
+  for (const [key, entitlement] of PREFERENCE_ENTITLEMENTS.entries()) {
+    if (!hasEntitlement(entitlement)) {
+      normalized[key] = false;
+    }
+  }
+
+  return normalized;
+}
+
 export default function ProfilePage(): ReactNode {
   return (
     <Suspense fallback={
@@ -58,14 +81,19 @@ function ProfileContent(): ReactNode {
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
   const {
-    isPro, isMax, isLoading: subLoading, status, plan,
+    isPro, isMax, isLoading: subLoading, status,
     currentPeriodEnd, accessExpiresAt,
     openBillingPortal, redeemInviteCode, refreshSubscription,
     portalError,
   } = useSubscription();
+  const { has: hasEntitlement, refresh: refreshEntitlements } = useEntitlements();
 
   const { data: serverPrefs, isLoading: prefsLoading, isError: prefsError } = useEmailPreferences(
     isAuthenticated
+  );
+  const normalizedServerPrefs = useMemo(
+    () => normalizeEmailPreferences(serverPrefs, hasEntitlement),
+    [serverPrefs, hasEntitlement]
   );
 
   // Tab state synced with URL param
@@ -90,11 +118,11 @@ function ProfileContent(): ReactNode {
     setName(user?.name || '');
   }
 
-  const [localPrefs, setLocalPrefs] = useState<EmailPreferences | null>(serverPrefs ?? null);
-  const [prefsSource, setPrefsSource] = useState(serverPrefs);
-  if (serverPrefs && serverPrefs !== prefsSource) {
-    setPrefsSource(serverPrefs);
-    setLocalPrefs(serverPrefs);
+  const [localPrefs, setLocalPrefs] = useState<EmailPreferences | null>(normalizedServerPrefs);
+  const [prefsSource, setPrefsSource] = useState(normalizedServerPrefs);
+  if (normalizedServerPrefs && normalizedServerPrefs !== prefsSource) {
+    setPrefsSource(normalizedServerPrefs);
+    setLocalPrefs(normalizedServerPrefs);
   }
 
   const [saving, setSaving] = useState(false);
@@ -143,23 +171,28 @@ function ProfileContent(): ReactNode {
   }
 
   const prefsChanged = serverPrefs && localPrefs
-    ? PREFERENCE_ITEMS.some(({ key }) => serverPrefs[key] !== localPrefs[key])
+    ? PREFERENCE_ITEMS.some(({ key }) => normalizedServerPrefs?.[key] !== localPrefs[key])
     : false;
 
+  function isPreferenceLocked(key: keyof EmailPreferences) {
+    const entitlement = PREFERENCE_ENTITLEMENTS.get(key);
+    return entitlement ? !hasEntitlement(entitlement) : false;
+  }
+
   function handleToggle(key: keyof EmailPreferences) {
-    if (!localPrefs || saving) return;
+    if (!localPrefs || saving || isPreferenceLocked(key)) return;
     setLocalPrefs({ ...localPrefs, [key]: !localPrefs[key] });
     setMessage(null);
   }
 
   async function handleSavePrefs(e: React.FormEvent) {
     e.preventDefault();
-    if (!prefsChanged || !localPrefs || !serverPrefs || saving) return;
+    if (!prefsChanged || !localPrefs || !normalizedServerPrefs || saving) return;
     setSaving(true);
     setMessage(null);
     const diff: Partial<EmailPreferences> = {};
     for (const { key } of PREFERENCE_ITEMS) {
-      if (localPrefs[key] !== serverPrefs[key]) diff[key] = localPrefs[key];
+      if (localPrefs[key] !== normalizedServerPrefs[key]) diff[key] = localPrefs[key];
     }
     try {
       const result = await api.subscriptions.updatePreferences(diff);
@@ -190,6 +223,7 @@ function ProfileContent(): ReactNode {
         : '兑换成功'
       );
       await refreshSubscription();
+      await refreshEntitlements({ fresh: true });
     } else {
       setCodeError(result.error || '兑换失败，请稍后再试');
     }
@@ -207,7 +241,6 @@ function ProfileContent(): ReactNode {
 
   const isPaid = isPro && daysLeft === null;
   const isPaidPro = isPaid && !isMax;
-  const isPaidMax = isPaid && isMax;
   const isTrial = isPro && daysLeft !== null;
   const isCanceled = !isPro && status === 'canceled';
   const tierLabel = isMax ? 'Max' : isPro ? 'Pro' : null;
@@ -594,31 +627,36 @@ function ProfileContent(): ReactNode {
               </div>
             ) : (
               <div className="bg-card border border-border/50 rounded-xl divide-y divide-border/50">
-                {PREFERENCE_ITEMS.map(({ key, label, description }) => (
-                  <div key={key} className="flex items-center justify-between px-4 py-3.5">
-                    <div className="min-w-0 flex-1 mr-4">
-                      <p className="text-sm font-medium text-foreground">{label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={localPrefs[key]}
-                      aria-label={`${label} ${localPrefs[key] ? '已开启' : '已关闭'}`}
-                      disabled={saving}
-                      onClick={() => handleToggle(key)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed ${
-                        localPrefs[key] ? 'bg-primary' : 'bg-zinc-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ${
-                          localPrefs[key] ? 'translate-x-5' : 'translate-x-0'
+                {PREFERENCE_ITEMS.map(({ key, label, description, entitlement }) => {
+                  const locked = entitlement ? !hasEntitlement(entitlement) : false;
+                  return (
+                    <div key={key} className="flex items-center justify-between px-4 py-3.5">
+                      <div className="min-w-0 flex-1 mr-4">
+                        <p className="text-sm font-medium text-foreground">{label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {locked ? '升级 Pro 解锁' : description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={locked ? false : localPrefs[key]}
+                        aria-label={`${label} ${locked ? '需要升级' : localPrefs[key] ? '已开启' : '已关闭'}`}
+                        disabled={saving || locked}
+                        onClick={() => handleToggle(key)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed ${
+                          localPrefs[key] && !locked ? 'bg-primary' : 'bg-zinc-700'
                         }`}
-                      />
-                    </button>
-                  </div>
-                ))}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ${
+                            localPrefs[key] && !locked ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
