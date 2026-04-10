@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { Lock, Zap, ArrowRight, Crown } from 'lucide-react';
 import { PRICING } from '@/lib/pricing';
 
@@ -14,12 +15,15 @@ interface PaywallGuardProps {
   children: ReactNode;
   /** Minimum plan required: 'pro' (Pro or Max) or 'max' (Max only). Default: 'pro'. */
   requiredPlan?: 'pro' | 'max';
+  /** Feature key to check via entitlements API. Takes precedence over requiredPlan. */
+  requiredFeature?: string;
 }
 
-export default function PaywallGuard({ children, requiredPlan = 'pro' }: PaywallGuardProps) {
+export default function PaywallGuard({ children, requiredPlan = 'pro', requiredFeature }: PaywallGuardProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { isPro, isMax, isLoading: subLoading, redeemInviteCode, createCheckout } = useSubscription();
+  const { has: hasEntitlement, isLoading: entLoading, refresh: refreshEntitlements } = useEntitlements();
 
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [codeInput, setCodeInput] = useState('');
@@ -31,7 +35,11 @@ export default function PaywallGuard({ children, requiredPlan = 'pro' }: Paywall
     return <>{children}</>;
   }
 
-  if (authLoading || subLoading) {
+  const isLoadingState = requiredFeature
+    ? authLoading || entLoading
+    : authLoading || subLoading;
+
+  if (isLoadingState) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -42,15 +50,24 @@ export default function PaywallGuard({ children, requiredPlan = 'pro' }: Paywall
     );
   }
 
-  // Check if user meets the required plan level
-  const hasAccess = requiredPlan === 'max' ? isMax : isPro;
+  // Check if user meets the required access level
+  const hasAccess = requiredFeature
+    ? hasEntitlement(requiredFeature)
+    : requiredPlan === 'max' ? isMax : isPro;
 
   if (hasAccess) {
     return <>{children}</>;
   }
 
+  // Max-only features that trigger the "upgrade to Max" flow for Pro users
+  const MAX_ONLY_FEATURES = new Set([
+    'macro_dashboard', 'stock_research', 'ai_research_engine',
+  ]);
+
   // User is a Pro subscriber but page requires Max
-  const isProNeedsMax = isPro && requiredPlan === 'max';
+  const isProNeedsMax = requiredFeature
+    ? isPro && MAX_ONLY_FEATURES.has(requiredFeature)
+    : isPro && requiredPlan === 'max';
 
   const handleRedeem = async () => {
     if (!codeInput.trim()) return;
@@ -63,7 +80,9 @@ export default function PaywallGuard({ children, requiredPlan = 'pro' }: Paywall
     setCodeError('');
     const result = await redeemInviteCode(codeInput.trim());
     setIsRedeeming(false);
-    if (!result.success) {
+    if (result.success) {
+      await refreshEntitlements({ fresh: true });
+    } else {
       setCodeError(result.error || '...');
     }
   };
