@@ -888,6 +888,9 @@ class EmailService:
                 user_id: str, email: str, digest_result: dict, symbols: list
             ) -> None:
                 """Save digest to database (fire-and-forget, errors logged only)."""
+                if ENVIRONMENT != "production":
+                    logger.info("Dev environment: skipping broadcast digest DB save for %s", email)
+                    return
                 try:
                     save_data = {
                         "user_id": user_id,

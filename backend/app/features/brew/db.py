@@ -26,9 +26,31 @@ def _watchlist_headers(base_headers: Dict[str, str]) -> Dict[str, str]:
     return headers
 
 
+def _validate_digest_quality(digest_data: Dict[str, Any]) -> Optional[str]:
+    """Validate digest data quality before saving. Returns error message or None."""
+    stocks = digest_data.get("stocks", [])
+    if not stocks:
+        return "No stocks data"
+
+    required_stock_fields = ("symbol", "name", "daily_change", "status")
+    for stock in stocks:
+        missing = [f for f in required_stock_fields if not stock.get(f)]
+        if missing:
+            return "Incomplete stock data for %s: missing %s" % (
+                stock.get("symbol", "?"), ", ".join(missing)
+            )
+
+    if not digest_data.get("one_line_summary"):
+        return "Missing one_line_summary"
+
+    return None
+
+
 async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Save a personal digest to the database (always creates new record).
+
+    Validates data quality before saving to prevent incomplete records.
 
     Args:
         digest_data: Dictionary containing digest data including user_id
@@ -37,6 +59,13 @@ async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
         dict with success status and saved digest ID
     """
     try:
+        quality_error = _validate_digest_quality(digest_data)
+        if quality_error:
+            logger.warning(
+                "Rejected digest save for user %s: %s",
+                digest_data.get("user_id", "?")[:8], quality_error,
+            )
+            return {"success": False, "error": f"Quality check failed: {quality_error}"}
         service = get_insforge_service()
         digest_url = f"{service.base_url}/functions/user-digests"
 
