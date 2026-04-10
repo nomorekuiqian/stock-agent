@@ -23,7 +23,8 @@ export function userDigestToResponse(item: UserDigestItem): DigestResponse {
 /**
  * Parse percentage string like "+2.35%" or "-4.2%" to number.
  */
-export function parseChangePercent(change: string): number {
+export function parseChangePercent(change: string | undefined | null): number {
+  if (!change) return 0;
   return parseFloat(change.replace('%', '').replace('+', '')) || 0;
 }
 
@@ -41,7 +42,7 @@ export function sortByVolatility(stocks: StockAnalysis[]): StockAnalysis[] {
 /**
  * Whether a stock's daily move is notable (>=3%).
  */
-export function isNotableMove(change: string): boolean {
+export function isNotableMove(change: string | undefined | null): boolean {
   return Math.abs(parseChangePercent(change)) >= 3;
 }
 

@@ -42,7 +42,9 @@ function ForYouPageContent() {
 
   const displayDigest: DigestResponse | null = useMemo(() => {
     if (history.length === 0) return null;
-    return userDigestToResponse(history[0]);
+    // Prefer the first digest with meaningful analysis content
+    const best = history.find((d) => d.analysis && d.analysis.length > 0) ?? history[0];
+    return userDigestToResponse(best);
   }, [history]);
 
   const queryClient = useQueryClient();

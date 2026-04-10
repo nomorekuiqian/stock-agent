@@ -8,8 +8,7 @@ interface StockDetailPanelProps {
 }
 
 export default function StockDetailPanel({ stock }: StockDetailPanelProps) {
-  const isPositiveDaily = stock.daily_change.startsWith('+');
-  const isPositiveWeek = stock.week_change.startsWith('+');
+  const isPositiveDaily = (stock.daily_change ?? '').startsWith('+');
 
   return (
     <div key={stock.symbol} className="animate-fade-in">
@@ -27,19 +26,23 @@ export default function StockDetailPanel({ stock }: StockDetailPanelProps) {
       {/* Price + Changes */}
       <div className="flex items-center gap-4 text-sm mb-3">
         <span className="text-foreground font-medium font-data text-base">
-          ${stock.price.toFixed(2)}
+          ${(stock.price ?? 0).toFixed(2)}
         </span>
         <span
           className={`font-data ${isPositiveDaily ? 'text-emerald-400' : 'text-red-400'}`}
         >
           {stock.daily_change}
         </span>
-        <span className="text-muted-foreground/50">|</span>
-        <span
-          className={`font-data ${isPositiveWeek ? 'text-emerald-400' : 'text-red-400'}`}
-        >
-          {stock.week_change} (周)
-        </span>
+        {stock.week_change && (
+          <>
+            <span className="text-muted-foreground/50">|</span>
+            <span
+              className={`font-data ${(stock.week_change ?? '').startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}
+            >
+              {stock.week_change} (周)
+            </span>
+          </>
+        )}
       </div>
 
       {/* Status — one-line summary, highlighted */}

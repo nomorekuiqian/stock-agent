@@ -28,8 +28,6 @@ function MobileStockItem({
 }) {
   const changeValue = parseChangePercent(stock.daily_change);
   const isPositive = changeValue >= 0;
-  const isPositiveWeek = stock.week_change.startsWith('+');
-
   let bgClass = '';
   if (isHighlighted && !isOpen) {
     bgClass = isPositive ? 'bg-emerald-500/5' : 'bg-red-500/5';
@@ -59,7 +57,7 @@ function MobileStockItem({
 
         <div className="flex items-center gap-2 shrink-0 ml-2">
           <span className="text-xs font-data text-muted-foreground">
-            ${stock.price.toFixed(2)}
+            ${(stock.price ?? 0).toFixed(2)}
           </span>
           <span
             className={`text-xs font-data font-medium ${
@@ -97,14 +95,18 @@ function MobileStockItem({
             >
               {stock.daily_change}
             </span>
-            <span className="text-muted-foreground/50 text-xs">|</span>
-            <span
-              className={`font-data text-xs ${
-                isPositiveWeek ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
-              {stock.week_change} (周)
-            </span>
+            {stock.week_change && (
+              <>
+                <span className="text-muted-foreground/50 text-xs">|</span>
+                <span
+                  className={`font-data text-xs ${
+                    (stock.week_change ?? '').startsWith('+') ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {stock.week_change} (周)
+                </span>
+              </>
+            )}
           </div>
 
           <p className="text-base font-medium text-foreground leading-relaxed mb-2">
