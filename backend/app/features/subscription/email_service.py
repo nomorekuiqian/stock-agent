@@ -834,49 +834,26 @@ class EmailService:
                     len(canary_result.get("symbols", [])),
                 )
 
-            if not self.is_production:
-                # Dev environment: use test segment contacts instead of production subscribers
-                logger.info(
-                    "[EmailService] Non-production: "
-                    "loading contacts from test segment %s",
-                    self.TEST_AUDIENCE_ID,
-                )
-                import json
+            # Load subscribers from Insforge entitlements (single source of truth).
+            # No more Resend audience lookup or last_name JSON parsing.
+            from app.features.payment.db import list_entitled_users
 
-                contacts = resend.Contacts.list(audience_id=self.TEST_AUDIENCE_ID)
-                active = [
-                    c for c in contacts.get("data", []) if not c.get("unsubscribed")
-                ]
-                subscribers = []
-                for c in active:
-                    metadata = {}
-                    if c.get("last_name"):
-                        try:
-                            metadata = json.loads(c["last_name"])
-                        except Exception:
-                            pass
-                    subscribers.append(
-                        {
-                            "email": c.get("email", ""),
-                            "metadata": {
-                                "first_name": c.get("first_name", ""),
-                                "user_id": metadata.get("user_id"),
-                            },
-                        }
-                    )
-            else:
-                sub_service = get_subscription_service()
-                result = sub_service.list_subscribers(
-                    SubscriptionChannel.PERSONAL_DIGEST, limit=500
-                )
-
-                if not result.get("success"):
-                    return {
-                        "success": False,
-                        "error": result.get("error", "Failed to list subscribers"),
-                    }
-
-                subscribers = result.get("subscribers", [])
+            entitled_users = await list_entitled_users("personal_digest_email")
+            subscribers = [
+                {
+                    "email": u.get("email", ""),
+                    "metadata": {
+                        "first_name": u.get("first_name", ""),
+                        "user_id": u.get("user_id"),
+                    },
+                }
+                for u in entitled_users
+                if u.get("email")
+            ]
+            logger.info(
+                "Loaded %d entitled subscribers from Insforge",
+                len(subscribers),
+            )
             if not subscribers:
                 return {
                     "success": True,
@@ -988,30 +965,8 @@ class EmailService:
                 first_name = metadata.get("first_name", "")
                 user_id = metadata.get("user_id")
 
-                # Pro gate: skip non-Pro subscribers when EMAIL_PRO_GATE is enabled.
-                # Users without a linked account (no user_id) are always skipped.
-                if EMAIL_PRO_GATE:
-                    if not user_id:
-                        logger.info(
-                            "Pro gate: skipping %s (no linked account)", email
-                        )
-                        return {"email": email, "success": False, "error": "pro_gate_no_account"}
-                    from app.features.payment.db import get_subscription
-                    from datetime import datetime, timezone
-                    sub_record = await get_subscription(user_id)
-                    is_pro = (
-                        sub_record is not None
-                        and sub_record.get("plan") in ("pro", "max")
-                        and sub_record.get("status") == "active"
-                        and (
-                            not sub_record.get("access_expires_at")
-                            or datetime.fromisoformat(sub_record["access_expires_at"])
-                            > datetime.now(timezone.utc)
-                        )
-                    )
-                    if not is_pro:
-                        logger.info("Pro gate: skipping %s (not Pro)", email)
-                        return {"email": email, "success": False, "error": "pro_gate_not_pro"}
+                # No Pro gate needed — subscribers are loaded from entitlements,
+                # which already guarantees they have personal_digest_email access.
 
                 symbols, reason = await get_symbols_for_user(user_id, email)
                 if not symbols:

@@ -83,7 +83,7 @@ async def create_checkout_session(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{FRONTEND_URL}{path}?checkout=success",
+        success_url=f"{FRONTEND_URL}/pricing/success?next={path}",
         cancel_url=f"{FRONTEND_URL}{path}?checkout=cancel",
         metadata={"user_id": user_id, "tier": tier},
         subscription_data={"metadata": {"user_id": user_id, "tier": tier}},

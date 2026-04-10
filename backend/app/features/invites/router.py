@@ -29,12 +29,14 @@ router = APIRouter(prefix="/api/invites", tags=["invites"])
 async def api_redeem_invite(
     body: RedeemInviteRequest,
     user_id: str = Depends(verify_user_token),
+    email: Optional[str] = Depends(get_optional_user_email),
 ):
     """Redeem a universal invite code to get 14-day Max access."""
     valid_codes = [c.strip() for c in INVITE_CODES.split(",") if c.strip()] or ["BREW2026"]
 
     result = await redeem_code(
         user_id=user_id,
+        user_email=email or "",
         code=body.code,
         valid_codes=valid_codes,
         access_days=14,
