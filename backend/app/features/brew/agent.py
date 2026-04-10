@@ -23,8 +23,9 @@ from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
 from app.utils.timezone import now_iso, format_report_date
-from app.shared.data_tools import get_stock_quotes, get_all_market_data
+from app.shared.data_tools import get_all_market_data
 from app.shared.data_tools import get_combined_market_news
+from app.shared.fmp_service import get_fmp_service
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
 from app.features.brew.models import PersonalDigestOutput
@@ -87,6 +88,7 @@ DIGEST_INSTRUCTION = """
 - "暴跌/暴涨"需有具体百分比支撑（通常>5%）
 - 任何数字、排名的 claim 必须能在源数据中找到依据
 - 源数据不明确时，使用保守表述
+- 如果某只股票的数据中 data_unavailable=true 或价格为 null，说明数据暂时无法获取。直接告诉用户"今日数据暂时无法获取，建议直接查看行情软件"，绝对不要猜测或编造价格
 
 ## 你的思考过程
 
@@ -123,7 +125,6 @@ DIGEST_INSTRUCTION = """
 - name: 中文公司名（如"英伟达"、"苹果"、"特斯拉"）
 - price: 当前价格（从输入数据获取）
 - daily_change: 日涨跌幅，带+/-号（如"+2.35%"或"-1.20%"）
-- week_change: 周涨跌幅，带+/-号
 - status: 用自然语言描述当前状态，不要用固定分类
   好的示例: "连涨四天后首次回调，但AI需求逻辑没变"、"跟随板块下跌，关注周五PCE数据能否止跌"、"财报后持续消化中，下周指引日会是关键节点"
   不好的示例: "强势上涨"、"小幅回调"（太模板化，没有前因后果）
@@ -296,9 +297,45 @@ class PersonalDigest:
             symbols = unique_symbols[:25]
             logger.info("Generating digest for: %s", symbols)
 
-            # Step 1: Fetch user-specific stock data
-            logger.info("Fetching stock quotes...")
-            stock_data = get_stock_quotes(symbols)
+            # Step 1: Fetch user-specific stock data via FMP (batch-quote + cache)
+            logger.info("Fetching stock quotes via FMP...")
+            fmp = get_fmp_service()
+            fmp_result = fmp.get_stock_quotes(symbols, use_cache=True)
+            stock_data = {"status": "success", "stocks": {}}
+            for quote in fmp_result.get("quotes", []):
+                sym = quote.get("symbol", "")
+                if sym:
+                    stock_data["stocks"][sym] = {
+                        "name": quote.get("name", sym),
+                        "price": quote.get("price", 0),
+                        "previous_close": quote.get("previous_close", 0),
+                        "daily_change": quote.get("daily_change", 0),
+                        "day_high": quote.get("day_high", 0),
+                        "day_low": quote.get("day_low", 0),
+                    }
+
+            # Guard: identify symbols with no data (API failure or delisted)
+            fetched_symbols = set(stock_data["stocks"].keys())
+            missing_symbols = [s for s in symbols if s not in fetched_symbols]
+            if missing_symbols:
+                logger.warning(
+                    "Missing stock data for %d/%d symbols: %s",
+                    len(missing_symbols), len(symbols), missing_symbols,
+                )
+                for sym in missing_symbols:
+                    stock_data["stocks"][sym] = {
+                        "name": sym,
+                        "price": None,
+                        "daily_change": None,
+                        "day_high": None,
+                        "day_low": None,
+                        "data_unavailable": True,
+                    }
+
+            logger.info(
+                "Stock data: %d fetched, %d missing",
+                len(fetched_symbols), len(missing_symbols),
+            )
 
             # Step 2: Fetch news filtered by user's symbols + macro symbols
             logger.info("Fetching news...")

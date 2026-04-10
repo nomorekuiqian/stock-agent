@@ -98,7 +98,7 @@ export interface StockAnalysis {
   name: string;
   price: number;
   daily_change: string;
-  week_change: string;
+  week_change?: string;
   status: string;
   quick_take: string;
 }

@@ -6,7 +6,6 @@ Used by multiple agent modules (market, digest, stock, sector).
 from app.shared.data_tools.market_data import (
     get_all_market_data,
     get_premarket_data,
-    get_stock_quotes,
     safe_float,
     EQUITY_TICKERS,
     VOLATILITY_TICKERS,
@@ -39,7 +38,6 @@ def get_technical_trends(*args, **kwargs):
 __all__ = [
     "get_all_market_data",
     "get_premarket_data",
-    "get_stock_quotes",
     "safe_float",
     "EQUITY_TICKERS",
     "VOLATILITY_TICKERS",

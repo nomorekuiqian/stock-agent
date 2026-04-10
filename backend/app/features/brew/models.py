@@ -33,7 +33,6 @@ class StockAnalysis(BaseModel):
     name: str = Field(..., description="Company name in Chinese")
     price: float = Field(..., description="Current stock price")
     daily_change: str = Field(..., description="Daily change with percentage")
-    week_change: str = Field(..., description="Weekly change with percentage")
     status: str = Field(..., description="Brief status in Chinese")
     quick_take: str = Field(..., description="1-2 sentence analysis in Chinese")
 
@@ -123,9 +122,6 @@ class StockSummary(BaseModel):
     )
     daily_change: str = Field(
         description="Daily change with +/- sign, e.g., '+2.35%' or '-1.20%'"
-    )
-    week_change: str = Field(
-        description="Weekly change with +/- sign, e.g., '+5.2%' or '-3.1%'"
     )
     status: str = Field(
         description="Natural language status - describe what's happening, not a fixed category. "
