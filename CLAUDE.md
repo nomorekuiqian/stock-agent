@@ -418,6 +418,35 @@ backend/tests/
 - **Playwright**: E2E 页面测试 (`e2e/*.spec.ts`)，需后端运行
 - 新增测试放 `__tests__/` 子目录，E2E 放 `e2e/`
 
+### 测试质量要求（写测试或委托 Agent 写测试时必须遵守）
+
+**核心原则：测试真实代码逻辑，不测 mock 本身。**
+
+1. **Mock 外部服务，不 mock 被测函数**
+   - 正确：mock `resend.ContactSegments.list`（外部 API），让 `get_email_preferences` 真正执行
+   - 错误：`svc.get_email_preferences = MagicMock(return_value={...})` 然后测 `sync_resend_segments` — 这是测 mock 不是测代码
+
+2. **验证传参，不只验证"被调用了"**
+   - 正确：`mock_has_entitlement.assert_awaited_once_with("user-123", "morning_report_email")` — 验证传了正确的 feature name
+   - 错误：`mock_has_entitlement.assert_called()` — 只证明被调用，不证明参数正确
+
+3. **每个测试必须能捕获真实 bug**
+   - 自检方法：如果删掉被测代码的关键行，这个测试会失败吗？如果不会，测试无效
+   - 例：如果 router 里把 `morning_report` 映射到了错误的 feature name `morning_report`（而非 `morning_report_email`），测试应该失败
+
+4. **Mock 层级**
+   - 单元测试：mock 外部 API（Stripe SDK、Resend SDK、DB 调用）
+   - 端点测试：mock 依赖注入（`Depends(verify_user_token)`），让 router 逻辑真正执行
+   - 不要同时 mock 输入和输出 — 那等于测一个空函数
+
+5. **前端模块级常量的限制**
+   - `PAYWALL_ENABLED`、`API_URL` 等 `const` 在 import 时求值，`vi.stubEnv` 无法改变。这些分支用 E2E 覆盖，单元测试里标注说明
+   - 不要写"假装 paywall 启用"的单元测试 — 它不会测到真实逻辑
+
+6. **测试命名和结构**
+   - 测试名说明**场景和期望结果**：`test_free_user_blocked_morning` 而非 `test_case_1`
+   - 每个 test class 对应一个逻辑分支，不要把所有 case 塞进一个 class
+
 ## Agent 开发
 
 **Google ADK Agent 标准模式:**

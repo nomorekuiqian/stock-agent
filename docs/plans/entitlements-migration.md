@@ -1163,55 +1163,49 @@ stripe test_helpers test_clocks advance --frozen-time +14d
 ## 执行检查表（全局进度）
 
 ### 前置
-- [ ] Phase 0: enforce-tier-gating.md Phase A 完成
-- [ ] Phase 0: enforce-tier-gating.md Phase B 完成
-- [ ] Phase 0: `EMAIL_PRO_GATE=true` 上线
+- [x] Phase 0: enforce-tier-gating.md Phase A 完成
+- [x] Phase 0: enforce-tier-gating.md Phase B 完成 (Morning 358 + Weekly 360 removed)
+- [x] Phase 0: `EMAIL_PRO_GATE=true` 上线
 
 ### Stripe 配置
-- [ ] Phase 1.1: 10 个 feature 在 test 创建
-- [ ] Phase 1.1: 10 个 feature 在 live 创建
-- [ ] Phase 1.2: Pro product attach 7 个 feature
-- [ ] Phase 1.2: Max product attach 10 个 feature
-- [ ] Phase 1.3: webhook 订阅新事件
-- [ ] Phase 1: backfill `sub_1THIUfKBW0cac2K4finfoA4c` 的 `metadata.tier=max`
+- [x] Phase 1.1: 10 个 feature 在 test 创建
+- [x] Phase 1.1: 10 个 feature 在 live 创建
+- [x] Phase 1.2: Pro product attach 7 个 feature (test + live)
+- [x] Phase 1.2: Max product attach 10 个 feature (test + live)
+- [x] Phase 1.3: webhook 订阅新事件 (entitlements + trial_will_end)
+- [x] Phase 1: backfill `sub_1THIUfKBW0cac2K4finfoA4c` 的 `metadata.tier=max`
 
 ### 后端
-- [ ] Phase 2.1: `entitlements.py` 实现
-- [ ] Phase 2.2: Insforge `entitlements` 列
-- [ ] Phase 2.3: `/api/me/entitlements` 端点（含 `?fresh=true` 参数）
-- [ ] Phase 2.4: 单元测试
-- [ ] Phase 3.1: entitlements webhook handler
-- [ ] Phase 3.2: `sync_resend_segments` 函数
-- [ ] Phase 3.3: 旧 handler 精简
-- [ ] Phase 3.4: `_find_user_by_customer` helper
-- [ ] Phase 4.1: `redeem_code` 改造（改为 Max trial）
-- [ ] Phase 4.2: 本地验证 `payment_behavior` 参数实际行为
-- [ ] Phase 4.3: 删除过期 cron 相关代码
-- [ ] Phase 4.4: 回填脚本 + 执行
-- [ ] Phase 4.5: 更新 `invites/.context.md`（Pro → Max）
+- [x] Phase 2.1: `entitlements.py` 实现 (无 fallback，纯 entitlements 列查询)
+- [x] Phase 2.2: Insforge `entitlements` JSONB 列 + backfill 31 个活跃用户
+- [x] Phase 2.3: `/api/me/entitlements` 端点（含 `?fresh=true` 参数）
+- [x] Phase 2.4: 单元测试 (22 个 entitlements + sync tests)
+- [x] Phase 3.1: entitlements webhook handler
+- [x] Phase 3.2: `sync_resend_segments` 函数 (不碰 daily_report)
+- [x] Phase 3.3: 旧 handler 精简 (subscription.updated 只写 identity)
+- [x] Phase 3.4: `_find_user_by_customer` helper + edge function
+- [x] Phase 4.1: `redeem_code` 改造（Stripe Max trial, 无 fallback）
+- [x] Phase 4.2: 27 个邀请用户迁移到 Stripe Trial Subscription
+- [x] Phase 4.3: 不需要过期 cron（Stripe 自动 cancel）
+- [x] Phase 4.4: entitlements 列 backfill 完成，19 个过期用户清理
+- [x] Phase 4.5: 更新 `invites/.context.md`（Pro → Max）
 
 ### 前端
-- [ ] Phase 5.1: EntitlementsContext（含 `refresh({ fresh })` 选项）
-- [ ] Phase 5.2: PaywallGuard 改造（`/morning` → Pro；`/liquidity` → `macro_dashboard`）
-- [ ] Phase 5.3: 设置页 toggle gate
-- [ ] Phase 5.4: `/pricing/success` 页面 + Stripe `success_url` 更新
+- [x] Phase 5.1: EntitlementsContext（含 `refresh({ fresh })` 选项）
+- [x] Phase 5.2: PaywallGuard 改造（15 个页面迁移到 requiredFeature）
+- [x] Phase 5.3: 设置页 toggle gate (按 entitlement 显示/锁定)
+- [x] Phase 5.4: `/pricing/success` 页面 + Stripe `success_url` 更新
 
 ### 测试
-- [ ] Unit tests 全部通过
-- [ ] Integration tests 全部通过
-- [ ] 7 个手工场景全部验证
+- [x] Unit tests 全部通过 (22 passed)
+- [ ] Integration tests
+- [ ] 7 个手工场景验证
 - [ ] Stripe CLI 回放验证
 
-### 验证
-- [ ] 数据一致性抽样检查
-- [ ] 可观测性指标达标
-- [ ] 2 周内零用户反馈
-
 ### 清理
-- [ ] Phase 6: 删除 fallback
-- [ ] Phase 6: 删除旧 handler 逻辑
-- [ ] Phase 6: 更新 .context.md 文档
-- [ ] MEMORY.md 记录迁移经验
+- [x] Phase 6: 删除 fallback (entitlements.py + _is_pro_user + redeem_code)
+- [x] Phase 6: 删除旧 handler 逻辑 (add_pro_segments / remove_pro_segments)
+- [x] Phase 6: 更新 .context.md 文档 (payment + subscription + invites)
 
 ## 参考资料
 

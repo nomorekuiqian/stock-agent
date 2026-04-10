@@ -103,6 +103,17 @@
 - 需要登录，首层由项目自定义 middleware 拦截
 - 页面内仍保留 `useAuth()` 的登录兜底跳转
 
+### `/profile` 用户资料
+- 需要登录，未登录跳转 `/login?redirect=/profile`
+- 账户页可修改昵称
+- 订阅页展示免费 / 试用 / Pro / Max / 已取消五种状态
+- 邮件偏好页会按 `EntitlementsContext` 强制约束可编辑项：
+  - `daily_report` 始终可编辑
+  - `morning_report` 需要 `morning_report_email`
+  - `weekly_report` 需要 `weekly_report_email`
+  - `personal_digest` 需要 `personal_digest_email`
+  - 无 entitlement 的项默认显示为关闭且不可开启
+
 ### `/login` 登录
 - Email + Password 表单
 - Google OAuth 按钮
