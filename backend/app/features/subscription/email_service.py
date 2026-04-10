@@ -20,7 +20,6 @@ from app.core.config import (
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
     RESEND_SEGMENT_WEEKLY,
-    EMAIL_PRO_GATE,
 )
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso, today_str
@@ -839,6 +838,22 @@ class EmailService:
             from app.features.payment.db import list_entitled_users
 
             entitled_users = await list_entitled_users("personal_digest_email")
+
+            # Non-production safety: only send to test account to prevent
+            # accidentally emailing real subscribers during development.
+            TEST_EMAIL = "voya.technologies@gmail.com"
+            if not self.is_production:
+                before_count = len(entitled_users)
+                entitled_users = [
+                    u for u in entitled_users
+                    if u.get("email") == TEST_EMAIL
+                ]
+                logger.info(
+                    "Non-production: filtered %d entitled users down to %d "
+                    "(test account only: %s)",
+                    before_count, len(entitled_users), TEST_EMAIL,
+                )
+
             subscribers = [
                 {
                     "email": u.get("email", ""),
