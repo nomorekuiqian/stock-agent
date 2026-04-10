@@ -24,11 +24,6 @@ interface FundamentalsReportProps {
   analysisLoading: boolean;
   onGenerate: () => void;
   onRegenerate: () => void;
-  // Auth
-  isAuthenticated: boolean;
-  isPro: boolean;
-  onLoginRequired: () => void;
-  onUpgradeRequired: () => void;
   // Data
   quote: {
     price: number | null;
@@ -204,11 +199,7 @@ function AICta({
 }: {
   symbol: string;
   companyName: string;
-  isAuthenticated: boolean;
-  isPro: boolean;
   onGenerate: () => void;
-  onLoginRequired: () => void;
-  onUpgradeRequired: () => void;
 }) {
   return (
     <div className="relative bg-card/30 border border-border/30 rounded-xl overflow-hidden">
@@ -348,10 +339,6 @@ export default function FundamentalsReport({
   analysisLoading,
   onGenerate,
   onRegenerate,
-  isAuthenticated,
-  isPro,
-  onLoginRequired,
-  onUpgradeRequired,
   quote,
   fundamentals,
   financials,
@@ -374,11 +361,7 @@ export default function FundamentalsReport({
           <AICta
             symbol={symbol}
             companyName={companyName}
-            isAuthenticated={isAuthenticated}
-            isPro={isPro}
             onGenerate={onGenerate}
-            onLoginRequired={onLoginRequired}
-            onUpgradeRequired={onUpgradeRequired}
           />
         </div>
       )}

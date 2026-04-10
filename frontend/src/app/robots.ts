@@ -20,7 +20,6 @@ export default function robots(): MetadataRoute.Robots {
           '/auth/',
           '/for-you',
           '/for-you/*',
-          '/digest',
           '/unsubscribe',
           '/email-test',
           '/feedback',

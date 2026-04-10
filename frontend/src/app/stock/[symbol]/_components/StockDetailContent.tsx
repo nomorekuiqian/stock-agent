@@ -18,7 +18,6 @@ import { TechnicalChart } from '@/components/technical/TechnicalChart';
 import { TechnicalAnalysisContent } from '@/components/technical/TechnicalAnalysisContent';
 import { useAuth } from '@/contexts/AuthContext';
 import { AiChatLink } from '@/components/AiChatLink';
-import { useSubscription } from '@/contexts/SubscriptionContext';
 import {
   useStockProfile,
   useStockDetail,
@@ -36,89 +35,6 @@ import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
 // =============================================================================
 // Types
 // =============================================================================
-
-interface StockQuote {
-  price: number | null;
-  change: number | null;
-  change_percent: number | null;
-  market_cap: number | null;
-  volume: number | null;
-  week_52_high: number | null;
-  week_52_low: number | null;
-  pe_ratio: number | null;
-  eps: number | null;
-}
-
-interface StockProfile {
-  company_name: string;
-  company_name_zh?: string;
-  exchange?: string;
-  classification?: {
-    sector?: string;
-    industry?: string;
-  };
-  description?: {
-    en?: string;
-    zh?: string;
-  };
-  company_details?: {
-    ceo?: string;
-    employees?: number;
-    website?: string;
-    country?: string;
-    city?: string;
-    address?: string;
-    phone?: string;
-    image?: string;
-    state?: string;
-    postal_code?: string;
-    ipo_date?: string;
-  };
-}
-
-interface StockFundamentals {
-  ttm: {
-    revenue?: number;
-    net_income?: number;
-    eps?: number;
-    ebitda?: number;
-    free_cash_flow?: number;
-    operating_cash_flow?: number;
-  };
-  valuation: {
-    pe?: number;
-    ps?: number;
-    pb?: number;
-    ev_to_ebitda?: number;
-    dividend_yield?: number;
-    peg?: number;
-  };
-  growth: {
-    revenue_yoy?: number;
-    revenue_qoq?: number;
-    net_income_yoy?: number;
-  };
-  profitability: {
-    gross_margin?: number;
-    operating_margin?: number;
-    net_margin?: number;
-    roe?: number;
-    roa?: number;
-  };
-  balance_sheet?: {
-    current_ratio?: number;
-    quick_ratio?: number;
-    debt_to_equity?: number;
-    total_debt?: number;
-    total_cash?: number;
-  };
-  market_data?: {
-    beta?: number;
-    short_ratio?: number;
-    insider_ownership?: number;
-    institutional_ownership?: number;
-  };
-}
 
 interface QuarterlyData {
   period: string;
@@ -140,21 +56,6 @@ interface QuarterlyData {
   cash_flow?: {
     operating_cash_flow?: number;
     free_cash_flow?: number;
-  };
-}
-
-interface StockData {
-  profile: StockProfile;
-  quote: StockQuote;
-  fundamentals: StockFundamentals;
-  financials: {
-    latest_quarter: string | null;
-    quarters: QuarterlyData[];
-  };
-  meta: {
-    symbol: string;
-    quote_fetched_at: string;
-    latest_quarter?: string;
   };
 }
 
@@ -183,15 +84,6 @@ interface StockMacroAnalysis {
 }
 
 type AnalysisTab = 'fundamental' | 'technical' | 'news' | 'macro';
-
-interface PriceHistoryData {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
 
 // Valuation Comparison Types
 interface PeerMetrics {
@@ -1138,10 +1030,6 @@ function AIAnalysisSection({
   onRegenerateMacro,
   companyName,
   symbol,
-  isAuthenticated,
-  isPro,
-  onLoginRequired,
-  onUpgradeRequired,
   activeTab,
 }: {
   analysis: StockAIAnalysis | null;
@@ -1162,10 +1050,6 @@ function AIAnalysisSection({
   onRegenerateMacro: () => void;
   companyName: string;
   symbol: string;
-  isAuthenticated: boolean;
-  isPro: boolean;
-  onLoginRequired: () => void;
-  onUpgradeRequired: () => void;
   activeTab: AnalysisTab;
 }) {
   const analysisMap: Record<AnalysisTab, { data: unknown; loading: boolean; generate: () => void; regenerate: () => void }> = {
@@ -1580,8 +1464,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
     });
     setJustAdded(true);
   }, [user, isInWatchlist, watchlistData, saveWatchlist, symbol]);
-  const { isPro, createCheckout } = useSubscription();
-
   // --- TanStack Query hooks (4 parallel data queries) ---
   const { data: quickProfile, isLoading: quickProfileLoading } = useStockProfile(symbol);
   const { data, isLoading: loading, error: detailError } = useStockDetail(symbol);
@@ -1904,10 +1786,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             analysisLoading={analysisLoading}
             onGenerate={() => handleGenerateAnalysis(false)}
             onRegenerate={() => handleGenerateAnalysis(true)}
-            isAuthenticated={isAuthenticated}
-            isPro={isPro}
-            onLoginRequired={handleLoginRequired}
-            onUpgradeRequired={createCheckout}
             quote={quote}
             fundamentals={fundamentals}
             financials={financials}
@@ -1936,10 +1814,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
               onRegenerateMacro={() => handleGenerateMacro(true)}
               companyName={profile?.company_name || symbol}
               symbol={symbol}
-              isAuthenticated={isAuthenticated}
-              isPro={isPro}
-              onLoginRequired={handleLoginRequired}
-              onUpgradeRequired={createCheckout}
               activeTab={activeAnalysisTab}
             />
           </section>

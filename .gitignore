@@ -48,12 +48,11 @@ htmlcov/
 skills/
 .github/skills/
 
-# Claude Code: track shared config (settings.json, skills/, hooks)
+# Claude Code: track shared config only
 !.claude/
 !.claude/settings.json
-!.claude/skills/
-!.claude/skills/**
-# Re-ignore personal config within .claude/
+# Re-ignore everything else within .claude/
+.claude/skills/
 .claude/settings.local.json
 .claude/worktrees/
 test-results/
