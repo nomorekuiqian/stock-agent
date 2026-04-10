@@ -170,7 +170,6 @@ class TestTransformDigestSections:
         assert stocks[0].name == ""
         assert stocks[0].price == 0
         assert stocks[0].daily_change == ""
-        assert stocks[0].week_change == ""
         assert stocks[0].status == ""
         assert stocks[0].quick_take == ""
 

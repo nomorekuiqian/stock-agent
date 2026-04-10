@@ -479,6 +479,10 @@ class TestBroadcastBatchFlow:
                 new_callable=AsyncMock,
             ) as mock_save,
             patch("app.features.subscription.email_service.resend") as mock_resend,
+            patch(
+                "app.features.subscription.email_service.ENVIRONMENT",
+                "production",
+            ),
         ):
             mock_resend.Batch.send.return_value = {
                 "data": [{"id": "e-0"}, {"id": "e-1"}],
