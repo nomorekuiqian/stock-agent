@@ -54,6 +54,7 @@ async def upsert_subscription(
     referred_by: Optional[str] = None,
     referral_code: Optional[str] = None,
     referral_count: Optional[int] = None,
+    entitlements: Optional[list] = None,
 ) -> bool:
     """Insert or update a subscription record.
 
@@ -85,6 +86,8 @@ async def upsert_subscription(
         body["referral_code"] = referral_code
     if referral_count is not None:
         body["referral_count"] = referral_count
+    if entitlements is not None:
+        body["entitlements"] = entitlements
 
     service = get_insforge_service()
     result = await service.call_function(
@@ -101,3 +104,31 @@ async def upsert_subscription(
         invalidate_subscription_cache(user_id)
 
     return success
+
+
+async def list_entitled_users(feature: str) -> list:
+    """List all users who have a specific entitlement."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "list_entitled", "feature": feature},
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        return data.get("data", [])
+    return []
+
+
+async def get_subscription_by_customer(stripe_customer_id: str) -> Optional[Dict[str, Any]]:
+    """Get subscription by stripe_customer_id."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "get_by_customer", "stripe_customer_id": stripe_customer_id},
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        return data.get("data")
+    return None

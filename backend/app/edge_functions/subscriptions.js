@@ -48,6 +48,62 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=get_by_customer&stripe_customer_id=xxx
+    if (request.method === "GET" && action === "get_by_customer") {
+      const customerId = url.searchParams.get("stripe_customer_id");
+      if (!customerId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "stripe_customer_id required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .select("*")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle();
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=list_entitled&feature=personal_digest_email
+    if (request.method === "GET" && action === "list_entitled") {
+      const feature = url.searchParams.get("feature");
+      if (!feature) {
+        return new Response(
+          JSON.stringify({ success: false, error: "feature required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Join with auth.users to get email + nickname in one query
+      const { data, error } = await client.database
+        .rpc("list_entitled_users", { feature_key: feature });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: data || [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // POST ?action=upsert
     if (request.method === "POST" && action === "upsert") {
       const body = await request.json();
