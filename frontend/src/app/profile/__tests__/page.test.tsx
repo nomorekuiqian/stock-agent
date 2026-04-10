@@ -24,6 +24,11 @@ vi.mock('@/contexts/SubscriptionContext', () => ({
   useSubscription: (...args: unknown[]) => mockUseSubscription(...args),
 }));
 
+const mockUseEntitlements = vi.fn();
+vi.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: (...args: unknown[]) => mockUseEntitlements(...args),
+}));
+
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ setQueryData: vi.fn() }),
 }));
@@ -97,6 +102,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockUseAuth.mockReturnValue(authState());
   mockUseSubscription.mockReturnValue(subState());
+  mockUseEntitlements.mockReturnValue({
+    has: () => false,
+  });
   setTabParam('subscription');
 });
 
@@ -172,7 +180,7 @@ describe('ProfilePage subscription states', () => {
     render(<ProfilePage />);
 
     expect(screen.getByText('订阅已取消')).toBeDefined();
-    expect(screen.getByText('重新订阅 Pro')).toBeDefined();
+    expect(screen.getByRole('button', { name: '查看订阅方案' })).toBeDefined();
   });
 
   it('shows correct badge per state', () => {
@@ -222,5 +230,113 @@ describe('ProfilePage manage subscription', () => {
 
     const link = screen.getByText(/升级到 Pro/).closest('a');
     expect(link?.getAttribute('href')).toBe('/pricing');
+  });
+});
+
+describe('ProfilePage email preferences', () => {
+  it('forces paid-only email switches off and disabled for free users', () => {
+    setTabParam('email');
+
+    render(<ProfilePage />);
+
+    const morning = screen.getByRole('switch', { name: /早报 需要升级/ });
+    const daily = screen.getByRole('switch', { name: /晚报 已开启/ });
+    const weekly = screen.getByRole('switch', { name: /宏观周报 需要升级/ });
+    const digest = screen.getByRole('switch', { name: /专属日报 需要升级/ });
+
+    expect(morning.getAttribute('aria-checked')).toBe('false');
+    expect((morning as HTMLButtonElement).disabled).toBe(true);
+    expect((daily as HTMLButtonElement).disabled).toBe(false);
+    expect(weekly.getAttribute('aria-checked')).toBe('false');
+    expect((weekly as HTMLButtonElement).disabled).toBe(true);
+    expect(digest.getAttribute('aria-checked')).toBe('false');
+    expect((digest as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText('升级 Pro 解锁')).toHaveLength(3);
+  });
+
+  it('keeps entitled email switches interactive for paid users', () => {
+    setTabParam('email');
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true,
+      plan: 'pro',
+      status: 'active',
+    }));
+    mockUseEntitlements.mockReturnValue({
+      has: (feature: string) => feature !== 'personal_digest_email',
+    });
+
+    render(<ProfilePage />);
+
+    const morning = screen.getByRole('switch', { name: /早报 已开启/ });
+    const weekly = screen.getByRole('switch', { name: /宏观周报 已关闭/ });
+    const digest = screen.getByRole('switch', { name: /专属日报 需要升级/ });
+
+    expect((morning as HTMLButtonElement).disabled).toBe(false);
+    expect((weekly as HTMLButtonElement).disabled).toBe(false);
+    expect((digest as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Entitlement-gated email preferences
+// ---------------------------------------------------------------------------
+describe('ProfilePage entitlement-gated preferences', () => {
+  it('shows all toggles enabled for user with all entitlements', () => {
+    setTabParam('email');
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true, plan: 'pro', status: 'active',
+    }));
+    mockUseEntitlements.mockReturnValue({
+      has: () => true,
+    });
+
+    render(<ProfilePage />);
+
+    const morning = screen.getByRole('switch', { name: /早报 已开启/ });
+    const daily = screen.getByRole('switch', { name: /晚报 已开启/ });
+    const weekly = screen.getByRole('switch', { name: /宏观周报 已关闭/ });
+    const digest = screen.getByRole('switch', { name: /专属日报 已关闭/ });
+
+    expect((morning as HTMLButtonElement).disabled).toBe(false);
+    expect((daily as HTMLButtonElement).disabled).toBe(false);
+    expect((weekly as HTMLButtonElement).disabled).toBe(false);
+    expect((digest as HTMLButtonElement).disabled).toBe(false);
+
+    // No lock text should appear
+    expect(screen.queryByText('升级 Pro 解锁')).toBeNull();
+  });
+
+  it('locks paid toggles for free user without entitlements', () => {
+    setTabParam('email');
+    mockUseSubscription.mockReturnValue(subState({ isPro: false, plan: 'free', status: 'none' }));
+    mockUseEntitlements.mockReturnValue({
+      has: () => false,
+    });
+
+    render(<ProfilePage />);
+
+    // morning_report, weekly_report, personal_digest have entitlement field -> locked
+    const morning = screen.getByRole('switch', { name: /早报 需要升级/ });
+    const weekly = screen.getByRole('switch', { name: /宏观周报 需要升级/ });
+    const digest = screen.getByRole('switch', { name: /专属日报 需要升级/ });
+
+    expect((morning as HTMLButtonElement).disabled).toBe(true);
+    expect((weekly as HTMLButtonElement).disabled).toBe(true);
+    expect((digest as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText('升级 Pro 解锁')).toHaveLength(3);
+  });
+
+  it('does not lock daily_report toggle for free user (no entitlement field)', () => {
+    setTabParam('email');
+    mockUseSubscription.mockReturnValue(subState({ isPro: false, plan: 'free', status: 'none' }));
+    mockUseEntitlements.mockReturnValue({
+      has: () => false,
+    });
+
+    render(<ProfilePage />);
+
+    // daily_report has no entitlement field, so it should not be locked
+    const daily = screen.getByRole('switch', { name: /晚报 已开启/ });
+    expect((daily as HTMLButtonElement).disabled).toBe(false);
   });
 });

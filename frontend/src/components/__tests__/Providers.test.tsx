@@ -27,6 +27,10 @@ vi.mock('@/contexts/SubscriptionContext', () => ({
   SubscriptionProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@/contexts/EntitlementsContext', () => ({
+  EntitlementsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 vi.mock('@/hooks/queries/query-client', () => ({
   makeQueryClient: () => ({}),
 }));

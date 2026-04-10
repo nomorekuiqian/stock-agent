@@ -21,6 +21,11 @@ vi.mock('@/contexts/SubscriptionContext', () => ({
   useSubscription: (...args: unknown[]) => mockUseSubscription(...args),
 }));
 
+const mockUseEntitlements = vi.fn();
+vi.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: (...args: unknown[]) => mockUseEntitlements(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -41,6 +46,11 @@ beforeEach(() => {
     createCheckout: vi.fn(),
     openBillingPortal: vi.fn(),
     refreshSubscription: vi.fn(),
+  });
+  mockUseEntitlements.mockReturnValue({
+    has: vi.fn().mockReturnValue(true),
+    isLoading: false,
+    refresh: vi.fn(),
   });
 });
 
@@ -128,5 +138,43 @@ describe('PaywallGuard', () => {
 
     // Paywall disabled short-circuits before loading check
     expect(screen.getByTestId('loading-content')).toBeTruthy();
+  });
+
+  // -------------------------------------------------------------------
+  // Entitlements integration (paywall disabled)
+  // NOTE: The paywall-enabled entitlement checking (has() gating,
+  // MAX_ONLY_FEATURES, loading states) is covered by E2E tests since
+  // PAYWALL_ENABLED is a module-level const that cannot be changed
+  // via vi.stubEnv at runtime.
+  // -------------------------------------------------------------------
+
+  it('calls useEntitlements hook even when paywall is disabled', () => {
+    const mockHas = vi.fn().mockReturnValue(false);
+    mockUseEntitlements.mockReturnValue({
+      has: mockHas,
+      isLoading: false,
+      refresh: vi.fn(),
+    });
+
+    render(
+      <PaywallGuard requiredFeature="macro_dashboard">
+        <div data-testid="ent-content">Entitlement content</div>
+      </PaywallGuard>
+    );
+
+    // Children rendered regardless (paywall disabled)
+    expect(screen.getByTestId('ent-content')).toBeTruthy();
+    // The hook is still called (component imports it unconditionally)
+    expect(mockUseEntitlements).toHaveBeenCalled();
+  });
+
+  it('accepts requiredFeature prop without error', () => {
+    render(
+      <PaywallGuard requiredFeature="macro_dashboard">
+        <div data-testid="feature-content">Feature content</div>
+      </PaywallGuard>
+    );
+
+    expect(screen.getByTestId('feature-content')).toBeTruthy();
   });
 });

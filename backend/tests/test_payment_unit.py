@@ -230,8 +230,8 @@ class TestWebhookHandler:
             mock_upsert.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_subscription_updated_sets_plan(self):
-        """subscription.updated with canceled status sets plan to free."""
+    async def test_subscription_updated_syncs_identity_only(self):
+        """subscription.updated syncs status/period only (no plan write)."""
         from app.features.payment.router import stripe_webhook
 
         event = self._make_event("customer.subscription.updated", {
@@ -252,12 +252,13 @@ class TestWebhookHandler:
             assert result == {"received": True}
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
-            assert call_kwargs["plan"] == "free"
+            # Identity sync: status + period, no plan
             assert call_kwargs["status"] == "canceled"
+            assert "plan" not in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_subscription_updated_active_sets_pro(self):
-        """subscription.updated with active status sets plan to pro."""
+    async def test_subscription_updated_active_syncs_status(self):
+        """subscription.updated with active status syncs identity (no plan write)."""
         from app.features.payment.router import stripe_webhook
 
         event = self._make_event("customer.subscription.updated", {
@@ -276,8 +277,9 @@ class TestWebhookHandler:
             result = await stripe_webhook(mock_request)
 
             call_kwargs = mock_upsert.call_args[1]
-            assert call_kwargs["plan"] == "pro"
             assert call_kwargs["status"] == "active"
+            # Plan is determined by entitlements webhook, not here
+            assert "plan" not in call_kwargs
 
     @pytest.mark.asyncio
     async def test_subscription_deleted_no_active_subs(self):

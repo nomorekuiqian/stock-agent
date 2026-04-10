@@ -32,15 +32,13 @@ def email_svc():
     return svc
 
 
-def _make_subscribers(n: int) -> list[dict]:
-    """Generate n fake subscriber dicts."""
+def _make_entitled_users(n: int) -> list[dict]:
+    """Generate n fake entitled user dicts (as returned by list_entitled_users)."""
     return [
         {
             "email": f"user{i}@example.com",
-            "metadata": {
-                "first_name": f"User{i}",
-                "user_id": f"uid-{i}",
-            },
+            "first_name": f"User{i}",
+            "user_id": f"uid-{i}",
         }
         for i in range(n)
     ]
@@ -72,21 +70,16 @@ class TestBroadcastBatchFlow:
         With 3 subscribers, resend.Batch.send should be called once (not 3 individual sends).
         resend.Emails.send should NOT be called at all.
         """
-        subscribers = _make_subscribers(3)
+        entitled_users = _make_entitled_users(3)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -130,7 +123,7 @@ class TestBroadcastBatchFlow:
         If digest generation fails on first attempt but succeeds on internal retry
         within process_subscriber, the subscriber is included in the batch send.
         """
-        subscribers = _make_subscribers(3)
+        entitled_users = _make_entitled_users(3)
 
         call_count = 0
 
@@ -146,16 +139,11 @@ class TestBroadcastBatchFlow:
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(side_effect=generate_side_effect)
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -190,7 +178,7 @@ class TestBroadcastBatchFlow:
         Phase 3 retries after delay and recovers them.
         Uses 1 subscriber to ensure deterministic call ordering.
         """
-        subscribers = _make_subscribers(1)
+        entitled_users = _make_entitled_users(1)
 
         call_count = 0
 
@@ -206,16 +194,11 @@ class TestBroadcastBatchFlow:
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(side_effect=generate_side_effect)
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -242,23 +225,16 @@ class TestBroadcastBatchFlow:
         # Phase 3 recovered the subscriber
         assert result["sent"] == 1
         assert result["failed"] == 0
-        # Batch.send called twice: Phase 2 (0 emails, skipped) + Phase 3 (1 recovered)
-        # Actually Phase 2 with 0 emails doesn't call Batch.send, so only 1 call from Phase 3
+        # Phase 2 with 0 emails doesn't call Batch.send, only Phase 3 does
         assert mock_resend.Batch.send.call_count == 1
 
     @pytest.mark.asyncio
     async def test_no_symbols_skipped(self, email_svc):
         """Subscribers with no watchlist symbols are skipped (not sent)."""
-        subscribers = _make_subscribers(2)
+        entitled_users = _make_entitled_users(2)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
-
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
 
         async def watchlist_side_effect(user_id):
             # Only first user has symbols
@@ -268,8 +244,9 @@ class TestBroadcastBatchFlow:
 
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -302,21 +279,16 @@ class TestBroadcastBatchFlow:
         With 150 subscribers, resend.Batch.send should be called twice:
         first chunk of 100, second chunk of 50.
         """
-        subscribers = _make_subscribers(150)
+        entitled_users = _make_entitled_users(150)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -356,21 +328,16 @@ class TestBroadcastBatchFlow:
         """
         If resend.Batch.send hits rate limit, it retries with backoff.
         """
-        subscribers = _make_subscribers(2)
+        entitled_users = _make_entitled_users(2)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -401,21 +368,16 @@ class TestBroadcastBatchFlow:
         """
         If batch send fails with non-rate-limit error, all emails in chunk are failed.
         """
-        subscribers = _make_subscribers(2)
+        entitled_users = _make_entitled_users(2)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -440,15 +402,10 @@ class TestBroadcastBatchFlow:
     @pytest.mark.asyncio
     async def test_empty_subscribers(self, email_svc):
         """No subscribers returns early with zero counts."""
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": [],
-        }
-
         with patch(
-            "app.features.subscription.email_service.get_subscription_service",
-            return_value=mock_sub_service,
+            "app.features.payment.db.list_entitled_users",
+            new_callable=AsyncMock,
+            return_value=[],
         ):
             result = await email_svc.broadcast_personal_digests()
 
@@ -459,21 +416,16 @@ class TestBroadcastBatchFlow:
     @pytest.mark.asyncio
     async def test_email_params_format(self, email_svc):
         """Verify email params contain correct from/to/subject/html fields."""
-        subscribers = _make_subscribers(1)
+        entitled_users = _make_entitled_users(1)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -502,21 +454,16 @@ class TestBroadcastBatchFlow:
     @pytest.mark.asyncio
     async def test_db_save_called_for_each_subscriber(self, email_svc):
         """DB save is called for each successful generation (before batch send)."""
-        subscribers = _make_subscribers(2)
+        entitled_users = _make_entitled_users(2)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
@@ -561,39 +508,28 @@ class TestBroadcastBatchEdgeCases:
     @pytest.mark.asyncio
     async def test_subscriber_list_failure(self, email_svc):
         """Subscriber listing failure returns error."""
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": False,
-            "error": "DB connection failed",
-        }
-
         with patch(
-            "app.features.subscription.email_service.get_subscription_service",
-            return_value=mock_sub_service,
+            "app.features.payment.db.list_entitled_users",
+            new_callable=AsyncMock,
+            side_effect=Exception("DB connection failed"),
         ):
             result = await email_svc.broadcast_personal_digests()
 
         assert result["success"] is False
-        assert "DB connection failed" in result["error"]
 
     @pytest.mark.asyncio
     async def test_batch_validation_errors_counted(self, email_svc):
         """Batch validation errors from Resend are counted as failures."""
-        subscribers = _make_subscribers(3)
+        entitled_users = _make_entitled_users(3)
 
         mock_digest_agent = MagicMock()
         mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
 
-        mock_sub_service = MagicMock()
-        mock_sub_service.list_subscribers.return_value = {
-            "success": True,
-            "subscribers": subscribers,
-        }
-
         with (
             patch(
-                "app.features.subscription.email_service.get_subscription_service",
-                return_value=mock_sub_service,
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
             ),
             patch(
                 "app.features.brew.agent.get_personal_digest",
