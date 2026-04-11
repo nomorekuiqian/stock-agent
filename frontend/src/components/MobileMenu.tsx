@@ -169,7 +169,7 @@ export function MobileMenu() {
         aria-expanded={isOpen}
         aria-controls="mobile-menu-panel"
         aria-label={isOpen ? '关闭导航菜单' : '打开导航菜单'}
-        className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+        className="p-2 text-muted-foreground hover:text-foreground transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
       >
         {isOpen ? (
           <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
