@@ -151,7 +151,7 @@ export default function RootLayout({
                     href="https://xiaohongshu.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-muted-foreground/60 hover:text-primary transition-colors"
+                    className="text-muted-foreground/60 hover:text-primary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title="小红书"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">

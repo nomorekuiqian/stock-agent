@@ -114,7 +114,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href="/today"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group py-2.5"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group min-h-[44px]"
                 >
                   <span className="border-b border-border/40 group-hover:border-foreground/40 transition-colors">
                     先看一份样本报告
@@ -566,7 +566,7 @@ export default function Home() {
             <span>前 {PRICING.earlyAccessTotal} 名抢先体验</span>
             <span className="w-1 h-1 rounded-full bg-border" />
             <span>
-              <Link href="/pricing" className="text-primary hover:text-primary/80 transition-colors">
+              <Link href="/pricing" className="text-primary hover:text-primary/80 transition-colors py-2 inline-flex items-center min-h-[44px]">
                 查看完整定价 →
               </Link>
             </span>
