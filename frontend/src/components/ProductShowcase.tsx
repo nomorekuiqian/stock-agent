@@ -655,7 +655,7 @@ export default function ProductShowcase() {
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(i)}
-                  className={`relative flex-shrink-0 text-xs font-medium px-3.5 py-2 rounded-lg border transition-all duration-200 overflow-hidden ${
+                  className={`relative flex-shrink-0 text-xs font-medium px-3.5 py-3 rounded-lg border transition-all duration-200 overflow-hidden ${
                     activeTab === i
                       ? "bg-primary/15 border-primary/30 text-primary"
                       : "bg-transparent border-border/40 text-muted-foreground hover:border-border/60 hover:text-foreground"
