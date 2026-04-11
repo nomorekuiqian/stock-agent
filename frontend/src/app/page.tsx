@@ -814,31 +814,31 @@ export default function Home() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/stock"
-              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
+              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
             >
               个股研究
             </Link>
             <Link
               href="/morning"
-              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
+              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
             >
               盘前早报
             </Link>
             <Link
               href="/research"
-              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
+              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
             >
               AI 投研助手
             </Link>
             <Link
               href="/macro"
-              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground"
+              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
             >
               宏观仪表盘
             </Link>
             <Link
               href="/today/archive"
-              className="px-4 py-2 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-muted-foreground hover:text-foreground"
+              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-muted-foreground hover:text-foreground min-h-[44px] flex items-center"
             >
               浏览历史报告
             </Link>
