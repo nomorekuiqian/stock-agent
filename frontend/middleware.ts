@@ -17,6 +17,7 @@ const PUBLIC_ROUTES = [
   '/auth/callback',
   '/email-test',
   '/pricing',
+  '/webview-check',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';

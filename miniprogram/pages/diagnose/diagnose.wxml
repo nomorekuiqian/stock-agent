@@ -1,0 +1,19 @@
+<view class="container">
+  <view style="font-size: 34rpx; font-weight: 600;">wx.login 诊断</view>
+  <view class="muted" style="margin: 16rpx 0 32rpx;">验证 wx.login 是否能正常换取临时 code（code 是后续 jscode2session 的输入）</view>
+
+  <button class="primary-btn" bindtap="runWxLogin">调用 wx.login()</button>
+
+  <view wx:if="{{code}}" style="margin-top: 32rpx; word-break: break-all;">
+    <view style="font-weight: 600;">code:</view>
+    <view class="muted">{{code}}</view>
+  </view>
+
+  <view wx:if="{{error}}" style="margin-top: 32rpx; color: #dc2626;">
+    错误: {{error}}
+  </view>
+
+  <view style="margin-top: 48rpx;" class="muted">
+    生产环境会把此 code POST 到 /api/wechat/login，后端用 AppID+AppSecret 调用 jscode2session 换取 openid+unionid。
+  </view>
+</view>

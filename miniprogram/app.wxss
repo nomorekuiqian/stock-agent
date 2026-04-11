@@ -1,0 +1,26 @@
+/* app.wxss - global styles */
+page {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.container {
+  padding: 32rpx 40rpx;
+}
+
+.primary-btn {
+  background-color: #059669;
+  color: #fff;
+  border-radius: 12rpx;
+  padding: 24rpx 32rpx;
+  font-size: 30rpx;
+  margin: 16rpx 0;
+}
+
+.muted {
+  color: #64748b;
+  font-size: 24rpx;
+}
