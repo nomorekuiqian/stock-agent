@@ -467,7 +467,7 @@ export default function Home() {
               </div>
               <Link
                 href="/today"
-                className="block w-full px-4 py-2.5 bg-muted/50 text-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-muted/70 active:scale-[0.98] border border-border/50"
+                className="block w-full px-4 py-3 bg-muted/50 text-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-muted/70 active:scale-[0.98] border border-border/50"
               >
                 免费开始
               </Link>
@@ -512,7 +512,7 @@ export default function Home() {
                 </div>
                 <Link
                   href="/pricing"
-                  className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
+                  className="block w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
                 >
                   立即订阅 — {PRICING.proPerMonth}
                 </Link>
@@ -551,7 +551,7 @@ export default function Home() {
               </div>
               <Link
                 href="/pricing"
-                className="block w-full px-4 py-2.5 bg-card text-foreground rounded-lg text-sm font-semibold text-center transition-all hover:border-primary/30 active:scale-[0.98] border border-border/50"
+                className="block w-full px-4 py-3 bg-card text-foreground rounded-lg text-sm font-semibold text-center transition-all hover:border-primary/30 active:scale-[0.98] border border-border/50"
               >
                 立即订阅 — {PRICING.maxPerMonth}
               </Link>
