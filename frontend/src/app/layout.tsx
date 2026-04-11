@@ -119,28 +119,28 @@ export default function RootLayout({
                 </div>
 
                 {/* Links */}
-                <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                  <Link href="/morning" className="hover:text-foreground transition-colors">
+                <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <Link href="/morning" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                     早报
                   </Link>
-                  <Link href="/today" className="hover:text-foreground transition-colors">
+                  <Link href="/today" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                     晚报
                   </Link>
-                  <Link href="/for-you" className="hover:text-foreground transition-colors">
+                  <Link href="/for-you" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                     专属
                   </Link>
                   {process.env.NODE_ENV === 'development' && (
-                    <Link href="/sectors" className="hover:text-foreground transition-colors">
+                    <Link href="/sectors" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                       板块
                     </Link>
                   )}
-                  <Link href="/stock" className="hover:text-foreground transition-colors">
+                  <Link href="/stock" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                     个股
                   </Link>
-                  <Link href="/macro" className="hover:text-foreground transition-colors">
+                  <Link href="/macro" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                     宏观
                   </Link>
-                  <Link href="/contact" className="hover:text-foreground transition-colors">
+                  <Link href="/contact" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                     联系
                   </Link>
                 </div>
