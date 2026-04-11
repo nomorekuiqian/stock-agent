@@ -195,10 +195,10 @@ pytest -v --run-generate          # 包含 AI 生成测试（慢）
 |--------|--------|
 | 系统架构（技术栈 + API + 缓存 + Agent 详解） | [docs/architecture.md](docs/architecture.md) |
 | 产品路线图（模块规划 + 商业模式 + 里程碑） | [docs/product/roadmap.md](docs/product/roadmap.md) |
-| 品牌叙事（定位 + 口号 + 转化策略） | [docs/brand/narrative.md](docs/brand/narrative.md) |
-| 活跃工程计划 | [docs/plans/](docs/plans/) |
-| 设计系统 | [frontend/docs/design-system.md](frontend/docs/design-system.md) |
-| 认证流程 | [frontend/docs/auth.md](frontend/docs/auth.md) |
+| 品牌叙事（定位 + 口号 + 转化策略） | [docs/product/brand.md](docs/product/brand.md) |
+| 活跃工程计划 | [docs/plans/active/](docs/plans/active/) |
+| 设计系统 | [docs/constraints/design-system.md](docs/constraints/design-system.md) |
+| 认证流程 | [docs/constraints/auth.md](docs/constraints/auth.md) |
 | 各模块详情 | 对应目录下的 `.context.md` |
 | Claude Code 开发指引 | [CLAUDE.md](CLAUDE.md) |
 | 其他 AI Agent 规则 | [AGENTS.md](AGENTS.md) |

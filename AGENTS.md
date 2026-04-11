@@ -8,7 +8,7 @@ Project instructions for AI coding agents (Codex, etc.) working with this reposi
 - **Dead code zones**: `backend/app/services/` and `backend/app/models/` are pre-refactor dead code. Never import from these paths. Active code lives in `app/features/` and `app/shared/`.
 - **Email broadcast safety**: When `ENVIRONMENT` is not `"production"`, all broadcasts auto-route to Resend test segment (`1c300c45-49a7-479e-a4c2-1ed5cfccda1e`). After calling broadcast API in dev, verify the returned `audience_id` is the test segment.
 - **Logging**: Use `get_logger(__name__)`, never `print()`. Use `%s` lazy formatting, not f-strings.
-- **Auth patterns**: User endpoints use `Depends(verify_user_token)`, cron jobs use `Depends(verify_cron_secret)`. Full auth flow in `frontend/docs/auth.md`.
+- **Auth patterns**: User endpoints use `Depends(verify_user_token)`, cron jobs use `Depends(verify_cron_secret)`. Full auth flow in `docs/constraints/auth.md`.
 - **Test account** (local debugging): Email `voya.technologies@gmail.com`, password `123456`.
 - **Default AI model**: Always use `gemini-3.1-pro-preview` in Google ADK agents.
 - **No emoji in code**: Never write emoji characters in source code files.
@@ -26,7 +26,7 @@ After completing tasks, update relevant docs based on change type:
 | Change Type | Update Target | Trigger |
 |-------------|---------------|---------|
 | New/modified API endpoints | Corresponding `.context.md` | router.py changed |
-| Auth changes | `frontend/docs/auth.md` | verify_user_token usage changed |
+| Auth changes | `docs/constraints/auth.md` | verify_user_token usage changed |
 | DB table/Edge Function changes | Feature's `.context.md` | db.py or edge function changed |
 | Frontend page logic changes | Page's `.context.md` | page.tsx data flow changed |
 | New feature module | This file's module doc list | New `.context.md` created |
@@ -70,19 +70,19 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/test/.context.md` -- Test system (Vitest + Playwright)
 
 **Other docs**:
-- `backend/docs/reliability.md` -- Engineering reliability
-- `frontend/docs/auth.md` -- Auth flow
-- `frontend/docs/pages.md` -- Frontend page routes
-- `frontend/docs/components.md` -- Frontend components & libraries
-- `frontend/docs/design-system.md` -- Design system spec
+- `docs/constraints/reliability.md` -- Engineering reliability
+- `docs/constraints/auth.md` -- Auth flow
+- `docs/references/pages.md` -- Frontend page routes
+- `docs/references/components.md` -- Frontend components & libraries
+- `docs/constraints/design-system.md` -- Design system spec
 
 ## Engineering Plans
 
 Design documents before feature development, stored in `docs/plans/`. Template at `docs/plans/_template.md`.
 
-**File naming**: `docs/plans/{feature-name}.md`, English kebab-case.
+**File naming**: `docs/plans/active/{feature-name}.md`, English kebab-case.
 
-**Lifecycle**: Create plan -> Update progress during dev -> Distill knowledge into `.context.md` -> Archive/delete plan.
+**Lifecycle**: Create in `docs/plans/active/` -> Update progress during dev -> Distill knowledge into `.context.md` -> Move to `docs/plans/completed/`.
 
 ## Project Overview
 
@@ -222,10 +222,10 @@ frontend/src/
 └── lib/             # api.ts / auth.ts / insforge.ts / utils
 ```
 
-- Route table: `frontend/docs/pages.md`
-- Auth flow: `frontend/docs/auth.md`
-- Component list: `frontend/docs/components.md`
-- Design spec: `frontend/docs/design-system.md`
+- Route table: `docs/references/pages.md`
+- Auth flow: `docs/constraints/auth.md`
+- Component list: `docs/references/components.md`
+- Design spec: `docs/constraints/design-system.md`
 
 ## Testing Architecture
 
@@ -268,11 +268,11 @@ runner = InMemoryRunner(agent=agent, app_name="market")
 
 ## Engineering Reliability
 
-Global error handling, rate limiting (slowapi), health checks, structured logging. See `backend/docs/reliability.md`.
+Global error handling, rate limiting (slowapi), health checks, structured logging. See `docs/constraints/reliability.md`.
 
 ## Design System
 
-Financial Terminal + Editorial Luxury style. Primary `emerald-500`, accent `amber-400`. See `frontend/docs/design-system.md`.
+Financial Terminal + Editorial Luxury style. Primary `emerald-500`, accent `amber-400`. See `docs/constraints/design-system.md`.
 
 ## Known Gotchas & Production Lessons
 
