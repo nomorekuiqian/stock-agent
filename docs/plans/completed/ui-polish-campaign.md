@@ -1,7 +1,7 @@
 # UI Polish Campaign - Engineering Plan
 
 > Status: Done
-> Related: frontend/docs/design-system.md
+> Related: docs/constraints/design-system.md
 > Vision: "Financial Terminal + Editorial Luxury" 设计语言的全站落地与提升
 
 ## 目标

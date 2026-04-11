@@ -289,4 +289,4 @@ PaywallGuard 英文文案需要产品决策：是直接翻译现有中文文案�
 
 - next-intl App Router 文档：https://next-intl-docs.vercel.app/docs/getting-started/app-router
 - 调研来源：Jasper/Bloomberg/Reuters 多语言架构、arXiv 2403.06249（中文金融 LLM）、LFAI Translation Augmented Generation
-- 设计规范：`frontend/docs/design-system.md`（UI 语言"统一中文"规则需更新为"跟随用户语言设置"）
+- 设计规范：`docs/constraints/design-system.md`（UI 语言"统一中文"规则需更新为"跟随用户语言设置"）
