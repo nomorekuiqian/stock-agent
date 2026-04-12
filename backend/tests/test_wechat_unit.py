@@ -175,3 +175,101 @@ class TestHomeCards:
         from app.features.wechat.router import HOME_CARDS
         orders = [c.order for c in HOME_CARDS]
         assert orders == sorted(orders)
+
+
+# ---------------------------------------------------------------------------
+# TestJwtUtils
+# ---------------------------------------------------------------------------
+
+import os, time
+
+class TestJwtUtils:
+
+    def setup_method(self):
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+
+    def test_sign_and_decode_wechat_bound(self):
+        from app.features.wechat.jwt_utils import sign_wechat_jwt, decode_wechat_jwt
+
+        token = sign_wechat_jwt(sub="user-uuid-123", typ="wechat_bound", exp_days=7)
+        assert isinstance(token, str)
+
+        payload = decode_wechat_jwt(token)
+        assert payload["sub"] == "user-uuid-123"
+        assert payload["typ"] == "wechat_bound"
+
+    def test_sign_includes_openid_claim(self):
+        from app.features.wechat.jwt_utils import sign_wechat_jwt, decode_wechat_jwt
+
+        token = sign_wechat_jwt(sub="wechat-row-id", typ="wechat_email_only", exp_days=7, openid="o_abc")
+        payload = decode_wechat_jwt(token)
+        assert payload["openid"] == "o_abc"
+        assert payload["sub"] == "wechat-row-id"
+
+    def test_decode_invalid_raises(self):
+        from app.features.wechat.jwt_utils import decode_wechat_jwt
+        with pytest.raises(Exception):
+            decode_wechat_jwt("not.a.valid.token")
+
+    def test_wrong_typ_value_rejected_by_sign(self):
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        with pytest.raises(ValueError):
+            sign_wechat_jwt(sub="x", typ="invalid_type", exp_days=1)
+
+
+# ---------------------------------------------------------------------------
+# TestOtpToken
+# ---------------------------------------------------------------------------
+
+class TestOtpToken:
+
+    def setup_method(self):
+        os.environ["WECHAT_JWT_SECRET"] = "test_secret_32_chars_padding_xxx"
+        # Clear used tokens between tests
+        try:
+            from app.features.wechat import jwt_utils
+            jwt_utils._used_otp_tokens.clear()
+        except Exception:
+            pass
+
+    def test_generate_and_verify_roundtrip(self):
+        from app.features.wechat.jwt_utils import generate_otp_token, verify_otp_token
+
+        token = generate_otp_token(email="u@test.com", openid="o_1", action="bind_existing")
+        result = verify_otp_token(token)
+        assert result["valid"] is True
+        assert result["email"] == "u@test.com"
+        assert result["openid"] == "o_1"
+        assert result["action"] == "bind_existing"
+
+    def test_tampered_token_invalid(self):
+        from app.features.wechat.jwt_utils import generate_otp_token, verify_otp_token
+
+        token = generate_otp_token(email="u@test.com", openid="o_1", action="bind_existing")
+        result = verify_otp_token(token + "TAMPER")
+        assert result["valid"] is False
+        assert result["reason"] == "invalid"
+
+    def test_replay_rejected(self):
+        from app.features.wechat.jwt_utils import generate_otp_token, verify_otp_token, mark_otp_used
+
+        token = generate_otp_token(email="u@test.com", openid="o_1", action="bind_existing")
+        mark_otp_used(token)
+
+        result = verify_otp_token(token)
+        assert result["valid"] is False
+        assert result["reason"] == "already_used"
+
+    def test_expired_token_rejected(self):
+        from unittest.mock import patch
+        from app.features.wechat.jwt_utils import verify_otp_token, _get_signer
+
+        signer = _get_signer()
+        token = signer.dumps({"email": "e@test.com", "openid": "o_x", "action": "bind_existing"})
+
+        with patch("app.features.wechat.jwt_utils._OTP_MAX_AGE", 0):
+            time.sleep(0.01)
+            result = verify_otp_token(token)
+
+        assert result["valid"] is False
+        assert result["reason"] == "expired"
