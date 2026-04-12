@@ -19,17 +19,18 @@ from typing import Any, Dict, List, Optional
 from google.adk.agents import LlmAgent
 from google.adk.plugins import LoggingPlugin
 from google.adk.runners import InMemoryRunner
+from google.adk.tools.google_search_tool import GoogleSearchTool
 from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.features.screener.agent import (
     _current_universe,
-    _run_agent_session,
     execute_screener,
     filter_by_tickers,
     get_field_distribution,
     list_available_sectors,
 )
+from app.features.screener.research_tools import research_data_tools
 
 logger = get_logger(__name__)
 
@@ -37,6 +38,72 @@ logger = get_logger(__name__)
 _recent_reports: contextvars.ContextVar[list[dict]] = contextvars.ContextVar(
     "_recent_reports", default=[]
 )
+
+# SSE event queue — callbacks push tool events here, SSE generator reads them
+_sse_queue: contextvars.ContextVar[asyncio.Queue | None] = contextvars.ContextVar(
+    "_sse_queue", default=None
+)
+
+# Tool call description mapping for Chinese UI
+_TOOL_DESCRIPTIONS = {
+    "get_stock_news": lambda a: "正在查询 %s 的新闻..." % ", ".join(
+        [str(v) for v in a.get("symbols", [])[:3]]
+    ) if a.get("symbols") else "正在查询新闻...",
+    "get_stock_quote": lambda a: "正在获取 %s 的行情..." % ", ".join(
+        [str(v) for v in a.get("symbols", [])[:3]]
+    ) if a.get("symbols") else "正在获取行情...",
+    "get_technical_analysis": lambda a: "正在分析 %s 的技术面..." % a.get("symbol", ""),
+    "get_stock_fundamentals": lambda a: "正在查看 %s 的基本面..." % a.get("symbol", ""),
+    "get_earnings_calendar": lambda _: "正在查询财报日历...",
+    "get_market_overview": lambda _: "正在获取大盘概况...",
+    "execute_screener": lambda _: "正在筛选股票...",
+    "filter_by_tickers": lambda _: "正在查找相关股票...",
+    "get_field_distribution": lambda _: "正在分析数据分布...",
+    "list_available_sectors": lambda _: "正在获取板块列表...",
+    "get_report_by_date": lambda a: "正在获取 %s 的日报..." % a.get("report_date", ""),
+    "list_recent_reports": lambda _: "正在获取近期报告...",
+    "google_search": lambda _: "正在搜索最新信息...",
+}
+
+
+def _get_tool_description(tool_name: str, args: dict) -> str:
+    fn = _TOOL_DESCRIPTIONS.get(tool_name)
+    if fn:
+        try:
+            return fn(args)
+        except Exception:
+            pass
+    return "正在处理..."
+
+
+async def _before_tool_callback(tool, args, tool_context):
+    """ADK before_tool_callback: emit SSE event when a tool starts.
+
+    Async so ADK awaits it before tool execution, ensuring the event
+    is queued and can be flushed to the SSE client before the tool blocks.
+    """
+    queue = _sse_queue.get(None)
+    if queue is not None:
+        tool_name = getattr(tool, "name", str(tool))
+        desc = _get_tool_description(tool_name, args)
+        queue.put_nowait({
+            "type": "tool_call_start",
+            "tool": tool_name,
+            "description": desc,
+        })
+    return None  # proceed with tool execution
+
+
+async def _after_tool_callback(tool, args, tool_context, tool_response):
+    """ADK after_tool_callback: emit SSE event when a tool completes."""
+    queue = _sse_queue.get(None)
+    if queue is not None:
+        tool_name = getattr(tool, "name", str(tool))
+        queue.put_nowait({
+            "type": "tool_call_end",
+            "tool": tool_name,
+        })
+    return None  # use original tool response
 
 
 def _format_market_cap(val):
@@ -438,7 +505,12 @@ def list_recent_reports(days: int = 7) -> str:
 
 
 # Active tool set
-research_tools = base_tools + [get_report_by_date, list_recent_reports]
+research_tools = (
+    base_tools
+    + [get_report_by_date, list_recent_reports]
+    + research_data_tools
+    + [GoogleSearchTool(bypass_multi_tools_limit=True)]
+)
 
 
 # ---------------------------------------------------------------------------
@@ -639,10 +711,18 @@ Generate 3-5 clickable options based on conversation context. Rules:
 | "growth"/"fast growing" | revenue_growth_ttm > 20, eps_growth_ttm > 15 |
 | "cheap"/"undervalued" | pe_ttm < 15, position_52w < 0.4 |
 | "trending"/"momentum" | change_3m > 10, above_sma50 eq true |
+| "earnings beat"/"财报超预期" | eps_growth_quarterly > 0, revenue_growth_quarterly > 0 |
+| "white horse"/"白马股"/"被低估的好公司" | roe > 15, pe_ttm < 25, market_cap_tier in ["large","mega"] |
 | "tech" | sector eq "Technology Services" |
 | "healthcare" | sector in ["Health Technology","Health Services"] |
 | "big company" | market_cap_tier in ["large","mega"] |
 | "small company" | market_cap_tier eq "small" |
+
+IMPORTANT: When the user expresses ANY intent to find, discover, or screen stocks (even indirectly like "财报超预期的公司", "被低估的白马股", "最近涨得好的"), you MUST:
+1. Translate the intent into filter conditions
+2. Call `execute_screener` to get results
+3. Set `update_results=true` and output the filters
+This is a STOCK SELECTION task, not a research question. Use the screener, not just conversation.
 
 ## Operators
 - gt (>), gte (>=), lt (<), lte (<=), eq (=), neq (!=), in (value in list)
@@ -659,7 +739,7 @@ Your `message` field is rendered as Markdown in the frontend. Follow these rules
    ```
    目前的筛选条件：\n- 大公司\n- 盈利能力 > 20%\n- 股息率 > 2%
    ```
-4. **Keep it concise.** 2-5 short paragraphs max. Don't over-explain.
+4. **Be thorough but readable.** When answering research questions (news, fundamentals, technicals), give enough detail to be genuinely useful - don't just list 2 bullet points. 3-6 paragraphs is the sweet spot. When doing screener operations, keep it concise (2-3 paragraphs).
 5. **No inline bold for emphasis.** Don't write `这些股票的**盈利能力**都很强`. Instead write `这些股票的盈利能力都很强` or put it on its own line as a heading.
 
 Good example:
@@ -769,6 +849,47 @@ When user is viewing their personalized daily digest, you switch to personal inv
 6. **Always write message in Chinese.**
 7. **If you use execute_screener, your filters output MUST match what you tested.**
 8. **Message must follow the Markdown formatting rules above.**
+
+## Research Tools Guide
+
+You have additional tools for market research and stock analysis:
+
+### Market Overview
+- `get_market_overview`: Current market state - indices, VIX, treasury rates, commodities, currencies. Use when user asks "how's the market" or needs macro context.
+
+### Stock Data
+- `get_stock_quote(symbols)`: Real-time price and performance for up to 20 stocks. Use when user asks about prices or portfolio performance.
+- `get_stock_fundamentals(symbol)`: Valuation (PE/PS/PB), profitability (margins, ROE), growth rates, analyst targets. Use for fundamental analysis.
+- `get_technical_analysis(symbol)`: Ratings (buy/sell), RSI, MACD, moving averages, support/resistance. Use for technical analysis.
+- `get_stock_news(symbols, days)`: Recent news for specific stocks (top 12 articles). Use when user asks about news or events.
+
+### Calendar & Search
+- `get_earnings_calendar(days)`: Upcoming earnings for major companies. Use when user asks about reporting season.
+- `google_search`: Search the web for breaking news, recent events, or policies. Use ONLY as last resort when get_stock_news cannot answer (e.g. "why did NVDA drop today", "latest Fed decision").
+
+### Tool Selection Priority
+1. Use screener tools (execute_screener, filter_by_tickers) for stock SELECTION tasks
+2. Use research tools (fundamentals, technicals, news) for ANALYSIS of specific stocks
+3. Use google_search ONLY for breaking news that get_stock_news doesn't cover
+4. Combine tools naturally: e.g. get_stock_quote to check prices THEN get_technical_analysis for deeper analysis
+5. When using multiple tools, call them all before responding to give a comprehensive answer
+
+### How to Use Tool Results
+When you get data from research tools, DON'T just list the raw data. Instead:
+- **Interpret the data**: "RSI 72 means it's in overbought territory - short-term pullback risk"
+- **Connect the dots**: "Revenue grew 25% but margins shrank - growth is coming at the cost of profitability"
+- **Give actionable context**: "Analyst consensus target is $180, which is 15% upside from current price"
+- **Be specific**: Use actual numbers from the tools, not vague statements
+- If a tool returns little or no data (e.g. no news for a small-cap stock), acknowledge that and use google_search or web_search as fallback
+
+## User Portfolio Awareness
+
+When you have the user's watchlist/portfolio data (shown in the context above as "User Watchlist"):
+- Naturally reference their holdings when relevant - don't force it
+- When discussing market news, connect it to their specific holdings
+- When recommending stocks, note overlap or complementarity with existing positions
+- For risk analysis, consider their portfolio concentration
+- If user asks "how are my stocks doing", use get_stock_quote with their watchlist symbols
 """
 
 
@@ -783,6 +904,8 @@ _research_agent = LlmAgent(
     output_schema=ResearchAgentOutput,
     output_key="picker",
     tools=research_tools,
+    before_tool_callback=_before_tool_callback,
+    after_tool_callback=_after_tool_callback,
 )
 
 
@@ -791,7 +914,13 @@ _research_agent = LlmAgent(
 # ---------------------------------------------------------------------------
 
 class ResearchAgent:
-    """Conversation-guided stock research assistant."""
+    """Conversation-guided stock research assistant.
+
+    Uses ADK's InMemoryRunner with:
+    - before_tool_callback/after_tool_callback for SSE tool events
+    - RunConfig(streaming_mode=SSE) for streaming
+    - ContextVar-based queue to bridge callbacks with SSE generator
+    """
 
     def __init__(self, debug: bool = False):
         plugins = [LoggingPlugin()] if debug else []
@@ -801,37 +930,170 @@ class ResearchAgent:
             plugins=plugins,
         )
 
-    async def guide(
+    async def _run_session(self, prompt: str) -> Dict[str, Any]:
+        """Run one agent turn using ADK session, extract structured output."""
+        from google.genai import types
+
+        session = await self.runner.session_service.create_session(
+            app_name="stock_picker", user_id="research"
+        )
+        message = types.Content(
+            parts=[types.Part(text=prompt)], role="user"
+        )
+        try:
+            async for _ in self.runner.run_async(
+                user_id="research", session_id=session.id, new_message=message
+            ):
+                pass
+        except Exception as run_err:
+            logger.warning("Agent run error (checking state): %s", run_err)
+
+        # Extract output from session state
+        session_data = await self.runner.session_service.get_session(
+            app_name="stock_picker", user_id="research", session_id=session.id
+        )
+        result: Dict[str, Any] = {}
+        if session_data and hasattr(session_data, "state"):
+            state = session_data.state or {}
+            raw = state.get("picker", {})
+            if isinstance(raw, str):
+                try:
+                    result = json.loads(raw)
+                except json.JSONDecodeError:
+                    result = {}
+            elif isinstance(raw, dict):
+                result = raw
+
+        # Cleanup session (one-shot, not persistent yet)
+        try:
+            await self.runner.session_service.delete_session(
+                app_name="stock_picker", user_id="research", session_id=session.id
+            )
+        except Exception:
+            pass
+
+        return result
+
+    async def run_stream(self, prompt: str, universe: list[dict] | None = None):
+        """Run agent with SSE streaming. Yields SSE event dicts.
+
+        Tool events are emitted via ADK callbacks (before_tool_callback/after_tool_callback)
+        through the _sse_queue ContextVar. This method reads from that queue and yields events.
+
+        Note: We use normal run_async (not StreamingMode.SSE) because SSE mode
+        is incompatible with output_schema — it doesn't populate session state.
+        Tool call events come from ADK callbacks instead, which work in all modes.
+        """
+        from google.genai import types
+
+        queue: asyncio.Queue = asyncio.Queue()
+        _sse_queue.set(queue)
+
+        session = await self.runner.session_service.create_session(
+            app_name="stock_picker", user_id="research"
+        )
+        message = types.Content(
+            parts=[types.Part(text=prompt)], role="user"
+        )
+
+        try:
+            # Run agent in background task so we can yield tool events
+            # from the callback queue as they happen (before tools finish)
+            agent_done = asyncio.Event()
+            agent_error: list = []
+
+            async def _run_agent():
+                try:
+                    async for _ in self.runner.run_async(
+                        user_id="research",
+                        session_id=session.id,
+                        new_message=message,
+                    ):
+                        pass
+                except Exception as e:
+                    agent_error.append(e)
+                finally:
+                    agent_done.set()
+
+            task = asyncio.create_task(_run_agent())
+
+            # Poll the queue for tool events while agent runs.
+            # Yield each event individually with a small pause after tool_call_start
+            # so the SSE client receives it before tool_call_end arrives.
+            while not agent_done.is_set():
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=0.15)
+                    yield event
+                    if event.get("type") == "tool_call_start":
+                        await asyncio.sleep(0)  # flush to SSE client
+                except asyncio.TimeoutError:
+                    pass
+
+            # Drain any remaining events after agent finishes
+            while not queue.empty():
+                yield queue.get_nowait()
+
+            # Propagate agent errors
+            if agent_error:
+                raise agent_error[0]
+
+            await task  # ensure task is cleaned up
+
+            # Extract final result from session state
+            session_data = await self.runner.session_service.get_session(
+                app_name="stock_picker", user_id="research", session_id=session.id
+            )
+            parsed = {}
+            if session_data and hasattr(session_data, "state") and session_data.state:
+                raw = session_data.state.get("picker", {})
+                if isinstance(raw, str):
+                    try:
+                        parsed = json.loads(raw)
+                    except json.JSONDecodeError:
+                        parsed = {"message": raw}
+                elif isinstance(raw, dict):
+                    parsed = raw
+
+            # Yield raw parsed agent output — router handles post-processing
+            yield {
+                "type": "done",
+                "parsed": parsed,
+            }
+        except Exception as e:
+            logger.error("Stream error: %s", e)
+            yield {"type": "error", "message": "AI 助手出了点问题，请再试一次"}
+        finally:
+            _sse_queue.set(None)
+            try:
+                await self.runner.session_service.delete_session(
+                    app_name="stock_picker", user_id="research", session_id=session.id
+                )
+            except Exception:
+                pass
+
+    async def build_prompt(
         self,
         message: str,
         history: List[Dict[str, str]] | None = None,
         accumulated_filters: List[Dict[str, Any]] | None = None,
-        universe: list[dict] | None = None,
+        universe_size: int = 0,
         content_context: dict | None = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> str:
+        """Build the full prompt with context injection.
+
+        Shared by guide() and run_stream() to ensure consistent behavior.
         """
-        Process one turn of the guided stock research conversation.
-
-        Args:
-            message: User's message or selected option value
-            history: Full conversation history [{role, content}]
-            accumulated_filters: Filters accumulated from previous turns
-            universe: Stock universe data
-
-        Returns:
-            Dict with message, options, filters, sort_by, sort_order,
-            limit, recommendations
-        """
-        _current_universe.set(universe if universe else [])
-
-        # Pre-load recent reports for daily report tools
-        try:
-            from app.features.daily_report.db import list_reports
-            reports_result = await list_reports(limit=7, offset=0)
-            _recent_reports.set(reports_result.get("data", []) if reports_result else [])
-        except Exception:
-            logger.warning("Failed to pre-load recent reports for tools")
-            _recent_reports.set([])
+        # Load user watchlist for personalization
+        watchlist_symbols: list[str] = []
+        if user_id:
+            try:
+                from app.features.brew.db import get_user_watchlist
+                watchlist = await get_user_watchlist(user_id)
+                if watchlist and watchlist.get("symbols"):
+                    watchlist_symbols = watchlist["symbols"]
+            except Exception:
+                logger.warning("Failed to load watchlist for user %s", user_id[:12] if user_id else "")
 
         prompt_parts = []
 
@@ -839,10 +1101,23 @@ class ResearchAgent:
         prompt_parts.append("## Current Date: %s" % date.today().isoformat())
         prompt_parts.append("")
 
+        # User watchlist context
+        if watchlist_symbols:
+            prompt_parts.append("## User Watchlist")
+            prompt_parts.append(
+                "User is tracking these stocks: %s"
+                % ", ".join(watchlist_symbols[:30])
+            )
+            prompt_parts.append(
+                "When relevant, reference their holdings in your analysis. "
+                "Do not force mentions if unrelated to the conversation."
+            )
+            prompt_parts.append("")
+
         # Conversation history
         if history:
             prompt_parts.append("## Conversation History")
-            for turn in history[-20:]:  # generous history window
+            for turn in history[-20:]:
                 role = turn.get("role", "user")
                 content = turn.get("content", "")
                 if role == "user":
@@ -862,7 +1137,6 @@ class ResearchAgent:
             prompt_parts.append("")
 
         # Universe info
-        universe_size = len(_current_universe.get())
         prompt_parts.append("## Universe: %d stocks loaded" % universe_size)
         prompt_parts.append("")
 
@@ -962,18 +1236,43 @@ class ResearchAgent:
         prompt_parts.append("## User's Message")
         prompt_parts.append(message)
 
-        prompt = "\n".join(prompt_parts)
+        return "\n".join(prompt_parts)
+
+    async def guide(
+        self,
+        message: str,
+        history: List[Dict[str, str]] | None = None,
+        accumulated_filters: List[Dict[str, Any]] | None = None,
+        universe: list[dict] | None = None,
+        content_context: dict | None = None,
+        user_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Process one turn of the guided stock research conversation."""
+        _current_universe.set(universe if universe else [])
+
+        # Pre-load recent reports for daily report tools
+        try:
+            from app.features.daily_report.db import list_reports
+            reports_result = await list_reports(limit=7, offset=0)
+            _recent_reports.set(reports_result.get("data", []) if reports_result else [])
+        except Exception:
+            logger.warning("Failed to pre-load recent reports for tools")
+            _recent_reports.set([])
+
+        prompt = await self.build_prompt(
+            message=message,
+            history=history,
+            accumulated_filters=accumulated_filters,
+            universe_size=len(universe) if universe else 0,
+            content_context=content_context,
+            user_id=user_id,
+        )
 
         logger.info("Research agent message: %s", message[:100])
 
         try:
             result = await asyncio.wait_for(
-                _run_agent_session(
-                    runner=self.runner,
-                    app_name="stock_picker",
-                    prompt=prompt,
-                    output_key="picker",
-                ),
+                self._run_session(prompt),
                 timeout=75.0,
             )
         except asyncio.TimeoutError:
