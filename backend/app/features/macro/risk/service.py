@@ -28,7 +28,7 @@ from app.features.macro.liquidity.fred_service import (
     fetch_fred_series,
 )
 from app.shared.yfinance_service import get_yfinance_service
-from app.shared.fmp_service import get_fmp_service
+from app.shared.data_tools.market_data import get_treasury_rates, get_commodity_quotes
 from app.features.macro.risk.models import (
     RiskIndicator,
     CategoryRiskScore,
@@ -1381,8 +1381,7 @@ async def get_treasury_and_commodities() -> dict:
                     _set_cached(_get_cache("treasury_rates"), treasury_result)
                     logger.info("Returning DB-cached treasury data")
                 else:
-                    fmp = get_fmp_service()
-                    treasury_result = await _to_thread_with_timeout(fmp.get_treasury_rates_with_change)
+                    treasury_result = await _to_thread_with_timeout(get_treasury_rates)
                     _set_cached(_get_cache("treasury_rates"), treasury_result)
                     logger.info("Fetched fresh treasury: %d tenors", len(treasury_result.get('rates', {})))
 
@@ -1403,10 +1402,9 @@ async def get_treasury_and_commodities() -> dict:
                 commodities_map = realtime_cache["commodities"]
                 dollar_result = realtime_cache["dollar"]
             else:
-                fmp = get_fmp_service()
                 commodities_result, dollar_result = await asyncio.gather(
                     _to_thread_with_timeout(
-                        fmp.get_commodity_quotes,
+                        get_commodity_quotes,
                         ["GCUSD", "BZUSD", "HGUSD", "SIUSD"],
                     ),
                     _to_thread_with_timeout(_fetch_dollar_index),

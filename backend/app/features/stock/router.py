@@ -11,8 +11,9 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
-from app.shared.fmp_service import get_fmp_service
-from app.shared.yfinance_service import get_yfinance_service
+from app.shared.data_tools.quotes import get_batch_quotes
+from app.shared.data_tools.search import search_stocks as dt_search_stocks
+from app.shared.data_tools.peers import get_peer_companies
 from app.features.stock.service import get_stock_service
 from app.features.stock.agent import get_stock_analysis_agent, get_technical_analysis_agent
 from app.features.stock.db import get_stock_analysis, save_stock_analysis
@@ -54,8 +55,7 @@ async def search_stocks(request: Request, q: str = Query(..., min_length=1), lim
     Returns list of matching stocks with symbol, name, type, and exchange.
     """
     try:
-        fmp = get_fmp_service()
-        result = fmp.search_stocks(query=q, limit=limit)
+        result = dt_search_stocks(query=q, limit=limit)
 
         if result.get("status") == "error":
             return {"stocks": []}
@@ -91,9 +91,7 @@ async def get_stock_quotes_api(request: Request, symbols: str = Query(..., descr
         if len(symbol_list) > 100:
             symbol_list = symbol_list[:100]
 
-        # Use yfinance for efficient batch fetching (1 request vs 73 FMP calls)
-        yf_service = get_yfinance_service()
-        result = yf_service.get_stock_quotes(symbol_list, use_cache=True)
+        result = get_batch_quotes(symbol_list)
 
         # Transform to frontend format
         quotes = []
@@ -226,18 +224,28 @@ async def get_stock_price_history(
             logger.info("Price history cache HIT for %s (%dd)", upper_symbol, days)
             return cached
 
-        from app.shared.openbb_service import get_openbb_service
+        import asyncio
 
-        service = get_openbb_service()
+        def _fetch_history():
+            import yfinance as yf
+            df = yf.download(upper_symbol, start=start_date, end=end_date, progress=False)
+            result = []
+            if df is not None and not df.empty:
+                for date_idx, row in df.iterrows():
+                    result.append({
+                        "date": str(date_idx.date()),
+                        "open": float(row.iloc[0] if hasattr(row.get("Open", 0), 'iloc') else row.get("Open", 0)),
+                        "high": float(row.iloc[0] if hasattr(row.get("High", 0), 'iloc') else row.get("High", 0)),
+                        "low": float(row.iloc[0] if hasattr(row.get("Low", 0), 'iloc') else row.get("Low", 0)),
+                        "close": float(row.iloc[0] if hasattr(row.get("Close", 0), 'iloc') else row.get("Close", 0)),
+                        "volume": int(row.iloc[0] if hasattr(row.get("Volume", 0), 'iloc') else row.get("Volume", 0)),
+                    })
+            return result
 
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
-        history = await service.get_historical_prices(
-            symbol=upper_symbol,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        history = await asyncio.to_thread(_fetch_history)
 
         result = {
             "success": True,
@@ -666,8 +674,7 @@ async def generate_technical_analysis_endpoint(
 def _get_peer_symbols(symbol: str) -> list[str]:
     """Get top peer symbols for competitor news analysis."""
     try:
-        fmp = get_fmp_service()
-        result = fmp.get_stock_peers(symbol)
+        result = get_peer_companies(symbol)
         if result.get("status") == "success":
             peers = result.get("peers", [])
             return [p["symbol"] for p in peers[:5] if p.get("symbol")]

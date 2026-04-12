@@ -22,9 +22,17 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.core.logging import get_logger
-from app.shared.openbb_service import get_openbb_service
-from app.shared.fmp_service import get_fmp_service
-from app.shared.yfinance_service import get_yfinance_service
+from app.shared.data_tools.fundamentals import (
+    get_company_profile,
+    get_income_statements,
+    get_balance_sheets,
+    get_cash_flows,
+    get_key_metrics_ttm,
+    get_historical_metrics,
+    get_ticker_snapshot,
+)
+from app.shared.data_tools.quotes import get_realtime_quote
+from app.shared.data_tools.peers import get_peer_companies, get_industry_valuation
 from app.features.stock.db import (
     get_stock_profile,
     upsert_stock_profile,
@@ -139,9 +147,6 @@ class StockService:
         if hasattr(self, '_initialized'):
             return
         self._initialized = True
-        self.openbb = get_openbb_service()
-        self.fmp = get_fmp_service()
-        self.yfinance = get_yfinance_service()
 
     async def get_stock_data(self, symbol: str, include_financials: bool = True) -> dict[str, Any]:
         """
@@ -162,16 +167,15 @@ class StockService:
         task_names = ["profile", "quote"]
         tasks = [
             self._get_or_fetch_profile(symbol),
-            self.openbb.get_realtime_quote(symbol),
+            asyncio.to_thread(get_realtime_quote, symbol),
         ]
 
         if include_financials:
             task_names.append("financials")
             tasks.append(self._get_or_fetch_financials(symbol))
 
-        # One call replaces FMP TTM + old forward metrics
         task_names.append("yf_metrics")
-        tasks.append(asyncio.to_thread(self.yfinance.get_ticker_metrics, symbol))
+        tasks.append(asyncio.to_thread(get_ticker_snapshot, symbol))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -241,9 +245,9 @@ class StockService:
             logger.info("Using DB cached profile for %s", symbol)
             return db_cached
 
-        # 3. Fetch from OpenBB API
-        logger.info("Fetching profile from OpenBB for %s", symbol)
-        profile = await self.openbb.get_company_profile(symbol)
+        # 3. Fetch from FMP API (via data_tools)
+        logger.info("Fetching profile from FMP for %s", symbol)
+        profile = await asyncio.to_thread(get_company_profile, symbol)
 
         if profile:
             # Store in both caches (DB async, memory sync)
@@ -284,12 +288,12 @@ class StockService:
             logger.info("Using DB cached financials for %s", symbol)
             return db_cached
 
-        # 3. Fetch from OpenBB API (parallel for speed)
-        logger.info("Fetching financials from OpenBB for %s", symbol)
+        # 3. Fetch from FMP API via data_tools (parallel for speed)
+        logger.info("Fetching financials from FMP for %s", symbol)
         income, balance, cash = await asyncio.gather(
-            self.openbb.get_income_statements(symbol),
-            self.openbb.get_balance_sheets(symbol),
-            self.openbb.get_cash_flows(symbol),
+            asyncio.to_thread(get_income_statements, symbol),
+            asyncio.to_thread(get_balance_sheets, symbol),
+            asyncio.to_thread(get_cash_flows, symbol),
         )
 
         if not income:
@@ -481,13 +485,9 @@ class StockService:
         Uses industry-based filtering for more accurate peer selection.
         """
         # Get peer list using industry-based filtering (run in thread to avoid blocking)
-        if industry:
-            peers_result = await asyncio.to_thread(
-                self.fmp.get_industry_peers, industry, symbol, 6
-            )
-        else:
-            # Fallback to stock-peers if no industry provided
-            peers_result = await asyncio.to_thread(self.fmp.get_stock_peers, symbol)
+        peers_result = await asyncio.to_thread(
+            get_peer_companies, symbol, industry, 6
+        )
 
         if peers_result.get("status") != "success" or not peers_result.get("peers"):
             return {"peers": [], "error": "No peer data available"}
@@ -495,7 +495,7 @@ class StockService:
         peers_data = peers_result["peers"][:5]  # Limit to 5 peers
 
         # Get current company's metrics
-        company_metrics = await asyncio.to_thread(self.fmp.get_key_metrics_ttm, symbol)
+        company_metrics = await asyncio.to_thread(get_key_metrics_ttm, symbol)
 
         # Get peer metrics in parallel with semaphore to limit concurrency
         async def fetch_peer_metrics(peer_info):
@@ -503,7 +503,7 @@ class StockService:
             if not peer_symbol:
                 return None
             try:
-                metrics = await asyncio.to_thread(self.fmp.get_key_metrics_ttm, peer_symbol)
+                metrics = await asyncio.to_thread(get_key_metrics_ttm, peer_symbol)
                 if metrics.get("status") == "success":
                     return {
                         "symbol": peer_symbol,
@@ -542,7 +542,8 @@ class StockService:
                 industry_pe = cached.get("pe")
                 logger.info("Using cached industry P/E for %s", industry)
             else:
-                industry_data = await asyncio.to_thread(self.fmp.get_industry_pe)
+                from app.shared.fmp_service import get_fmp_service
+                industry_data = await asyncio.to_thread(get_fmp_service().get_industry_pe)
                 if industry_data.get("status") == "success":
                     industries = industry_data.get("industries", {})
                     industry_pe = industries.get(industry)
@@ -558,7 +559,8 @@ class StockService:
                 sector_pe = cached.get("pe")
                 logger.info("Using cached sector P/E for %s", sector)
             else:
-                sector_data = await asyncio.to_thread(self.fmp.get_sector_pe)
+                from app.shared.fmp_service import get_fmp_service
+                sector_data = await asyncio.to_thread(get_fmp_service().get_sector_pe)
                 if sector_data.get("status") == "success":
                     sectors = sector_data.get("sectors", {})
                     sector_pe = sectors.get(sector)
@@ -585,7 +587,7 @@ class StockService:
         """
         # Get historical metrics (annual data for 5 years, run in thread to avoid blocking)
         historical = await asyncio.to_thread(
-            self.fmp.get_historical_key_metrics, symbol, "annual", 5
+            get_historical_metrics, symbol, "annual", 5
         )
 
         if historical.get("status") != "success" or not historical.get("metrics"):

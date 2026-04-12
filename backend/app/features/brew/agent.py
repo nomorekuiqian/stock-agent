@@ -25,7 +25,7 @@ from google.genai.types import Content, Part
 from app.utils.timezone import now_iso, format_report_date
 from app.shared.data_tools import get_all_market_data
 from app.shared.data_tools import get_combined_market_news
-from app.shared.fmp_service import get_fmp_service
+from app.shared.data_tools.quotes import get_batch_quotes
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
 from app.features.brew.models import PersonalDigestOutput
@@ -297,10 +297,9 @@ class PersonalDigest:
             symbols = unique_symbols[:25]
             logger.info("Generating digest for: %s", symbols)
 
-            # Step 1: Fetch user-specific stock data via FMP (batch-quote + cache)
-            logger.info("Fetching stock quotes via FMP...")
-            fmp = get_fmp_service()
-            fmp_result = fmp.get_stock_quotes(symbols, use_cache=True)
+            # Step 1: Fetch user-specific stock data via data_tools (batch-quote + cache)
+            logger.info("Fetching stock quotes via data_tools...")
+            fmp_result = get_batch_quotes(symbols)
             stock_data = {"status": "success", "stocks": {}}
             for quote in fmp_result.get("quotes", []):
                 sym = quote.get("symbol", "")

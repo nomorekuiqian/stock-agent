@@ -123,9 +123,8 @@ async def refresh_tier1() -> dict:
 
     # 2. Treasury rates only (commodities are always fetched real-time)
     try:
-        from app.shared.fmp_service import get_fmp_service
-        fmp = get_fmp_service()
-        treasury_data = fmp.get_treasury_rates_with_change()
+        from app.shared.data_tools.market_data import get_treasury_rates
+        treasury_data = get_treasury_rates()
 
         from app.features.macro.risk.service import _get_cache, _set_cached
         _set_cached(_get_cache("treasury_rates"), treasury_data)
