@@ -12,7 +12,7 @@ All Resend API calls are mocked. No real emails are ever sent.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from app.features.subscription.email_service import EmailService
 from app.features.subscription.models import (
@@ -469,7 +469,11 @@ class TestPreferencesEndpoints:
         """POST /api/subscriptions/preferences updates and returns preferences."""
         with patch(
             "app.features.subscription.router.get_subscription_service"
-        ) as mock_svc_fn:
+        ) as mock_svc_fn, patch(
+            "app.features.subscription.router.has_entitlement",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
             mock_svc = MagicMock()
             mock_svc.get_email_preferences.return_value = {
                 "morning_report": False,
