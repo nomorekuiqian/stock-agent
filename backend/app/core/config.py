@@ -18,6 +18,10 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_MAX_PRICE_ID = os.getenv("STRIPE_MAX_PRICE_ID", "")
 
+# WeChat Mini Program
+WECHAT_APP_ID = os.getenv("WECHAT_APP_ID", "")
+WECHAT_APP_SECRET = os.getenv("WECHAT_APP_SECRET", "")
+
 # Security
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 INSFORGE_ANON_KEY = os.getenv("INSFORGE_ANON_KEY", "")

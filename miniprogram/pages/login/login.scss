@@ -1,0 +1,106 @@
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding-top: 120rpx;
+}
+
+/* --- Brand Section --- */
+.brand-section {
+  text-align: center;
+  margin-bottom: 100rpx;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10rpx;
+  margin-bottom: 32rpx;
+  height: 80rpx;
+}
+
+.brand-bar {
+  width: 14rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(to top, #10b981, #34d399);
+}
+
+.brand-bar-1 { height: 48rpx; }
+.brand-bar-2 { height: 80rpx; }
+.brand-bar-3 { height: 36rpx; }
+.brand-bar-4 { height: 60rpx; }
+
+.brand-name {
+  font-size: 52rpx;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.02em;
+  margin-bottom: 20rpx;
+}
+
+/* --- Login Actions --- */
+.login-actions {
+  width: 100%;
+  padding: 0 48rpx;
+}
+
+.login-hint {
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--fg-subtle);
+  margin-top: 40rpx;
+}
+
+/* --- Bind Section --- */
+.bind-section {
+  width: 100%;
+  padding: 0 48rpx;
+}
+
+.bind-header {
+  text-align: center;
+  margin-bottom: 48rpx;
+}
+
+.bind-icon-wrap {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: var(--emerald-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24rpx;
+}
+
+.bind-icon-check {
+  font-size: 36rpx;
+  color: var(--emerald);
+  font-weight: 700;
+}
+
+.bind-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 12rpx;
+}
+
+.bind-desc {
+  font-size: 26rpx;
+  color: var(--fg-muted);
+}
+
+.bind-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.bind-error {
+  color: var(--red);
+  font-size: 26rpx;
+  text-align: center;
+}
