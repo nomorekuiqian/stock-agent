@@ -22,16 +22,20 @@ module.exports = async function (request) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
+  // Convenience helper
+  const json = (data, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   try {
     // POST ?action=upsert
     if (request.method === "POST" && action === "upsert") {
       const { openid, session_key, nickname, avatar_url } = await request.json();
 
       if (!openid) {
-        return new Response(
-          JSON.stringify({ success: false, error: "openid required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ success: false, error: "openid required" }, 400);
       }
 
       const { data, error } = await client.database
@@ -50,16 +54,10 @@ module.exports = async function (request) {
         .single();
 
       if (error) {
-        return new Response(
-          JSON.stringify({ success: false, error: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ success: false, error: error.message }, 500);
       }
 
-      return new Response(
-        JSON.stringify({ success: true, data }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ success: true, data });
     }
 
     // GET ?action=get_by_openid&openid=xxx
@@ -73,16 +71,10 @@ module.exports = async function (request) {
         .maybeSingle();
 
       if (error) {
-        return new Response(
-          JSON.stringify({ success: false, error: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ success: false, error: error.message }, 500);
       }
 
-      return new Response(
-        JSON.stringify({ success: true, data }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ success: true, data });
     }
 
     // POST ?action=bind
@@ -90,10 +82,7 @@ module.exports = async function (request) {
       const { openid, user_id } = await request.json();
 
       if (!openid || !user_id) {
-        return new Response(
-          JSON.stringify({ success: false, error: "openid and user_id required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ success: false, error: "openid and user_id required" }, 400);
       }
 
       const { data, error } = await client.database
@@ -104,26 +93,56 @@ module.exports = async function (request) {
         .single();
 
       if (error) {
-        return new Response(
-          JSON.stringify({ success: false, error: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ success: false, error: error.message }, 500);
       }
 
-      return new Response(
-        JSON.stringify({ success: true, data }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ success: true, data });
     }
 
-    return new Response(
-      JSON.stringify({ success: false, error: "Unknown action" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // POST ?action=update_email_verified
+    // Body: { openid, email }
+    if (request.method === "POST" && action === "update_email_verified") {
+      const { openid, email } = await request.json();
+      if (!openid || !email) {
+        return json({ success: false, error: "openid and email required" }, 400);
+      }
+      const { data, error } = await client.database
+        .from("wechat_users")
+        .update({
+          email,
+          email_verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("openid", openid)
+        .select()
+        .single();
+      if (error) return json({ success: false, error: error.message }, 500);
+      return json({ success: true, data });
+    }
+
+    // POST ?action=bind_insforge_user
+    // Body: { openid, insforge_user_id }
+    if (request.method === "POST" && action === "bind_insforge_user") {
+      const { openid, insforge_user_id } = await request.json();
+      if (!openid || !insforge_user_id) {
+        return json({ success: false, error: "openid and insforge_user_id required" }, 400);
+      }
+      const { data, error } = await client.database
+        .from("wechat_users")
+        .update({
+          insforge_user_id,
+          bound_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("openid", openid)
+        .select()
+        .single();
+      if (error) return json({ success: false, error: error.message }, 500);
+      return json({ success: true, data });
+    }
+
+    return json({ success: false, error: "Unknown action" }, 400);
   } catch (err) {
-    return new Response(
-      JSON.stringify({ success: false, error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ success: false, error: err.message }, 500);
   }
 };
