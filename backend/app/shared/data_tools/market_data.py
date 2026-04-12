@@ -176,6 +176,29 @@ def _extract_asset_data(data: pd.DataFrame, name: str, symbol: str) -> dict | No
 
 
 # =============================================================================
+# Standalone Data Methods (for consumers that need partial data)
+# =============================================================================
+
+
+def get_treasury_rates() -> dict:
+    """
+    Get treasury yield curve with daily changes.
+    Delegates to fmp_service.get_treasury_rates_with_change().
+    """
+    fmp = get_fmp_service()
+    return fmp.get_treasury_rates_with_change()
+
+
+def get_commodity_quotes(symbols: list[str] | None = None) -> dict:
+    """
+    Get commodity spot prices (default: gold + oil).
+    Delegates to fmp_service.get_commodity_quotes().
+    """
+    fmp = get_fmp_service()
+    return fmp.get_commodity_quotes(symbols)
+
+
+# =============================================================================
 # Unified Data Fetching Tool
 # =============================================================================
 

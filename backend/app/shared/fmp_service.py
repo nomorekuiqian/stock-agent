@@ -212,6 +212,9 @@ class FMPService:
 
     BASE_URL = "https://financialmodelingprep.com"
 
+    # Max concurrent FMP API requests to avoid hitting rate limits
+    _api_semaphore = threading.Semaphore(5)
+
     def __init__(self):
         self.api_key = os.getenv("FMP_API_KEY")
         if not self.api_key:
@@ -219,23 +222,24 @@ class FMPService:
         self._client = httpx.Client(timeout=30.0)
 
     def _request(self, endpoint: str, params: dict = None) -> dict | list | None:
-        """Send synchronous API request (reuses persistent HTTP connection pool)"""
+        """Send synchronous API request with concurrency limit (max 5 parallel)"""
         params = params or {}
         params["apikey"] = self.api_key
 
-        try:
-            response = self._client.get(f"{self.BASE_URL}{endpoint}", params=params)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error("FMP API HTTP error: %s - %s", e.response.status_code, e.response.text)
-            return None
-        except httpx.RequestError as e:
-            logger.error("FMP API request error: %s", e)
-            return None
-        except Exception as e:
-            logger.error("FMP API unexpected error: %s", e)
-            return None
+        with self._api_semaphore:
+            try:
+                response = self._client.get(f"{self.BASE_URL}{endpoint}", params=params)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as e:
+                logger.error("FMP API HTTP error: %s - %s", e.response.status_code, e.response.text)
+                return None
+            except httpx.RequestError as e:
+                logger.error("FMP API request error: %s", e)
+                return None
+            except Exception as e:
+                logger.error("FMP API unexpected error: %s", e)
+                return None
 
     def get_treasury_rates(self, date: Optional[str] = None) -> dict:
         """
@@ -1760,6 +1764,200 @@ class FMPService:
             "metrics": metrics,
             "source": "fmp",
         }
+
+    # =========================================================================
+    # Financial Statement Methods (replacing OpenBB)
+    # Serialization logic copied from openbb_service.py, adapted for FMP JSON
+    # =========================================================================
+
+    def get_company_profile_detail(self, symbol: str) -> dict:
+        """
+        Get company profile from FMP /stable/profile.
+        Replaces openbb.get_company_profile().
+        """
+        logger.info("get_company_profile_detail(symbol=%s)", symbol)
+
+        data = self._request("/stable/profile", {"symbol": symbol})
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return {}
+
+        raw = data[0]
+        company_name = raw.get("companyName") or symbol
+        description_en = raw.get("description")
+
+        return {
+            "company_name": company_name,
+            "exchange": raw.get("exchangeShortName") or raw.get("exchange"),
+            "classification": {
+                "sector": raw.get("sector"),
+                "industry": raw.get("industry"),
+            },
+            "description": {
+                "en": description_en,
+            },
+            "company_details": {
+                "ceo": raw.get("ceo"),
+                "employees": raw.get("fullTimeEmployees"),
+                "website": raw.get("website"),
+                "ipo_date": raw.get("ipoDate"),
+                "country": raw.get("country"),
+                "city": raw.get("city"),
+                "address": raw.get("address"),
+                "phone": raw.get("phone"),
+                "image": raw.get("image"),
+                "state": raw.get("state"),
+                "postal_code": raw.get("zip"),
+            },
+        }
+
+    def get_income_statement(self, symbol: str, period: str = "quarter", limit: int = 8) -> list:
+        """
+        Get income statements from FMP /stable/income-statement.
+        Replaces openbb.get_income_statements().
+        Serialization format matches OpenBB output exactly.
+        """
+        logger.info("get_income_statement(symbol=%s, period=%s, limit=%d)", symbol, period, limit)
+
+        data = self._request("/stable/income-statement", {
+            "symbol": symbol,
+            "period": period,
+            "limit": limit,
+        })
+
+        if not data or not isinstance(data, list):
+            return []
+
+        items = [self._serialize_income_stmt(item) for item in data]
+        items.sort(key=lambda x: x.get("date") or "", reverse=True)
+        return items
+
+    def get_balance_sheet(self, symbol: str, period: str = "quarter", limit: int = 8) -> list:
+        """
+        Get balance sheets from FMP /stable/balance-sheet-statement.
+        Replaces openbb.get_balance_sheets().
+        Serialization format matches OpenBB output exactly.
+        """
+        logger.info("get_balance_sheet(symbol=%s, period=%s, limit=%d)", symbol, period, limit)
+
+        data = self._request("/stable/balance-sheet-statement", {
+            "symbol": symbol,
+            "period": period,
+            "limit": limit,
+        })
+
+        if not data or not isinstance(data, list):
+            return []
+
+        items = [self._serialize_balance_stmt(item) for item in data]
+        items.sort(key=lambda x: x.get("date") or "", reverse=True)
+        return items
+
+    def get_cash_flow_statement(self, symbol: str, period: str = "quarter", limit: int = 8) -> list:
+        """
+        Get cash flow statements from FMP /stable/cash-flow-statement.
+        Replaces openbb.get_cash_flows().
+        Serialization format matches OpenBB output exactly.
+        """
+        logger.info("get_cash_flow_statement(symbol=%s, period=%s, limit=%d)", symbol, period, limit)
+
+        data = self._request("/stable/cash-flow-statement", {
+            "symbol": symbol,
+            "period": period,
+            "limit": limit,
+        })
+
+        if not data or not isinstance(data, list):
+            return []
+
+        items = [self._serialize_cash_flow_stmt(item) for item in data]
+        items.sort(key=lambda x: x.get("date") or "", reverse=True)
+        return items
+
+    # =========================================================================
+    # Serialization helpers (adapted from openbb_service.py)
+    # Field mappings handle FMP's camelCase JSON fields
+    # =========================================================================
+
+    def _serialize_income_stmt(self, item: dict) -> dict:
+        """Serialize FMP income statement JSON. Field names match OpenBB output."""
+        revenue = item.get("revenue")
+        gross_profit = item.get("grossProfit")
+        operating_income = item.get("operatingIncome")
+        net_income = item.get("netIncome")
+        operating_expenses = item.get("operatingExpenses")
+        eps = item.get("eps")
+        eps_diluted = item.get("epsdiluted") or item.get("epsDiluted")
+        research_and_development = item.get("researchAndDevelopmentExpenses")
+
+        return {
+            "date": item.get("date") or "",
+            "fiscal_year": item.get("calendarYear"),
+            "fiscal_period": item.get("period"),
+            "revenue": revenue,
+            "cost_of_revenue": item.get("costOfRevenue"),
+            "gross_profit": gross_profit,
+            "gross_profit_margin": self._safe_divide_val(gross_profit, revenue),
+            "operating_expenses": operating_expenses,
+            "operating_income": operating_income,
+            "operating_income_margin": self._safe_divide_val(operating_income, revenue),
+            "net_income": net_income,
+            "net_income_margin": self._safe_divide_val(net_income, revenue),
+            "eps": eps,
+            "eps_diluted": eps_diluted,
+            "ebitda": item.get("ebitda"),
+            "research_and_development": research_and_development,
+        }
+
+    def _serialize_balance_stmt(self, item: dict) -> dict:
+        """Serialize FMP balance sheet JSON. Field names match OpenBB output."""
+        total_equity = (
+            item.get("totalEquity") or
+            item.get("totalStockholdersEquity")
+        )
+        shares_outstanding = item.get("commonStock")
+
+        return {
+            "date": item.get("date") or "",
+            "fiscal_year": item.get("calendarYear"),
+            "fiscal_period": item.get("period"),
+            "total_assets": item.get("totalAssets"),
+            "total_liabilities": item.get("totalLiabilities"),
+            "total_equity": total_equity,
+            "cash_and_equivalents": item.get("cashAndCashEquivalents"),
+            "short_term_investments": item.get("shortTermInvestments"),
+            "total_current_assets": item.get("totalCurrentAssets"),
+            "total_current_liabilities": item.get("totalCurrentLiabilities"),
+            "long_term_debt": item.get("longTermDebt"),
+            "total_debt": item.get("totalDebt"),
+            "retained_earnings": item.get("retainedEarnings"),
+            "shares_outstanding": shares_outstanding,
+        }
+
+    def _serialize_cash_flow_stmt(self, item: dict) -> dict:
+        """Serialize FMP cash flow JSON. Field names match OpenBB output."""
+        return {
+            "date": item.get("date") or "",
+            "fiscal_year": item.get("calendarYear"),
+            "fiscal_period": item.get("period"),
+            "operating_cash_flow": item.get("operatingCashFlow") or item.get("netCashProvidedByOperatingActivities"),
+            "capital_expenditure": item.get("capitalExpenditure"),
+            "free_cash_flow": item.get("freeCashFlow"),
+            "dividends_paid": item.get("dividendsPaid"),
+            "stock_repurchase": item.get("commonStockRepurchased"),
+            "net_cash_from_investing": item.get("netCashUsedForInvestingActivites"),
+            "net_cash_from_financing": item.get("netCashUsedProvidedByFinancingActivities"),
+            "depreciation": item.get("depreciationAndAmortization"),
+        }
+
+    def _safe_divide_val(self, numerator, denominator):
+        """Safe division returning None on error. Used by serialization methods."""
+        try:
+            if numerator is None or denominator is None or denominator == 0:
+                return None
+            return round(numerator / denominator, 4)
+        except (TypeError, ZeroDivisionError):
+            return None
 
 
 _fmp_service_instance = None
