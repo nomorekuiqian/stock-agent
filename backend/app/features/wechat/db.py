@@ -91,3 +91,41 @@ async def bind_user(openid: str, user_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error("bind_user failed: %s", e)
         return {"success": False, "error": str(e)}
+
+
+async def update_email_verified(openid: str, email: str) -> Dict[str, Any]:
+    """Mark email as OTP-verified on the wechat_users row (creates email_only state)."""
+    service = get_insforge_service()
+    url = service.function_url(_FUNCTION_NAME)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                params={"action": "update_email_verified"},
+                json={"openid": openid, "email": email},
+                headers=_headers(),
+                timeout=10.0,
+            )
+            return resp.json()
+    except Exception as e:
+        logger.error("update_email_verified failed: %s", e)
+        return {"success": False, "error": str(e)}
+
+
+async def bind_insforge_user(openid: str, insforge_user_id: str) -> Dict[str, Any]:
+    """Link openid to an existing Insforge user (creates bound state)."""
+    service = get_insforge_service()
+    url = service.function_url(_FUNCTION_NAME)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                params={"action": "bind_insforge_user"},
+                json={"openid": openid, "insforge_user_id": insforge_user_id},
+                headers=_headers(),
+                timeout=10.0,
+            )
+            return resp.json()
+    except Exception as e:
+        logger.error("bind_insforge_user failed: %s", e)
+        return {"success": False, "error": str(e)}
