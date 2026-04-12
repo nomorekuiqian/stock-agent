@@ -6,6 +6,7 @@ httpx
 openai
 pytest
 pytest-asyncio
+pytest-timeout
 python-dotenv
 resend==2.19.0
 slowapi
