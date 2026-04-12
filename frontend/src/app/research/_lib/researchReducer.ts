@@ -37,6 +37,7 @@ export interface ResearchState {
   recommendations: { symbol: string; reason: string }[];
   funnelSteps: FilterStep[];
   isLoading: boolean;
+  toolActivities: { tool: string; description: string; status: 'start' | 'end' }[];
   error: string | null;
   hasNewResults: boolean;
   conversationId: string | null;
@@ -62,7 +63,9 @@ export type ResearchAction =
   | { type: 'POP_CONTENT' }
   | { type: 'SWITCH_CONTENT'; content: ContentContext }
   // Context entry from external pages (skips welcome, starts in chat+loading)
-  | { type: 'CONTEXT_ENTRY'; content: ContentContext; key: string };
+  | { type: 'CONTEXT_ENTRY'; content: ContentContext; key: string }
+  // SSE streaming: tool call activity
+  | { type: 'TOOL_ACTIVITY'; tool: string; description: string; status: 'start' | 'end' };
 
 export interface LoadConversationData {
   conversationId: string;
@@ -95,6 +98,7 @@ export const initialState: ResearchState = {
   recommendations: [],
   funnelSteps: [],
   isLoading: false,
+  toolActivities: [],
   error: null,
   hasNewResults: false,
   conversationId: null,
@@ -228,6 +232,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
           recommendations: [],
           funnelSteps: [],
           isLoading: false,
+          toolActivities: [],
           hasNewResults: false,
         };
       }
@@ -255,6 +260,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         recommendations: nextRecommendations,
         funnelSteps: newFunnelSteps,
         isLoading: false,
+        toolActivities: [],
         hasNewResults: hasNewCandidates,
         conversationTitle: result.title || state.conversationTitle,
       };
@@ -276,7 +282,29 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
     }
 
     case 'SET_LOADING':
-      return { ...state, isLoading: action.loading };
+      return { ...state, isLoading: action.loading, toolActivities: action.loading ? [] : state.toolActivities };
+
+    case 'TOOL_ACTIVITY': {
+      // Skip internal ADK tools that shouldn't be shown to users
+      if (['set_model_response', 'google_search_agent'].includes(action.tool)) return state;
+
+      if (action.status === 'start') {
+        const alreadyTracked = state.toolActivities.some(a => a.tool === action.tool);
+        if (alreadyTracked) return state;
+        return {
+          ...state,
+          toolActivities: [...state.toolActivities, { tool: action.tool, description: action.description, status: 'start' }],
+        };
+      }
+      // Mark as ended but keep in list (so description stays visible even if
+      // start+end arrive in the same render batch). RECEIVE_RESPONSE clears all.
+      return {
+        ...state,
+        toolActivities: state.toolActivities.map(a =>
+          a.tool === action.tool ? { ...a, status: 'end' as const } : a
+        ),
+      };
+    }
 
     case 'VIEW_RESULTS':
       return { ...state, hasNewResults: false };

@@ -1,13 +1,14 @@
 'use client';
 
 import { useReducer, useCallback, useEffect, useState, useRef, Suspense } from 'react';
+import ReactDOM from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
 import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
-import type { ConversationSummary, ResearchRequest } from '@/lib/api';
+import type { ConversationSummary, ResearchRequest, ResearchResult } from '@/lib/api';
 import {
   researchReducer,
   initialState,
@@ -412,14 +413,39 @@ function ScreenerContent() {
         };
       }
 
-      const result = await api.research.chat({
-        message,
-        history: [...buildHistory(), { role: 'user', content: message }],
-        accumulated_filters: state.accumulatedFilters.length > 0
-          ? state.accumulatedFilters
-          : undefined,
-        active_context: activeContext || undefined,
-      });
+      let streamResult: ResearchResult | null = null;
+
+      await api.research.chatStream(
+        {
+          message,
+          history: [...buildHistory(), { role: 'user', content: message }],
+          accumulated_filters: state.accumulatedFilters.length > 0
+            ? state.accumulatedFilters
+            : undefined,
+          active_context: activeContext || undefined,
+        },
+        (event) => {
+          if (event.type === 'tool_call_start' && event.tool && event.description) {
+            ReactDOM.flushSync(() => {
+              dispatch({ type: 'TOOL_ACTIVITY', tool: event.tool!, description: event.description!, status: 'start' });
+            });
+          } else if (event.type === 'tool_call_end') {
+            // Don't dispatch end — let the description stay visible.
+            // It gets replaced by the next tool_call_start or cleared by RECEIVE_RESPONSE.
+          } else if (event.type === 'done' && event.result) {
+            streamResult = event.result as ResearchResult;
+          } else if (event.type === 'error') {
+            dispatch({ type: 'SET_ERROR', error: event.message || 'AI 助手暂时无法响应' });
+          }
+        },
+      );
+
+      if (!streamResult) {
+        dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
+        return;
+      }
+
+      const result = streamResult as ResearchResult;
 
       if (!result.success) {
         dispatch({ type: 'SET_ERROR', error: result.message || 'AI 助手暂时无法响应' });
@@ -777,6 +803,7 @@ function ScreenerContent() {
               onSend={handleSend}
               loading={state.isLoading}
               onCancelLoading={state.isLoading ? handleCancelLoading : undefined}
+              toolActivities={state.toolActivities}
             />
           </div>
         </div>

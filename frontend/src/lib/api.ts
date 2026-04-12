@@ -1681,6 +1681,58 @@ export const api = {
       }
     },
 
+    chatStream: async (
+      req: ResearchRequest,
+      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string }) => void,
+    ): Promise<void> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/research/chat/stream`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'AI 助手暂时无法响应');
+        }
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                onEvent(data);
+                // Yield to browser between events so React can render
+                // tool_call_start before tool_call_end arrives
+                if (data.type === 'tool_call_start') {
+                  await new Promise(r => setTimeout(r, 0));
+                }
+              } catch { /* skip malformed events */ }
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          onEvent({ type: 'error', message: 'AI 助手响应超时，请再试一次' });
+        } else {
+          throw err;
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
     conversations: {
       list: async (): Promise<{ conversations: ConversationSummary[] }> => {
         const headers = await _authHeaders({}, { required: true });

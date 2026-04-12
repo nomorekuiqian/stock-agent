@@ -3,11 +3,16 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
-import TypingIndicator from './TypingIndicator';
 import ChatInput from './ChatInput';
 import type { ChatMsg } from '../_lib/researchReducer';
 
 export type { ChatMsg };
+
+export interface ToolActivity {
+  tool: string;
+  description: string;
+  status: 'start' | 'end';
+}
 
 interface ChatPanelProps {
   messages: ChatMsg[];
@@ -15,6 +20,7 @@ interface ChatPanelProps {
   loading: boolean;
   onCancelLoading?: () => void;
   inputPlaceholder?: string;
+  toolActivities?: ToolActivity[];
 }
 
 /**
@@ -27,7 +33,7 @@ interface ChatPanelProps {
  * - Newest AI message gets word-by-word animation
  * - Option chips under AI messages
  */
-export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [] }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -87,14 +93,55 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
           </div>
         ))}
 
-        {/* Typing indicator — click to cancel if stuck */}
+        {/* Agent status — shows current activity (swap in place, like ChatGPT) */}
         {loading && (
           <div
             onClick={onCancelLoading}
             className={onCancelLoading ? 'cursor-pointer group' : ''}
             title={onCancelLoading ? '点击取消' : undefined}
           >
-            <TypingIndicator />
+            <div className="flex items-start gap-3 animate-msg-enter">
+              {/* AI avatar */}
+              <div className="shrink-0 w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
+                  <path
+                    d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
+                    stroke="url(#status-avatar-grad)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <defs>
+                    <linearGradient id="status-avatar-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#10B981" />
+                      <stop offset="100%" stopColor="#6EE7B7" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              {/* Single status line — shows current activity, swaps in place */}
+              <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-card border border-border/50">
+                {(() => {
+                  // Show the last user-facing tool's description (regardless of start/end status,
+                  // because React batching may merge them in the same render)
+                  const visible = toolActivities.filter(a => a.tool !== 'set_model_response');
+                  const latest = visible[visible.length - 1];
+                  const label = latest?.description || '正在思考...';
+                  const isActive = latest?.status === 'start';
+                  return (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {isActive ? (
+                        <span className="inline-block w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <span className="inline-block w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      )}
+                      <span>{label}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
             {onCancelLoading && (
               <p className="text-micro text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
                 点击取消等待
