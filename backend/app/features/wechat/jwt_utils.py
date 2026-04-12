@@ -15,14 +15,13 @@ OTP token:
      Risk is low (ops are idempotent, window is 5 min). For multi-worker deploy, swap for Redis setnx.
 """
 
+import os
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
-
-import os
+from typing import Any
 
 import jwt as pyjwt
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from app.core.logging import get_logger
 
@@ -33,9 +32,7 @@ def _get_secret() -> str:
     """Read WECHAT_JWT_SECRET lazily so tests can set os.environ before the call."""
     secret = os.environ.get("WECHAT_JWT_SECRET", "")
     if not secret:
-        # Fall back to config module value (production path)
-        from app.core.config import WECHAT_JWT_SECRET as _cfg_secret
-        secret = _cfg_secret
+        raise RuntimeError("WECHAT_JWT_SECRET is not configured")
     return secret
 
 
@@ -57,7 +54,7 @@ def sign_wechat_jwt(
     sub: str,
     typ: str,
     exp_days: int,
-    openid: Optional[str] = None,
+    openid: str | None = None,
 ) -> str:
     """
     Sign a WeChat JWT.
@@ -71,14 +68,14 @@ def sign_wechat_jwt(
     Returns:
         Signed JWT string
     """
-    secret = _get_secret()
-    if not secret:
-        raise RuntimeError("WECHAT_JWT_SECRET is not configured")
     if typ not in WECHAT_TOKEN_TYPES:
         raise ValueError("Invalid typ: %s" % typ)
+    if exp_days <= 0:
+        raise ValueError("exp_days must be a positive integer, got: %s" % exp_days)
 
+    secret = _get_secret()
     now = datetime.now(tz=timezone.utc)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "sub": sub,
         "typ": typ,
         "iat": now,
@@ -89,7 +86,7 @@ def sign_wechat_jwt(
     return pyjwt.encode(payload, secret, algorithm=_ALGORITHM)
 
 
-def decode_wechat_jwt(token: str) -> Dict[str, Any]:
+def decode_wechat_jwt(token: str) -> dict[str, Any]:
     """
     Decode and verify a WeChat JWT.
 
@@ -97,12 +94,10 @@ def decode_wechat_jwt(token: str) -> Dict[str, Any]:
         jwt.ExpiredSignatureError, jwt.InvalidTokenError, RuntimeError
     """
     secret = _get_secret()
-    if not secret:
-        raise RuntimeError("WECHAT_JWT_SECRET is not configured")
     return pyjwt.decode(token, secret, algorithms=[_ALGORITHM])
 
 
-def extract_openid_from_jwt(payload: Dict[str, Any]) -> str:
+def extract_openid_from_jwt(payload: dict[str, Any]) -> str:
     """
     Extract the actual wechat openid from a decoded JWT payload.
     - wechat_unbound: sub IS the openid
@@ -117,8 +112,6 @@ def extract_openid_from_jwt(payload: Dict[str, Any]) -> str:
 
 def _get_signer() -> URLSafeTimedSerializer:
     secret = _get_secret()
-    if not secret:
-        raise RuntimeError("WECHAT_JWT_SECRET is not configured")
     return URLSafeTimedSerializer(secret, salt=_OTP_SALT)
 
 
@@ -130,7 +123,7 @@ def generate_otp_token(email: str, openid: str, action: str) -> str:
     return _get_signer().dumps({"email": email, "openid": openid, "action": action})
 
 
-def verify_otp_token(token: str) -> Dict[str, Any]:
+def verify_otp_token(token: str) -> dict[str, Any]:
     """
     Verify an OTP token.
 
@@ -142,11 +135,8 @@ def verify_otp_token(token: str) -> Dict[str, Any]:
     if token in _used_otp_tokens:
         return {"valid": False, "reason": "already_used"}
 
-    import sys
-    _self = sys.modules[__name__]
-    max_age = _self._OTP_MAX_AGE
     try:
-        data = _get_signer().loads(token, max_age=max_age if max_age > 0 else -1)
+        data = _get_signer().loads(token, max_age=_OTP_MAX_AGE)
     except SignatureExpired:
         return {"valid": False, "reason": "expired"}
     except BadSignature:

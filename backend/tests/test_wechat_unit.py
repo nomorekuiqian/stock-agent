@@ -267,7 +267,7 @@ class TestOtpToken:
         signer = _get_signer()
         token = signer.dumps({"email": "e@test.com", "openid": "o_x", "action": "bind_existing"})
 
-        with patch("app.features.wechat.jwt_utils._OTP_MAX_AGE", 0):
+        with patch("app.features.wechat.jwt_utils._OTP_MAX_AGE", -1):
             time.sleep(0.01)
             result = verify_otp_token(token)
 
