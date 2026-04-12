@@ -110,6 +110,7 @@ from app.features.payment.router import router as payment_router
 from app.features.invites.router import router as invites_router
 from app.features.screener.router import router as screener_router
 from app.features.screener.router import research_router
+from app.features.wechat.router import router as wechat_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -127,6 +128,7 @@ app.include_router(invites_router)
 app.include_router(morning_report_router)
 app.include_router(screener_router)
 app.include_router(research_router)
+app.include_router(wechat_router)
 
 
 # ---------------------------------------------------------------------------

@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Script from "next/script";
 import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { Navbar } from "@/components/Navbar";
-import { Logo } from "@/components/Logo";
+import { PageShell } from "@/components/PageShell";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -103,69 +101,9 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
-          <Navbar />
-          {/* Spacer for fixed navbar */}
-          <div className="h-16" />
-
-          {children}
-
-          <footer className="border-t border-border/50 mt-16">
-            <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                {/* Brand */}
-                <div className="flex items-center gap-2.5 text-muted-foreground">
-                  <Logo className="w-5 h-5 opacity-60" />
-                  <span className="text-xs font-medium">TheMarketBrew</span>
-                </div>
-
-                {/* Links */}
-                <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                  <Link href="/morning" className="hover:text-foreground transition-colors">
-                    早报
-                  </Link>
-                  <Link href="/today" className="hover:text-foreground transition-colors">
-                    晚报
-                  </Link>
-                  <Link href="/for-you" className="hover:text-foreground transition-colors">
-                    专属
-                  </Link>
-                  {process.env.NODE_ENV === 'development' && (
-                    <Link href="/sectors" className="hover:text-foreground transition-colors">
-                      板块
-                    </Link>
-                  )}
-                  <Link href="/stock" className="hover:text-foreground transition-colors">
-                    个股
-                  </Link>
-                  <Link href="/macro" className="hover:text-foreground transition-colors">
-                    宏观
-                  </Link>
-                  <Link href="/contact" className="hover:text-foreground transition-colors">
-                    联系
-                  </Link>
-                </div>
-
-                {/* Social & Tagline */}
-                <div className="flex items-center gap-4">
-                  <a
-                    href="https://xiaohongshu.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground/60 hover:text-primary transition-colors"
-                    title="小红书"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm5.5 14.5c0 .828-.672 1.5-1.5 1.5s-1.5-.672-1.5-1.5.672-1.5 1.5-1.5 1.5.672 1.5 1.5zm-4-6c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm-5.5 6c0 .828-.672 1.5-1.5 1.5S5 17.328 5 16.5 5.672 15 6.5 15s1.5.672 1.5 1.5z"/>
-                    </svg>
-                  </a>
-                  <span className="text-border">|</span>
-                  <p className="text-xs text-muted-foreground/60">
-                    AI 驱动的市场洞察
-                  </p>
-                </div>
-              </div>
-            </div>
-          </footer>
+          <PageShell>
+            {children}
+          </PageShell>
         </Providers>
         <Script id="load-chinese-fonts" strategy="afterInteractive">
           {`

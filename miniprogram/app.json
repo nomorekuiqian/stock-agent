@@ -1,15 +1,31 @@
 {
   "pages": [
-    "pages/index/index",
+    "pages/home/home",
+    "pages/login/login",
+    "pages/profile/profile",
     "pages/webview/webview",
     "pages/diagnose/diagnose"
   ],
   "window": {
-    "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#059669",
-    "navigationBarTitleText": "TheMarketBrew",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#ffffff"
+    "navigationStyle": "custom",
+    "backgroundColor": "#050506"
+  },
+  "tabBar": {
+    "color": "#a1a1aa",
+    "selectedColor": "#10b981",
+    "backgroundColor": "#0c0c0e",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",

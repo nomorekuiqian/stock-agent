@@ -1,0 +1,77 @@
+<nav-bar title="" />
+
+<view class="container login-page">
+  <!-- Brand Section -->
+  <view class="brand-section">
+    <!-- Logo bars -->
+    <view class="brand-logo">
+      <view class="brand-bar brand-bar-1"></view>
+      <view class="brand-bar brand-bar-2"></view>
+      <view class="brand-bar brand-bar-3"></view>
+      <view class="brand-bar brand-bar-4"></view>
+    </view>
+
+    <view class="brand-name">TheMarketBrew</view>
+
+    <view class="editorial-label" style="justify-content: center;">
+      <view class="editorial-line"></view>
+      <text class="text-label">MARKET INTELLIGENCE</text>
+      <view class="editorial-line" style="transform: scaleX(-1);"></view>
+    </view>
+  </view>
+
+  <!-- Login Buttons (before WeChat login) -->
+  <view class="login-actions" wx:if="{{!showBind}}">
+    <view class="btn-primary" bind:tap="onWechatLogin">
+      <text wx:if="{{loading}}">登录中...</text>
+      <text wx:else>微信一键登录</text>
+    </view>
+
+    <view class="btn-secondary" bind:tap="onEmailLogin" style="margin-top: 24rpx;">
+      使用邮箱登录
+    </view>
+
+    <view class="login-hint">
+      登录即表示同意我们的服务条款
+    </view>
+  </view>
+
+  <!-- Bind existing account (after WeChat login, unbound) -->
+  <view class="bind-section" wx:if="{{showBind}}">
+    <view class="bind-header">
+      <view class="bind-icon-wrap">
+        <text class="bind-icon-check">✓</text>
+      </view>
+      <view class="bind-title">微信登录成功</view>
+      <view class="bind-desc">绑定已有账号可同步数据，或跳过直接使用</view>
+    </view>
+
+    <view class="bind-form">
+      <input
+        class="input-field"
+        type="text"
+        placeholder="邮箱"
+        placeholder-class="input-field-placeholder"
+        value="{{bindEmail}}"
+        bindinput="onBindEmailInput"
+      />
+      <input
+        class="input-field"
+        type="password"
+        placeholder="密码"
+        placeholder-class="input-field-placeholder"
+        value="{{bindPassword}}"
+        bindinput="onBindPasswordInput"
+      />
+
+      <view class="bind-error" wx:if="{{bindError}}">{{bindError}}</view>
+
+      <view class="btn-primary" bind:tap="onBind">
+        <text wx:if="{{loading}}">绑定中...</text>
+        <text wx:else>绑定账号</text>
+      </view>
+
+      <view class="btn-ghost" bind:tap="onSkipBind">跳过，直接使用</view>
+    </view>
+  </view>
+</view>

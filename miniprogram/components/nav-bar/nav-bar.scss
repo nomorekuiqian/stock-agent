@@ -1,0 +1,86 @@
+.nav-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(5, 5, 6, 0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1rpx solid var(--border);
+}
+
+.nav-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.nav-bar-left {
+  position: absolute;
+  left: 24rpx;
+  display: flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+}
+
+.back-icon {
+  width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-chevron {
+  width: 18rpx;
+  height: 18rpx;
+  border-left: 3rpx solid var(--fg);
+  border-bottom: 3rpx solid var(--fg);
+  transform: rotate(45deg);
+  margin-left: 6rpx;
+}
+
+.nav-bar-center {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo-mark {
+  width: 40rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: flex-end;
+  gap: 4rpx;
+}
+
+.logo-line {
+  width: 8rpx;
+  border-radius: 4rpx;
+  background: linear-gradient(to top, #10b981, #34d399);
+}
+
+.logo-line-1 {
+  height: 20rpx;
+}
+
+.logo-line-2 {
+  height: 32rpx;
+}
+
+.logo-line-3 {
+  height: 14rpx;
+}
+
+.nav-bar-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.02em;
+}

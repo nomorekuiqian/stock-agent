@@ -1,9 +1,9 @@
-// pages/diagnose/diagnose.js
 Page({
   data: {
     code: '',
     error: '',
   },
+
   runWxLogin() {
     this.setData({ code: '', error: '' });
     wx.login({
