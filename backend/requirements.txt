@@ -4,8 +4,6 @@ google-adk
 google-genai
 httpx
 openai
-openbb>=4.0.0
-openbb-fmp>=1.0.0
 pytest
 pytest-asyncio
 python-dotenv
