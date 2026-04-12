@@ -35,28 +35,28 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Links */}
-            <div className="flex items-center gap-6 text-xs text-muted-foreground">
-              <Link href="/morning" className="hover:text-foreground transition-colors">
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <Link href="/morning" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                 早报
               </Link>
-              <Link href="/today" className="hover:text-foreground transition-colors">
+              <Link href="/today" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                 晚报
               </Link>
-              <Link href="/for-you" className="hover:text-foreground transition-colors">
+              <Link href="/for-you" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                 专属
               </Link>
               {process.env.NODE_ENV === 'development' && (
-                <Link href="/sectors" className="hover:text-foreground transition-colors">
+                <Link href="/sectors" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                   板块
                 </Link>
               )}
-              <Link href="/stock" className="hover:text-foreground transition-colors">
+              <Link href="/stock" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                 个股
               </Link>
-              <Link href="/macro" className="hover:text-foreground transition-colors">
+              <Link href="/macro" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                 宏观
               </Link>
-              <Link href="/contact" className="hover:text-foreground transition-colors">
+              <Link href="/contact" className="hover:text-foreground transition-colors py-2 px-2 min-h-[44px] flex items-center">
                 联系
               </Link>
             </div>
@@ -67,7 +67,7 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
                 href="https://xiaohongshu.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-muted-foreground/60 hover:text-primary transition-colors"
+                className="text-muted-foreground/60 hover:text-primary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="小红书"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -79,6 +79,13 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
                 AI 驱动的市场洞察
               </p>
             </div>
+          </div>
+
+          {/* Risk Disclaimer */}
+          <div className="mt-6 pt-5 border-t border-border/30">
+            <p className="text-xs text-muted-foreground/50 leading-relaxed text-center">
+              本平台所有内容（包括 AI 生成的分析与报告）仅供参考，不构成任何投资建议。投资有风险，入市需谨慎，过往表现不代表未来收益。AI 生成内容可能存在不准确之处，请在做出任何投资决策前自行核实相关信息。
+            </p>
           </div>
         </div>
       </footer>
