@@ -107,3 +107,54 @@ class TestHomeCardsEndpoint:
         resp = await client.get("/api/wechat/home-cards", timeout=10)
         orders = [c["order"] for c in resp.json()["cards"]]
         assert orders == sorted(orders)
+
+
+@pytest.mark.e2e
+class TestWechatRegisterEndpoints:
+
+    @pytest.mark.asyncio
+    async def test_register_request_requires_bearer(self, client):
+        resp = await client.post("/api/wechat/register/request", json={"email": "u@test.com"})
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_register_request_invalid_token_returns_401(self, client):
+        resp = await client.post(
+            "/api/wechat/register/request",
+            json={"email": "u@test.com"},
+            headers={"Authorization": "Bearer not.a.jwt"},
+        )
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email")
+    @patch("app.features.wechat.service._send_otp_email")
+    async def test_register_request_with_unbound_token_succeeds(
+        self, mock_send, mock_lookup, client
+    ):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+
+        mock_lookup.return_value = "uid_existing"
+        mock_send.return_value = None
+        token = sign_wechat_jwt(sub="o_e2e", typ="wechat_unbound", exp_days=1)
+        resp = await client.post(
+            "/api/wechat/register/request",
+            json={"email": "u@test.com"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_register_confirm_no_auth_required(self, client):
+        resp = await client.post(
+            "/api/wechat/register/confirm",
+            json={"otp_token": "not.a.valid.token"},
+        )
+        assert resp.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_me_requires_auth(self, client):
+        resp = await client.get("/api/wechat/me")
+        assert resp.status_code == 401
