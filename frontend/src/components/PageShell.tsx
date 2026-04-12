@@ -1,16 +1,15 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { Logo } from '@/components/Logo';
 
 /**
- * PageShell wraps all pages with Navbar + Footer.
- * When ?from=wechat is present (WebView in mini program),
- * skip the shell entirely for a clean fullscreen experience.
+ * Inner component that reads searchParams (must be inside Suspense).
  */
-export function PageShell({ children }: { children: React.ReactNode }) {
+function PageShellInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const isWechatWebView = searchParams.get('from') === 'wechat';
 
@@ -84,5 +83,19 @@ export function PageShell({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
     </>
+  );
+}
+
+/**
+ * PageShell wraps all pages with Navbar + Footer.
+ * When ?from=wechat is present (WebView in mini program),
+ * skip the shell entirely for a clean fullscreen experience.
+ * Wrapped in Suspense to support static generation.
+ */
+export function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<>{children}</>}>
+      <PageShellInner>{children}</PageShellInner>
+    </Suspense>
   );
 }
