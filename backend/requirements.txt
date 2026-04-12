@@ -3,10 +3,12 @@ fredapi
 google-adk
 google-genai
 httpx
+itsdangerous
 openai
 pytest
 pytest-asyncio
 pytest-timeout
+PyJWT
 python-dotenv
 resend==2.19.0
 slowapi

@@ -21,10 +21,14 @@ STRIPE_MAX_PRICE_ID = os.getenv("STRIPE_MAX_PRICE_ID", "")
 # WeChat Mini Program
 WECHAT_APP_ID = os.getenv("WECHAT_APP_ID", "")
 WECHAT_APP_SECRET = os.getenv("WECHAT_APP_SECRET", "")
+WECHAT_JWT_SECRET = os.getenv("WECHAT_JWT_SECRET", "")
 
 # Security
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 INSFORGE_ANON_KEY = os.getenv("INSFORGE_ANON_KEY", "")
+# Insforge service-role key — required for admin API (e.g. /api/auth/admin/users)
+# INSFORGE_ANON_KEY does NOT have admin scope; use SERVICE_KEY for backend-to-backend calls
+INSFORGE_SERVICE_KEY = os.getenv("INSFORGE_SERVICE_KEY", "")
 EDGE_FUNCTION_SECRET = os.getenv("EDGE_FUNCTION_SECRET", CRON_SECRET)
 
 # Environment
