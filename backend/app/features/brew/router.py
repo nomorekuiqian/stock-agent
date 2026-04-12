@@ -165,33 +165,6 @@ async def save_watchlist(
             detail=result.get("error", "Failed to save watchlist"),
         )
 
-    # Auto-subscribe to Personal Digest email when user saves a non-empty watchlist
-    email = body.email or user_email
-    if body.symbols and email:
-        try:
-            from app.features.subscription.service import (
-                get_subscription_service,
-                SubscriptionChannel,
-            )
-            import asyncio
-
-            svc = get_subscription_service()
-            await asyncio.to_thread(
-                svc.subscribe,
-                SubscriptionChannel.PERSONAL_DIGEST,
-                email,
-                {"user_id": user_id, "first_name": ""},
-            )
-            logger.info(
-                "Auto-subscribed %s to personal_digest", email
-            )
-        except Exception:
-            logger.warning(
-                "Failed to auto-subscribe %s to personal_digest",
-                email,
-                exc_info=True,
-            )
-
     return result
 
 

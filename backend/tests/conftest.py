@@ -89,8 +89,8 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def test_audience_id():
-    """Test Broadcast audience ID for E2E tests."""
-    return "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
+    """Test segment ID for E2E tests (contains only voya.technologies@gmail.com)."""
+    return "191b3099-6849-48f9-adec-e6a67b70b10b"
 
 
 @pytest.fixture

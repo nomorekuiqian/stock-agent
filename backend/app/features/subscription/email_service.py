@@ -182,8 +182,9 @@ class EmailService:
     # Audience resolution + broadcast helper
     # ------------------------------------------------------------------
 
-    # Test Broadcast audience - used automatically in non-production environments
-    TEST_AUDIENCE_ID = "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
+    # Test segment - used automatically in non-production environments
+    # Contains only voya.technologies@gmail.com
+    TEST_AUDIENCE_ID = "191b3099-6849-48f9-adec-e6a67b70b10b"
 
     def _resolve_audience(
         self,
@@ -639,48 +640,6 @@ class EmailService:
 
         except Exception as e:
             logger.error("Error broadcasting: %s", e)
-            return {"success": False, "error": str(e)}
-
-    async def broadcast_personal_digest(
-        self, data: dict, audience_id: Optional[str] = None, first_name: str = ""
-    ) -> dict:
-        """Broadcast a personal digest using Resend Broadcasts."""
-        logger.info("broadcast_personal_digest called, audience_id=%s", audience_id)
-
-        if not self.api_key:
-            return {"success": False, "error": "RESEND_API_KEY not configured"}
-
-        try:
-            audience_id = self._resolve_audience(
-                audience_id, SubscriptionChannel.PERSONAL_DIGEST
-            )
-            today = today_str()
-            digest_date = data.get("digest_date") or today
-            digest_id = data.get("digest_id")
-            html_content = format_digest_html(
-                data,
-                first_name=first_name,
-                digest_date=digest_date,
-                digest_id=digest_id,
-            )
-
-            one_line = data.get("one_line_summary", "")
-            subject = (
-                f"[TheMarketBrew专属日报] {one_line[:50]}"
-                if one_line
-                else f"[TheMarketBrew专属日报] {today}"
-            )
-
-            return self._create_and_send_broadcast(
-                label="Digest",
-                audience_id=audience_id,
-                subject=subject,
-                broadcast_name=f"Personal Digest {today}",
-                html=html_content,
-            )
-
-        except Exception as e:
-            logger.error("Error broadcasting digest: %s", e)
             return {"success": False, "error": str(e)}
 
     async def broadcast_weekly_report(

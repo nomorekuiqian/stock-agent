@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import PaywallGuard from '@/components/PaywallGuard';
-import { useQueryClient } from '@tanstack/react-query';
-import { api, DigestResponse } from '@/lib/api';
+import { DigestResponse } from '@/lib/api';
 import { clearStaleAuthAction } from '@/app/actions/auth';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { userDigestToResponse } from '@/lib/digest-utils';
@@ -15,8 +14,7 @@ import RecentReports from '@/components/for-you/RecentReports';
 import { AiChatLink } from '@/components/AiChatLink';
 import { useWatchlist } from '@/hooks/queries/use-watchlist';
 import { useDigestList } from '@/hooks/queries/use-digest-data';
-import { useEmailPreferences } from '@/hooks/queries/use-preferences';
-import { queryKeys } from '@/hooks/queries/query-keys';
+
 import { ForYouSkeleton } from './ForYouSkeleton';
 
 function ForYouPageContent() {
@@ -47,11 +45,6 @@ function ForYouPageContent() {
     return userDigestToResponse(best);
   }, [history]);
 
-  const queryClient = useQueryClient();
-  const { data: emailPrefs } = useEmailPreferences(isAuthenticated);
-  const isSubscribed = emailPrefs?.personal_digest ?? false;
-  const prefsLoading = isAuthenticated && emailPrefs === undefined;
-  const [subscribing, setSubscribing] = useState(false);
   const [isReauthenticating, setIsReauthenticating] = useState(false);
 
   // History items for RecentReports, skipping the first item when it's displayed inline
@@ -75,41 +68,6 @@ function ForYouPageContent() {
 
   // --- Handlers ---
 
-  const handleSubscription = async () => {
-    if (!user?.email) return;
-
-    setSubscribing(true);
-    try {
-      if (isSubscribed) {
-        const result = await api.subscriptions.updatePreferences({ personal_digest: false });
-        if (result.success) {
-          queryClient.setQueryData(queryKeys.subscriptions.preferences(), result.preferences);
-        }
-      } else {
-        try {
-          const result = await api.subscriptions.updatePreferences({ personal_digest: true });
-          if (result.success) {
-            queryClient.setQueryData(queryKeys.subscriptions.preferences(), result.preferences);
-          } else {
-            throw new Error('update failed');
-          }
-        } catch {
-          const result = await api.subscriptions.subscribe('personal_digest', {
-            email: user.email,
-            user_id: user.id,
-          });
-          if (result.success) {
-            queryClient.invalidateQueries({ queryKey: queryKeys.subscriptions.preferences() });
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Subscription action failed:', err);
-    } finally {
-      setSubscribing(false);
-    }
-  };
-
   const handleReLogin = async () => {
     setIsReauthenticating(true);
     try {
@@ -132,7 +90,6 @@ function ForYouPageContent() {
 
   const dataLoading = loadingWatchlist || loadingDigest;
   const isOnboarding = !dataLoading && !watchlistLoadFailed && symbols.length === 0;
-  const subscriptionLoading = subscribing;
 
   return (
     <main className="min-h-screen bg-background">
@@ -188,29 +145,7 @@ function ForYouPageContent() {
                       <AiChatLink href="/research?context=brew" />
                     )}
 
-                    {/* Subscription toggle */}
-                    {prefsLoading ? (
-                      <div className="w-28 h-9 rounded-lg bg-muted animate-pulse" />
-                    ) : (
-                      <button
-                        onClick={handleSubscription}
-                        disabled={subscriptionLoading}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                          isSubscribed
-                            ? 'border-primary/20 bg-primary/5 text-primary hover:border-red-500/20 hover:text-red-400'
-                            : 'border-border/50 bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                        }`}
-                      >
-                        {subscriptionLoading ? (
-                          <div className="w-4 h-4 rounded-full border-2 border-current/20 border-t-current animate-spin" />
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        )}
-                        {isSubscribed ? '已订阅邮件' : '订阅邮件'}
-                      </button>
-                    )}
+
 
                   </div>
                 )}

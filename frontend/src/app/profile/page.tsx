@@ -16,7 +16,8 @@ const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; descriptio
   { key: 'morning_report', label: '早报', description: '每个交易日早上发送', entitlement: 'morning_report_email' },
   { key: 'daily_report', label: '晚报', description: '每个交易日收盘后发送' },
   { key: 'weekly_report', label: '宏观周报', description: '每周日发送', entitlement: 'weekly_report_email' },
-  { key: 'personal_digest', label: '专属日报', description: '根据你的持仓每日定制', entitlement: 'personal_digest_email' },
+  // personal_digest is auto-managed: has watchlist + entitlement = receives digest.
+  // No toggle needed — users clear their watchlist to stop receiving it.
 ];
 
 const PREFERENCE_ENTITLEMENTS = new Map(
@@ -626,38 +627,46 @@ function ProfileContent(): ReactNode {
                 <p className="text-sm text-muted-foreground text-center">无法加载偏好设置</p>
               </div>
             ) : (
-              <div className="bg-card border border-border/50 rounded-xl divide-y divide-border/50">
-                {PREFERENCE_ITEMS.map(({ key, label, description, entitlement }) => {
-                  const locked = entitlement ? !hasEntitlement(entitlement) : false;
-                  return (
-                    <div key={key} className="flex items-center justify-between px-4 py-3.5">
-                      <div className="min-w-0 flex-1 mr-4">
-                        <p className="text-sm font-medium text-foreground">{label}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {locked ? '升级 Pro 解锁' : description}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={locked ? false : localPrefs[key]}
-                        aria-label={`${label} ${locked ? '需要升级' : localPrefs[key] ? '已开启' : '已关闭'}`}
-                        disabled={saving || locked}
-                        onClick={() => handleToggle(key)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed ${
-                          localPrefs[key] && !locked ? 'bg-primary' : 'bg-zinc-700'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ${
-                            localPrefs[key] && !locked ? 'translate-x-5' : 'translate-x-0'
+              <>
+                <div className="bg-card border border-border/50 rounded-xl divide-y divide-border/50">
+                  {PREFERENCE_ITEMS.map(({ key, label, description, entitlement }) => {
+                    const locked = entitlement ? !hasEntitlement(entitlement) : false;
+                    return (
+                      <div key={key} className="flex items-center justify-between px-4 py-3.5">
+                        <div className="min-w-0 flex-1 mr-4">
+                          <p className="text-sm font-medium text-foreground">{label}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {locked ? '升级 Pro 解锁' : description}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={locked ? false : localPrefs[key]}
+                          aria-label={`${label} ${locked ? '需要升级' : localPrefs[key] ? '已开启' : '已关闭'}`}
+                          disabled={saving || locked}
+                          onClick={() => handleToggle(key)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed ${
+                            localPrefs[key] && !locked ? 'bg-primary' : 'bg-zinc-700'
                           }`}
-                        />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ${
+                              localPrefs[key] && !locked ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {hasEntitlement('personal_digest_email') && (
+                  <p className="text-xs text-muted-foreground px-1">
+                    专属日报根据你的持仓自动发送，如需停止接收请清空持仓列表。
+                  </p>
+                )}
+              </>
             )}
 
             <button

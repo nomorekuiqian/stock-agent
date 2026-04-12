@@ -37,7 +37,6 @@ class SubscriptionChannel(str, Enum):
     """Subscription channels available in the system."""
 
     DAILY_REPORT = "daily_report"
-    PERSONAL_DIGEST = "personal_digest"
     WEEKLY_REPORT = "weekly_report"
 
 
@@ -48,12 +47,7 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
         "metadata_fields": ["first_name"],
         "requires_auth": False,
     },
-    SubscriptionChannel.PERSONAL_DIGEST: {
-        "audience_name": "Personal Digest Daily",
-        "metadata_fields": ["first_name", "user_id"],
-        "requires_auth": True,
-    },
-    SubscriptionChannel.WEEKLY_REPORT: {
+SubscriptionChannel.WEEKLY_REPORT: {
         "audience_name": "TheMarketBrew Weekly",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
@@ -322,17 +316,6 @@ class SubscriptionService:
             if "first_name" in metadata:
                 params["first_name"] = metadata["first_name"]
 
-            # For personal_digest, store user_id in contact data
-            # Resend doesn't have custom fields, so we store in last_name field as JSON
-            if channel == SubscriptionChannel.PERSONAL_DIGEST:
-                extra_data = {}
-                if "user_id" in metadata:
-                    extra_data["user_id"] = metadata["user_id"]
-
-                # Store extra data as JSON in last_name field (Resend workaround)
-                if extra_data:
-                    params["last_name"] = json.dumps(extra_data)
-
             _rate_limit_wait()
             contact = resend.Contacts.create(params)
             logger.info("Subscribed %s to %s: %s", email, channel, contact.get("id"))
@@ -418,14 +401,6 @@ class SubscriptionService:
             # Update first_name if provided
             if "first_name" in metadata:
                 update_params["first_name"] = metadata["first_name"]
-
-            # For personal_digest, update stored data
-            if channel == SubscriptionChannel.PERSONAL_DIGEST:
-                extra_data = {}
-                if "user_id" in metadata:
-                    extra_data["user_id"] = metadata["user_id"]
-                if extra_data:
-                    update_params["last_name"] = json.dumps(extra_data)
 
             _rate_limit_wait()
             resend.Contacts.update(update_params)

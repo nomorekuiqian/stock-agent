@@ -57,11 +57,14 @@ pytest -v --run-generate            # 包含 AI 生成测试 (慢)
 ```
 GOOGLE_API_KEY, OPENAI_API_KEY          # AI
 FMP_API_KEY, FRED_API_KEY               # 数据
-STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID  # 支付
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_MAX_PRICE_ID  # 支付
 RESEND_API_KEY                          # 邮件
-CRON_SECRET, INSFORGE_ANON_KEY          # 安全
+RESEND_SEGMENT_MORNING, RESEND_SEGMENT_EVENING, RESEND_SEGMENT_WEEKLY  # 邮件分组
+CRON_SECRET, INSFORGE_ANON_KEY, EDGE_FUNCTION_SECRET  # 安全
 ENVIRONMENT=production                  # 必需 - 影响广播安全路由
 FRONTEND_URL, INSFORGE_BASE_URL         # 基础
+INVITE_CODES                            # 邀请码 (逗号分隔)
+EMAIL_PRO_GATE=false                    # Pro 邮件门控开关
 ```
 
 前端 `frontend/.env.local`:
@@ -78,7 +81,7 @@ NEXT_PUBLIC_INSFORGE_ANON_KEY=xxx
 backend/app/
 ├── main.py              # FastAPI 入口
 ├── core/                # 基础设施 (config/database/logging/rate_limit)
-├── features/            # 功能模块 (daily_report/brew/stock/macro/screener/subscription/notification/feedback/payment)
+├── features/            # 功能模块 (daily_report/morning_report/brew/stock/macro/screener/subscription/notification/feedback/payment/invites)
 ├── shared/              # 共享服务 (fmp/yfinance/openbb/insforge/data_tools)
 ├── edge_functions/      # Insforge Edge Functions (JavaScript)
 ├── services/            # [DEAD] 禁止导入

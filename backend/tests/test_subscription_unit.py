@@ -29,12 +29,11 @@ class TestSubscriptionChannel:
         """All expected channels are present."""
         values = [c.value for c in SubscriptionChannel]
         assert "daily_report" in values
-        assert "personal_digest" in values
         assert "weekly_report" in values
 
     def test_channel_count(self):
-        """Total channel count is 3."""
-        assert len(SubscriptionChannel) == 3
+        """Total channel count is 2 (personal_digest removed, auto-managed by entitlement)."""
+        assert len(SubscriptionChannel) == 2
 
 
 class TestChannelConfig:
@@ -70,20 +69,6 @@ class TestChannelConfig:
             assert "audience_name" in config, f"{channel} missing audience_name"
             assert "metadata_fields" in config, f"{channel} missing metadata_fields"
             assert "requires_auth" in config, f"{channel} missing requires_auth"
-
-
-class TestPersonalDigestConfig:
-    """Tests for personal_digest channel configuration."""
-
-    def test_no_symbols_in_metadata_fields(self):
-        """personal_digest metadata_fields should NOT contain 'symbols'."""
-        config = CHANNEL_CONFIG[SubscriptionChannel.PERSONAL_DIGEST]
-        assert "symbols" not in config["metadata_fields"]
-
-    def test_user_id_in_metadata_fields(self):
-        """personal_digest metadata_fields should contain 'user_id'."""
-        config = CHANNEL_CONFIG[SubscriptionChannel.PERSONAL_DIGEST]
-        assert "user_id" in config["metadata_fields"]
 
 
 class TestSubscriptionModels:

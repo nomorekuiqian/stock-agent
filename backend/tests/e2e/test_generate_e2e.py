@@ -24,8 +24,8 @@ import time
 import pytest
 from httpx import AsyncClient, ASGITransport
 
-# Test Broadcast audience ID (fixed test channel)
-TEST_AUDIENCE_ID = "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
+# Test segment ID (contains only voya.technologies@gmail.com)
+TEST_AUDIENCE_ID = "191b3099-6849-48f9-adec-e6a67b70b10b"
 
 # Test user ID for personal digest
 TEST_USER_ID = "d00a6201-646a-489f-95a2-aff8f90fe669"
@@ -176,18 +176,9 @@ class TestGenerateE2E:
             "summary": data.get("summary", {}),
         }
 
-        # Wait to avoid Resend rate limiting
-        time.sleep(2)
-
-        # 3. Broadcast to Test Broadcast
-        result = await email_service.broadcast_personal_digest(
-            email_data,
-            audience_id=TEST_AUDIENCE_ID,
-            first_name=first_name
-        )
-
-        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
-        print(f"[Generate] SUCCESS: Broadcast ID = {result.get('broadcast_id')}")
+        # Personal digest broadcast removed — broadcast_personal_digests (Batch.send)
+        # is the active code path, tested separately in test_broadcast_batch.py
+        print(f"[Generate] Digest generated successfully, skipping broadcast (uses Batch.send)")
 
     @pytest.mark.asyncio
     async def test_generate_morning_report(self, email_service):

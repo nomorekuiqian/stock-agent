@@ -27,9 +27,9 @@ load_dotenv()
 import resend
 resend.api_key = os.getenv("RESEND_API_KEY")
 
-# Test Broadcast segment - ONLY use this for testing
-TEST_AUDIENCE_ID = "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
-TEST_AUDIENCE_NAME = "Test Broadcast"
+# Test segment - contains only voya.technologies@gmail.com
+TEST_AUDIENCE_ID = "191b3099-6849-48f9-adec-e6a67b70b10b"
+TEST_AUDIENCE_NAME = "Test"
 
 
 def list_test_subscribers():
@@ -110,135 +110,29 @@ async def broadcast_daily_report():
         return False
 
 
-async def broadcast_personal_digest():
-    """Broadcast latest personal digest to Test Broadcast audience."""
-    import httpx
-    from app.features.subscription.email_service import get_email_service
+async def send_test_broadcasts():
+    """Send daily report broadcast to Test segment."""
+    success = await broadcast_daily_report()
 
-    print("\n" + "=" * 60)
-    print("BROADCASTING PERSONAL DIGEST")
-    print(f"Target: {TEST_AUDIENCE_NAME} ({TEST_AUDIENCE_ID})")
-    print("=" * 60)
-
-    # Get first_name from Resend contacts in Test Broadcast audience
-    contacts = resend.Contacts.list(audience_id=TEST_AUDIENCE_ID)
-    active_contacts = [c for c in contacts.get("data", []) if not c.get("unsubscribed")]
-    first_name = ""
-    if active_contacts:
-        first_name = active_contacts[0].get("first_name", "")
-    print(f"Recipient name: {first_name or '(not set)'}")
-
-    # Get latest personal digest via edge function
-    # Using the user's account with complete digest data
-    base_url = os.getenv("NEXT_PUBLIC_INSFORGE_URL", "https://9wmhxyi4.us-east.insforge.app")
-    anon_key = os.getenv("INSFORGE_ANON_KEY", "")
-
-    # User ID with real personal digest data (pengyou's account)
-    user_id = "d00a6201-646a-489f-95a2-aff8f90fe669"
-
-    url = f"{base_url}/functions/user-digests?user_id={user_id}&limit=1"
-    headers = {
-        "Authorization": f"Bearer {anon_key}",
-        "Content-Type": "application/json"
-    }
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers=headers)
-        if resp.status_code != 200:
-            print(f"ERROR: Failed to fetch digest, status={resp.status_code}")
-            print(f"Response: {resp.text}")
-            return False
-        result = resp.json()
-
-    if not result.get("success"):
-        print(f"ERROR: API call failed! Response: {result}")
-        return False
-
-    data = result.get("data", [])
-    if not data:
-        print(f"ERROR: No personal digest found for user!")
-        return False
-
-    digest = data[0] if isinstance(data, list) else data
-    print(f"Digest Date: {digest.get('digest_date', 'N/A')}")
-    print(f"Symbols: {digest.get('symbols', [])}")
-    print(f"Summary: {digest.get('one_line_summary', '')[:60]}...")
-
-    # Prepare digest data for email - map database fields to template format
-    stored_data = digest.get("digest_data", {})
-
-    email_data = {
-        "success": True,
-        "symbols": digest.get("symbols", []),
-        "greeting": digest.get("greeting", ""),
-        "one_line_summary": digest.get("one_line_summary", ""),
-        # These fields come from digest_data JSON column
-        "stocks": stored_data.get("stocks", []),
-        "news": stored_data.get("news", {}),
-        "events": stored_data.get("events", []),
-        "summary": stored_data.get("summary", {}),
-    }
-
-    print(f"Stocks: {len(email_data.get('stocks', []))} items")
-    print(f"News headlines: {len(email_data.get('news', {}).get('headlines', []))} items")
-
-    # Broadcast using Resend Broadcasts API
-    email_service = get_email_service()
-    result = await email_service.broadcast_personal_digest(
-        email_data, audience_id=TEST_AUDIENCE_ID, first_name=first_name
-    )
-
-    if result.get("success"):
-        print(f"SUCCESS: Broadcast ID = {result.get('broadcast_id')}")
-        return True
-    else:
-        print(f"FAILED: {result.get('error')}")
-        return False
-
-
-async def send_test_broadcasts(daily: bool = True, digest: bool = True):
-    """Send broadcasts to Test Broadcast audience."""
-    results = []
-
-    if daily:
-        success = await broadcast_daily_report()
-        results.append(("Daily Report", success))
-
-        if digest:
-            # Wait between broadcasts to avoid rate limiting
-            print("\nWaiting 3 seconds before next broadcast...")
-            time.sleep(3)
-
-    if digest:
-        success = await broadcast_personal_digest()
-        results.append(("Personal Digest", success))
-
-    # Summary
     print("\n" + "=" * 60)
     print("BROADCAST SUMMARY")
     print("=" * 60)
-    for name, success in results:
-        status = "OK" if success else "FAILED"
-        print(f"  {name}: {status}")
+    status = "OK" if success else "FAILED"
+    print(f"  Daily Report: {status}")
     print()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test broadcast to Test Broadcast segment only")
-    parser.add_argument("--list", action="store_true", help="List Test Broadcast subscribers")
-    parser.add_argument("--daily", action="store_true", help="Send only daily report broadcast")
-    parser.add_argument("--digest", action="store_true", help="Send only personal digest broadcast")
+    parser = argparse.ArgumentParser(description="Test broadcast to Test segment only")
+    parser.add_argument("--list", action="store_true", help="List Test subscribers")
+    parser.add_argument("--daily", action="store_true", help="Send daily report broadcast")
     args = parser.parse_args()
 
     if args.list:
         list_test_subscribers()
-    elif args.daily:
-        asyncio.run(send_test_broadcasts(daily=True, digest=False))
-    elif args.digest:
-        asyncio.run(send_test_broadcasts(daily=False, digest=True))
     else:
         # Default: send both
-        asyncio.run(send_test_broadcasts(daily=True, digest=True))
+        asyncio.run(send_test_broadcasts())
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ from unittest.mock import patch
 from app.features.subscription.email_service import EmailService
 
 
-TEST_AUDIENCE_ID = "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
+TEST_AUDIENCE_ID = "191b3099-6849-48f9-adec-e6a67b70b10b"
 
 
 @pytest.fixture

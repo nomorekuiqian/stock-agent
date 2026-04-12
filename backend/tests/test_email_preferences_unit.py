@@ -22,7 +22,7 @@ from app.features.subscription.models import (
 )
 
 
-TEST_AUDIENCE_ID = "1c300c45-49a7-479e-a4c2-1ed5cfccda1e"
+TEST_AUDIENCE_ID = "191b3099-6849-48f9-adec-e6a67b70b10b"
 
 
 # ---------------------------------------------------------------------------
@@ -440,14 +440,16 @@ class TestPreferencesEndpoints:
         """GET /api/subscriptions/preferences returns preferences."""
         with patch(
             "app.features.subscription.router.get_subscription_service"
-        ) as mock_svc_fn:
+        ) as mock_svc_fn, patch(
+            "app.features.subscription.router.has_entitlement",
+            return_value=True,
+        ):
             mock_svc = MagicMock()
             mock_svc.get_email_preferences.return_value = {
                 "morning_report": True,
                 "daily_report": True,
                 "weekly_report": False,
             }
-            mock_svc.get_status.return_value = {"subscribed": True}
             mock_svc_fn.return_value = mock_svc
 
             resp = client.get(
@@ -460,6 +462,7 @@ class TestPreferencesEndpoints:
         assert data["success"] is True
         assert data["preferences"]["morning_report"] is True
         assert data["preferences"]["weekly_report"] is False
+        # personal_digest comes from has_entitlement, not Resend
         assert data["preferences"]["personal_digest"] is True
 
     def test_post_preferences_update(self, client):
@@ -504,18 +507,20 @@ class TestPreferencesEndpoints:
 
         assert resp.status_code == 401
 
-    def test_post_preferences_toggle_personal_digest_off(self, client):
-        """POST with personal_digest=false calls unsubscribe."""
+    def test_post_preferences_personal_digest_ignored(self, client):
+        """POST with personal_digest=false is ignored (auto-managed by entitlement)."""
         with patch(
             "app.features.subscription.router.get_subscription_service"
-        ) as mock_svc_fn:
+        ) as mock_svc_fn, patch(
+            "app.features.subscription.router.has_entitlement",
+            return_value=True,
+        ):
             mock_svc = MagicMock()
             mock_svc.get_email_preferences.return_value = {
                 "morning_report": True,
                 "daily_report": True,
                 "weekly_report": True,
             }
-            mock_svc.get_status.return_value = {"subscribed": False}
             mock_svc_fn.return_value = mock_svc
 
             resp = client.post(
@@ -525,4 +530,7 @@ class TestPreferencesEndpoints:
             )
 
         assert resp.status_code == 200
-        mock_svc.unsubscribe.assert_called_once()
+        # personal_digest is read-only, unsubscribe should NOT be called
+        mock_svc.unsubscribe.assert_not_called()
+        # personal_digest value comes from entitlement, not request
+        assert resp.json()["preferences"]["personal_digest"] is True

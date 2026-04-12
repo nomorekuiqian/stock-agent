@@ -334,7 +334,7 @@ async def broadcast_to_channel(
                 errors=[],
             )
 
-        elif channel == SubscriptionChannel.PERSONAL_DIGEST:
+        elif channel.value == "personal_digest":
             # Broadcast personal digests (parallel processing)
             broadcast_result = await email_service.broadcast_personal_digests(max_concurrent=5)
 
@@ -438,13 +438,8 @@ async def get_email_preferences(
             subscription_service.get_email_preferences, email
         )
 
-        # Check personal_digest subscription status
-        digest_status = await asyncio.to_thread(
-            subscription_service.get_status,
-            SubscriptionChannel.PERSONAL_DIGEST,
-            email,
-        )
-        prefs["personal_digest"] = digest_status.get("subscribed", False)
+        # personal_digest is auto-managed: has entitlement + has watchlist = receives digest
+        prefs["personal_digest"] = await has_entitlement(user["user_id"], "personal_digest_email")
 
         return PreferencesResponse(
             success=True,
@@ -499,32 +494,12 @@ async def update_email_preferences(
                 subscription_service.update_email_preferences, email, segment_prefs
             )
 
-        # Handle personal_digest separately (audience-based)
-        if request.personal_digest is not None:
-            if request.personal_digest:
-                await asyncio.to_thread(
-                    subscription_service.subscribe_with_welcome,
-                    channel=SubscriptionChannel.PERSONAL_DIGEST,
-                    email=email,
-                    metadata={"user_id": user["user_id"]},
-                )
-            else:
-                await asyncio.to_thread(
-                    subscription_service.unsubscribe,
-                    channel=SubscriptionChannel.PERSONAL_DIGEST,
-                    email=email,
-                )
-
         # Return current preferences
         prefs = await asyncio.to_thread(
             subscription_service.get_email_preferences, email
         )
-        digest_status = await asyncio.to_thread(
-            subscription_service.get_status,
-            SubscriptionChannel.PERSONAL_DIGEST,
-            email,
-        )
-        prefs["personal_digest"] = digest_status.get("subscribed", False)
+        # personal_digest is auto-managed: has entitlement + has watchlist = receives digest
+        prefs["personal_digest"] = await has_entitlement(user["user_id"], "personal_digest_email")
 
         return PreferencesResponse(
             success=True,
