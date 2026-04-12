@@ -16,6 +16,7 @@
 功能开发前的设计文档。模板: [_template.md](plans/_template.md)
 
 - [active/](plans/active/) — 进行中或规划中的计划
+  - [conversion-funnel-redesign.md](plans/active/conversion-funnel-redesign.md) — 用户价值感知与转化漏斗重建（12 项改造）
 - [completed/](plans/completed/) — 已完成的计划
 
 ## 架构 (docs/)
