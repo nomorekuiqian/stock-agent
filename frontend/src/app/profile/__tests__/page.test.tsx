@@ -242,16 +242,14 @@ describe('ProfilePage email preferences', () => {
     const morning = screen.getByRole('switch', { name: /早报 需要升级/ });
     const daily = screen.getByRole('switch', { name: /晚报 已开启/ });
     const weekly = screen.getByRole('switch', { name: /宏观周报 需要升级/ });
-    const digest = screen.getByRole('switch', { name: /专属日报 需要升级/ });
+    // personal_digest toggle removed — now auto-managed by watchlist
 
     expect(morning.getAttribute('aria-checked')).toBe('false');
     expect((morning as HTMLButtonElement).disabled).toBe(true);
     expect((daily as HTMLButtonElement).disabled).toBe(false);
     expect(weekly.getAttribute('aria-checked')).toBe('false');
     expect((weekly as HTMLButtonElement).disabled).toBe(true);
-    expect(digest.getAttribute('aria-checked')).toBe('false');
-    expect((digest as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByText('升级 Pro 解锁')).toHaveLength(3);
+    expect(screen.getAllByText('升级 Pro 解锁')).toHaveLength(2);
   });
 
   it('keeps entitled email switches interactive for paid users', () => {
@@ -269,11 +267,10 @@ describe('ProfilePage email preferences', () => {
 
     const morning = screen.getByRole('switch', { name: /早报 已开启/ });
     const weekly = screen.getByRole('switch', { name: /宏观周报 已关闭/ });
-    const digest = screen.getByRole('switch', { name: /专属日报 需要升级/ });
+    // personal_digest toggle removed — now auto-managed by watchlist
 
     expect((morning as HTMLButtonElement).disabled).toBe(false);
     expect((weekly as HTMLButtonElement).disabled).toBe(false);
-    expect((digest as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -295,12 +292,11 @@ describe('ProfilePage entitlement-gated preferences', () => {
     const morning = screen.getByRole('switch', { name: /早报 已开启/ });
     const daily = screen.getByRole('switch', { name: /晚报 已开启/ });
     const weekly = screen.getByRole('switch', { name: /宏观周报 已关闭/ });
-    const digest = screen.getByRole('switch', { name: /专属日报 已关闭/ });
+    // personal_digest toggle removed — now auto-managed by watchlist
 
     expect((morning as HTMLButtonElement).disabled).toBe(false);
     expect((daily as HTMLButtonElement).disabled).toBe(false);
     expect((weekly as HTMLButtonElement).disabled).toBe(false);
-    expect((digest as HTMLButtonElement).disabled).toBe(false);
 
     // No lock text should appear
     expect(screen.queryByText('升级 Pro 解锁')).toBeNull();
@@ -315,15 +311,14 @@ describe('ProfilePage entitlement-gated preferences', () => {
 
     render(<ProfilePage />);
 
-    // morning_report, weekly_report, personal_digest have entitlement field -> locked
+    // morning_report, weekly_report have entitlement field -> locked
+    // personal_digest toggle removed — now auto-managed by watchlist
     const morning = screen.getByRole('switch', { name: /早报 需要升级/ });
     const weekly = screen.getByRole('switch', { name: /宏观周报 需要升级/ });
-    const digest = screen.getByRole('switch', { name: /专属日报 需要升级/ });
 
     expect((morning as HTMLButtonElement).disabled).toBe(true);
     expect((weekly as HTMLButtonElement).disabled).toBe(true);
-    expect((digest as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByText('升级 Pro 解锁')).toHaveLength(3);
+    expect(screen.getAllByText('升级 Pro 解锁')).toHaveLength(2);
   });
 
   it('does not lock daily_report toggle for free user (no entitlement field)', () => {
