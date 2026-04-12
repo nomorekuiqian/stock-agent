@@ -55,6 +55,7 @@ skills/
 .claude/skills/
 .claude/settings.local.json
 .claude/worktrees/
+.worktrees/
 test-results/
 
 # Node (covered by frontend/.gitignore but listed for clarity)
@@ -82,3 +83,4 @@ yarn-error.log*
 .roo
 .trae
 .windsurf
+.env*.local
