@@ -15,31 +15,34 @@ jobs:
         run: |
           echo "Refreshing screener universe data (tvscreener)..."
 
-          response=$(curl -s -w "\n%{http_code}" --max-time 120 -X POST \
-            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            "${{ secrets.BACKEND_URL }}/api/screener/refresh")
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt/3..."
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+            response=$(curl -s -w "\n%{http_code}" --max-time 120 -X POST \
+              -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+              -H "Content-Type: application/json" \
+              "${{ secrets.BACKEND_URL }}/api/screener/refresh")
 
-          echo "HTTP Code: $http_code"
-          echo "Response: $body"
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
 
-          if [ "$http_code" != "200" ]; then
-            echo "::error::Screener refresh failed with HTTP $http_code"
-            exit 1
-          fi
+            echo "HTTP Code: $http_code"
+            echo "Response: $body"
 
-          if echo "$body" | grep -q '"success":false'; then
-            echo "::error::Screener refresh returned success:false"
-            echo "$body"
-            exit 1
-          fi
+            if [ "$http_code" = "200" ] && ! echo "$body" | grep -q '"success":false'; then
+              stock_count=$(echo "$body" | grep -o '"stock_count":[0-9]*' | cut -d: -f2)
+              echo "Screener universe refreshed: ${stock_count:-unknown} stocks"
+              exit 0
+            fi
 
-          # Extract stock count from results
-          stock_count=$(echo "$body" | grep -o '"stock_count":[0-9]*' | cut -d: -f2)
-          echo "Screener universe refreshed: ${stock_count:-unknown} stocks"
+            if [ "$attempt" -lt 3 ]; then
+              echo "Failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+
+          echo "::error::Screener refresh failed after 3 attempts"
+          exit 1
 
       - name: Notify on failure
         if: failure()
