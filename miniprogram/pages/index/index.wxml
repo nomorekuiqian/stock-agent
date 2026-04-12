@@ -1,0 +1,13 @@
+<view class="container">
+  <view style="font-size: 36rpx; font-weight: 600; margin-bottom: 24rpx;">TheMarketBrew — WebView PoC</view>
+  <view class="muted" style="margin-bottom: 48rpx;">用于验证微信小程序 web-view 是否能承载 Next.js 登录态与第一方 cookie</view>
+
+  <button class="primary-btn" bindtap="goWebview" data-path="/login">打开网页 /login</button>
+  <button class="primary-btn" bindtap="goWebview" data-path="/for-you">打开受保护页 /for-you</button>
+  <button class="primary-btn" bindtap="goWebview" data-path="/webview-check">打开 WebView 诊断页</button>
+  <button class="primary-btn" bindtap="goDiagnose">原生 wx.login 诊断</button>
+
+  <view class="muted" style="margin-top: 48rpx;">
+    流程：先打开 /login 完成登录 → 返回首页 → 再打开 /for-you 或 /webview-check 验证是否保持登录态。
+  </view>
+</view>
