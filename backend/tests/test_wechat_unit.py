@@ -310,3 +310,54 @@ class TestOtpToken:
 
         assert result["valid"] is False
         assert result["reason"] == "expired"
+
+
+# ---------------------------------------------------------------------------
+# TestVerifyUserTokenWechat
+# ---------------------------------------------------------------------------
+
+class TestVerifyUserTokenWechat:
+
+    @pytest.mark.asyncio
+    async def test_wechat_bound_accepted(self):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        from app.core.deps import verify_user_token
+
+        token = sign_wechat_jwt(sub="insforge-uid-001", typ="wechat_bound", exp_days=7)
+        user_id = await verify_user_token(authorization=f"Bearer {token}")
+        assert user_id == "insforge-uid-001"
+
+    @pytest.mark.asyncio
+    async def test_wechat_email_only_accepted(self):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        from app.core.deps import verify_user_token
+
+        token = sign_wechat_jwt(sub="wechat-row-uuid-002", typ="wechat_email_only", exp_days=7)
+        user_id = await verify_user_token(authorization=f"Bearer {token}")
+        assert user_id == "wechat-row-uuid-002"
+
+    @pytest.mark.asyncio
+    async def test_wechat_unbound_returns_403(self):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        from app.core.deps import verify_user_token
+        from fastapi import HTTPException
+
+        token = sign_wechat_jwt(sub="o_openid_xyz", typ="wechat_unbound", exp_days=1)
+        with pytest.raises(HTTPException) as exc:
+            await verify_user_token(authorization=f"Bearer {token}")
+        assert exc.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_missing_auth_returns_401(self):
+        from app.core.deps import verify_user_token
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc:
+            await verify_user_token(authorization=None)
+        assert exc.value.status_code == 401
