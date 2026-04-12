@@ -193,6 +193,7 @@ class TestNoCrossFeatureImports:
         ("macro", "subscription"),      # weekly report triggers email via subscription
         ("payment", "subscription"),    # entitlements webhook syncs Resend segments
         ("brew", "subscription"),       # brew trial activation subscribes user to emails
+        ("screener", "brew"),           # research agent reads user watchlist from brew.db
     }
 
     def test_no_cross_feature_imports(self):

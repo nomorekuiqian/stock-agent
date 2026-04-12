@@ -141,7 +141,9 @@ class TestPreferencesEntitlementGate:
         )
         assert resp.status_code == 200
         assert resp.json()["success"] is True
-        mock_has_entitlement.assert_awaited_once_with("pro-123", "morning_report_email")
+        # has_entitlement is called twice: once for morning_report gate, once for personal_digest in response
+        calls = mock_has_entitlement.await_args_list
+        assert any(c.args == ("pro-123", "morning_report_email") for c in calls)
 
     @patch("app.features.subscription.router.get_subscription_service")
     @patch("app.features.subscription.router.has_entitlement", new_callable=AsyncMock)

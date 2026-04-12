@@ -25,12 +25,10 @@ from app.features.stock.service import StockService
 
 @pytest.fixture
 def service():
-    """Create StockService instance without singleton, mock openbb."""
+    """Create StockService instance without singleton."""
     StockService._instance = None
-    with patch("app.features.stock.service.get_openbb_service") as mock_openbb:
-        mock_openbb.return_value = MagicMock()
-        svc = StockService()
-        yield svc
+    svc = StockService()
+    yield svc
     StockService._instance = None
 
 
