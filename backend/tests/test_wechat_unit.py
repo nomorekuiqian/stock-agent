@@ -64,43 +64,80 @@ class TestLoginWithCode:
     @pytest.mark.asyncio
     @patch("app.features.wechat.service.db")
     @patch("app.features.wechat.service.code2session")
-    async def test_new_user_not_bound(self, mock_c2s, mock_db):
+    async def test_new_user_gets_unbound_token(self, mock_c2s, mock_db):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
         from app.features.wechat.service import login_with_code
+        from app.features.wechat.jwt_utils import decode_wechat_jwt
 
         mock_c2s.return_value = {"openid": "o_new", "session_key": "sk_1"}
         mock_db.upsert_wechat_user = AsyncMock(return_value={"success": True})
-        mock_db.get_by_openid = AsyncMock(return_value={"success": True, "data": {"openid": "o_new", "user_id": None}})
+        mock_db.get_by_openid = AsyncMock(return_value={
+            "success": True,
+            "data": {"openid": "o_new", "insforge_user_id": None, "email_verified_at": None},
+        })
 
         result = await login_with_code("code_new")
-        assert result["success"] is True
-        assert result["is_bound"] is False
-        assert result["openid"] == "o_new"
+        assert result["account_state"] == "unbound"
+        assert result["token"] is not None
+        assert decode_wechat_jwt(result["token"])["typ"] == "wechat_unbound"
 
     @pytest.mark.asyncio
     @patch("app.features.wechat.service.db")
     @patch("app.features.wechat.service.code2session")
-    async def test_existing_bound_user(self, mock_c2s, mock_db):
+    async def test_email_only_user_gets_email_only_token(self, mock_c2s, mock_db):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
         from app.features.wechat.service import login_with_code
+        from app.features.wechat.jwt_utils import decode_wechat_jwt
 
-        mock_c2s.return_value = {"openid": "o_bound", "session_key": "sk_2"}
+        mock_c2s.return_value = {"openid": "o_eo", "session_key": "sk_2"}
         mock_db.upsert_wechat_user = AsyncMock(return_value={"success": True})
         mock_db.get_by_openid = AsyncMock(return_value={
             "success": True,
-            "data": {"openid": "o_bound", "user_id": "uid_123"},
+            "data": {
+                "id": "wechat-row-uuid-001",
+                "openid": "o_eo",
+                "insforge_user_id": None,
+                "email_verified_at": "2026-04-12T00:00:00Z",
+            },
         })
 
-        result = await login_with_code("code_bound")
-        assert result["success"] is True
-        assert result["is_bound"] is True
-        assert result["user_id"] == "uid_123"
+        result = await login_with_code("code_eo")
+        assert result["account_state"] == "email_only"
+        payload = decode_wechat_jwt(result["token"])
+        assert payload["typ"] == "wechat_email_only"
+        assert payload["sub"] == "wechat-row-uuid-001"
+        assert payload["openid"] == "o_eo"
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service.db")
+    @patch("app.features.wechat.service.code2session")
+    async def test_bound_user_gets_bound_token(self, mock_c2s, mock_db):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.service import login_with_code
+        from app.features.wechat.jwt_utils import decode_wechat_jwt
+
+        mock_c2s.return_value = {"openid": "o_b", "session_key": "sk_3"}
+        mock_db.upsert_wechat_user = AsyncMock(return_value={"success": True})
+        mock_db.get_by_openid = AsyncMock(return_value={
+            "success": True,
+            "data": {"openid": "o_b", "insforge_user_id": "uid_insforge_123"},
+        })
+
+        result = await login_with_code("code_b")
+        assert result["account_state"] == "bound"
+        payload = decode_wechat_jwt(result["token"])
+        assert payload["typ"] == "wechat_bound"
+        assert payload["sub"] == "uid_insforge_123"
+        assert payload["openid"] == "o_b"
 
     @pytest.mark.asyncio
     @patch("app.features.wechat.service.code2session")
     async def test_code2session_error(self, mock_c2s):
         from app.features.wechat.service import login_with_code
-
         mock_c2s.return_value = {"error": "invalid code", "errcode": 40029}
-
         result = await login_with_code("bad_code")
         assert result["success"] is False
         assert "invalid code" in result["error"]

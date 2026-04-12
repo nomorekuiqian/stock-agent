@@ -22,6 +22,7 @@ class WechatLoginResponse(BaseModel):
     user_id: Optional[str] = None
     openid: Optional[str] = None
     is_bound: bool = False
+    account_state: Optional[str] = None   # "unbound" | "email_only" | "bound"
     error: Optional[str] = None
 
 

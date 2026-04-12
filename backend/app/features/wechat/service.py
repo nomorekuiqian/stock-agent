@@ -14,6 +14,7 @@ from app.core.config import (
 )
 from app.core.logging import get_logger
 from app.features.wechat import db
+from app.features.wechat.jwt_utils import sign_wechat_jwt
 
 logger = get_logger(__name__)
 
@@ -51,14 +52,11 @@ async def code2session(code: str) -> Dict[str, Any]:
 
 async def login_with_code(code: str) -> Dict[str, Any]:
     """
-    Full login flow:
-    1. Exchange code for openid via code2Session
-    2. Upsert wechat_users record
-    3. Check if openid is bound to an Insforge user
-    4. If bound, return user info
-    5. If not bound, return openid for optional binding
+    Full login flow with three-state JWT dispatch:
+    - wechat_bound:      insforge_user_id IS NOT NULL
+    - wechat_email_only: email_verified_at IS NOT NULL (no insforge account)
+    - wechat_unbound:    neither (new/unverified user)
     """
-    # Step 1: code2Session
     session_data = await code2session(code)
     if "error" in session_data:
         return {"success": False, "error": session_data["error"]}
@@ -66,31 +64,37 @@ async def login_with_code(code: str) -> Dict[str, Any]:
     openid = session_data["openid"]
     session_key = session_data["session_key"]
 
-    # Step 2: Upsert wechat user
     await db.upsert_wechat_user(openid=openid, session_key=session_key)
 
-    # Step 3: Check binding
     lookup = await db.get_by_openid(openid)
-    wechat_user = lookup.get("data")
+    wechat_user = lookup.get("data") or {}
 
-    if wechat_user and wechat_user.get("user_id"):
-        # Already bound
-        user_id = wechat_user["user_id"]
+    insforge_user_id = wechat_user.get("insforge_user_id") or wechat_user.get("user_id")
+    email_verified_at = wechat_user.get("email_verified_at")
+
+    if insforge_user_id:
+        token = sign_wechat_jwt(
+            sub=insforge_user_id, typ="wechat_bound", exp_days=7, openid=openid
+        )
         return {
-            "success": True,
-            "openid": openid,
-            "user_id": user_id,
-            "is_bound": True,
-            "token": None,
+            "success": True, "openid": openid, "user_id": insforge_user_id,
+            "is_bound": True, "account_state": "bound", "token": token,
         }
 
-    # Not bound
+    if email_verified_at:
+        wechat_row_id = wechat_user.get("id", openid)
+        token = sign_wechat_jwt(
+            sub=wechat_row_id, typ="wechat_email_only", exp_days=7, openid=openid
+        )
+        return {
+            "success": True, "openid": openid, "user_id": wechat_row_id,
+            "is_bound": False, "account_state": "email_only", "token": token,
+        }
+
+    token = sign_wechat_jwt(sub=openid, typ="wechat_unbound", exp_days=1)
     return {
-        "success": True,
-        "openid": openid,
-        "user_id": None,
-        "is_bound": False,
-        "token": None,
+        "success": True, "openid": openid, "user_id": None,
+        "is_bound": False, "account_state": "unbound", "token": token,
     }
 
 
