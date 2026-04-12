@@ -75,12 +75,13 @@ jobs:
           INSFORGE_BASE_URL: https://fake.insforge.app
           INSFORGE_ANON_KEY: fake-key-for-ci
 
-      - name: E2E tests
-        run: pytest tests/e2e/ -v --timeout=120 -k "not generate"
+      - name: E2E tests (no external API)
+        run: pytest tests/e2e/ -v --timeout=120 -k "not generate and not broadcast and not liquidity and not macro_cache and not macro_risk and not newsletter and not research and not stock_e2e and not stock_technical"
         env:
           ENVIRONMENT: test
           GOOGLE_API_KEY: fake-key-for-ci
           FMP_API_KEY: fake-key-for-ci
+          RESEND_API_KEY: fake-key-for-ci
           INSFORGE_BASE_URL: https://fake.insforge.app
           INSFORGE_ANON_KEY: fake-key-for-ci
 
