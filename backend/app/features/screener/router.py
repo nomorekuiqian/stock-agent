@@ -25,6 +25,7 @@ import time
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
@@ -348,6 +349,103 @@ async def filter_stocks(req: FilterRequest):
     )
 
 
+def _postprocess_agent_output(
+    parsed: Dict[str, Any],
+    universe: list[dict],
+    freshness: str | None = None,
+    is_valid: bool = True,
+) -> ResearchResult:
+    """Shared post-processing for agent output. Used by both /chat and /chat/stream."""
+    from app.features.screener.filters import filter_custom
+
+    agent_message = parsed.get("message", "")
+    options_raw = parsed.get("options", [])
+    filters = parsed.get("filters", [])
+    recommendations_raw = parsed.get("recommendations", [])
+    update_results = parsed.get("update_results", True)
+
+    options = [str(o) for o in options_raw if o]
+
+    # Execute filter only when agent signals a criteria change
+    candidates = []
+    total_matches = 0
+    reset_results = False
+    if filters and update_results:
+        filter_params = {
+            "filters": filters,
+            "sort_by": parsed.get("sort_by") or "market_cap",
+            "sort_order": parsed.get("sort_order") or "desc",
+            "limit": parsed.get("limit") or 500,
+        }
+        candidates, total_matches = filter_custom(universe, filter_params)
+        logger.info(
+            "Research filter: %d conditions -> %d matches (%d returned)",
+            len(filters), total_matches, len(candidates),
+        )
+    elif not filters and update_results:
+        reset_results = True
+        logger.info("Research reset: agent cleared all filters")
+    elif not update_results:
+        logger.info("Research chat turn: skipping filter (update_results=false)")
+
+    # Build lookup tables for symbol validation
+    ticker_set: set[str] = set()
+    name_to_ticker: dict[str, str] = {}
+    for s in universe:
+        raw_sym = s.get("symbol", "")
+        ticker = raw_sym.split(":")[-1] if raw_sym else ""
+        if ticker:
+            ticker_set.add(ticker.upper())
+        name = s.get("name", "")
+        if name and ticker:
+            name_to_ticker[name.lower()] = ticker
+
+    def _resolve_symbol(sym: str) -> str | None:
+        upper = sym.upper()
+        if upper in ticker_set:
+            return upper
+        if ":" in sym:
+            stripped = sym.split(":")[-1].upper()
+            if stripped in ticker_set:
+                return stripped
+        name_lower = sym.lower()
+        if name_lower in name_to_ticker:
+            return name_to_ticker[name_lower]
+        for candidate_name, candidate_ticker in name_to_ticker.items():
+            if name_lower in candidate_name or candidate_name in name_lower:
+                return candidate_ticker
+        for c in candidates:
+            c_name = c.get("name", "")
+            if c_name and (name_lower in c_name.lower() or c_name.lower() in name_lower):
+                c_sym = c.get("symbol", "")
+                return c_sym.split(":")[-1].upper() if c_sym else None
+        return None
+
+    recommendations = []
+    for pr in recommendations_raw:
+        if not isinstance(pr, dict) or "symbol" not in pr or "reason" not in pr:
+            continue
+        resolved = _resolve_symbol(pr["symbol"].strip())
+        if resolved:
+            recommendations.append({"symbol": resolved, "reason": pr["reason"]})
+
+    return ResearchResult(
+        success=True,
+        message=agent_message,
+        options=options,
+        candidates=candidates,
+        candidate_count=total_matches if total_matches else len(candidates),
+        universe_size=len(universe),
+        recommendations=recommendations,
+        accumulated_filters=filters,
+        reset_results=reset_results,
+        title=parsed.get("title", ""),
+        navigate=parsed.get("navigate"),
+        data_freshness=freshness,
+        is_stale=not is_valid,
+    )
+
+
 @router.post("/pick", response_model=ResearchResult)
 async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_token)):
     """
@@ -355,7 +453,6 @@ async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_t
     Each call is one turn in an ongoing conversation.
     The agent guides the user to find personalized stocks.
     """
-    from app.features.screener.filters import filter_custom
     from app.features.screener.research_agent import get_research_agent
 
     # Load universe
@@ -382,6 +479,7 @@ async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_t
             accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
             universe=universe,
             content_context=req.active_context,
+            user_id=user_id,
         )
     except Exception as e:
         logger.error("Research agent error: %s", e)
@@ -393,122 +491,8 @@ async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_t
             is_stale=not is_valid,
         )
 
-    # Extract agent output
-    agent_message = parsed.get("message", "")
-    options_raw = parsed.get("options", [])
-    filters = parsed.get("filters", [])
-    recommendations_raw = parsed.get("recommendations", [])
-    update_results = parsed.get("update_results", True)
-
-    # Convert options to plain strings
-    options = [str(o) for o in options_raw if o]
-
-    # Execute filter only when agent signals a criteria change
-    candidates = []
-    total_matches = 0
-    reset_results = False
-    if filters and update_results:
-        filter_params = {
-            "filters": filters,
-            "sort_by": parsed.get("sort_by") or "market_cap",
-            "sort_order": parsed.get("sort_order") or "desc",
-            "limit": parsed.get("limit") or 500,
-        }
-        candidates, total_matches = filter_custom(universe, filter_params)
-        logger.info(
-            "Research filter: %d conditions -> %d matches (%d returned)",
-            len(filters), total_matches, len(candidates),
-        )
-    elif not filters and update_results:
-        # Agent cleared all filters (e.g. "change direction") -> reset results
-        reset_results = True
-        logger.info("Research reset: agent cleared all filters")
-    elif not update_results:
-        logger.info("Research chat turn: skipping filter (update_results=false)")
-
-    # Build lookup tables for symbol validation
-    ticker_set: set[str] = set()
-    name_to_ticker: dict[str, str] = {}
-    for s in universe:
-        raw_sym = s.get("symbol", "")
-        ticker = raw_sym.split(":")[-1] if raw_sym else ""
-        if ticker:
-            ticker_set.add(ticker.upper())
-        name = s.get("name", "")
-        if name and ticker:
-            name_to_ticker[name.lower()] = ticker
-
-    def _resolve_symbol(sym: str) -> str | None:
-        """Resolve agent symbol output to a valid ticker."""
-        upper = sym.upper()
-
-        # Direct ticker match
-        if upper in ticker_set:
-            return upper
-
-        # Strip exchange prefix (e.g. "NASDAQ:AAPL" -> "AAPL")
-        if ":" in sym:
-            stripped = sym.split(":")[-1].upper()
-            if stripped in ticker_set:
-                return stripped
-
-        # Company name -> ticker reverse lookup
-        name_lower = sym.lower()
-        if name_lower in name_to_ticker:
-            return name_to_ticker[name_lower]
-
-        # Fuzzy name match (contains)
-        for candidate_name, candidate_ticker in name_to_ticker.items():
-            if name_lower in candidate_name or candidate_name in name_lower:
-                return candidate_ticker
-
-        # Fallback: search current candidates by name
-        for c in candidates:
-            c_name = c.get("name", "")
-            if c_name and (
-                name_lower in c_name.lower() or c_name.lower() in name_lower
-            ):
-                c_sym = c.get("symbol", "")
-                return c_sym.split(":")[-1].upper() if c_sym else None
-
-        return None
-
-    # Format recommendations with symbol validation
-    recommendations = []
-    for pr in recommendations_raw:
-        if not isinstance(pr, dict) or "symbol" not in pr or "reason" not in pr:
-            continue
-        sym = pr["symbol"].strip()
-        reason = pr["reason"]
-
-        resolved = _resolve_symbol(sym)
-        if resolved:
-            recommendations.append({"symbol": resolved, "reason": reason})
-        else:
-            logger.warning("Research agent output unresolvable symbol: %s", sym)
-
-    logger.info(
-        "Research final: candidates=%d, total_matches=%d, recommendations=%d, "
-        "agent_recommendations_raw=%d, options=%d",
-        len(candidates), total_matches, len(recommendations),
-        len(recommendations_raw), len(options),
-    )
-
-    return ResearchResult(
-        success=True,
-        message=agent_message,
-        options=options,
-        candidates=candidates,
-        candidate_count=total_matches if total_matches else len(candidates),
-        universe_size=len(universe),
-        recommendations=recommendations,
-        accumulated_filters=filters,
-        reset_results=reset_results,
-        title=parsed.get("title", ""),
-        navigate=parsed.get("navigate"),
-        data_freshness=freshness,
-        is_stale=not is_valid,
-    )
+    result = _postprocess_agent_output(parsed, universe, freshness, is_valid)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -671,3 +655,83 @@ async def research_delete_conversation(
     """Delete a research conversation (new endpoint)."""
     logger.info("research_delete_conversation called (new endpoint)")
     return await delete_conversation(conversation_id, user_id)
+
+
+# ---------------------------------------------------------------------------
+# SSE Streaming Endpoint
+# ---------------------------------------------------------------------------
+
+
+@research_router.post("/chat/stream")
+async def research_chat_stream(
+    req: ResearchRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """SSE streaming research chat.
+
+    Uses ADK's before_tool_callback/after_tool_callback for tool events
+    and RunConfig(streaming_mode=SSE) for streaming. All orchestration
+    lives in ResearchAgent.run_stream().
+    """
+    import json as _json
+
+    from app.features.screener.research_agent import get_research_agent
+
+    logger.info("research_chat_stream called by user %s", user_id[:12])
+
+    cache = await _load_universe()
+    universe = cache["universe"]
+
+    if not universe:
+        async def error_stream():
+            yield "data: %s\n\n" % _json.dumps(
+                {"type": "error", "message": "数据还没准备好，请稍等一下再试"},
+                ensure_ascii=False,
+            )
+        return StreamingResponse(error_stream(), media_type="text/event-stream")
+
+    agent = get_research_agent()
+
+    async def event_generator():
+        from app.features.screener.agent import _current_universe
+        from app.features.screener.research_agent import _recent_reports
+
+        _current_universe.set(universe if universe else [])
+
+        try:
+            from app.features.daily_report.db import list_reports
+            reports_result = await list_reports(limit=7, offset=0)
+            _recent_reports.set(reports_result.get("data", []) if reports_result else [])
+        except Exception:
+            _recent_reports.set([])
+
+        # Reuse guide()'s prompt building
+        prompt = await agent.build_prompt(
+            message=req.message,
+            history=req.history if req.history else None,
+            accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
+            universe_size=len(universe),
+            content_context=req.active_context,
+            user_id=user_id,
+        )
+
+        freshness = cache.get("freshness")
+        is_valid = cache.get("is_valid", True)
+
+        try:
+            async for event in agent.run_stream(prompt, universe):
+                if event.get("type") == "done":
+                    # Apply same post-processing as /chat (filter, symbol resolve, etc.)
+                    parsed = event.get("parsed", {})
+                    result = _postprocess_agent_output(parsed, universe, freshness, is_valid)
+                    yield "data: %s\n\n" % _json.dumps(
+                        {"type": "done", "result": result.model_dump()},
+                        ensure_ascii=False, default=str,
+                    )
+                else:
+                    yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
+        finally:
+            _current_universe.set([])
+            _recent_reports.set([])
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
