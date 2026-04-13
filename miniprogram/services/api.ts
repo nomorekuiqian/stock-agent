@@ -3,11 +3,11 @@ import { getToken } from '../utils/storage';
 // Change this to your backend URL
 // Development: use local IP or ngrok
 // Production: use your deployed backend URL
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'https://simona-spanaemic-jules.ngrok-free.dev/api';
 
 // Change this to your frontend URL for WebView
 // const WEB_BASE_URL = 'http://localhost:3000';
-const WEB_BASE_URL = 'https://themarketbrew.com';
+const WEB_BASE_URL = 'https://swift-sheep-dress.loca.lt';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -20,6 +20,7 @@ export function request<T = unknown>(path: string, options: RequestOptions = {})
 
   const header: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...(BASE_URL.includes('ngrok') && { 'ngrok-skip-browser-warning': 'true' }),
   };
 
   if (needAuth) {

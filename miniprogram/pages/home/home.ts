@@ -51,13 +51,13 @@ Page({
     this.setData({ loading: true });
     try {
       const result = await request<{ success: boolean; cards: HomeCard[] }>('/wechat/home-cards');
-      if (result.success) {
+      if (result.success && result.cards?.length > 0) {
         this.setData({
           cards: result.cards.map(enrichCard),
           loading: false,
         });
       } else {
-        this.setData({ loading: false });
+        throw new Error('API returned no cards');
       }
     } catch (err) {
       console.error('Failed to load home cards, using fallback:', err);
