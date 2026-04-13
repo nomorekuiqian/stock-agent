@@ -76,224 +76,188 @@ export default function ContactPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-mesh pointer-events-none" />
-        <div className="absolute inset-0 bg-dot-pattern pointer-events-none opacity-50" />
+      <div className="max-w-lg mx-auto px-5 pt-16 pb-20 md:pt-24 md:pb-28">
+        {/* Back link */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-10"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          返回首页
+        </Link>
 
-        <div className="relative max-w-4xl mx-auto px-4 md:px-6 pt-20 pb-16 md:pt-28 md:pb-20">
-          {/* Header */}
-          <div className="text-center mb-12 md:mb-16">
-            <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
-              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">Contact</span>
+        {/* Header — compact, left-aligned */}
+        <div className="mb-8">
+          <h1 className="font-editorial text-2xl md:text-3xl text-foreground leading-tight mb-2">
+            联系我们
+          </h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            有问题或建议？直接告诉我们
+          </p>
+        </div>
+
+        {/* Form */}
+        {submitStatus === 'success' ? (
+          <div className="rounded-xl border border-border bg-card p-6 md:p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-6 h-6 text-primary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
             </div>
-
-            <h1 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.1] mb-4 animate-fade-in-up delay-100">
-              联系我们
-            </h1>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto leading-relaxed animate-fade-in-up delay-200">
-              有问题或建议？直接告诉我们
+            <h2 className="text-base font-medium text-foreground mb-1.5">感谢您的反馈！</h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              您的意见对我们非常重要，我们会认真阅读每一条反馈。
             </p>
+            <button
+              onClick={() => setSubmitStatus('idle')}
+              className="text-sm text-primary hover:text-primary/80 transition-colors"
+            >
+              继续提交反馈
+            </button>
           </div>
-
-          {/* Feedback Form */}
-          <div className="max-w-md mx-auto mb-12">
-            {submitStatus === 'success' ? (
-              <div className="terminal-card p-6 md:p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
-                  <svg
-                    className="w-8 h-8 text-primary"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+        ) : (
+          <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Rating Selection */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2.5">
+                  您对产品的整体评价 <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {ratingOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, rating: option.value })}
+                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg border transition-all ${
+                        formData.rating === option.value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border hover:border-muted-foreground/50 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d={option.icon}
+                        />
+                      </svg>
+                      <span className="text-xs">{option.label}</span>
+                    </button>
+                  ))}
                 </div>
-                <h2 className="text-lg font-medium text-foreground mb-2">感谢您的反馈！</h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  您的意见对我们非常重要，我们会认真阅读每一条反馈。
-                </p>
-                <button
-                  onClick={() => setSubmitStatus('idle')}
-                  className="text-sm text-primary hover:text-primary/80 transition-colors"
-                >
-                  继续提交反馈
-                </button>
               </div>
-            ) : (
-              <div className="terminal-card p-6 md:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+
+              {/* Email Input */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
+                  邮箱 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="your@email.com"
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm text-foreground placeholder:text-muted-foreground/50"
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">方便我们回复您的反馈</p>
+              </div>
+
+              {/* Message Textarea */}
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1.5">
+                  详细反馈 <span className="text-muted-foreground font-normal">（选填）</span>
+                </label>
+                <textarea
+                  id="message"
+                  rows={4}
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  placeholder="告诉我们更多您的想法..."
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm text-foreground placeholder:text-muted-foreground/50 resize-none"
+                />
+              </div>
+
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
+                  {errorMessage}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isSubmitting || !formData.rating || !formData.email}
+                className="w-full py-2.5 px-4 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
                     <svg
-                      className="w-6 h-6 text-primary"
+                      className="animate-spin h-4 w-4"
                       fill="none"
-                      stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
                       <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-medium text-foreground">用户反馈</h2>
-                    <p className="text-sm text-muted-foreground">您的使用体验如何？</p>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Rating Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">
-                      您对产品的整体评价 <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {ratingOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, rating: option.value })}
-                          className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
-                            formData.rating === option.value
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border hover:border-muted-foreground/50 text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          <svg
-                            className="w-6 h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d={option.icon}
-                            />
-                          </svg>
-                          <span className="text-xs">{option.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Email Input */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                      邮箱 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="your@email.com"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-foreground placeholder:text-muted-foreground/50"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">方便我们回复您的反馈</p>
-                  </div>
-
-                  {/* Message Textarea */}
-                  <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">
-                      详细反馈 <span className="text-muted-foreground">（选填）</span>
-                    </label>
-                    <textarea
-                      id="message"
-                      rows={4}
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      placeholder="告诉我们更多您的想法..."
-                      className="w-full px-4 py-2.5 rounded-lg bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-foreground placeholder:text-muted-foreground/50 resize-none"
-                    />
-                  </div>
-
-                  {/* Error Message */}
-                  {errorMessage && (
-                    <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
-                      {errorMessage}
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !formData.rating || !formData.email}
-                    className="w-full py-3 px-4 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg
-                          className="animate-spin h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        提交中...
-                      </>
-                    ) : (
-                      '提交反馈'
-                    )}
-                  </button>
-                </form>
-              </div>
-            )}
+                    提交中...
+                  </>
+                ) : (
+                  '提交反馈'
+                )}
+              </button>
+            </form>
           </div>
+        )}
 
-          {/* Navigation Links */}
-          <div className="text-center">
-            <div className="inline-flex items-center gap-6 text-sm text-muted-foreground">
-              <Link
-                href="/"
-                className="hover:text-foreground transition-colors flex items-center gap-1.5"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                返回首页
-              </Link>
-              <span className="text-border">|</span>
-              <Link href="/today" className="hover:text-foreground transition-colors">
-                今日报告
-              </Link>
-              <span className="text-border">|</span>
-              <Link href="/#subscribe" className="hover:text-foreground transition-colors">
-                订阅日报
-              </Link>
-            </div>
-          </div>
+        {/* Secondary links — generous top spacing, subtle */}
+        <div className="mt-8 flex items-center gap-4 text-xs text-muted-foreground">
+          <Link href="/today" className="hover:text-foreground transition-colors">
+            今日报告
+          </Link>
+          <span className="w-px h-3 bg-border" />
+          <Link href="/#subscribe" className="hover:text-foreground transition-colors">
+            订阅日报
+          </Link>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
