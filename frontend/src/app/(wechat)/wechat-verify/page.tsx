@@ -39,11 +39,11 @@ function tryRedirectToMiniProgram(): boolean {
 
 function WechatVerifyContent() {
   const searchParams = useSearchParams();
+  const token = searchParams.get('t');
   const [state, setState] = useState<VerifyState>('verifying');
   const [redirected, setRedirected] = useState(false);
 
   useEffect(() => {
-    const token = searchParams.get('t');
     if (!token) {
       setState('error_no_token');
       return;
@@ -64,7 +64,7 @@ function WechatVerifyContent() {
       .catch(() => {
         setState('error_invalid');
       });
-  }, [searchParams]);
+  }, [token]);
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6">
