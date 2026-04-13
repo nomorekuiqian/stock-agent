@@ -1,27 +1,35 @@
-import { wechatLogin, bindAccount } from '../../services/auth';
+import { wechatLogin, registerRequest, refreshLogin } from '../../services/auth';
 import { buildWebViewUrl } from '../../services/api';
 import { setToken } from '../../utils/storage';
 
+type LoginView = 'login' | 'register' | 'pending';
+
 Page({
   data: {
+    view: 'login' as LoginView,
     loading: false,
-    showBind: false,
-    bindEmail: '',
-    bindPassword: '',
-    bindError: '',
+    registerEmail: '',
+    registerError: '',
   },
 
   onLoad(options: Record<string, string>) {
-    // Handle token callback from WebView login
+    // Token callback from WebView email login
     if (options.token) {
       setToken(options.token);
       wx.switchTab({ url: '/pages/home/home' });
+      return;
+    }
+    // Redirected back from /wechat-verify in WeChat browser after email confirmation
+    if (options.verified) {
+      this.doRefreshLogin();
     }
   },
 
+  // ------------------------------------------------------------------
+  // WeChat 一键登录
+  // ------------------------------------------------------------------
   async onWechatLogin() {
     this.setData({ loading: true });
-
     const result = await wechatLogin();
 
     if (!result.success) {
@@ -30,45 +38,81 @@ Page({
       return;
     }
 
-    if (result.is_bound) {
+    // bound or email_only → can use the app directly
+    if (result.account_state === 'bound' || result.account_state === 'email_only') {
       wx.switchTab({ url: '/pages/home/home' });
-    } else {
-      this.setData({ loading: false, showBind: true });
-    }
-  },
-
-  onEmailLogin() {
-    const url = buildWebViewUrl('/wechat-login-callback');
-    wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(url)}` });
-  },
-
-  onBindEmailInput(e: WechatMiniprogram.Input) {
-    this.setData({ bindEmail: e.detail.value });
-  },
-
-  onBindPasswordInput(e: WechatMiniprogram.Input) {
-    this.setData({ bindPassword: e.detail.value });
-  },
-
-  async onBind() {
-    const { bindEmail, bindPassword } = this.data;
-    if (!bindEmail || !bindPassword) {
-      this.setData({ bindError: '请输入邮箱和密码' });
       return;
     }
 
-    this.setData({ loading: true, bindError: '' });
-    const result = await bindAccount(bindEmail, bindPassword);
+    // unbound → show OTP registration form
+    this.setData({ loading: false, view: 'register' });
+  },
+
+  // ------------------------------------------------------------------
+  // 邮箱注册 (register view)
+  // ------------------------------------------------------------------
+  onEmailInput(e: WechatMiniprogram.Input) {
+    this.setData({ registerEmail: e.detail.value, registerError: '' });
+  },
+
+  async onSendVerification() {
+    const email = this.data.registerEmail.trim();
+    if (!email || !email.includes('@')) {
+      this.setData({ registerError: '请输入有效的邮箱地址' });
+      return;
+    }
+
+    this.setData({ loading: true, registerError: '' });
+    const result = await registerRequest(email);
 
     if (result.success) {
-      wx.showToast({ title: '绑定成功', icon: 'success' });
-      wx.switchTab({ url: '/pages/home/home' });
+      this.setData({ loading: false, view: 'pending' });
     } else {
-      this.setData({ loading: false, bindError: result.error || '绑定失败' });
+      const msg = result.error || '发送失败，请稍后重试';
+      const friendlyMsg = msg.includes('1/minute') ? '发送太频繁，请 1 分钟后重试' : msg;
+      this.setData({ loading: false, registerError: friendlyMsg });
     }
   },
 
-  onSkipBind() {
+  onSkip() {
     wx.switchTab({ url: '/pages/home/home' });
+  },
+
+  // ------------------------------------------------------------------
+  // 等待验证 (pending view)
+  // ------------------------------------------------------------------
+  async onVerifiedTap() {
+    this.setData({ loading: true });
+    await this.doRefreshLogin();
+  },
+
+  async doRefreshLogin() {
+    const result = await refreshLogin();
+
+    if (!result.success) {
+      this.setData({ loading: false });
+      wx.showToast({ title: '刷新登录失败，请重试', icon: 'none' });
+      return;
+    }
+
+    if (result.account_state === 'bound' || result.account_state === 'email_only') {
+      wx.switchTab({ url: '/pages/home/home' });
+    } else {
+      // Still unbound — user hasn't verified yet
+      this.setData({ loading: false });
+      wx.showToast({ title: '验证尚未完成，请检查邮箱', icon: 'none' });
+    }
+  },
+
+  onResendVerification() {
+    this.setData({ view: 'register', registerError: '' });
+  },
+
+  // ------------------------------------------------------------------
+  // 邮箱登录 (WebView fallback)
+  // ------------------------------------------------------------------
+  onEmailLogin() {
+    const url = buildWebViewUrl('/wechat-login-callback');
+    wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(url)}` });
   },
 });

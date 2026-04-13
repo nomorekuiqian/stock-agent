@@ -3,16 +3,13 @@
 <view class="container login-page">
   <!-- Brand Section -->
   <view class="brand-section">
-    <!-- Logo bars -->
     <view class="brand-logo">
       <view class="brand-bar brand-bar-1"></view>
       <view class="brand-bar brand-bar-2"></view>
       <view class="brand-bar brand-bar-3"></view>
       <view class="brand-bar brand-bar-4"></view>
     </view>
-
     <view class="brand-name">TheMarketBrew</view>
-
     <view class="editorial-label" style="justify-content: center;">
       <view class="editorial-line"></view>
       <text class="text-label">MARKET INTELLIGENCE</text>
@@ -20,58 +17,65 @@
     </view>
   </view>
 
-  <!-- Login Buttons (before WeChat login) -->
-  <view class="login-actions" wx:if="{{!showBind}}">
+  <!-- view: login — 初始登录按钮 -->
+  <view class="login-actions" wx:if="{{view === 'login'}}">
     <view class="btn-primary" bind:tap="onWechatLogin">
       <text wx:if="{{loading}}">登录中...</text>
       <text wx:else>微信一键登录</text>
     </view>
-
     <view class="btn-secondary" bind:tap="onEmailLogin" style="margin-top: 24rpx;">
       使用邮箱登录
     </view>
+    <view class="login-hint">登录即表示同意我们的服务条款</view>
+  </view>
 
-    <view class="login-hint">
-      登录即表示同意我们的服务条款
+  <!-- view: register — 邮箱输入 -->
+  <view class="register-section" wx:if="{{view === 'register'}}">
+    <view class="section-header">
+      <view class="section-icon-wrap">
+        <text class="section-icon-text">✓</text>
+      </view>
+      <view class="section-title">微信登录成功</view>
+      <view class="section-desc">输入邮箱以接收验证链接，或跳过直接使用</view>
+    </view>
+
+    <view class="register-form">
+      <input
+        class="input-field"
+        type="email"
+        placeholder="请输入邮箱"
+        placeholder-class="input-field-placeholder"
+        value="{{registerEmail}}"
+        bindinput="onEmailInput"
+      />
+      <view class="register-error" wx:if="{{registerError}}">{{registerError}}</view>
+      <view class="btn-primary" bind:tap="onSendVerification">
+        <text wx:if="{{loading}}">发送中...</text>
+        <text wx:else>发送验证邮件</text>
+      </view>
+      <view class="btn-ghost" bind:tap="onSkip">跳过，直接使用</view>
     </view>
   </view>
 
-  <!-- Bind existing account (after WeChat login, unbound) -->
-  <view class="bind-section" wx:if="{{showBind}}">
-    <view class="bind-header">
-      <view class="bind-icon-wrap">
-        <text class="bind-icon-check">✓</text>
+  <!-- view: pending — 等待验证 -->
+  <view class="pending-section" wx:if="{{view === 'pending'}}">
+    <view class="section-header">
+      <view class="pending-icon-wrap">
+        <text class="pending-icon">✉</text>
       </view>
-      <view class="bind-title">微信登录成功</view>
-      <view class="bind-desc">绑定已有账号可同步数据，或跳过直接使用</view>
+      <view class="section-title">验证邮件已发送</view>
+      <view class="section-desc">请在 5 分钟内点击邮件中的验证链接，然后返回点击下方按钮</view>
     </view>
 
-    <view class="bind-form">
-      <input
-        class="input-field"
-        type="text"
-        placeholder="邮箱"
-        placeholder-class="input-field-placeholder"
-        value="{{bindEmail}}"
-        bindinput="onBindEmailInput"
-      />
-      <input
-        class="input-field"
-        type="password"
-        placeholder="密码"
-        placeholder-class="input-field-placeholder"
-        value="{{bindPassword}}"
-        bindinput="onBindPasswordInput"
-      />
-
-      <view class="bind-error" wx:if="{{bindError}}">{{bindError}}</view>
-
-      <view class="btn-primary" bind:tap="onBind">
-        <text wx:if="{{loading}}">绑定中...</text>
-        <text wx:else>绑定账号</text>
+    <view class="pending-actions">
+      <view class="btn-primary" bind:tap="onVerifiedTap">
+        <text wx:if="{{loading}}">验证中...</text>
+        <text wx:else>我已完成验证</text>
       </view>
-
-      <view class="btn-ghost" bind:tap="onSkipBind">跳过，直接使用</view>
+      <view class="btn-secondary" bind:tap="onResendVerification" style="margin-top: 24rpx;">
+        重新发送
+      </view>
+      <view class="btn-ghost" bind:tap="onSkip">跳过，直接使用</view>
     </view>
   </view>
 </view>
