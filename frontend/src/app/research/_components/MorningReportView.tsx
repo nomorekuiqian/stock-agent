@@ -52,15 +52,19 @@ export default function MorningReportView({
     error: dateError,
   } = useMorningReportByDate(date ?? '');
 
+  // Always fetch latest as fallback (no conditional disable)
   const {
     data: latestReport,
     isLoading: latestLoading,
     error: latestError,
-  } = useMorningReportLatest(!hasDate);
+  } = useMorningReportLatest();
 
-  const report = hasDate ? dateReport : latestReport;
-  const isLoading = hasDate ? dateLoading : latestLoading;
-  const error = hasDate ? dateError : latestError;
+  // Fall back to latest if date-specific query fails or returns nothing
+  const dateQueryDone = hasDate && !dateLoading;
+  const dateQueryFailed = dateQueryDone && (!!dateError || !dateReport);
+  const report = (hasDate && !dateQueryFailed) ? dateReport : latestReport;
+  const isLoading = hasDate ? (dateLoading || (dateQueryFailed && latestLoading)) : latestLoading;
+  const error = dateQueryFailed ? latestError : (hasDate ? dateError : latestError);
 
   // Build context payload for parent when data is ready
   useEffect(() => {

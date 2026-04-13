@@ -60,11 +60,13 @@ export default function DailyReportView({
     error: latestError,
   } = useLatestReport();
 
-  // Determine which report to show
+  // Determine which report to show — fall back to latest if date-specific query fails or returns nothing
   const hasDate = !!date;
-  const report = hasDate ? dateReport : latestReport;
-  const isLoading = hasDate ? dateLoading : latestLoading;
-  const error = hasDate ? dateError : latestError;
+  const dateQueryDone = hasDate && !dateLoading;
+  const dateQueryFailed = dateQueryDone && (!!dateError || !dateReport);
+  const report = (hasDate && !dateQueryFailed) ? dateReport : latestReport;
+  const isLoading = hasDate ? (dateLoading || (dateQueryFailed && latestLoading)) : latestLoading;
+  const error = dateQueryFailed ? latestError : (hasDate ? dateError : latestError);
 
   // Build context payload for parent
   useEffect(() => {
