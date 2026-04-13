@@ -158,7 +158,7 @@ class TestBindAccount:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "access_token": "jwt_token_123",
+            "accessToken": "jwt_token_123",
             "user": {"id": "uid_456"},
         }
 
