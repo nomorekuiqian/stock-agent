@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatTimestamp } from '@/lib/timezone';
 
-type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
+type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report' | 'onboarding';
 
 function EmailTestContent() {
   const searchParams = useSearchParams();
@@ -45,6 +45,12 @@ function EmailTestContent() {
   } | null>(null);
   const [weekLabel, setWeekLabel] = useState(weekParam || '');
 
+  // Onboarding state (-1 = welcome email, 0+ = drip days)
+  const [onboardingHtml, setOnboardingHtml] = useState<string>('');
+  const [onboardingDay, setOnboardingDay] = useState(-1);
+  const [onboardingSubject, setOnboardingSubject] = useState('');
+  const [onboardingDays, setOnboardingDays] = useState<number[]>([1, 3, 7, 11, 14]);
+
   // Common state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +66,10 @@ function EmailTestContent() {
       loadEmailPreview(reportIdParam || undefined, user?.name);
     } else if (activeChannel === 'personal_digest') {
       loadDigestPreview({ userId: user?.id, digestId: digestIdParam || undefined });
-    } else {
+    } else if (activeChannel === 'weekly_report') {
       loadWeeklyPreview({ week: weekParam || undefined, firstName: user?.name });
+    } else {
+      loadOnboardingPreview(onboardingDay);
     }
   }, [reportIdParam, digestIdParam, weekParam, activeChannel, user?.name, user?.id]);
 
@@ -120,6 +128,30 @@ function EmailTestContent() {
     }
   };
 
+  const loadOnboardingPreview = async (day: number = -1) => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (day === -1) {
+        // Welcome email
+        const result = await api.getWelcomePreview({ firstName: user?.name, email: user?.email });
+        setOnboardingHtml(result.html);
+        setOnboardingSubject(result.subject);
+        setOnboardingDay(-1);
+      } else {
+        const result = await api.getOnboardingPreview(day, user?.name);
+        setOnboardingHtml(result.html);
+        setOnboardingSubject(result.subject);
+        setOnboardingDay(result.day);
+        if (result.valid_days) setOnboardingDays(result.valid_days);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load onboarding preview');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendTestEmail = async () => {
     if (!email) {
       setSendResult({ success: false, message: '请输入邮箱地址' });
@@ -145,10 +177,15 @@ function EmailTestContent() {
             ? `周报已发送至 ${result.sent_to}`
             : result.message || '发送失败',
         });
-      } else {
+      } else if (activeChannel === 'personal_digest') {
         setSendResult({
           success: false,
           message: '个人摘要暂不支持发送测试，请使用广播功能。',
+        });
+      } else {
+        setSendResult({
+          success: false,
+          message: 'Onboarding 邮件暂不支持发送测试，请通过 cron 端点触发。',
         });
       }
     } catch (err) {
@@ -169,8 +206,10 @@ function EmailTestContent() {
       loadEmailPreview(reportId || undefined, user?.name);
     } else if (channel === 'personal_digest') {
       loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
-    } else {
+    } else if (channel === 'weekly_report') {
       loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name });
+    } else {
+      loadOnboardingPreview(onboardingDay);
     }
   };
 
@@ -179,8 +218,10 @@ function EmailTestContent() {
       loadEmailPreview(reportId || undefined, user?.name);
     } else if (activeChannel === 'personal_digest') {
       loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
-    } else {
+    } else if (activeChannel === 'weekly_report') {
       loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name });
+    } else {
+      loadOnboardingPreview(onboardingDay);
     }
   };
 
@@ -189,14 +230,20 @@ function EmailTestContent() {
       ? emailHtml
       : activeChannel === 'personal_digest'
         ? digestHtml
-        : weeklyHtml;
+        : activeChannel === 'weekly_report'
+          ? weeklyHtml
+          : onboardingHtml;
 
   const channelLabel =
     activeChannel === 'daily_report'
       ? 'Daily Report'
       : activeChannel === 'personal_digest'
         ? 'Personal Digest'
-        : 'Weekly Report';
+        : activeChannel === 'weekly_report'
+          ? 'Weekly Report'
+          : onboardingDay === -1
+            ? 'Welcome Email'
+            : `Onboarding (Day ${onboardingDay})`;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -275,6 +322,21 @@ function EmailTestContent() {
                 Weekly Report
               </div>
             </button>
+            <button
+              onClick={() => handleChannelChange('onboarding')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeChannel === 'onboarding'
+                  ? 'bg-primary/10 text-primary border-primary/30'
+                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Onboarding
+              </div>
+            </button>
           </div>
         </div>
       </section>
@@ -338,7 +400,7 @@ function EmailTestContent() {
             {/* Info Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : 'Weekly Report Info'}
+                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : activeChannel === 'weekly_report' ? 'Weekly Report Info' : 'Onboarding Info'}
               </h2>
               {loading ? (
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
@@ -421,6 +483,19 @@ function EmailTestContent() {
                     </span>
                   </div>
                 </div>
+              ) : activeChannel === 'onboarding' ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Type</span>
+                    <span className="text-gray-900 font-medium">
+                      {onboardingDay === -1 ? 'Welcome' : `Day ${onboardingDay}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Subject</span>
+                    <span className="text-gray-900 font-medium text-xs">{onboardingSubject}</span>
+                  </div>
+                </div>
               ) : (
                 <p className="text-sm text-gray-400">暂无数据</p>
               )}
@@ -484,7 +559,7 @@ function EmailTestContent() {
                       </button>
                     </div>
                   </>
-                ) : (
+                ) : activeChannel === 'weekly_report' ? (
                   <>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">
                       Load Specific Week
@@ -504,6 +579,39 @@ function EmailTestContent() {
                       >
                         Load
                       </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Select Email
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => { setOnboardingDay(-1); loadOnboardingPreview(-1); }}
+                        disabled={loading}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          onboardingDay === -1
+                            ? 'bg-primary text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        } disabled:opacity-50`}
+                      >
+                        Welcome
+                      </button>
+                      {onboardingDays.map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => { setOnboardingDay(d); loadOnboardingPreview(d); }}
+                          disabled={loading}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            onboardingDay === d
+                              ? 'bg-primary text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          } disabled:opacity-50`}
+                        >
+                          Day {d}
+                        </button>
+                      ))}
                     </div>
                   </>
                 )}
