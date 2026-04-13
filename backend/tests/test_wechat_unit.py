@@ -467,3 +467,182 @@ class TestRegisterConfirm:
         assert result["success"] is True
         assert result["account_state"] == "email_only"
         mock_db.update_email_verified.assert_called_once_with(openid="o_new", email="new@test.com")
+
+
+# ---------------------------------------------------------------------------
+# TestRegisterService — additional service-level tests
+# ---------------------------------------------------------------------------
+
+class TestRegisterService:
+
+    def setup_method(self):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        try:
+            from app.features.wechat import jwt_utils
+            jwt_utils._used_otp_tokens.clear()
+        except Exception:
+            pass
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service._send_otp_email")
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email")
+    async def test_register_request_new_user(self, mock_lookup, mock_email):
+        """新邮箱 → action=create_new，发一封邮件。"""
+        from app.features.wechat.service import register_request
+
+        mock_lookup.return_value = None
+        mock_email.return_value = None
+
+        result = await register_request(openid="o_new", email="new@example.com")
+
+        assert result["success"] is True
+        assert result["action"] == "create_new"
+        mock_email.assert_called_once()
+        _args, kwargs = mock_email.call_args
+        assert kwargs.get("email") == "new@example.com"
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service._send_otp_email")
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email")
+    async def test_register_request_existing_user(self, mock_lookup, mock_email):
+        """已有 Insforge 账号 → action=bind_existing。"""
+        from app.features.wechat.service import register_request
+
+        mock_lookup.return_value = "uid_existing_123"
+        mock_email.return_value = None
+
+        result = await register_request(openid="o_ex", email="existing@example.com")
+
+        assert result["success"] is True
+        assert result["action"] == "bind_existing"
+        mock_email.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service.db")
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email")
+    async def test_register_confirm_create_new(self, mock_lookup, mock_db):
+        """有效 create_new token → update_email_verified 被调用。"""
+        from app.features.wechat.service import register_confirm
+        from app.features.wechat.jwt_utils import generate_otp_token
+
+        token = generate_otp_token(email="new@example.com", openid="o_cn", action="create_new")
+        mock_db.update_email_verified = AsyncMock(return_value={"success": True})
+
+        result = await register_confirm(otp_token=token)
+
+        assert result["success"] is True
+        assert result["account_state"] == "email_only"
+        mock_db.update_email_verified.assert_called_once_with(
+            openid="o_cn", email="new@example.com"
+        )
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service.db")
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email")
+    async def test_register_confirm_bind_existing(self, mock_lookup, mock_db):
+        """有效 bind_existing token → bind_insforge_user 被调用。"""
+        from app.features.wechat.service import register_confirm
+        from app.features.wechat.jwt_utils import generate_otp_token
+
+        token = generate_otp_token(email="ex@example.com", openid="o_be", action="bind_existing")
+        mock_lookup.return_value = "uid_insforge_456"
+        mock_db.bind_insforge_user = AsyncMock(return_value={"success": True})
+
+        result = await register_confirm(otp_token=token)
+
+        assert result["success"] is True
+        assert result["account_state"] == "bound"
+        mock_db.bind_insforge_user.assert_called_once_with(
+            openid="o_be", insforge_user_id="uid_insforge_456"
+        )
+
+    @pytest.mark.asyncio
+    async def test_register_confirm_expired_token(self):
+        """过期 token → success=False, error 含 "过期"。"""
+        from app.features.wechat.service import register_confirm
+
+        with patch("app.features.wechat.service.verify_otp_token") as mock_verify:
+            mock_verify.return_value = {"valid": False, "reason": "expired"}
+            result = await register_confirm(otp_token="fake.expired.token")
+
+        assert result["success"] is False
+        assert "过期" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_register_confirm_already_used_token(self):
+        """已使用 token → success=False, error 含 "已使用"。"""
+        from app.features.wechat.service import register_confirm
+
+        with patch("app.features.wechat.service.verify_otp_token") as mock_verify:
+            mock_verify.return_value = {"valid": False, "reason": "already_used"}
+            result = await register_confirm(otp_token="fake.used.token")
+
+        assert result["success"] is False
+        assert "已使用" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# TestRegisterRouter — HTTP endpoint tests
+# ---------------------------------------------------------------------------
+
+class TestRegisterRouter:
+
+    def setup_method(self):
+        import os
+        os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+
+    def _make_wechat_jwt(self, typ="wechat_unbound", openid="o_test"):
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        return sign_wechat_jwt(sub=openid, typ=typ, exp_days=1)
+
+    def test_register_request_requires_auth(self):
+        from fastapi.testclient import TestClient
+        from app.main import app
+        client = TestClient(app)
+        resp = client.post("/api/wechat/register/request", json={"email": "a@b.com"})
+        assert resp.status_code == 401
+
+    @patch("app.features.wechat.router.service.register_request")
+    def test_register_request_success(self, mock_svc):
+        mock_svc.return_value = {"success": True, "action": "create_new"}
+
+        from fastapi.testclient import TestClient
+        from app.main import app
+        token = self._make_wechat_jwt()
+        client = TestClient(app)
+        resp = client.post(
+            "/api/wechat/register/request",
+            json={"email": "new@example.com"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["action"] == "create_new"
+
+    @patch("app.features.wechat.router.service.register_confirm")
+    def test_register_confirm_success(self, mock_svc):
+        mock_svc.return_value = {"success": True, "account_state": "email_only"}
+
+        from fastapi.testclient import TestClient
+        from app.main import app
+        client = TestClient(app)
+        resp = client.post(
+            "/api/wechat/register/confirm",
+            json={"otp_token": "valid.token"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["account_state"] == "email_only"
+
+    @patch("app.features.wechat.router.service.register_confirm")
+    def test_register_confirm_error_returns_400(self, mock_svc):
+        mock_svc.return_value = {"success": False, "error": "验证链接已过期，请重新发送"}
+
+        from fastapi.testclient import TestClient
+        from app.main import app
+        client = TestClient(app)
+        resp = client.post(
+            "/api/wechat/register/confirm",
+            json={"otp_token": "expired.token"},
+        )
+        assert resp.status_code == 400
+        assert "过期" in resp.json()["detail"]
