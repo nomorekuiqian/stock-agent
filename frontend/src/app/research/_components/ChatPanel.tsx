@@ -70,27 +70,27 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-4"
       >
         {messages.map((msg, i) => (
-          <div key={msg.id}>
-            <ChatMessage
-              role={msg.role}
-              content={msg.content}
-              animate={msg.role === 'assistant' && i === lastAssistantIdx}
-              isError={msg.isError}
-            />
-            {msg.role === 'assistant' && msg.options && msg.options.length > 0 && (
-              <OptionChips
-                options={msg.options}
-                onSelect={(value) => {
-                  if (!msg.selectedOption && !loading) onSend(value);
-                }}
-                disabled={!!msg.selectedOption || loading}
-                selectedValue={msg.selectedOption}
+            <div key={msg.id}>
+              <ChatMessage
+                role={msg.role}
+                content={msg.content}
+                animate={msg.role === 'assistant' && i === lastAssistantIdx}
+                isError={msg.isError}
               />
-            )}
-          </div>
+              {msg.role === 'assistant' && msg.options && msg.options.length > 0 && (
+                <OptionChips
+                  options={msg.options}
+                  onSelect={(value) => {
+                    if (!msg.selectedOption && !loading) onSend(value);
+                  }}
+                  disabled={!!msg.selectedOption || loading}
+                  selectedValue={msg.selectedOption}
+                />
+              )}
+            </div>
         ))}
 
         {/* Agent status — shows current activity (swap in place, like ChatGPT) */}
@@ -121,29 +121,30 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
               </div>
 
               {/* Single status line — shows current activity, swaps in place */}
-              <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-card border border-border/50">
+              <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-card border border-border/60">
                 {(() => {
-                  // Show the last user-facing tool's description (regardless of start/end status,
-                  // because React batching may merge them in the same render)
                   const visible = toolActivities.filter(a => a.tool !== 'set_model_response');
                   const latest = visible[visible.length - 1];
-                  const label = latest?.description || '正在思考...';
-                  const isActive = latest?.status === 'start';
+                  const label = latest?.description;
                   return (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {isActive ? (
-                        <span className="inline-block w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <span className="inline-block w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="thinking-dot" />
+                        <span className="thinking-dot" />
+                        <span className="thinking-dot" />
+                      </span>
+                      {label && (
+                        <span key={label} className="animate-status-label">
+                          {label}
+                        </span>
                       )}
-                      <span>{label}</span>
                     </div>
                   );
                 })()}
               </div>
             </div>
             {onCancelLoading && (
-              <p className="text-micro text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
+              <p className="text-[11px] text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
                 点击取消等待
               </p>
             )}
@@ -156,10 +157,10 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
 
       {/* Scroll to bottom button */}
       {userScrolled && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 animate-fade-in-up">
           <button
             onClick={scrollToBottom}
-            className="px-3 py-1.5 rounded-full bg-card border border-border/50 text-xs text-muted-foreground hover:text-foreground transition-colors shadow-lg"
+            className="px-3 py-1.5 rounded-full bg-card/90 backdrop-blur-sm border border-border/50 text-xs text-muted-foreground hover:text-primary hover:border-primary/30 transition-all duration-200 shadow-lg"
           >
             <svg className="w-3 h-3 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 5v14M5 12l7 7 7-7" />
@@ -170,10 +171,11 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
       )}
 
       {/* Input area */}
-      <div className="shrink-0 px-4 pb-4 pt-2">
+      <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         <ChatInput
           onSubmit={onSend}
           loading={loading}
+          onCancel={onCancelLoading}
           placeholder={inputPlaceholder}
         />
       </div>

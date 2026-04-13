@@ -3,18 +3,10 @@
 interface OptionChipsProps {
   options: string[];
   onSelect: (value: string) => void;
-  /** Whether these chips have been used (clicked) */
   disabled?: boolean;
-  /** The value that was selected (to highlight it) */
   selectedValue?: string | null;
 }
 
-/**
- * OptionChips - Dynamic clickable option buttons from AI agent.
- *
- * Staggered scale-in entry animation. After one is clicked,
- * all chips become disabled and the selected one is highlighted.
- */
 export default function OptionChips({
   options,
   onSelect,
@@ -24,28 +16,28 @@ export default function OptionChips({
   if (!options.length) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2.5 ml-10">
+    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 ml-10">
       {options.map((opt, i) => {
         const isSelected = selectedValue === opt;
-        const isDisabled = disabled;
+        const isUnselected = selectedValue !== null && !isSelected;
 
         return (
           <button
             key={`${opt}-${i}`}
-            onClick={() => !isDisabled && onSelect(opt)}
-            disabled={isDisabled}
+            onClick={() => !disabled && onSelect(opt)}
+            disabled={disabled}
             className={`
-              animate-chip-enter
               px-3.5 py-1.5 rounded-full text-sm
               border transition-all duration-200
+              ${selectedValue === null ? 'animate-chip-enter' : ''}
               ${isSelected
                 ? 'bg-primary/10 border-primary/40 text-primary'
-                : isDisabled
-                  ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-default'
-                  : 'bg-card/60 border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-95 cursor-pointer'
+                : isUnselected
+                  ? 'bg-muted/30 border-border/40 text-muted-foreground/50 cursor-default'
+                  : 'bg-card/70 border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] cursor-pointer'
               }
             `}
-            style={{ animationDelay: `${i * 60}ms` }}
+            style={selectedValue === null ? { animationDelay: `${i * 60}ms` } : undefined}
           >
             {opt}
           </button>
