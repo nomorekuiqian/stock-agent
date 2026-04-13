@@ -7,6 +7,7 @@ interface LoginResult {
   user_id?: string;
   openid?: string;
   is_bound: boolean;
+  account_state?: string;  // "unbound" | "email_only" | "bound"
   error?: string;
 }
 
