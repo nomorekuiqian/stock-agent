@@ -7,6 +7,7 @@ import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { makeQueryClient } from '@/hooks/queries/query-client';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -17,7 +18,9 @@ export function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <AuthProvider>
           <SubscriptionProvider>
-            <EntitlementsProvider>{children}</EntitlementsProvider>
+            <EntitlementsProvider>
+              <TooltipProvider>{children}</TooltipProvider>
+            </EntitlementsProvider>
           </SubscriptionProvider>
         </AuthProvider>
       </ThemeProvider>

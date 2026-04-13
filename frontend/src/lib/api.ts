@@ -816,6 +816,13 @@ export interface ResearchRequest {
     stocks?: unknown;
     events?: unknown;
     summary_content?: string;
+    // macro sub-page fields (liquidity / economy / inflation / sentiment)
+    net_liquidity?: number;
+    net_liquidity_change?: number;
+    overall_headline?: string;
+    dimensions?: unknown;
+    cpi_components?: unknown;
+    overall_score?: number;
   };
 }
 
@@ -1155,6 +1162,40 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to get weekly report preview' }));
       throw new Error(error.detail || 'Failed to get weekly report preview');
+    }
+    return response.json();
+  },
+
+  getWelcomePreview: async (params?: { firstName?: string; email?: string }): Promise<{
+    success: boolean;
+    subject: string;
+    html: string;
+  }> => {
+    const searchParams = new URLSearchParams();
+    if (params?.firstName) searchParams.append('first_name', params.firstName);
+    if (params?.email) searchParams.append('email', params.email);
+    const qs = searchParams.toString();
+    const response = await fetch(`${API_BASE_URL}/welcome/preview${qs ? `?${qs}` : ''}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get welcome preview' }));
+      throw new Error(error.detail || 'Failed to get welcome preview');
+    }
+    return response.json();
+  },
+
+  getOnboardingPreview: async (day: number = 1, firstName?: string): Promise<{
+    success: boolean;
+    day: number;
+    subject: string;
+    html: string;
+    valid_days: number[];
+  }> => {
+    const params = new URLSearchParams({ day: String(day) });
+    if (firstName) params.append('first_name', firstName);
+    const response = await fetch(`${API_BASE_URL}/onboarding/preview?${params}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get onboarding preview' }));
+      throw new Error(error.detail || 'Failed to get onboarding preview');
     }
     return response.json();
   },

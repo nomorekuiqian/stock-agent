@@ -22,12 +22,15 @@ import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
 import type { MacroContextPayload } from './_components/MacroOverview';
 import type { BrewContextPayload } from './_components/BrewDigestView';
+import type { LiquidityContextPayload } from './_components/LiquidityView';
+import type { EconomyContextPayload } from './_components/EconomyView';
+import type { InflationContextPayload } from './_components/InflationView';
+import type { SentimentContextPayload } from './_components/SentimentView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
 import MobileTabSwitch from './_components/MobileTabSwitch';
-import DataStatus from './_components/DataStatus';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,10 +56,10 @@ function getContextKey(contextType: string, params: URLSearchParams): string {
 
 function ScreenerContent() {
   const router = useRouter();
-  const { isLoading: authLoading, isAuthenticated, signOut } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, signOut, user } = useAuth();
   const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const prevPhaseRef = useRef(state.phase);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
@@ -66,6 +69,10 @@ function ScreenerContent() {
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
   const macroContextRef = useRef<MacroContextPayload | null>(null);
   const brewContextRef = useRef<BrewContextPayload | null>(null);
+  const liquidityContextRef = useRef<LiquidityContextPayload | null>(null);
+  const economyContextRef = useRef<EconomyContextPayload | null>(null);
+  const inflationContextRef = useRef<InflationContextPayload | null>(null);
+  const sentimentContextRef = useRef<SentimentContextPayload | null>(null);
   const pendingSeed = useRef<string | null>(null);
   const pendingSeedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
@@ -343,6 +350,26 @@ function ScreenerContent() {
     flushPendingSeed();
   }, [flushPendingSeed]);
 
+  const handleLiquidityContextReady = useCallback((payload: LiquidityContextPayload) => {
+    liquidityContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
+  const handleEconomyContextReady = useCallback((payload: EconomyContextPayload) => {
+    economyContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
+  const handleInflationContextReady = useCallback((payload: InflationContextPayload) => {
+    inflationContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
+  const handleSentimentContextReady = useCallback((payload: SentimentContextPayload) => {
+    sentimentContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
   // Send message handler
   const handleSend = useCallback(async (message: string) => {
     if (process.env.NODE_ENV === 'development') {
@@ -397,6 +424,34 @@ function ScreenerContent() {
           landscape: ctx.landscape ?? undefined,
           narrative: ctx.narrative ?? undefined,
           takeaway: ctx.takeaway ?? undefined,
+        };
+      } else if (state.activeContent.type === 'macro_liquidity' && liquidityContextRef.current) {
+        const ctx = liquidityContextRef.current;
+        activeContext = {
+          type: 'macro_liquidity',
+          net_liquidity: ctx.net_liquidity ?? undefined,
+          net_liquidity_change: ctx.net_liquidity_change ?? undefined,
+        };
+      } else if (state.activeContent.type === 'macro_economy' && economyContextRef.current) {
+        const ctx = economyContextRef.current;
+        activeContext = {
+          type: 'macro_economy',
+          overall_headline: ctx.overall_headline ?? undefined,
+          dimensions: ctx.dimensions ?? undefined,
+        };
+      } else if (state.activeContent.type === 'macro_inflation' && inflationContextRef.current) {
+        const ctx = inflationContextRef.current;
+        activeContext = {
+          type: 'macro_inflation',
+          overall_headline: ctx.overall_headline ?? undefined,
+          cpi_components: ctx.cpi_components ?? undefined,
+        };
+      } else if (state.activeContent.type === 'macro_sentiment' && sentimentContextRef.current) {
+        const ctx = sentimentContextRef.current;
+        activeContext = {
+          type: 'macro_sentiment',
+          overall_score: ctx.overall_score ?? undefined,
+          overall_headline: ctx.overall_headline ?? undefined,
         };
       } else if (state.activeContent.type === 'brew' && brewContextRef.current) {
         const ctx = brewContextRef.current;
@@ -509,6 +564,58 @@ function ScreenerContent() {
           },
         });
         setMobileTab('results');
+      } else if (result.navigate?.type === 'macro_liquidity') {
+        liquidityContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'macro_liquidity',
+            label: '流动性环境',
+            summary: '',
+            params: {},
+            available_actions: ['解读流动性含义', '查看宏观全景', '返回选股'],
+          },
+        });
+        setMobileTab('results');
+      } else if (result.navigate?.type === 'macro_economy') {
+        economyContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'macro_economy',
+            label: '经济基本面',
+            summary: '',
+            params: {},
+            available_actions: ['深入某个维度', '查看流动性', '返回选股'],
+          },
+        });
+        setMobileTab('results');
+      } else if (result.navigate?.type === 'macro_inflation') {
+        inflationContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'macro_inflation',
+            label: '通胀与利率',
+            summary: '',
+            params: {},
+            available_actions: ['分析通胀趋势', '查看美联储政策', '返回选股'],
+          },
+        });
+        setMobileTab('results');
+      } else if (result.navigate?.type === 'macro_sentiment') {
+        sentimentContextRef.current = null;
+        dispatch({
+          type: 'PUSH_CONTENT',
+          content: {
+            type: 'macro_sentiment',
+            label: '市场情绪',
+            summary: '',
+            params: {},
+            available_actions: ['解读恐贪指数', '查看宏观全景', '返回选股'],
+          },
+        });
+        setMobileTab('results');
       } else if (result.navigate?.type === 'screener') {
         // Navigate back to screener — clear stack, reset context refs
         stockContextRef.current = null;
@@ -516,6 +623,10 @@ function ScreenerContent() {
         morningContextRef.current = null;
         macroContextRef.current = null;
         brewContextRef.current = null;
+        liquidityContextRef.current = null;
+        economyContextRef.current = null;
+        inflationContextRef.current = null;
+        sentimentContextRef.current = null;
         dispatch({
           type: 'SWITCH_CONTENT',
           content: {
@@ -686,6 +797,18 @@ function ScreenerContent() {
     }
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && state.isLoading) {
+        e.preventDefault();
+        handleCancelLoading();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [state.isLoading, handleCancelLoading]);
+
   // Auth loading
   if (authLoading) {
     return (
@@ -697,68 +820,64 @@ function ScreenerContent() {
 
   if (!isAuthenticated) return null;
 
-  // Welcome phase
+  // Welcome phase — same sidebar as chat phase
   if (state.phase === 'welcome') {
     return (
-      <WelcomeScreen
-        onSelect={handleSend}
-        onEnterDailyReport={handleEnterDailyReport}
-        onEnterMacro={handleEnterMacro}
-        universeSize={state.universeSize || undefined}
-        conversations={conversations}
-        conversationsLoading={state.phase === 'welcome' && !conversationsLoaded}
-        onLoadConversation={handleLoadConversation}
-        onDeleteConversation={handleDeleteConversation}
-      />
+      <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
+        {/* Shared sidebar */}
+        <div
+          className={`
+            hidden lg:flex shrink-0 border-r border-border/50 overflow-hidden flex-col
+            transition-[width] duration-200 ease-out
+            ${historyOpen ? 'sidebar-open' : 'w-0'}
+          `}
+          style={historyOpen ? { width: 'clamp(14rem, 15vw, 18rem)' } : undefined}
+        >
+          <ConversationSidebar
+            conversations={conversations}
+            loading={!conversationsLoaded}
+            currentId={state.conversationId}
+            onLoad={handleLoadConversation}
+            onDelete={handleDeleteConversation}
+            onNewChat={() => dispatch({ type: 'RESET' })}
+            requestInFlight={false}
+            onToggle={() => setHistoryOpen(false)}
+            userName={user?.name}
+            userEmail={user?.email}
+          />
+        </div>
+
+        {/* Welcome content — when sidebar is collapsed, show a small open button */}
+        <div className="flex-1 flex flex-col">
+          {!historyOpen && (
+            <div className="shrink-0 px-4 py-2.5 hidden lg:flex items-center">
+              <button
+                onClick={() => setHistoryOpen(true)}
+                title="展开历史对话"
+                className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/30 transition-colors cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 3v18" />
+                </svg>
+              </button>
+            </div>
+          )}
+          <div className="flex-1 overflow-hidden">
+            <WelcomeScreen
+              onSelect={handleSend}
+              universeSize={state.universeSize || undefined}
+              userName={user?.name}
+            />
+          </div>
+        </div>
+      </div>
     );
   }
 
   // Chat phase - split layout
   return (
     <div className="fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
-      {/* Header bar */}
-      <div className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            {/* History sidebar toggle — desktop only (sidebar is hidden on mobile) */}
-            <button
-              onClick={() => setHistoryOpen(prev => !prev)}
-              aria-label={historyOpen ? '收起历史对话' : '展开历史对话'}
-              title={historyOpen ? '收起历史' : '历史对话'}
-              className={`hidden lg:inline-flex items-center p-1.5 rounded-md transition-colors cursor-pointer ${
-                historyOpen
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted/30'
-              }`}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M9 3v18" />
-              </svg>
-            </button>
-            <div className="hidden lg:block h-3 w-px bg-border/50" />
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'RESET' })}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-              重新开始
-            </button>
-            <div className="h-3 w-px bg-border/50" />
-            <DataStatus inline />
-            {saveStatus === 'saved' && (
-              <span className="text-micro text-primary/80 animate-in fade-in duration-300">
-                已保存
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Mobile tab switch */}
       <div className="lg:hidden shrink-0">
         <MobileTabSwitch
@@ -778,13 +897,15 @@ function ScreenerContent() {
             overflow-hidden
           `}
         >
-          {/* Collapsible history sidebar (desktop only) */}
+          {/* Collapsible history sidebar — overlay on mobile, inline on desktop */}
           <div
             className={`
-              hidden lg:flex shrink-0 border-r border-border/20 overflow-hidden
+              shrink-0 border-r border-border/50 overflow-hidden
               transition-[width] duration-200 ease-out
-              ${historyOpen ? 'w-52' : 'w-0'}
+              ${historyOpen ? 'absolute lg:relative z-20 h-full bg-background shadow-xl lg:shadow-none' : 'w-0'}
+              ${!historyOpen ? 'hidden lg:flex' : 'flex'}
             `}
+            style={historyOpen ? { width: 'clamp(16rem, 70vw, 18rem)' } : undefined}
           >
             <ConversationSidebar
               conversations={conversations}
@@ -794,10 +915,35 @@ function ScreenerContent() {
               onDelete={handleDeleteConversation}
               onNewChat={() => dispatch({ type: 'RESET' })}
               requestInFlight={state.isLoading}
+              onToggle={() => setHistoryOpen(false)}
+              userName={user?.name}
+              userEmail={user?.email}
             />
           </div>
+          {/* Backdrop overlay — mobile only, closes sidebar on tap */}
+          {historyOpen && (
+            <div
+              className="absolute inset-0 z-10 bg-black/20 lg:hidden"
+              onClick={() => setHistoryOpen(false)}
+            />
+          )}
           {/* Chat panel */}
           <div className="flex-1 flex flex-col relative min-w-0">
+            {/* Sidebar toggle when collapsed */}
+            {!historyOpen && (
+              <div className="shrink-0 px-3 py-2 hidden lg:flex items-center">
+                <button
+                  onClick={() => setHistoryOpen(true)}
+                  title="展开历史对话"
+                  className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18" />
+                  </svg>
+                </button>
+              </div>
+            )}
             <ChatPanel
               messages={state.messages}
               onSend={handleSend}
@@ -835,6 +981,10 @@ function ScreenerContent() {
             onMorningContextReady={handleMorningContextReady}
             onMacroContextReady={handleMacroContextReady}
             onBrewContextReady={handleBrewContextReady}
+            onLiquidityContextReady={handleLiquidityContextReady}
+            onEconomyContextReady={handleEconomyContextReady}
+            onInflationContextReady={handleInflationContextReady}
+            onSentimentContextReady={handleSentimentContextReady}
           />
         </div>
       </div>
