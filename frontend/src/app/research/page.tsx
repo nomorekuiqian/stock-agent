@@ -73,6 +73,7 @@ function ScreenerContent() {
   const economyContextRef = useRef<EconomyContextPayload | null>(null);
   const inflationContextRef = useRef<InflationContextPayload | null>(null);
   const sentimentContextRef = useRef<SentimentContextPayload | null>(null);
+  const convCache = useRef<Map<string, Record<string, unknown>>>(new Map());
   const pendingSeed = useRef<string | null>(null);
   const pendingSeedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
@@ -276,6 +277,7 @@ function ScreenerContent() {
         });
         if (created?.id) {
           dispatch({ type: 'SET_CONVERSATION_ID', id: created.id });
+          convCache.current.set(created.id, { title, data });
         }
       } else {
         await api.research.conversations.update(convId, {
@@ -283,6 +285,7 @@ function ScreenerContent() {
           data,
           message_count: messageCount,
         });
+        convCache.current.set(convId, { title, data });
       }
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -746,34 +749,65 @@ function ScreenerContent() {
   }, [state.isLoading]);
 
   // Load a saved conversation
+  const loadConversationData = useCallback((conversationId: string, conv: Record<string, unknown>) => {
+    const data = (conv.data || {}) as Record<string, unknown>;
+    dispatch({
+      type: 'LOAD_CONVERSATION',
+      data: {
+        conversationId,
+        title: (conv.title as string) || '',
+        messages: (data.messages || []) as LoadConversationData['messages'],
+        accumulatedFilters: (data.accumulated_filters || []) as LoadConversationData['accumulatedFilters'],
+        candidates: (data.candidates || []) as LoadConversationData['candidates'],
+        candidateCount: (data.candidate_count as number) || 0,
+        universeSize: (data.universe_size as number) || 0,
+        recommendations: ((data.recommendations || data.pick_reasons) || []) as LoadConversationData['recommendations'],
+        funnelSteps: (data.funnel_steps || []) as LoadConversationData['funnelSteps'],
+        activeContent: data.active_content as LoadConversationData['activeContent'],
+        contentStack: data.content_stack as LoadConversationData['contentStack'],
+      },
+    });
+  }, []);
+
   const handleLoadConversation = useCallback(async (conversationId: string) => {
-    // Cancel any pending auto-send from a prior context entry
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
     pendingSeed.current = null;
-    try {
-      const conv = await api.research.conversations.get(conversationId);
-      if (!conv) return;
-      const data = (conv.data || {}) as Record<string, unknown>;
+
+    // Cache hit — instant switch, no network request
+    const cached = convCache.current.get(conversationId);
+    if (cached) {
+      loadConversationData(conversationId, cached);
+      return;
+    }
+
+    // Cache miss — show placeholder, then fetch
+    const summary = conversations.find(c => c.id === conversationId);
+    if (summary) {
       dispatch({
         type: 'LOAD_CONVERSATION',
         data: {
           conversationId,
-          title: (conv.title as string) || '',
-          messages: (data.messages || []) as LoadConversationData['messages'],
-          accumulatedFilters: (data.accumulated_filters || []) as LoadConversationData['accumulatedFilters'],
-          candidates: (data.candidates || []) as LoadConversationData['candidates'],
-          candidateCount: (data.candidate_count as number) || 0,
-          universeSize: (data.universe_size as number) || 0,
-          recommendations: ((data.recommendations || data.pick_reasons) || []) as LoadConversationData['recommendations'],
-          funnelSteps: (data.funnel_steps || []) as LoadConversationData['funnelSteps'],
-          activeContent: data.active_content as LoadConversationData['activeContent'],
-          contentStack: data.content_stack as LoadConversationData['contentStack'],
+          title: summary.title || '',
+          messages: [{ id: 'loading-placeholder', role: 'assistant' as const, content: '' }],
+          accumulatedFilters: [],
+          candidates: [],
+          candidateCount: 0,
+          universeSize: 0,
+          recommendations: [],
+          funnelSteps: [],
         },
       });
-    } catch {
-      // Failed to load, stay on welcome screen
     }
-  }, []);
+
+    try {
+      const conv = await api.research.conversations.get(conversationId);
+      if (!conv) return;
+      convCache.current.set(conversationId, conv);
+      loadConversationData(conversationId, conv);
+    } catch {
+      if (summary) dispatch({ type: 'RESET' });
+    }
+  }, [conversations, loadConversationData]);
 
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
@@ -903,7 +937,7 @@ function ScreenerContent() {
               shrink-0 border-r border-border/50 overflow-hidden
               transition-[width] duration-200 ease-out
               ${historyOpen ? 'absolute lg:relative z-20 h-full bg-background shadow-xl lg:shadow-none' : 'w-0'}
-              ${!historyOpen ? 'hidden lg:flex' : 'flex'}
+              ${!historyOpen ? 'hidden' : 'flex flex-col'}
             `}
             style={historyOpen ? { width: 'clamp(16rem, 70vw, 18rem)' } : undefined}
           >
@@ -931,13 +965,13 @@ function ScreenerContent() {
           <div className="flex-1 flex flex-col relative min-w-0">
             {/* Sidebar toggle when collapsed */}
             {!historyOpen && (
-              <div className="shrink-0 px-3 py-2 hidden lg:flex items-center">
+              <div className="shrink-0 px-3 py-2 flex items-center">
                 <button
                   onClick={() => setHistoryOpen(true)}
-                  title="展开历史对话"
+                  title="历史对话"
                   className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M9 3v18" />
                   </svg>

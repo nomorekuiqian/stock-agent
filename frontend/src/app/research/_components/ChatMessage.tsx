@@ -73,7 +73,13 @@ export default function ChatMessage({ role, content, animate = false, isError = 
         }`}>
           {isError && <p>{content}</p>}
 
-          {!isError && shouldAnimate && !animationDone ? (
+          {!isError && !content ? (
+            <div className="flex items-center gap-1 py-0.5">
+              <span className="thinking-dot" />
+              <span className="thinking-dot" />
+              <span className="thinking-dot" />
+            </div>
+          ) : !isError && shouldAnimate && !animationDone ? (
             <span>
               {chars.map((char, i) => (
                 <span
