@@ -1,53 +1,50 @@
 {
-  "description": "TheMarketBrew 微信小程序 — WebView 登录态 PoC",
+  "description": "TheMarketBrew 微信小程序",
   "packOptions": {
     "ignore": [],
     "include": []
   },
   "setting": {
+    "useCompilerPlugins": [
+      "typescript",
+      "sass"
+    ],
     "urlCheck": false,
     "es6": true,
     "enhance": true,
-    "postcss": true,
-    "preloadBackgroundData": false,
+    "postcss": false,
     "minified": true,
-    "newFeature": false,
-    "coverView": true,
-    "nodeModules": false,
-    "autoAudits": false,
-    "showShadowRootInWxmlPanel": true,
-    "scopeDataCheck": false,
-    "uglifyFileName": false,
-    "checkInvalidKey": true,
-    "checkSiteMap": true,
-    "uploadWithSourceMap": true,
+    "coverView": false,
+    "showShadowRootInWxmlPanel": false,
+    "packNpmRelationList": [],
+    "ignoreUploadUnusedFiles": true,
     "compileHotReLoad": false,
-    "useMultiFrameRuntime": true,
-    "useApiHook": true,
-    "useApiHostProcess": true,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "disableUseStrict": false,
+    "uglifyFileName": false,
+    "compileWorklet": false,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    },
-    "enableEngineNative": false,
-    "useIsolateContext": true,
-    "userConfirmedBundleSwitch": false,
-    "packNpmManually": false,
-    "packNpmRelationList": [],
-    "minifyWXSS": true,
-    "disableUseStrict": false,
-    "minifyWXML": true,
-    "showES6CompileOption": false,
-    "useCompilerPlugins": false
+    }
   },
   "compileType": "miniprogram",
   "libVersion": "3.4.0",
-  "appid": "REPLACE_WITH_YOUR_APPID",
-  "projectname": "stock-agent-miniprogram",
+  "appid": "wxe484a6268c1314c7",
+  "projectname": "themarketbrew-miniprogram",
   "condition": {},
   "editorSetting": {
     "tabIndent": "insertSpaces",
     "tabSize": 2
-  }
+  },
+  "simulatorType": "wechat",
+  "simulatorPluginLibVersion": {}
 }

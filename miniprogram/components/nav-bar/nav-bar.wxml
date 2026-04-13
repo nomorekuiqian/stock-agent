@@ -1,0 +1,25 @@
+<view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="nav-bar-content" style="height: {{navBarHeight}}px;">
+    <!-- Back button -->
+    <view class="nav-bar-left" wx:if="{{showBack}}" bind:tap="onBack">
+      <view class="back-icon">
+        <view class="back-chevron"></view>
+      </view>
+    </view>
+
+    <!-- Logo + Title -->
+    <view class="nav-bar-center">
+      <view class="nav-logo" wx:if="{{!showBack}}">
+        <!-- SVG-like logo mark using CSS -->
+        <view class="logo-mark">
+          <view class="logo-line logo-line-1"></view>
+          <view class="logo-line logo-line-2"></view>
+          <view class="logo-line logo-line-3"></view>
+        </view>
+      </view>
+      <text class="nav-bar-title">{{title}}</text>
+    </view>
+  </view>
+</view>
+<!-- Spacer -->
+<view style="height: {{statusBarHeight + navBarHeight}}px;"></view>

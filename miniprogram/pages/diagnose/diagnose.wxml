@@ -1,19 +1,20 @@
+<nav-bar title="诊断" showBack="{{true}}" />
+
 <view class="container">
-  <view style="font-size: 34rpx; font-weight: 600;">wx.login 诊断</view>
-  <view class="muted" style="margin: 16rpx 0 32rpx;">验证 wx.login 是否能正常换取临时 code（code 是后续 jscode2session 的输入）</view>
-
-  <button class="primary-btn" bindtap="runWxLogin">调用 wx.login()</button>
-
-  <view wx:if="{{code}}" style="margin-top: 32rpx; word-break: break-all;">
-    <view style="font-weight: 600;">code:</view>
-    <view class="muted">{{code}}</view>
+  <view class="text-heading" style="margin-bottom: 16rpx;">wx.login 诊断</view>
+  <view class="text-body" style="margin-bottom: 40rpx;">
+    测试 wx.login() 是否能正常返回 code。后端使用此 code 调用 jscode2session 换取 openid。
   </view>
 
-  <view wx:if="{{error}}" style="margin-top: 32rpx; color: #dc2626;">
-    错误: {{error}}
+  <view class="btn-primary" bind:tap="runWxLogin">运行 wx.login()</view>
+
+  <view wx:if="{{code}}" class="card" style="margin-top: 32rpx; padding: 24rpx;">
+    <view class="text-label" style="margin-bottom: 12rpx;">CODE</view>
+    <view class="text-body" style="word-break: break-all;">{{code}}</view>
   </view>
 
-  <view style="margin-top: 48rpx;" class="muted">
-    生产环境会把此 code POST 到 /api/wechat/login，后端用 AppID+AppSecret 调用 jscode2session 换取 openid+unionid。
+  <view wx:if="{{error}}" style="margin-top: 32rpx; color: var(--red);">
+    <view class="text-label" style="color: var(--red); margin-bottom: 12rpx;">ERROR</view>
+    <view class="text-body" style="color: var(--red);">{{error}}</view>
   </view>
 </view>

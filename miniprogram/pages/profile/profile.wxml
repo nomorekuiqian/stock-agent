@@ -1,0 +1,73 @@
+<nav-bar title="我的" />
+
+<view class="container profile-page">
+  <!-- User Card -->
+  <view class="card user-card">
+    <view class="user-card-inner" wx:if="{{isLoggedIn}}">
+      <!-- Avatar -->
+      <view class="avatar-wrap">
+        <image
+          class="avatar-img"
+          src="{{avatarUrl}}"
+          mode="aspectFill"
+          wx:if="{{avatarUrl}}"
+        />
+        <view class="avatar-placeholder" wx:else>
+          <text class="avatar-letter">{{nickname[0] || 'U'}}</text>
+        </view>
+      </view>
+
+      <view class="user-info">
+        <view class="user-nickname">{{nickname}}</view>
+        <view class="user-tag">
+          <view class="tag-dot"></view>
+          <text class="tag-text">已登录</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="user-card-inner" wx:else>
+      <view class="avatar-wrap">
+        <view class="avatar-placeholder avatar-empty">
+          <text class="avatar-letter" style="color: var(--fg-subtle);">?</text>
+        </view>
+      </view>
+      <view class="user-info">
+        <view class="user-nickname" style="color: var(--fg-muted);">未登录</view>
+        <view class="user-login-link" bind:tap="onLogin">
+          <text>点击登录</text>
+          <view class="link-arrow"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Menu Section -->
+  <view class="card menu-card" wx:if="{{isLoggedIn}}">
+    <view class="menu-header">
+      <view class="accent-bar"></view>
+      <text class="menu-header-title">账号管理</text>
+      <text class="menu-header-en">Account</text>
+    </view>
+
+    <view class="menu-item" bind:tap="onEmailSubscribe" hover-class="menu-item-hover">
+      <view class="menu-item-left">
+        <view class="menu-icon-wrap">
+          <text class="menu-icon-text">✉</text>
+        </view>
+        <text class="menu-label">邮件订阅</text>
+      </view>
+      <view class="menu-item-right">
+        <view class="arrow-chevron"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Logout -->
+  <view class="logout-wrap" wx:if="{{isLoggedIn}}">
+    <view class="logout-btn" bind:tap="onLogout" hover-class="logout-btn-hover">退出登录</view>
+  </view>
+
+  <!-- Version -->
+  <view class="version-text">TheMarketBrew v1.0</view>
+</view>

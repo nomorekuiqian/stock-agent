@@ -201,6 +201,24 @@ def mock_db_writes(request):
             pass
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """
+    Reset the in-memory rate limiter state before each test.
+
+    Without this, tests that call rate-limited endpoints share the same
+    IP bucket across tests (testclient always appears as 127.0.0.1),
+    causing the second call to a 1/minute endpoint to return 429.
+    """
+    try:
+        from app.core.rate_limit import limiter
+        if hasattr(limiter, "_storage") and limiter._storage is not None:
+            limiter._storage.reset()
+    except Exception:
+        pass
+    yield
+
+
 @pytest.fixture
 def allow_db_write_fixture(request):
     """

@@ -1,0 +1,197 @@
+.profile-page {
+  padding-top: 8rpx;
+}
+
+/* --- User Card --- */
+.user-card {
+  padding: 0;
+}
+
+.user-card-inner {
+  display: flex;
+  align-items: center;
+  padding: 40rpx 32rpx;
+  gap: 24rpx;
+}
+
+.avatar-wrap {
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  border: 3rpx solid var(--border);
+}
+
+.avatar-placeholder {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: var(--emerald-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-empty {
+  background: var(--bg-muted);
+}
+
+.avatar-letter {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--emerald);
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-nickname {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 6rpx;
+}
+
+.user-tag {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.tag-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--emerald);
+}
+
+.tag-text {
+  font-size: 24rpx;
+  color: var(--fg-muted);
+}
+
+.user-login-link {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 26rpx;
+  color: var(--emerald);
+  margin-top: 4rpx;
+}
+
+.link-arrow {
+  width: 12rpx;
+  height: 12rpx;
+  border-right: 3rpx solid var(--emerald);
+  border-bottom: 3rpx solid var(--emerald);
+  transform: rotate(-45deg);
+}
+
+/* --- Menu Card --- */
+.menu-card {
+  margin-top: 24rpx;
+  padding: 0;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx 32rpx 16rpx;
+  border-bottom: 2rpx solid var(--border);
+}
+
+.menu-header-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.menu-header-en {
+  font-size: 24rpx;
+  color: var(--fg-subtle);
+  font-weight: 400;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+}
+
+.menu-item-hover {
+  background: var(--bg-card-hover);
+}
+
+.menu-item-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.menu-icon-wrap {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  background: var(--emerald-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-icon-text {
+  font-size: 28rpx;
+}
+
+.menu-label {
+  font-size: 30rpx;
+  color: var(--fg);
+}
+
+.menu-item-right {
+  display: flex;
+  align-items: center;
+}
+
+.arrow-chevron {
+  width: 14rpx;
+  height: 14rpx;
+  border-right: 3rpx solid var(--fg-subtle);
+  border-bottom: 3rpx solid var(--fg-subtle);
+  transform: rotate(-45deg);
+}
+
+/* --- Logout --- */
+.logout-wrap {
+  margin-top: 64rpx;
+  padding: 0 32rpx;
+}
+
+.logout-btn {
+  text-align: center;
+  color: var(--red);
+  font-size: 28rpx;
+  padding: 24rpx;
+  border: 2rpx solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.logout-btn-hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* --- Version --- */
+.version-text {
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--fg-subtle);
+  margin-top: 48rpx;
+  letter-spacing: 0.05em;
+}

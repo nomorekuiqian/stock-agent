@@ -1,4 +1,5 @@
 {
-  "navigationBarTitleText": "TheMarketBrew",
-  "navigationStyle": "default"
+  "usingComponents": {},
+  "navigationStyle": "default",
+  "navigationBarTitleText": "TheMarketBrew"
 }
