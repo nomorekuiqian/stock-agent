@@ -63,6 +63,15 @@ _TOOL_DESCRIPTIONS = {
     "get_report_by_date": lambda a: "正在获取 %s 的日报..." % a.get("report_date", ""),
     "list_recent_reports": lambda _: "正在获取近期报告...",
     "google_search": lambda _: "正在搜索最新信息...",
+    "get_company_profile": lambda a: "正在查看 %s 的公司概况..." % a.get("symbol", ""),
+    "get_peer_comparison": lambda a: "正在对比 %s 与同行..." % a.get("symbol", ""),
+    "get_historical_valuation": lambda a: "正在查看 %s 的历史估值..." % a.get("symbol", ""),
+    "get_macro_risk_summary": lambda _: "正在评估宏观风险...",
+    "get_liquidity_overview": lambda _: "正在查看流动性指标...",
+    "get_market_sentiment": lambda _: "正在分析市场情绪...",
+    "get_economic_calendar": lambda _: "正在查询经济日历...",
+    "get_morning_report": lambda _: "正在获取今日早报...",
+    "get_weekly_report": lambda _: "正在获取最新周报...",
 }
 
 
@@ -397,15 +406,20 @@ class ResearchAgentOutput(BaseModel):
     navigate: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
-            "Navigate the right panel to different content. Use when user's intent changes to a different mode. "
+            "Navigate the right panel to different content. "
+            "IMPORTANT: Actively navigate when you call research tools so the user sees visual data alongside your text response. "
             "Supported types: "
             '"stock" (params: {symbol}), '
             '"screener" (params: {}), '
             '"daily_report" (params: {date}), '
             '"morning_report" (params: {date}), '
             '"macro" (params: {}), '
-            '"brew" (params: {}). '
-            'Example: {"type": "screener", "params": {}, "reason": "User wants to find new stocks"}'
+            '"brew" (params: {}), '
+            '"macro_liquidity" (params: {}), '
+            '"macro_economy" (params: {}), '
+            '"macro_inflation" (params: {}), '
+            '"macro_sentiment" (params: {}). '
+            'Example: {"type": "macro_liquidity", "params": {}, "reason": "User asked about liquidity"}'
         ),
     )
 
@@ -852,35 +866,81 @@ When user is viewing their personalized daily digest, you switch to personal inv
 
 ## Research Tools Guide
 
-You have additional tools for market research and stock analysis:
+### Stock Screening -- finding stocks
+- `execute_screener`: Filter by conditions (PE, market cap, sector, etc)
+- `filter_by_tickers`: Look up specific stocks in the universe
+- `get_field_distribution`: See distribution of a metric across the universe
+- `list_available_sectors`: List all available sectors for filtering
 
-### Market Overview
-- `get_market_overview`: Current market state - indices, VIX, treasury rates, commodities, currencies. Use when user asks "how's the market" or needs macro context.
+### Individual Stock Research -- analyzing a specific stock
+- `get_stock_quote(symbols)`: Real-time price and performance for up to 20 stocks
+- `get_stock_fundamentals(symbol)`: Valuation (PE/PS/PB), profitability (margins, ROE), growth, analyst targets
+- `get_technical_analysis(symbol)`: RSI, MACD, moving averages, support/resistance, buy/sell ratings
+- `get_stock_news(symbols, days)`: Recent news for specific stocks (top 12 articles)
+- `get_company_profile(symbol)`: What the company does, industry, CEO, employee count
+- `get_peer_comparison(symbol)`: Compare valuation and profitability vs industry peers
+- `get_historical_valuation(symbol)`: Historical PE/PB/PS trend (5 years) to judge if current price is expensive
 
-### Stock Data
-- `get_stock_quote(symbols)`: Real-time price and performance for up to 20 stocks. Use when user asks about prices or portfolio performance.
-- `get_stock_fundamentals(symbol)`: Valuation (PE/PS/PB), profitability (margins, ROE), growth rates, analyst targets. Use for fundamental analysis.
-- `get_technical_analysis(symbol)`: Ratings (buy/sell), RSI, MACD, moving averages, support/resistance. Use for technical analysis.
-- `get_stock_news(symbols, days)`: Recent news for specific stocks (top 12 articles). Use when user asks about news or events.
+### Macro Environment -- market and macro analysis
+- `get_market_overview`: Indices, VIX, treasury rates, commodities, currencies
+- `get_macro_risk_summary`: 4-dimension macro risk scores (economy, credit, employment, AI health)
+- `get_liquidity_overview`: Fed net liquidity, TGA, RRP, reserves, SOFR, EFFR
+- `get_market_sentiment`: CNN Fear & Greed Index, VIX, overall sentiment level
 
-### Calendar & Search
-- `get_earnings_calendar(days)`: Upcoming earnings for major companies. Use when user asks about reporting season.
-- `google_search`: Search the web for breaking news, recent events, or policies. Use ONLY as last resort when get_stock_news cannot answer (e.g. "why did NVDA drop today", "latest Fed decision").
+### Events & Calendar
+- `get_earnings_calendar(days)`: Upcoming earnings dates for major companies
+- `get_economic_calendar(days)`: High-impact US economic events (CPI, Non-Farm, FOMC, GDP)
+
+### Reports -- pre-generated analysis reports
+- `get_report_by_date(date)` / `list_recent_reports`: Daily market reports
+- `get_morning_report`: Today's pre-market morning briefing (futures, global markets, overnight news)
+- `get_weekly_report`: Latest weekly macro analysis (verdict, signal lights, 4-dimension analysis, week ahead)
+
+### Web Search
+- `google_search`: Search the web for breaking news. Use ONLY when other tools cannot answer.
 
 ### Tool Selection Priority
-1. Use screener tools (execute_screener, filter_by_tickers) for stock SELECTION tasks
-2. Use research tools (fundamentals, technicals, news) for ANALYSIS of specific stocks
-3. Use google_search ONLY for breaking news that get_stock_news doesn't cover
-4. Combine tools naturally: e.g. get_stock_quote to check prices THEN get_technical_analysis for deeper analysis
-5. When using multiple tools, call them all before responding to give a comprehensive answer
+1. Market/macro questions -> get_market_overview + get_macro_risk_summary + get_liquidity_overview
+2. Individual stock analysis -> get_stock_quote, then add fundamentals/technical/news/profile/peers as needed
+3. "Is it expensive?" -> get_historical_valuation + get_peer_comparison
+4. Market sentiment -> get_market_sentiment
+5. Upcoming events -> get_economic_calendar + get_earnings_calendar
+6. Report content -> get_morning_report / get_weekly_report / get_report_by_date
+7. Stock screening -> execute_screener + filter_by_tickers
+8. Last resort -> google_search
 
 ### How to Use Tool Results
 When you get data from research tools, DON'T just list the raw data. Instead:
 - **Interpret the data**: "RSI 72 means it's in overbought territory - short-term pullback risk"
 - **Connect the dots**: "Revenue grew 25% but margins shrank - growth is coming at the cost of profitability"
 - **Give actionable context**: "Analyst consensus target is $180, which is 15% upside from current price"
+- **Compare**: When using peer comparison or historical valuation, highlight what stands out vs peers or vs history
 - **Be specific**: Use actual numbers from the tools, not vague statements
-- If a tool returns little or no data (e.g. no news for a small-cap stock), acknowledge that and use google_search or web_search as fallback
+- If a tool returns no data, acknowledge it and try google_search as fallback
+
+## Navigation Rules (IMPORTANT)
+
+When you call research tools, you MUST navigate the right panel so the user sees visual data alongside your text answer. This is what makes you more than a chatbot.
+
+### Auto-navigate after tool calls:
+- Called `get_liquidity_overview` -> navigate to `macro_liquidity`
+- Called `get_market_sentiment` -> navigate to `macro_sentiment`
+- Called `get_macro_risk_summary` -> navigate to `macro` (main dashboard)
+- Called `get_stock_fundamentals` or `get_company_profile` or `get_peer_comparison` for a single stock -> navigate to `stock` with that symbol
+- Called `get_morning_report` -> navigate to `morning_report`
+- Called `get_weekly_report` -> navigate to `macro` (weekly report view)
+- Called `execute_screener` with new filters -> navigate to `screener`
+
+### Navigate based on user topic (even without tool calls):
+- User asks about inflation, CPI, interest rates -> navigate to `macro_inflation`
+- User asks about economy, GDP, employment, recession -> navigate to `macro_economy`
+- User asks about their personal digest / holdings overview -> navigate to `brew`
+- User asks about today's daily report -> navigate to `daily_report`
+
+### When NOT to navigate:
+- When answering a follow-up question about content already displayed in the right panel
+- When giving a brief answer that doesn't need visual support
+- When comparing 2+ stocks (keep the current panel, don't pick one)
 
 ## User Portfolio Awareness
 
@@ -1231,6 +1291,76 @@ class ResearchAgent:
                         "use the navigate field to switch to that stock's research view."
                     )
                     prompt_parts.append("")
+            elif ctx_type == "macro_liquidity":
+                prompt_parts.append("## User is currently viewing: Liquidity Environment")
+                nl = content_context.get("net_liquidity")
+                if nl is not None:
+                    prompt_parts.append("Net Liquidity: $%.2fT" % (nl / 1000) if nl >= 1000 else "Net Liquidity: $%.0fB" % nl)
+                change = content_context.get("net_liquidity_change")
+                if change is not None:
+                    prompt_parts.append("Change: %+.2f%%" % change)
+                prompt_parts.append("")
+                prompt_parts.append(
+                    "The user can see liquidity metrics in the right panel. "
+                    "Answer questions about Fed balance sheet, TGA, RRP, and monetary conditions "
+                    "using the data above. Default update_results=false."
+                )
+                prompt_parts.append("")
+            elif ctx_type == "macro_economy":
+                prompt_parts.append("## User is currently viewing: Economic Fundamentals")
+                headline = content_context.get("overall_headline", "")
+                if headline:
+                    prompt_parts.append("Assessment: %s" % headline)
+                dims = content_context.get("dimensions", [])
+                for d in dims:
+                    if isinstance(d, dict):
+                        prompt_parts.append("- %s: %s (score %.1f/10)" % (
+                            d.get("name_zh", ""), d.get("headline", ""), d.get("score", 0)
+                        ))
+                prompt_parts.append("")
+                prompt_parts.append(
+                    "The user can see economic indicators in the right panel. "
+                    "Answer questions about GDP, employment, credit conditions. "
+                    "Default update_results=false."
+                )
+                prompt_parts.append("")
+            elif ctx_type == "macro_inflation":
+                prompt_parts.append("## User is currently viewing: Inflation & Rates")
+                headline = content_context.get("overall_headline", "")
+                if headline:
+                    prompt_parts.append("Assessment: %s" % headline)
+                cpi = content_context.get("cpi_components", [])
+                if cpi:
+                    prompt_parts.append("CPI components:")
+                    for c in cpi:
+                        if isinstance(c, dict):
+                            yoy = c.get("yoy_pct")
+                            prompt_parts.append("- %s: YoY %s" % (
+                                c.get("name_zh", ""),
+                                "%.1f%%" % yoy if yoy is not None else "N/A"
+                            ))
+                prompt_parts.append("")
+                prompt_parts.append(
+                    "The user can see inflation and rate data in the right panel. "
+                    "Answer questions about CPI, Fed policy, interest rates. "
+                    "Default update_results=false."
+                )
+                prompt_parts.append("")
+            elif ctx_type == "macro_sentiment":
+                prompt_parts.append("## User is currently viewing: Market Sentiment")
+                score = content_context.get("overall_score")
+                headline = content_context.get("overall_headline", "")
+                if score is not None:
+                    prompt_parts.append("CNN Fear & Greed: %.0f/100" % score)
+                if headline:
+                    prompt_parts.append("Assessment: %s" % headline)
+                prompt_parts.append("")
+                prompt_parts.append(
+                    "The user can see sentiment indicators in the right panel. "
+                    "Answer questions about market fear/greed, VIX, put/call ratios. "
+                    "Default update_results=false."
+                )
+                prompt_parts.append("")
 
         # Current user message
         prompt_parts.append("## User's Message")
