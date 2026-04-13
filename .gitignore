@@ -84,3 +84,6 @@ yarn-error.log*
 .trae
 .windsurf
 .env*.local
+
+# InsForge & AI agent skills
+.claude
