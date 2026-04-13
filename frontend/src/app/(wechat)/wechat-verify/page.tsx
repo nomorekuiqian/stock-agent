@@ -9,7 +9,8 @@ type VerifyState =
   | 'error_expired'
   | 'error_used'
   | 'error_invalid'
-  | 'error_no_token';
+  | 'error_no_token'
+  | 'error_network';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -62,7 +63,7 @@ function WechatVerifyContent() {
         }
       })
       .catch(() => {
-        setState('error_invalid');
+        setState('error_network');
       });
   }, [token]);
 
@@ -184,6 +185,32 @@ function WechatVerifyContent() {
               <p className="text-white text-xl font-semibold">链接无效</p>
               <p className="text-gray-400 text-sm mt-2">
                 请确认邮件链接完整，或返回小程序重新发送
+              </p>
+            </div>
+          </>
+        )}
+
+        {state === 'error_network' && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-gray-500/15 flex items-center justify-center mx-auto">
+              <svg
+                className="w-8 h-8 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-white text-xl font-semibold">服务暂时不可用</p>
+              <p className="text-gray-400 text-sm mt-2">
+                网络连接失败，请稍后重试或返回小程序重新发送
               </p>
             </div>
           </>
