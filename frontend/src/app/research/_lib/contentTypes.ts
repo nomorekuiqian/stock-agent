@@ -9,7 +9,7 @@
 // Core types
 // ---------------------------------------------------------------------------
 
-export type ContentType = 'screener' | 'stock' | 'daily_report' | 'morning_report' | 'macro' | 'sector' | 'brew';
+export type ContentType = 'screener' | 'stock' | 'daily_report' | 'morning_report' | 'macro' | 'macro_liquidity' | 'macro_economy' | 'macro_inflation' | 'macro_sentiment' | 'sector' | 'brew';
 
 export interface ContentContext {
   type: ContentType;

@@ -7,12 +7,20 @@ import type { DailyReportContextPayload } from './DailyReportView';
 import type { MorningReportContextPayload } from './MorningReportView';
 import type { MacroContextPayload } from './MacroOverview';
 import type { BrewContextPayload } from './BrewDigestView';
+import type { LiquidityContextPayload } from './LiquidityView';
+import type { EconomyContextPayload } from './EconomyView';
+import type { InflationContextPayload } from './InflationView';
+import type { SentimentContextPayload } from './SentimentView';
 import ResultsPanel from './ResultsPanel';
 import StockResearchView from './StockResearchView';
 import DailyReportView from './DailyReportView';
 import MorningReportView from './MorningReportView';
 import MacroOverview from './MacroOverview';
 import BrewDigestView from './BrewDigestView';
+import LiquidityView from './LiquidityView';
+import EconomyView from './EconomyView';
+import InflationView from './InflationView';
+import SentimentView from './SentimentView';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -43,6 +51,10 @@ interface ContentPanelProps {
   onMacroContextReady?: (payload: MacroContextPayload) => void;
   /** Called when brew digest data is loaded in BrewDigestView, for Agent context. */
   onBrewContextReady?: (payload: BrewContextPayload) => void;
+  onLiquidityContextReady?: (payload: LiquidityContextPayload) => void;
+  onEconomyContextReady?: (payload: EconomyContextPayload) => void;
+  onInflationContextReady?: (payload: InflationContextPayload) => void;
+  onSentimentContextReady?: (payload: SentimentContextPayload) => void;
 }
 
 export default function ContentPanel({
@@ -55,6 +67,10 @@ export default function ContentPanel({
   onMorningContextReady,
   onMacroContextReady,
   onBrewContextReady,
+  onLiquidityContextReady,
+  onEconomyContextReady,
+  onInflationContextReady,
+  onSentimentContextReady,
 }: ContentPanelProps) {
   return (
     <div className="flex flex-col h-full">
@@ -127,6 +143,22 @@ export default function ContentPanel({
 
         {activeContent.type === 'macro' && (
           <MacroOverview onContextReady={onMacroContextReady} />
+        )}
+
+        {activeContent.type === 'macro_liquidity' && (
+          <LiquidityView onContextReady={onLiquidityContextReady} />
+        )}
+
+        {activeContent.type === 'macro_economy' && (
+          <EconomyView onContextReady={onEconomyContextReady} />
+        )}
+
+        {activeContent.type === 'macro_inflation' && (
+          <InflationView onContextReady={onInflationContextReady} />
+        )}
+
+        {activeContent.type === 'macro_sentiment' && (
+          <SentimentView onContextReady={onSentimentContextReady} />
         )}
 
         {activeContent.type === 'brew' && (
