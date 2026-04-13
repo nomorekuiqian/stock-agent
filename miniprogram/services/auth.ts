@@ -91,3 +91,33 @@ export function isLoggedIn(): boolean {
 export function logout(): void {
   clearAll();
 }
+
+interface RegisterRequestResult {
+  success: boolean;
+  action?: string;  // "create_new" | "bind_existing"
+  error?: string;
+}
+
+/**
+ * Step 1 of OTP registration: POST email to backend, triggers verification email.
+ * Requires a valid WeChat JWT (any type) to be stored via setToken().
+ */
+export async function registerRequest(email: string): Promise<RegisterRequestResult> {
+  try {
+    return await request<RegisterRequestResult>('/wechat/register/request', {
+      method: 'POST',
+      data: { email },
+      needAuth: true,
+    });
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Re-run wx.login() to exchange a fresh code for an updated JWT.
+ * Call after user confirms email verification to upgrade unbound → email_only/bound.
+ */
+export async function refreshLogin(): Promise<LoginResult> {
+  return wechatLogin();
+}
