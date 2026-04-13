@@ -603,7 +603,7 @@ class TestRegisterRouter:
         resp = client.post("/api/wechat/register/request", json={"email": "a@b.com"})
         assert resp.status_code == 401
 
-    @patch("app.features.wechat.router.service.register_request")
+    @patch("app.features.wechat.router.service.register_request", new_callable=AsyncMock)
     def test_register_request_success(self, mock_svc):
         mock_svc.return_value = {"success": True, "action": "create_new"}
 
@@ -619,7 +619,7 @@ class TestRegisterRouter:
         assert resp.status_code == 200
         assert resp.json()["action"] == "create_new"
 
-    @patch("app.features.wechat.router.service.register_confirm")
+    @patch("app.features.wechat.router.service.register_confirm", new_callable=AsyncMock)
     def test_register_confirm_success(self, mock_svc):
         mock_svc.return_value = {"success": True, "account_state": "email_only"}
 
@@ -633,7 +633,7 @@ class TestRegisterRouter:
         assert resp.status_code == 200
         assert resp.json()["account_state"] == "email_only"
 
-    @patch("app.features.wechat.router.service.register_confirm")
+    @patch("app.features.wechat.router.service.register_confirm", new_callable=AsyncMock)
     def test_register_confirm_error_returns_400(self, mock_svc):
         mock_svc.return_value = {"success": False, "error": "验证链接已过期，请重新发送"}
 
