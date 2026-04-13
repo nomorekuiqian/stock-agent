@@ -16,6 +16,7 @@ import { useWatchlist } from '@/hooks/queries/use-watchlist';
 import { useDigestList } from '@/hooks/queries/use-digest-data';
 
 import { ForYouSkeleton } from './ForYouSkeleton';
+import WatchlistPreview from './WatchlistPreview';
 
 function ForYouPageContent() {
   const router = useRouter();
@@ -222,15 +223,15 @@ function ForYouPageContent() {
         </div>
       )}
 
-      {/* State B/C: Dashboard */}
-      {!dataLoading && symbols.length > 0 && (
-        <>
-          {/* Full Digest Report */}
-          {displayDigest && (
-            <DigestInlineReport digest={displayDigest} />
-          )}
+      {/* State B: Has stocks but no digest yet — show watchlist with live quotes */}
+      {!dataLoading && symbols.length > 0 && !displayDigest && (
+        <WatchlistPreview symbols={symbols} />
+      )}
 
-          {/* Recent Reports */}
+      {/* State C: Full dashboard with digest */}
+      {!dataLoading && symbols.length > 0 && displayDigest && (
+        <>
+          <DigestInlineReport digest={displayDigest} />
           <RecentReports history={filteredHistory} totalHistory={totalHistory} />
         </>
       )}
