@@ -9,12 +9,19 @@ Usage:
     pytest tests/e2e/test_wechat_e2e.py -v
 """
 
+import os
+
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def wechat_jwt_secret():
+    os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
 
 
 @pytest.fixture
