@@ -58,8 +58,9 @@ class TestRedeemCode:
     @patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock)
     @patch("app.features.invites.db.get_or_create_stripe_customer", new_callable=AsyncMock)
     @patch("app.features.invites.db.stripe")
+    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock, return_value=None)
     async def test_happy_path_creates_trial(
-        self, mock_stripe, mock_get_customer, mock_upsert,
+        self, mock_get_sub, mock_stripe, mock_get_customer, mock_upsert,
     ):
         """Valid code + Stripe -> creates trial sub, writes DB with entitlements."""
         mock_get_customer.return_value = "cus_test_happy"
@@ -92,20 +93,21 @@ class TestRedeemCode:
         assert create_kwargs["customer"] == "cus_test_happy"
         assert create_kwargs["trial_period_days"] == 14
         assert create_kwargs["metadata"]["tier"] == "max"
-        assert create_kwargs["metadata"]["invite_code"] == "ALPHA2026"
+        assert create_kwargs["metadata"]["invite_code"] == "invite_redemption"
 
-        # Verify upsert_subscription was called with entitlements
-        mock_upsert.assert_awaited_once()
-        upsert_kwargs = mock_upsert.call_args.kwargs
-        assert upsert_kwargs["user_id"] == "user-003"
-        assert upsert_kwargs["plan"] == "max"
-        assert upsert_kwargs["status"] == "active"
-        assert upsert_kwargs["stripe_customer_id"] == "cus_test_happy"
-        assert upsert_kwargs["stripe_subscription_id"] == "sub_trial_001"
+        # upsert is called twice: once in create_trial_subscription (full write),
+        # once in redeem_code (update invite_code to actual code)
+        assert mock_upsert.await_count == 2
+        first_call_kwargs = mock_upsert.call_args_list[0].kwargs
+        assert first_call_kwargs["user_id"] == "user-003"
+        assert first_call_kwargs["plan"] == "max"
+        assert first_call_kwargs["status"] == "active"
+        assert first_call_kwargs["stripe_customer_id"] == "cus_test_happy"
+        assert first_call_kwargs["stripe_subscription_id"] == "sub_trial_001"
 
         # Entitlements should be sorted MAX_FEATURES
         from app.features.payment.entitlements import MAX_FEATURES
-        assert upsert_kwargs["entitlements"] == sorted(MAX_FEATURES)
+        assert first_call_kwargs["entitlements"] == sorted(MAX_FEATURES)
 
     # ------------------------------------------------------------------
     # 4. Stripe API failure propagates
@@ -117,22 +119,26 @@ class TestRedeemCode:
     @patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock)
     @patch("app.features.invites.db.get_or_create_stripe_customer", new_callable=AsyncMock)
     @patch("app.features.invites.db.stripe")
-    async def test_stripe_api_failure_propagates(
-        self, mock_stripe, mock_get_customer, mock_upsert,
+    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock, return_value=None)
+    async def test_stripe_api_failure_falls_back_to_db(
+        self, mock_get_sub, mock_stripe, mock_get_customer, mock_upsert,
     ):
-        """stripe.Subscription.create raises -> exception propagates, no DB write."""
+        """stripe.Subscription.create raises -> falls back to DB write with stripe_pending."""
         mock_get_customer.return_value = "cus_test_fail"
         mock_stripe.Subscription.create.side_effect = Exception("Stripe API error")
 
         from app.features.invites.db import redeem_code
 
-        with pytest.raises(Exception, match="Stripe API error"):
-            await redeem_code(
-                user_id="user-004",
-                user_email="fail@example.com",
-                code="ALPHA2026",
-                valid_codes=VALID_CODES,
-            )
+        result = await redeem_code(
+            user_id="user-004",
+            user_email="fail@example.com",
+            code="ALPHA2026",
+            valid_codes=VALID_CODES,
+        )
 
-        # upsert should NOT have been called since Stripe failed
-        mock_upsert.assert_not_awaited()
+        assert result["success"] is True
+        assert result["stripe_pending"] is True
+        assert result["subscription_id"] is None
+
+        # upsert IS called (fallback DB write + invite code update)
+        assert mock_upsert.await_count == 2

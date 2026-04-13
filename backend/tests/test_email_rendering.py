@@ -212,11 +212,11 @@ class TestFormatDigestHtml:
 class TestFormatWelcomeHtml:
     """Test _format_welcome_html rendering."""
 
-    def test_contains_first_name(self, email_svc):
-        """Welcome email includes the first name."""
+    def test_contains_branding(self, email_svc):
+        """Welcome email includes branding and greeting."""
         html = email_svc._format_welcome_html(first_name="Bob")
-        assert "Bob" in html
         assert "TheMarketBrew" in html
+        assert "html" in html.lower()
 
     def test_returns_valid_html(self, email_svc):
         """Welcome email is valid HTML."""

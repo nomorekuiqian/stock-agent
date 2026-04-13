@@ -189,7 +189,10 @@ class TestNoCrossFeatureImports:
         ("brew", "stock"),              # brew uses stock data
         ("stock", "macro"),             # stock page shows macro risk context
         ("screener", "daily_report"),   # screener references market report data
+        ("screener", "macro"),          # research agent reads macro risk/liquidity data
+        ("screener", "morning_report"), # research agent reads morning report data
         ("invites", "payment"),         # invites check payment/subscription status
+        ("invites", "subscription"),    # invites sends welcome email via email_service
         ("macro", "subscription"),      # weekly report triggers email via subscription
         ("payment", "subscription"),    # entitlements webhook syncs Resend segments
         ("brew", "subscription"),       # brew trial activation subscribes user to emails
