@@ -53,8 +53,7 @@ export default function RequestAccessPage(): ReactNode {
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const toggle = (
     setter: React.Dispatch<React.SetStateAction<string[]>>,
@@ -89,7 +88,7 @@ export default function RequestAccessPage(): ReactNode {
       if (!res.ok || !data.success) {
         setError("提交失败，请稍后再试");
       } else {
-        setInviteCode(data.invite_code);
+        setSubmitted(true);
       }
     } catch {
       setError("网络错误，请检查连接后重试");
@@ -98,15 +97,7 @@ export default function RequestAccessPage(): ReactNode {
     }
   };
 
-  const handleCopy = () => {
-    if (!inviteCode) return;
-    navigator.clipboard.writeText(inviteCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  if (inviteCode) {
+  if (submitted) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center space-y-8">
@@ -114,44 +105,24 @@ export default function RequestAccessPage(): ReactNode {
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
               TheMarketBrew
             </p>
+            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
             <h1 className="text-2xl font-editorial text-foreground mb-2">
-              你的邀请码
+              感谢你的反馈!
             </h1>
             <p className="text-sm text-muted-foreground">
-              感谢填写问卷！复制下方邀请码，登录后即可激活 14 天 Pro 体验。
+              你的意见对我们非常重要，我们会不断改进产品体验。
             </p>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <p className="text-3xl font-mono font-bold tracking-widest text-primary">
-              {inviteCode}
-            </p>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="w-full px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
-            >
-              {copied ? "已复制" : "复制邀请码"}
-            </button>
-          </div>
-
-          <div className="text-left bg-muted/30 border border-border/50 rounded-lg p-4 space-y-2">
-            <p className="text-xs font-medium text-foreground/80">如何使用：</p>
-            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>
-                前往 <span className="text-foreground">themarketbrew.com</span>{" "}
-                注册或登录
-              </li>
-              <li>点击任意功能，在弹出窗口中输入邀请码</li>
-              <li>立即解锁 14 天 Pro 全功能访问</li>
-            </ol>
           </div>
 
           <Link
-            href="/today"
-            className="inline-block text-sm text-primary hover:text-primary/80 transition-colors"
+            href="/for-you"
+            className="inline-block w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
           >
-            前往今日市场，兑换邀请码 →
+            开始探索
           </Link>
         </div>
       </div>
@@ -175,9 +146,9 @@ export default function RequestAccessPage(): ReactNode {
           <p className="text-xs text-muted-foreground uppercase tracking-widest">
             TheMarketBrew
           </p>
-          <h1 className="text-2xl font-editorial text-foreground">申请访问</h1>
+          <h1 className="text-2xl font-editorial text-foreground">帮助我们了解你</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            完成以下问题，立即获取邀请码，解锁 14 天 Pro 免费体验。
+            花 1 分钟告诉我们你的投资偏好，帮助我们为你提供更好的体验。
           </p>
         </div>
 
@@ -326,18 +297,18 @@ export default function RequestAccessPage(): ReactNode {
                 提交中...
               </>
             ) : (
-              "获取邀请码"
+              "提交问卷"
             )}
           </button>
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          已有邀请码？
+          还没有账号？
           <Link
             href="/login"
             className="text-primary hover:text-primary/80 transition-colors ml-1"
           >
-            登录并兑换
+            免费注册
           </Link>
         </p>
       </div>

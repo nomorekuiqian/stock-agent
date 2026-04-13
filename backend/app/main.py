@@ -24,6 +24,10 @@ from app.core.rate_limit import limiter
 setup_logging()
 logger = get_logger(__name__)
 
+# --- Email safety guard (blocks non-test emails in dev) ---
+from app.core.email_guard import install as install_email_guard
+install_email_guard()
+
 # --- App ---
 app = FastAPI(title="Market Analysis API")
 app.state.limiter = limiter

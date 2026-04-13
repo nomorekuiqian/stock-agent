@@ -731,6 +731,71 @@ async def broadcast_newsletter(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/welcome/preview")
+async def get_welcome_email_preview(
+    first_name: str = Query("", description="Subscriber first name"),
+    email: str = Query("preview@example.com", description="Subscriber email"),
+):
+    """Render unified welcome email HTML for preview. Does NOT send anything."""
+    from app.features.subscription.email_templates import format_welcome_html
+
+    html = format_welcome_html(first_name=first_name, email=email)
+    return {
+        "success": True,
+        "subject": "欢迎加入 TheMarketBrew",
+        "html": html,
+    }
+
+
+@router.get("/onboarding/preview")
+async def get_onboarding_email_preview(
+    day: int = Query(1, description="Trial day: 1, 3, 7, 11, or 14"),
+    first_name: str = Query("", description="User first name"),
+):
+    """Render onboarding drip email HTML for preview. Does NOT send anything."""
+    from app.features.notification.onboarding import _TEMPLATE_MAP
+
+    template_fn = _TEMPLATE_MAP.get(day)
+    if not template_fn:
+        valid = sorted(_TEMPLATE_MAP.keys())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid day={day}. Valid days: {valid}",
+        )
+    subject, html = template_fn(first_name=first_name)
+    return {
+        "success": True,
+        "day": day,
+        "subject": subject,
+        "html": html,
+        "valid_days": sorted(_TEMPLATE_MAP.keys()),
+    }
+
+
+@router.post("/cron/onboarding-emails", dependencies=[Depends(verify_cron_secret)])
+async def cron_onboarding_emails():
+    """Daily cron: send onboarding drip emails to trial users.
+
+    Checks each active trial user's day count and sends the appropriate
+    onboarding email (Day 0, 1, 3, 7, 11, 14). Skips users who have
+    already received the email for their current stage.
+    """
+    try:
+        from app.features.notification.onboarding import process_onboarding_emails
+
+        result = await process_onboarding_emails()
+
+        return {
+            "success": True,
+            "message": "Onboarding drip campaign processed",
+            **result,
+        }
+
+    except Exception as e:
+        logger.exception("Error in cron_onboarding_emails")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/weekly-report/broadcast")
 async def broadcast_weekly_report(_secret: str = Depends(verify_cron_secret)):
     """

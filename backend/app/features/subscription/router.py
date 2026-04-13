@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+from app.core.database import get_insforge_service
 from app.core.deps import verify_cron_secret, verify_user_token_with_email
 from app.utils.timezone import today_str, now_iso
 from app.features.daily_report import db as market_db
@@ -37,6 +38,22 @@ from app.features.subscription.models import (
     PreferencesResponse,
     EmailPreferences,
 )
+
+
+async def _check_account_exists(email: str) -> bool:
+    """Check if an Insforge auth account exists for the given email."""
+    try:
+        service = get_insforge_service()
+        result = await service.call_function(
+            "subscriptions",
+            method="GET",
+            params={"action": "check_email", "email": email},
+        )
+        data = result.get("data", {})
+        return data.get("exists", False)
+    except Exception:
+        logger.warning("Failed to check account existence for %s", email)
+        return False
 
 router = APIRouter(prefix="/api", tags=["subscription"])
 
@@ -77,7 +94,12 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
             metadata=metadata
         )
 
-        # Send welcome email only for NEW daily_report subscribers
+        # Check if user has an existing Insforge auth account
+        has_account = None
+        if result.get("success") and channel == SubscriptionChannel.DAILY_REPORT:
+            has_account = await _check_account_exists(request.email)
+
+        # Send unified welcome email for NEW daily_report subscribers
         if (
             result.get("success")
             and result.get("is_new")
@@ -85,12 +107,15 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
         ):
             welcome_result = await email_service.send_welcome_email(
                 to_email=request.email,
-                first_name=request.first_name
+                first_name=request.first_name,
             )
             if welcome_result.get("success"):
                 logger.info("Welcome email sent to %s", request.email)
             else:
-                logger.warning("Failed to send welcome email: %s", welcome_result.get("error"))
+                logger.warning(
+                    "Failed to send welcome email: %s",
+                    welcome_result.get("error"),
+                )
 
         return SubscriptionResponse(
             success=result.get("success", False),
@@ -98,6 +123,7 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
             email=request.email,
             contact_id=result.get("contact_id"),
             metadata=result.get("metadata"),
+            has_account=has_account,
             error=result.get("error"),
         )
 

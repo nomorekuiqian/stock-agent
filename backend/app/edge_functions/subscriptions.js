@@ -234,6 +234,66 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=check_email&email=xxx
+    if (request.method === "GET" && action === "check_email") {
+      const email = url.searchParams.get("email");
+      if (!email) {
+        return new Response(
+          JSON.stringify({ success: false, error: "email required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data, error } = await client.database
+        .rpc("check_email_exists", { lookup_email: email });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, exists: !!data }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=list_trials
+    if (request.method === "GET" && action === "list_trials") {
+      // Include trials that expired up to 2 days ago so the day-14 email still fires
+      const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .select("user_id, plan, status, access_expires_at, created_at")
+        .gt("access_expires_at", cutoff)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Enrich with user emails from auth.users
+      const enriched = [];
+      for (const sub of (data || [])) {
+        const { data: userData } = await client.database
+          .rpc("get_user_email", { lookup_user_id: sub.user_id });
+        enriched.push({
+          ...sub,
+          email: userData || null,
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: enriched }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

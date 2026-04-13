@@ -38,3 +38,9 @@ class QualifyInput(BaseModel):
 class QualifyResponse(BaseModel):
     success: bool
     invite_code: str
+
+
+class AutoTrialResponse(BaseModel):
+    success: bool
+    access_expires_at: Optional[str] = None
+    already_active: bool = False

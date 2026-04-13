@@ -17,8 +17,9 @@ from app.features.invites.models import (
     AccessRequestResponse,
     QualifyInput,
     QualifyResponse,
+    AutoTrialResponse,
 )
-from app.features.invites.db import redeem_code, save_qualify_response
+from app.features.invites.db import redeem_code, create_trial_subscription, save_qualify_response
 
 logger = get_logger(__name__)
 
@@ -51,6 +52,45 @@ async def api_redeem_invite(
     return RedeemInviteResponse(
         success=True,
         access_expires_at=result.get("access_expires_at"),
+    )
+
+
+@router.post("/auto-trial", response_model=AutoTrialResponse)
+async def api_auto_trial(
+    user_id: str = Depends(verify_user_token),
+    email: Optional[str] = Depends(get_optional_user_email),
+):
+    """Auto-create a 14-day Max trial for newly registered users."""
+    result = await create_trial_subscription(
+        user_id=user_id,
+        user_email=email or "",
+        source="auto_registration",
+    )
+
+    if not result["success"]:
+        error = result.get("error", "trial_creation_failed")
+        logger.warning("Auto-trial failed: user=%s error=%s", user_id[:8], error)
+        raise HTTPException(status_code=400, detail=error)
+
+    # Send welcome email for genuinely new trials.
+    # This won't duplicate with subscribe flow because Resend contact
+    # may already exist (returning user), in which case subscribe skips the email.
+    if not result.get("already_active") and email:
+        try:
+            from app.features.subscription.email_service import get_email_service
+            svc = get_email_service()
+            await svc.send_welcome_email(to_email=email)
+        except Exception:
+            logger.exception("Failed to send welcome email: user=%s", user_id[:8])
+
+    logger.info(
+        "Auto-trial created: user=%s already_active=%s",
+        user_id[:8], result.get("already_active"),
+    )
+    return AutoTrialResponse(
+        success=True,
+        access_expires_at=result.get("access_expires_at"),
+        already_active=result.get("already_active", False),
     )
 
 

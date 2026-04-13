@@ -99,6 +99,7 @@ class SubscriptionResponse(BaseModel):
     email: str = Field(..., description="Email address")
     contact_id: Optional[str] = Field(None, description="Resend contact ID")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Subscription metadata")
+    has_account: Optional[bool] = Field(None, description="Whether email has an existing Insforge auth account")
     error: Optional[str] = Field(None, description="Error message if failed")
 
 

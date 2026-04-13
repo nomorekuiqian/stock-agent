@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 import { Lock, Zap, ArrowRight, Crown } from 'lucide-react';
 import { PRICING } from '@/lib/pricing';
 
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 interface PaywallGuardProps {
   children: ReactNode;
@@ -17,12 +19,14 @@ interface PaywallGuardProps {
   requiredPlan?: 'pro' | 'max';
   /** Feature key to check via entitlements API. Takes precedence over requiredPlan. */
   requiredFeature?: string;
+  /** Preview content to show behind a gradient overlay instead of the full lock screen. */
+  preview?: ReactNode;
 }
 
-export default function PaywallGuard({ children, requiredPlan = 'pro', requiredFeature }: PaywallGuardProps) {
+export default function PaywallGuard({ children, requiredPlan = 'pro', requiredFeature, preview }: PaywallGuardProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { isPro, isMax, isLoading: subLoading, redeemInviteCode, createCheckout } = useSubscription();
+  const { isPro, isMax, isLoading: subLoading, status, redeemInviteCode, createCheckout, refreshSubscription } = useSubscription();
   const { has: hasEntitlement, isLoading: entLoading, refresh: refreshEntitlements } = useEntitlements();
 
   const [showCodeInput, setShowCodeInput] = useState(false);
@@ -60,14 +64,30 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
   }
 
   // Max-only features that trigger the "upgrade to Max" flow for Pro users
+  // Must be checked BEFORE preview mode so Pro users see upgrade flow, not preview
   const MAX_ONLY_FEATURES = new Set([
     'macro_dashboard', 'stock_research', 'ai_research_engine',
   ]);
 
-  // User is a Pro subscriber but page requires Max
   const isProNeedsMax = requiredFeature
     ? isPro && MAX_ONLY_FEATURES.has(requiredFeature)
     : isPro && requiredPlan === 'max';
+
+  // --- Preview mode: show blurred preview with CTA overlay ---
+  // Only for non-Pro users (Pro users who need Max get the upgrade flow below)
+  if (preview && !isProNeedsMax) {
+    return (
+      <PreviewOverlay
+        preview={preview}
+        isAuthenticated={isAuthenticated}
+        status={status}
+        isPro={isPro}
+        isMax={isMax}
+        refreshSubscription={refreshSubscription}
+        refreshEntitlements={() => refreshEntitlements({ fresh: true })}
+      />
+    );
+  }
 
   const handleRedeem = async () => {
     if (!codeInput.trim()) return;
@@ -180,35 +200,44 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
 
         {/* Action Cards */}
         <div className="space-y-3 mb-6">
-          {/* Primary: View Pricing */}
+          {/* Primary: Register for free trial */}
           <Link
-            href="/pricing"
+            href="/login"
             className="group flex items-center gap-4 p-4 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
           >
             <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
               <Zap className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">查看订阅方案</p>
-              <p className="text-xs text-muted-foreground">Pro {PRICING.proPerMonth} 起</p>
+              <p className="text-sm font-semibold text-foreground">注册即可免费体验 14 天</p>
+              <p className="text-xs text-muted-foreground">免费注册，开始 14 天全功能体验</p>
             </div>
             <ArrowRight className="w-4 h-4 text-primary shrink-0 transition-transform group-hover:translate-x-0.5" />
           </Link>
 
-          {/* Invite Code */}
+          {/* View Pricing */}
+          <Link
+            href="/pricing"
+            className="group flex items-center gap-4 p-4 rounded-xl border border-border/50 bg-card/50 hover:border-border transition-colors"
+          >
+            <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">查看订阅方案</p>
+              <p className="text-xs text-muted-foreground">Pro {PRICING.proPerMonth} 起</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+
+          {/* Invite Code - secondary option at bottom */}
           {!showCodeInput ? (
             <button
               onClick={() => setShowCodeInput(true)}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border border-border/50 bg-card/50 hover:border-border transition-colors cursor-pointer text-left"
+              className="w-full flex items-center gap-4 p-3 rounded-xl border border-border/30 bg-card/30 hover:border-border/50 transition-colors cursor-pointer text-left"
             >
-              <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                </svg>
-              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">有邀请码?</p>
-                <p className="text-xs text-muted-foreground">输入邀请码获得 14 天免费体验</p>
+                <p className="text-xs text-muted-foreground">有邀请码？点击输入</p>
               </div>
             </button>
           ) : (
@@ -239,23 +268,6 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
               {codeError && <p className="text-xs text-red-400 mt-2">{codeError}</p>}
             </div>
           )}
-
-          {/* Get invite code via questionnaire */}
-          <Link
-            href="/request-access"
-            className="group flex items-center gap-4 p-4 rounded-xl border border-border/50 bg-card/50 hover:border-border transition-colors"
-          >
-            <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">没有邀请码?</p>
-              <p className="text-xs text-muted-foreground">填写问卷免费获取邀请码</p>
-            </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
-          </Link>
         </div>
 
         <div className="text-center">
@@ -265,5 +277,137 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
         </div>
       </div>
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Preview overlay component (shown when `preview` prop is provided)
+// ---------------------------------------------------------------------------
+
+function PreviewOverlay({
+  preview,
+  isAuthenticated,
+  status,
+  isPro,
+  isMax,
+  refreshSubscription,
+  refreshEntitlements,
+}: {
+  preview: ReactNode;
+  isAuthenticated: boolean;
+  status: string;
+  isPro: boolean;
+  isMax: boolean;
+  refreshSubscription: () => Promise<void>;
+  refreshEntitlements: () => Promise<void>;
+}) {
+  const [isActivating, setIsActivating] = useState(false);
+  const [activateError, setActivateError] = useState('');
+
+  // Determine CTA mode:
+  // 1. Not authenticated -> sign up / login
+  // 2. Authenticated, no subscription record (status === 'none') -> activate trial
+  // 3. Authenticated, had subscription but expired -> go to pricing
+  const hasSubscriptionRecord = isAuthenticated && status !== 'none' && !isPro && !isMax;
+
+  const handleActivateTrial = async () => {
+    setIsActivating(true);
+    setActivateError('');
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setActivateError('登录已过期，请重新登录');
+        setIsActivating(false);
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/invites/auto-trial`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        await refreshSubscription();
+        await refreshEntitlements();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setActivateError(data.detail || '激活失败，请稍后再试');
+      }
+    } catch {
+      setActivateError('网络错误，请稍后再试');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Preview content, no interaction */}
+      <div className="pointer-events-none select-none" aria-hidden="true">
+        {preview}
+      </div>
+      {/* Gradient overlay */}
+      <div className="absolute inset-x-0 bottom-0 h-48 md:h-80 bg-gradient-to-t from-background via-background/95 to-transparent" />
+      {/* CTA overlay */}
+      <div className="absolute inset-x-0 bottom-0 text-center pb-12 space-y-3">
+        {!isAuthenticated ? (
+          <>
+            <p className="text-lg font-medium text-foreground">
+              注册即享 14 天全功能免费体验
+            </p>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98]"
+            >
+              免费注册
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <p className="text-xs text-muted-foreground">
+              无需信用卡 · 14 天后自动结束
+            </p>
+          </>
+        ) : hasSubscriptionRecord ? (
+          <>
+            <p className="text-lg font-medium text-foreground">
+              你的试用已结束，订阅继续使用
+            </p>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98]"
+            >
+              查看订阅方案
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-lg font-medium text-foreground">
+              激活你的 14 天免费试用
+            </p>
+            <button
+              onClick={handleActivateTrial}
+              disabled={isActivating}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isActivating ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+                  激活中...
+                </>
+              ) : (
+                <>
+                  立即激活
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+            {activateError && (
+              <p className="text-xs text-red-400">{activateError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              无需信用卡 · 14 天后自动结束
+            </p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import PaywallGuard from '@/components/PaywallGuard';
 import { MorningReportContent } from '@/components/MorningReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
+import MorningPaywallGuard from './_components/MorningPaywallGuard';
 import { AiChatLink } from '@/components/AiChatLink';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MorningReport, MorningReportListItem } from '@/lib/api';
@@ -67,7 +67,7 @@ export default async function MorningPage() {
   const totalReports = historyResult.total;
 
   return (
-    <PaywallGuard requiredFeature="morning_website">
+    <MorningPaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">
@@ -207,6 +207,6 @@ export default async function MorningPage() {
         </section>
       )}
     </main>
-    </PaywallGuard>
+    </MorningPaywallGuard>
   );
 }

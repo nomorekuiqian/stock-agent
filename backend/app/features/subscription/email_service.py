@@ -36,6 +36,7 @@ from app.features.subscription.email_templates import (
     format_digest_html,
     format_weekly_report_html,
     format_welcome_html,
+    format_trial_welcome_html,
     format_verification_email_html,
     format_newsletter_plaintext,
     format_morning_report_html,
@@ -62,6 +63,7 @@ class EmailService:
         if self.api_key:
             resend.api_key = self.api_key
         self.from_email = "TheMarketBrew Daily <daily@themarketbrew.com>"
+        self.reply_to = "kedengpan@gmail.com"
         self.from_email_morning = "TheMarketBrew Morning <morning@themarketbrew.com>"
         self.from_email_weekly = "TheMarketBrew Weekly <weekly@themarketbrew.com>"
         self.frontend_url = (
@@ -69,6 +71,11 @@ class EmailService:
         )
         self.is_production = ENVIRONMENT == "production"
         self.logo_url = "https://themarketbrew.com/logo-avatar.png"
+
+    def _with_reply_to(self, params: dict) -> dict:
+        """Inject reply_to into email params."""
+        params["reply_to"] = self.reply_to
+        return params
 
     @property
     def frontend_url(self) -> str:
@@ -397,7 +404,7 @@ class EmailService:
                 "html": html_content,
             }
 
-            email = resend.Emails.send(params)
+            email = resend.Emails.send(self._with_reply_to(params))
             logger.info("Email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": recipient}
 
@@ -444,7 +451,7 @@ class EmailService:
                 "html": html_content,
             }
 
-            email = resend.Emails.send(params)
+            email = resend.Emails.send(self._with_reply_to(params))
             logger.info("Digest email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
@@ -484,7 +491,7 @@ class EmailService:
                 "html": html_content,
             }
 
-            email = resend.Emails.send(params)
+            email = resend.Emails.send(self._with_reply_to(params))
             logger.info("Weekly report email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
@@ -514,7 +521,7 @@ class EmailService:
                 "text": text_content,
             }
 
-            email = resend.Emails.send(params)
+            email = resend.Emails.send(self._with_reply_to(params))
             logger.info("Newsletter sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
@@ -525,14 +532,17 @@ class EmailService:
     async def send_welcome_email(
         self, to_email: str, first_name: Optional[str] = None
     ) -> dict:
-        """Send welcome email to new subscriber."""
+        """Send the unified welcome email to a new subscriber."""
         logger.info("send_welcome_email to=%s", to_email)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
 
         try:
-            html_content = format_welcome_html(first_name or "")
+            html_content = format_welcome_html(
+                first_name=first_name or "",
+                email=to_email,
+            )
 
             params = {
                 "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
@@ -541,13 +551,17 @@ class EmailService:
                 "html": html_content,
             }
 
-            email = resend.Emails.send(params)
+            email = resend.Emails.send(self._with_reply_to(params))
             logger.info("Welcome email sent: %s", email.get("id"))
             return {"success": True, "email_id": email.get("id"), "sent_to": to_email}
 
         except Exception as e:
             logger.error("Error sending welcome email: %s", e)
             return {"success": False, "error": str(e)}
+
+    async def send_trial_welcome_email(self, to_email: str) -> dict:
+        """Deprecated: delegates to send_welcome_email."""
+        return await self.send_welcome_email(to_email=to_email)
 
     async def send_morning_report(
         self, data: dict, to_email: str, first_name: Optional[str] = None

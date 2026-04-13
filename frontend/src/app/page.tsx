@@ -102,24 +102,27 @@ export default function Home() {
               </div>
 
               {/* CTAs */}
-              <div className="animate-fade-in-up delay-500 mt-6 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/pricing"
-                  className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98]"
-                >
-                  查看定价方案
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-                <Link
-                  href="/today"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group min-h-[44px]"
-                >
-                  <span className="border-b border-border/40 group-hover:border-foreground/40 transition-colors">
-                    先看一份样本报告
-                  </span>
-                </Link>
+              <div className="animate-fade-in-up delay-500 mt-6 flex flex-col items-start gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98]"
+                  >
+                    免费体验 14 天
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                  <Link
+                    href="/today"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium border border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-all min-h-[44px]"
+                  >
+                    先看今天的市场
+                  </Link>
+                </div>
+                <p className="text-xs text-muted-foreground/60">
+                  无需信用卡 · 14 天后自动结束
+                </p>
               </div>
             </div>
 

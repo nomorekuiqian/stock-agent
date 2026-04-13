@@ -148,7 +148,7 @@ export default function PricingPage() {
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
               <Check className="w-4 h-4 text-primary" />
               <span className="text-sm text-primary font-medium">
-                邀请码体验中 — 订阅后可享每月不间断服务
+                免费试用中 -- 订阅后可享每月不间断服务
               </span>
             </div>
           </div>
@@ -389,15 +389,26 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* ── Invite Code ─────────────────────────────────────── */}
+        {/* ── Free Trial / Invite Code ────────────────────────── */}
         {!loading && !isPaidAny && (
           <section className="max-w-md mx-auto mb-16 md:mb-20">
             <div className="text-center mb-5">
               <div className="h-px bg-border/30 mb-5" />
               <p className="text-xs text-muted-foreground tracking-wide uppercase">
-                {isActiveTrial ? '还没准备好付费?' : '或使用邀请码'}
+                {isActiveTrial ? '还没准备好付费?' : '免费试用'}
               </p>
             </div>
+
+            {!isAuthenticated && !isActiveTrial && (
+              <div className="text-center mb-5">
+                <Link
+                  href="/login?redirect=/pricing"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors"
+                >
+                  注册即试用 14 天全功能
+                </Link>
+              </div>
+            )}
 
             {redeemSuccess ? (
               <div className="terminal-card p-6 text-center">
@@ -417,7 +428,7 @@ export default function PricingPage() {
               <>
                 {isActiveTrial && (
                   <p className="text-xs text-muted-foreground text-center mb-3">
-                    邀请码提供 14 天免费体验，付费订阅则按月持续使用
+                    试用期 14 天免费体验，付费订阅则按月持续使用
                   </p>
                 )}
                 <div className="flex gap-2">
@@ -426,7 +437,7 @@ export default function PricingPage() {
                     value={codeInput}
                     onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleRedeem()}
-                    placeholder="输入邀请码"
+                    placeholder="有邀请码？在此输入"
                     className="flex-1 px-3 py-2.5 bg-card border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
                   />
                   <button
@@ -441,16 +452,6 @@ export default function PricingPage() {
             )}
             {codeError && (
               <p className="text-xs text-red-400 mt-2 text-center">{codeError}</p>
-            )}
-            {!isActiveTrial && (
-              <p className="text-center mt-3">
-                <Link
-                  href="/request-access"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  没有邀请码? 填写问卷免费获取 &rarr;
-                </Link>
-              </p>
             )}
           </section>
         )}
@@ -478,8 +479,8 @@ export default function PricingPage() {
               a="可以。通过 Stripe 管理订阅，取消后当前计费周期内仍可使用，不会额外收费。"
             />
             <FaqItem
-              q="邀请码体验包含哪些功能?"
-              a="邀请码提供 14 天全功能（Max 级别）体验，到期后可选择 Pro 或 Max 继续使用。"
+              q="免费试用包含哪些功能?"
+              a="注册即可获得 14 天全功能（Max 级别）体验，到期后可选择 Pro 或 Max 继续使用。"
             />
             <FaqItem
               q="支持哪些支付方式?"
