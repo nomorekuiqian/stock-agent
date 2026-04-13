@@ -1,0 +1,51 @@
+name: Onboarding Drip Campaign
+
+on:
+  schedule:
+    # Run daily at UTC 15:00 = 8:00 AM PDT / 7:00 AM PST
+    # Morning send so new trial users get their first email early in the day
+    - cron: '0 15 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  send-onboarding:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Onboarding Drip Emails
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/cron/onboarding-emails")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Failed to send onboarding emails (HTTP $http_code)"
+            exit 1
+          fi
+
+          if echo "$body" | grep -q '"success":false'; then
+            echo "Onboarding API returned success:false"
+            exit 1
+          fi
+
+          processed=$(echo "$body" | grep -o '"processed":[0-9]*' | cut -d':' -f2)
+          sent=$(echo "$body" | grep -o '"sent":[0-9]*' | cut -d':' -f2)
+          skipped=$(echo "$body" | grep -o '"skipped":[0-9]*' | cut -d':' -f2)
+          errors=$(echo "$body" | grep -o '"errors":[0-9]*' | cut -d':' -f2)
+
+          echo "Processed: $processed"
+          echo "Sent: $sent"
+          echo "Skipped: $skipped"
+          echo "Errors: $errors"
+
+          if [ -n "$errors" ] && [ "$errors" -gt 0 ]; then
+            echo "::warning::$errors onboarding emails failed to send"
+          fi
+
+          echo "Onboarding drip campaign completed!"
