@@ -29,10 +29,15 @@ async function confirmOtp(
   return { success: false, error: body.detail ?? '验证失败' };
 }
 
+type WechatWindow = Window & {
+  __wxjs_environment?: string;
+  wx?: { miniProgram?: { redirectTo: (opts: { url: string }) => void } };
+};
+
 function tryRedirectToMiniProgram(): boolean {
   if (typeof window === 'undefined') return false;
-  if ((window as any).__wxjs_environment !== 'miniprogram') return false;
-  const wx = (window as any).wx;
+  if ((window as WechatWindow).__wxjs_environment !== 'miniprogram') return false;
+  const wx = (window as WechatWindow).wx;
   if (!wx?.miniProgram) return false;
   wx.miniProgram.redirectTo({ url: '/pages/login/login?verified=1' });
   return true;
@@ -41,14 +46,11 @@ function tryRedirectToMiniProgram(): boolean {
 function WechatVerifyContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('t');
-  const [state, setState] = useState<VerifyState>('verifying');
+  const [state, setState] = useState<VerifyState>(token ? 'verifying' : 'error_no_token');
   const [redirected, setRedirected] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setState('error_no_token');
-      return;
-    }
+    if (!token) return;
 
     confirmOtp(token)
       .then((result) => {

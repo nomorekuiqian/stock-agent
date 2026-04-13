@@ -14,8 +14,12 @@ export default function WechatLoginCallbackPage() {
       try {
         const token = await getAccessTokenAsync();
 
-        if (token && typeof window !== 'undefined' && (window as any).__wxjs_environment === 'miniprogram') {
-          const wx = (window as any).wx;
+        type WechatWindow = Window & {
+          __wxjs_environment?: string;
+          wx?: { miniProgram?: { redirectTo: (opts: { url: string }) => void } };
+        };
+        if (token && typeof window !== 'undefined' && (window as WechatWindow).__wxjs_environment === 'miniprogram') {
+          const wx = (window as WechatWindow).wx;
           if (wx?.miniProgram) {
             wx.miniProgram.redirectTo({
               url: `/pages/login/login?token=${encodeURIComponent(token)}&user_id=${user.id}`,
