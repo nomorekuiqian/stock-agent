@@ -1,11 +1,12 @@
 """
 Stock Analysis Agents Package.
 
-Four specialized AI agents for individual stock analysis:
+Five specialized AI agents for individual stock analysis:
 - fundamental: Deep equity research (valuation, financials, company overview)
 - technical: Chart pattern and indicator analysis
 - news: Recent news and catalyst analysis
 - macro: Macro environment and sector positioning
+- earnings: Quarterly earnings deep-dive and trend analysis
 
 All public symbols are re-exported here for backward compatibility.
 Import from `app.features.stock.agent` continues to work.
@@ -53,6 +54,16 @@ from .macro import (
     get_macro_sector_agent,
 )
 
+# --- Earnings ---
+from .earnings import (
+    EARNINGS_ANALYSIS_FIELDS,
+    EarningsAgent,
+    EarningsAnalysisOutput,
+    _empty_earnings_analysis,
+    _prepare_earnings_data_for_agent,
+    get_earnings_agent,
+)
+
 # --- Shared ---
 from ._base import run_agent_session
 
@@ -90,6 +101,13 @@ __all__ = [
     "_empty_macro_analysis",
     "_prepare_macro_sector_context",
     "get_macro_sector_agent",
+    # Earnings
+    "EARNINGS_ANALYSIS_FIELDS",
+    "EarningsAgent",
+    "EarningsAnalysisOutput",
+    "_empty_earnings_analysis",
+    "_prepare_earnings_data_for_agent",
+    "get_earnings_agent",
     # Shared
     "run_agent_session",
     "_run_agent_session",

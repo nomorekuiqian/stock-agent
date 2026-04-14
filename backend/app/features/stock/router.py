@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
-from app.shared.data_tools.quotes import get_batch_quotes
+from app.shared.data_tools.quotes import get_batch_quotes, get_realtime_quote
 from app.shared.data_tools.search import search_stocks as dt_search_stocks
 from app.shared.data_tools.peers import get_peer_companies
 from app.features.stock.service import get_stock_service
@@ -970,6 +970,287 @@ async def generate_macro_analysis_endpoint(
         raise HTTPException(
             status_code=500,
             detail="Failed to generate macro analysis. Please try again later.",
+        )
+
+
+# =============================================================================
+# Earnings Analysis
+# =============================================================================
+
+
+@router.post("/{symbol}/earnings")
+@limiter.limit("5/minute")
+async def generate_earnings_analysis_endpoint(
+    request: Request,
+    symbol: str,
+    force: bool = Query(default=False, description="Force regenerate even if cached"),
+):
+    """
+    Generate AI-powered earnings analysis for a stock.
+
+    Analyzes earnings history, revenue breakdown, growth trends,
+    and provides an overall earnings verdict.
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        # Check cache first (unless force=True)
+        if not force:
+            cached = await get_stock_analysis(symbol, analysis_type="earnings")
+            if cached:
+                logger.info("Using cached earnings analysis for %s", symbol)
+                return {
+                    "success": True,
+                    "analysis": cached.get("content"),
+                    "meta": {
+                        "symbol": symbol,
+                        "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
+                        "generated_at": cached.get("generated_at"),
+                        "from_cache": True,
+                    },
+                }
+
+        # Fetch earnings data and quote snapshot in parallel
+        import asyncio
+        from app.features.stock.agent import _prepare_earnings_data_for_agent, get_earnings_agent
+
+        stock_service = get_stock_service()
+
+        earnings_task = stock_service.get_earnings_data(symbol)
+        quote_task = asyncio.to_thread(get_realtime_quote, symbol)
+
+        earnings_data, quote_raw = await asyncio.gather(
+            earnings_task, quote_task,
+            return_exceptions=True,
+        )
+
+        if isinstance(earnings_data, Exception):
+            logger.error("Earnings data fetch failed for %s: %s", symbol, earnings_data)
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to fetch earnings data.",
+            )
+        if isinstance(quote_raw, Exception):
+            logger.warning("Quote fetch failed for %s: %s", symbol, quote_raw)
+            quote_raw = {}
+
+        quote_snapshot = {
+            "price": quote_raw.get("price"),
+            "change_percent": quote_raw.get("change_percent"),
+            "market_cap": quote_raw.get("market_cap"),
+        }
+
+        # Enrich with fundamentals for deeper analysis
+        try:
+            stock_data = await stock_service.get_stock_data(symbol)
+            if stock_data and stock_data.get("fundamentals"):
+                fund = stock_data["fundamentals"]
+                # Valuation
+                quote_snapshot["pe"] = fund.get("valuation", {}).get("pe")
+                # Profitability
+                quote_snapshot["gross_margin"] = fund.get("profitability", {}).get("gross_margin")
+                quote_snapshot["operating_margin"] = fund.get("profitability", {}).get("operating_margin")
+                quote_snapshot["net_margin"] = fund.get("profitability", {}).get("net_margin")
+                quote_snapshot["roe"] = fund.get("profitability", {}).get("roe")
+                quote_snapshot["roa"] = fund.get("profitability", {}).get("roa")
+                # Growth
+                quote_snapshot["revenue_yoy"] = fund.get("growth", {}).get("revenue_yoy")
+                # TTM cash flow
+                ttm = fund.get("ttm", {})
+                quote_snapshot["revenue"] = ttm.get("revenue")
+                quote_snapshot["net_income"] = ttm.get("net_income")
+                quote_snapshot["ebitda"] = ttm.get("ebitda")
+                quote_snapshot["operating_cash_flow"] = ttm.get("operating_cash_flow")
+                quote_snapshot["free_cash_flow"] = ttm.get("free_cash_flow")
+                # Balance sheet
+                bs = fund.get("balance_sheet", {})
+                quote_snapshot["current_ratio"] = bs.get("current_ratio")
+                quote_snapshot["debt_to_equity"] = bs.get("debt_to_equity")
+                # Industry context
+                quote_snapshot["industry"] = stock_data.get("profile", {}).get("industry")
+                quote_snapshot["sector"] = stock_data.get("profile", {}).get("sector")
+        except Exception as e:
+            logger.warning("Could not enrich earnings context for %s: %s", symbol, e)
+
+        # Prepare data and run agent
+        logger.info("Generating AI earnings analysis for %s", symbol)
+        agent = get_earnings_agent()
+        result = await agent.analyze(symbol, earnings_data, quote_snapshot)
+
+        analysis = result.get("analysis", {})
+        meta = result.get("meta", {})
+
+        if meta.get("error"):
+            logger.error("Earnings agent returned error for %s: %s", symbol, meta["error"])
+            raise HTTPException(
+                status_code=500,
+                detail="Earnings analysis generation failed. Please try again later.",
+            )
+
+        # Save to cache (24h TTL)
+        save_result = await save_stock_analysis(
+            symbol=symbol,
+            analysis_type="earnings",
+            content=analysis,
+            data_snapshot={"quote": quote_snapshot},
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
+            expires_hours=24,
+        )
+        logger.info("Earnings analysis save result: %s", save_result)
+
+        return {
+            "success": True,
+            "analysis": analysis,
+            "meta": {
+                **meta,
+                "from_cache": False,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to generate earnings analysis for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate earnings analysis. Please try again later.",
+        )
+
+
+@router.get("/{symbol}/earnings-data")
+async def get_earnings_data_endpoint(symbol: str):
+    """
+    Pure data endpoint: earnings history, analyst estimates, revenue segments, growth.
+
+    Returns raw aggregated earnings data without AI analysis.
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        stock_service = get_stock_service()
+        data = await stock_service.get_earnings_data(symbol)
+
+        return {
+            "success": True,
+            **data,
+        }
+
+    except Exception:
+        logger.exception("Failed to get earnings data for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch earnings data.",
+        )
+
+
+# =============================================================================
+# News Feed (raw data)
+# =============================================================================
+
+
+@router.get("/{symbol}/news-feed")
+async def get_news_feed_endpoint(
+    symbol: str,
+    days: int = Query(default=7, ge=1, le=30, description="Number of days of news"),
+):
+    """
+    Raw news articles for a stock.
+
+    Returns recent news articles with title, date, source, URL, and summary.
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        import asyncio
+        from app.shared.data_tools.news import get_fmp_news
+
+        news_data = await asyncio.to_thread(get_fmp_news, days=days, symbols=[symbol])
+
+        articles = []
+        for item in news_data.get("news", []):
+            articles.append({
+                "title": item.get("title", ""),
+                "publishedDate": item.get("publishedDate", ""),
+                "source": item.get("source", ""),
+                "url": item.get("url", ""),
+                "summary": item.get("text", item.get("summary", "")),
+            })
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "days": days,
+            "count": len(articles),
+            "news": articles,
+        }
+
+    except Exception:
+        logger.exception("Failed to get news feed for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch news feed.",
+        )
+
+
+# =============================================================================
+# Insider Trading
+# =============================================================================
+
+
+@router.get("/{symbol}/insider-trading")
+async def get_insider_trading_endpoint(symbol: str):
+    """
+    Insider trading data for a stock.
+
+    Returns recent insider trades and aggregate statistics.
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        import asyncio
+        from app.shared.fmp_service import get_fmp_service
+
+        fmp = get_fmp_service()
+
+        trades_task = asyncio.to_thread(fmp.get_insider_trading_search, symbol)
+        stats_task = asyncio.to_thread(fmp.get_insider_trading_statistics, symbol)
+
+        trades_result, stats_result = await asyncio.gather(
+            trades_task, stats_task,
+            return_exceptions=True,
+        )
+
+        if isinstance(trades_result, Exception):
+            logger.warning("Insider trades fetch failed for %s: %s", symbol, trades_result)
+            trades_result = {"trades": []}
+        if isinstance(stats_result, Exception):
+            logger.warning("Insider stats fetch failed for %s: %s", symbol, stats_result)
+            stats_result = {"statistics": []}
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "trades": trades_result.get("trades", []),
+            "statistics": stats_result.get("statistics", []),
+        }
+
+    except Exception:
+        logger.exception("Failed to get insider trading data for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch insider trading data.",
         )
 
 

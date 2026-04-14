@@ -322,3 +322,70 @@ class StockAnalysisDB(BaseModel):
     model: str = "gemini-3.1-flash-lite-preview"
     generated_at: Optional[str] = None
     expires_at: Optional[str] = None
+
+
+# =============================================================================
+# Earnings & Insider Trading Models
+# =============================================================================
+
+
+class EarningsSurpriseItem(BaseModel):
+    """Single quarter earnings surprise data."""
+    quarter: str
+    eps_actual: Optional[float] = None
+    eps_estimate: Optional[float] = None
+    eps_difference: Optional[float] = None
+    surprise_percent: Optional[float] = None
+
+
+class AnalystEstimateItem(BaseModel):
+    """Analyst consensus estimate for a future period."""
+    date: str
+    revenue_low: Optional[float] = None
+    revenue_high: Optional[float] = None
+    revenue_avg: Optional[float] = None
+    eps_low: Optional[float] = None
+    eps_high: Optional[float] = None
+    eps_avg: Optional[float] = None
+    num_analysts_revenue: Optional[int] = None
+    num_analysts_eps: Optional[int] = None
+
+
+class RevenueSegmentItem(BaseModel):
+    """Revenue breakdown by product line or geography for a single period."""
+    fiscal_year: Optional[int] = None
+    period: Optional[str] = None
+    date: Optional[str] = None
+    data: Dict[str, float] = {}
+
+
+class InsiderTradeItem(BaseModel):
+    """Single insider trading transaction."""
+    filing_date: Optional[str] = None
+    transaction_date: Optional[str] = None
+    reporting_name: Optional[str] = None
+    type_of_owner: Optional[str] = None
+    transaction_type: Optional[str] = None
+    securities_transacted: Optional[float] = None
+    price: Optional[float] = None
+    acquisition_or_disposition: Optional[str] = None
+
+
+class EarningsDataResponse(BaseModel):
+    """Aggregated earnings data for a stock."""
+    symbol: str
+    earnings_history: List[EarningsSurpriseItem] = []
+    analyst_estimates: List[AnalystEstimateItem] = []
+    revenue_segments: List[RevenueSegmentItem] = []
+    revenue_geo_segments: List[RevenueSegmentItem] = []
+    financial_growth: List[Dict] = []
+    next_earnings_date: Optional[str] = None
+    dcf_value: Optional[float] = None
+    stock_price: Optional[float] = None
+
+
+class InsiderTradingResponse(BaseModel):
+    """Insider trading activity for a stock."""
+    symbol: str
+    trades: List[InsiderTradeItem] = []
+    statistics: List[Dict] = []
