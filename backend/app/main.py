@@ -92,6 +92,17 @@ async def request_logging_middleware(request: Request, call_next):
     else:
         logger.info(log_msg, *log_args)
 
+    # Track authenticated API calls
+    from app.core.activity import track_api_call, SKIP_PATHS as ACTIVITY_SKIP
+    if request.url.path not in ACTIVITY_SKIP:
+        auth = request.headers.get("authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+            from app.core.deps import _token_cache
+            cached = _token_cache.get(token)
+            if cached:
+                track_api_call(cached[0], request.url.path, request.method, response.status_code)
+
     return response
 
 
@@ -115,6 +126,8 @@ from app.features.invites.router import router as invites_router
 from app.features.screener.router import router as screener_router
 from app.features.screener.router import research_router
 from app.features.wechat.router import router as wechat_router
+from app.features.admin.router import router as admin_router
+from app.features.admin.crm_router import router as crm_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -133,6 +146,8 @@ app.include_router(morning_report_router)
 app.include_router(screener_router)
 app.include_router(research_router)
 app.include_router(wechat_router)
+app.include_router(admin_router)
+app.include_router(crm_router)
 
 
 # ---------------------------------------------------------------------------
@@ -182,8 +197,13 @@ async def _startup():
 
     logger.info("Market Analysis API starting up")
 
-    # Pre-warm weekly report cache (non-blocking)
     import asyncio
+
+    # Start activity flush loop
+    from app.core.activity import start_flush_loop
+    asyncio.create_task(start_flush_loop())
+
+    # Pre-warm weekly report cache (non-blocking)
 
     async def _warm():
         try:
@@ -206,6 +226,12 @@ async def _startup():
 @app.on_event("shutdown")
 async def _shutdown():
     logger.info("Market Analysis API shutting down")
+    # Flush remaining activity events
+    try:
+        from app.core.activity import flush as flush_activities
+        await flush_activities()
+    except Exception as e:
+        logger.warning("Error flushing activities: %s", e)
     try:
         from app.core.database import get_insforge_service
         await get_insforge_service().close()
