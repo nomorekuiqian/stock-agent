@@ -1880,74 +1880,115 @@ class FMPService:
     # =========================================================================
 
     def _serialize_income_stmt(self, item: dict) -> dict:
-        """Serialize FMP income statement JSON. Field names match OpenBB output."""
+        """Serialize FMP income statement JSON — comprehensive field set."""
         revenue = item.get("revenue")
         gross_profit = item.get("grossProfit")
         operating_income = item.get("operatingIncome")
         net_income = item.get("netIncome")
-        operating_expenses = item.get("operatingExpenses")
-        eps = item.get("eps")
-        eps_diluted = item.get("epsdiluted") or item.get("epsDiluted")
-        research_and_development = item.get("researchAndDevelopmentExpenses")
 
         return {
             "date": item.get("date") or "",
             "fiscal_year": item.get("calendarYear"),
             "fiscal_period": item.get("period"),
+            # Revenue & Cost
             "revenue": revenue,
             "cost_of_revenue": item.get("costOfRevenue"),
             "gross_profit": gross_profit,
             "gross_profit_margin": self._safe_divide_val(gross_profit, revenue),
-            "operating_expenses": operating_expenses,
+            # Expenses breakdown
+            "research_and_development": item.get("researchAndDevelopmentExpenses"),
+            "selling_and_marketing": item.get("sellingAndMarketingExpenses"),
+            "general_and_administrative": item.get("generalAndAdministrativeExpenses"),
+            "sga_expenses": item.get("sellingGeneralAndAdministrativeExpenses"),
+            "operating_expenses": item.get("operatingExpenses"),
+            "total_costs_and_expenses": item.get("costAndExpenses"),
+            # Operating & Net
             "operating_income": operating_income,
             "operating_income_margin": self._safe_divide_val(operating_income, revenue),
+            "interest_income": item.get("interestIncome"),
+            "interest_expense": item.get("interestExpense"),
+            "income_before_tax": item.get("incomeBeforeTax"),
+            "income_tax_expense": item.get("incomeTaxExpense"),
             "net_income": net_income,
             "net_income_margin": self._safe_divide_val(net_income, revenue),
-            "eps": eps,
-            "eps_diluted": eps_diluted,
+            # Per-share
+            "eps": item.get("eps"),
+            "eps_diluted": item.get("epsdiluted") or item.get("epsDiluted"),
+            "weighted_avg_shares": item.get("weightedAverageShsOut"),
+            "weighted_avg_shares_diluted": item.get("weightedAverageShsOutDil"),
+            # Other
             "ebitda": item.get("ebitda"),
-            "research_and_development": research_and_development,
+            "depreciation_and_amortization": item.get("depreciationAndAmortization"),
         }
 
     def _serialize_balance_stmt(self, item: dict) -> dict:
-        """Serialize FMP balance sheet JSON. Field names match OpenBB output."""
-        total_equity = (
-            item.get("totalEquity") or
-            item.get("totalStockholdersEquity")
-        )
-        shares_outstanding = item.get("commonStock")
-
+        """Serialize FMP balance sheet JSON — comprehensive field set."""
         return {
             "date": item.get("date") or "",
             "fiscal_year": item.get("calendarYear"),
             "fiscal_period": item.get("period"),
-            "total_assets": item.get("totalAssets"),
-            "total_liabilities": item.get("totalLiabilities"),
-            "total_equity": total_equity,
+            # Assets
             "cash_and_equivalents": item.get("cashAndCashEquivalents"),
             "short_term_investments": item.get("shortTermInvestments"),
+            "cash_and_short_term_investments": item.get("cashAndShortTermInvestments"),
+            "net_receivables": item.get("netReceivables"),
+            "inventory": item.get("inventory"),
             "total_current_assets": item.get("totalCurrentAssets"),
+            "property_plant_equipment": item.get("propertyPlantEquipmentNet"),
+            "goodwill": item.get("goodwill"),
+            "intangible_assets": item.get("goodwillAndIntangibleAssets"),
+            "long_term_investments": item.get("longTermInvestments"),
+            "total_non_current_assets": item.get("totalNonCurrentAssets"),
+            "total_assets": item.get("totalAssets"),
+            # Liabilities
+            "accounts_payable": item.get("accountPayables"),
             "total_current_liabilities": item.get("totalCurrentLiabilities"),
             "long_term_debt": item.get("longTermDebt"),
+            "total_non_current_liabilities": item.get("totalNonCurrentLiabilities"),
+            "total_liabilities": item.get("totalLiabilities"),
             "total_debt": item.get("totalDebt"),
+            "net_debt": item.get("netDebt"),
+            # Equity
+            "total_equity": item.get("totalEquity") or item.get("totalStockholdersEquity"),
             "retained_earnings": item.get("retainedEarnings"),
-            "shares_outstanding": shares_outstanding,
+            "additional_paid_in_capital": item.get("additionalPaidInCapital"),
+            # Shares
+            "shares_outstanding": item.get("weightedAverageShsOut") or item.get("commonStock"),
         }
 
     def _serialize_cash_flow_stmt(self, item: dict) -> dict:
-        """Serialize FMP cash flow JSON. Field names match OpenBB output."""
+        """Serialize FMP cash flow JSON — comprehensive field set."""
         return {
             "date": item.get("date") or "",
             "fiscal_year": item.get("calendarYear"),
             "fiscal_period": item.get("period"),
+            # Operating activities
+            "net_income": item.get("netIncome"),
+            "depreciation_and_amortization": item.get("depreciationAndAmortization"),
+            "stock_based_compensation": item.get("stockBasedCompensation"),
+            "deferred_income_tax": item.get("deferredIncomeTax"),
+            "change_in_working_capital": item.get("changeInWorkingCapital"),
+            "accounts_receivables": item.get("accountsReceivables"),
+            "accounts_payables": item.get("accountsPayables"),
             "operating_cash_flow": item.get("operatingCashFlow") or item.get("netCashProvidedByOperatingActivities"),
-            "capital_expenditure": item.get("capitalExpenditure"),
-            "free_cash_flow": item.get("freeCashFlow"),
-            "dividends_paid": item.get("dividendsPaid"),
+            # Investing activities
+            "capital_expenditure": item.get("capitalExpenditure") or item.get("investmentsInPropertyPlantAndEquipment"),
+            "acquisitions": item.get("acquisitionsNet"),
+            "purchases_of_investments": item.get("purchasesOfInvestments"),
+            "sales_of_investments": item.get("salesMaturitiesOfInvestments"),
+            "net_cash_from_investing": item.get("netCashProvidedByInvestingActivities") or item.get("netCashUsedForInvestingActivites"),
+            # Financing activities
+            "net_debt_issuance": item.get("netDebtIssuance") or item.get("longTermNetDebtIssuance"),
             "stock_repurchase": item.get("commonStockRepurchased"),
-            "net_cash_from_investing": item.get("netCashUsedForInvestingActivites"),
-            "net_cash_from_financing": item.get("netCashUsedProvidedByFinancingActivities"),
-            "depreciation": item.get("depreciationAndAmortization"),
+            "dividends_paid": item.get("commonDividendsPaid") or item.get("dividendsPaid") or item.get("netDividendsPaid"),
+            "net_cash_from_financing": item.get("netCashProvidedByFinancingActivities") or item.get("netCashUsedProvidedByFinancingActivities"),
+            # Summary
+            "net_change_in_cash": item.get("netChangeInCash"),
+            "free_cash_flow": item.get("freeCashFlow"),
+            "cash_at_end": item.get("cashAtEndOfPeriod"),
+            # Tax & Interest paid
+            "income_taxes_paid": item.get("incomeTaxesPaid"),
+            "interest_paid": item.get("interestPaid"),
         }
 
     def _safe_divide_val(self, numerator, denominator):
@@ -1958,6 +1999,360 @@ class FMPService:
             return round(numerator / denominator, 4)
         except (TypeError, ZeroDivisionError):
             return None
+
+    # =========================================================================
+    # Analyst Estimates & Segmentation
+    # =========================================================================
+
+    def get_quarterly_analyst_estimates(self, symbol: str, limit: int = 4) -> dict:
+        """
+        Get quarterly analyst estimates (revenue, EPS, EBITDA, net income).
+
+        Args:
+            symbol: Stock ticker symbol
+            limit: Number of quarters to return (default: 4)
+
+        Returns:
+            {
+                "status": "success|error",
+                "estimates": [...],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_quarterly_analyst_estimates(symbol=%s, limit=%d)", symbol, limit)
+
+        try:
+            params = {"symbol": symbol, "period": "quarter", "limit": limit}
+            data = self._request("/stable/analyst-estimates", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "estimates": [],
+                    "source": "fmp",
+                    "error": "No analyst estimates data returned",
+                }
+
+            return {
+                "status": "success",
+                "estimates": data,
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching analyst estimates for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    def get_revenue_segmentation(self, symbol: str, period: str = "quarter") -> dict:
+        """
+        Get revenue segmentation by product/business line.
+
+        Args:
+            symbol: Stock ticker symbol
+            period: "quarter" or "annual" (default: "quarter")
+
+        Returns:
+            {
+                "status": "success|error",
+                "segments": [...],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_revenue_segmentation(symbol=%s, period=%s)", symbol, period)
+
+        try:
+            params = {"symbol": symbol, "period": period}
+            data = self._request("/stable/revenue-product-segmentation", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "segments": [],
+                    "source": "fmp",
+                    "error": "No revenue segmentation data returned",
+                }
+
+            return {
+                "status": "success",
+                "segments": data,
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching revenue segmentation for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    def get_revenue_geo_segmentation(self, symbol: str) -> dict:
+        """
+        Get revenue segmentation by geographic region.
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            {
+                "status": "success|error",
+                "segments": [...],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_revenue_geo_segmentation(symbol=%s)", symbol)
+
+        try:
+            params = {"symbol": symbol}
+            data = self._request("/stable/revenue-geographic-segmentation", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "segments": [],
+                    "source": "fmp",
+                    "error": "No geographic segmentation data returned",
+                }
+
+            return {
+                "status": "success",
+                "segments": data,
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching geo segmentation for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    def get_financial_growth(self, symbol: str, period: str = "quarter", limit: int = 8) -> dict:
+        """
+        Get financial growth metrics (revenue, profit, EPS growth rates).
+
+        Args:
+            symbol: Stock ticker symbol
+            period: "quarter" or "annual" (default: "quarter")
+            limit: Number of periods to return (default: 8)
+
+        Returns:
+            {
+                "status": "success|error",
+                "growth": [...],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_financial_growth(symbol=%s, period=%s, limit=%d)", symbol, period, limit)
+
+        try:
+            params = {"symbol": symbol, "period": period, "limit": limit}
+            data = self._request("/stable/financial-growth", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "growth": [],
+                    "source": "fmp",
+                    "error": "No financial growth data returned",
+                }
+
+            return {
+                "status": "success",
+                "growth": data,
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching financial growth for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    # =========================================================================
+    # Insider Trading
+    # =========================================================================
+
+    def get_insider_trading_search(self, symbol: str, limit: int = 20) -> dict:
+        """
+        Get recent insider trading transactions for a stock.
+
+        Args:
+            symbol: Stock ticker symbol
+            limit: Maximum number of trades to return (default: 20)
+
+        Returns:
+            {
+                "status": "success|error",
+                "trades": [...],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_insider_trading_search(symbol=%s, limit=%d)", symbol, limit)
+
+        try:
+            params = {"symbol": symbol, "limit": limit}
+            data = self._request("/stable/insider-trading/search", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "trades": [],
+                    "source": "fmp",
+                    "error": "No insider trading data returned",
+                }
+
+            return {
+                "status": "success",
+                "trades": data,
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching insider trading for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    def get_insider_trading_statistics(self, symbol: str) -> dict:
+        """
+        Get insider trading statistics (aggregate buy/sell counts and totals).
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            {
+                "status": "success|error",
+                "statistics": [...],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_insider_trading_statistics(symbol=%s)", symbol)
+
+        try:
+            params = {"symbol": symbol}
+            data = self._request("/stable/insider-trading/statistics", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "statistics": [],
+                    "source": "fmp",
+                    "error": "No insider trading statistics returned",
+                }
+
+            return {
+                "status": "success",
+                "statistics": data,
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching insider trading statistics for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    # =========================================================================
+    # Valuation & Price Targets
+    # =========================================================================
+
+    def get_dcf_valuation(self, symbol: str) -> dict:
+        """
+        Get discounted cash flow (DCF) valuation for a stock.
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            {
+                "status": "success|error",
+                "dcf": float,
+                "stock_price": float,
+                "source": "fmp"
+            }
+        """
+        logger.info("get_dcf_valuation(symbol=%s)", symbol)
+
+        try:
+            params = {"symbol": symbol}
+            data = self._request("/stable/discounted-cash-flow", params)
+
+            if not data or not isinstance(data, list) or len(data) == 0:
+                return {
+                    "status": "error",
+                    "dcf": None,
+                    "stock_price": None,
+                    "source": "fmp",
+                    "error": "No DCF data returned",
+                }
+
+            item = data[0]
+            return {
+                "status": "success",
+                "dcf": self._safe_float(item.get("dcf")),
+                "stock_price": self._safe_float(item.get("Stock Price")),
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching DCF valuation for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    def get_price_target_consensus(self, symbol: str) -> dict:
+        """
+        Get analyst price target consensus (high, low, consensus, median).
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            {
+                "status": "success|error",
+                "consensus": {...},
+                "source": "fmp"
+            }
+        """
+        logger.info("get_price_target_consensus(symbol=%s)", symbol)
+
+        try:
+            params = {"symbol": symbol}
+            data = self._request("/stable/price-target-consensus", params)
+
+            if not data or not isinstance(data, list) or len(data) == 0:
+                return {
+                    "status": "error",
+                    "consensus": {},
+                    "source": "fmp",
+                    "error": "No price target consensus data returned",
+                }
+
+            return {
+                "status": "success",
+                "consensus": data[0],
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching price target consensus for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
+
+    def get_price_target_summary(self, symbol: str) -> dict:
+        """
+        Get price target summary (counts and averages by time period).
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            {
+                "status": "success|error",
+                "summary": {...},
+                "source": "fmp"
+            }
+        """
+        logger.info("get_price_target_summary(symbol=%s)", symbol)
+
+        try:
+            params = {"symbol": symbol}
+            data = self._request("/stable/price-target-summary", params)
+
+            if not data or not isinstance(data, list) or len(data) == 0:
+                return {
+                    "status": "error",
+                    "summary": {},
+                    "source": "fmp",
+                    "error": "No price target summary data returned",
+                }
+
+            return {
+                "status": "success",
+                "summary": data[0],
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching price target summary for %s: %s", symbol, e)
+            return {"status": "error", "error": str(e)}
 
 
 _fmp_service_instance = None

@@ -505,6 +505,71 @@ class YFinanceService:
         _yf_ticker_info_cache.set(symbol, result)
         return result
 
+    def get_earnings_history(self, symbol: str) -> dict:
+        """
+        Get historical earnings (EPS actual vs estimate) using yfinance.
+
+        Args:
+            symbol: Stock ticker symbol (e.g., "AAPL")
+
+        Returns:
+            {
+                "status": "success|error",
+                "history": [
+                    {
+                        "quarter": "2025-12-31",
+                        "eps_actual": 2.84,
+                        "eps_estimate": 2.67,
+                        "eps_difference": 0.17,
+                        "surprise_percent": 0.0634
+                    },
+                    ...
+                ],
+                "source": "yfinance"
+            }
+        """
+        symbol = symbol.upper()
+        logger.info("get_earnings_history(%s)", symbol)
+
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                ticker = yf.Ticker(symbol)
+                df = ticker.get_earnings_history()
+
+            if df is None or df.empty:
+                logger.warning("No earnings history data for %s", symbol)
+                return {
+                    "status": "success",
+                    "history": [],
+                    "source": "yfinance",
+                }
+
+            history = []
+            for idx, row in df.iterrows():
+                quarter_str = str(idx.date()) if hasattr(idx, "date") else str(idx)
+                history.append({
+                    "quarter": quarter_str,
+                    "eps_actual": float(row["epsActual"]) if not self._is_nan(row.get("epsActual")) else None,
+                    "eps_estimate": float(row["epsEstimate"]) if not self._is_nan(row.get("epsEstimate")) else None,
+                    "eps_difference": float(row["epsDifference"]) if not self._is_nan(row.get("epsDifference")) else None,
+                    "surprise_percent": float(row["surprisePercent"]) if not self._is_nan(row.get("surprisePercent")) else None,
+                })
+
+            return {
+                "status": "success",
+                "history": history,
+                "source": "yfinance",
+            }
+        except Exception as e:
+            logger.error("Error fetching earnings history for %s: %s", symbol, e)
+            return {
+                "status": "error",
+                "history": [],
+                "source": "yfinance",
+                "error": str(e),
+            }
+
     def clear_cache(self) -> None:
         """Clear all caches"""
         _yf_quote_cache.clear()
