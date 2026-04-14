@@ -114,7 +114,7 @@ export function NetLiquidityChart({
       lineWidth: 2,
       priceFormat: {
         type: 'custom',
-        formatter: (price: number) => `$${price.toFixed(0)}B`,
+        formatter: (price: number) => `$${(price / 1000).toFixed(3)}T`,
       },
     });
 
