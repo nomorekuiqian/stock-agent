@@ -333,7 +333,7 @@ function HeroCard({
 
       {/* Primary big number + optional rating */}
       <div className="mb-1 flex items-baseline gap-1.5">
-        <span className={`text-2xl sm:text-[2.5rem] font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
           selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'
         }`}>
           {formatted}
@@ -718,7 +718,7 @@ export default function SentimentPage() {
             </svg>
             返回宏观总览
           </Link>
-          <p className="text-xs text-muted-foreground/60 mt-3">
+          <p className="text-xs text-muted-foreground/70 mt-3">
             数据来源{' '}
             <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">
               CNN Fear & Greed

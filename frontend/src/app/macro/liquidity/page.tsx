@@ -1319,7 +1319,7 @@ export default function LiquidityPage() {
             </svg>
             返回宏观总览
           </Link>
-          <p className="text-xs text-muted-foreground/60 mt-3">
+          <p className="text-xs text-muted-foreground/70 mt-3">
             数据来源{' '}
             <a
               href="https://fred.stlouisfed.org/"

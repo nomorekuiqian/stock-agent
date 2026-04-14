@@ -17,6 +17,7 @@ interface NetLiquidityChartProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  compact?: boolean;
 }
 
 export function NetLiquidityChart({
@@ -25,6 +26,7 @@ export function NetLiquidityChart({
   loading = false,
   error = null,
   onRetry,
+  compact = false,
 }: NetLiquidityChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -151,20 +153,22 @@ export function NetLiquidityChart({
   }, [height]);
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-foreground">净流动性趋势</h3>
-          <p className="text-xs text-muted-foreground">WALCL - TGA - RRP (历史数据)</p>
+    <div className={compact ? '' : 'bg-card rounded-xl border border-border overflow-hidden'}>
+      {!compact && (
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">净流动性趋势</h3>
+            <p className="text-xs text-muted-foreground">WALCL - TGA - RRP (历史数据)</p>
+          </div>
+          <div className="text-right">
+            {latestValue !== null && (
+              <span className="text-lg font-semibold text-primary">
+                ${(latestValue / 1000).toFixed(2)}T
+              </span>
+            )}
+          </div>
         </div>
-        <div className="text-right">
-          {latestValue !== null && (
-            <span className="text-lg font-semibold text-primary">
-              ${(latestValue / 1000).toFixed(2)}T
-            </span>
-          )}
-        </div>
-      </div>
+      )}
 
       <div className="relative" style={{ height }}>
         {loading && (

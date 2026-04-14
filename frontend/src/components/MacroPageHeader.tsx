@@ -37,11 +37,11 @@ export function MacroPageHeader({
           <nav className="flex items-center gap-2 text-xs tracking-[0.15em] uppercase">
             <Link
               href="/macro"
-              className="text-muted-foreground/60 hover:text-primary transition-colors"
+              className="text-muted-foreground/70 hover:text-primary transition-colors"
             >
               Macro
             </Link>
-            <span className="text-muted-foreground/30">/</span>
+            <span className="text-muted-foreground/70">/</span>
             <span className="text-primary font-medium">{section}</span>
           </nav>
 
@@ -51,7 +51,7 @@ export function MacroPageHeader({
               <button
                 onClick={onRefresh}
                 disabled={loading}
-                className="group p-2 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
+                className="group p-2 rounded-lg text-muted-foreground/70 hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-40"
                 aria-label="Refresh data"
               >
                 <svg
@@ -79,7 +79,7 @@ export function MacroPageHeader({
                     className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                       timeRange === range
                         ? 'bg-primary/15 text-primary shadow-sm'
-                        : 'text-muted-foreground/60 hover:text-foreground'
+                        : 'text-muted-foreground/70 hover:text-foreground'
                     }`}
                   >
                     {range}
@@ -102,7 +102,7 @@ export function MacroPageHeader({
 
         {/* Row 3: Timestamp */}
         {lastUpdated && (
-          <div className="mt-3 md:mt-4 flex items-center gap-2 text-xs text-muted-foreground/40">
+          <div className="mt-3 md:mt-4 flex items-center gap-2 text-xs text-muted-foreground/70">
             <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-pulse" />
             <span className="font-data tracking-wide">
               {lastUpdated}

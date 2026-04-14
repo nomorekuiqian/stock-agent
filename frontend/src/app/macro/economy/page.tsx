@@ -43,6 +43,7 @@ const FRED_SYMBOLS: Record<string, string> = {
   cre_delinquency: 'FRED:DRCRELEXFACBS',
   business_delinquency: 'FRED:DRBLACBS',
   yield_curve: 'FRED:T10Y2Y',
+  lei: 'FRED:USSLIND',
 };
 
 const SERIES_TO_CHART: Record<string, string> = {
@@ -51,6 +52,7 @@ const SERIES_TO_CHART: Record<string, string> = {
   CFNAI: 'cfnai',
   UMCSENT: 'consumer_sentiment',
   RSAFS: 'retail_sales',
+  USSLIND: 'lei',
   INDPRO: 'industrial_production',
   UNRATE: 'unemployment',
   PAYEMS: 'nonfarm_payrolls',
@@ -199,6 +201,10 @@ const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
     title: '10Y-2Y 收益率曲线',
     description: '倒挂（负值）自1970年以来预测了每一次美国经济衰退。曲线通常在衰退实际开始前恢复正常。',
   },
+  lei: {
+    title: 'LEI 领先经济指标',
+    description: '综合10项经济指标的领先指数，专门用来预测未来6-12个月的经济走向。连续几个月下降通常预示经济将放缓或衰退。',
+  },
 };
 
 /** Maps chart key to the change period label based on FRED data frequency */
@@ -219,6 +225,7 @@ const CHANGE_PERIOD: Record<string, string> = {
   cre_delinquency: '较上季度',
   business_delinquency: '较上季度',
   yield_curve: '较前日',
+  lei: '较上月',
 };
 
 const SUB_DIM_NAMES: Record<string, string> = {
@@ -228,7 +235,7 @@ const SUB_DIM_NAMES: Record<string, string> = {
 };
 
 const SECTION_META: Record<string, { number: string; subtitle: string }> = {
-  growth: { number: '01', subtitle: 'GDP / 衰退概率 / CFNAI / 零售销售 / 工业产出 / 消费者信心' },
+  growth: { number: '01', subtitle: 'GDP / 衰退概率 / CFNAI / 零售销售 / 工业产出 / 消费者信心 / LEI' },
   employment: { number: '02', subtitle: '失业率 / 非农 / 初请 / 续请 / Sahm 规则' },
   credit: { number: '03', subtitle: '高收益利差 / BBB 利差 / 地产违约 / 商贷违约 / 收益率曲线' },
 };
@@ -424,7 +431,7 @@ function HeroCard({
 
       {/* Primary big number */}
       <div className="mb-1">
-        <span className={`text-2xl sm:text-[2.5rem] font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
           selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'
         }`}>
           {formatted}
