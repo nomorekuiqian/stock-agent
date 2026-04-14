@@ -1,5 +1,5 @@
 import { request } from './api';
-import { getToken, setToken, setOpenid, getOpenid, clearAll } from '../utils/storage';
+import { getToken, setToken, setOpenid, getOpenid, clearAll, setAccountState, AccountState } from '../utils/storage';
 
 interface LoginResult {
   success: boolean;
@@ -40,6 +40,9 @@ export async function wechatLogin(): Promise<LoginResult> {
           }
           if (result.token) {
             setToken(result.token);
+          }
+          if (result.account_state) {
+            setAccountState(result.account_state as AccountState);
           }
 
           resolve(result);

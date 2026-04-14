@@ -1,15 +1,53 @@
 import { wechatLogin, registerRequest, refreshLogin } from '../../services/auth';
 import { buildWebViewUrl } from '../../services/api';
-import { setToken } from '../../utils/storage';
+import { setToken, setEmail } from '../../utils/storage';
 
 type LoginView = 'login' | 'register' | 'pending';
 
 Page({
+  _countdownTimer: null as ReturnType<typeof setInterval> | null,
+
   data: {
     view: 'login' as LoginView,
     loading: false,
     registerEmail: '',
     registerError: '',
+    maskedEmail: '',
+    countdown: 0,
+    countdownActive: false,
+  },
+
+  _maskEmail(email: string): string {
+    const at = email.indexOf('@');
+    if (at <= 0) return email;
+    const domain = email.substring(at);
+    if (email.length <= 20) return email;
+    return email[0] + '**' + domain;
+  },
+
+  _startCountdown() {
+    this._clearCountdown();
+    this.setData({ countdown: 60, countdownActive: true });
+    this._countdownTimer = setInterval(() => {
+      const next = this.data.countdown - 1;
+      if (next <= 0) {
+        this._clearCountdown();
+        this.setData({ countdown: 0, countdownActive: false });
+      } else {
+        this.setData({ countdown: next });
+      }
+    }, 1000);
+  },
+
+  _clearCountdown() {
+    if (this._countdownTimer) {
+      clearInterval(this._countdownTimer);
+      this._countdownTimer = null;
+    }
+  },
+
+  onUnload() {
+    this._clearCountdown();
   },
 
   onLoad(options: Record<string, string>) {
@@ -66,7 +104,13 @@ Page({
     const result = await registerRequest(email);
 
     if (result.success) {
-      this.setData({ loading: false, view: 'pending' });
+      setEmail(email);
+      this.setData({
+        loading: false,
+        view: 'pending',
+        maskedEmail: this._maskEmail(email),
+      });
+      this._startCountdown();
     } else {
       const msg = result.error || '发送失败，请稍后重试';
       const friendlyMsg = msg.includes('1/minute') ? '发送太频繁，请 1 分钟后重试' : msg;
@@ -104,8 +148,16 @@ Page({
     }
   },
 
-  onResendVerification() {
-    this.setData({ view: 'register', registerError: '' });
+  async onResend() {
+    if (this.data.countdownActive) return;
+    const email = this.data.registerEmail.trim();
+    const result = await registerRequest(email);
+    if (result.success) {
+      this._startCountdown();
+      wx.showToast({ title: '验证链接已重新发送', icon: 'none' });
+    } else {
+      wx.showToast({ title: '发送失败，请稍后重试', icon: 'none' });
+    }
   },
 
   // ------------------------------------------------------------------

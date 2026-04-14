@@ -141,3 +141,41 @@
   font-size: 56rpx;
   color: var(--emerald);
 }
+
+.value-props {
+  background: var(--bg-muted);
+  border: 2rpx solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 24rpx 28rpx;
+  margin-bottom: 32rpx;
+}
+
+.value-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 6rpx 0;
+  font-size: 26rpx;
+  color: var(--fg-muted);
+}
+
+.value-dot {
+  color: var(--emerald);
+  font-size: 32rpx;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.value-text {
+  line-height: 1.5;
+}
+
+.email-highlight {
+  color: var(--emerald);
+  font-weight: 500;
+}
+
+.btn-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
