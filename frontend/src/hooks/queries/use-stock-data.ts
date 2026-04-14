@@ -172,3 +172,62 @@ export function useGenerateMacroAnalysis(symbol: string) {
     },
   });
 }
+
+export function useEarningsData(symbol: string) {
+  return useQuery({
+    queryKey: queryKeys.stocks.earningsData(symbol),
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/earnings-data`);
+      if (!response.ok) throw new Error(`Failed to fetch earnings data: ${response.status}`);
+      return response.json();
+    },
+    enabled: !!symbol,
+    staleTime: 30 * 60 * 1000,  // 30 min
+    gcTime: 60 * 60 * 1000,     // 1 hour
+  });
+}
+
+export function useGenerateEarningsAnalysis(symbol: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/earnings?force=${force}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(`Failed to generate earnings analysis: ${response.status}`);
+      const result = await response.json();
+      return result.success ? result.analysis : null;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.stocks.earningsAnalysis(symbol), data);
+    },
+  });
+}
+
+export function useNewsFeed(symbol: string, days: number = 7) {
+  return useQuery({
+    queryKey: queryKeys.stocks.newsFeed(symbol, days),
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/news-feed?days=${days}`);
+      if (!response.ok) throw new Error(`Failed to fetch news feed: ${response.status}`);
+      return response.json();
+    },
+    enabled: !!symbol,
+    staleTime: 15 * 60 * 1000,  // 15 min
+    gcTime: 30 * 60 * 1000,     // 30 min
+  });
+}
+
+export function useInsiderTrading(symbol: string) {
+  return useQuery({
+    queryKey: queryKeys.stocks.insiderTrading(symbol),
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/insider-trading`);
+      if (!response.ok) throw new Error(`Failed to fetch insider trading: ${response.status}`);
+      return response.json();
+    },
+    enabled: !!symbol,
+    staleTime: 30 * 60 * 1000,  // 30 min
+    gcTime: 60 * 60 * 1000,     // 1 hour
+  });
+}

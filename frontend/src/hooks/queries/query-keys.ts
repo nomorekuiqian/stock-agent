@@ -38,6 +38,10 @@ export const queryKeys = {
     technicalSnapshot: (symbol: string) => ['stocks', 'technical-snapshot', symbol] as const,
     newsAnalysis: (symbol: string) => ['stocks', 'news-analysis', symbol] as const,
     macroAnalysis: (symbol: string) => ['stocks', 'macro-analysis', symbol] as const,
+    earningsData: (symbol: string) => ['stocks', 'earnings-data', symbol] as const,
+    earningsAnalysis: (symbol: string) => ['stocks', 'earnings-analysis', symbol] as const,
+    newsFeed: (symbol: string, days: number) => ['stocks', 'news-feed', symbol, days] as const,
+    insiderTrading: (symbol: string) => ['stocks', 'insider-trading', symbol] as const,
   },
   watchlist: {
     all: ['watchlist'] as const,
