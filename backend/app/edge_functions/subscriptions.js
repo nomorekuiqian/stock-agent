@@ -260,6 +260,114 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=list_all
+    // Returns ALL auth users with subscription + conversation + feedback + activity stats
+    if (request.method === "GET" && action === "list_all") {
+      // 1. Get all auth users via RPC
+      const { data: authUsers, error: authError } = await client.database
+        .rpc("list_all_users");
+
+      if (authError) {
+        return new Response(
+          JSON.stringify({ success: false, error: authError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // 2. Get all subscriptions
+      const { data: subs, error: subError } = await client.database
+        .from("subscriptions")
+        .select("*");
+
+      if (subError) {
+        return new Response(
+          JSON.stringify({ success: false, error: subError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // 3. Get conversation stats via RPC
+      const { data: convStats } = await client.database
+        .rpc("admin_conversation_stats");
+
+      // 4. Get feedback stats via RPC
+      const { data: feedbackStats } = await client.database
+        .rpc("admin_feedback_stats");
+
+      // 5. Get activity stats via RPC
+      const { data: activityStats } = await client.database
+        .rpc("admin_activity_stats");
+
+      // Index everything by key
+      const subMap = {};
+      for (const sub of (subs || [])) {
+        subMap[sub.user_id] = sub;
+      }
+
+      const convMap = {};
+      for (const c of (convStats || [])) {
+        convMap[c.user_id] = c;
+      }
+
+      const feedbackMap = {};
+      for (const f of (feedbackStats || [])) {
+        feedbackMap[f.email] = f;
+      }
+
+      // Activity: group by user_id, flatten event_types into a map
+      const activityMap = {};
+      for (const a of (activityStats || [])) {
+        if (!activityMap[a.user_id]) {
+          activityMap[a.user_id] = { total: 0, by_type: {}, last_at: null };
+        }
+        const entry = activityMap[a.user_id];
+        entry.total += parseInt(a.event_count) || 0;
+        entry.by_type[a.event_type] = parseInt(a.event_count) || 0;
+        if (!entry.last_at || a.last_event_at > entry.last_at) {
+          entry.last_at = a.last_event_at;
+        }
+      }
+
+      // 6. Merge everything per user
+      const merged = (authUsers || []).map((u) => {
+        const sub = subMap[u.user_id] || {};
+        const conv = convMap[u.user_id] || {};
+        const fb = feedbackMap[u.email] || {};
+        const act = activityMap[u.user_id] || {};
+
+        return {
+          user_id: u.user_id,
+          email: u.email || null,
+          name: u.name || null,
+          auth_created_at: u.created_at,
+          plan: sub.plan || null,
+          status: sub.status || null,
+          access_expires_at: sub.access_expires_at || null,
+          invite_code: sub.invite_code || null,
+          entitlements: sub.entitlements || null,
+          stripe_customer_id: sub.stripe_customer_id || null,
+          stripe_subscription_id: sub.stripe_subscription_id || null,
+          current_period_end: sub.current_period_end || null,
+          created_at: sub.created_at || u.created_at,
+          updated_at: sub.updated_at || null,
+          // Activity stats
+          conversations: parseInt(conv.conversation_count) || 0,
+          messages: parseInt(conv.total_messages) || 0,
+          last_conversation_at: conv.last_conversation_at || null,
+          feedback_count: parseInt(fb.feedback_count) || 0,
+          last_feedback_at: fb.last_feedback_at || null,
+          api_calls: act.total || 0,
+          api_by_type: act.by_type || {},
+          last_active_at: act.last_at || conv.last_conversation_at || fb.last_feedback_at || null,
+        };
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, data: merged }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // GET ?action=list_trials
     if (request.method === "GET" && action === "list_trials") {
       // Include trials that expired up to 2 days ago so the day-14 email still fires
@@ -290,6 +398,30 @@ module.exports = async function(request) {
 
       return new Response(
         JSON.stringify({ success: true, data: enriched }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=list_user_profiles
+    // Returns all auth users with their profile names for Resend backfill
+    if (request.method === "GET" && action === "list_user_profiles") {
+      const { data, error } = await client.database.rpc("list_all_users");
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const profiles = (data || []).map((u) => ({
+        user_id: u.user_id,
+        email: u.email || null,
+        profile_name: u.name || null,
+      }));
+
+      return new Response(
+        JSON.stringify({ success: true, data: profiles }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
