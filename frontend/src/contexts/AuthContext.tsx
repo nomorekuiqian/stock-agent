@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/auth';
 import type { User } from '@/app/actions/auth';
 import { api } from '@/lib/api';
+import { getPendingVerification } from '@/lib/auth-verification';
 
 export type { User } from '@/app/actions/auth';
 
@@ -121,15 +122,19 @@ async function ensureTrialActivated(token: string, userId: string): Promise<void
 async function syncUserWithSubscriptions(user: User): Promise<void> {
   if (!needsSync(user.id)) return;
 
+  // Use pending verification name as fallback (covers the race condition
+  // where verifyEmail sets user before applyPendingProfile updates the name)
+  const effectiveName = user.name || getPendingVerification()?.name || undefined;
+
   try {
-    const result = await api.subscriptions.syncUser(user.id, user.email, user.name);
+    const result = await api.subscriptions.syncUser(user.id, user.email, effectiveName);
     if (!hasBeenAutoSubscribed(user.id)) {
       try {
         const status = await api.subscriptions.getStatus('daily_report', user.email);
         if (!status.subscribed) {
           await api.subscriptions.subscribe('daily_report', {
             email: user.email,
-            first_name: user.name,
+            first_name: effectiveName,
             user_id: user.id,
           });
         }
