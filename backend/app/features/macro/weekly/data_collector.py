@@ -21,7 +21,7 @@ from app.features.macro.risk.service import (
 )
 from app.features.macro.liquidity.fred_service import get_all_liquidity_metrics
 from app.features.macro.cache.db import try_db_cache
-from app.shared.data_tools.calendar import get_economic_calendar
+from app.shared.data_tools.calendar import get_economic_calendar, get_economic_calendar_past
 from app.shared.data_tools.earnings import get_earnings_calendar
 from app.features.macro.weekly.models import (
     WeeklyRawData,
@@ -146,6 +146,7 @@ async def collect_weekly_data() -> WeeklyRawData:
     market_perf_task = loop.run_in_executor(None, _fetch_weekly_performance)
     econ_cal_task = loop.run_in_executor(None, get_economic_calendar, 14)
     earn_cal_task = loop.run_in_executor(None, get_earnings_calendar, 14)
+    past_cal_task = loop.run_in_executor(None, get_economic_calendar_past, 7)
 
     results = await asyncio.gather(
         dashboard_task,
@@ -158,11 +159,14 @@ async def collect_weekly_data() -> WeeklyRawData:
         earn_cal_task,
         market_perf_task,
         try_db_cache("macro:liquidity_percentiles"),
+        past_cal_task,
+        try_db_cache("macro:trend_context"),
         return_exceptions=True,
     )
 
     (dashboard, economy, inflation, liquidity, sentiment, cpi_data,
-     econ_cal, earn_cal, market_perf, liq_cache_result) = results
+     econ_cal, earn_cal, market_perf, liq_cache_result,
+     past_cal, trend_cache_result) = results
 
     def _safe_dump(result, label: str):
         if isinstance(result, Exception):
@@ -184,6 +188,16 @@ async def collect_weekly_data() -> WeeklyRawData:
         else:
             logger.info("No liquidity percentiles in cache")
 
+    # Extract trend context from cache
+    trend_context = None
+    if isinstance(trend_cache_result, Exception):
+        logger.error("Error reading trend context cache: %s", trend_cache_result)
+    elif isinstance(trend_cache_result, tuple):
+        cached_data, is_valid = trend_cache_result
+        if cached_data:
+            trend_context = cached_data
+            logger.info("Trend context from cache (%s)", "valid" if is_valid else "stale")
+
     raw_data = WeeklyRawData(
         week_label=market_week_label(),
         collected_at=utc_now_iso(),
@@ -194,12 +208,14 @@ async def collect_weekly_data() -> WeeklyRawData:
         sentiment=_safe_dump(sentiment, "sentiment"),
         cpi_breakdown=_safe_dump(cpi_data, "cpi_breakdown"),
         liquidity_historical=liq_context,
+        trend_context=trend_context,
         market_performance=(
             market_perf if isinstance(market_perf, MarketPerformance)
             else MarketPerformance()
         ),
         economic_calendar=_safe_calendar(econ_cal, "events"),
         earnings_calendar=_safe_calendar(earn_cal, "earnings"),
+        this_week_events=_safe_calendar(past_cal, "events"),
     )
 
     logger.info("Data collection complete for %s", raw_data.week_label)

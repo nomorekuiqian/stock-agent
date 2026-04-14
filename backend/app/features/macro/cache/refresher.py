@@ -212,6 +212,132 @@ def _compute_liquidity_context(history: dict) -> dict | None:
     return context if context else None
 
 
+async def _refresh_macro_trend_context() -> bool:
+    """
+    Compute trend statistics for core macro indicators, grouped by data frequency.
+    Uses FRED history API for each indicator.
+    """
+    from app.features.macro.liquidity.fred_service import fetch_fred_series
+
+    async def _get_series(series_id: str, days: int, units: str | None = None) -> list[dict]:
+        try:
+            from app.utils.timezone import days_ago
+            start = days_ago(days)
+            data = await fetch_fred_series(series_id, start_date=start, limit=1000, units=units)
+            return data.get("observations", [])
+        except Exception as e:
+            logger.warning("Trend context: failed to fetch %s: %s", series_id, e)
+            return []
+
+    def _consecutive_direction(values: list[float]) -> str:
+        """Count consecutive same-direction changes from the end."""
+        if len(values) < 2:
+            return "flat_0"
+        count = 0
+        last_dir = None
+        for i in range(len(values) - 1, 0, -1):
+            diff = values[i] - values[i - 1]
+            if abs(diff) < 0.001:
+                current_dir = "flat"
+            else:
+                current_dir = "up" if diff > 0 else "down"
+            if last_dir is None:
+                last_dir = current_dir
+            if current_dir == last_dir:
+                count += 1
+            else:
+                break
+        return f"{last_dir}_{count}" if last_dir else "flat_0"
+
+    def _percentile(values: list[float], current: float) -> int:
+        if not values:
+            return 50
+        sorted_vals = sorted(values)
+        rank = bisect.bisect_right(sorted_vals, current)
+        return round((rank / len(sorted_vals)) * 100)
+
+    context: dict = {}
+
+    # ── Weekly data ──
+    weekly_config = {
+        "net_liquidity": ("WALCL", 365, None),  # computed separately
+        "nfci": ("NFCI", 365, None),
+    }
+    # Net liquidity uses liquidity history cache, skip individual fetch
+
+    for key, (sid, days, units) in weekly_config.items():
+        if key == "net_liquidity":
+            continue
+        obs = await _get_series(sid, days, units)
+        values = [o["value"] for o in obs if o.get("value") is not None]
+        if len(values) >= 4:
+            context[key] = {
+                "frequency": "weekly",
+                "current": round(values[-1], 2),
+                "4w_direction": _consecutive_direction(values[-4:]),
+                "percentile_1y": _percentile(values, values[-1]),
+            }
+
+    # ── Daily data (forward-looking) ──
+    daily_config = {
+        "inflation_expectations_5y5y": ("T5YIFR", 365, None),
+    }
+    for key, (sid, days, units) in daily_config.items():
+        obs = await _get_series(sid, days, units)
+        values = [o["value"] for o in obs if o.get("value") is not None]
+        if len(values) >= 20:
+            current = values[-1]
+            week_avg = sum(values[-5:]) / 5 if len(values) >= 5 else current
+            prev_week_avg = sum(values[-10:-5]) / 5 if len(values) >= 10 else current
+            context[key] = {
+                "frequency": "daily",
+                "current": round(current, 2),
+                "week_change": round(week_avg - prev_week_avg, 3),
+                "percentile_1y": _percentile(values, current),
+            }
+
+    # ── Monthly data ──
+    monthly_config = {
+        "unemployment": ("UNRATE", 730, None),
+        "cpi_yoy": ("CPIAUCSL", 730, "pc1"),
+        "core_pce_yoy": ("PCEPILFE", 730, "pc1"),
+        "fed_funds": ("FEDFUNDS", 730, None),
+        "lei": ("USSLIND", 730, None),
+        "michigan_inflation": ("MICH", 730, None),
+    }
+    for key, (sid, days, units) in monthly_config.items():
+        obs = await _get_series(sid, days, units)
+        values = [o["value"] for o in obs if o.get("value") is not None]
+        if len(values) >= 6:
+            current = values[-1]
+            context[key] = {
+                "frequency": "monthly",
+                "current": round(current, 2),
+                "consecutive_months": _consecutive_direction(values[-6:]),
+                "vs_6m_ago": round(current - values[-6], 2) if len(values) >= 6 else None,
+                "vs_1y_ago": round(current - values[-12], 2) if len(values) >= 12 else None,
+                "percentile_5y": _percentile(values, current),
+            }
+
+    # ── Quarterly data ──
+    gdp_obs = await _get_series("A191RL1Q225SBEA", 1825, None)
+    gdp_values = [o["value"] for o in gdp_obs if o.get("value") is not None]
+    if len(gdp_values) >= 2:
+        context["gdp_growth"] = {
+            "frequency": "quarterly",
+            "current": round(gdp_values[-1], 2),
+            "prev_value": round(gdp_values[-2], 2),
+            "consecutive_quarters": _consecutive_direction(gdp_values[-4:]) if len(gdp_values) >= 4 else "unknown",
+        }
+
+    if not context:
+        logger.warning("Trend context: no data computed")
+        return False
+
+    logger.info("Trend context computed: %d indicators", len(context))
+    return await _safe_set("macro:trend_context", context, "computed", TTL_T3)
+
+
 async def refresh_tier2() -> dict:
     """
     Fetch and cache computed dashboards:
@@ -354,6 +480,15 @@ async def refresh_tier3() -> dict:
         logger.exception("T3 global_liquidity_history error")
         await _safe_set_with_error("fred:global_liquidity_history", "fred", TTL_T3, str(e))
         results["fred:global_liquidity_history"] = False
+
+    # Macro trend context (all dimensions)
+    try:
+        ok = await _refresh_macro_trend_context()
+        results["macro:trend_context"] = ok
+    except Exception as e:
+        logger.exception("T3 trend_context error")
+        await _safe_set_with_error("macro:trend_context", "computed", TTL_T3, str(e))
+        results["macro:trend_context"] = False
 
     return results
 

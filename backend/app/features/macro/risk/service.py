@@ -75,6 +75,9 @@ MACRO_RISK_FRED_SERIES = {
     "fed_funds_rate": "FEDFUNDS",
     "treasury_10y": "DGS10",
     "real_rate_10y": "DFII10",
+    # Forward-looking indicators
+    "lei": "USSLIND",
+    "inflation_expectations_5y5y": "T5YIFR",
 }
 
 AI_STOCK_BASKET = [

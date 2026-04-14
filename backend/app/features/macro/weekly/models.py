@@ -184,10 +184,24 @@ class WeeklyRawData(BaseModel):
         default=None, description="指数 + 板块 ETF + 风格 周度表现"
     )
 
+    # 趋势上下文
+    trend_context: Optional[dict] = Field(
+        default=None,
+        description=(
+            "核心指标的趋势统计 (按频率分类): "
+            "daily(week_change/month_direction), weekly(4w_direction/percentile_1y), "
+            "monthly(consecutive_months/vs_6m_ago/vs_1y_ago), quarterly(prev_value/yoy_change)"
+        ),
+    )
+
     # 日历
     economic_calendar: list = Field(
         default_factory=list, description="未来 14 天经济事件日历"
     )
     earnings_calendar: list = Field(
         default_factory=list, description="未来 14 天财报日历"
+    )
+    this_week_events: list = Field(
+        default_factory=list,
+        description="本周已发生的高影响经济事件 (含 actual vs estimate, surprise direction)",
     )
