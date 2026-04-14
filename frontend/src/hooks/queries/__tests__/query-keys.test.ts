@@ -122,6 +122,23 @@ describe('queryKeys', () => {
     it('technicalSnapshot(symbol) includes symbol', () => {
       expect(queryKeys.stocks.technicalSnapshot('AMD')).toEqual(['stocks', 'technical-snapshot', 'AMD']);
     });
+
+    it('earningsData(symbol) includes symbol', () => {
+      expect(queryKeys.stocks.earningsData('AAPL')).toEqual(['stocks', 'earnings-data', 'AAPL']);
+    });
+
+    it('earningsAnalysis(symbol) includes symbol', () => {
+      expect(queryKeys.stocks.earningsAnalysis('MSFT')).toEqual(['stocks', 'earnings-analysis', 'MSFT']);
+    });
+
+    it('newsFeed(symbol, days) includes both params', () => {
+      expect(queryKeys.stocks.newsFeed('NVDA', 7)).toEqual(['stocks', 'news-feed', 'NVDA', 7]);
+      expect(queryKeys.stocks.newsFeed('TSLA', 14)).toEqual(['stocks', 'news-feed', 'TSLA', 14]);
+    });
+
+    it('insiderTrading(symbol) includes symbol', () => {
+      expect(queryKeys.stocks.insiderTrading('GOOGL')).toEqual(['stocks', 'insider-trading', 'GOOGL']);
+    });
   });
 
   describe('watchlist', () => {
