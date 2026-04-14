@@ -6,6 +6,7 @@ Handles:
 """
 
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -534,3 +535,128 @@ async def update_email_preferences(
     except Exception as e:
         logger.exception("Error updating email preferences")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Admin: Backfill Resend contact first_name from Insforge auth profiles
+# ---------------------------------------------------------------------------
+
+
+@router.post("/subscriptions/backfill-resend-names")
+async def backfill_resend_names(
+    dry_run: bool = Query(default=True, description="Preview changes without applying"),
+    _secret: str = Depends(verify_cron_secret),
+) -> dict[str, Any]:
+    """
+    One-time migration: sync user profile names from Insforge auth to Resend contacts.
+
+    Reads all user profiles from Insforge, then updates Resend contacts that are
+    missing first_name. Protected by CRON_SECRET.
+
+    Query params:
+        dry_run=true (default): preview changes without applying
+        dry_run=false: apply updates to Resend
+    """
+    service = get_insforge_service()
+
+    # 1. Get all user profiles from Insforge auth via edge function
+    result = await service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "list_user_profiles"},
+        timeout=60.0,
+    )
+    data = result.get("data", {})
+    if not data.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch user profiles: {data.get('error', result.get('text', 'unknown'))}",
+        )
+
+    profiles = data.get("data", [])
+    # Build email -> name lookup (only users that have a profile name)
+    email_to_name: dict[str, str] = {}
+    for p in profiles:
+        email = (p.get("email") or "").lower().strip()
+        name = (p.get("profile_name") or "").strip()
+        if email and name:
+            email_to_name[email] = name
+
+    logger.info(
+        "Backfill: loaded %d user profiles, %d have names",
+        len(profiles),
+        len(email_to_name),
+    )
+
+    # 2. For each Resend audience, find contacts missing first_name and update
+    subscription_service = get_subscription_service()
+    subscription_service._validate_api_key()
+
+    import resend
+    import time
+
+    updates: list[dict[str, Any]] = []
+    skipped_no_name = 0
+    already_has_name = 0
+
+    for channel in SubscriptionChannel:
+        config = subscription_service._get_channel_config(channel)
+        if not config.get("audience_name"):
+            continue  # Skip channels without Resend audiences
+
+        try:
+            audience_id = subscription_service.ensure_audience(channel)
+        except Exception as e:
+            logger.warning("Backfill: skip channel %s: %s", channel, e)
+            continue
+
+        time.sleep(0.55)
+        contacts = resend.Contacts.list(audience_id=audience_id)
+
+        for contact in contacts.get("data", []):
+            contact_email = (contact.get("email") or "").lower().strip()
+            existing_name = (contact.get("first_name") or "").strip()
+
+            if existing_name:
+                already_has_name += 1
+                continue
+
+            profile_name = email_to_name.get(contact_email)
+            if not profile_name:
+                skipped_no_name += 1
+                continue
+
+            entry = {
+                "channel": channel.value,
+                "email": contact_email,
+                "new_first_name": profile_name,
+            }
+
+            if not dry_run:
+                try:
+                    time.sleep(0.55)
+                    resend.Contacts.update({
+                        "audience_id": audience_id,
+                        "email": contact_email,
+                        "first_name": profile_name,
+                    })
+                    entry["status"] = "updated"
+                except Exception as e:
+                    entry["status"] = f"error: {e}"
+                    logger.warning(
+                        "Backfill: failed to update %s: %s", contact_email, e
+                    )
+            else:
+                entry["status"] = "dry_run"
+
+            updates.append(entry)
+
+    return {
+        "dry_run": dry_run,
+        "profiles_loaded": len(profiles),
+        "profiles_with_name": len(email_to_name),
+        "already_has_name": already_has_name,
+        "skipped_no_profile_name": skipped_no_name,
+        "updates": updates,
+        "total_updates": len(updates),
+    }

@@ -38,6 +38,7 @@ class SubscriptionChannel(str, Enum):
 
     DAILY_REPORT = "daily_report"
     WEEKLY_REPORT = "weekly_report"
+    PERSONAL_DIGEST = "personal_digest"
 
 
 # Channel configuration
@@ -51,6 +52,11 @@ SubscriptionChannel.WEEKLY_REPORT: {
         "audience_name": "TheMarketBrew Weekly",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
+    },
+    SubscriptionChannel.PERSONAL_DIGEST: {
+        "audience_name": "",  # No Resend Audience; uses entitlements
+        "metadata_fields": ["first_name"],
+        "requires_auth": True,
     },
 }
 
