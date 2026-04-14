@@ -88,9 +88,16 @@ class TestSerializeIncomeStmt:
         expected_fields = [
             "date", "fiscal_year", "fiscal_period",
             "revenue", "cost_of_revenue", "gross_profit", "gross_profit_margin",
-            "operating_expenses", "operating_income", "operating_income_margin",
+            "research_and_development", "selling_and_marketing",
+            "general_and_administrative", "sga_expenses",
+            "operating_expenses", "total_costs_and_expenses",
+            "operating_income", "operating_income_margin",
+            "interest_income", "interest_expense",
+            "income_before_tax", "income_tax_expense",
             "net_income", "net_income_margin",
-            "eps", "eps_diluted", "ebitda", "research_and_development",
+            "eps", "eps_diluted",
+            "weighted_avg_shares", "weighted_avg_shares_diluted",
+            "ebitda", "depreciation_and_amortization",
         ]
         for field in expected_fields:
             assert field in result, f"Missing field: {field}"
@@ -157,7 +164,7 @@ class TestSerializeIncomeStmt:
     def test_field_count(self):
         """Ensure no extra or missing fields in output."""
         result = self.svc._serialize_income_stmt(SAMPLE_FMP_INCOME)
-        assert len(result) == 16
+        assert len(result) == 27
 
 
 # ---------------------------------------------------------------------------
@@ -173,10 +180,15 @@ class TestSerializeBalanceStmt:
         result = self.svc._serialize_balance_stmt(SAMPLE_FMP_BALANCE)
         expected_fields = [
             "date", "fiscal_year", "fiscal_period",
-            "total_assets", "total_liabilities", "total_equity",
             "cash_and_equivalents", "short_term_investments",
-            "total_current_assets", "total_current_liabilities",
-            "long_term_debt", "total_debt", "retained_earnings",
+            "cash_and_short_term_investments", "net_receivables", "inventory",
+            "total_current_assets", "property_plant_equipment",
+            "goodwill", "intangible_assets", "long_term_investments",
+            "total_non_current_assets", "total_assets",
+            "accounts_payable", "total_current_liabilities",
+            "long_term_debt", "total_non_current_liabilities",
+            "total_liabilities", "total_debt", "net_debt",
+            "total_equity", "retained_earnings", "additional_paid_in_capital",
             "shares_outstanding",
         ]
         for field in expected_fields:
@@ -239,7 +251,7 @@ class TestSerializeBalanceStmt:
 
     def test_field_count(self):
         result = self.svc._serialize_balance_stmt(SAMPLE_FMP_BALANCE)
-        assert len(result) == 14
+        assert len(result) == 26
 
 
 # ---------------------------------------------------------------------------
@@ -255,10 +267,17 @@ class TestSerializeCashFlowStmt:
         result = self.svc._serialize_cash_flow_stmt(SAMPLE_FMP_CASH_FLOW)
         expected_fields = [
             "date", "fiscal_year", "fiscal_period",
-            "operating_cash_flow", "capital_expenditure", "free_cash_flow",
-            "dividends_paid", "stock_repurchase",
-            "net_cash_from_investing", "net_cash_from_financing",
-            "depreciation",
+            "net_income", "depreciation_and_amortization",
+            "stock_based_compensation", "deferred_income_tax",
+            "change_in_working_capital", "accounts_receivables", "accounts_payables",
+            "operating_cash_flow",
+            "capital_expenditure", "acquisitions",
+            "purchases_of_investments", "sales_of_investments",
+            "net_cash_from_investing",
+            "net_debt_issuance", "stock_repurchase", "dividends_paid",
+            "net_cash_from_financing",
+            "net_change_in_cash", "free_cash_flow", "cash_at_end",
+            "income_taxes_paid", "interest_paid",
         ]
         for field in expected_fields:
             assert field in result, f"Missing field: {field}"
@@ -275,7 +294,7 @@ class TestSerializeCashFlowStmt:
         assert result["stock_repurchase"] == -25_000_000_000
         assert result["net_cash_from_investing"] == -8_505_000_000
         assert result["net_cash_from_financing"] == -21_621_000_000
-        assert result["depreciation"] == 2_907_000_000
+        assert result["depreciation_and_amortization"] == 2_907_000_000
 
     def test_operating_cash_flow_fallback(self):
         """When operatingCashFlow is missing, should fall back to netCashProvidedByOperatingActivities."""
@@ -298,11 +317,13 @@ class TestSerializeCashFlowStmt:
         assert result["stock_repurchase"] is None
         assert result["net_cash_from_investing"] is None
         assert result["net_cash_from_financing"] is None
-        assert result["depreciation"] is None
+        assert result["depreciation_and_amortization"] is None
+        assert result["stock_based_compensation"] is None
+        assert result["net_change_in_cash"] is None
 
     def test_field_count(self):
         result = self.svc._serialize_cash_flow_stmt(SAMPLE_FMP_CASH_FLOW)
-        assert len(result) == 11
+        assert len(result) == 25
 
 
 # ---------------------------------------------------------------------------
