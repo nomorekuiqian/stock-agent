@@ -74,7 +74,7 @@ export default function ConversationSidebar({
         {onToggle && (
           <button
             onClick={onToggle}
-            className="p-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
+            className="p-1 rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
             title="收起侧栏"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -111,7 +111,7 @@ export default function ConversationSidebar({
           </div>
         ) : conversations.length === 0 ? (
           <div className="px-3 py-6 text-center">
-            <p className="text-xs text-muted-foreground/50">开始对话后会保存在这里</p>
+            <p className="text-xs text-muted-foreground/70">开始对话后会保存在这里</p>
           </div>
         ) : (
           conversations.map((conv) => (
@@ -128,12 +128,10 @@ export default function ConversationSidebar({
                 disabled={requestInFlight}
                 className={`w-full text-left px-2.5 py-2 pr-6 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
               >
-                <p className={`text-xs leading-snug line-clamp-2 ${
-                  conv.id === currentId ? 'text-foreground' : 'text-foreground/90'
-                }`}>
+                <p className="text-xs leading-snug line-clamp-2 text-foreground">
                   {conv.title || '未命名对话'}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {formatRelativeTime(conv.updated_at)}
                 </p>
               </button>
@@ -164,7 +162,7 @@ export default function ConversationSidebar({
         </a>
         {(userName || userEmail) && (
           <div className="flex items-center gap-2 px-2.5 py-1.5">
-            <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary font-medium shrink-0">
+            <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-micro text-primary font-medium shrink-0">
               {(userName || userEmail || '?')[0].toUpperCase()}
             </div>
             <span className="text-xs text-muted-foreground truncate">

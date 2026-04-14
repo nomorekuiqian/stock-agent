@@ -261,7 +261,7 @@ function LoginPageContent() {
         <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-up delay-200">
           {isSignUp && (
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-foreground/90 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
                 姓名
               </label>
               <input
@@ -277,7 +277,7 @@ function LoginPageContent() {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground/90 mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
               邮箱
             </label>
             <input

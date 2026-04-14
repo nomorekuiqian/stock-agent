@@ -45,7 +45,7 @@ const INSIGHT_MD_COMPONENTS = {
     </p>
   ),
   strong: ({ children }: { children?: ReactNode }) => (
-    <strong className="font-semibold text-foreground/90">
+    <strong className="font-semibold text-foreground">
       {children}
     </strong>
   ),
@@ -102,13 +102,13 @@ export function InsightBanner({
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-muted-foreground/20 shrink-0" />
           <Sparkles
-            className="w-3.5 h-3.5 text-muted-foreground/30"
+            className="w-3.5 h-3.5 text-muted-foreground/70"
             strokeWidth={1.5}
           />
-          <span className="text-sm text-muted-foreground/40">
+          <span className="text-sm text-muted-foreground/70">
             {sectionTitle} &middot; AI 解读
           </span>
-          <span className="text-micro text-muted-foreground/30 ml-auto">
+          <span className="text-micro text-muted-foreground/70 ml-auto">
             暂无数据
           </span>
         </div>
@@ -130,7 +130,7 @@ export function InsightBanner({
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${colors.dot} shrink-0`} />
           <Sparkles
-            className="w-3.5 h-3.5 text-muted-foreground/50"
+            className="w-3.5 h-3.5 text-muted-foreground/70"
             strokeWidth={1.5}
           />
           <span className="text-sm font-medium text-foreground">
@@ -139,12 +139,12 @@ export function InsightBanner({
         </div>
         <div className="flex items-center gap-2">
           {weekLabel && (
-            <span className="text-micro font-data text-muted-foreground/50 tracking-wider">
+            <span className="text-micro font-data text-muted-foreground/70 tracking-wider">
               {weekLabel}
             </span>
           )}
           <ChevronDown
-            className={`w-4 h-4 text-muted-foreground/40 transition-transform duration-200 ${
+            className={`w-4 h-4 text-muted-foreground/70 transition-transform duration-200 ${
               expanded ? 'rotate-180' : ''
             }`}
             strokeWidth={1.5}
@@ -169,7 +169,7 @@ export function InsightBanner({
                 >
                   <div className="flex items-center gap-2 mb-2.5">
                     <div className="w-0.5 h-3.5 bg-primary/60 rounded-full" />
-                    <span className="text-xs font-semibold text-foreground/70 tracking-wide">
+                    <span className="text-xs font-semibold text-muted-foreground tracking-wide">
                       {section.label}
                     </span>
                   </div>

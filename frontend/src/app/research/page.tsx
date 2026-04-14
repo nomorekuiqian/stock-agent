@@ -193,6 +193,7 @@ function ScreenerContent() {
 
   // Load conversation list when on welcome screen, or when history sidebar opens in chat phase
   useEffect(() => {
+    if (authLoading) return;
     if (!isAuthenticated) return;
     if (state.phase !== 'welcome' && !historyOpen) return;
     let cancelled = false;
@@ -207,7 +208,7 @@ function ScreenerContent() {
         if (!cancelled) setConversationsLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [state.phase, isAuthenticated, historyOpen, state.conversationId]);
+  }, [state.phase, authLoading, isAuthenticated, historyOpen, state.conversationId]);
 
   // Auth redirect
   useEffect(() => {
@@ -888,7 +889,7 @@ function ScreenerContent() {
               <button
                 onClick={() => setHistoryOpen(true)}
                 title="展开历史对话"
-                className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/30 transition-colors cursor-pointer"
+                className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 transition-colors cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -969,7 +970,7 @@ function ScreenerContent() {
                 <button
                   onClick={() => setHistoryOpen(true)}
                   title="历史对话"
-                  className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="inline-flex items-center p-1.5 rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" />

@@ -129,7 +129,7 @@ export default function BrewDigestView({
         <p className="text-sm text-muted-foreground">
           {error ? '无法加载专属日报' : '暂无专属日报数据'}
         </p>
-        <p className="text-xs text-muted-foreground/60">
+        <p className="text-xs text-muted-foreground/70">
           请先在「持仓总览」页面添加持仓并生成日报
         </p>
       </div>

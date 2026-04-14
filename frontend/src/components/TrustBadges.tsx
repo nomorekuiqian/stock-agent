@@ -88,12 +88,12 @@ export default function TrustBadges({
       <div className={`flex flex-col gap-3 ${className}`}>
         {/* Data Sources */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-micro text-muted-foreground/50 uppercase tracking-wider">Data from</span>
+          <span className="text-micro text-muted-foreground/70 uppercase tracking-wider">Data from</span>
           <div className="flex items-center gap-3">
             {dataSources.map((source, i) => (
-              <span key={source} className="text-xs text-muted-foreground/60 font-medium">
+              <span key={source} className="text-xs text-muted-foreground/70 font-medium">
                 {source}
-                {i < dataSources.length - 1 && <span className="ml-3 text-muted-foreground/30">|</span>}
+                {i < dataSources.length - 1 && <span className="ml-3 text-muted-foreground/70">|</span>}
               </span>
             ))}
           </div>
@@ -150,7 +150,7 @@ export default function TrustBadges({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Logos Row */}
-      <div className="flex items-center gap-6 text-muted-foreground/60">
+      <div className="flex items-center gap-6 text-muted-foreground/70">
         <span className="text-micro uppercase tracking-wider opacity-50">Data from</span>
         <DataSourceLogos.Reuters />
         <DataSourceLogos.Bloomberg />

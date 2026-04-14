@@ -80,7 +80,7 @@ const MACRO_MD_COMPONENTS = {
     </h3>
   ),
   p: ({ children }: { children?: ReactNode }) => (
-    <p className="text-foreground/90 leading-relaxed mb-3 last:mb-0">{children}</p>
+    <p className="text-foreground leading-relaxed mb-3 last:mb-0">{children}</p>
   ),
   strong: ({ children }: { children?: ReactNode }) => (
     <strong className="font-semibold text-foreground">{children}</strong>
@@ -92,7 +92,7 @@ const MACRO_MD_COMPONENTS = {
     <ol className="list-decimal pl-5 space-y-1.5 my-2">{children}</ol>
   ),
   li: ({ children }: { children?: ReactNode }) => (
-    <li className="text-foreground/80 leading-relaxed pl-1">{children}</li>
+    <li className="text-muted-foreground leading-relaxed pl-1">{children}</li>
   ),
   code: ({ children }: { children?: ReactNode }) => (
     <code className="font-data text-primary bg-primary/10 px-1 py-0.5 rounded text-sm">{children}</code>
@@ -239,7 +239,7 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
                 核心判断
               </span>
             </div>
-            <p className="text-sm text-foreground/90 leading-relaxed">
+            <p className="text-sm text-foreground leading-relaxed">
               {report.verdict}
             </p>
           </div>
@@ -287,7 +287,7 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
                     <div className="flex items-center gap-1.5">
                       <div className={`w-2 h-2 rounded-full ${dotClass}`} />
                       {signalLabel && (
-                        <span className={`text-[11px] font-medium ${signalTextColor}`}>{signalLabel}</span>
+                        <span className={`text-xs font-medium ${signalTextColor}`}>{signalLabel}</span>
                       )}
                     </div>
                   </div>

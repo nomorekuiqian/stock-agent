@@ -138,7 +138,7 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
 
             {report.market_pulse && (
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
-                <p className="text-foreground/80 leading-relaxed text-sm">
+                <p className="text-muted-foreground leading-relaxed text-sm">
                   {report.market_pulse}
                 </p>
               </div>

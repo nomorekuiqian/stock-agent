@@ -63,7 +63,7 @@ export default function ChatInput({
         placeholder={placeholder}
         disabled={loading}
         rows={1}
-        className="max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground outline-none focus-visible:outline-none placeholder:text-muted-foreground/60"
+        className="max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground outline-none focus-visible:outline-none placeholder:text-muted-foreground/70"
         aria-label="消息输入"
       />
       <div className="flex items-center justify-end">
@@ -88,7 +88,7 @@ export default function ChatInput({
             className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 ${
               hasValue
                 ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-md hover:shadow-primary/20 active:scale-90 active:shadow-none'
-                : 'bg-muted text-muted-foreground/60 cursor-default'
+                : 'bg-muted text-muted-foreground/70 cursor-default'
             }`}
             aria-label="发送消息"
           >

@@ -144,8 +144,8 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
               </div>
             </div>
             {onCancelLoading && (
-              <p className="text-[11px] text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-10 mt-1">
-                点击取消等待
+              <p className="text-xs text-transparent group-hover:text-muted-foreground/70 transition-colors ml-10 mt-1">
+                点击取消
               </p>
             )}
           </div>

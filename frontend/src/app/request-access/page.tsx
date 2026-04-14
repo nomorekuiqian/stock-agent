@@ -155,7 +155,7 @@ export default function RequestAccessPage(): ReactNode {
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Q1: 投资经历 */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground/90">
+            <label className="block text-sm font-medium text-foreground">
               你的投资经历<span className="text-primary ml-0.5">*</span>
             </label>
             <div className="grid grid-cols-1 gap-2">
@@ -179,7 +179,7 @@ export default function RequestAccessPage(): ReactNode {
 
           {/* Q2: 关注的市场 */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground/90">
+            <label className="block text-sm font-medium text-foreground">
                 你主要关注哪些市场<span className="text-primary ml-0.5">*</span>
             </label>
             <div className="flex flex-wrap gap-2">
@@ -202,7 +202,7 @@ export default function RequestAccessPage(): ReactNode {
 
           {/* Q3: 交易风格 */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground/90">
+            <label className="block text-sm font-medium text-foreground">
               你的交易风格<span className="text-primary ml-0.5">*</span>
             </label>
             <div className="flex flex-wrap gap-2">
@@ -225,7 +225,7 @@ export default function RequestAccessPage(): ReactNode {
 
           {/* Q4: 痛点 */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-foreground/90">
+            <label className="block text-sm font-medium text-foreground">
               你在投研过程中现在遇到哪些痛点<span className="text-primary ml-0.5">*</span>
             </label>
             <div className="flex flex-wrap gap-2">
@@ -250,7 +250,7 @@ export default function RequestAccessPage(): ReactNode {
           <div className="space-y-2">
             <label
               htmlFor="feedback"
-              className="block text-sm font-medium text-foreground/90"
+              className="block text-sm font-medium text-foreground"
             >
               你最想要 TheMarketBrew 帮你解决什么问题
               <span className="text-primary ml-0.5">*</span>

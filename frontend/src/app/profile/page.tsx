@@ -278,7 +278,7 @@ function ProfileContent(): ReactNode {
               {subLoading ? (
                 <span className="shrink-0 w-8 h-4 rounded bg-muted animate-pulse" />
               ) : isPro ? (
-                <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${
+                <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-micro font-medium uppercase tracking-wide ${
                   isMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' : 'bg-primary/15 text-primary border border-primary/20'
                 }`}>
                   {tierLabel}
@@ -299,7 +299,7 @@ function ProfileContent(): ReactNode {
               className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
                 activeTab === id
                   ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground/70'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {label}
@@ -326,7 +326,7 @@ function ProfileContent(): ReactNode {
             )}
 
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-foreground/90 mb-2">昵称</label>
+              <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">昵称</label>
               <input
                 id="name"
                 type="text"
@@ -410,7 +410,7 @@ function ProfileContent(): ReactNode {
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground/60">
+                  <div className="flex justify-between text-xs text-muted-foreground/70">
                     <span>{INVITE_DAYS - (daysLeft ?? 0)} 天已用</span>
                     <span>共 {INVITE_DAYS} 天</span>
                   </div>
@@ -490,7 +490,7 @@ function ProfileContent(): ReactNode {
                   {portalError ? (
                     <p className="text-xs text-red-400 text-center mt-2">{portalError}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground/60 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
+                    <p className="text-xs text-muted-foreground/70 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
                   )}
                 </div>
               ) : isCanceled ? (
@@ -546,7 +546,7 @@ function ProfileContent(): ReactNode {
                         '宏观周报 & 流动性监控',
                         '个股深度分析',
                       ].map((item) => (
-                        <li key={item} className="flex items-center gap-2 text-sm text-foreground/80">
+                        <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
                           <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>

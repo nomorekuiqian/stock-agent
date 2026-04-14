@@ -120,7 +120,7 @@ export default function Home() {
                     先看今天的市场
                   </Link>
                 </div>
-                <p className="text-xs text-muted-foreground/60">
+                <p className="text-xs text-muted-foreground/70">
                   无需信用卡 · 14 天后自动结束
                 </p>
               </div>
@@ -138,7 +138,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 md:px-6">
             <div className="flex items-center justify-center gap-6 mb-1.5">
               <div className="h-px flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-border/50" />
-              <span className="text-micro text-muted-foreground/50 uppercase tracking-[0.2em]">
+              <span className="text-micro text-muted-foreground/70 uppercase tracking-[0.2em]">
                 Data Sources
               </span>
               <div className="h-px flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-border/50" />
@@ -414,7 +414,7 @@ export default function Home() {
                     </svg>
                   ))}
                 </div>
-                <p className="text-sm text-foreground/90 leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
+                <p className="text-sm text-foreground leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
                 <p className="text-xs text-muted-foreground">{t.role}</p>
               </div>
             ))}
@@ -462,9 +462,9 @@ export default function Home() {
                     {item.ok ? (
                       <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     ) : (
-                      <svg className="w-4 h-4 text-muted-foreground/30 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      <svg className="w-4 h-4 text-muted-foreground/70 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     )}
-                    <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/40'}`}>{item.text}</span>
+                    <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/70'}`}>{item.text}</span>
                   </div>
                 ))}
               </div>
@@ -490,7 +490,7 @@ export default function Home() {
                 <div className="flex items-baseline gap-2 mb-5">
                   <span className="text-2xl font-data font-bold text-foreground">{PRICING.pro}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                  <span className="text-sm text-muted-foreground/60 line-through font-data">{PRICING.proOriginal}</span>
+                  <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.proOriginal}</span>
                 </div>
                 <div className="space-y-3 mb-6">
                   {[
@@ -507,9 +507,9 @@ export default function Home() {
                       {item.ok ? (
                         <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                       ) : (
-                        <svg className="w-4 h-4 text-muted-foreground/30 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <svg className="w-4 h-4 text-muted-foreground/70 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       )}
-                      <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/40'}`}>{item.text}</span>
+                      <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/70'}`}>{item.text}</span>
                     </div>
                   ))}
                 </div>
@@ -519,7 +519,7 @@ export default function Home() {
                 >
                   立即订阅 — {PRICING.proPerMonth}
                 </Link>
-                <p className="text-xs text-muted-foreground/60 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
+                <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
               </div>
             </div>
 
@@ -536,7 +536,7 @@ export default function Home() {
               <div className="flex items-baseline gap-2 mb-5">
                 <span className="text-2xl font-data font-bold text-foreground">{PRICING.max}</span>
                 <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                <span className="text-sm text-muted-foreground/60 line-through font-data">{PRICING.maxOriginal}</span>
+                <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.maxOriginal}</span>
                 <span className="text-xs font-medium text-primary">{PRICING.maxDiscount}</span>
               </div>
               <div className="space-y-3 mb-6">
@@ -558,7 +558,7 @@ export default function Home() {
               >
                 立即订阅 — {PRICING.maxPerMonth}
               </Link>
-              <p className="text-xs text-muted-foreground/60 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
+              <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
             </div>
           </div>
 

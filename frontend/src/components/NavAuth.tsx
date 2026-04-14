@@ -40,7 +40,7 @@ export function NavAuth() {
               </span>
             </div>
             {!subLoading && isPro && (
-              <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-[8px] font-bold tracking-wider bg-amber-500 text-black leading-none">
+              <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-micro font-bold tracking-wider bg-amber-500 text-black leading-none">
                 {isMax ? 'MAX' : 'PRO'}
               </span>
             )}

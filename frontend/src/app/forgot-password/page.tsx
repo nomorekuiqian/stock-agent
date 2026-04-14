@@ -248,7 +248,7 @@ export default function ForgotPasswordPage(): ReactNode {
         {step === 'email' && (
           <form onSubmit={handleSendEmail} className="space-y-6 animate-fade-in-up delay-100">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground/90 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
                 邮箱地址
               </label>
               <input
@@ -286,7 +286,7 @@ export default function ForgotPasswordPage(): ReactNode {
         {step === 'code' && (
           <form onSubmit={handleVerifyCode} className="space-y-6 animate-fade-in-up delay-100">
             <div>
-              <label className="block text-sm font-medium text-foreground/90 mb-4 text-center">
+              <label className="block text-sm font-medium text-foreground mb-4 text-center">
                 输入6位验证码
               </label>
               <div className="flex justify-center gap-2">

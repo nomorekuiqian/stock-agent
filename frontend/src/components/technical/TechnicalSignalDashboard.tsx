@@ -84,7 +84,7 @@ interface TechnicalSignalDashboardProps {
 //
 // Section title:  SubsectionHeader pattern (text-sm, amber dot, uppercase)
 // Summary:        text-base font-medium text-foreground  (lead level)
-// Item label:     text-sm text-foreground/90
+// Item label:     text-sm text-foreground
 // Item value:     text-sm font-data font-medium text-foreground
 // Interpretation: text-xs text-muted-foreground leading-relaxed
 // Data source:    text-micro text-muted-foreground/70
@@ -385,11 +385,11 @@ function TrendSection({ snapshot, timeframe }: { snapshot: TechnicalSnapshot; ti
               <span className={plusDI > minusDI ? 'text-emerald-400 font-medium' : ''}>
                 +DI {plusDI.toFixed(1)}
               </span>
-              <span className="text-muted-foreground/50">/</span>
+              <span className="text-muted-foreground/70">/</span>
               <span className={minusDI > plusDI ? 'text-red-400 font-medium' : ''}>
                 -DI {minusDI.toFixed(1)}
               </span>
-              <span className="text-muted-foreground/60 ml-1">
+              <span className="text-muted-foreground/70 ml-1">
                 {plusDI > minusDI ? '(多方主导)' : minusDI > plusDI ? '(空方主导)' : '(多空均衡)'}
               </span>
             </div>
@@ -401,7 +401,7 @@ function TrendSection({ snapshot, timeframe }: { snapshot: TechnicalSnapshot; ti
       {alignment && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-foreground/90">均线排列</span>
+            <span className="text-sm text-foreground">均线排列</span>
             <span className="text-sm font-data font-medium text-foreground">{maLabel} {maDetail}</span>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
@@ -478,7 +478,7 @@ function LevelsSection({ snapshot }: { snapshot: TechnicalSnapshot }) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm font-data text-emerald-400">{formatPrice(support)}</span>
-            <span className="text-sm font-data text-foreground/90">当前 {formatPrice(price)}</span>
+            <span className="text-sm font-data text-foreground">当前 {formatPrice(price)}</span>
             <span className="text-sm font-data text-red-400">{formatPrice(resistance)}</span>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground/70">
@@ -491,7 +491,7 @@ function LevelsSection({ snapshot }: { snapshot: TechnicalSnapshot }) {
       {/* Support explanation */}
       {support != null && (
         <div className="space-y-1">
-          <span className="text-sm text-foreground/90">支撑 {formatPrice(support)}</span>
+          <span className="text-sm text-foreground">支撑 {formatPrice(support)}</span>
           <p className="text-xs text-muted-foreground leading-relaxed">{SUPPORT_EXPLANATION}</p>
         </div>
       )}
@@ -499,7 +499,7 @@ function LevelsSection({ snapshot }: { snapshot: TechnicalSnapshot }) {
       {/* Resistance explanation */}
       {resistance != null && (
         <div className="space-y-1">
-          <span className="text-sm text-foreground/90">阻力 {formatPrice(resistance)}</span>
+          <span className="text-sm text-foreground">阻力 {formatPrice(resistance)}</span>
           <p className="text-xs text-muted-foreground leading-relaxed">{RESISTANCE_EXPLANATION}</p>
         </div>
       )}
@@ -545,7 +545,7 @@ function MACDIndicator({
     <div className="space-y-1.5">
       {/* Label + value + optional cross badge */}
       <div className="flex items-center justify-between">
-        <span className="text-sm text-foreground/90">MACD</span>
+        <span className="text-sm text-foreground">MACD</span>
         <div className="flex items-center gap-2">
           {(cross === 'bullish_cross' || cross === 'bearish_cross') && (
             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -605,13 +605,13 @@ function VolumeIndicator({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-foreground/90">成交量</span>
+        <span className="text-sm text-foreground">成交量</span>
         <div className="flex items-center gap-2">
           <span className={`text-sm font-data font-medium ${trendColor}`}>
             {ratio.toFixed(1)}x ({trendLabel})
           </span>
           {confirmation != null && (
-            <span className={`text-xs ${confirmation ? 'text-emerald-400/80' : 'text-muted-foreground/60'}`}>
+            <span className={`text-xs ${confirmation ? 'text-emerald-400/80' : 'text-muted-foreground/70'}`}>
               {confirmation ? '量价配合' : '量能不足'}
             </span>
           )}
@@ -679,7 +679,7 @@ function IndicatorsSection({ snapshot, timeframe }: { snapshot: TechnicalSnapsho
       {bbWidth != null && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-foreground/90">布林带宽</span>
+            <span className="text-sm text-foreground">布林带宽</span>
             <div className="flex items-center gap-2">
               <span className="text-sm font-data font-medium text-foreground">
                 {bbWidth.toFixed(1)}% ({bbState})
@@ -840,11 +840,11 @@ function ConfluenceSection({ snapshot, timeframe }: { snapshot: TechnicalSnapsho
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/20 border border-border/30"
           >
             <span className={`w-1.5 h-1.5 rounded-full ${DIRECTION_COLORS[s.direction]}`} />
-            <span className="text-xs text-foreground/80">{s.name}</span>
+            <span className="text-xs text-muted-foreground">{s.name}</span>
             <span className={`text-xs font-medium ${
               s.direction === 'bullish' ? 'text-emerald-400' :
               s.direction === 'bearish' ? 'text-red-400' :
-              'text-muted-foreground/60'
+              'text-muted-foreground/70'
             }`}>
               {DIRECTION_LABELS[s.direction]}
             </span>

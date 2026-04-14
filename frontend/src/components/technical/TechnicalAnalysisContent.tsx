@@ -123,7 +123,7 @@ export function TechnicalAnalysisContent({ content, className = '' }: TechnicalA
             </h6>
           ),
           p: ({ children }) => (
-            <p className="text-sm text-foreground/80 leading-relaxed mb-3 last:mb-0">
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3 last:mb-0">
               <TextWithTooltips>{children}</TextWithTooltips>
             </p>
           ),
@@ -143,7 +143,7 @@ export function TechnicalAnalysisContent({ content, className = '' }: TechnicalA
             </ol>
           ),
           li: ({ children }) => (
-            <li className="text-sm text-foreground/80 leading-relaxed pl-2">
+            <li className="text-sm text-muted-foreground leading-relaxed pl-2">
               <TextWithTooltips>{children}</TextWithTooltips>
             </li>
           ),

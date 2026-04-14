@@ -55,7 +55,7 @@ export default function PortfolioSnapshotBar({
                     </span>
                   </>
                 ) : (
-                  <span className="font-data text-xs text-muted-foreground/50">--</span>
+                  <span className="font-data text-xs text-muted-foreground/70">--</span>
                 )}
               </div>
             );

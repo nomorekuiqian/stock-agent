@@ -78,7 +78,7 @@ const NewsTimestamp = ({ timestamp }: { timestamp?: string }) => {
   if (!timestamp) return null;
 
   return (
-    <div className="flex items-center gap-2 pl-1 text-[11px] leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
+    <div className="flex items-center gap-2 pl-1 text-xs leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/50">
         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l2.5 2.5m6.5-2.5a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -121,7 +121,7 @@ export function MorningReportContent({
           </div>
           {futures_analysis && (
             <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
-              <p className="text-sm text-foreground/90 leading-relaxed">
+              <p className="text-sm text-foreground leading-relaxed">
                 {futures_analysis}
               </p>
             </div>
@@ -161,7 +161,7 @@ export function MorningReportContent({
           </div>
           {global_markets_analysis && (
             <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
-              <p className="text-sm text-foreground/90 leading-relaxed">
+              <p className="text-sm text-foreground leading-relaxed">
                 {global_markets_analysis}
               </p>
             </div>
@@ -192,7 +192,7 @@ export function MorningReportContent({
                 )}
                 <NewsTimestamp timestamp={item.published_at} />
                 <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
-                  <p className="text-sm text-foreground/90 leading-relaxed">
+                  <p className="text-sm text-foreground leading-relaxed">
                     {item.analysis}
                   </p>
                 </div>
@@ -239,7 +239,7 @@ export function MorningReportContent({
               <div key={i}>
                 <SubsectionHeader>{SUMMARY_TITLES[section.title] || section.title}</SubsectionHeader>
                 {section.content.split('\n\n').map((paragraph, j) => (
-                  <p key={j} className="text-sm text-foreground/90 leading-relaxed mb-3 last:mb-0">
+                  <p key={j} className="text-sm text-foreground leading-relaxed mb-3 last:mb-0">
                     {paragraph}
                   </p>
                 ))}
@@ -251,7 +251,7 @@ export function MorningReportContent({
 
       {/* Disclaimer */}
       <div className="text-center pt-2 pb-2">
-        <p className="text-xs text-muted-foreground/50">
+        <p className="text-xs text-muted-foreground/70">
           AI 生成的报告，仅供参考，不构成投资建议。
         </p>
       </div>

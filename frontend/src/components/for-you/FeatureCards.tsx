@@ -71,7 +71,7 @@ export default function FeatureCards({
                 搜索、添加或移除关注的股票
               </p>
             </div>
-            <svg className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary shrink-0 ml-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-muted-foreground/70 group-hover:text-primary shrink-0 ml-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>

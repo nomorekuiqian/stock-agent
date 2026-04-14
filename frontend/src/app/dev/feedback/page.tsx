@@ -151,7 +151,7 @@ function EmailDetailPanel({
           ) : (
             <div className="flex flex-col gap-1">
               {satisfied.map((r, i) => (
-                <div key={i} className="text-xs text-foreground/80 font-mono bg-emerald-500/5 border border-emerald-500/10 rounded px-2 py-1">
+                <div key={i} className="text-xs text-muted-foreground font-mono bg-emerald-500/5 border border-emerald-500/10 rounded px-2 py-1">
                   {r.email}
                 </div>
               ))}
@@ -169,7 +169,7 @@ function EmailDetailPanel({
           ) : (
             <div className="flex flex-col gap-1">
               {dissatisfied.map((r, i) => (
-                <div key={i} className="text-xs text-foreground/80 font-mono bg-red-500/5 border border-red-500/10 rounded px-2 py-1">
+                <div key={i} className="text-xs text-muted-foreground font-mono bg-red-500/5 border border-red-500/10 rounded px-2 py-1">
                   {r.email}
                 </div>
               ))}
@@ -389,7 +389,7 @@ export default function FeedbackDashboard() {
                     <tbody>
                       {data.emailList.data.map((r, i) => (
                         <tr key={i} className="border-b border-border/20 last:border-0 hover:bg-muted/10">
-                          <td className="p-2 text-foreground/80">{r.email}</td>
+                          <td className="p-2 text-muted-foreground">{r.email}</td>
                           <td className="p-2">
                             <span className={r.rating === 'satisfied' ? 'text-emerald-400' : 'text-red-400'}>
                               {r.rating === 'satisfied' ? '满意' : '不满意'}
@@ -442,7 +442,7 @@ export default function FeedbackDashboard() {
                         </span>
                       </div>
                       {item.message && (
-                        <p className="mt-2 text-sm text-foreground/90 leading-relaxed">{item.message}</p>
+                        <p className="mt-2 text-sm text-foreground leading-relaxed">{item.message}</p>
                       )}
                     </div>
                   );

@@ -35,7 +35,7 @@ export default function StockDetailPanel({ stock }: StockDetailPanelProps) {
         </span>
         {stock.week_change && (
           <>
-            <span className="text-muted-foreground/50">|</span>
+            <span className="text-muted-foreground/70">|</span>
             <span
               className={`font-data ${(stock.week_change ?? '').startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}
             >

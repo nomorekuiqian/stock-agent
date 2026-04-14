@@ -62,7 +62,7 @@ function MetricCard({ label, metric, formatter }: {
 }) {
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 p-3.5">
-      <p className="text-[11px] text-muted-foreground mb-1.5">{label}</p>
+      <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
       <p className="text-lg font-semibold text-foreground tabular-nums">
         {formatter(metric.value)}
       </p>
@@ -72,7 +72,7 @@ function MetricCard({ label, metric, formatter }: {
         </p>
       )}
       {metric.date && (
-        <p className="text-[10px] text-muted-foreground/50 mt-1">{metric.date}</p>
+        <p className="text-micro text-muted-foreground/50 mt-1">{metric.date}</p>
       )}
     </div>
   );
@@ -156,7 +156,7 @@ export default function LiquidityView({ onContextReady }: LiquidityViewProps) {
               {formatChange(metrics.net_liquidity.change)}
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground/60 mt-2">
+          <p className="text-xs text-muted-foreground/60 mt-2">
             Fed Assets - TGA - RRP
           </p>
         </div>

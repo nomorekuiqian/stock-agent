@@ -462,7 +462,7 @@ function WatchlistPageContent() {
             <div className="space-y-5">
               {POPULAR_GROUPS.map(group => (
                 <div key={group.label}>
-                  <p className="text-xs text-muted-foreground/60 font-medium mb-2">{group.label}</p>
+                  <p className="text-xs text-muted-foreground/70 font-medium mb-2">{group.label}</p>
                   <div className="flex flex-wrap gap-2">
                     {group.symbols.map(sym => {
                       const inList = symbols.includes(sym);

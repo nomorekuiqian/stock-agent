@@ -109,7 +109,7 @@ export default function StockSearchDropdown({
                   <span className="font-mono font-semibold text-sm text-foreground shrink-0">
                     {result.symbol}
                   </span>
-                  <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/80">
+                  <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground">
                     {result.name}
                   </span>
                 </div>

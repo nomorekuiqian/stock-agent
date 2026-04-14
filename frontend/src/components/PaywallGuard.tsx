@@ -147,7 +147,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
           </div>
 
           <div className="text-center">
-            <p className="text-xs text-muted-foreground/60">
+            <p className="text-xs text-muted-foreground/70">
               Max 包含：AI 深度个股分析 · AI 投研引擎 · 宏观仪表盘 · 盘前早报
             </p>
           </div>
@@ -500,7 +500,7 @@ function LockScreen({
         </div>
 
         <div className="text-center">
-          <p className="text-xs text-muted-foreground/60">
+          <p className="text-xs text-muted-foreground/70">
             Pro: 每日邮件 + 市场日报 | Max: 全部功能解锁
           </p>
         </div>

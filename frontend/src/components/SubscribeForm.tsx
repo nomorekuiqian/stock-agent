@@ -116,7 +116,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
             {/* Name Field */}
             <div>
               <label htmlFor="firstName" className="block text-xs text-muted-foreground/70 mb-1.5">
-                姓名 <span className="text-muted-foreground/40">(可选)</span>
+                姓名 <span className="text-muted-foreground/70">(可选)</span>
               </label>
               <input
                 type="text"
@@ -171,7 +171,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
             </button>
 
             {/* Privacy Note */}
-            <p className="text-micro text-muted-foreground/40 text-center pt-0.5">
+            <p className="text-micro text-muted-foreground/70 text-center pt-0.5">
               随时可退订，我们尊重你的隐私
             </p>
           </form>

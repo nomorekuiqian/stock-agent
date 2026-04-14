@@ -31,9 +31,9 @@ export function IndicatorBar({ name, value, min, max, zones = [], format, interp
 
   return (
     <div className="space-y-1.5">
-      {/* Label + value: text-sm, foreground/90 */}
+      {/* Label + value: text-sm, foreground */}
       <div className="flex items-center justify-between">
-        <span className="text-sm text-foreground/90">{name}</span>
+        <span className="text-sm text-foreground">{name}</span>
         <span className="text-sm font-data font-medium text-foreground">{displayValue}</span>
       </div>
       {/* Bar */}

@@ -61,7 +61,7 @@ export function PasswordField({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label htmlFor={id} className="block text-sm font-medium text-foreground/90">
+        <label htmlFor={id} className="block text-sm font-medium text-foreground">
           {label}
         </label>
         {labelAction}

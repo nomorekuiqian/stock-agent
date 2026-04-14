@@ -286,7 +286,7 @@ function VerifyEmailContent(): ReactNode {
         {verificationMethod === 'code' && (!token || tokenFailed) && (
           <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in-up delay-100">
             <div className="rounded-2xl border border-border/60 bg-card/70 p-6">
-              <label className="block text-sm font-medium text-foreground/90 mb-2 text-center">
+              <label className="block text-sm font-medium text-foreground mb-2 text-center">
                 输入 6 位验证码
               </label>
               <p className="mb-5 text-center text-xs text-muted-foreground">

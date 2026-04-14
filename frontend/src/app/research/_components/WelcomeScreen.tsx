@@ -35,11 +35,11 @@ const INTENT_STYLE: Record<string, { icon: string; dot: string; bg: string; hove
     border: 'border-amber-500/10 hover:border-amber-500/25',
   },
   stock: {
-    icon: 'text-blue-400',
-    dot: 'bg-blue-400',
-    bg: 'bg-blue-500/[0.04]',
-    hoverBg: 'hover:bg-blue-500/[0.08]',
-    border: 'border-blue-500/10 hover:border-blue-500/25',
+    icon: 'text-emerald-300',
+    dot: 'bg-emerald-300',
+    bg: 'bg-emerald-400/[0.03]',
+    hoverBg: 'hover:bg-emerald-400/[0.06]',
+    border: 'border-emerald-400/10 hover:border-emerald-400/20',
   },
   find: {
     icon: 'text-primary',
@@ -49,11 +49,11 @@ const INTENT_STYLE: Record<string, { icon: string; dot: string; bg: string; hove
     border: 'border-primary/10 hover:border-primary/25',
   },
   macro: {
-    icon: 'text-violet-400',
-    dot: 'bg-violet-400',
-    bg: 'bg-violet-500/[0.04]',
-    hoverBg: 'hover:bg-violet-500/[0.08]',
-    border: 'border-violet-500/10 hover:border-violet-500/25',
+    icon: 'text-muted-foreground',
+    dot: 'bg-muted-foreground/70',
+    bg: 'bg-muted/[0.15]',
+    hoverBg: 'hover:bg-muted/[0.25]',
+    border: 'border-border/50 hover:border-border',
   },
 };
 
@@ -167,7 +167,7 @@ export default function WelcomeScreen({
             <h1 className="font-editorial text-2xl sm:text-4xl md:text-5xl leading-[1.2] text-foreground tracking-tight mb-3">
               {greeting.main}
             </h1>
-            <p className="text-sm text-muted-foreground tracking-wide">
+            <p className="text-sm text-muted-foreground">
               {greeting.sub}
               {universeSize ? ` · ${universeSize.toLocaleString()} 只美股实时数据` : ''}
             </p>
@@ -211,7 +211,7 @@ export default function WelcomeScreen({
                       )}
                     </div>
                     <p className="text-sm sm:text-base font-medium text-foreground mb-1">{intent.label}</p>
-                    <p className="text-xs text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors">
+                    <p className="text-xs text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">
                       {intent.hint}
                     </p>
                   </button>
@@ -248,11 +248,11 @@ export default function WelcomeScreen({
                     <p className="text-sm text-foreground">{q.text}</p>
                     <span className="flex items-center gap-2 shrink-0 ml-4">
                       {q.tag && (
-                        <span className="text-[11px] text-muted-foreground/50 group-hover:text-primary/60 transition-colors">
+                        <span className="text-xs text-muted-foreground/70 group-hover:text-primary/60 transition-colors">
                           {q.tag}
                         </span>
                       )}
-                      <svg className="w-3.5 h-3.5 text-muted-foreground/0 group-hover:text-primary/40 translate-x-0 group-hover:translate-x-0.5 transition-all duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg className="w-3.5 h-3.5 text-transparent group-hover:text-primary/40 translate-x-0 group-hover:translate-x-0.5 transition-all duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
                     </span>

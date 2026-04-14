@@ -41,7 +41,7 @@ export default function MobileTabSwitch({
             : 'text-muted-foreground hover:text-foreground'
         }`}
       >
-        结果
+        工作区
         {hasNewResults && activeTab !== 'results' && (
           <span className="absolute top-2.5 right-[calc(50%-16px)] w-1.5 h-1.5 rounded-full bg-primary animate-pulse-glow" />
         )}

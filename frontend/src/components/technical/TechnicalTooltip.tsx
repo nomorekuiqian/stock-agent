@@ -45,9 +45,9 @@ export function TechnicalTooltip({ term, children }: TechnicalTooltipProps) {
           >
             <span className="block font-medium text-foreground mb-1">
               {explanation.zh}
-              <span className="text-muted-foreground/60 ml-1 font-normal">{explanation.en}</span>
+              <span className="text-muted-foreground/70 ml-1 font-normal">{explanation.en}</span>
             </span>
-            <span className="block text-foreground/70 leading-relaxed mb-1.5">
+            <span className="block text-muted-foreground leading-relaxed mb-1.5">
               {explanation.tip}
             </span>
             <span className="block text-amber-400/80 bg-amber-500/10 rounded px-1.5 py-1 leading-relaxed">

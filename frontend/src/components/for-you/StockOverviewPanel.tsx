@@ -97,7 +97,7 @@ function MobileStockItem({
             </span>
             {stock.week_change && (
               <>
-                <span className="text-muted-foreground/50 text-xs">|</span>
+                <span className="text-muted-foreground/70 text-xs">|</span>
                 <span
                   className={`font-data text-xs ${
                     (stock.week_change ?? '').startsWith('+') ? 'text-emerald-400' : 'text-red-400'

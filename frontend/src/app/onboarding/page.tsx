@@ -208,14 +208,14 @@ function OnboardingContent() {
               你的 <span className="text-primary font-medium">14 天 Max 全功能体验</span>已经开始了。
               接下来的两周里，你可以自由探索我们为你准备的一切。
             </p>
-            <p className="text-xs text-muted-foreground/60 mt-2">
+            <p className="text-xs text-muted-foreground/70 mt-2">
               无需信用卡，到期后自动结束
             </p>
           </div>
 
           {/* Feature list */}
           <div className="space-y-3 mb-10">
-            <p className="text-xs text-muted-foreground/60 font-medium uppercase tracking-wider px-1">
+            <p className="text-xs text-muted-foreground/70 font-medium uppercase tracking-wider px-1">
               你可以使用的功能
             </p>
             {FEATURES.map((feat) => (
@@ -233,7 +233,7 @@ function OnboardingContent() {
                     {feat.desc}
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary shrink-0 mt-1 transition-colors" />
+                <ArrowRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-primary shrink-0 mt-1 transition-colors" />
               </Link>
             ))}
           </div>
@@ -299,7 +299,7 @@ function OnboardingContent() {
               onChange={(e) => onQueryChange(e.target.value)}
               {...inputHandlers}
               placeholder="搜索股票代码或公司名称..."
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 outline-none"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
@@ -345,7 +345,7 @@ function OnboardingContent() {
                       {inList ? (
                         <Check className="w-4 h-4 text-primary shrink-0" />
                       ) : (
-                        <span className="text-xs text-muted-foreground/60 shrink-0">
+                        <span className="text-xs text-muted-foreground/70 shrink-0">
                           {result.exchange}
                         </span>
                       )}
@@ -385,12 +385,12 @@ function OnboardingContent() {
 
         {/* Popular groups */}
         <div className="space-y-4 mb-8">
-          <p className="text-xs text-muted-foreground/60 font-medium uppercase tracking-wider">
+          <p className="text-xs text-muted-foreground/70 font-medium uppercase tracking-wider">
             快速添加热门板块
           </p>
           {POPULAR_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="text-xs text-muted-foreground/60 mb-2">
+              <p className="text-xs text-muted-foreground/70 mb-2">
                 {group.label}
               </p>
               <div className="flex flex-wrap gap-2">

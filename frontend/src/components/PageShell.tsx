@@ -67,7 +67,7 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
                 href="https://xiaohongshu.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-muted-foreground/60 hover:text-primary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="text-muted-foreground/70 hover:text-primary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="小红书"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -75,7 +75,7 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
                 </svg>
               </a>
               <span className="text-border">|</span>
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground/70">
                 AI 驱动的市场洞察
               </p>
             </div>
@@ -83,7 +83,7 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
 
           {/* Risk Disclaimer */}
           <div className="mt-6 pt-5 border-t border-border/30">
-            <p className="text-xs text-muted-foreground/50 leading-relaxed text-center">
+            <p className="text-xs text-muted-foreground/70 leading-relaxed text-center">
               本平台所有内容（包括 AI 生成的分析与报告）仅供参考，不构成任何投资建议。投资有风险，入市需谨慎，过往表现不代表未来收益。AI 生成内容可能存在不准确之处，请在做出任何投资决策前自行核实相关信息。
             </p>
           </div>

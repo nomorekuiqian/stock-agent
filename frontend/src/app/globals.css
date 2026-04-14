@@ -65,15 +65,24 @@
 /* ============================================
    TYPE SCALE REFERENCE
    ============================================
-   micro      text-micro      10px   Avatar monograms, data source labels, tooltips
-   caption    text-xs         12px   Labels, badges, metadata, eyebrows, time buttons
-   body       text-sm         14px   Body text, nav items, buttons, descriptions
-   lead       text-base       16px   Page descriptions, brand name, primary summaries
-   title-sm   text-lg         18px   Card titles, section headings
-   title      text-xl         20px   Prominent headings, stat values
-   title-lg   text-2xl        24px   Page sub-headings
-   display    text-3xl~6xl    30-60  Page hero titles (responsive chain)
-   data-hero  text-data-hero  40px   Dashboard hero metric numbers
+   Level      Class            Size    Line-height  Weight   Usage
+   -----      -----            ----    -----------  ------   -----
+   micro      text-micro       10px    1.2 (12px)   500      Avatar monograms, badges (rare)
+   caption    text-xs          12px    1.5 (18px)   400-500  EN labels, timestamps, data source
+   body       text-sm          14px    1.6 (22px)   400      Body text, nav, buttons, descriptions
+   lead       text-base        16px    1.6 (26px)   400      Summaries, brand name, important body
+   title-sm   text-lg          18px    1.4 (25px)   500      Card titles, sub-headings
+   title      text-xl          20px    1.35 (27px)  600      Section headings, stat values
+   title-lg   text-2xl         24px    1.3 (31px)   600      Page sub-headings
+   display    text-3xl~6xl     30-60   1.15         400      Hero titles (responsive chain)
+   data-hero  text-data-hero   40px    1.1          600      Dashboard hero numbers
+
+   RULES:
+   - NO text-[Npx] custom values (SVG <text> only exception)
+   - NO text-muted-foreground/60 or below (contrast fail)
+   - NO leading-none on text below 24px
+   - Chinese body text minimum 14px (text-sm)
+   - Weight: 400 body / 500 labels / 600 headings (3 tiers only)
    ============================================ */
 
 :root {
@@ -195,17 +204,35 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* Headlines with tracking */
-h1,
-h2,
-h3,
+/* Headlines — line-height decreases as size increases */
+h1 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+h2 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+h3 {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
 h4,
 h5,
 h6 {
   font-family: var(--font-sans);
   font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
+  letter-spacing: -0.02em;
+  line-height: 1.4;
 }
 
 /* Monospace numerals for data display (prices, percentages, codes) */

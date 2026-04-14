@@ -97,12 +97,12 @@ export default function StockCard({
             className={`absolute top-2 right-2 rounded-lg border transition-all duration-200 z-10 ${
               confirmingRemove
                 ? 'px-2 py-1 bg-red-500/10 border-red-500/30 text-red-500 opacity-100'
-                : 'p-1.5 bg-muted/80 sm:bg-muted/50 border-border/50 text-muted-foreground sm:text-muted-foreground/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30'
+                : 'p-1.5 bg-muted/80 sm:bg-muted/50 border-border/50 text-muted-foreground sm:text-muted-foreground/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30'
             }`}
             aria-label={confirmingRemove ? `Confirm remove ${symbol}` : `Remove ${symbol}`}
           >
             {confirmingRemove ? (
-              <span className="text-[11px] font-medium leading-none">确认?</span>
+              <span className="text-xs font-medium leading-none">确认?</span>
             ) : (
               <X className="w-3 h-3" />
             )}
@@ -134,7 +134,7 @@ export default function StockCard({
               )}
             </>
           ) : (
-            <span className="text-xs text-muted-foreground/40">--</span>
+            <span className="text-xs text-muted-foreground/70">--</span>
           )}
         </div>
 

@@ -221,7 +221,7 @@ export function MobileMenu() {
                     {subLoading ? (
                       <span className="w-8 h-3 rounded bg-muted animate-pulse" />
                     ) : isPro ? (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
+                      <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
                         PRO
                       </span>
                     ) : null}

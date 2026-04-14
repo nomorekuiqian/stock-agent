@@ -216,7 +216,7 @@ export function StockPriceChart({
           {priceStats && (
             <span className={`text-sm font-data ${priceStats.isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
               {priceStats.isPositive ? '+' : ''}{priceStats.changePercent.toFixed(2)}%
-              <span className="text-muted-foreground/60 ml-1">({timeRange})</span>
+              <span className="text-muted-foreground/70 ml-1">({timeRange})</span>
             </span>
           )}
         </div>

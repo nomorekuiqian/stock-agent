@@ -54,7 +54,7 @@ const NewsTimestamp = ({ timestamp }: { timestamp?: string }) => {
   if (!timestamp) return null;
 
   return (
-    <div className="flex items-center gap-2 pl-1 text-[11px] leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
+    <div className="flex items-center gap-2 pl-1 text-xs leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/50">
         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l2.5 2.5m6.5-2.5a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -127,7 +127,7 @@ export function ReportContent({
       {intro && (
         <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
           <SectionHeader>今日要点</SectionHeader>
-          <p className="text-base text-foreground/90 leading-relaxed whitespace-pre-line">
+          <p className="text-base text-foreground leading-relaxed whitespace-pre-line">
             {intro.replace(/\\n/g, '\n')}
           </p>
         </section>
@@ -156,7 +156,7 @@ export function ReportContent({
                     <NewsTimestamp timestamp={headline.published_at} />
                     <p className="text-sm text-muted-foreground mb-3">{headline.fact_summary}</p>
                     <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
-                      <p className="text-sm text-foreground/90 leading-relaxed">
+                      <p className="text-sm text-foreground leading-relaxed">
                         {headline.deep_analysis}
                       </p>
                     </div>
@@ -182,7 +182,7 @@ export function ReportContent({
                       {brief.title}
                     </a>
                     <NewsTimestamp timestamp={brief.published_at} />
-                    <p className="text-sm text-foreground/80 mt-1">{brief.summary}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{brief.summary}</p>
                   </div>
                 ))}
               </div>
@@ -220,7 +220,7 @@ export function ReportContent({
                   {/* Event Details */}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold text-foreground mb-1">{event.event}</h3>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{event.analysis}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{event.analysis}</p>
                   </div>
                 </div>
               );
@@ -243,7 +243,7 @@ export function ReportContent({
                   </div>
                   <div className="space-y-3">
                     {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
-                      <p key={pIdx} className="text-base text-foreground/90 leading-relaxed">
+                      <p key={pIdx} className="text-base text-foreground leading-relaxed">
                         {paragraph}
                       </p>
                     ))}
@@ -272,7 +272,7 @@ export function ReportContent({
                         </div>
                         <div className="space-y-3">
                           {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
-                            <p key={pIdx} className="text-base text-foreground/90 leading-relaxed">
+                            <p key={pIdx} className="text-base text-foreground leading-relaxed">
                               {paragraph}
                             </p>
                           ))}
@@ -286,7 +286,7 @@ export function ReportContent({
               return (
                 <div className="space-y-4">
                   {report_summary.replace(/\\n/g, '\n').split('\n').filter((p: string) => p.trim()).map((paragraph: string, idx: number) => (
-                    <p key={idx} className="text-base text-foreground/90 leading-relaxed">
+                    <p key={idx} className="text-base text-foreground leading-relaxed">
                       {paragraph}
                     </p>
                   ))}

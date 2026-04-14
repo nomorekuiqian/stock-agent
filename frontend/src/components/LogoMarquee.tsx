@@ -254,14 +254,14 @@ export default function LogoMarquee({
 export function LogoMarqueeCompact({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center gap-8 ${className}`}>
-      <span className="text-micro text-muted-foreground/40 uppercase tracking-wider flex-shrink-0">
+      <span className="text-micro text-muted-foreground/70 uppercase tracking-wider flex-shrink-0">
         Data from
       </span>
       <div className="flex items-center gap-6 overflow-hidden">
         {logos.slice(0, 4).map((logo) => (
           <div
             key={logo.name}
-            className="flex-shrink-0 text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+            className="flex-shrink-0 text-muted-foreground/70 hover:text-muted-foreground transition-colors"
           >
             {logo.svg}
           </div>

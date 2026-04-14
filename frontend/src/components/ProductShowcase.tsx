@@ -125,11 +125,11 @@ function DailyReportMockup() {
       <div>
         <div className="flex items-center gap-2 mb-1.5">
           <div className="h-px w-8 bg-gradient-to-r from-emerald-500 to-transparent" />
-          <span className="text-[9px] font-semibold tracking-[0.2em] uppercase text-emerald-400">
+          <span className="text-micro font-semibold tracking-[0.2em] uppercase text-emerald-400">
             DAILY REPORT
           </span>
         </div>
-        <p className="text-[9px] text-white/30 font-data mb-2">
+        <p className="text-micro text-white/30 font-data mb-2">
           2026-04-04 Friday
         </p>
         <h2
@@ -138,7 +138,7 @@ function DailyReportMockup() {
         >
           关税冲击波蔓延，全球市场剧烈震荡
         </h2>
-        <p className="text-[10px] text-white/40 leading-relaxed">
+        <p className="text-micro text-white/40 leading-relaxed">
           美国宣布全面对等关税后，风险资产遭大规模抛售，避险资产全线走强。
         </p>
       </div>
@@ -150,12 +150,12 @@ function DailyReportMockup() {
             key={d.name}
             className="bg-white/[0.04] rounded-lg border border-white/[0.06] p-2"
           >
-            <p className="text-[8px] text-white/35 truncate">{d.name}</p>
-            <p className="text-[11px] text-white/90 font-semibold font-data mt-0.5">
+            <p className="text-micro text-white/35 truncate">{d.name}</p>
+            <p className="text-xs text-white/90 font-semibold font-data mt-0.5">
               {d.val}
             </p>
             <p
-              className={`text-[9px] font-data font-medium ${
+              className={`text-micro font-data font-medium ${
                 d.up ? "text-emerald-400" : "text-red-400"
               }`}
             >
@@ -167,14 +167,14 @@ function DailyReportMockup() {
 
       {/* Key Takeaways */}
       <div>
-        <p className="text-[9px] text-white/50 font-semibold mb-1.5 tracking-wide uppercase">
+        <p className="text-micro text-white/50 font-semibold mb-1.5 tracking-wide uppercase">
           Key Takeaways
         </p>
         <div className="space-y-1.5">
           {takeaways.map((t, i) => (
             <div key={i} className="flex items-start gap-1.5">
               <div className="w-1 h-1 rounded-full bg-emerald-400 mt-[4px] flex-shrink-0" />
-              <p className="text-[10px] text-white/60 leading-relaxed">{t}</p>
+              <p className="text-micro text-white/60 leading-relaxed">{t}</p>
             </div>
           ))}
         </div>
@@ -207,21 +207,21 @@ function MorningReportMockup() {
       <div>
         <div className="flex items-center gap-2 mb-1.5">
           <div className="h-px w-8 bg-gradient-to-r from-amber-400 to-transparent" />
-          <span className="text-[9px] font-semibold tracking-[0.2em] uppercase text-amber-400">
+          <span className="text-micro font-semibold tracking-[0.2em] uppercase text-amber-400">
             MORNING BRIEF
           </span>
         </div>
-        <p className="text-[9px] text-white/30 font-data">
+        <p className="text-micro text-white/30 font-data">
           2026-04-05 Saturday
         </p>
       </div>
 
       {/* Market Pulse */}
       <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.05] p-2.5">
-        <p className="text-[8px] text-amber-400/70 font-semibold uppercase tracking-wider mb-1">
+        <p className="text-micro text-amber-400/70 font-semibold uppercase tracking-wider mb-1">
           Market Pulse
         </p>
-        <p className="text-[10px] text-white/70 leading-relaxed">
+        <p className="text-micro text-white/70 leading-relaxed">
           全球市场剧烈震荡消化关税冲击，避险情绪持续升温
         </p>
       </div>
@@ -233,13 +233,13 @@ function MorningReportMockup() {
             key={f.name}
             className="flex items-center justify-between bg-white/[0.04] rounded-lg border border-amber-400/[0.08] px-3 py-2"
           >
-            <span className="text-[10px] text-white/50">{f.name}</span>
+            <span className="text-micro text-white/50">{f.name}</span>
             <div className="flex items-center gap-3">
-              <span className="text-[11px] text-white/90 font-data font-semibold">
+              <span className="text-xs text-white/90 font-data font-semibold">
                 {f.val}
               </span>
               <span
-                className={`text-[10px] font-data font-medium min-w-[50px] text-right ${
+                className={`text-micro font-data font-medium min-w-[50px] text-right ${
                   f.up ? "text-emerald-400" : "text-red-400"
                 }`}
               >
@@ -252,16 +252,16 @@ function MorningReportMockup() {
 
       {/* Overnight News */}
       <div>
-        <p className="text-[9px] text-amber-400/60 font-semibold mb-1.5 tracking-wide uppercase">
+        <p className="text-micro text-amber-400/60 font-semibold mb-1.5 tracking-wide uppercase">
           隔夜要闻
         </p>
         <div className="space-y-2">
           {news.map((n, i) => (
             <div key={i} className="border-l-2 border-amber-400/30 pl-2">
-              <p className="text-[10px] text-white/70 font-semibold leading-tight mb-0.5">
+              <p className="text-micro text-white/70 font-semibold leading-tight mb-0.5">
                 {n.en}
               </p>
-              <p className="text-[9px] text-white/40 leading-relaxed">
+              <p className="text-micro text-white/40 leading-relaxed">
                 {n.zh}
               </p>
             </div>
@@ -293,7 +293,7 @@ function ResearchMockup() {
           {/* User message */}
           <div className="flex justify-end">
             <div className="bg-white/[0.08] rounded-xl rounded-br-sm px-2.5 py-1.5 max-w-[90%]">
-              <p className="text-[10px] text-white/80 leading-relaxed">
+              <p className="text-micro text-white/80 leading-relaxed">
                 帮我分析一下 NVDA 最近的走势
               </p>
             </div>
@@ -302,7 +302,7 @@ function ResearchMockup() {
           {/* AI message */}
           <div className="flex justify-start">
             <div className="max-w-[95%]">
-              <p className="text-[10px] text-white/65 leading-[1.7]">
+              <p className="text-micro text-white/65 leading-[1.7]">
                 NVDA 正面临短期回调压力。虽然基本面依然强劲 --
                 数据中心营收同比增长 78%，但在全面关税不确定性下，高估值科技股承受较大抛压。RSI
                 已跌至 38 的偏弱区间...
@@ -315,7 +315,7 @@ function ResearchMockup() {
             {["追问估值", "对比 AMD", "查看技术面"].map((chip) => (
               <span
                 key={chip}
-                className="text-[9px] text-white/40 border border-white/10 rounded-full px-2 py-0.5 hover:border-white/20 hover:text-white/55 transition-colors cursor-default"
+                className="text-micro text-white/40 border border-white/10 rounded-full px-2 py-0.5 hover:border-white/20 hover:text-white/55 transition-colors cursor-default"
               >
                 {chip}
               </span>
@@ -326,7 +326,7 @@ function ResearchMockup() {
         {/* Input */}
         <div className="px-3 pb-3">
           <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-lg px-2.5 py-1.5">
-            <span className="text-[10px] text-white/20">
+            <span className="text-micro text-white/20">
               输入你的问题...
             </span>
           </div>
@@ -341,13 +341,13 @@ function ResearchMockup() {
             <span className="font-data text-xs font-bold text-emerald-400">
               NVDA
             </span>
-            <span className="text-[9px] text-white/35">NVIDIA Corp</span>
+            <span className="text-micro text-white/35">NVIDIA Corp</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-data text-lg font-bold text-white/90">
               $112.30
             </span>
-            <span className="font-data text-[10px] font-medium text-red-400">
+            <span className="font-data text-micro font-medium text-red-400">
               -3.22%
             </span>
           </div>
@@ -357,7 +357,7 @@ function ResearchMockup() {
         <div className="grid grid-cols-2 gap-2">
           {/* Fundamentals */}
           <div>
-            <p className="text-[8px] text-emerald-400/60 font-semibold uppercase tracking-wider mb-1">
+            <p className="text-micro text-emerald-400/60 font-semibold uppercase tracking-wider mb-1">
               基本面
             </p>
             <div className="space-y-1">
@@ -366,8 +366,8 @@ function ResearchMockup() {
                   key={m.label}
                   className="flex items-center justify-between"
                 >
-                  <span className="text-[9px] text-white/35">{m.label}</span>
-                  <span className="text-[10px] text-white/80 font-data font-medium">
+                  <span className="text-micro text-white/35">{m.label}</span>
+                  <span className="text-micro text-white/80 font-data font-medium">
                     {m.value}
                   </span>
                 </div>
@@ -377,7 +377,7 @@ function ResearchMockup() {
 
           {/* Technicals */}
           <div>
-            <p className="text-[8px] text-emerald-400/60 font-semibold uppercase tracking-wider mb-1">
+            <p className="text-micro text-emerald-400/60 font-semibold uppercase tracking-wider mb-1">
               技术面
             </p>
             <div className="space-y-1">
@@ -386,8 +386,8 @@ function ResearchMockup() {
                   key={m.label}
                   className="flex items-center justify-between"
                 >
-                  <span className="text-[9px] text-white/35">{m.label}</span>
-                  <span className="text-[10px] text-white/80 font-data font-medium">
+                  <span className="text-micro text-white/35">{m.label}</span>
+                  <span className="text-micro text-white/80 font-data font-medium">
                     {m.value}
                   </span>
                 </div>
@@ -398,10 +398,10 @@ function ResearchMockup() {
 
         {/* AI Summary */}
         <div className="border-l-2 border-emerald-500/50 pl-2.5 py-1.5 bg-emerald-500/[0.03] rounded-r-lg">
-          <p className="text-[8px] text-emerald-400/50 font-semibold uppercase tracking-wider mb-1">
+          <p className="text-micro text-emerald-400/50 font-semibold uppercase tracking-wider mb-1">
             AI 分析摘要
           </p>
-          <p className="text-[9px] text-white/55 leading-[1.7]">
+          <p className="text-micro text-white/55 leading-[1.7]">
             短期承压但长期增长逻辑未变。当前估值在关税不确定性下风险偏高，建议关注
             $105 支撑位表现。若有效守住，可视为加仓机会。
           </p>
@@ -465,7 +465,7 @@ function MacroDashboardMockup() {
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <div className="h-px w-8 bg-gradient-to-r from-emerald-500 to-transparent" />
-        <span className="text-[9px] font-semibold tracking-[0.2em] uppercase text-emerald-400">
+        <span className="text-micro font-semibold tracking-[0.2em] uppercase text-emerald-400">
           MACRO DASHBOARD
         </span>
       </div>
@@ -477,9 +477,9 @@ function MacroDashboardMockup() {
             <span className="font-data text-xl font-bold text-white/90">
               6.2
             </span>
-            <span className="text-[10px] text-white/30 font-data">/ 10</span>
+            <span className="text-micro text-white/30 font-data">/ 10</span>
           </div>
-          <span className="text-[9px] text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-1.5 py-0.5 font-medium">
+          <span className="text-micro text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded px-1.5 py-0.5 font-medium">
             中等风险
           </span>
         </div>
@@ -503,16 +503,16 @@ function MacroDashboardMockup() {
             >
               <div className="flex items-center gap-1.5 mb-2">
                 <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-                <span className="text-[9px] text-white/60 font-medium">
+                <span className="text-micro text-white/60 font-medium">
                   {d.name}
                 </span>
               </div>
-              <p className={`text-[10px] font-semibold mb-1.5 ${s.text}`}>
+              <p className={`text-micro font-semibold mb-1.5 ${s.text}`}>
                 {d.signalLabel}
               </p>
               <div className="space-y-0.5">
                 {d.metrics.map((m) => (
-                  <p key={m} className="text-[9px] text-white/40 font-data">
+                  <p key={m} className="text-micro text-white/40 font-data">
                     {m}
                   </p>
                 ))}
@@ -704,7 +704,7 @@ export default function ProductShowcase() {
                   {/* Address bar */}
                   <div className="mx-auto flex items-center gap-1.5 bg-[#1a1a1e] rounded-md px-3 py-1">
                     <LockIcon className="w-3 h-3 text-white/30" />
-                    <span className="text-[11px] text-white/40 font-data">
+                    <span className="text-xs text-white/40 font-data">
                       themarketbrew.com
                       <span className="text-white/25">{activeRoute}</span>
                     </span>

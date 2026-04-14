@@ -124,7 +124,7 @@ export default function InflationView({ onContextReady }: InflationViewProps) {
               </span>
             </div>
           </div>
-          <p className="text-sm text-foreground/90 leading-relaxed">{inflation.overall_headline}</p>
+          <p className="text-sm text-foreground leading-relaxed">{inflation.overall_headline}</p>
         </div>
 
         {/* CPI Breakdown */}
@@ -138,9 +138,9 @@ export default function InflationView({ onContextReady }: InflationViewProps) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30">
-                    <th className="text-left text-[11px] text-muted-foreground font-medium px-4 py-2">分项</th>
-                    <th className="text-right text-[11px] text-muted-foreground font-medium px-4 py-2">同比</th>
-                    <th className="text-right text-[11px] text-muted-foreground font-medium px-4 py-2">环比</th>
+                    <th className="text-left text-xs text-muted-foreground font-medium px-4 py-2">分项</th>
+                    <th className="text-right text-xs text-muted-foreground font-medium px-4 py-2">同比</th>
+                    <th className="text-right text-xs text-muted-foreground font-medium px-4 py-2">环比</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -188,7 +188,7 @@ export default function InflationView({ onContextReady }: InflationViewProps) {
                 风险: {activeDim.score.toFixed(1)}/10
               </span>
             </div>
-            <p className="text-sm text-foreground/90 leading-relaxed mb-4">{activeDim.headline}</p>
+            <p className="text-sm text-foreground leading-relaxed mb-4">{activeDim.headline}</p>
             <div className="space-y-2">
               {activeDim.indicators.map((ind) => (
                 <div key={ind.series_id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
@@ -198,7 +198,7 @@ export default function InflationView({ onContextReady }: InflationViewProps) {
                       {ind.value != null ? ind.value.toLocaleString() : '--'}
                     </span>
                     {ind.change != null && (
-                      <span className={`text-[11px] tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      <span className={`text-xs tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {ind.change >= 0 ? '+' : ''}{ind.change.toFixed(2)}%
                       </span>
                     )}

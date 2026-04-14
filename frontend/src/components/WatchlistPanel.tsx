@@ -38,7 +38,7 @@ function EmptyState() {
       </div>
 
       {/* Text */}
-      <h4 className="text-sm font-medium text-foreground/80 mb-2">开始追踪你的投资</h4>
+      <h4 className="text-sm font-medium text-muted-foreground mb-2">开始追踪你的投资</h4>
       <p className="text-xs text-muted-foreground text-center max-w-xs leading-relaxed">
         搜索股票代码来构建你的个性化关注列表
       </p>
@@ -94,8 +94,8 @@ export default function WatchlistPanel({
                       : 'bg-muted text-muted-foreground border border-border/50'
                   }`}>
                     <span className="tabular-nums">{symbols.length}</span>
-                    <span className="text-muted-foreground/50">/</span>
-                    <span className="tabular-nums text-muted-foreground/50">{maxSize}</span>
+                    <span className="text-muted-foreground/70">/</span>
+                    <span className="tabular-nums text-muted-foreground/70">{maxSize}</span>
                   </div>
                 </div>
               </div>
@@ -154,7 +154,7 @@ export default function WatchlistPanel({
                         >
                           <div className="flex items-center gap-4 min-w-0">
                             <span className="font-mono font-semibold text-sm text-foreground shrink-0">{result.symbol}</span>
-                            <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground/70 transition-colors">{result.name}</span>
+                            <span className="text-sm text-muted-foreground truncate group-hover/item:text-foreground transition-colors">{result.name}</span>
                           </div>
                           <Plus className="w-4 h-4 text-primary shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
                         </button>

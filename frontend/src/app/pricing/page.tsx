@@ -169,7 +169,7 @@ export default function PricingPage() {
           {/* Free tier — compact inline banner */}
           <div className="flex items-center justify-center gap-3 mb-6 py-3 px-5 rounded-lg border border-border/30 bg-card/20 max-w-md mx-auto">
             <span className="text-sm text-muted-foreground">免费版</span>
-            <span className="text-xs text-muted-foreground/60">|</span>
+            <span className="text-xs text-muted-foreground/70">|</span>
             <span className="text-sm text-muted-foreground">每日市场日报邮件</span>
             <Link
               href="/#subscribe"
@@ -199,7 +199,7 @@ export default function PricingPage() {
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="text-3xl font-data font-bold text-foreground">{PRICING.pro}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                  <span className="text-sm text-muted-foreground/60 line-through font-data ml-1">{PRICING.proOriginal}</span>
+                  <span className="text-sm text-muted-foreground/70 line-through font-data ml-1">{PRICING.proOriginal}</span>
                   <span className="text-xs font-medium text-primary">{PRICING.proDiscount}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">终身锁定此价格 · 仅限前 {EARLY_BIRD_TOTAL} 名</p>
@@ -211,13 +211,13 @@ export default function PricingPage() {
                     <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div>
                       <span className="text-sm text-foreground">{item.feature}</span>
-                      <span className="text-xs text-muted-foreground/60 block">{item.desc}</span>
+                      <span className="text-xs text-muted-foreground/70 block">{item.desc}</span>
                     </div>
                   </div>
                 ))}
                 {/* Max-only teaser */}
                 <div className="pt-2 border-t border-border/20">
-                  <p className="text-xs text-muted-foreground/50">
+                  <p className="text-xs text-muted-foreground/70">
                     个股投研、AI 投研引擎、宏观仪表盘 → 升级 Max
                   </p>
                 </div>
@@ -254,7 +254,7 @@ export default function PricingPage() {
                     )}
                   </button>
                 )}
-                <p className="text-xs text-muted-foreground/60 text-center mt-3">
+                <p className="text-xs text-muted-foreground/70 text-center mt-3">
                   {STRIPE_LIVE ? '随时取消 · Stripe 安全支付' : '订阅功能即将上线，敬请期待'}
                 </p>
               </div>
@@ -277,7 +277,7 @@ export default function PricingPage() {
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="text-3xl font-data font-bold text-foreground">{PRICING.max}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                  <span className="text-sm text-muted-foreground/60 line-through font-data ml-1">{PRICING.maxOriginal}</span>
+                  <span className="text-sm text-muted-foreground/70 line-through font-data ml-1">{PRICING.maxOriginal}</span>
                   <span className="text-xs font-medium text-amber-400">{PRICING.maxDiscount}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">终身锁定此价格 · 仅限前 {EARLY_BIRD_TOTAL} 名</p>
@@ -291,15 +291,15 @@ export default function PricingPage() {
                     <Check className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                     <div>
                       <span className="text-sm text-foreground">{item.feature}</span>
-                      <span className="text-xs text-muted-foreground/60 block">{item.desc}</span>
+                      <span className="text-xs text-muted-foreground/70 block">{item.desc}</span>
                     </div>
                   </div>
                 ))}
                 <div className="pt-2 border-t border-border/20">
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
                     {PRO_FEATURES.map((item) => (
-                      <span key={item.feature} className="text-xs text-muted-foreground/50 flex items-center gap-1">
-                        <Check className="w-3 h-3 text-muted-foreground/30 shrink-0" />
+                      <span key={item.feature} className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-muted-foreground/70 shrink-0" />
                         {item.feature}
                       </span>
                     ))}
@@ -334,7 +334,7 @@ export default function PricingPage() {
                     )}
                   </button>
                 )}
-                <p className="text-xs text-muted-foreground/60 text-center mt-3">
+                <p className="text-xs text-muted-foreground/70 text-center mt-3">
                   {STRIPE_LIVE ? '随时取消 · Stripe 安全支付' : '订阅功能即将上线，敬请期待'}
                 </p>
               </div>
@@ -380,7 +380,7 @@ export default function PricingPage() {
                 key={i}
                 className="p-5 rounded-xl border border-border/30 bg-card/30"
               >
-                <p className="text-sm text-foreground/90 leading-relaxed mb-4">
+                <p className="text-sm text-foreground leading-relaxed mb-4">
                   &ldquo;{t.quote}&rdquo;
                 </p>
                 <p className="text-xs text-muted-foreground">&mdash; {t.role}</p>
@@ -438,7 +438,7 @@ export default function PricingPage() {
                     onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleRedeem()}
                     placeholder="有邀请码？在此输入"
-                    className="flex-1 px-3 py-2.5 bg-card border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
+                    className="flex-1 px-3 py-2.5 bg-card border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
                   />
                   <button
                     onClick={handleRedeem}

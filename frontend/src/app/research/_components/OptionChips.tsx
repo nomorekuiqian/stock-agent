@@ -33,7 +33,7 @@ export default function OptionChips({
               ${isSelected
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : isUnselected
-                  ? 'bg-muted/30 border-border/40 text-muted-foreground/50 cursor-default'
+                  ? 'bg-muted/30 border-border/40 text-muted-foreground/70 cursor-default'
                   : 'bg-card/70 border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] cursor-pointer'
               }
             `}

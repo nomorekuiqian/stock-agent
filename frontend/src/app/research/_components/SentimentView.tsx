@@ -145,10 +145,10 @@ export default function SentimentView({ onContextReady }: SentimentViewProps) {
             />
           </div>
           <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-red-500/60">极度恐惧</span>
-            <span className="text-[10px] text-emerald-500/60">极度贪婪</span>
+            <span className="text-micro text-red-500/60">极度恐惧</span>
+            <span className="text-micro text-emerald-500/60">极度贪婪</span>
           </div>
-          <p className="text-sm text-foreground/90 leading-relaxed mt-4">{sentiment.overall_headline}</p>
+          <p className="text-sm text-foreground leading-relaxed mt-4">{sentiment.overall_headline}</p>
         </div>
 
         {/* Dimension Tabs */}
@@ -178,7 +178,7 @@ export default function SentimentView({ onContextReady }: SentimentViewProps) {
                 {RISK_LABELS[activeDim.risk_level] || activeDim.risk_level}
               </span>
             </div>
-            <p className="text-sm text-foreground/90 leading-relaxed mb-4">{activeDim.headline}</p>
+            <p className="text-sm text-foreground leading-relaxed mb-4">{activeDim.headline}</p>
             <div className="space-y-2">
               {activeDim.indicators.map((ind) => (
                 <div key={ind.series_id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
@@ -188,7 +188,7 @@ export default function SentimentView({ onContextReady }: SentimentViewProps) {
                       {ind.value != null ? ind.value.toLocaleString() : '--'}
                     </span>
                     {ind.change != null && (
-                      <span className={`text-[11px] tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      <span className={`text-xs tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {ind.change >= 0 ? '+' : ''}{ind.change.toFixed(2)}%
                       </span>
                     )}

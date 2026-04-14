@@ -228,7 +228,7 @@ export function StockAnalysisCard({
               <span className="text-muted-foreground text-sm font-normal">Investment View</span>
             </h2>
             {title && (
-              <p className="text-sm text-foreground/80 font-medium">{title}</p>
+              <p className="text-sm text-muted-foreground font-medium">{title}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -299,14 +299,14 @@ export function StockAnalysisCard({
           <div className="pt-4 border-t border-border/30">
             <SubsectionHeader title="投资总结" titleEn="Summary" />
             <div className="p-4 bg-card/60 border border-border/40 rounded-lg">
-              <p className="text-sm text-foreground/90 leading-relaxed">{investment_summary}</p>
+              <p className="text-sm text-foreground leading-relaxed">{investment_summary}</p>
             </div>
           </div>
         )}
 
         {/* Footer */}
         {generatedAt && (
-          <div className="pt-3 border-t border-border/20 text-xs text-muted-foreground/60">
+          <div className="pt-3 border-t border-border/20 text-xs text-muted-foreground/70">
             生成时间: {formatTimestamp(generatedAt)}
           </div>
         )}

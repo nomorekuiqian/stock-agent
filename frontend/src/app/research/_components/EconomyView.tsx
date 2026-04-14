@@ -115,7 +115,7 @@ export default function EconomyView({ onContextReady }: EconomyViewProps) {
               </span>
             </div>
           </div>
-          <p className="text-sm text-foreground/90 leading-relaxed">{econ.overall_headline}</p>
+          <p className="text-sm text-foreground leading-relaxed">{econ.overall_headline}</p>
         </div>
 
         {/* Dimension Tabs */}
@@ -146,7 +146,7 @@ export default function EconomyView({ onContextReady }: EconomyViewProps) {
                   风险: {activeDim.score.toFixed(1)}/10
                 </span>
               </div>
-              <p className="text-sm text-foreground/90 leading-relaxed mb-4">{activeDim.headline}</p>
+              <p className="text-sm text-foreground leading-relaxed mb-4">{activeDim.headline}</p>
 
               {/* Indicators */}
               <div className="space-y-2">
@@ -158,7 +158,7 @@ export default function EconomyView({ onContextReady }: EconomyViewProps) {
                         {ind.value != null ? ind.value.toLocaleString() : '--'}
                       </span>
                       {ind.change != null && (
-                        <span className={`text-[11px] tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        <span className={`text-xs tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                           {ind.change >= 0 ? '+' : ''}{ind.change.toFixed(2)}%
                         </span>
                       )}
