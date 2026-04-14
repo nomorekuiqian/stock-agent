@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { AnalysisSection } from './shared';
 import { SectionCard, SubsectionHeader } from './StockDetailContent';
 
@@ -400,14 +400,6 @@ export function EarningsTab({
     return findByDate(balanceSheets as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined;
   }, [balanceSheets, activeQuarter]);
 
-  // Auto-generate AI analysis
-  const [autoTriggered, setAutoTriggered] = useState(false);
-  useEffect(() => {
-    if (!autoTriggered && !earningsAnalysis && !analysisLoading && hasData) {
-      setAutoTriggered(true);
-      onGenerate();
-    }
-  }, [autoTriggered, earningsAnalysis, analysisLoading, hasData, onGenerate]);
 
   const nextEarningsDays = nextEarningsDate ? daysUntil(nextEarningsDate) : null;
 
@@ -455,14 +447,28 @@ export function EarningsTab({
                   <AnalysisSection label="综合判断" content={earningsAnalysis.earnings_verdict} accentColor="teal" />
                 </div>
               </>
-            ) : !hasData ? (
-              <div className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">正在加载财报数据...</p>
-              </div>
             ) : (
-              <div className="p-8 text-center">
-                <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-xs text-muted-foreground">正在生成 AI 财报解读...</p>
+              <div className="p-6 text-center">
+                <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-teal-500/50 mb-3">
+                  <div className="w-4 h-px bg-teal-500/25" />
+                  AI 财报解读
+                  <div className="w-4 h-px bg-teal-500/25" />
+                </div>
+                <h3 className="font-editorial text-lg text-foreground mb-2">{symbol} 财报解读</h3>
+                <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                  AI 从损益表、现金流和资产负债表三个维度深度解读财报
+                </p>
+                <button
+                  onClick={onGenerate}
+                  className="group inline-flex items-center gap-2 px-5 py-2 bg-teal-500/10 border border-teal-500/25 rounded-lg
+                    text-sm font-medium text-teal-400 hover:bg-teal-500/20 hover:border-teal-500/40 transition-all cursor-pointer
+                    focus-visible:ring-2 focus-visible:ring-teal-500/40 focus-visible:outline-none"
+                >
+                  <span>生成财报解读</span>
+                  <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </button>
               </div>
             )}
           </div>

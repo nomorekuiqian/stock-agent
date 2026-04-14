@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { TechnicalSignalDashboard } from '@/components/technical/TechnicalSignalDashboard';
 import { AnalysisSection } from './shared';
@@ -53,15 +52,6 @@ export function TechnicalTab({
   technicalSnapshot,
   snapshotLoading,
 }: TechnicalTabProps) {
-
-  // Auto-generate AI analysis on mount
-  const [autoTriggered, setAutoTriggered] = useState(false);
-  useEffect(() => {
-    if (!autoTriggered && !technicalAnalysis && !technicalLoading) {
-      setAutoTriggered(true);
-      onGenerate();
-    }
-  }, [autoTriggered, technicalAnalysis, technicalLoading, onGenerate]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AnalysisSection } from './shared';
 import { SectionCard } from './StockDetailContent';
 import { InsiderTradingSection, PriceTargetBar, NewsFeed } from './NewsEnhancements';
@@ -255,15 +255,6 @@ export function MarketTab({
   // Fetch data for the right panel
   const { data: newsFeed } = useNewsFeed(symbol);
   const { data: insiderData } = useInsiderTrading(symbol);
-
-  // Auto-generate AI analysis on mount
-  const [autoTriggeredNews, setAutoTriggeredNews] = useState(false);
-  useEffect(() => {
-    if (!autoTriggeredNews && !newsAnalysis && !newsLoading) {
-      setAutoTriggeredNews(true);
-      onGenerateNews();
-    }
-  }, [autoTriggeredNews, newsAnalysis, newsLoading, onGenerateNews]);
 
   return (
     <div className="space-y-5">
