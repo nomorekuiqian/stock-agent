@@ -120,10 +120,11 @@ function colorForGrowth(v: number | null | undefined): string {
 // Quarter Dropdown
 // =============================================================================
 
-function QuarterDropdown({ quarters, selected, onSelect }: {
+function QuarterDropdown({ quarters, selected, onSelect, labelMap }: {
   quarters: string[];
   selected: string;
   onSelect: (q: string) => void;
+  labelMap: Map<string, string>;
 }) {
   return (
     <select
@@ -135,7 +136,7 @@ function QuarterDropdown({ quarters, selected, onSelect }: {
         bg-[length:12px] bg-[position:right_8px_center] bg-no-repeat pr-7"
     >
       {quarters.map((q) => (
-        <option key={q} value={q}>{qLabel(q)}</option>
+        <option key={q} value={q}>{labelMap.get(q) || qLabel(q)}</option>
       ))}
     </select>
   );
@@ -295,16 +296,47 @@ export function EarningsTab({
   onRegenerate,
 }: EarningsTabProps) {
 
-  // Quarter selection — derive from ALL data sources, not just earningsHistory.
-  // When yfinance earnings history fails, FMP data (revenue segments, statements) still returns.
-  const availableQuarters = useMemo(() => {
-    const dateSet = new Set<string>();
-    earningsHistory.forEach(e => { if (e.quarter) dateSet.add(e.quarter); });
-    revenueSegments.forEach(s => { if (s.date) dateSet.add(s.date); });
-    incomeStatements.forEach(s => { if (typeof s.date === 'string') dateSet.add(s.date); });
-    // Sort descending so most recent is first
-    return [...dateSet].sort((a, b) => b.localeCompare(a));
-  }, [earningsHistory, revenueSegments, incomeStatements]);
+  // Quarter selection — use income statements as the authoritative source.
+  // Label with month + year (e.g. "Jan 2026") to avoid fiscal year confusion
+  // (NVIDIA's FY26 Q3 has calendarYear=2025, which creates wrong labels like Q3'25).
+  const quarterEntries = useMemo(() => {
+    const ymMap = new Map<string, { date: string; label: string }>();
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    // Income statements as primary source
+    for (const s of incomeStatements) {
+      const d = typeof s.date === 'string' ? s.date : '';
+      if (!d || d.length < 7) continue;
+      const ym = d.slice(0, 7);
+      if (!ymMap.has(ym)) {
+        const month = parseInt(d.slice(5, 7), 10) - 1;
+        const year = d.slice(0, 4);
+        ymMap.set(ym, { date: d, label: `${monthNames[month]} ${year}` });
+      }
+    }
+
+    // Fallback: earningsHistory
+    if (ymMap.size === 0) {
+      for (const e of earningsHistory) {
+        if (!e.quarter || e.quarter.length < 7) continue;
+        const ym = e.quarter.slice(0, 7);
+        if (!ymMap.has(ym)) {
+          const month = parseInt(e.quarter.slice(5, 7), 10) - 1;
+          const year = e.quarter.slice(0, 4);
+          ymMap.set(ym, { date: e.quarter, label: `${monthNames[month]} ${year}` });
+        }
+      }
+    }
+
+    return [...ymMap.values()].sort((a, b) => b.date.localeCompare(a.date));
+  }, [earningsHistory, incomeStatements]);
+
+  const availableQuarters = useMemo(() => quarterEntries.map(e => e.date), [quarterEntries]);
+  const quarterLabelMap = useMemo(() => {
+    const m = new Map<string, string>();
+    quarterEntries.forEach(e => m.set(e.date, e.label));
+    return m;
+  }, [quarterEntries]);
   const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null);
   const activeQuarter = selectedQuarter || availableQuarters[0] || null;
 
@@ -319,10 +351,11 @@ export function EarningsTab({
   }
 
   // Data for selected quarter — match by DATE, not index
-  const selectedEps = useMemo(
-    () => earningsHistory.find(e => e.quarter === activeQuarter),
-    [earningsHistory, activeQuarter]
-  );
+  const selectedEps = useMemo(() => {
+    if (!activeQuarter) return undefined;
+    const targetYM = activeQuarter.slice(0, 7);
+    return earningsHistory.find(e => e.quarter?.slice(0, 7) === targetYM);
+  }, [earningsHistory, activeQuarter]);
   const selectedRevenue = useMemo(() => {
     if (!activeQuarter || !revenueSegments.length) return undefined;
     // Revenue segments use "date" field
@@ -383,7 +416,7 @@ export function EarningsTab({
       {/* Quarter Selector - top right */}
       {availableQuarters.length > 1 && (
         <div className="flex items-center justify-end">
-          <QuarterDropdown quarters={availableQuarters} selected={activeQuarter || ''} onSelect={setSelectedQuarter} />
+          <QuarterDropdown quarters={availableQuarters} selected={activeQuarter || ''} onSelect={setSelectedQuarter} labelMap={quarterLabelMap} />
         </div>
       )}
 
@@ -488,7 +521,7 @@ export function EarningsTab({
               {statementView === 'income' && (
                 <>
                   {/* 本季表现 */}
-                  <SectionCard title="本季表现" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Performance'} numberLabel="01">
+                  <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Performance'} numberLabel="01">
                     <div className="grid grid-cols-2 gap-3">
                       <MetricBox label="EPS" value={selectedEps?.eps_actual != null ? `$${fmt(selectedEps.eps_actual)}` : '--'}
                         sub={selectedEps?.surprise_percent != null ? `${selectedEps.surprise_percent >= 0 ? 'Beat' : 'Miss'} ${fmt(selectedEps.surprise_percent, { pct: true, sign: true })}` : undefined}

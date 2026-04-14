@@ -726,11 +726,33 @@ class StockService:
             if not q_date or len(q_date) < 10:
                 continue
 
-            # Find same quarter from prior year
+            # Find same quarter from prior year using fiscal_period matching
+            # (exact date matching fails for companies like NVIDIA whose quarter-end
+            # dates shift by 1-2 days each year, e.g. 2026-01-25 vs 2025-01-26)
             try:
-                prior_year = str(int(q_date[:4]) - 1)
-                target_date = prior_year + q_date[4:]
-                prior = next((p for p in income_stmts if p.get("date") == target_date), None)
+                prior_year = int(q_date[:4]) - 1
+                fiscal_period = q.get("fiscal_period", "")
+
+                if fiscal_period:
+                    # Match by fiscal period (Q1/Q2/Q3/Q4) + prior year
+                    prior = next(
+                        (p for p in income_stmts
+                         if p.get("fiscal_period") == fiscal_period
+                         and p.get("date", "").startswith(str(prior_year))),
+                        None
+                    )
+                else:
+                    # Fallback: match by year-month (handles most cases)
+                    target_ym = f"{prior_year}{q_date[4:7]}"
+                    prior = next(
+                        (p for p in income_stmts
+                         if p.get("date", "")[:7] == target_ym),
+                        None
+                    )
+                    # If month match fails, try exact date (original logic)
+                    if not prior:
+                        target_date = str(prior_year) + q_date[4:]
+                        prior = next((p for p in income_stmts if p.get("date") == target_date), None)
             except (ValueError, IndexError):
                 prior = None
 
