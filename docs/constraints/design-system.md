@@ -58,58 +58,113 @@
 
 ## 字体系统
 
-```css
-/* 字体族 - 已在 globals.css 中定义 */
---font-editorial: 'Instrument Serif', serif;  /* 大标题、页面标题 */
---font-sans: 'DM Sans', sans-serif;           /* 正文、说明文字 */
---font-data: 'JetBrains Mono', monospace;     /* 数字、代码、股票代码 */
-
-/* 自定义字号 Token - 已在 globals.css @theme 块中定义 */
---text-micro: 0.625rem;     /* 10px - 头像字母、数据源标签 */
---text-data-hero: 2.5rem;   /* 40px - Dashboard 核心指标大数字 */
-```
-
-### 使用规则
-
-| 元素 | 字体类 | 示例 |
-|------|--------|------|
-| 页面大标题 | `font-editorial` | 日报标题、报告标题 |
-| 区块标题 | `font-sans` (默认) | "基本面分析"、"财报数据" |
-| 正文/描述 | `font-sans` (默认) | 公司简介、分析内容 |
-| 价格/数值 | `font-data` | $138.50、+2.35%、2024 Q3 |
-| 股票代码 | `font-data` | NVDA、AAPL |
-| 日期/时间 | `font-data` | 2025-01-19、14:30 |
-
-### 字号规范 (Consolidated Type Scale)
-
-项目统一使用以下 10 级字号，禁止使用 `text-[Npx]` 等自定义值（SVG `<text>` 元素除外）。
-
-| 级别 | Class | 大小 | 用途 |
-|------|-------|------|------|
-| micro | `text-micro` | 10px (0.625rem) | 头像字母、数据源标签、悬浮提示 |
-| caption | `text-xs` | 12px | 标签、徽章、元数据、眉标、时间按钮 |
-| body | `text-sm` | 14px | 正文、导航项、按钮、描述 |
-| lead | `text-base` | 16px | 页面描述、品牌名、主要摘要 |
-| title-sm | `text-lg` | 18px | 卡片标题、区块小标题 |
-| title | `text-xl` | 20px | 突出标题、统计数值 |
-| title-lg | `text-2xl` | 24px | 页面子标题 |
-| display | `text-3xl` ~ `text-6xl` | 30-60px | 页面 Hero 标题 (响应式链) |
-| data-hero | `text-data-hero` | 40px (2.5rem) | Dashboard Hero 大数字 |
-
-**自定义 Token** (定义在 `globals.css` 的 `@theme` 块中)：
+### 字体族
 
 ```css
---text-micro: 0.625rem;       /* 10px - 最小可读文字 */
---text-data-hero: 2.5rem;     /* 40px - Dashboard 核心指标大数字 */
+/* 定义在 globals.css @theme 块 */
+--font-serif:  "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
+--font-sans:   "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+--font-mono:   var(--font-jetbrains-mono), monospace;
 ```
 
-**使用原则**：
+### 字体用途矩阵
 
+| 元素 | 字体类 | 说明 | 示例 |
+|------|--------|------|------|
+| 页面大标题 | `.font-editorial` | serif, weight 400, tracking -0.02em | 日报标题、Hero |
+| 区块标题 | 默认 (sans) | weight 500, tracking -0.025em | "基本面分析" |
+| 正文/描述 | 默认 (sans) | weight 400 | 公司简介、分析内容 |
+| 价格/数值 | `.font-data` | mono, tabular-nums, tracking -0.01em | $138.50、+2.35% |
+| 股票代码 | `.font-data` | | NVDA、AAPL |
+| 日期/时间 | `.font-data` | | 2025-01-19、14:30 |
+
+**禁止**：不要用 `.font-data` 显示非数字内容（句子、描述、标签文字）。Monospace 字体用于阅读散文时可读性极差。
+
+### 字号规范 (Type Scale)
+
+项目统一使用以下 9 级字号。**禁止使用 `text-[Npx]` 等自定义值**（SVG `<text>` 元素除外，无例外）。
+
+每个级别绑定默认行高和字重，确保可读性一致。
+
+| 级别 | Class | 大小 | 行高 | 默认字重 | 用途 |
+|------|-------|------|------|----------|------|
+| micro | `text-micro` | 10px | 1.2 (12px) | 500 | 头像字母、角标（极少用） |
+| caption | `text-xs` | 12px | 1.5 (18px) | 400-500 | 英文标签、徽章、时间戳、数据源标注 |
+| body | `text-sm` | 14px | 1.6 (22.4px) | 400 | 正文、按钮、导航、描述 |
+| lead | `text-base` | 16px | 1.6 (25.6px) | 400 | 摘要、品牌名、重要正文 |
+| title-sm | `text-lg` | 18px | 1.4 (25.2px) | 500 | 卡片标题、区块小标题 |
+| title | `text-xl` | 20px | 1.35 (27px) | 600 | 区块标题、统计值 |
+| title-lg | `text-2xl` | 24px | 1.3 (31.2px) | 600 | 页面子标题 |
+| display | `text-3xl`~`text-6xl` | 30-60px | 1.15 | 400 (editorial) | Hero 标题（响应式链） |
+| data-hero | `text-data-hero` | 40px | 1.1 | 600 (data) | Dashboard 核心指标大数字 |
+
+**自定义 Token** (定义在 `globals.css` `@theme` 块)：
+
+```css
+--text-micro: 0.625rem;       /* 10px */
+--text-data-hero: 2.5rem;     /* 40px */
+```
+
+### 字重规则
+
+只使用 3 档字重，减少视觉噪音：
+
+| 字重 | Class | 用途 |
+|------|-------|------|
+| 400 (Regular) | `font-normal` | 正文、描述、lead 文字 |
+| 500 (Medium) | `font-medium` | 标签、caption、小标题、导航 |
+| 600 (Semibold) | `font-semibold` | 标题、数据值、强调 |
+
+**禁止**：`font-bold` (700) 仅用于 Hero 标题或极端强调场景。`font-light` (300) 禁止使用。
+
+### 行高规则
+
+行高与字号反比 — 小字号需要更宽松的行高以确保中文可读性：
+
+| 字号范围 | 推荐行高 | Tailwind Class |
+|----------|----------|----------------|
+| 10-12px (micro/caption) | 1.5 | `leading-normal` |
+| 14-16px (body/lead) | 1.6 | `leading-relaxed` |
+| 18-24px (title) | 1.3-1.4 | `leading-snug` |
+| 30px+ (display) | 1.1-1.2 | `leading-tight` 或 `leading-none` |
+
+**禁止**：`leading-none` (1.0) 不得用于 24px 以下的文字。
+
+### 字间距规则
+
+| 场景 | 值 | Tailwind |
+|------|-----|----------|
+| 正文 | 默认 (0) | 无需设置 |
+| 标题 (sans) | -0.025em | `tracking-tight` |
+| 标题 (editorial) | -0.02em | 已内置于 `.font-editorial` |
+| 数据 (mono) | -0.01em | 已内置于 `.font-data` |
+| 大写英文标签 | 0.15-0.2em | `tracking-[0.15em]` 或 `tracking-[0.2em]` |
+
+**禁止**：`tracking-[0.25em]` 及以上值（过度稀疏，影响可读性）。
+
+### 文字对比度规则
+
+**最低对比度标准**（WCAG AA）：
+
+| 层级 | Token | 允许最低透明度 | 用途 | 暗色主题实际色值 |
+|------|-------|---------------|------|-----------------|
+| 主文字 | `text-foreground` | 100% | 标题、数据、正文 | #fafaf9 |
+| 次文字 | `text-muted-foreground` | 100%（不加透明度） | 说明、标签、辅助信息 | #a1a1aa |
+| 弱化文字 | `text-muted-foreground/70` | 70%（底线） | 仅装饰性文字、占位符 | ~#a1a1aa/70 |
+
+**禁止**：
+- `text-muted-foreground/60` 及以下 — 对比度不达标
+- `text-foreground/90`、`text-foreground/80` — 直接用 `text-foreground` 或 `text-muted-foreground`
+- 任何小于 14px 的文字叠加透明度 — 小字号必须保持完整对比度
+
+### 使用原则
+
+- **中文正文最小 14px** (`text-sm`) — 12px (`text-xs`) 仅用于英文标签、时间戳等纯辅助信息
 - 数据密集页面（Dashboard、宏观指标）的 Hero 数字用 `text-data-hero`
 - 区块编号（01、02、03）用 `text-3xl`
-- 眉标/标签/时间按钮统一用 `text-xs`，不要用 11px
-- 最小文字（monogram、hover hint）统一用 `text-micro`，不要用 8px 或 10px
-- 导航下拉和按钮统一用 `text-sm`，不要用 13px
+- 眉标/大写英文标签统一用 `text-xs font-medium`
+- 导航项和按钮统一用 `text-sm`
+- 不要在 12px 以下的文字上使用 `font-normal` (400)，小字号至少用 `font-medium` (500)
 
 ---
 
