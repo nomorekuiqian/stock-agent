@@ -75,7 +75,7 @@ class TestFormatNewsletterPlaintext:
     def test_starts_with_greeting_template(self, email_svc, newsletter_data):
         """Output starts with Hi {first_name} template."""
         text = email_svc._format_newsletter_plaintext(newsletter_data)
-        assert text.startswith("Hi {{{first_name}}},")
+        assert text.startswith("Hi {{{FIRST_NAME}}},")
 
     def test_contains_greeting_text(self, email_svc, newsletter_data):
         """Greeting text appears after the Hi line."""
@@ -123,7 +123,7 @@ class TestFormatNewsletterPlaintext:
         """Empty sections list still produces valid output."""
         data = {"greeting": "Hello", "sections": [], "closing": "Bye"}
         text = email_svc._format_newsletter_plaintext(data)
-        assert "Hi {{{first_name}}}," in text
+        assert "Hi {{{FIRST_NAME}}}," in text
         assert "Hello" in text
         assert "Bye" in text
 

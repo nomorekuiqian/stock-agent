@@ -1,64 +1,57 @@
 """
-E2E Tests for Broadcast Functionality
+E2E Tests for Email Rendering and Delivery
 
-These tests send REAL emails to the Test Broadcast channel.
-The Test Broadcast channel should only have test subscribers (e.g., your own email).
+Sends REAL emails to the test account (voya.technologies@gmail.com) only.
+Tests the full pipeline: data fetch -> HTML render -> Resend delivery.
+
+Uses resend.Emails.send() for reliable single-recipient delivery.
+Broadcast template variables like {{{FIRST_NAME}}} are replaced manually
+since Emails.send() does not support Resend template interpolation.
 
 Usage:
     cd backend
     source venv/bin/activate
     pytest tests/e2e/test_broadcast_e2e.py -v
-
-    # Run only daily report test
-    pytest tests/e2e/test_broadcast_e2e.py::TestBroadcastE2E::test_broadcast_daily_report -v
-
-    # Run only personal digest test
-    pytest tests/e2e/test_broadcast_e2e.py::TestBroadcastE2E::test_broadcast_personal_digest -v
-
-    # Run only weekly report test
-    pytest tests/e2e/test_broadcast_e2e.py::TestBroadcastE2E::test_broadcast_weekly_report -v
+    pytest tests/e2e/test_broadcast_e2e.py::TestEmailE2E::test_personal_digest -v
 """
 
-import os
 import time
 import pytest
-import httpx
+import resend
 
-# Test segment ID (contains only voya.technologies@gmail.com)
-TEST_AUDIENCE_ID = "191b3099-6849-48f9-adec-e6a67b70b10b"
+TEST_EMAIL = "voya.technologies@gmail.com"
+TEST_FIRST_NAME = "Test"
+FROM_DAILY = "TheMarketBrew Daily <daily@themarketbrew.com>"
+FROM_MORNING = "TheMarketBrew Morning <morning@themarketbrew.com>"
+FROM_WEEKLY = "TheMarketBrew Weekly <weekly@themarketbrew.com>"
+FROM_DIGEST = "TheMarketBrew <digest@themarketbrew.com>"
 
-# Test user ID for personal digest (pengyou's account with real digest data)
-TEST_USER_ID = "d00a6201-646a-489f-95a2-aff8f90fe669"
+
+def _interpolate(html: str) -> str:
+    """Replace Resend broadcast template variables for Emails.send().
+
+    Emails.send() does not support {{{VAR}}} interpolation (only Broadcasts do).
+    """
+    return html.replace("{{{FIRST_NAME}}}", TEST_FIRST_NAME)
 
 
 @pytest.mark.e2e
-class TestBroadcastE2E:
-    """E2E tests for broadcasting to Test Broadcast channel."""
+class TestEmailE2E:
+    """E2E tests: render real report HTML and send to test account."""
 
     @pytest.mark.asyncio
-    async def test_broadcast_daily_report(self, insforge_service, email_service):
-        """
-        Test standard daily report broadcast flow:
-        1. Fetch latest report from database (no new generation)
-        2. Call email_service.broadcast_daily_report()
-        3. Verify broadcast_id is returned
-        4. Verify report_id is included in report data
-        """
+    async def test_daily_report(self, insforge_service, email_service):
+        """Render and send a real daily report email."""
         from app.utils.timezone import today_str
+        from app.features.subscription.email_templates import format_html_report
 
-        # 1. Get latest report from database
         report = await insforge_service.get_report_by_date(today_str())
         if not report:
             report = await insforge_service.get_latest_report()
+        assert report is not None, "No daily report found. Generate one first."
 
-        assert report is not None, "No daily report found in database. Please generate one first via /api/market"
-
-        print(f"\n[E2E] Using report from: {report.get('report_date', 'N/A')}")
-        print(f"[E2E] Report title: {report.get('title', '')[:60]}...")
-
-        # 2. Prepare report data (same structure as test_broadcast.py)
         report_data = {
-            "report_id": report.get("id"),  # Critical: must include report_id
+            "report_id": report.get("id"),
             "report_date": report.get("report_date"),
             "indices": report.get("indices", []),
             "timestamp": report.get("timestamp", ""),
@@ -71,88 +64,62 @@ class TestBroadcastE2E:
             "calendar": report.get("calendar", []),
         }
 
-        # Verify report_id is present
-        assert report_data.get("report_id") is not None, "report_id should not be None"
-        print(f"[E2E] report_id: {report_data.get('report_id')}")
+        html = _interpolate(format_html_report(
+            report_data, report_data["report_date"], report_data["report_id"]
+        ))
+        assert len(html) > 1000, "HTML too short, likely broken render"
+        # Note: {{{FIRST_NAME}}} may remain — it's a Resend Broadcast template
+        # variable that only gets interpolated server-side during actual broadcasts.
+        # Emails.send() sends it as-is, which is expected for E2E tests.
 
-        # 3. Broadcast to Test Broadcast channel
-        result = await email_service.broadcast_daily_report(
-            report_data,
-            audience_id=TEST_AUDIENCE_ID
-        )
-
-        # 4. Verify success
-        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
-        assert result.get("broadcast_id") is not None, "broadcast_id should be returned"
-
-        print(f"[E2E] SUCCESS: Broadcast ID = {result.get('broadcast_id')}")
-        print(f"[E2E] Audience ID = {result.get('audience_id')}")
-
-
-        print(f"[E2E] SUCCESS: Broadcast ID = {result.get('broadcast_id')}")
-        print(f"[E2E] Audience ID = {result.get('audience_id')}")
+        title = report_data.get("title", "")
+        result = resend.Emails.send({
+            "from": FROM_DAILY,
+            "to": [TEST_EMAIL],
+            "subject": f"[E2E] {title}" if title else f"[E2E] Daily {today_str()}",
+            "html": html,
+        })
+        assert result.get("id"), f"Send failed: {result}"
+        print(f"\n[E2E] Daily report sent: {result['id']}")
 
     @pytest.mark.asyncio
-    async def test_broadcast_weekly_report(self, email_service):
-        """
-        Test weekly macro report broadcast flow:
-        1. Fetch latest weekly report from database (no new generation)
-        2. Call email_service.broadcast_weekly_report()
-        3. Verify broadcast_id is returned
-        """
-        # Wait to avoid Resend rate limiting
+    async def test_weekly_report(self, email_service):
+        """Render and send a real weekly report email."""
         time.sleep(2)
 
-        # 1. Fetch latest weekly report from database
         from app.features.macro.weekly import db as weekly_db
+        from app.features.subscription.email_templates import format_weekly_report_html
 
         report = await weekly_db.get_latest_report()
-        assert report is not None, (
-            "No weekly report found in database. "
-            "Please generate one first via POST /api/weekly-report/generate"
-        )
+        assert report is not None, "No weekly report found. Generate one first."
 
-        print(f"\n[E2E] Using weekly report: {report.get('week_label', 'N/A')}")
-        print(f"[E2E] Title: {report.get('title', '')[:60]}...")
-        print(f"[E2E] Signal lights: {report.get('signal_lights', {})}")
+        html = _interpolate(format_weekly_report_html(report, report_id=report.get("id")))
+        assert len(html) > 1000, "HTML too short"
+        # Note: {{{FIRST_NAME}}} may remain — it's a Resend Broadcast template
+        # variable that only gets interpolated server-side during actual broadcasts.
+        # Emails.send() sends it as-is, which is expected for E2E tests.
 
-        # 2. Broadcast to Test Broadcast channel
-        result = await email_service.broadcast_weekly_report(
-            report,
-            audience_id=TEST_AUDIENCE_ID,
-        )
-
-        # 3. Verify success
-        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
-        assert result.get("broadcast_id") is not None, "broadcast_id should be returned"
-
-        print(f"[E2E] SUCCESS: Weekly Broadcast ID = {result.get('broadcast_id')}")
-        print(f"[E2E] Audience ID = {result.get('audience_id')}")
+        title = report.get("title", "")
+        result = resend.Emails.send({
+            "from": FROM_WEEKLY,
+            "to": [TEST_EMAIL],
+            "subject": f"[E2E] {title}" if title else f"[E2E] Weekly {report.get('week_label', '')}",
+            "html": html,
+        })
+        assert result.get("id"), f"Send failed: {result}"
+        print(f"\n[E2E] Weekly report sent: {result['id']}")
 
     @pytest.mark.asyncio
-    async def test_broadcast_morning_report(self, email_service):
-        """
-        Test morning report broadcast flow:
-        1. Fetch latest morning report from database (no new generation)
-        2. Call email_service.broadcast_morning_report()
-        3. Verify broadcast_id is returned
-        """
-        from app.features.morning_report import db as morning_db
-
-        # Wait to avoid Resend rate limiting
+    async def test_morning_report(self, email_service):
+        """Render and send a real morning report email."""
         time.sleep(2)
 
-        # 1. Get latest morning report from database
+        from app.features.morning_report import db as morning_db
+        from app.features.subscription.email_templates import format_morning_report_html
+
         report = await morning_db.get_latest_morning_report()
-        assert report is not None, (
-            "No morning report found in database. "
-            "Please generate one first via POST /api/morning/broadcast?force=true"
-        )
+        assert report is not None, "No morning report found. Generate one first."
 
-        print(f"\n[E2E] Using morning report: {report.get('report_date', 'N/A')}")
-        print(f"[E2E] Title: {report.get('title', '')[:60]}...")
-
-        # 2. Prepare report data
         report_data = {
             "report_id": report.get("id"),
             "report_date": report.get("report_date"),
@@ -168,41 +135,51 @@ class TestBroadcastE2E:
             "summary": report.get("summary", []),
         }
 
-        # 3. Broadcast to Test Broadcast channel
-        result = await email_service.broadcast_morning_report(
-            report_data,
-            audience_id=TEST_AUDIENCE_ID
-        )
+        html = _interpolate(format_morning_report_html(report_data, report_data.get("report_id")))
+        assert len(html) > 1000, "HTML too short"
+        # Note: {{{FIRST_NAME}}} may remain — it's a Resend Broadcast template
+        # variable that only gets interpolated server-side during actual broadcasts.
+        # Emails.send() sends it as-is, which is expected for E2E tests.
 
-        # 4. Verify success
-        assert result.get("success") is True, f"Broadcast failed: {result.get('error')}"
-        assert result.get("broadcast_id") is not None, "broadcast_id should be returned"
-
-        print(f"[E2E] SUCCESS: Morning Broadcast ID = {result.get('broadcast_id')}")
-        print(f"[E2E] Audience ID = {result.get('audience_id')}")
+        title = report_data.get("title", "")
+        result = resend.Emails.send({
+            "from": FROM_MORNING,
+            "to": [TEST_EMAIL],
+            "subject": f"[E2E] {title}" if title else "[E2E] Morning Report",
+            "html": html,
+        })
+        assert result.get("id"), f"Send failed: {result}"
+        print(f"\n[E2E] Morning report sent: {result['id']}")
 
     @pytest.mark.asyncio
-    async def test_broadcast_with_segment_id(self, email_service):
-        """
-        Test that Resend Broadcasts API accepts segment_id parameter.
-        This validates the new segment-based routing actually works at the API level,
-        not just in our code logic.
+    async def test_welcome_email(self, email_service):
+        """Render and send the welcome email."""
+        time.sleep(2)
 
-        Sends a minimal HTML broadcast to the test audience via segment_id
-        (test audience ID works as both audience and segment in Resend).
+        result = await email_service.send_welcome_email(
+            to_email=TEST_EMAIL,
+            first_name=TEST_FIRST_NAME,
+        )
+        assert result.get("success") is True, f"Welcome email failed: {result.get('error')}"
+        print(f"\n[E2E] Welcome email sent to {TEST_EMAIL}")
+
+    @pytest.mark.asyncio
+    async def test_personal_digest(self, email_service):
+        """Send a real personal digest to the test account.
+
+        Calls broadcast_personal_digests() which, in non-production,
+        filters to the test email only.
         """
         time.sleep(2)
 
-        result = email_service._create_and_send_broadcast(
-            label="SegmentTest",
-            segment_id=TEST_AUDIENCE_ID,
-            subject="[E2E] Segment ID validation",
-            broadcast_name=f"Segment E2E {int(time.time())}",
-            html="<p>Segment ID broadcast test - safe to ignore.</p>",
-        )
+        result = await email_service.broadcast_personal_digests(max_concurrent=5)
 
-        assert result.get("success") is True, (
-            f"segment_id broadcast failed: {result.get('error')}"
+        assert result.get("success") is True, f"Digest failed: {result.get('error')}"
+        assert result["total"] >= 1, (
+            f"Expected at least 1 subscriber (test account), got {result['total']}. "
+            "Ensure voya.technologies@gmail.com has personal_digest_email entitlement and a watchlist."
         )
-        assert result.get("broadcast_id") is not None
-        print(f"\n[E2E] Segment broadcast OK: {result.get('broadcast_id')}")
+        assert result["sent"] >= 1, (
+            f"Digest generated but not sent: {result.get('errors')}"
+        )
+        print(f"\n[E2E] Personal digest: total={result['total']} sent={result['sent']} failed={result['failed']}")

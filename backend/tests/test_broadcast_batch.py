@@ -557,3 +557,145 @@ class TestBroadcastBatchEdgeCases:
         assert result["sent"] == 2
         assert result["failed"] == 1
         assert any("Invalid email" in e.get("error", "") for e in result["errors"])
+
+
+class TestPersonalDigestRouter:
+    """Test that the personal_digest channel is routable at the FastAPI level.
+
+    This catches the enum validation bug (422) that broke production for a day.
+    """
+
+    @pytest.mark.asyncio
+    async def test_personal_digest_route_accepted(self):
+        """POST /subscriptions/personal_digest/broadcast must not return 422.
+
+        Mocks the service layer so no emails are sent; the point is to verify
+        FastAPI accepts 'personal_digest' as a valid channel enum value.
+        """
+        from fastapi.testclient import TestClient
+        from app.main import app
+        from app.core.deps import verify_cron_secret
+
+        app.dependency_overrides[verify_cron_secret] = lambda: "test-secret"
+        try:
+            with patch(
+                "app.features.subscription.email_service.EmailService.broadcast_personal_digests",
+                new_callable=AsyncMock,
+                return_value={
+                    "success": True,
+                    "total": 0,
+                    "sent": 0,
+                    "failed": 0,
+                    "errors": [],
+                },
+            ):
+                client = TestClient(app)
+                resp = client.post("/api/subscriptions/personal_digest/broadcast")
+
+            # Must NOT be 422 (enum validation error)
+            assert resp.status_code != 422, (
+                f"personal_digest rejected by enum validation: {resp.json()}"
+            )
+            assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.pop(verify_cron_secret, None)
+
+    @pytest.mark.asyncio
+    async def test_invalid_channel_returns_422(self):
+        """POST /subscriptions/bogus_channel/broadcast must return 422."""
+        from fastapi.testclient import TestClient
+        from app.main import app
+        from app.core.deps import verify_cron_secret
+
+        app.dependency_overrides[verify_cron_secret] = lambda: "test-secret"
+        try:
+            client = TestClient(app)
+            resp = client.post("/api/subscriptions/bogus_channel/broadcast")
+            assert resp.status_code == 422
+        finally:
+            app.dependency_overrides.pop(verify_cron_secret, None)
+
+
+class TestNonProductionSafety:
+    """Test that non-production environments only email the test account.
+
+    A bug in this filter could cause local/staging runs to email all real users.
+    """
+
+    @pytest.mark.asyncio
+    async def test_non_production_filters_to_test_email_only(self):
+        """With is_production=False, only voya.technologies@gmail.com is kept."""
+        from app.features.subscription.email_service import EmailService
+
+        svc = EmailService.__new__(EmailService)
+        svc.api_key = "test-key"
+        svc.from_email = "test@themarketbrew.com"
+        svc.from_email_morning = "morning@themarketbrew.com"
+        svc.frontend_url = "https://themarketbrew.com"
+        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+        svc.is_production = False  # Non-production!
+
+        # 50 entitled users, only 1 matches the test email
+        entitled_users = _make_entitled_users(49) + [
+            {
+                "email": "voya.technologies@gmail.com",
+                "first_name": "Test",
+                "user_id": "uid-test",
+            },
+        ]
+
+        mock_digest_agent = MagicMock()
+        mock_digest_agent.generate = AsyncMock(return_value=_mock_digest_result())
+
+        with (
+            patch(
+                "app.features.payment.db.list_entitled_users",
+                new_callable=AsyncMock,
+                return_value=entitled_users,
+            ),
+            patch(
+                "app.features.brew.agent.get_personal_digest",
+                return_value=mock_digest_agent,
+            ),
+            patch(
+                "app.features.subscription.email_service.get_user_watchlist",
+                new_callable=AsyncMock,
+                return_value={"symbols": ["AAPL"]},
+            ),
+            patch("app.features.subscription.email_service.resend") as mock_resend,
+        ):
+            mock_resend.Batch.send.return_value = {"data": [{"id": "e-0"}]}
+
+            result = await svc.broadcast_personal_digests(max_concurrent=5)
+
+        # Only 1 email should be sent (the test account), not 50
+        assert result["total"] == 1, (
+            f"Expected 1 subscriber (test email only), got {result['total']}"
+        )
+        assert result["sent"] == 1
+
+    @pytest.mark.asyncio
+    async def test_non_production_no_test_account_sends_zero(self):
+        """With is_production=False and no test account in entitled users, sends 0."""
+        from app.features.subscription.email_service import EmailService
+
+        svc = EmailService.__new__(EmailService)
+        svc.api_key = "test-key"
+        svc.from_email = "test@themarketbrew.com"
+        svc.from_email_morning = "morning@themarketbrew.com"
+        svc.frontend_url = "https://themarketbrew.com"
+        svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+        svc.is_production = False
+
+        # 50 users, none matching test email
+        entitled_users = _make_entitled_users(50)
+
+        with patch(
+            "app.features.payment.db.list_entitled_users",
+            new_callable=AsyncMock,
+            return_value=entitled_users,
+        ):
+            result = await svc.broadcast_personal_digests(max_concurrent=5)
+
+        assert result["total"] == 0
+        assert result["sent"] == 0
