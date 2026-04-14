@@ -72,16 +72,9 @@ async def api_auto_trial(
         logger.warning("Auto-trial failed: user=%s error=%s", user_id[:8], error)
         raise HTTPException(status_code=400, detail=error)
 
-    # Send welcome email for genuinely new trials.
-    # This won't duplicate with subscribe flow because Resend contact
-    # may already exist (returning user), in which case subscribe skips the email.
-    if not result.get("already_active") and email:
-        try:
-            from app.features.subscription.email_service import get_email_service
-            svc = get_email_service()
-            await svc.send_welcome_email(to_email=email)
-        except Exception:
-            logger.exception("Failed to send welcome email: user=%s", user_id[:8])
+    # Welcome email is sent by the daily_report subscribe flow
+    # (syncUserWithSubscriptions in AuthContext), not here.
+    # Sending here too would cause duplicate welcome emails.
 
     logger.info(
         "Auto-trial created: user=%s already_active=%s",
