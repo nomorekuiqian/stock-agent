@@ -203,13 +203,13 @@ export default function StockResearchPage() {
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-primary/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
                 <div className="relative">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/70 group-focus-within:text-primary transition-colors" />
                   <Command.Input
                     value={searchQuery}
                     onValueChange={onQueryChange}
                     {...inputHandlers}
                     placeholder="搜索股票代码或公司名称..."
-                    className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 focus:bg-card/60 transition-all font-data tracking-wider"
+                    className="w-full h-14 pl-14 pr-6 bg-card/40 border border-border/50 rounded-2xl text-foreground text-base placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:bg-card/60 transition-all font-data tracking-wider"
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
@@ -273,7 +273,7 @@ export default function StockResearchPage() {
                 <span className="text-amber-700 dark:text-amber-400">{track.name}</span>
                 <span className="text-muted-foreground/70 font-normal normal-case">{track.nameEn}</span>
               </h3>
-              <p className="text-xs text-muted-foreground/60 mt-1 ml-4">{track.description}</p>
+              <p className="text-xs text-muted-foreground/70 mt-1 ml-4">{track.description}</p>
             </div>
 
             {/* Stock Cards Grid */}
@@ -299,7 +299,7 @@ export default function StockResearchPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-14 md:py-16">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
             <div>
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-[0.25em] font-semibold mb-3">
+              <p className="text-xs text-muted-foreground/70 uppercase tracking-[0.25em] font-semibold mb-3">
                 Explore
               </p>
               <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -324,7 +324,7 @@ export default function StockResearchPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-muted-foreground/40">
+            <div className="flex items-center gap-2 text-muted-foreground/70">
               <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
               <span className="text-xs font-data">市场数据</span>
             </div>

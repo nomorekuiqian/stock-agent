@@ -285,7 +285,7 @@ function WeekRangeBar({
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80">52 周区间</span>
         <span className="text-xs text-muted-foreground font-data">
-          {current.toFixed(2)} <span className="text-muted-foreground/50">at</span> {position.toFixed(0)}%
+          {current.toFixed(2)} <span className="text-muted-foreground/70">at</span> {position.toFixed(0)}%
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -538,7 +538,7 @@ export default function FundamentalsReport({
                 <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
               </div>
               {stockDataMeta?.latest_quarter && (
-                <p className="text-xs text-muted-foreground/50 mt-2 font-data">
+                <p className="text-xs text-muted-foreground/70 mt-2 font-data">
                   TTM (latest: {stockDataMeta.latest_quarter})
                 </p>
               )}

@@ -1,0 +1,706 @@
+'use client';
+
+import { useMemo, useState, useEffect } from 'react';
+import { AnalysisSection } from './shared';
+import { SectionCard, SubsectionHeader } from './StockDetailContent';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface EarningsSurprise {
+  quarter: string;
+  eps_actual: number | null;
+  eps_estimate: number | null;
+  surprise_percent: number | null;
+}
+
+interface RevenueSegment {
+  fiscal_year: number | null;
+  period: string | null;
+  date: string | null;
+  data: Record<string, number>;
+}
+
+interface GrowthData {
+  date: string;
+  revenueGrowth: number | null;
+  grossProfitGrowth: number | null;
+  operatingIncomeGrowth: number | null;
+  netIncomeGrowth: number | null;
+  epsdilutedGrowth: number | null;
+  freeCashFlowGrowth: number | null;
+  [key: string]: string | number | null;
+}
+
+interface AnalystEstimate {
+  date: string;
+  revenue_avg: number | null;
+  revenue_low: number | null;
+  revenue_high: number | null;
+  eps_avg: number | null;
+  eps_low: number | null;
+  eps_high: number | null;
+  num_analysts_revenue: number | null;
+  num_analysts_eps: number | null;
+}
+
+interface EarningsAnalysis {
+  title: string;
+  earnings_overview: string;
+  revenue_breakdown: string;
+  profitability_cashflow?: string;
+  balance_sheet_capital?: string;
+  growth_trends: string;
+  earnings_verdict: string;
+}
+
+interface EarningsTabProps {
+  symbol: string;
+  companyName: string;
+  earningsHistory: EarningsSurprise[];
+  revenueSegments: RevenueSegment[];
+  revenueGeoSegments?: RevenueSegment[];
+  financialGrowth: GrowthData[];
+  analystEstimates?: AnalystEstimate[];
+  dcfValue?: number | null;
+  stockPrice?: number | null;
+  nextEarningsDate?: string | null;
+  incomeStatements?: Array<Record<string, unknown>>;
+  cashflowStatements?: Array<Record<string, unknown>>;
+  balanceSheets?: Array<Record<string, unknown>>;
+  earningsAnalysis: EarningsAnalysis | null;
+  analysisLoading: boolean;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function fmt(v: number | null | undefined, opts?: { pct?: boolean; bn?: boolean; sign?: boolean }): string {
+  if (v === null || v === undefined) return '--';
+  if (opts?.pct) {
+    const s = (v * 100).toFixed(1);
+    return opts.sign && v > 0 ? `+${s}%` : `${s}%`;
+  }
+  if (opts?.bn) {
+    if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+    if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
+    return `$${v.toFixed(0)}`;
+  }
+  const s = v.toFixed(2);
+  return opts?.sign && v > 0 ? `+${s}` : s;
+}
+
+function qLabel(q: string): string {
+  const parts = q.split('-');
+  if (parts.length < 2) return q;
+  const month = parseInt(parts[1], 10);
+  const year = parts[0].slice(2);
+  const qNum = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+  return `${qNum}'${year}`;
+}
+
+function daysUntil(dateStr: string): number | null {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  } catch { return null; }
+}
+
+function colorForGrowth(v: number | null | undefined): string {
+  if (v === null || v === undefined) return 'text-muted-foreground';
+  return v >= 0 ? 'text-emerald-400' : 'text-red-400';
+}
+
+// =============================================================================
+// Quarter Dropdown
+// =============================================================================
+
+function QuarterDropdown({ quarters, selected, onSelect }: {
+  quarters: string[];
+  selected: string;
+  onSelect: (q: string) => void;
+}) {
+  return (
+    <select
+      value={selected}
+      onChange={(e) => onSelect(e.target.value)}
+      className="bg-card/60 border border-border/30 rounded-lg px-3 py-1.5 text-sm font-data text-foreground
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 cursor-pointer appearance-none
+        bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23a1a1aa%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')]
+        bg-[length:12px] bg-[position:right_8px_center] bg-no-repeat pr-7"
+    >
+      {quarters.map((q) => (
+        <option key={q} value={q}>{qLabel(q)}</option>
+      ))}
+    </select>
+  );
+}
+
+// =============================================================================
+// Data Components
+// =============================================================================
+
+/** Revenue breakdown table (product or geo) */
+function SegmentTable({ segment, prev, type }: {
+  segment: RevenueSegment;
+  prev: RevenueSegment | undefined;
+  type: 'product' | 'geo';
+}) {
+  const entries = Object.entries(segment.data).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, v]) => sum + v, 0);
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-card/60">
+          <th className="text-left py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">
+            {type === 'product' ? '产品线' : '地区'}
+          </th>
+          <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">营收</th>
+          <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">占比</th>
+          {prev && <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">QoQ</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {entries.map(([name, revenue]) => {
+          const share = total > 0 ? revenue / total : 0;
+          const prevRev = prev?.data[name];
+          const qoq = prevRev ? (revenue - prevRev) / prevRev : null;
+          return (
+            <tr key={name} className="border-t border-border/20">
+              <td className="py-2 px-3 text-foreground/90">{name}</td>
+              <td className="py-2 px-3 text-right font-data text-foreground">{fmt(revenue, { bn: true })}</td>
+              <td className="py-2 px-3 text-right font-data text-muted-foreground">{(share * 100).toFixed(1)}%</td>
+              {prev && (
+                <td className={`py-2 px-3 text-right font-data ${qoq === null ? 'text-muted-foreground' : colorForGrowth(qoq)}`}>
+                  {qoq !== null ? fmt(qoq, { pct: true, sign: true }) : '--'}
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot>
+        <tr className="border-t border-border/30 bg-card/40">
+          <td className="py-2 px-3 text-foreground/80 font-medium">合计</td>
+          <td className="py-2 px-3 text-right font-data font-medium text-foreground">{fmt(total, { bn: true })}</td>
+          <td className="py-2 px-3 text-right font-data text-muted-foreground">100%</td>
+          {prev && <td />}
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+// =============================================================================
+// StatementSection (table-style financial statement section)
+// =============================================================================
+
+function fmtStatementVal(v: unknown, key: string): string {
+  if (v === null || v === undefined) return '--';
+  const n = Number(v);
+  if (isNaN(n)) return '--';
+  if (key.includes('shares')) return `${(n / 1e6).toFixed(0)}M`;
+  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  return `$${n.toFixed(0)}`;
+}
+
+function StatementSection({ title, titleEn, items, data }: {
+  title: string;
+  titleEn: string;
+  items: Array<{ label: string; key: string; bold?: boolean; indent?: boolean }>;
+  data: Record<string, unknown>;
+}) {
+  // Filter to items that have data
+  const visibleItems = items.filter(item => {
+    const v = data[item.key];
+    return v !== null && v !== undefined && v !== 0;
+  });
+
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <div>
+      <div className="text-xs font-medium text-muted-foreground mb-2">
+        {title} <span className="text-muted-foreground/70">{titleEn}</span>
+      </div>
+      <div className="space-y-0">
+        {visibleItems.map(item => {
+          const val = data[item.key];
+          const numVal = Number(val);
+          const isNegative = !isNaN(numVal) && numVal < 0;
+
+          return (
+            <div key={item.key} className={`flex items-baseline justify-between py-1.5 ${item.bold ? 'border-t border-border/20' : ''}`}>
+              <span className={`text-sm ${item.indent ? 'pl-4' : ''} ${item.bold ? 'font-medium text-foreground' : 'text-foreground/80'}`}>
+                {item.label}
+              </span>
+              <span className={`font-data text-sm ${item.bold ? 'font-semibold' : ''} ${
+                isNegative ? 'text-red-400' : 'text-foreground'
+              }`}>
+                {fmtStatementVal(val, item.key)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// MetricBox (reusable metric display)
+// =============================================================================
+
+function MetricBox({ label, value, sub, positive }: {
+  label: string; value: string; sub?: string; positive?: boolean;
+}) {
+  return (
+    <div className="bg-card/40 border border-border/25 rounded-lg px-3 py-2.5">
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      <div className={`text-lg font-data font-semibold ${
+        positive === undefined ? 'text-foreground' : positive ? 'text-emerald-400' : 'text-red-400'
+      }`}>{value}</div>
+      {sub && <div className={`text-xs font-data mt-0.5 ${positive ? 'text-emerald-400' : 'text-red-400'}`}>{sub}</div>}
+    </div>
+  );
+}
+
+// =============================================================================
+// Main Component
+// =============================================================================
+
+export function EarningsTab({
+  symbol,
+  earningsHistory,
+  revenueSegments,
+  revenueGeoSegments,
+  financialGrowth,
+  analystEstimates,
+  dcfValue,
+  stockPrice,
+  nextEarningsDate,
+  incomeStatements = [],
+  cashflowStatements = [],
+  balanceSheets = [],
+  earningsAnalysis,
+  analysisLoading,
+  onGenerate,
+  onRegenerate,
+}: EarningsTabProps) {
+
+  // Quarter selection — derive from ALL data sources, not just earningsHistory.
+  // When yfinance earnings history fails, FMP data (revenue segments, statements) still returns.
+  const availableQuarters = useMemo(() => {
+    const dateSet = new Set<string>();
+    earningsHistory.forEach(e => { if (e.quarter) dateSet.add(e.quarter); });
+    revenueSegments.forEach(s => { if (s.date) dateSet.add(s.date); });
+    incomeStatements.forEach(s => { if (typeof s.date === 'string') dateSet.add(s.date); });
+    // Sort descending so most recent is first
+    return [...dateSet].sort((a, b) => b.localeCompare(a));
+  }, [earningsHistory, revenueSegments, incomeStatements]);
+  const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null);
+  const activeQuarter = selectedQuarter || availableQuarters[0] || null;
+
+  // Helper: match data by date proximity (handles different date formats between sources)
+  function findByDate<T extends { date?: string | null }>(arr: T[], targetDate: string): T | undefined {
+    // Exact match first
+    const exact = arr.find(item => item.date === targetDate);
+    if (exact) return exact;
+    // Try matching by year-month (ignore day differences: "2025-12-31" vs "2025-12-27")
+    const targetYM = targetDate.slice(0, 7); // "2025-12"
+    return arr.find(item => item.date?.slice(0, 7) === targetYM);
+  }
+
+  // Data for selected quarter — match by DATE, not index
+  const selectedEps = useMemo(
+    () => earningsHistory.find(e => e.quarter === activeQuarter),
+    [earningsHistory, activeQuarter]
+  );
+  const selectedRevenue = useMemo(() => {
+    if (!activeQuarter || !revenueSegments.length) return undefined;
+    // Revenue segments use "date" field
+    return findByDate(revenueSegments, activeQuarter) || revenueSegments[0];
+  }, [revenueSegments, activeQuarter]);
+  const prevRevenue = useMemo(() => {
+    if (!activeQuarter || revenueSegments.length < 2) return undefined;
+    // Find the segment AFTER the selected one (previous quarter)
+    const sorted = [...revenueSegments].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const idx = sorted.findIndex(s => s.date?.slice(0, 7) === activeQuarter.slice(0, 7));
+    return idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : undefined;
+  }, [revenueSegments, activeQuarter]);
+  const selectedGeo = useMemo(() => {
+    if (!activeQuarter || !revenueGeoSegments?.length) return undefined;
+    return findByDate(revenueGeoSegments, activeQuarter) || revenueGeoSegments[0];
+  }, [revenueGeoSegments, activeQuarter]);
+  const prevGeo = useMemo(() => {
+    if (!activeQuarter || !revenueGeoSegments || revenueGeoSegments.length < 2) return undefined;
+    const sorted = [...revenueGeoSegments].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const idx = sorted.findIndex(s => s.date?.slice(0, 7) === activeQuarter.slice(0, 7));
+    return idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : undefined;
+  }, [revenueGeoSegments, activeQuarter]);
+  const selectedGrowth = useMemo(() => {
+    if (!activeQuarter || !financialGrowth.length) return undefined;
+    // Financial growth uses "date" field — match by date
+    return findByDate(financialGrowth as Array<GrowthData & { date: string }>, activeQuarter) || undefined;
+  }, [financialGrowth, activeQuarter]);
+
+  const hasData = earningsHistory.length > 0 || revenueSegments.length > 0 || financialGrowth.length > 0;
+
+  // Statement tab (Income / Cash Flow / Balance Sheet)
+  type StatementView = 'income' | 'cashflow' | 'balance';
+  const [statementView, setStatementView] = useState<StatementView>('income');
+
+  // Find cash flow and balance sheet for selected quarter
+  const selectedCashflow = useMemo(() => {
+    if (!activeQuarter || !cashflowStatements.length) return undefined;
+    return findByDate(cashflowStatements as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined;
+  }, [cashflowStatements, activeQuarter]);
+  const selectedBalance = useMemo(() => {
+    if (!activeQuarter || !balanceSheets.length) return undefined;
+    return findByDate(balanceSheets as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined;
+  }, [balanceSheets, activeQuarter]);
+
+  // Auto-generate AI analysis
+  const [autoTriggered, setAutoTriggered] = useState(false);
+  useEffect(() => {
+    if (!autoTriggered && !earningsAnalysis && !analysisLoading && hasData) {
+      setAutoTriggered(true);
+      onGenerate();
+    }
+  }, [autoTriggered, earningsAnalysis, analysisLoading, hasData, onGenerate]);
+
+  const nextEarningsDays = nextEarningsDate ? daysUntil(nextEarningsDate) : null;
+
+  return (
+    <div className="space-y-5">
+      {/* Quarter Selector - top right */}
+      {availableQuarters.length > 1 && (
+        <div className="flex items-center justify-end">
+          <QuarterDropdown quarters={availableQuarters} selected={activeQuarter || ''} onSelect={setSelectedQuarter} />
+        </div>
+      )}
+
+      {/* Main Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+
+        {/* LEFT: AI Analysis */}
+        <div className="order-2 lg:order-1 lg:sticky lg:top-4">
+          <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
+            {analysisLoading ? (
+              <div className="p-8 text-center">
+                <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs text-muted-foreground">正在解读 {symbol} {activeQuarter ? qLabel(activeQuarter) : ''} 财报...</p>
+              </div>
+            ) : earningsAnalysis ? (
+              <>
+                <div className="px-4 py-2.5 border-b border-border/20 bg-card/40 flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">AI 财报解读</span>
+                  <button onClick={onRegenerate} className="text-muted-foreground hover:text-teal-400 transition-colors p-1 rounded cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-500/40 focus-visible:outline-none" title="重新生成">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="px-4 py-3">
+                  {earningsAnalysis.title && (
+                    <h3 className="font-editorial text-base text-foreground leading-snug mb-3">
+                      {earningsAnalysis.title}
+                    </h3>
+                  )}
+                  <AnalysisSection label="财报概览" content={earningsAnalysis.earnings_overview} accentColor="teal" />
+                  <AnalysisSection label="营收拆解" content={earningsAnalysis.revenue_breakdown} accentColor="teal" />
+                  <AnalysisSection label="盈利质量与现金流" content={earningsAnalysis.profitability_cashflow || ''} accentColor="teal" />
+                  <AnalysisSection label="资产负债与资本配置" content={earningsAnalysis.balance_sheet_capital || ''} accentColor="teal" />
+                  <AnalysisSection label="增长趋势" content={earningsAnalysis.growth_trends} accentColor="teal" />
+                  <AnalysisSection label="综合判断" content={earningsAnalysis.earnings_verdict} accentColor="teal" />
+                </div>
+              </>
+            ) : !hasData ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-muted-foreground">正在加载财报数据...</p>
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs text-muted-foreground">正在生成 AI 财报解读...</p>
+              </div>
+            )}
+          </div>
+
+          {/* Next earnings date */}
+          {nextEarningsDate && nextEarningsDays !== null && (
+            <div className="mt-3 flex items-center justify-between bg-card/50 border border-border/30 rounded-xl px-4 py-3">
+              <span className="text-xs text-muted-foreground">下次财报发布</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-data text-foreground">{nextEarningsDate}</span>
+                <span className={`px-2 py-0.5 rounded-md text-xs font-data font-medium border ${
+                  nextEarningsDays <= 7 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
+                  nextEarningsDays <= 30 ? 'text-teal-400 bg-teal-500/10 border-teal-500/20' :
+                  'text-muted-foreground bg-muted/40 border-border/30'
+                }`}>{nextEarningsDays}天</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: Statement-switched sections */}
+        <div className="order-1 lg:order-2 space-y-5">
+          {!hasData ? (
+            <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
+              <div className="w-6 h-6 border-2 border-border/40 border-t-muted-foreground rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">正在加载财报数据...如长时间无响应，请刷新页面重试</p>
+            </div>
+          ) : (
+            <>
+              {/* Statement Tab Switcher */}
+              <div className="flex bg-card/50 light:bg-card border border-border/40 rounded-xl overflow-hidden">
+                {([
+                  { id: 'income' as StatementView, label: '损益表', en: 'Income' },
+                  { id: 'cashflow' as StatementView, label: '现金流', en: 'Cash Flow' },
+                  { id: 'balance' as StatementView, label: '资产负债表', en: 'Balance Sheet' },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setStatementView(tab.id)}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-all cursor-pointer relative
+                      focus-visible:ring-2 focus-visible:ring-teal-500/40 focus-visible:outline-none
+                      ${statementView === tab.id
+                        ? 'text-foreground bg-card/40 light:bg-muted/50'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-card/20'}`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className="text-xs text-muted-foreground ml-1 hidden sm:inline">{tab.en}</span>
+                    {statementView === tab.id && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-teal-500" />}
+                  </button>
+                ))}
+              </div>
+
+              {/* ============================================================ */}
+              {/* INCOME STATEMENT VIEW                                        */}
+              {/* ============================================================ */}
+              {statementView === 'income' && (
+                <>
+                  {/* 本季表现 */}
+                  <SectionCard title="本季表现" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Performance'} numberLabel="01">
+                    <div className="grid grid-cols-2 gap-3">
+                      <MetricBox label="EPS" value={selectedEps?.eps_actual != null ? `$${fmt(selectedEps.eps_actual)}` : '--'}
+                        sub={selectedEps?.surprise_percent != null ? `${selectedEps.surprise_percent >= 0 ? 'Beat' : 'Miss'} ${fmt(selectedEps.surprise_percent, { pct: true, sign: true })}` : undefined}
+                        positive={selectedEps?.surprise_percent != null ? selectedEps.surprise_percent >= 0 : undefined} />
+                      <MetricBox label="营收 YoY" value={fmt(selectedGrowth?.revenueGrowth, { pct: true, sign: true })}
+                        positive={selectedGrowth?.revenueGrowth != null ? selectedGrowth.revenueGrowth >= 0 : undefined} />
+                      <MetricBox label="净利 YoY" value={fmt(selectedGrowth?.netIncomeGrowth, { pct: true, sign: true })}
+                        positive={selectedGrowth?.netIncomeGrowth != null ? selectedGrowth.netIncomeGrowth >= 0 : undefined} />
+                      <MetricBox label="EPS YoY" value={fmt(selectedGrowth?.epsdilutedGrowth, { pct: true, sign: true })}
+                        positive={selectedGrowth?.epsdilutedGrowth != null ? selectedGrowth.epsdilutedGrowth >= 0 : undefined} />
+                    </div>
+                  </SectionCard>
+
+                  {/* 营收结构 */}
+                  {(selectedRevenue || selectedGeo) && (
+                    <SectionCard title="营收结构" titleEn="Revenue Breakdown" numberLabel="02">
+                      {selectedRevenue && (
+                        <div>
+                          <SubsectionHeader title="按产品线" titleEn="By Product" />
+                          <div className="overflow-x-auto"><SegmentTable segment={selectedRevenue} prev={prevRevenue} type="product" /></div>
+                        </div>
+                      )}
+                      {selectedGeo && (
+                        <div>
+                          <SubsectionHeader title="按地区" titleEn="By Region" />
+                          <div className="overflow-x-auto"><SegmentTable segment={selectedGeo} prev={prevGeo} type="geo" /></div>
+                        </div>
+                      )}
+                    </SectionCard>
+                  )}
+
+                  {/* 增长趋势 */}
+                  {financialGrowth.length > 0 && (
+                    <SectionCard title="增长趋势" titleEn="Growth Trends YoY" numberLabel="03">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[500px]">
+                          <thead><tr className="bg-card/60">
+                            <th className="text-left py-2 px-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">季度</th>
+                            <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">营收</th>
+                            <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">毛利</th>
+                            <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">经营利润</th>
+                            <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">净利</th>
+                            <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">EPS</th>
+                          </tr></thead>
+                          <tbody>
+                            {financialGrowth.slice(0, 6).map((item, i) => (
+                              <tr key={item.date} className={`border-t border-border/20 ${i === 0 ? 'bg-card/30' : ''}`}>
+                                <td className="py-2 px-2 font-data text-foreground/90">{item.date.slice(0, 7)}</td>
+                                <td className={`py-2 px-2 text-right font-data ${colorForGrowth(item.revenueGrowth)}`}>{fmt(item.revenueGrowth, { pct: true, sign: true })}</td>
+                                <td className={`py-2 px-2 text-right font-data ${colorForGrowth(item.grossProfitGrowth)}`}>{fmt(item.grossProfitGrowth, { pct: true, sign: true })}</td>
+                                <td className={`py-2 px-2 text-right font-data ${colorForGrowth(item.operatingIncomeGrowth)}`}>{fmt(item.operatingIncomeGrowth, { pct: true, sign: true })}</td>
+                                <td className={`py-2 px-2 text-right font-data ${colorForGrowth(item.netIncomeGrowth)}`}>{fmt(item.netIncomeGrowth, { pct: true, sign: true })}</td>
+                                <td className={`py-2 px-2 text-right font-data ${colorForGrowth(item.epsdilutedGrowth)}`}>{fmt(item.epsdilutedGrowth, { pct: true, sign: true })}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </SectionCard>
+                  )}
+
+                  {/* EPS 历史 */}
+                  {earningsHistory.length > 1 && (
+                    <SectionCard title="EPS 历史表现" titleEn="EPS History" numberLabel="04">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead><tr className="bg-card/60">
+                            <th className="text-left py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">季度</th>
+                            <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">EPS</th>
+                            <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">预期</th>
+                            <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">Surprise</th>
+                          </tr></thead>
+                          <tbody>
+                            {earningsHistory.slice(0, 8).map((item, i) => (
+                              <tr key={item.quarter} className={`border-t border-border/20 ${i === 0 ? 'bg-card/30' : ''}`}>
+                                <td className="py-2 px-3 font-data text-foreground/90">{qLabel(item.quarter)}</td>
+                                <td className="py-2 px-3 text-right font-data text-foreground">${fmt(item.eps_actual)}</td>
+                                <td className="py-2 px-3 text-right font-data text-muted-foreground">${fmt(item.eps_estimate)}</td>
+                                <td className={`py-2 px-3 text-right font-data font-medium ${colorForGrowth(item.surprise_percent)}`}>
+                                  {fmt(item.surprise_percent, { pct: true, sign: true })}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </SectionCard>
+                  )}
+
+                  {/* 分析师共识 */}
+                  {(analystEstimates?.length || dcfValue) && (
+                    <SectionCard title="分析师共识" titleEn="Analyst Consensus" numberLabel="05">
+                      {analystEstimates && analystEstimates.length > 0 && (() => {
+                        const nextQ = analystEstimates[0];
+                        return (
+                          <div className="space-y-3">
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-sm text-muted-foreground">EPS 预期</span>
+                              <div className="text-right">
+                                <span className="text-base font-data font-semibold text-foreground">${fmt(nextQ.eps_avg)}</span>
+                                <span className="text-xs font-data text-muted-foreground ml-2">(${fmt(nextQ.eps_low)} - ${fmt(nextQ.eps_high)})</span>
+                                {nextQ.num_analysts_eps && <span className="text-xs text-muted-foreground ml-1">{nextQ.num_analysts_eps}位分析师</span>}
+                              </div>
+                            </div>
+                            {nextQ.revenue_avg && (
+                              <div className="flex items-baseline justify-between">
+                                <span className="text-sm text-muted-foreground">营收预期</span>
+                                <div className="text-right">
+                                  <span className="text-base font-data font-semibold text-foreground">{fmt(nextQ.revenue_avg, { bn: true })}</span>
+                                  {nextQ.revenue_low && nextQ.revenue_high && (
+                                    <span className="text-xs font-data text-muted-foreground ml-2">({fmt(nextQ.revenue_low, { bn: true })} - {fmt(nextQ.revenue_high, { bn: true })})</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            {dcfValue && stockPrice && (
+                              <div className="flex items-baseline justify-between pt-2 border-t border-border/20">
+                                <span className="text-sm text-muted-foreground">DCF 估值</span>
+                                <div className="text-right">
+                                  <span className="text-base font-data font-semibold text-foreground">${dcfValue.toFixed(2)}</span>
+                                  <span className={`text-xs font-data ml-2 ${dcfValue > stockPrice ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    vs ${stockPrice.toFixed(0)} ({dcfValue > stockPrice ? '+' : ''}{((dcfValue - stockPrice) / stockPrice * 100).toFixed(1)}%)
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </SectionCard>
+                  )}
+                </>
+              )}
+
+              {/* ============================================================ */}
+              {/* CASH FLOW VIEW                                               */}
+              {/* ============================================================ */}
+              {statementView === 'cashflow' && selectedCashflow && (
+                <SectionCard title="现金流量表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Cash Flow'} numberLabel="01">
+                  <StatementSection title="经营活动" titleEn="Operating Activities" items={[
+                    { label: '净利润 Net Income', key: 'net_income', bold: true },
+                    { label: '折旧摊销 D&A', key: 'depreciation_and_amortization', indent: true },
+                    { label: '股权激励 SBC', key: 'stock_based_compensation', indent: true },
+                    { label: '递延所得税', key: 'deferred_income_tax', indent: true },
+                    { label: '营运资本变动', key: 'change_in_working_capital', indent: true },
+                    { label: '应收账款变动', key: 'accounts_receivables', indent: true },
+                    { label: '应付账款变动', key: 'accounts_payables', indent: true },
+                    { label: '经营活动现金流 OCF', key: 'operating_cash_flow', bold: true },
+                  ]} data={selectedCashflow} />
+                  <StatementSection title="投资活动" titleEn="Investing Activities" items={[
+                    { label: '资本支出 CapEx', key: 'capital_expenditure' },
+                    { label: '收购 Acquisitions', key: 'acquisitions', indent: true },
+                    { label: '购买投资', key: 'purchases_of_investments', indent: true },
+                    { label: '出售投资', key: 'sales_of_investments', indent: true },
+                    { label: '投资活动现金流', key: 'net_cash_from_investing', bold: true },
+                  ]} data={selectedCashflow} />
+                  <StatementSection title="融资活动" titleEn="Financing Activities" items={[
+                    { label: '债务净发行', key: 'net_debt_issuance' },
+                    { label: '股票回购 Buyback', key: 'stock_repurchase', indent: true },
+                    { label: '股息支付 Dividends', key: 'dividends_paid', indent: true },
+                    { label: '融资活动现金流', key: 'net_cash_from_financing', bold: true },
+                  ]} data={selectedCashflow} />
+                  <StatementSection title="汇总" titleEn="Summary" items={[
+                    { label: '现金净变动', key: 'net_change_in_cash', bold: true },
+                    { label: '自由现金流 FCF', key: 'free_cash_flow', bold: true },
+                    { label: '期末现金', key: 'cash_at_end' },
+                    { label: '已付所得税', key: 'income_taxes_paid', indent: true },
+                    { label: '已付利息', key: 'interest_paid', indent: true },
+                  ]} data={selectedCashflow} />
+                </SectionCard>
+              )}
+
+              {/* ============================================================ */}
+              {/* BALANCE SHEET VIEW                                           */}
+              {/* ============================================================ */}
+              {statementView === 'balance' && selectedBalance && (
+                <SectionCard title="资产负债表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Balance Sheet'} numberLabel="01">
+                  <StatementSection title="资产" titleEn="Assets" items={[
+                    { label: '现金 Cash', key: 'cash_and_equivalents' },
+                    { label: '短期投资', key: 'short_term_investments' },
+                    { label: '现金+短投合计', key: 'cash_and_short_term_investments', bold: true },
+                    { label: '应收账款', key: 'net_receivables', indent: true },
+                    { label: '存货', key: 'inventory', indent: true },
+                    { label: '流动资产合计', key: 'total_current_assets', bold: true },
+                    { label: '固定资产 PP&E', key: 'property_plant_equipment' },
+                    { label: '商誉 Goodwill', key: 'goodwill', indent: true },
+                    { label: '无形资产 Intangibles', key: 'intangible_assets', indent: true },
+                    { label: '长期投资', key: 'long_term_investments', indent: true },
+                    { label: '非流动资产合计', key: 'total_non_current_assets', bold: true },
+                    { label: '总资产 Total Assets', key: 'total_assets', bold: true },
+                  ]} data={selectedBalance} />
+                  <StatementSection title="负债" titleEn="Liabilities" items={[
+                    { label: '应付账款', key: 'accounts_payable' },
+                    { label: '流动负债合计', key: 'total_current_liabilities', bold: true },
+                    { label: '长期负债 LT Debt', key: 'long_term_debt' },
+                    { label: '非流动负债合计', key: 'total_non_current_liabilities', bold: true },
+                    { label: '负债合计', key: 'total_liabilities', bold: true },
+                    { label: '总债务 Total Debt', key: 'total_debt' },
+                    { label: '净债务 Net Debt', key: 'net_debt' },
+                  ]} data={selectedBalance} />
+                  <StatementSection title="股东权益" titleEn="Equity" items={[
+                    { label: '留存收益', key: 'retained_earnings' },
+                    { label: '资本公积', key: 'additional_paid_in_capital' },
+                    { label: '股东权益合计', key: 'total_equity', bold: true },
+                    { label: '流通股数 Shares', key: 'shares_outstanding' },
+                  ]} data={selectedBalance} />
+                </SectionCard>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
