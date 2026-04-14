@@ -36,8 +36,10 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "react-gauge-component": "^2.0.28",
     "react-markdown": "^10.1.0",
     "react-tradingview-embed": "^3.0.6",
+    "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.12"
