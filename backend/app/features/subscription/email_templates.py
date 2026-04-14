@@ -683,7 +683,7 @@ def format_html_report(
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
                     <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
-                        Hi {{{{{{first_name}}}}}}
+                        Hi {{{{{{FIRST_NAME}}}}}}
                     </p>
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         新的一天，为你准备了今日的市场简报，一起看看发生了什么吧。
@@ -1240,7 +1240,7 @@ def format_weekly_report_html(
                 <!-- Title Card -->
                 <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
                     <p style="color: #52525b; font-size: 16px; margin: 0 0 8px 0; line-height: 1.5;">
-                        Hi {{{{{{first_name}}}}}}
+                        Hi {{{{{{FIRST_NAME}}}}}}
                     </p>
                     <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                         又一周过去了，为你准备了本周的宏观全景回顾，一起来看看吧。
@@ -1543,7 +1543,7 @@ def format_newsletter_plaintext(data: dict) -> str:
         return text.rstrip()
 
     paragraphs = []
-    paragraphs.append("Hi {{{first_name}}},")
+    paragraphs.append("Hi {{{FIRST_NAME}}},")
 
     if greeting:
         paragraphs.append(_clean_markdown(greeting))
@@ -1614,7 +1614,7 @@ def format_morning_report_html(
     title_section = f"""
         <div style="background: #ffffff; padding: 28px 24px; border-bottom: 1px solid #e4e4e7;">
             <p style="color: #52525b; font-size: 16px; margin: 0 0 12px 0; line-height: 1.5;">
-                Hi {{{{{{first_name}}}}}}
+                Hi {{{{{{FIRST_NAME}}}}}}
             </p>
             <p style="color: #71717a; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
                 新的一天，为你准备了今日的盘前简报，一起看看发生了什么吧。

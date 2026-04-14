@@ -210,7 +210,7 @@ async def get_email_preview(
 
         # Replace placeholder with actual name (or default)
         display_name = first_name or "朋友"
-        html_content = html_content.replace("{{{first_name|朋友}}}", display_name)
+        html_content = html_content.replace("{{{FIRST_NAME|朋友}}}", display_name)
 
         return {
             "success": True,
@@ -254,7 +254,7 @@ async def get_weekly_report_preview(
         html_content = email_service._format_weekly_report_html(report)
 
         display_name = first_name or ""
-        html_content = html_content.replace("{{{first_name}}}", display_name)
+        html_content = html_content.replace("{{{FIRST_NAME}}}", display_name)
 
         from urllib.parse import quote
         html_content = html_content.replace("{{{email}}}", quote("preview@example.com"))
@@ -625,8 +625,8 @@ async def preview_newsletter(request: NewsletterSendRequest):
         text_content = email_service._format_newsletter_plaintext(data)
 
         preview_name = request.first_name or "朋友"
-        text_content = text_content.replace("{{{first_name|朋友}}}", preview_name)
-        text_content = text_content.replace("{{{first_name}}}", preview_name)
+        text_content = text_content.replace("{{{FIRST_NAME|朋友}}}", preview_name)
+        text_content = text_content.replace("{{{FIRST_NAME}}}", preview_name)
 
         return {
             "success": True,
