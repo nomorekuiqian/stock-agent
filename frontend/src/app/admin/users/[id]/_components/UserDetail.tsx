@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import type { UserDetailData, UserProfile, Interaction } from '../page';
+import type { UserDetailData, UserProfile, Interaction, ContactFeedback, Questionnaire } from '../page';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
@@ -338,8 +338,18 @@ export function UserDetail({
           </Section>
         </div>
 
-        {/* ────── Right column: Interactions timeline ────── */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* ────── Right column: Feedback + Interactions ────── */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* User feedback section */}
+          {(data.questionnaires.length > 0 || data.contact_feedbacks.length > 0) && (
+            <FeedbackSection
+              questionnaires={data.questionnaires}
+              contactFeedbacks={data.contact_feedbacks}
+            />
+          )}
+
+          {/* Interactions timeline */}
+          <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">交互记录</h2>
             <button
@@ -417,6 +427,7 @@ export function UserDetail({
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -537,6 +548,129 @@ function InteractionCard({
               {f}
             </span>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Feedback Section - questionnaire + contact page feedback
+// ---------------------------------------------------------------------------
+
+const CONTACT_RATING_STYLES: Record<string, { label: string; style: string }> = {
+  helpful:     { label: '很有帮助', style: 'bg-emerald-50 text-emerald-700' },
+  neutral:     { label: '还行', style: 'bg-gray-100 text-gray-600' },
+  not_helpful: { label: '不太行', style: 'bg-red-50 text-red-700' },
+};
+
+function FeedbackSection({
+  questionnaires,
+  contactFeedbacks,
+}: {
+  questionnaires: Questionnaire[];
+  contactFeedbacks: ContactFeedback[];
+}) {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-base font-semibold">用户反馈</h2>
+
+      {/* Questionnaire responses */}
+      {questionnaires.length > 0 && (
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              问卷反馈
+            </h3>
+            <span className="text-[10px] text-muted-foreground">
+              {formatDateTime(questionnaires[0].created_at)}
+            </span>
+          </div>
+          {questionnaires.map((q) => (
+            <div key={q.id} className="space-y-2.5">
+              <div className="flex justify-between items-center py-0.5">
+                <span className="text-xs text-muted-foreground">投资经历</span>
+                <span className="text-xs font-medium bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">
+                  {q.background}
+                </span>
+              </div>
+              {q.markets.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">关注市场</span>
+                  <div className="flex flex-wrap gap-1">
+                    {q.markets.map((m) => (
+                      <span key={m} className="text-[11px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {q.trading_style.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">交易风格</span>
+                  <div className="flex flex-wrap gap-1">
+                    {q.trading_style.map((s) => (
+                      <span key={s} className="text-[11px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {q.pain_points.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">投研痛点</span>
+                  <div className="flex flex-wrap gap-1">
+                    {q.pain_points.map((p) => (
+                      <span key={p} className="text-[11px] bg-amber-50 text-amber-700 rounded-full px-2 py-0.5">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {q.feedback && (
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">希望解决的问题</span>
+                  <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">
+                    {q.feedback}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Contact page feedbacks */}
+      {contactFeedbacks.length > 0 && (
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            联系页反馈
+          </h3>
+          <div className="space-y-2.5">
+            {contactFeedbacks.map((fb) => {
+              const ratingCfg = CONTACT_RATING_STYLES[fb.rating];
+              return (
+                <div key={fb.id} className="border border-border/50 rounded-lg p-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    {ratingCfg && (
+                      <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${ratingCfg.style}`}>
+                        {ratingCfg.label}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(fb.created_at)}
+                    </span>
+                  </div>
+                  {fb.message && (
+                    <p className="text-sm text-foreground">{fb.message}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

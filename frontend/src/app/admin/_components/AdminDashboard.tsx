@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import type { DashboardData, UserRecord } from '../page';
 
@@ -10,27 +10,15 @@ import type { DashboardData, UserRecord } from '../page';
 
 type Category = 'all' | 'paid' | 'active_trial' | 'expiring_soon' | 'trial_expired' | 'never_trialed';
 type SortKey = 'email' | 'conversations' | 'messages' | 'feedback_count' | 'api_calls' | 'last_active_at' | 'created_at';
-type EngagementFilter = 'all' | 'has_conversations' | 'has_feedback' | 'has_api_calls' | 'no_activity';
-type OpsFilter = 'all' | 'pending' | 'reached' | 'following' | 'feedback_received' | 'active' | 'churned';
 
-const OPS_STATUS_CONFIG: Record<string, { label: string; style: string; filterKey: OpsFilter }> = {
-  '待联系': { label: '待联系', style: 'bg-gray-100 text-gray-600', filterKey: 'pending' },
-  '已联系': { label: '已联系', style: 'bg-blue-100 text-blue-700', filterKey: 'reached' },
-  '跟进中': { label: '跟进中', style: 'bg-amber-100 text-amber-700', filterKey: 'following' },
-  '已反馈': { label: '已反馈', style: 'bg-purple-100 text-purple-700', filterKey: 'feedback_received' },
-  '活跃':   { label: '活跃',   style: 'bg-emerald-100 text-emerald-700', filterKey: 'active' },
-  '流失':   { label: '流失',   style: 'bg-red-100 text-red-700', filterKey: 'churned' },
+const OPS_STATUS_CONFIG: Record<string, { label: string; style: string }> = {
+  '待联系': { label: '待联系', style: 'bg-gray-100 text-gray-600' },
+  '已联系': { label: '已联系', style: 'bg-blue-100 text-blue-700' },
+  '跟进中': { label: '跟进中', style: 'bg-amber-100 text-amber-700' },
+  '已反馈': { label: '已反馈', style: 'bg-purple-100 text-purple-700' },
+  '活跃':   { label: '活跃',   style: 'bg-emerald-100 text-emerald-700' },
+  '流失':   { label: '流失',   style: 'bg-red-100 text-red-700' },
 };
-
-const OPS_FILTER_OPTIONS: { value: OpsFilter; label: string }[] = [
-  { value: 'all', label: '运营状态: 全部' },
-  { value: 'pending', label: '待联系' },
-  { value: 'reached', label: '已联系' },
-  { value: 'following', label: '跟进中' },
-  { value: 'feedback_received', label: '已反馈' },
-  { value: 'active', label: '活跃' },
-  { value: 'churned', label: '流失' },
-];
 
 const CATEGORY_CONFIG: Record<Category, { label: string; color: string; bg: string }> = {
   all:            { label: '全部',   color: 'text-foreground',   bg: 'bg-muted' },
@@ -49,13 +37,62 @@ const BADGE_STYLES: Record<string, string> = {
   paid:          'bg-emerald-100 text-emerald-800',
 };
 
-const ENGAGEMENT_OPTIONS: { value: EngagementFilter; label: string }[] = [
-  { value: 'all',               label: '不限' },
-  { value: 'has_conversations', label: '有对话' },
-  { value: 'has_feedback',      label: '有反馈' },
-  { value: 'has_api_calls',     label: '有 API 调用' },
-  { value: 'no_activity',       label: '零互动' },
+// ---------------------------------------------------------------------------
+// Filter chip definitions
+// ---------------------------------------------------------------------------
+
+interface FilterChip {
+  tag: string;
+  label: string;
+  match: (u: UserRecord) => boolean;
+}
+
+interface FilterGroup {
+  key: string;
+  label: string;
+  chips: FilterChip[];
+}
+
+const FILTER_GROUPS: FilterGroup[] = [
+  {
+    key: 'engagement',
+    label: '互动',
+    chips: [
+      { tag: 'e:conv',     label: '有对话',     match: (u) => u.conversations > 0 },
+      { tag: 'e:email_fb', label: '有邮件反馈', match: (u) => u.feedback_count > 0 },
+      { tag: 'e:api',      label: '有API',      match: (u) => u.api_calls > 0 },
+      { tag: 'e:none',     label: '零互动',     match: (u) => !u.conversations && !u.feedback_count && !u.api_calls },
+    ],
+  },
+  {
+    key: 'feedback',
+    label: '反馈',
+    chips: [
+      { tag: 'f:quest',   label: '有问卷',     match: (u) => u.has_questionnaire },
+      { tag: 'f:contact',  label: '有联系反馈', match: (u) => u.contact_feedback_count > 0 },
+    ],
+  },
+  {
+    key: 'ops',
+    label: '运营',
+    chips: [
+      { tag: 'o:待联系', label: '待联系', match: (u) => (u.ops_status ?? '待联系') === '待联系' },
+      { tag: 'o:已联系', label: '已联系', match: (u) => u.ops_status === '已联系' },
+      { tag: 'o:跟进中', label: '跟进中', match: (u) => u.ops_status === '跟进中' },
+      { tag: 'o:已反馈', label: '已反馈', match: (u) => u.ops_status === '已反馈' },
+      { tag: 'o:活跃',   label: '活跃',   match: (u) => u.ops_status === '活跃' },
+      { tag: 'o:流失',   label: '流失',   match: (u) => u.ops_status === '流失' },
+    ],
+  },
 ];
+
+// Build a flat lookup for quick access
+const CHIP_LOOKUP = new Map<string, FilterChip>();
+for (const group of FILTER_GROUPS) {
+  for (const chip of group.chips) {
+    CHIP_LOOKUP.set(chip.tag, chip);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -95,37 +132,107 @@ function daysUntil(iso: string | null): string {
 // Dashboard
 // ---------------------------------------------------------------------------
 
-export function AdminDashboard({ data }: { data: DashboardData }) {
-  const [activeFilter, setActiveFilter] = useState<Category>('all');
-  const [engagement, setEngagement] = useState<EngagementFilter>('all');
-  const [opsFilter, setOpsFilter] = useState<OpsFilter>('all');
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+
+const OPS_STATUSES = ['待联系', '已联系', '跟进中', '已反馈', '活跃', '流失'] as const;
+
+export function AdminDashboard({ data: initialData, cronSecret }: { data: DashboardData; cronSecret: string }) {
+  const [data, setData] = useState(initialData);
+  const [activeCategory, setActiveCategory] = useState<Category>('all');
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('last_active_at');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState('');
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const toggleTag = useCallback((tag: string) => {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) {
+        next.delete(tag);
+      } else {
+        next.add(tag);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setActiveCategory('all');
+    setActiveTags(new Set());
+    setSearch('');
+  }, []);
+
+  const toggleSelect = useCallback((userId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback((userIds: string[]) => {
+    setSelectedIds((prev) => {
+      const allSelected = userIds.every((id) => prev.has(id));
+      if (allSelected) return new Set();
+      return new Set(userIds);
+    });
+  }, []);
+
+  const bulkUpdateStatus = useCallback(async (status: string) => {
+    if (selectedIds.size === 0) return;
+    setBulkSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/crm/profiles/bulk`, {
+        method: 'POST',
+        headers: { 'X-Cron-Secret': cronSecret, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_ids: [...selectedIds], ops_status: status }),
+      });
+      if (res.ok) {
+        // Update local state
+        setData((prev) => ({
+          ...prev,
+          users: prev.users.map((u) =>
+            selectedIds.has(u.user_id) ? { ...u, ops_status: status } : u,
+          ),
+        }));
+        setSelectedIds(new Set());
+      }
+    } finally {
+      setBulkSaving(false);
+    }
+  }, [selectedIds, cronSecret]);
+
+  const hasActiveFilters = activeCategory !== 'all' || activeTags.size > 0 || search.trim().length > 0;
 
   const filteredUsers = useMemo(() => {
     let list = data.users;
 
-    // Category filter
-    if (activeFilter !== 'all') {
-      list = list.filter((u) => u.category === activeFilter);
+    // Category filter (from top cards)
+    if (activeCategory !== 'all') {
+      list = list.filter((u) => u.category === activeCategory);
     }
 
-    // Engagement filter
-    if (engagement === 'has_conversations') list = list.filter((u) => u.conversations > 0);
-    else if (engagement === 'has_feedback') list = list.filter((u) => u.feedback_count > 0);
-    else if (engagement === 'has_api_calls') list = list.filter((u) => u.api_calls > 0);
-    else if (engagement === 'no_activity') list = list.filter((u) => !u.conversations && !u.feedback_count && !u.api_calls);
+    // Chip-based filters: group active tags by prefix, OR within group, AND across groups
+    if (activeTags.size > 0) {
+      const grouped: Record<string, FilterChip[]> = {};
+      for (const tag of activeTags) {
+        const prefix = tag.split(':')[0];
+        const chip = CHIP_LOOKUP.get(tag);
+        if (chip) {
+          if (!grouped[prefix]) grouped[prefix] = [];
+          grouped[prefix].push(chip);
+        }
+      }
 
-    // Ops status filter
-    if (opsFilter !== 'all') {
-      list = list.filter((u) => {
-        const status = u.ops_status ?? '待联系';
-        const cfg = OPS_STATUS_CONFIG[status];
-        return cfg?.filterKey === opsFilter;
-      });
+      for (const chips of Object.values(grouped)) {
+        list = list.filter((u) => chips.some((chip) => chip.match(u)));
+      }
     }
 
     // Search
@@ -159,11 +266,10 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
     });
 
     return list;
-  }, [data.users, activeFilter, engagement, opsFilter, search, sortKey, sortAsc]);
+  }, [data.users, activeCategory, activeTags, search, sortKey, sortAsc]);
 
   const { summary } = data;
 
-  // Engagement overview numbers
   const engagementStats = useMemo(() => {
     const users = data.users;
     return {
@@ -204,11 +310,11 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
         {cards.map(({ key, count }) => {
           const cfg = CATEGORY_CONFIG[key];
-          const isActive = activeFilter === key;
+          const isActive = activeCategory === key;
           return (
             <button
               key={key}
-              onClick={() => setActiveFilter(key)}
+              onClick={() => setActiveCategory(activeCategory === key ? 'all' : key)}
               className={`rounded-lg px-3 py-3 text-left transition-all border ${
                 isActive ? 'border-foreground/20 shadow-sm' : 'border-transparent hover:border-border'
               } ${cfg.bg}`}
@@ -220,37 +326,27 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
         })}
       </div>
 
-      {/* Filters row */}
+      {/* Search + actions */}
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索邮箱、用户 ID..."
+          placeholder="搜索邮箱、用户 ID、邀请码..."
           className="w-full md:w-72 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
         />
-        <select
-          value={engagement}
-          onChange={(e) => setEngagement(e.target.value as EngagementFilter)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-        >
-          {ENGAGEMENT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <select
-          value={opsFilter}
-          onChange={(e) => setOpsFilter(e.target.value as OpsFilter)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-        >
-          {OPS_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {filteredUsers.length} / {summary.total}
           </span>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              清除筛选
+            </button>
+          )}
           <button
             onClick={() => {
               const emails = filteredUsers
@@ -269,18 +365,86 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
         </div>
       </div>
 
+      {/* Chip filters */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {FILTER_GROUPS.map((group) => (
+          <div key={group.key} className="flex items-center gap-1.5">
+            <span className="text-[11px] text-muted-foreground/60 font-medium mr-0.5 select-none">
+              {group.label}
+            </span>
+            {group.chips.map((chip) => {
+              const isActive = activeTags.has(chip.tag);
+              return (
+                <button
+                  key={chip.tag}
+                  onClick={() => toggleTag(chip.tag)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all border ${
+                    isActive
+                      ? 'border-foreground/20 bg-foreground text-background shadow-sm'
+                      : 'border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5">
+          <span className="text-sm font-medium">
+            已选 <span className="tabular-nums">{selectedIds.size}</span> 人
+          </span>
+          <div className="h-4 w-px bg-border" />
+          <span className="text-xs text-muted-foreground">设为</span>
+          {OPS_STATUSES.map((s) => (
+            <button
+              key={s}
+              onClick={() => bulkUpdateStatus(s)}
+              disabled={bulkSaving}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors disabled:opacity-50 ${
+                OPS_STATUS_CONFIG[s]?.style ?? 'bg-muted text-muted-foreground'
+              } border-transparent hover:border-current`}
+            >
+              {s}
+            </button>
+          ))}
+          <div className="ml-auto flex items-center gap-2">
+            {bulkSaving && <span className="text-xs text-muted-foreground">保存中...</span>}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              取消选择
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="w-10 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={filteredUsers.length > 0 && filteredUsers.every((u) => selectedIds.has(u.user_id))}
+                    onChange={() => toggleSelectAll(filteredUsers.map((u) => u.user_id))}
+                    className="rounded border-border accent-emerald-600"
+                  />
+                </th>
                 <SortTh label="邮箱" field="email" current={sortKey} asc={sortAsc} onSort={handleSort} />
                 <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">订阅</th>
                 <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">运营</th>
                 <SortTh label="对话" field="conversations" current={sortKey} asc={sortAsc} onSort={handleSort} />
                 <SortTh label="消息" field="messages" current={sortKey} asc={sortAsc} onSort={handleSort} />
-                <SortTh label="反馈" field="feedback_count" current={sortKey} asc={sortAsc} onSort={handleSort} />
+                <SortTh label="邮件反馈" field="feedback_count" current={sortKey} asc={sortAsc} onSort={handleSort} />
+                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">用户反馈</th>
                 <SortTh label="API" field="api_calls" current={sortKey} asc={sortAsc} onSort={handleSort} />
                 <SortTh label="最近活跃" field="last_active_at" current={sortKey} asc={sortAsc} onSort={handleSort} />
                 <SortTh label="注册" field="created_at" current={sortKey} asc={sortAsc} onSort={handleSort} />
@@ -289,7 +453,7 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
             <tbody className="divide-y divide-border">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td>
+                  <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td>
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
@@ -298,6 +462,8 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
                     user={user}
                     expanded={expandedUser === user.user_id}
                     onToggle={() => setExpandedUser(expandedUser === user.user_id ? null : user.user_id)}
+                    selected={selectedIds.has(user.user_id)}
+                    onSelect={() => toggleSelect(user.user_id)}
                   />
                 ))
               )}
@@ -336,9 +502,10 @@ function SortTh({
 // ---------------------------------------------------------------------------
 
 function UserRowGroup({
-  user, expanded, onToggle,
+  user, expanded, onToggle, selected, onSelect,
 }: {
   user: UserRecord; expanded: boolean; onToggle: () => void;
+  selected: boolean; onSelect: () => void;
 }) {
   const badge = BADGE_STYLES[user.category] ?? 'bg-gray-100 text-gray-600';
   const label = CATEGORY_CONFIG[user.category as Category]?.label ?? user.category;
@@ -349,6 +516,14 @@ function UserRowGroup({
         onClick={onToggle}
         className={`cursor-pointer transition-colors ${expanded ? 'bg-muted/40' : 'hover:bg-muted/20'}`}
       >
+        <td className="w-10 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onSelect}
+            className="rounded border-border accent-emerald-600"
+          />
+        </td>
         <td className="px-3 py-2.5">
           {user.name && <div className="text-xs font-medium">{user.name}</div>}
           <span className="font-mono text-xs text-muted-foreground">{user.email ?? user.user_id.slice(0, 12)}</span>
@@ -370,6 +545,9 @@ function UserRowGroup({
         <td className="px-3 py-2.5 tabular-nums">
           <NumCell value={user.feedback_count} />
         </td>
+        <td className="px-3 py-2.5">
+          <UserFeedbackBadges user={user} />
+        </td>
         <td className="px-3 py-2.5 tabular-nums">
           <NumCell value={user.api_calls} />
         </td>
@@ -382,7 +560,7 @@ function UserRowGroup({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="bg-muted/20 px-4 py-4 border-t border-border/50">
+          <td colSpan={11} className="bg-muted/20 px-4 py-4 border-t border-border/50">
             <UserDetail user={user} />
           </td>
         </tr>
@@ -405,6 +583,38 @@ function OpsStatusBadge({ status }: { status: string | null }) {
 function NumCell({ value }: { value: number }) {
   if (!value) return <span className="text-xs text-muted-foreground/40">0</span>;
   return <span className="text-xs font-medium">{value}</span>;
+}
+
+const CONTACT_RATING_LABEL: Record<string, { text: string; style: string }> = {
+  helpful:     { text: '好评', style: 'bg-emerald-50 text-emerald-700' },
+  neutral:     { text: '一般', style: 'bg-gray-100 text-gray-600' },
+  not_helpful: { text: '差评', style: 'bg-red-50 text-red-700' },
+};
+
+function UserFeedbackBadges({ user }: { user: UserRecord }) {
+  const hasFb = user.contact_feedback_count > 0;
+  const hasQ = user.has_questionnaire;
+
+  if (!hasFb && !hasQ) {
+    return <span className="text-xs text-muted-foreground/40">-</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {hasQ && (
+        <span className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700">
+          {user.questionnaire_background || '问卷'}
+        </span>
+      )}
+      {hasFb && (
+        <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+          CONTACT_RATING_LABEL[user.contact_feedback_rating ?? '']?.style ?? 'bg-purple-50 text-purple-700'
+        }`}>
+          {CONTACT_RATING_LABEL[user.contact_feedback_rating ?? '']?.text ?? '反馈'}{user.contact_feedback_count > 1 ? ` x${user.contact_feedback_count}` : ''}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

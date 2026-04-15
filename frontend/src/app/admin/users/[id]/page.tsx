@@ -1,15 +1,15 @@
-import { notFound } from 'next/navigation';
-import type { Metadata } from 'next';
-import { UserDetail } from './_components/UserDetail';
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { UserDetail } from "./_components/UserDetail";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
-const CRON_SECRET = process.env.CRON_SECRET ?? '';
-const IS_DEV = process.env.NODE_ENV === 'development';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const CRON_SECRET = process.env.CRON_SECRET ?? "";
+const IS_DEV = process.env.NODE_ENV === "development";
 
 export const metadata: Metadata = {
-  title: 'User Detail - Admin',
+  title: "User Detail - Admin",
   robots: { index: false, follow: false },
 };
 
@@ -55,12 +55,33 @@ export interface Interaction {
   created_at: string;
 }
 
+export interface ContactFeedback {
+  id: string;
+  rating: "helpful" | "neutral" | "not_helpful";
+  email: string;
+  message: string | null;
+  created_at: string;
+}
+
+export interface Questionnaire {
+  id: string;
+  background: string;
+  markets: string[];
+  trading_style: string[];
+  pain_points: string[];
+  feedback: string | null;
+  email: string | null;
+  created_at: string;
+}
+
 export interface UserDetailData {
   user_id: string;
   email: string | null;
   subscription: SubscriptionData | null;
   profile: UserProfile | null;
   interactions: Interaction[];
+  contact_feedbacks: ContactFeedback[];
+  questionnaires: Questionnaire[];
 }
 
 interface PageProps {
@@ -72,14 +93,14 @@ export default async function UserDetailPage({ params }: PageProps) {
 
   const { id } = await params;
 
+  let data: UserDetailData;
   try {
     const res = await fetch(`${API_BASE}/admin/crm/users/${id}`, {
-      headers: { 'X-Cron-Secret': CRON_SECRET },
-      cache: 'no-store',
+      headers: { "X-Cron-Secret": CRON_SECRET },
+      cache: "no-store",
     });
     if (!res.ok) notFound();
-    const data: UserDetailData = await res.json();
-    return <UserDetail data={data} cronSecret={CRON_SECRET} />;
+    data = await res.json();
   } catch {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -87,4 +108,6 @@ export default async function UserDetailPage({ params }: PageProps) {
       </div>
     );
   }
+
+  return <UserDetail data={data} cronSecret={CRON_SECRET} />;
 }

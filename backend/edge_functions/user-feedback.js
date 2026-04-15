@@ -119,6 +119,73 @@ module.exports = async function(request) {
         });
       }
 
+      // action=list_by_email - Get all feedback for a specific email
+      if (action === 'list_by_email') {
+        const email = body.email;
+        if (!email) {
+          return new Response(JSON.stringify({ error: 'Missing required field: email' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data, error } = await client.database
+          .from('user_feedback')
+          .select('*')
+          .eq('email', email)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: data || []
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // action=aggregate - Get feedback counts grouped by email (for admin dashboard)
+      if (action === 'aggregate') {
+        const { data, error } = await client.database
+          .from('user_feedback')
+          .select('email, rating, created_at');
+
+        if (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const byEmail = {};
+        (data || []).forEach(item => {
+          if (!item.email) return;
+          if (!byEmail[item.email]) {
+            byEmail[item.email] = { count: 0, latest_rating: null, latest_at: null };
+          }
+          byEmail[item.email].count++;
+          if (!byEmail[item.email].latest_at || item.created_at > byEmail[item.email].latest_at) {
+            byEmail[item.email].latest_rating = item.rating;
+            byEmail[item.email].latest_at = item.created_at;
+          }
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: byEmail
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       return new Response(JSON.stringify({ error: 'Invalid action' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

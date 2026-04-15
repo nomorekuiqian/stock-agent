@@ -43,6 +43,11 @@ export interface UserRecord {
   ops_priority: string | null;
   ops_name: string | null;
   ops_next_followup: string | null;
+  // User feedback data
+  contact_feedback_count: number;
+  contact_feedback_rating: string | null;
+  has_questionnaire: boolean;
+  questionnaire_background: string | null;
 }
 
 export interface DashboardData {
@@ -92,5 +97,5 @@ export default async function AdminPage() {
     );
   }
 
-  return <AdminDashboard data={data} />;
+  return <AdminDashboard data={data} cronSecret={CRON_SECRET} />;
 }

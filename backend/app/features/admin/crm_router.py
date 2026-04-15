@@ -3,6 +3,7 @@ Admin CRM API - user profiles and interaction tracking.
 Dev-only: blocked in production.
 """
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -44,6 +45,13 @@ class ProfileUpsert(BaseModel):
     next_followup: str | None = None
 
 
+class BulkProfileUpdate(BaseModel):
+    user_ids: list[str]
+    ops_status: str | None = None
+    priority: str | None = None
+    tags: list[str] | None = None
+
+
 class InteractionCreate(BaseModel):
     user_id: str
     date: str | None = None
@@ -75,7 +83,8 @@ async def get_user_detail(
     user_id: str,
     _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
-    """Get full user detail: subscription data + CRM profile + recent interactions."""
+    """Get full user detail: subscription data + CRM profile + interactions + feedback."""
+
     service = get_insforge_service()
 
     # 1) Get email + subscription via list_all (already merges auth.users + subscriptions)
@@ -87,29 +96,70 @@ async def get_user_detail(
     )
     all_users = all_result.get("data", {}).get("data", [])
     user_record = next((u for u in all_users if u.get("user_id") == user_id), None)
+    email = user_record.get("email") if user_record else None
 
-    # 2) CRM profile
-    profile_result = await service.call_function(
+    # 2) CRM profile + interactions (parallel)
+    profile_task = service.call_function(
         "crm",
         method="GET",
         params={"action": "get_profile", "user_id": user_id},
     )
-    profile = profile_result.get("data", {}).get("data")
-
-    # 3) Interactions
-    interactions_result = await service.call_function(
+    interactions_task = service.call_function(
         "crm",
         method="GET",
         params={"action": "list_interactions", "user_id": user_id},
     )
-    interactions = interactions_result.get("data", {}).get("data", [])
+
+    profile_result, interactions_result = await asyncio.gather(
+        profile_task, interactions_task, return_exceptions=True,
+    )
+
+    profile = (
+        profile_result.get("data", {}).get("data")
+        if isinstance(profile_result, dict) else None
+    )
+    interactions = (
+        interactions_result.get("data", {}).get("data", [])
+        if isinstance(interactions_result, dict) else []
+    )
+
+    # 3) Feedback data (needs email)
+    contact_feedbacks: list[dict[str, Any]] = []
+    questionnaires: list[dict[str, Any]] = []
+
+    if email:
+        cf_task = service.call_function(
+            "user-feedback",
+            method="POST",
+            params={"action": "list_by_email"},
+            json_body={"email": email},
+        )
+        q_task = service.call_function(
+            "access-requests",
+            method="POST",
+            params={"action": "list_by_email"},
+            json_body={"email": email},
+        )
+        cf_result, q_result = await asyncio.gather(
+            cf_task, q_task, return_exceptions=True,
+        )
+
+        if isinstance(cf_result, dict):
+            cf_data = cf_result.get("data", {})
+            contact_feedbacks = cf_data.get("data", []) if cf_data.get("success") else []
+
+        if isinstance(q_result, dict):
+            q_data = q_result.get("data", {})
+            questionnaires = q_data.get("data", []) if q_data.get("success") else []
 
     return {
         "user_id": user_id,
-        "email": user_record.get("email") if user_record else None,
+        "email": email,
         "subscription": user_record,
         "profile": profile,
         "interactions": interactions,
+        "contact_feedbacks": contact_feedbacks,
+        "questionnaires": questionnaires,
     }
 
 
@@ -154,6 +204,46 @@ async def upsert_profile(
         logger.error("Failed to upsert CRM profile: %s", data)
         return {"error": data.get("error", "Failed to save profile")}
     return {"profile": data.get("data")}
+
+
+@router.post("/profiles/bulk")
+async def bulk_update_profiles(
+    body: BulkProfileUpdate,
+    _secret: str = Depends(verify_cron_secret),
+) -> dict[str, Any]:
+    """Bulk update ops_status / priority / tags for multiple users."""
+    if not body.user_ids:
+        return {"updated": 0}
+
+    service = get_insforge_service()
+    fields: dict[str, Any] = {}
+    if body.ops_status is not None:
+        fields["ops_status"] = body.ops_status
+    if body.priority is not None:
+        fields["priority"] = body.priority
+    if body.tags is not None:
+        fields["tags"] = body.tags
+
+    if not fields:
+        return {"updated": 0}
+
+    # Upsert each profile in parallel
+    tasks = []
+    for uid in body.user_ids:
+        tasks.append(service.call_function(
+            "crm",
+            method="POST",
+            params={"action": "upsert_profile"},
+            json_body={"user_id": uid, **fields},
+        ))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    updated = sum(
+        1 for r in results
+        if isinstance(r, dict) and r.get("data", {}).get("success")
+    )
+    logger.info("Bulk profile update: %d/%d updated, fields=%s", updated, len(body.user_ids), list(fields.keys()))
+    return {"updated": updated, "total": len(body.user_ids)}
 
 
 # ---------------------------------------------------------------------------
