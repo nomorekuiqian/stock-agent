@@ -193,6 +193,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, [authLoading, isAuthenticated, user?.id, refreshSubscription, isCheckoutReturn, pollForProStatus]);
 
+  // Auto-refresh when trial is activated (fired by AuthContext.ensureTrialActivated)
+  useEffect(() => {
+    const handler = () => {
+      console.log('[Subscription] Trial activated, refreshing status');
+      refreshSubscription();
+    };
+    window.addEventListener('trial-activated', handler);
+    return () => window.removeEventListener('trial-activated', handler);
+  }, [refreshSubscription]);
+
   const redeemInviteCode = useCallback(async (code: string) => {
     try {
       const token = await getAccessToken();

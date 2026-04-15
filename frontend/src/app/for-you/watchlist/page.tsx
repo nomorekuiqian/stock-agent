@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import PaywallGuard from '@/components/PaywallGuard';
 import StockCard from '@/components/StockCard';
 import { Command } from 'cmdk';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
@@ -501,9 +500,7 @@ function WatchlistPageContent() {
 }
 
 export default function WatchlistPage() {
-  return (
-    <PaywallGuard requiredFeature="for_you_website">
-      <WatchlistPageContent />
-    </PaywallGuard>
-  );
+  // No paywall on watchlist editing — all authenticated users can manage
+  // their watchlist. Only the personalized digest content (/for-you) is gated.
+  return <WatchlistPageContent />;
 }

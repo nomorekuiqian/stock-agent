@@ -109,6 +109,11 @@ async function ensureTrialActivated(token: string, userId: string): Promise<void
         // User already has a subscription (webhook worked or previous trial)
       } else {
         console.log('[AuthContext] Auto-trial activated');
+        // Notify SubscriptionContext to reload (cache is stale)
+        try {
+          localStorage.removeItem('sub_status');
+          window.dispatchEvent(new Event('trial-activated'));
+        } catch {}
       }
       markTrialAttempted(userId);
     }

@@ -60,7 +60,13 @@ export function Navbar() {
               ]}
             />
             <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
-            <NavLink href="/for-you">专属</NavLink>
+            <NavDropdown
+              label="专属"
+              items={[
+                { href: '/for-you', label: '专属日报' },
+                { href: '/for-you/watchlist', label: '我的自选股' },
+              ]}
+            />
             <NavLink href="/stock">个股</NavLink>
             <NavLink href="/macro">宏观</NavLink>
             <NavLink href="/pricing">高级订阅</NavLink>

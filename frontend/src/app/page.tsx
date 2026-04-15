@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import SubscribeForm from "@/components/SubscribeForm";
 import LogoMarquee from "@/components/LogoMarquee";
-import ProductShowcase from "@/components/ProductShowcase";
+import FeatureSections from "@/components/FeatureSections";
 import { PRICING } from "@/lib/pricing";
 
 export default function Home() {
@@ -46,19 +46,17 @@ export default function Home() {
 
               {/* Main Headline - Clear Value Proposition */}
               <h1 className="animate-fade-in-up delay-100 font-editorial text-3xl md:text-5xl lg:text-6xl text-foreground leading-[1.05] mb-5">
-                每天 5 分钟
-                <br />
-                <span className="text-gradient-emerald">掌握美股全局</span>
+                你的 AI <span className="text-gradient-emerald">投研团队</span>
               </h1>
 
               {/* Subtitle - Specific Value */}
               <p className="animate-fade-in-up delay-200 text-base md:text-lg text-muted-foreground max-w-md leading-relaxed mb-6">
-                AI 从海量信息中提炼你需要知道的一切——市场动态、持仓分析、宏观趋势。免费订阅，收盘后直达邮箱。
+                从日报到个股、从持仓到宏观 -- 一个平台，覆盖你的全部投研需求。
               </p>
 
               {/* Quick Value Points */}
               <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-6">
-                {["免费邮件日报", "持仓专属监控", "个股深度分析", "宏观仪表盘"].map((item, i) => (
+                {["每日日报", "专属持仓分析", "AI 个股研究", "AI 投研助手", "宏观仪表盘"].map((item, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground"
@@ -81,48 +79,40 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Trust Badges - User Count */}
-              <div className="animate-fade-in-up delay-400 flex items-center gap-2">
+              {/* CTA */}
+              <div className="animate-fade-in-up delay-400 mt-6 flex flex-col items-start gap-4">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
+                >
+                  免费注册，解锁全部功能
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+                <p className="text-xs text-muted-foreground/70">
+                  无需信用卡 · 14 天免费试用
+                </p>
+              </div>
+
+              {/* Trust Badge */}
+              <div className="animate-fade-in-up delay-500 mt-6 flex items-center gap-2.5">
                 <div className="flex -space-x-1.5">
-                  {[...Array(3)].map((_, i) => (
+                  {[...Array(4)].map((_, i) => (
                     <div
                       key={i}
                       className="w-5 h-5 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border-2 border-background flex items-center justify-center"
                     >
                       <span className="text-micro text-primary/70 font-medium">
-                        {["K", "J", "M"][i]}
+                        {["K", "J", "M", "L"][i]}
                       </span>
                     </div>
                   ))}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  已为 <span className="text-foreground font-medium">100+</span>{" "}
+                  已为 <span className="text-foreground font-medium">500+</span>{" "}
                   投资者提供服务
                 </span>
-              </div>
-
-              {/* CTAs */}
-              <div className="animate-fade-in-up delay-500 mt-6 flex flex-col items-start gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98]"
-                  >
-                    免费体验 14 天
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                  <Link
-                    href="/today"
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium border border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-all min-h-[44px]"
-                  >
-                    先看今天的市场
-                  </Link>
-                </div>
-                <p className="text-xs text-muted-foreground/70">
-                  无需信用卡 · 14 天后自动结束
-                </p>
               </div>
             </div>
 
@@ -151,234 +141,8 @@ export default function Home() {
       {/* Hero-to-content transition bridge */}
       <div className="relative h-20 -mt-1 bg-gradient-to-b from-[#050506] to-background pointer-events-none" />
 
-      {/* Product Showcase Section */}
-      <section className="relative py-16 md:py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-        <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-          <ProductShowcase />
-        </div>
-      </section>
-
-      {/* Core Capabilities Section - Simplified */}
-      <section className="relative py-16 md:py-24 overflow-hidden">
-        {/* Subtle grid background */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-
-        <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-          {/* Section Header - Editorial Style */}
-          <div className="mb-12 md:mb-16 animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
-                Features
-              </span>
-            </div>
-            <h2 className="font-editorial text-4xl md:text-5xl lg:text-6xl text-foreground leading-[1.1]">
-              六大核心功能
-            </h2>
-          </div>
-
-          {/* 6 Features: 3x2 Grid Layout */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Feature 1: Daily Report */}
-            <Link href="/today" className="group block h-full cursor-pointer animate-fade-in-up delay-100">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    核心功能 / 每日简报
-                  </p>
-
-                  {/* Big Number */}
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">5</span>
-                    <span className="text-base text-muted-foreground ml-2">min</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">每日市场简报</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    AI 从海量信息中提炼当日要点和重要新闻，5 分钟掌握市场全貌。
-                  </p>
-
-                  {/* CTA */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">查看今日日报</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Feature 2: Morning Report */}
-            <Link href="/morning" className="group block h-full cursor-pointer animate-fade-in-up delay-150">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-amber-400/80 mb-4">
-                    盘前准备 / 每日早报
-                  </p>
-
-                  {/* Big Number */}
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-amber-400">10</span>
-                    <span className="text-base text-muted-foreground ml-2">min</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">盘前早报</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    每个交易日开盘前发布。期货走势、全球市场、隔夜要闻，帮你用 10 分钟做好今天的交易准备。
-                  </p>
-
-                  {/* CTA */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-amber-400/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">查看今日早报</span>
-                    <svg className="w-4 h-4 text-amber-400/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Feature 3: Personalization */}
-            <Link href="/for-you" className="group block h-full cursor-pointer animate-fade-in-up delay-200">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    专属定制 / 你的持仓
-                  </p>
-
-                  {/* Big Number */}
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">100</span>
-                    <span className="font-data text-3xl text-primary/50">%</span>
-                    <span className="text-base text-muted-foreground ml-2">与你相关</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">只看你关心的</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    添加你的持仓清单，获得只针对你关心股票的分析。不是泛泛而谈，而是「这条新闻对你的 $AAPL 意味着什么」。
-                  </p>
-
-                  {/* CTA */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div className="flex -space-x-1">
-                        {["AAPL", "NVDA", "MSFT"].map((ticker) => (
-                          <div key={ticker} className="w-6 h-6 rounded-full bg-primary/15 border-2 border-card flex items-center justify-center">
-                            <span className="text-micro font-data text-primary/80">{ticker[0]}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">创建关注列表</span>
-                    </div>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Feature 4: Stock Research */}
-            <Link href="/stock" className="group block h-full cursor-pointer animate-fade-in-up delay-300">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    深度研究 / 个股透视
-                  </p>
-
-                  {/* Big Number */}
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">1</span>
-                    <span className="text-xl text-muted-foreground ml-2">页看透</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">一站式股票分析</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    基本面、技术面、新闻面、AI 分析——所有你做决策需要的信息，整合在一个清晰的页面里。
-                  </p>
-
-                  {/* CTA */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">搜索任意美股</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Feature 5: AI Research Assistant */}
-            <Link href="/research" className="group block h-full cursor-pointer animate-fade-in-up delay-400">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    AI 引擎 / 对话投研
-                  </p>
-
-                  {/* Big Number */}
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">AI</span>
-                    <span className="text-base text-muted-foreground ml-2">驱动</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">AI 投研助手</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    用自然语言对话，深度研究任意美股。基本面、技术面、新闻面、宏观面——一个问题开始，追问到底。
-                  </p>
-
-                  {/* CTA */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">开始对话研究</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Feature 6: Macro Analysis */}
-            <Link href="/macro" className="group block h-full cursor-pointer animate-fade-in-up delay-500">
-              <div className="relative rounded-xl border border-border/30 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    宏观分析 / 经济全景
-                  </p>
-
-                  {/* Big Number */}
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">360</span>
-                    <span className="font-data text-xl text-primary/50">&deg;</span>
-                    <span className="text-base text-muted-foreground ml-2">全景视角</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">宏观经济仪表盘</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    通胀、利率、流动性、风险指标一站式追踪，理解推动市场的宏观力量。
-                  </p>
-
-                  {/* CTA */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">查看宏观面板</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* Three Feature Sections: Stock Research / AI Research / Macro Dashboard */}
+      <FeatureSections />
 
       {/* Social Proof Section */}
       <section className="relative py-16 md:py-20 overflow-hidden">
@@ -477,78 +241,34 @@ export default function Home() {
             </div>
 
             {/* Pro */}
-            <div className="relative rounded-xl border border-primary/30 bg-card/50 p-6 ring-1 ring-primary/10">
-              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-primary/8 blur-[60px] pointer-events-none" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg font-semibold text-foreground">Pro</h3>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-                    <span className="text-xs font-medium text-primary">推荐</span>
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-4">邮件推送 + 持仓分析</p>
-                <div className="flex items-baseline gap-2 mb-5">
-                  <span className="text-2xl font-data font-bold text-foreground">{PRICING.pro}</span>
-                  <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                  <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.proOriginal}</span>
-                </div>
-                <div className="space-y-3 mb-6">
-                  {[
-                    { ok: true, text: '完整市场日报（网站 + 邮件）' },
-                    { ok: true, text: '盘前早报 + 盘后晚报' },
-                    { ok: true, text: '专属持仓日报（邮件推送）' },
-                    { ok: true, text: '宏观周报（邮件推送）' },
-                    { ok: true, text: '自选股管理' },
-                    { ok: false, text: 'AI 深度个股分析' },
-                    { ok: false, text: 'AI 投研助手' },
-                    { ok: false, text: '宏观仪表盘' },
-                  ].map((item) => (
-                    <div key={item.text} className="flex items-center gap-2.5">
-                      {item.ok ? (
-                        <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                      ) : (
-                        <svg className="w-4 h-4 text-muted-foreground/70 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      )}
-                      <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/70'}`}>{item.text}</span>
-                    </div>
-                  ))}
-                </div>
-                <Link
-                  href="/pricing"
-                  className="block w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
-                >
-                  立即订阅 — {PRICING.proPerMonth}
-                </Link>
-                <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
-              </div>
-            </div>
-
-            {/* Max */}
             <div className="rounded-xl border border-border/40 bg-card/30 p-6 hover:border-border/60 transition-all">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg font-semibold text-foreground">Max</h3>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
-                  <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
-                </span>
+                <h3 className="text-lg font-semibold text-foreground">Pro</h3>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">全部功能解锁</p>
+              <p className="text-xs text-muted-foreground mb-4">邮件推送 + 持仓分析</p>
               <div className="flex items-baseline gap-2 mb-5">
-                <span className="text-2xl font-data font-bold text-foreground">{PRICING.max}</span>
+                <span className="text-2xl font-data font-bold text-foreground">{PRICING.pro}</span>
                 <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.maxOriginal}</span>
-                <span className="text-xs font-medium text-primary">{PRICING.maxDiscount}</span>
+                <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.proOriginal}</span>
               </div>
               <div className="space-y-3 mb-6">
                 {[
-                  'Pro 的所有功能',
-                  'AI 深度个股分析',
-                  'AI 投研引擎（对话 + 选股）',
-                  '宏观四维度仪表盘',
-                ].map((text) => (
-                  <div key={text} className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    <span className="text-sm text-foreground">{text}</span>
+                  { ok: true, text: '完整市场日报（网站 + 邮件）' },
+                  { ok: true, text: '盘前早报 + 盘后晚报' },
+                  { ok: true, text: '专属持仓日报（邮件推送）' },
+                  { ok: true, text: '宏观周报（邮件推送）' },
+                  { ok: true, text: '自选股管理' },
+                  { ok: false, text: 'AI 深度个股分析' },
+                  { ok: false, text: 'AI 投研助手' },
+                  { ok: false, text: '宏观仪表盘' },
+                ].map((item) => (
+                  <div key={item.text} className="flex items-center gap-2.5">
+                    {item.ok ? (
+                      <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-muted-foreground/70 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    )}
+                    <span className={`text-sm ${item.ok ? 'text-foreground' : 'text-muted-foreground/70'}`}>{item.text}</span>
                   </div>
                 ))}
               </div>
@@ -556,9 +276,53 @@ export default function Home() {
                 href="/pricing"
                 className="block w-full px-4 py-3 bg-card text-foreground rounded-lg text-sm font-semibold text-center transition-all hover:border-primary/30 active:scale-[0.98] border border-border/50"
               >
-                立即订阅 — {PRICING.maxPerMonth}
+                立即订阅 — {PRICING.proPerMonth}
               </Link>
               <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
+            </div>
+
+            {/* Max - 推荐 */}
+            <div className="relative rounded-xl border border-primary/30 bg-card/50 p-6 ring-1 ring-primary/10">
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-primary/8 blur-[60px] pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-semibold text-foreground">Max</h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                    <span className="text-xs font-medium text-primary">推荐</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
+                    <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">全部功能解锁</p>
+                <div className="flex items-baseline gap-2 mb-5">
+                  <span className="text-2xl font-data font-bold text-foreground">{PRICING.max}</span>
+                  <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
+                  <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.maxOriginal}</span>
+                  <span className="text-xs font-medium text-primary">{PRICING.maxDiscount}</span>
+                </div>
+                <div className="space-y-3 mb-6">
+                  {[
+                    'Pro 的所有功能',
+                    'AI 深度个股分析',
+                    'AI 投研引擎（对话 + 选股）',
+                    '宏观四维度仪表盘',
+                  ].map((text) => (
+                    <div key={text} className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <span className="text-sm text-foreground">{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link
+                  href="/pricing"
+                  className="block w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
+                >
+                  立即订阅 — {PRICING.maxPerMonth}
+                </Link>
+                <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
+              </div>
             </div>
           </div>
 
@@ -699,151 +463,39 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Get Started Section - Combined CTA + Quick Start */}
-      <section className="relative py-16 md:py-24 bg-gradient-mesh overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-        <div className="absolute inset-0 bg-noise pointer-events-none" />
-
-        <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-          {/* CTA Header */}
-          <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
-                Get Started
-              </span>
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-primary to-transparent" />
-            </div>
-            <h2 className="font-editorial text-3xl md:text-4xl text-foreground mb-4">
-              从今天开始，清醒地交易
-            </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              选择最适合你的方式，开始更清醒的投资。
-            </p>
-          </div>
-
-          {/* Action Cards */}
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-10">
-            {/* Card 1: Read Today's Report */}
-            <Link href="/today" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    即刻开始 / 免费阅读
-                  </p>
-
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">5</span>
-                    <span className="text-base text-muted-foreground ml-2">分钟读完</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">阅读今日日报</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    无需注册，直接阅读今天的市场分析报告。5 分钟了解市场全貌。
-                  </p>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">查看最新日报</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Card 2: Subscribe Email */}
-            <Link href="/login" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    自动送达 / 一键订阅
-                  </p>
-
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">0</span>
-                    <span className="text-base text-muted-foreground ml-2">操作成本</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">订阅邮件推送</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    每个交易日收盘后自动送达邮箱，再也不错过任何一天的市场动态。
-                  </p>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">填写邮箱即可</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Card 3: Personalized Report */}
-            <Link href="/for-you" className="group block h-full cursor-pointer">
-              <div className="relative rounded-xl border border-border/50 bg-card overflow-hidden hover-glow h-full">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-                <div className="p-7 flex flex-col h-full">
-                  <p className="text-xs font-medium tracking-[0.15em] uppercase text-primary/80 mb-4">
-                    个性定制 / 需登录
-                  </p>
-
-                  <div className="mb-3">
-                    <span className="font-data text-5xl font-light text-primary">100</span>
-                    <span className="font-data text-3xl text-primary/50">%</span>
-                    <span className="text-base text-muted-foreground ml-2">相关</span>
-                  </div>
-
-                  <h3 className="font-editorial text-xl text-foreground mb-3">创建专属日报</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6 flex-grow">
-                    添加你的持仓，获得只针对你的股票分析。100% 与你相关。
-                  </p>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 mt-auto group-hover:border-primary/25 transition-colors">
-                    <span className="text-xs text-muted-foreground">登录创建关注列表</span>
-                    <svg className="w-4 h-4 text-primary/60 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          {/* More Tools + Archive */}
+      {/* Final CTA - Compact */}
+      <section className="relative py-16 md:py-20 overflow-hidden">
+        <div className="relative max-w-3xl mx-auto px-4 md:px-6 text-center">
+          <h2 className="font-editorial text-2xl md:text-3xl text-foreground mb-3">
+            从今天开始，清醒地交易
+          </h2>
+          <p className="text-muted-foreground text-sm mb-8 max-w-md mx-auto">
+            免费订阅日报，或直接体验 AI 投研工具。
+          </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
+            >
+              免费订阅日报
+            </Link>
+            <Link
               href="/stock"
-              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
+              className="px-5 py-3 rounded-lg border border-border/60 text-sm text-foreground hover:border-primary/30 transition-colors min-h-[44px] flex items-center cursor-pointer"
             >
               个股研究
             </Link>
             <Link
-              href="/morning"
-              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
-            >
-              盘前早报
-            </Link>
-            <Link
               href="/research"
-              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
+              className="px-5 py-3 rounded-lg border border-border/60 text-sm text-foreground hover:border-primary/30 transition-colors min-h-[44px] flex items-center cursor-pointer"
             >
               AI 投研助手
             </Link>
             <Link
               href="/macro"
-              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-foreground min-h-[44px] flex items-center"
+              className="px-5 py-3 rounded-lg border border-border/60 text-sm text-foreground hover:border-primary/30 transition-colors min-h-[44px] flex items-center cursor-pointer"
             >
               宏观仪表盘
-            </Link>
-            <Link
-              href="/today/archive"
-              className="px-4 py-2.5 rounded-lg bg-card/60 border border-border/50 hover:border-primary/30 transition-colors text-sm text-muted-foreground hover:text-foreground min-h-[44px] flex items-center"
-            >
-              浏览历史报告
             </Link>
           </div>
         </div>
