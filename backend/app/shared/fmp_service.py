@@ -1888,7 +1888,7 @@ class FMPService:
 
         return {
             "date": item.get("date") or "",
-            "fiscal_year": item.get("calendarYear"),
+            "fiscal_year": item.get("calendarYear") or item.get("fiscalYear"),
             "fiscal_period": item.get("period"),
             # Revenue & Cost
             "revenue": revenue,
@@ -1925,7 +1925,7 @@ class FMPService:
         """Serialize FMP balance sheet JSON — comprehensive field set."""
         return {
             "date": item.get("date") or "",
-            "fiscal_year": item.get("calendarYear"),
+            "fiscal_year": item.get("calendarYear") or item.get("fiscalYear"),
             "fiscal_period": item.get("period"),
             # Assets
             "cash_and_equivalents": item.get("cashAndCashEquivalents"),
@@ -1960,7 +1960,7 @@ class FMPService:
         """Serialize FMP cash flow JSON — comprehensive field set."""
         return {
             "date": item.get("date") or "",
-            "fiscal_year": item.get("calendarYear"),
+            "fiscal_year": item.get("calendarYear") or item.get("fiscalYear"),
             "fiscal_period": item.get("period"),
             # Operating activities
             "net_income": item.get("netIncome"),
@@ -2033,9 +2033,29 @@ class FMPService:
                     "error": "No analyst estimates data returned",
                 }
 
+            estimates = []
+            for item in data:
+                estimates.append({
+                    "date": item.get("date", ""),
+                    "eps_avg": item.get("epsAvg"),
+                    "eps_low": item.get("epsLow"),
+                    "eps_high": item.get("epsHigh"),
+                    "revenue_avg": item.get("revenueAvg"),
+                    "revenue_low": item.get("revenueLow"),
+                    "revenue_high": item.get("revenueHigh"),
+                    "ebitda_avg": item.get("ebitdaAvg"),
+                    "ebitda_low": item.get("ebitdaLow"),
+                    "ebitda_high": item.get("ebitdaHigh"),
+                    "net_income_avg": item.get("netIncomeAvg"),
+                    "net_income_low": item.get("netIncomeLow"),
+                    "net_income_high": item.get("netIncomeHigh"),
+                    "num_analysts_eps": item.get("numAnalystsEps"),
+                    "num_analysts_revenue": item.get("numAnalystsRevenue"),
+                })
+
             return {
                 "status": "success",
-                "estimates": data,
+                "estimates": estimates,
                 "source": "fmp",
             }
         except Exception as e:
@@ -2354,6 +2374,62 @@ class FMPService:
             logger.error("Error fetching price target summary for %s: %s", symbol, e)
             return {"status": "error", "error": str(e)}
 
+
+    # =========================================================================
+    # Earnings Transcript
+    # =========================================================================
+
+    def get_earning_call_transcript(
+        self, symbol: str, year: int, quarter: int
+    ) -> dict:
+        """
+        Get full earnings call transcript for a specific company and period.
+
+        Args:
+            symbol: Stock ticker symbol
+            year: Fiscal year
+            quarter: Fiscal quarter (1-4)
+
+        Returns:
+            {
+                "status": "success|error",
+                "symbol": str,
+                "year": int,
+                "quarter": int,
+                "date": str,
+                "content": str,   # Full transcript text
+                "source": "fmp"
+            }
+        """
+        logger.info(
+            "get_earning_call_transcript(%s, year=%d, quarter=%d)",
+            symbol, year, quarter,
+        )
+
+        params = {"symbol": symbol.upper(), "year": year, "quarter": quarter}
+        data = self._request("/stable/earning-call-transcript", params)
+
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "year": year,
+                "quarter": quarter,
+                "content": "",
+                "source": "fmp",
+                "error": "No transcript data available",
+            }
+
+        item = data[0]
+        return {
+            "status": "success",
+            "symbol": item.get("symbol", symbol),
+            "year": item.get("year", year),
+            "quarter": quarter,
+            "date": item.get("date", ""),
+            "content": item.get("content", ""),
+            "source": "fmp",
+        }
 
 _fmp_service_instance = None
 

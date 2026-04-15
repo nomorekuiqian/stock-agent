@@ -10,7 +10,7 @@ import {
   SectionCard,
   formatNumber,
 } from './StockDetailContent';
-import { AnalysisSection } from './shared';
+import { AnalysisSection, AIPaywall } from './shared';
 
 const StockPriceChart = dynamic(
   () => import('@/components/StockPriceChart').then(mod => mod.StockPriceChart),
@@ -64,6 +64,7 @@ interface OverviewTabProps {
   priceHistoryLoading: boolean;
   analystTargets?: { target_low?: number; target_median?: number; target_high?: number } | null;
   dcfValue?: number | null;
+  hasAIAccess?: boolean;
 }
 
 // =============================================================================
@@ -303,6 +304,7 @@ export function OverviewTab({
   priceHistoryLoading,
   analystTargets,
   dcfValue,
+  hasAIAccess = true,
 }: OverviewTabProps) {
 
   const hasAnalysis = analysis && (
@@ -365,7 +367,9 @@ export function OverviewTab({
         {/* LEFT: AI Analysis */}
         <div className="order-2 lg:order-1 lg:sticky lg:top-4">
           <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
-            {!hasAnalysis && !analysisLoading ? (
+            {!hasAIAccess ? (
+              <AIPaywall symbol={symbol} label="AI 投研分析" />
+            ) : !hasAnalysis && !analysisLoading ? (
               <div className="p-6 text-center">
                 <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-emerald-500/50 mb-3">
                   <div className="w-4 h-px bg-emerald-500/25" />

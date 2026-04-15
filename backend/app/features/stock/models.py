@@ -371,6 +371,16 @@ class InsiderTradeItem(BaseModel):
     acquisition_or_disposition: Optional[str] = None
 
 
+class TranscriptResponse(BaseModel):
+    """Earnings call transcript for a specific quarter."""
+    symbol: str
+    year: int
+    quarter: int
+    date: str = ""
+    content: str = ""
+    available: bool = False
+
+
 class EarningsDataResponse(BaseModel):
     """Aggregated earnings data for a stock."""
     symbol: str

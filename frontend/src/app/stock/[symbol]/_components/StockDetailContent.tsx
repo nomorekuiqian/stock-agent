@@ -8,7 +8,10 @@ import ReactMarkdown from 'react-markdown';
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
 import { type Timeframe } from '@/components/technical/TechnicalSignalDashboard';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AiChatLink } from '@/components/AiChatLink';
+
+const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
 import {
   useStockProfile,
   useStockDetail,
@@ -969,6 +972,8 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isAuthenticated, user } = useAuth();
+  const { has: hasEntitlement } = useEntitlements();
+  const hasAIAccess = !PAYWALL_ENABLED || hasEntitlement('stock_research');
 
   // Watchlist
   const { data: watchlistData } = useWatchlist(user?.id);
@@ -1011,6 +1016,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
 
   // Earnings data (used by Earnings tab)
   const { data: earningsData } = useEarningsData(symbol);
+
 
   // Use mutation result if available, otherwise fall back to cached data
   const analysis = (analysisMutation.data as StockAIAnalysis | null) ?? (cachedAnalysis as StockAIAnalysis | null) ?? null;
@@ -1290,6 +1296,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             onRegenerate={() => handleGenerateAnalysis(true)}
             priceHistory={priceHistory}
             priceHistoryLoading={priceHistoryLoading}
+            hasAIAccess={hasAIAccess}
           />
         )}
 
@@ -1309,10 +1316,11 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
               incomeStatements={earningsData?.income_statements}
               cashflowStatements={earningsData?.cashflow_statements}
               balanceSheets={earningsData?.balance_sheets}
-              earningsAnalysis={earningsMutation.data as { title: string; earnings_overview: string; revenue_breakdown: string; growth_trends: string; earnings_verdict: string } | null}
+              earningsAnalysis={earningsMutation.data as { title: string; earnings_overview: string; earnings_verdict: string; [key: string]: string | undefined } | null}
               analysisLoading={earningsMutation.isPending}
               onGenerate={() => earningsMutation.mutate({ force: false })}
               onRegenerate={() => earningsMutation.mutate({ force: true })}
+              hasAIAccess={hasAIAccess}
             />
           </section>
         )}
@@ -1329,6 +1337,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             onRegenerate={() => handleGenerateTechnical(true)}
             technicalSnapshot={technicalSnapshot}
             snapshotLoading={snapshotLoading}
+            hasAIAccess={hasAIAccess}
           />
         )}
 
@@ -1344,6 +1353,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             macroLoading={macroLoading}
             onGenerateMacro={() => handleGenerateMacro(false)}
             onRegenerateMacro={() => handleGenerateMacro(true)}
+            hasAIAccess={hasAIAccess}
           />
         )}
 

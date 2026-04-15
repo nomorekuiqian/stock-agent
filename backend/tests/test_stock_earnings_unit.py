@@ -325,9 +325,9 @@ class TestEmptyEarningsAnalysis:
     def test_expected_fields(self):
         """EARNINGS_ANALYSIS_FIELDS contains expected field names."""
         expected = {
-            "title", "earnings_overview", "revenue_breakdown",
-            "profitability_cashflow", "balance_sheet_capital",
-            "growth_trends", "earnings_verdict",
+            "title", "earnings_overview", "guidance_outlook",
+            "key_drivers", "revenue_and_segments",
+            "financial_quality", "earnings_verdict",
         }
         assert set(EARNINGS_ANALYSIS_FIELDS) == expected
 

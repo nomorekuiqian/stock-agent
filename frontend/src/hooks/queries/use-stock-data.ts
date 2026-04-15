@@ -187,6 +187,28 @@ export function useEarningsData(symbol: string) {
   });
 }
 
+export function useTranscript(symbol: string, year: number | null, quarter: number | null) {
+  return useQuery({
+    queryKey: ['transcript', symbol, year, quarter],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/stocks/${symbol}/transcript?year=${year}&quarter=${quarter}`
+      );
+      if (!response.ok) throw new Error(`Failed to fetch transcript: ${response.status}`);
+      return response.json() as Promise<{
+        symbol: string;
+        year: number;
+        quarter: number;
+        content: string;
+        available: boolean;
+      }>;
+    },
+    enabled: !!symbol && year !== null && quarter !== null,
+    staleTime: Infinity,  // Transcripts never change
+    gcTime: 24 * 60 * 60 * 1000,  // 24 hours
+  });
+}
+
 export function useGenerateEarningsAnalysis(symbol: string) {
   const queryClient = useQueryClient();
   return useMutation({

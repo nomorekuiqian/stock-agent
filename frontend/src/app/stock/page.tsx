@@ -11,7 +11,6 @@ import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { useStockSearch } from '@/hooks/useStockSearch';
 import { useStockQuotes } from '@/hooks/queries/use-stock-data';
-import PaywallGuard from '@/components/PaywallGuard';
 
 // =============================================================================
 // Types & Data
@@ -173,7 +172,6 @@ export default function StockResearchPage() {
   };
 
   return (
-    <PaywallGuard requiredFeature="stock_research">
     <div className="min-h-screen bg-background">
       {/* Hero / Header */}
       <section>
@@ -332,6 +330,5 @@ export default function StockResearchPage() {
         </div>
       </section>
     </div>
-    </PaywallGuard>
   );
 }

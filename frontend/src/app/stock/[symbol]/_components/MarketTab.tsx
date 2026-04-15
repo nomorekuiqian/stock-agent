@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AnalysisSection } from './shared';
+import { AnalysisSection, AIPaywall } from './shared';
 import { SectionCard } from './StockDetailContent';
 import { InsiderTradingSection, PriceTargetBar, NewsFeed } from './NewsEnhancements';
 import { useNewsFeed, useInsiderTrading } from '@/hooks/queries/use-stock-data';
@@ -39,6 +39,7 @@ interface MarketTabProps {
   macroLoading: boolean;
   onGenerateMacro: () => void;
   onRegenerateMacro: () => void;
+  hasAIAccess?: boolean;
 }
 
 // =============================================================================
@@ -249,6 +250,7 @@ export function MarketTab({
   macroLoading,
   onGenerateMacro,
   onRegenerateMacro,
+  hasAIAccess = true,
 }: MarketTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('news');
 
@@ -273,7 +275,9 @@ export function MarketTab({
             </div>
 
             {/* Content based on active sub-tab */}
-            {activeSubTab === 'news' ? (
+            {!hasAIAccess ? (
+              <AIPaywall symbol={symbol} label={activeSubTab === 'news' ? 'AI 新闻解读' : 'AI 宏观解读'} />
+            ) : activeSubTab === 'news' ? (
               <NewsAnalysisPanel
                 symbol={symbol}
                 companyName={companyName}

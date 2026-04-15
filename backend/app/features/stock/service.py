@@ -710,6 +710,39 @@ class StockService:
             "balance_sheets": balance_sheets if isinstance(balance_sheets, list) else [],
         }
 
+    async def get_transcript(
+        self, symbol: str, year: int, quarter: int
+    ) -> dict[str, Any]:
+        """Fetch earnings call transcript for a specific quarter.
+
+        Returns:
+            {
+                "symbol": str,
+                "year": int,
+                "quarter": int,
+                "date": str,
+                "content": str,
+                "available": bool,
+            }
+        """
+        symbol = symbol.upper()
+        logger.info("Fetching transcript for %s Y%d Q%d", symbol, year, quarter)
+
+        fmp = get_fmp_service()
+        result = await asyncio.to_thread(
+            fmp.get_earning_call_transcript, symbol, year, quarter
+        )
+
+        content = result.get("content", "") if result else ""
+        return {
+            "symbol": symbol,
+            "year": year,
+            "quarter": quarter,
+            "date": result.get("date", "") if result else "",
+            "content": content,
+            "available": bool(content and len(content) > 100),
+        }
+
     @staticmethod
     def _compute_yoy_growth(income_stmts: list) -> list:
         """Compute true YoY growth by comparing each quarter to the same quarter last year.

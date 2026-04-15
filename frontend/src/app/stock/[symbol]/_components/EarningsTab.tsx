@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AnalysisSection } from './shared';
+import { AnalysisSection, AIPaywall } from './shared';
 import { SectionCard, SubsectionHeader } from './StockDetailContent';
+import { useTranscript } from '@/hooks/queries/use-stock-data';
 
 // =============================================================================
 // Types
@@ -35,24 +36,33 @@ interface GrowthData {
 
 interface AnalystEstimate {
   date: string;
-  revenue_avg: number | null;
-  revenue_low: number | null;
-  revenue_high: number | null;
   eps_avg: number | null;
   eps_low: number | null;
   eps_high: number | null;
-  num_analysts_revenue: number | null;
+  revenue_avg: number | null;
+  revenue_low: number | null;
+  revenue_high: number | null;
+  ebitda_avg: number | null;
+  net_income_avg: number | null;
   num_analysts_eps: number | null;
+  num_analysts_revenue: number | null;
 }
 
 interface EarningsAnalysis {
   title: string;
   earnings_overview: string;
-  revenue_breakdown: string;
+  guidance_outlook?: string;
+  key_drivers?: string;
+  revenue_and_segments?: string;
+  financial_quality?: string;
+  earnings_verdict: string;
+  // Legacy fields (backward compat with cached analyses)
+  transcript_insights?: string;
+  key_debates?: string;
+  revenue_breakdown?: string;
   profitability_cashflow?: string;
   balance_sheet_capital?: string;
-  growth_trends: string;
-  earnings_verdict: string;
+  growth_trends?: string;
 }
 
 interface EarningsTabProps {
@@ -73,6 +83,7 @@ interface EarningsTabProps {
   analysisLoading: boolean;
   onGenerate: () => void;
   onRegenerate: () => void;
+  hasAIAccess?: boolean;
 }
 
 // =============================================================================
@@ -294,14 +305,13 @@ export function EarningsTab({
   analysisLoading,
   onGenerate,
   onRegenerate,
+  hasAIAccess = true,
 }: EarningsTabProps) {
 
   // Quarter selection — use income statements as the authoritative source.
-  // Label with month + year (e.g. "Jan 2026") to avoid fiscal year confusion
-  // (NVIDIA's FY26 Q3 has calendarYear=2025, which creates wrong labels like Q3'25).
+  // Label with fiscal year format (e.g. "FY26 Q1") using fiscal_year and fiscal_period.
   const quarterEntries = useMemo(() => {
     const ymMap = new Map<string, { date: string; label: string }>();
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     // Income statements as primary source
     for (const s of incomeStatements) {
@@ -309,14 +319,19 @@ export function EarningsTab({
       if (!d || d.length < 7) continue;
       const ym = d.slice(0, 7);
       if (!ymMap.has(ym)) {
-        const month = parseInt(d.slice(5, 7), 10) - 1;
-        const year = d.slice(0, 4);
-        ymMap.set(ym, { date: d, label: `${monthNames[month]} ${year}` });
+        const fy = s.fiscal_year as number | null;
+        const fp = s.fiscal_period as string | null;
+        // Use fiscal year label if available, otherwise fall back to date
+        const label = fy && fp
+          ? `FY${String(fy).slice(-2)} ${fp}`
+          : d.slice(0, 7);
+        ymMap.set(ym, { date: d, label });
       }
     }
 
-    // Fallback: earningsHistory
+    // Fallback: earningsHistory (no fiscal year info, use date-based label)
     if (ymMap.size === 0) {
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       for (const e of earningsHistory) {
         if (!e.quarter || e.quarter.length < 7) continue;
         const ym = e.quarter.slice(0, 7);
@@ -386,9 +401,27 @@ export function EarningsTab({
 
   const hasData = earningsHistory.length > 0 || revenueSegments.length > 0 || financialGrowth.length > 0;
 
-  // Statement tab (Income / Cash Flow / Balance Sheet)
-  type StatementView = 'income' | 'cashflow' | 'balance';
-  const [statementView, setStatementView] = useState<StatementView>('income');
+  // Transcript: fetch based on selected quarter's fiscal year/period
+  const selectedIS = useMemo(() => {
+    if (!activeQuarter || !incomeStatements.length) return undefined;
+    return findByDate(
+      incomeStatements as Array<Record<string, unknown> & { date?: string }>,
+      activeQuarter
+    ) as Record<string, unknown> | undefined;
+  }, [incomeStatements, activeQuarter]);
+
+  const tFiscalYear = selectedIS?.fiscal_year as number | null ?? null;
+  const tFiscalPeriod = selectedIS?.fiscal_period as string | null ?? null;
+  const tQuarter = tFiscalPeriod?.startsWith('Q')
+    ? parseInt(tFiscalPeriod.replace('Q', ''), 10) : null;
+  const { data: transcriptData, isLoading: transcriptLoading } = useTranscript(
+    symbol, tFiscalYear, tQuarter
+  );
+  const transcript = transcriptData?.available ? transcriptData.content : null;
+
+  // Right panel tab
+  type RightTab = 'transcript' | 'income' | 'cashflow' | 'balance';
+  const [rightTab, setRightTab] = useState<RightTab>('income');
 
   // Find cash flow and balance sheet for selected quarter
   const selectedCashflow = useMemo(() => {
@@ -418,7 +451,9 @@ export function EarningsTab({
         {/* LEFT: AI Analysis */}
         <div className="order-2 lg:order-1 lg:sticky lg:top-4">
           <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
-            {analysisLoading ? (
+            {!hasAIAccess ? (
+              <AIPaywall symbol={symbol} label="AI 财报解读" />
+            ) : analysisLoading ? (
               <div className="p-8 text-center">
                 <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-3" />
                 <p className="text-xs text-muted-foreground">正在解读 {symbol} {activeQuarter ? qLabel(activeQuarter) : ''} 财报...</p>
@@ -439,12 +474,12 @@ export function EarningsTab({
                       {earningsAnalysis.title}
                     </h3>
                   )}
-                  <AnalysisSection label="财报概览" content={earningsAnalysis.earnings_overview} accentColor="teal" />
-                  <AnalysisSection label="营收拆解" content={earningsAnalysis.revenue_breakdown} accentColor="teal" />
-                  <AnalysisSection label="盈利质量与现金流" content={earningsAnalysis.profitability_cashflow || ''} accentColor="teal" />
-                  <AnalysisSection label="资产负债与资本配置" content={earningsAnalysis.balance_sheet_capital || ''} accentColor="teal" />
-                  <AnalysisSection label="增长趋势" content={earningsAnalysis.growth_trends} accentColor="teal" />
-                  <AnalysisSection label="综合判断" content={earningsAnalysis.earnings_verdict} accentColor="teal" />
+                  <AnalysisSection label="财报概览" content={earningsAnalysis.earnings_overview} accentColor="emerald" />
+                  <AnalysisSection label="前瞻指引" content={earningsAnalysis.guidance_outlook || ''} accentColor="sky" />
+                  <AnalysisSection label="驱动因素" content={earningsAnalysis.key_drivers || ''} accentColor="amber" />
+                  <AnalysisSection label="营收与分部" content={earningsAnalysis.revenue_and_segments || earningsAnalysis.revenue_breakdown || ''} accentColor="teal" />
+                  <AnalysisSection label="财务质量" content={earningsAnalysis.financial_quality || earningsAnalysis.profitability_cashflow || ''} accentColor="teal" />
+                  <AnalysisSection label="综合判断" content={earningsAnalysis.earnings_verdict} accentColor="emerald" />
                 </div>
               </>
             ) : (
@@ -489,42 +524,65 @@ export function EarningsTab({
           )}
         </div>
 
-        {/* RIGHT: Statement-switched sections */}
+        {/* RIGHT: Data tabs (statements + transcript) */}
         <div className="order-1 lg:order-2 space-y-5">
-          {!hasData ? (
+          {!hasData && !transcript && !transcriptLoading ? (
             <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
               <div className="w-6 h-6 border-2 border-border/40 border-t-muted-foreground rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">正在加载财报数据...如长时间无响应，请刷新页面重试</p>
+              <p className="text-sm text-muted-foreground">正在加载财报数据...</p>
             </div>
           ) : (
             <>
-              {/* Statement Tab Switcher */}
-              <div className="flex bg-card/50 light:bg-card border border-border/40 rounded-xl overflow-hidden">
+              {/* Tab Switcher */}
+              <div className="flex bg-card/50 light:bg-card border border-border/40 rounded-xl overflow-hidden overflow-x-auto">
                 {([
-                  { id: 'income' as StatementView, label: '损益表', en: 'Income' },
-                  { id: 'cashflow' as StatementView, label: '现金流', en: 'Cash Flow' },
-                  { id: 'balance' as StatementView, label: '资产负债表', en: 'Balance Sheet' },
+                  { id: 'income' as RightTab, label: '损益表', en: 'Income' },
+                  { id: 'cashflow' as RightTab, label: '现金流', en: 'Cash Flow' },
+                  { id: 'balance' as RightTab, label: '资产负债表', en: 'Balance' },
+                  { id: 'transcript' as RightTab, label: '电话会议', en: 'Transcript' },
                 ] as const).map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setStatementView(tab.id)}
-                    className={`flex-1 px-4 py-3 text-sm font-medium transition-all cursor-pointer relative
+                    onClick={() => setRightTab(tab.id)}
+                    className={`flex-1 min-w-0 px-3 py-3 text-sm font-medium transition-all cursor-pointer relative
                       focus-visible:ring-2 focus-visible:ring-teal-500/40 focus-visible:outline-none
-                      ${statementView === tab.id
+                      ${rightTab === tab.id
                         ? 'text-foreground bg-card/40 light:bg-muted/50'
                         : 'text-muted-foreground hover:text-foreground hover:bg-card/20'}`}
                   >
                     <span>{tab.label}</span>
                     <span className="text-xs text-muted-foreground ml-1 hidden sm:inline">{tab.en}</span>
-                    {statementView === tab.id && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-teal-500" />}
+                    {rightTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-teal-500" />}
                   </button>
                 ))}
               </div>
 
-              {/* ============================================================ */}
-              {/* INCOME STATEMENT VIEW                                        */}
-              {/* ============================================================ */}
-              {statementView === 'income' && (
+              {/* TRANSCRIPT VIEW */}
+              {rightTab === 'transcript' && (
+                <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3">
+                    {transcriptLoading ? (
+                      <div className="p-6 text-center">
+                        <div className="w-5 h-5 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground">加载电话会纪要...</p>
+                      </div>
+                    ) : transcript ? (
+                      <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
+                        <pre className="text-xs text-muted-foreground leading-6 whitespace-pre-wrap font-sans">
+                          {transcript}
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <p className="text-xs text-muted-foreground">该季度暂无电话会纪要</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* INCOME STATEMENT VIEW */}
+              {rightTab === 'income' && (
                 <>
                   {/* 本季表现 */}
                   <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Performance'} numberLabel="01">
@@ -617,55 +675,152 @@ export function EarningsTab({
                     </SectionCard>
                   )}
 
-                  {/* 分析师共识 */}
-                  {(analystEstimates?.length || dcfValue) && (
-                    <SectionCard title="分析师共识" titleEn="Analyst Consensus" numberLabel="05">
-                      {analystEstimates && analystEstimates.length > 0 && (() => {
-                        const nextQ = analystEstimates[0];
-                        return (
-                          <div className="space-y-3">
-                            <div className="flex items-baseline justify-between">
-                              <span className="text-sm text-muted-foreground">EPS 预期</span>
-                              <div className="text-right">
-                                <span className="text-base font-data font-semibold text-foreground">${fmt(nextQ.eps_avg)}</span>
-                                <span className="text-xs font-data text-muted-foreground ml-2">(${fmt(nextQ.eps_low)} - ${fmt(nextQ.eps_high)})</span>
-                                {nextQ.num_analysts_eps && <span className="text-xs text-muted-foreground ml-1">{nextQ.num_analysts_eps}位分析师</span>}
-                              </div>
-                            </div>
-                            {nextQ.revenue_avg && (
-                              <div className="flex items-baseline justify-between">
-                                <span className="text-sm text-muted-foreground">营收预期</span>
-                                <div className="text-right">
-                                  <span className="text-base font-data font-semibold text-foreground">{fmt(nextQ.revenue_avg, { bn: true })}</span>
-                                  {nextQ.revenue_low && nextQ.revenue_high && (
-                                    <span className="text-xs font-data text-muted-foreground ml-2">({fmt(nextQ.revenue_low, { bn: true })} - {fmt(nextQ.revenue_high, { bn: true })})</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            {dcfValue && stockPrice && (
-                              <div className="flex items-baseline justify-between pt-2 border-t border-border/20">
-                                <span className="text-sm text-muted-foreground">DCF 估值</span>
-                                <div className="text-right">
-                                  <span className="text-base font-data font-semibold text-foreground">${dcfValue.toFixed(2)}</span>
-                                  <span className={`text-xs font-data ml-2 ${dcfValue > stockPrice ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    vs ${stockPrice.toFixed(0)} ({dcfValue > stockPrice ? '+' : ''}{((dcfValue - stockPrice) / stockPrice * 100).toFixed(1)}%)
-                                  </span>
-                                </div>
-                              </div>
-                            )}
+                  {/* 预期 vs 实际 / 分析师预期 */}
+                  {(analystEstimates?.length || selectedEps || dcfValue) && (() => {
+                    // Strict date match for estimates
+                    const matchedEstimate = activeQuarter && analystEstimates
+                      ? analystEstimates.find(e => e.date?.slice(0, 7) === activeQuarter.slice(0, 7))
+                      : null;
+
+                    const isReported = selectedEps?.eps_actual != null;
+                    const selectedIncomeStmt = activeQuarter
+                      ? (findByDate(incomeStatements as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined)
+                      : undefined;
+                    const actualRevenue = selectedIncomeStmt?.revenue as number | null ?? null;
+
+                    // For reported quarters: show EPS beat/miss from yfinance (always available)
+                    // + estimate comparison only if we have matching FMP estimate
+                    // For future quarters: show next upcoming estimate
+                    const futureEstimate = !isReported
+                      ? (matchedEstimate || (analystEstimates?.[0] ?? null))
+                      : null;
+
+                    return (
+                      <SectionCard
+                        title={isReported ? '预期 vs 实际' : '分析师预期'}
+                        titleEn={isReported ? 'Estimate vs Actual' : 'Consensus'}
+                        numberLabel="05"
+                      >
+                        {/* REPORTED QUARTER: EPS beat/miss from yfinance + optional estimate comparison */}
+                        {isReported && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-card/60">
+                                  <th className="text-left py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">指标</th>
+                                  <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">预期</th>
+                                  <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">实际</th>
+                                  <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">结果</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {/* EPS: from yfinance earnings_history (reliable) */}
+                                <tr className="border-t border-border/20">
+                                  <td className="py-2 px-3 text-foreground/90">EPS</td>
+                                  <td className="py-2 px-3 text-right font-data text-muted-foreground">
+                                    {selectedEps?.eps_estimate != null ? `$${fmt(selectedEps.eps_estimate)}` : '--'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-data font-medium text-foreground">
+                                    ${fmt(selectedEps?.eps_actual)}
+                                  </td>
+                                  <td className={`py-2 px-3 text-right font-data font-medium text-xs ${
+                                    (selectedEps?.surprise_percent ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                                  }`}>
+                                    {(selectedEps?.surprise_percent ?? 0) >= 0 ? 'Beat' : 'Miss'} {fmt(selectedEps?.surprise_percent, { pct: true, sign: true })}
+                                  </td>
+                                </tr>
+                                {/* Revenue: compare actual IS revenue with matched FMP estimate if available */}
+                                {actualRevenue != null && (
+                                  <tr className="border-t border-border/20">
+                                    <td className="py-2 px-3 text-foreground/90">营收</td>
+                                    <td className="py-2 px-3 text-right font-data text-muted-foreground">
+                                      {matchedEstimate?.revenue_avg != null ? fmt(matchedEstimate.revenue_avg, { bn: true }) : '--'}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-data font-medium text-foreground">
+                                      {fmt(actualRevenue, { bn: true })}
+                                    </td>
+                                    {matchedEstimate?.revenue_avg != null ? (() => {
+                                      const beat = actualRevenue >= matchedEstimate.revenue_avg!;
+                                      const pct = (actualRevenue - matchedEstimate.revenue_avg!) / matchedEstimate.revenue_avg!;
+                                      return (
+                                        <td className={`py-2 px-3 text-right font-data font-medium text-xs ${beat ? 'text-emerald-400' : 'text-red-400'}`}>
+                                          {beat ? 'Beat' : 'Miss'} {fmt(pct, { pct: true, sign: true })}
+                                        </td>
+                                      );
+                                    })() : <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">--</td>}
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
                           </div>
-                        );
-                      })()}
-                    </SectionCard>
-                  )}
+                        )}
+
+                        {/* FUTURE QUARTER: show consensus estimates */}
+                        {!isReported && futureEstimate && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-card/60">
+                                  <th className="text-left py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">指标</th>
+                                  <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">预期</th>
+                                  <th className="text-right py-2 px-3 text-xs uppercase tracking-wider text-muted-foreground font-medium">范围</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {futureEstimate.eps_avg != null && (
+                                  <tr className="border-t border-border/20">
+                                    <td className="py-2 px-3 text-foreground/90">EPS</td>
+                                    <td className="py-2 px-3 text-right font-data text-foreground">${fmt(futureEstimate.eps_avg)}</td>
+                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">${fmt(futureEstimate.eps_low)} - ${fmt(futureEstimate.eps_high)}</td>
+                                  </tr>
+                                )}
+                                {futureEstimate.revenue_avg != null && (
+                                  <tr className="border-t border-border/20">
+                                    <td className="py-2 px-3 text-foreground/90">营收</td>
+                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.revenue_avg, { bn: true })}</td>
+                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">{fmt(futureEstimate.revenue_low, { bn: true })} - {fmt(futureEstimate.revenue_high, { bn: true })}</td>
+                                  </tr>
+                                )}
+                                {futureEstimate.net_income_avg != null && (
+                                  <tr className="border-t border-border/20">
+                                    <td className="py-2 px-3 text-foreground/90">净利润</td>
+                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.net_income_avg, { bn: true })}</td>
+                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">--</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                              {futureEstimate.num_analysts_eps && (
+                                <tfoot>
+                                  <tr className="border-t border-border/30">
+                                    <td colSpan={3} className="py-2 px-3 text-xs text-muted-foreground">
+                                      {futureEstimate.num_analysts_eps} 位分析师覆盖 EPS{futureEstimate.num_analysts_revenue ? `, ${futureEstimate.num_analysts_revenue} 位覆盖营收` : ''}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              )}
+                            </table>
+                          </div>
+                        )}
+
+                        {dcfValue && stockPrice && (
+                          <div className="flex items-baseline justify-between mt-3 pt-3 border-t border-border/20">
+                            <span className="text-sm text-muted-foreground">DCF 估值</span>
+                            <div className="text-right">
+                              <span className="text-base font-data font-semibold text-foreground">${dcfValue.toFixed(2)}</span>
+                              <span className={`text-xs font-data ml-2 ${dcfValue > stockPrice ? 'text-emerald-400' : 'text-red-400'}`}>
+                                vs ${stockPrice.toFixed(0)} ({dcfValue > stockPrice ? '+' : ''}{((dcfValue - stockPrice) / stockPrice * 100).toFixed(1)}%)
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </SectionCard>
+                    );
+                  })()}
                 </>
               )}
 
-              {/* ============================================================ */}
-              {/* CASH FLOW VIEW                                               */}
-              {/* ============================================================ */}
-              {statementView === 'cashflow' && selectedCashflow && (
+          {/* CASH FLOW VIEW */}
+          {rightTab === 'cashflow' && selectedCashflow && (
                 <SectionCard title="现金流量表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Cash Flow'} numberLabel="01">
                   <StatementSection title="经营活动" titleEn="Operating Activities" items={[
                     { label: '净利润 Net Income', key: 'net_income', bold: true },
@@ -700,10 +855,8 @@ export function EarningsTab({
                 </SectionCard>
               )}
 
-              {/* ============================================================ */}
-              {/* BALANCE SHEET VIEW                                           */}
-              {/* ============================================================ */}
-              {statementView === 'balance' && selectedBalance && (
+          {/* BALANCE SHEET VIEW */}
+          {rightTab === 'balance' && selectedBalance && (
                 <SectionCard title="资产负债表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Balance Sheet'} numberLabel="01">
                   <StatementSection title="资产" titleEn="Assets" items={[
                     { label: '现金 Cash', key: 'cash_and_equivalents' },

@@ -1015,7 +1015,7 @@ async def generate_earnings_analysis_endpoint(
 
         # Fetch earnings data and quote snapshot in parallel
         import asyncio
-        from app.features.stock.agent import _prepare_earnings_data_for_agent, get_earnings_agent
+        from app.features.stock.agent import get_earnings_agent
 
         stock_service = get_stock_service()
 
@@ -1075,10 +1075,36 @@ async def generate_earnings_analysis_endpoint(
         except Exception as e:
             logger.warning("Could not enrich earnings context for %s: %s", symbol, e)
 
+        # Fetch transcript for the most recent quarter (if available)
+        transcript_text = None
+        try:
+            income_stmts = earnings_data.get("income_statements", [])
+            if income_stmts:
+                latest = income_stmts[0]
+                fiscal_period = latest.get("fiscal_period", "")
+                fiscal_year = latest.get("fiscal_year")
+                if fiscal_year and fiscal_period:
+                    q_num = int(fiscal_period.replace("Q", "")) if fiscal_period.startswith("Q") else None
+                    if q_num:
+                        transcript_result = await stock_service.get_transcript(
+                            symbol, fiscal_year, q_num
+                        )
+                        if transcript_result.get("available"):
+                            transcript_text = transcript_result["content"]
+                            logger.info(
+                                "Transcript available for %s %s %d (%d chars)",
+                                symbol, fiscal_period, fiscal_year,
+                                len(transcript_text),
+                            )
+        except Exception as e:
+            logger.warning("Could not fetch transcript for %s: %s", symbol, e)
+
         # Prepare data and run agent
         logger.info("Generating AI earnings analysis for %s", symbol)
         agent = get_earnings_agent()
-        result = await agent.analyze(symbol, earnings_data, quote_snapshot)
+        result = await agent.analyze(
+            symbol, earnings_data, quote_snapshot, transcript_text
+        )
 
         analysis = result.get("analysis", {})
         meta = result.get("meta", {})
@@ -1090,14 +1116,15 @@ async def generate_earnings_analysis_endpoint(
                 detail="Earnings analysis generation failed. Please try again later.",
             )
 
-        # Save to cache (24h TTL)
+        # Save to cache (7d if transcript-based, 24h if data-only)
+        cache_hours = 168 if meta.get("has_transcript") else 24
         save_result = await save_stock_analysis(
             symbol=symbol,
             analysis_type="earnings",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
-            expires_hours=24,
+            model=meta.get("model", "gemini-3.1-pro-preview"),
+            expires_hours=cache_hours,
         )
         logger.info("Earnings analysis save result: %s", save_result)
 
@@ -1147,6 +1174,47 @@ async def get_earnings_data_endpoint(symbol: str):
             status_code=500,
             detail="Failed to fetch earnings data.",
         )
+
+
+# =============================================================================
+# Earnings Transcript
+# =============================================================================
+
+
+@router.get("/{symbol}/transcript")
+async def get_transcript_endpoint(
+    symbol: str,
+    year: int = Query(..., description="Fiscal year"),
+    quarter: int = Query(..., ge=1, le=4, description="Fiscal quarter (1-4)"),
+):
+    """
+    Get earnings call transcript for a specific quarter.
+
+    Returns the full text of the earnings call (prepared remarks + analyst Q&A).
+    """
+    symbol = symbol.upper()
+
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        stock_service = get_stock_service()
+        data = await stock_service.get_transcript(symbol, year, quarter)
+
+        return {
+            "success": True,
+            **data,
+        }
+
+    except Exception:
+        logger.exception(
+            "Failed to get transcript for %s Y%d Q%d", symbol, year, quarter
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch transcript.",
+        )
+
 
 
 # =============================================================================

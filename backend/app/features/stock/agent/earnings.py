@@ -1,11 +1,14 @@
 """
 Earnings Analysis Agent - Quarterly earnings deep-dive for individual stocks.
 
-Generates structured analysis covering earnings overview, revenue breakdown,
-growth trends, and earnings verdict with smart mode switching based on data context.
+Two analysis modes:
+- Mode A (Transcript): Deep analysis using earnings call transcript as primary source,
+  with structured financial data for verification.
+- Mode B (Data-only): Pure structured data analysis when no transcript is available.
 """
 
 import json
+import re
 from typing import Any, Dict, Optional
 
 from google.adk.agents import LlmAgent
@@ -22,10 +25,10 @@ logger = get_logger(__name__)
 EARNINGS_ANALYSIS_FIELDS = (
     "title",
     "earnings_overview",
-    "revenue_breakdown",
-    "profitability_cashflow",
-    "balance_sheet_capital",
-    "growth_trends",
+    "guidance_outlook",
+    "key_drivers",
+    "revenue_and_segments",
+    "financial_quality",
     "earnings_verdict",
 )
 
@@ -45,43 +48,48 @@ class EarningsAnalysisOutput(BaseModel):
     earnings_overview: str = Field(
         description="Headline story: beat/miss verdict + 2-3 most telling metrics. "
         "600-900 chars Markdown. Lead with judgment, then support with data. "
-        "Every number must answer 'so what' with investment implication."
+        "Cover: EPS actual vs estimate, Revenue actual vs estimate, "
+        "the one hidden metric that reveals the real story."
     )
-    revenue_breakdown: str = Field(
-        description="Revenue structure analysis: product line winners/losers, geographic trends, "
-        "revenue mix shift toward higher or lower margin segments, concentration risk. "
-        "500-700 chars Markdown. Compare segment growth rates to prior quarter."
+    guidance_outlook: str = Field(
+        description="Management's forward guidance for next quarter/full year. "
+        "MUST include specific numbers if management provided them "
+        "(revenue range, gross margin target, opex guidance, etc). "
+        "Compare: guidance vs prior quarter's guidance (raised/lowered/maintained), "
+        "guidance vs Wall Street consensus (above/below/in-line). "
+        "If management did NOT provide guidance, state that explicitly "
+        "and explain what the absence of guidance might signal. "
+        "Return empty string if no transcript available AND no guidance data in financials. "
+        "500-800 chars Markdown."
     )
-    profitability_cashflow: str = Field(
-        description="Profitability analysis from income statement + cash flow quality from cash flow statement. "
-        "600-800 chars Markdown. "
-        "FROM INCOME STATEMENT: gross/operating/net margin QoQ trajectory, cost structure changes "
-        "(R&D/SGA growth vs revenue growth), operating leverage, tax rate changes. "
-        "FROM CASH FLOW: OCF vs net income ratio (>1.0 = quality earnings), SBC as % of net income, "
-        "FCF vs net income, CapEx intensity (CapEx/Revenue). "
-        "Flag: margin compression, SBC dilution, cash conversion deterioration."
+    key_drivers: str = Field(
+        description="WHY did results beat or miss expectations? "
+        "Identify the 2-3 most important factors that drove the beat/miss. "
+        "In transcript mode: extract from management's explanation + analyst Q&A. "
+        "In data-only mode: infer from segment growth, margin changes, one-time items. "
+        "Each driver should be specific: not 'strong demand' but "
+        "'iPhone 17 drove 23% unit growth in China, reversing 3 quarters of decline'. "
+        "500-800 chars Markdown."
     )
-    balance_sheet_capital: str = Field(
-        description="Balance sheet health + capital allocation analysis from balance sheet and cash flow. "
-        "500-700 chars Markdown. "
-        "FROM BALANCE SHEET: cash position (cash + short-term investments), net debt, leverage ratio. "
-        "FROM CASH FLOW: capital allocation priorities -- how is the company spending its cash? "
-        "CapEx (growth investment) vs buybacks (shareholder return) vs dividends vs debt repayment. "
-        "Flag: rising debt, declining cash reserves, excessive SBC dilution."
+    revenue_and_segments: str = Field(
+        description="Revenue structure + segment analysis. "
+        "In transcript mode, cross-reference management commentary with actual numbers. "
+        "In data-only mode, analyze segment growth and mix shift. "
+        "500-700 chars Markdown."
     )
-    growth_trends: str = Field(
-        description="Multi-quarter growth trajectory: accelerating, stable, or decelerating? "
-        "400-600 chars Markdown. Compare last 4-6 quarters of revenue/EPS/margin growth. "
-        "Identify inflection points where trajectory changed direction. "
-        "Distinguish between sequential momentum (QoQ) and year-over-year comparisons."
+    financial_quality: str = Field(
+        description="Profitability trajectory + cash flow quality + balance sheet health. "
+        "Merged view of income statement, cash flow, and balance sheet. "
+        "Key checks: margin waterfall, OCF/NI ratio, SBC dilution, CapEx intensity, "
+        "cash position, leverage, capital allocation priorities. "
+        "600-800 chars Markdown."
     )
     earnings_verdict: str = Field(
-        description="Final verdict using the Earnings Quality Scorecard. "
-        "500-700 chars Markdown. "
-        "State the quality grade (Strong/Mixed/Weak) with justification across all 3 statements. "
-        "Name THE ONE THING that matters most from this report. "
-        "List 2-3 specific metrics to watch next quarter (not generic). "
-        "One-sentence risk flag based on the weakest area (income/cashflow/balance sheet)."
+        description="Earnings quality grade (Strong/Mixed/Weak) + justification. "
+        "THE one thing that matters most from this report. "
+        "2-3 specific next-quarter watchlist items. "
+        "One-sentence risk flag. "
+        "500-700 chars Markdown."
     )
 
 
@@ -97,154 +105,170 @@ You are a senior equity research analyst writing a quarterly earnings deep-dive 
 5. **Use Markdown formatting**: **bold** key numbers and conclusions, bullet points for lists.
 6. **Do NOT give buy/sell/hold ratings.** Present analysis, let the investor decide.
 
+## Two Analysis Modes
+
+### Mode A: Transcript Available (has_transcript = true)
+
+The transcript is your PRIMARY source. Structured financial data is for verification.
+
+Your job: Extract what numbers alone cannot tell you.
+- **Forward guidance with specific numbers** -- revenue range, gross margin target, opex guidance
+- **WHY results beat/miss** -- management's own explanation + analyst pushback
+- **Cross-reference** -- did management's claims match the actual numbers?
+- **Tone shifts** -- any language changes from prior quarter ("confident" -> "cautious"?)
+- **guidance_outlook** and **key_drivers** must have content in this mode
+
+### Mode B: Data Only (has_transcript = false)
+
+Use structured financial data as sole source.
+- **guidance_outlook**: return empty string ("") unless guidance data is available in financials
+- **key_drivers**: infer from segment data, margin changes, one-time items
+- Apply sub-mode switching:
+  - **Latest Review**: if earnings_history has epsActual filled for most recent quarter
+  - **Preview**: if next earnings is within 30 days
+  - **Historical Review**: default fallback
+
+## Handling Variable Transcript Quality
+
+Different earnings calls have different structures. ADAPT your analysis:
+
+1. **No guidance section?** Do not fabricate guidance. State explicitly that management did not provide forward guidance and explain what the absence might signal.
+2. **Guidance given?** This is the MOST important section. Extract every specific number: revenue range, gross margin guidance, opex guidance, CapEx plans, segment-level outlook. Then compare vs prior quarter's guidance and vs Wall Street consensus.
+3. **Short Q&A?** Compress key_drivers insights from Q&A into the driver analysis.
+4. **Defensive/evasive tone?** This IS the insight. Flag what management was dancing around.
+
 ## Earnings Quality Scorecard
 
 Use this framework to judge earnings quality (do NOT output the scorecard itself, use it to inform your verdict):
 - EPS beat estimate? (+1 if beat by >2%, -1 if miss)
 - Revenue beat estimate? (+1 if beat, -1 if miss)
 - Gross margin expanding QoQ? (+1 if yes)
-- Management guidance raised? (+1 if raised, -1 if lowered)
+- Management guidance raised? (+1 if raised, -1 if lowered) -- from transcript if available
 - Revenue growth accelerating vs prior quarter? (+1 if faster)
 - FCF positive and growing? (+1 if yes)
 
-Score 4-6 = strong earnings. Score 2-3 = mixed. Score 0-1 = weak. Negative = concerning.
+Score 4-6 = strong. Score 2-3 = mixed. Score 0-1 = weak. Negative = concerning.
 
 ## Mandatory Comparisons
 
 For EVERY metric you discuss:
 1. **vs Estimate**: How does actual compare to Wall Street consensus?
-2. **vs Last Quarter (QoQ)**: Is this metric improving or deteriorating sequentially?
+2. **vs Last Quarter (QoQ)**: Is this metric improving or deteriorating?
 3. **vs Industry**: If industry data is provided, compare to sector averages.
 
-Do NOT just state numbers in isolation. A number without context is meaningless.
-Bad: "EPS $1.65" Good: "EPS $1.65, beat consensus $1.62 by 1.9%, but QoQ declined from $2.84 (seasonal pattern)"
-
-## Smart Mode Switching
-
-Analyze data context and switch mode automatically:
-
-**Mode 1: Latest Earnings Review** (when earnings_history has epsActual filled for the most recent quarter)
-- Lead with the headline: beat or miss, by how much, and what it means
-- Deep-dive into the 2-3 most surprising data points (positive or negative)
-- Compare key metrics QoQ (vs last quarter) to identify trajectory changes
-- Analyze management guidance tone and whether expectations are being set higher or lower
-
-**Mode 2: Earnings Preview** (when next earnings is within 30 days, data shows upcoming date)
-- Lead with what Wall Street expects and whether the bar is set high or low
-- Analyze the company's historical beat/miss pattern (consistency, magnitude)
-- Identify the 2-3 key swing factors that will determine beat vs miss
-- Flag any macro or sector headwinds/tailwinds specific to this quarter
-
-**Mode 3: Historical Review** (default fallback)
-- Focus on multi-quarter trajectory: is the business fundamentally improving or deteriorating?
-- Identify the single most important trend across the last 4-8 quarters
-- Flag any inflection points where the trajectory changed direction
+Bad: "EPS $1.65" Good: "EPS $1.65, beat consensus $1.62 by 1.9%, but QoQ declined from $2.84 (seasonal)"
 
 ## Output Field Guidelines
 
 ### title
-One opinionated sentence, 15-40 Chinese characters. Must convey a clear stance AND the key data point.
-Good examples:
-- "AAPL Q1: 服务收入同比+24%创新高, 但 iPhone 中国市场增速转负"
-- "TSLA Q4: 交付量超预期但汽车毛利率跌至 17.6% 创两年新低"
-- "MSFT 财报前瞻: 市场押注 Azure 增速重回 30%, 分析师预期 EPS $3.22"
+One opinionated sentence, 15-40 Chinese characters. Must convey a clear stance AND a specific data point.
 
-Bad examples (too vague):
-- "AAPL 财报表现不错" -- no data, no stance
-- "TSLA Q4 值得关注" -- says nothing
+### earnings_overview (600-900 chars, Markdown)
+The headline story:
+- **Lead with verdict**: Strong/Mixed/Weak beat or miss
+- **EPS**: actual vs estimate, beat/miss %, compare to last quarter's surprise
+- **Revenue**: actual vs estimate, growth rate accelerating or decelerating
+- **The hidden metric**: 1-2 numbers beyond EPS/Revenue that reveal the real health
 
-### earnings_overview (500-800 chars, Markdown)
-The headline story of this earnings report:
+### guidance_outlook (500-800 chars, Markdown)
+Management's forward guidance -- this is what moves the stock price:
+- **Specific numbers**: next quarter revenue range, gross margin target, opex guidance, CapEx plans
+- **vs Prior guidance**: did management raise, lower, or maintain vs what they guided last quarter?
+- **vs Consensus**: is guidance above, below, or in-line with Wall Street expectations?
+- **Segment-level outlook**: any specific product/geography guidance?
+- If no guidance was provided, state that explicitly and analyze what the absence might signal
+- In Mode B (no transcript), return empty string unless guidance data is in the financials
 
-- **Lead with the verdict**: One sentence on whether this is a strong, mixed, or weak report
-- **EPS**: Actual $X vs estimate $Y, beat/miss by Z%. Compare to last quarter's surprise rate
-- **Revenue**: Actual $X vs estimate $Y. Is revenue growth accelerating or decelerating vs last quarter?
-- **The hidden story**: What 1-2 metrics beyond EPS/Revenue reveal the real health? (e.g., gross margin compression, deferred revenue growth, customer count changes)
-- **Guidance**: Did management raise, maintain, or lower guidance? What does the guidance delta imply about their confidence?
+### key_drivers (500-800 chars, Markdown)
+WHY did results beat or miss? The root cause analysis:
+- **2-3 specific drivers**: not "strong demand" but "iPhone 17 drove 23% unit growth in China"
+- **From transcript**: management's explanation + what analysts challenged in Q&A
+- **From data**: which segments over/underperformed, what margin shifts occurred, any one-time items
+- **Surprise factors**: what was unexpected vs consensus expectations
 
-### revenue_breakdown (500-700 chars, Markdown)
-Where the money comes from and where it's going:
+### revenue_and_segments (500-700 chars, Markdown)
+Revenue structure analysis:
+- Winner/loser segments with specific growth rates
+- Revenue mix shift (toward higher or lower margin segments?)
+- Geographic trends and concentration risk
+- In transcript mode, cross-reference management commentary with actual segment numbers
 
-- **Winner segments**: Which product lines or regions grew fastest? By how much?
-- **Loser segments**: Which declined or decelerated? Why does it matter?
-- **Mix shift**: Is the revenue mix shifting toward higher or lower margin segments? (e.g., services growing faster than hardware = positive mix shift)
-- **Concentration risk**: Is the company becoming more dependent on one segment or region?
-- Compare segment growth rates to prior quarter to identify acceleration/deceleration
-
-### profitability_cashflow (600-800 chars, Markdown)
-Are the profits real, and is cash backing them up?
-
-**Use the INCOME STATEMENT data (income_statements field):**
-- **Cost structure**: How fast are costs growing vs revenue? Look at cost_of_revenue, R&D, S&M, G&A individually. Which cost line is growing fastest? Is it justified?
-- **Margin waterfall**: Revenue -> Gross Margin -> Operating Margin -> Net Margin. Walk through each step. Where is margin leaking?
-- **Operating leverage**: Is operating_income growing faster than revenue? If yes, the business scales. If not, explain which cost line is the culprit.
-- **Tax rate**: Compare income_tax_expense / income_before_tax. Is the effective tax rate stable or changing? Big changes affect EPS directly.
-
-**Use the CASH FLOW STATEMENT data (cashflow_statements field):**
-- **OCF/NI ratio**: operating_cash_flow / net_income. >1.0 = quality earnings. <0.8 = red flag.
-- **SBC check**: stock_based_compensation / net_income. >30% = heavy dilution concern.
-- **FCF vs Net Income**: free_cash_flow / net_income. If FCF << Net Income, profits are being eaten by CapEx.
-- **CapEx intensity**: |capital_expenditure| / revenue. Is the company investing heavily for growth?
-
-### balance_sheet_capital (500-700 chars, Markdown)
-Is the balance sheet getting stronger or weaker? How is management allocating capital?
-
-**Use the BALANCE SHEET data (balance_sheet field):**
-- **Cash position**: cash_and_equivalents + short_term_investments = total liquidity. Is it growing or shrinking?
-- **Leverage**: total_debt and net_debt. Is debt rising? What's the net_debt / EBITDA ratio (use ebitda from income statement)?
-- **Asset quality**: What % of total_assets is goodwill + intangibles vs tangible assets (property_plant_equipment)?
-
-**Use the CASH FLOW for capital allocation priorities:**
-- **CapEx** (growth investment): How much is the company reinvesting?
-- **Buybacks** (stock_repurchase): Is the company returning cash to shareholders?
-- **Dividends** (dividends_paid): Stable or growing?
-- **Debt** (net_debt_issuance): Is the company borrowing more or paying down?
-- **Priority ranking**: Which of these 4 categories gets the most cash? What does that tell you about management's priorities?
-
-### growth_trends (400-600 chars, Markdown)
-The trajectory tells more than the snapshot:
-
-- **Revenue growth trajectory**: Look at the last 4-6 quarters in financial_growth. Accelerating, stable, or decelerating? Identify the inflection point if trajectory changed.
-- **EPS growth vs Revenue growth**: Operating leverage = EPS growing faster. Margin compression = EPS growing slower.
-- **QoQ momentum**: Sequential growth (QoQ) reveals near-term momentum better than YoY. Call out any QoQ reversals.
-- **The key question**: Is this company's growth engine getting stronger or weaker? Support with specific quarter-by-quarter comparisons.
+### financial_quality (600-800 chars, Markdown)
+Quality check across all three financial statements:
+- **Income**: margin waterfall, operating leverage, cost structure
+- **Cash flow**: OCF/NI ratio, SBC check, FCF quality, CapEx intensity
+- **Balance sheet**: cash position, leverage, capital allocation priorities
 
 ### earnings_verdict (500-700 chars, Markdown)
-Your bottom line, synthesizing ALL THREE financial statements:
-
-- **Earnings quality grade**: Strong / Mixed / Weak. Justify by checking:
-  1. Income statement: EPS beat + revenue beat + margin expanding?
-  2. Cash flow: OCF > NI? FCF positive and growing? SBC reasonable?
-  3. Balance sheet: Cash growing? Debt manageable? Capital allocation smart?
-- **The one thing that matters most**: If you could only tell the investor ONE thing from this report, what is it? Be specific.
-- **Next quarter watchlist**: 2-3 specific metrics to track across all 3 statements. Example: "watch CapEx/Revenue ratio -- if it exceeds 35% for a third consecutive quarter while FCF margin keeps declining, the infrastructure bet is consuming too much cash."
-- **Risk flag**: One concrete risk from the weakest of the 3 financial statements, with a specific trigger condition.
+Quality grade (Strong/Mixed/Weak) justified across all 3 statements. THE one thing that matters most. 2-3 specific next-quarter watchlist items. One risk flag.
 """
 
 earnings_analysis_agent = LlmAgent(
     name="earnings_analyst",
     model="gemini-3.1-pro-preview",
-    description="Analyzes quarterly earnings data, revenue breakdown, and growth trends for individual stocks in Chinese",
+    description="Analyzes quarterly earnings using transcript and financial data for individual stocks in Chinese",
     instruction=EARNINGS_ANALYST_INSTRUCTION,
     output_schema=EarningsAnalysisOutput,
     output_key="earnings_analysis",
 )
 
 
+# ---------------------------------------------------------------------------
+# Transcript preprocessing
+# ---------------------------------------------------------------------------
+
+_OPERATOR_PATTERNS = [
+    r"^Operator:.*$",
+    r"^(?:Ladies and gentlemen|Thank you for standing by|This concludes).*$",
+    r"^(?:Our next question|The next question|We'll take our next).*$",
+    r"^(?:Please stand by|One moment|Please go ahead).*$",
+    r"^(?:And that does conclude|Once again, this does conclude).*$",
+]
+_OPERATOR_RE = re.compile(
+    "|".join(_OPERATOR_PATTERNS), re.IGNORECASE | re.MULTILINE
+)
+
+
+def preprocess_transcript(raw_text: str, max_chars: int = 60000) -> str:
+    """Clean transcript text for LLM consumption.
+
+    1. Remove operator procedural lines (~10-15% token savings).
+    2. Preserve speaker attribution.
+    3. If over budget, truncate Q&A from the end.
+    """
+    if not raw_text:
+        return ""
+
+    # Remove operator boilerplate
+    cleaned = _OPERATOR_RE.sub("", raw_text)
+    # Collapse multiple blank lines
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+    if len(cleaned) <= max_chars:
+        return cleaned
+
+    # Over budget: keep as much as possible, cut from the end
+    return cleaned[:max_chars].rsplit("\n", 1)[0] + "\n\n[Transcript truncated]"
+
+
+# ---------------------------------------------------------------------------
+# Data preparation
+# ---------------------------------------------------------------------------
+
 def _prepare_earnings_data_for_agent(
     earnings_data: Dict[str, Any],
     quote_snapshot: Dict[str, Any],
+    transcript: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Clean and reduce earnings data for optimal token usage.
-
-    Takes the aggregated earnings data (earnings history, financial growth,
-    revenue segmentation, analyst estimates, recent financials) and trims
-    to essential fields for the agent prompt.
-    """
+    """Clean and reduce earnings data for optimal token usage."""
     result: Dict[str, Any] = {
         "symbol": earnings_data.get("symbol", ""),
         "quote_snapshot": quote_snapshot,
+        "has_transcript": bool(transcript),
     }
+
+    if transcript:
+        result["transcript"] = preprocess_transcript(transcript)
 
     # Earnings history (surprise data) - last 8 quarters
     earnings_history = earnings_data.get("earnings_history", [])
@@ -257,7 +281,6 @@ def _prepare_earnings_data_for_agent(
                 "eps_estimate": item.get("eps_estimate"),
                 "surprise_percent": item.get("surprise_percent"),
             }
-            # Only include entries with at least some data
             if entry.get("eps_actual") is not None or entry.get("eps_estimate") is not None:
                 clean_history.append(entry)
         if clean_history:
@@ -324,7 +347,7 @@ def _prepare_earnings_data_for_agent(
                 val = item.get(key)
                 if val is not None:
                     entry[key] = val
-            if len(entry) > 1:  # more than just date/period
+            if len(entry) > 1:
                 clean_growth.append(entry)
         if clean_growth:
             result["financial_growth"] = clean_growth
@@ -343,7 +366,7 @@ def _prepare_earnings_data_for_agent(
     if stock_price is not None:
         result["stock_price"] = stock_price
 
-    # Full income statements - latest 2 quarters (for QoQ comparison)
+    # Full income statements - latest 2 quarters
     income_stmts = earnings_data.get("income_statements", [])
     if income_stmts:
         clean_is = []
@@ -367,7 +390,7 @@ def _prepare_earnings_data_for_agent(
         if clean_cf:
             result["cashflow_statements"] = clean_cf
 
-    # Full balance sheet - latest quarter only (large, 1 is enough)
+    # Full balance sheet - latest quarter only
     balance = earnings_data.get("balance_sheets", [])
     if balance:
         bs = balance[0]
@@ -390,6 +413,10 @@ def _prepare_earnings_data_for_agent(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Agent class
+# ---------------------------------------------------------------------------
+
 class EarningsAgent:
     """Runs the earnings analysis agent and returns structured analysis."""
 
@@ -403,13 +430,18 @@ class EarningsAgent:
         symbol: str,
         earnings_data: Dict[str, Any],
         quote_snapshot: Dict[str, Any],
+        transcript: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Generate AI earnings analysis. Returns dict with analysis and metadata."""
         try:
-            logger.info("Starting earnings analysis for %s", symbol)
+            has_transcript = bool(transcript and len(transcript) > 100)
+            logger.info(
+                "Starting earnings analysis for %s (transcript=%s)",
+                symbol, has_transcript,
+            )
 
             data_for_agent = _prepare_earnings_data_for_agent(
-                earnings_data, quote_snapshot
+                earnings_data, quote_snapshot, transcript
             )
 
             prompt = (
@@ -437,7 +469,8 @@ class EarningsAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-pro-preview",
+                    "has_transcript": has_transcript,
                     "generated_at": now_iso(),
                 },
             }
@@ -449,7 +482,7 @@ class EarningsAgent:
                 "analysis": _empty_earnings_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-pro-preview",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

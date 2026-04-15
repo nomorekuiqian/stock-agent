@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { TechnicalSignalDashboard } from '@/components/technical/TechnicalSignalDashboard';
-import { AnalysisSection } from './shared';
+import { AnalysisSection, AIPaywall } from './shared';
 import { SectionCard } from './StockDetailContent';
 
 const TechnicalChart = dynamic(
@@ -34,6 +34,7 @@ interface TechnicalTabProps {
   // Signal Dashboard
   technicalSnapshot: any;
   snapshotLoading: boolean;
+  hasAIAccess?: boolean;
 }
 
 // =============================================================================
@@ -51,6 +52,7 @@ export function TechnicalTab({
   onRegenerate,
   technicalSnapshot,
   snapshotLoading,
+  hasAIAccess = true,
 }: TechnicalTabProps) {
 
   return (
@@ -62,7 +64,9 @@ export function TechnicalTab({
       {/* ============================================================ */}
       <div className="order-2 lg:order-1 lg:sticky lg:top-4">
         <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
-          {!technicalAnalysis && !technicalLoading ? (
+          {!hasAIAccess ? (
+            <AIPaywall symbol={symbol} label="AI 技术分析" />
+          ) : !technicalAnalysis && !technicalLoading ? (
             <div className="p-6 text-center">
               <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-emerald-500/50 mb-3">
                 <div className="w-4 h-px bg-emerald-500/25" />
