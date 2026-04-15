@@ -225,25 +225,33 @@ async def get_stock_price_history(
             return cached
 
         import asyncio
-
-        def _fetch_history():
-            import yfinance as yf
-            df = yf.download(upper_symbol, start=start_date, end=end_date, progress=False)
-            result = []
-            if df is not None and not df.empty:
-                for date_idx, row in df.iterrows():
-                    result.append({
-                        "date": str(date_idx.date()),
-                        "open": float(row.iloc[0] if hasattr(row.get("Open", 0), 'iloc') else row.get("Open", 0)),
-                        "high": float(row.iloc[0] if hasattr(row.get("High", 0), 'iloc') else row.get("High", 0)),
-                        "low": float(row.iloc[0] if hasattr(row.get("Low", 0), 'iloc') else row.get("Low", 0)),
-                        "close": float(row.iloc[0] if hasattr(row.get("Close", 0), 'iloc') else row.get("Close", 0)),
-                        "volume": int(row.iloc[0] if hasattr(row.get("Volume", 0), 'iloc') else row.get("Volume", 0)),
-                    })
-            return result
+        from app.shared.fmp_service import get_fmp_service
 
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        def _fetch_history():
+            fmp = get_fmp_service()
+            data = fmp._request(
+                "/stable/historical-price-eod/full",
+                {"symbol": upper_symbol, "from": start_date, "to": end_date},
+            )
+            if not data or not isinstance(data, list):
+                return []
+            # FMP returns newest-first; reverse to chronological order
+            items = sorted(data, key=lambda x: x.get("date", ""))
+            return [
+                {
+                    "date": item["date"],
+                    "open": float(item.get("open", 0)),
+                    "high": float(item.get("high", 0)),
+                    "low": float(item.get("low", 0)),
+                    "close": float(item.get("close", 0)),
+                    "volume": int(item.get("volume", 0)),
+                }
+                for item in items
+                if "date" in item
+            ]
 
         history = await asyncio.to_thread(_fetch_history)
 

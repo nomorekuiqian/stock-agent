@@ -71,7 +71,7 @@ def get_realtime_quote(symbol: str) -> dict:
         "low": sf(item.get("dayLow")),
         "close": sf(item.get("previousClose")),
         "change": sf(item.get("change")),
-        "change_percent": sf(item.get("changesPercentage")),
+        "change_percent": sf(item.get("changePercentage")),
         "market_cap": sf(item.get("marketCap")),
         "volume": sf(item.get("volume")),
         "avg_volume": sf(item.get("avgVolume")),

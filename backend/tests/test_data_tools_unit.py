@@ -407,7 +407,7 @@ class TestRealtimeQuoteCache:
             {
                 "price": 150,
                 "change": 1.5,
-                "changesPercentage": 1.0,
+                "changePercentage": 1.0,
                 "dayHigh": 152,
                 "dayLow": 149,
                 "previousClose": 148.5,
@@ -442,7 +442,7 @@ class TestRealtimeQuoteCache:
             {
                 "price": 100,
                 "change": 1.0,
-                "changesPercentage": 1.0,
+                "changePercentage": 1.0,
                 "dayHigh": 101,
                 "dayLow": 99,
                 "previousClose": 99,
@@ -498,7 +498,7 @@ class TestRealtimeQuoteCache:
             {
                 "price": 195.5,
                 "change": 2.0,
-                "changesPercentage": 1.03,
+                "changePercentage": 1.03,
                 "dayHigh": 196.2,
                 "dayLow": 194.1,
                 "previousClose": 193.5,
@@ -543,7 +543,7 @@ class TestRealtimeQuoteCache:
             {
                 "price": 150,
                 "change": 1.0,
-                "changesPercentage": 0.67,
+                "changePercentage": 0.67,
                 "dayHigh": 151,
                 "dayLow": 149,
                 "previousClose": 149,

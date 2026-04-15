@@ -1196,7 +1196,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                       ${quote.price.toFixed(2)}
                     </span>
                     <span className={`text-sm font-data font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {isPositive ? '+' : ''}{(priceChange * 100).toFixed(2)}%
+                      {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
                     </span>
                   </div>
                 )}
