@@ -1,7 +1,6 @@
-import { request } from '../../services/api';
 import { isLoggedIn, logout } from '../../services/auth';
 import { getAccountState, getEmail, setEmail, clearAll } from '../../utils/storage';
-import { buildWebViewUrl } from '../../services/api';
+import { request, buildWebViewUrl } from '../../services/api';
 import type { AccountState } from '../../utils/storage';
 
 Page({
