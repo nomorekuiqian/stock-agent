@@ -557,3 +557,99 @@ class TestRegisterRouter:
         )
         assert resp.status_code == 400
         assert "过期" in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# TestSendOtp
+# ---------------------------------------------------------------------------
+
+class TestSendOtp:
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email", new_callable=AsyncMock)
+    @patch("app.features.wechat.service._send_otp_code_email", new_callable=AsyncMock)
+    @patch("app.shared.otp_utils.generate_numeric_otp")
+    async def test_send_otp_new_user(self, mock_gen, mock_email, mock_lookup):
+        from app.features.wechat.service import send_otp
+        mock_lookup.return_value = None
+        mock_gen.return_value = "123456"
+        result = await send_otp(openid="o_new", email="new@test.com")
+        assert result["success"] is True
+        assert result["action"] == "create_new"
+        mock_gen.assert_called_once_with(email="new@test.com", action="create_new", openid="o_new")
+        mock_email.assert_called_once_with(email="new@test.com", code="123456")
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email", new_callable=AsyncMock)
+    @patch("app.features.wechat.service._send_otp_code_email", new_callable=AsyncMock)
+    @patch("app.shared.otp_utils.generate_numeric_otp")
+    async def test_send_otp_existing_user(self, mock_gen, mock_email, mock_lookup):
+        from app.features.wechat.service import send_otp
+        mock_lookup.return_value = "insforge-uid-999"
+        mock_gen.return_value = "654321"
+        result = await send_otp(openid="o_existing", email="existing@test.com")
+        assert result["success"] is True
+        assert result["action"] == "bind_existing"
+        mock_gen.assert_called_once_with(email="existing@test.com", action="bind_existing", openid="o_existing")
+
+
+# ---------------------------------------------------------------------------
+# TestVerifyOtp
+# ---------------------------------------------------------------------------
+
+class TestVerifyOtp:
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service.db")
+    @patch("app.shared.otp_utils.verify_numeric_otp")
+    async def test_verify_create_new(self, mock_verify, mock_db):
+        import os; os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.service import verify_otp
+        from app.features.wechat.jwt_utils import decode_wechat_jwt
+
+        mock_verify.return_value = {
+            "valid": True, "email": "new@test.com", "openid": "o_new", "action": "create_new"
+        }
+        mock_db.update_email_verified = AsyncMock(return_value={"success": True})
+        mock_db.get_by_openid = AsyncMock(return_value={
+            "success": True, "data": {"id": "row-uuid-001", "email": "new@test.com"}
+        })
+
+        result = await verify_otp(email="new@test.com", code="123456")
+        assert result["success"] is True
+        assert result["account_state"] == "email_only"
+        payload = decode_wechat_jwt(result["token"])
+        assert payload["typ"] == "wechat_email_only"
+        assert payload["sub"] == "row-uuid-001"
+        assert payload["openid"] == "o_new"
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.service.db")
+    @patch("app.features.wechat.service._lookup_insforge_user_by_email", new_callable=AsyncMock)
+    @patch("app.shared.otp_utils.verify_numeric_otp")
+    async def test_verify_bind_existing(self, mock_verify, mock_lookup, mock_db):
+        import os; os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.service import verify_otp
+        from app.features.wechat.jwt_utils import decode_wechat_jwt
+
+        mock_verify.return_value = {
+            "valid": True, "email": "ex@test.com", "openid": "o_ex", "action": "bind_existing"
+        }
+        mock_lookup.return_value = "insforge-uid-555"
+        mock_db.bind_insforge_user = AsyncMock(return_value={"success": True})
+
+        result = await verify_otp(email="ex@test.com", code="654321")
+        assert result["success"] is True
+        assert result["account_state"] == "bound"
+        payload = decode_wechat_jwt(result["token"])
+        assert payload["typ"] == "wechat_bound"
+        assert payload["sub"] == "insforge-uid-555"
+
+    @pytest.mark.asyncio
+    @patch("app.shared.otp_utils.verify_numeric_otp")
+    async def test_verify_invalid_code(self, mock_verify):
+        from app.features.wechat.service import verify_otp
+        mock_verify.return_value = {"valid": False, "reason": "invalid_code"}
+        result = await verify_otp(email="x@test.com", code="000000")
+        assert result["success"] is False
+        assert "错误" in result["error"]
