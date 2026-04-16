@@ -11,16 +11,13 @@ import StockCard from '@/components/StockCard';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { useStockSearch } from '@/hooks/useStockSearch';
 import { useStockQuotes } from '@/hooks/queries/use-stock-data';
+import { addRecentStock, getRecentStocks, type RecentStock } from '@/lib/recent-stocks';
 
 // =============================================================================
 // Types & Data
 // =============================================================================
 
-interface RecentStock {
-  symbol: string;
-  name: string;
-  viewedAt: number;
-}
+// RecentStock type imported from @/lib/recent-stocks
 
 interface StockTrack {
   id: string;
@@ -84,28 +81,7 @@ const allTrackSymbols = Array.from(
 // Local Storage Utils
 // =============================================================================
 
-const RECENT_STOCKS_KEY = 'marketbrew_recent_stocks';
-
-function getRecentStocks(): RecentStock[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(RECENT_STOCKS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function addRecentStock(symbol: string, name: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const recent = getRecentStocks().filter(s => s.symbol !== symbol);
-    recent.unshift({ symbol, name, viewedAt: Date.now() });
-    localStorage.setItem(RECENT_STOCKS_KEY, JSON.stringify(recent.slice(0, 6)));
-  } catch {
-    // Ignore errors
-  }
-}
+// addRecentStock and getRecentStocks imported from @/lib/recent-stocks
 
 // =============================================================================
 // Main Page

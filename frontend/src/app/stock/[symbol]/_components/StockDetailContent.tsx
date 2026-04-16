@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -10,6 +10,7 @@ import { type Timeframe } from '@/components/technical/TechnicalSignalDashboard'
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AiChatLink } from '@/components/AiChatLink';
+import { addRecentStock } from '@/lib/recent-stocks';
 
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
 import {
@@ -1127,6 +1128,14 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const quote = data?.quote;
   const fundamentals = data?.fundamentals;
   const financials = data?.financials;
+
+  // Record stock visit for "recently viewed" list
+  useEffect(() => {
+    const name = profile?.company_name;
+    if (name) {
+      addRecentStock(symbol, name);
+    }
+  }, [symbol, profile?.company_name]);
 
   const priceChange = quote?.change_percent ?? 0;
   const isPositive = priceChange >= 0;
