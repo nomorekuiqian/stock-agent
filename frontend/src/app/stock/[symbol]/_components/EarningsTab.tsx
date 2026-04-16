@@ -321,9 +321,9 @@ export function EarningsTab({
       if (!ymMap.has(ym)) {
         const fy = s.fiscal_year as number | null;
         const fp = s.fiscal_period as string | null;
-        // Use fiscal year label if available, otherwise fall back to date
+        const isPending = !!(s as Record<string, unknown>).is_pending;
         const label = fy && fp
-          ? `FY${String(fy).slice(-2)} ${fp}`
+          ? `FY${String(fy).slice(-2)} ${fp}${isPending ? ' (速报)' : ''}`
           : d.slice(0, 7);
         ymMap.set(ym, { date: d, label });
       }
@@ -399,8 +399,6 @@ export function EarningsTab({
     return findByDate(financialGrowth as Array<GrowthData & { date: string }>, activeQuarter) || undefined;
   }, [financialGrowth, activeQuarter]);
 
-  const hasData = earningsHistory.length > 0 || revenueSegments.length > 0 || financialGrowth.length > 0;
-
   // Transcript: fetch based on selected quarter's fiscal year/period
   const selectedIS = useMemo(() => {
     if (!activeQuarter || !incomeStatements.length) return undefined;
@@ -418,6 +416,9 @@ export function EarningsTab({
     symbol, tFiscalYear, tQuarter
   );
   const transcript = transcriptData?.available ? transcriptData.content : null;
+
+  const isPendingQuarter = !!selectedIS?.is_pending;
+  const hasData = earningsHistory.length > 0 || revenueSegments.length > 0 || financialGrowth.length > 0 || isPendingQuarter;
 
   // Right panel tab
   type RightTab = 'transcript' | 'income' | 'cashflow' | 'balance';
@@ -586,17 +587,43 @@ export function EarningsTab({
                 <>
                   {/* 本季表现 */}
                   <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Performance'} numberLabel="01">
-                    <div className="grid grid-cols-2 gap-3">
-                      <MetricBox label="EPS" value={selectedEps?.eps_actual != null ? `$${fmt(selectedEps.eps_actual)}` : '--'}
-                        sub={selectedEps?.surprise_percent != null ? `${selectedEps.surprise_percent >= 0 ? 'Beat' : 'Miss'} ${fmt(selectedEps.surprise_percent, { pct: true, sign: true })}` : undefined}
-                        positive={selectedEps?.surprise_percent != null ? selectedEps.surprise_percent >= 0 : undefined} />
-                      <MetricBox label="营收 YoY" value={fmt(selectedGrowth?.revenueGrowth, { pct: true, sign: true })}
-                        positive={selectedGrowth?.revenueGrowth != null ? selectedGrowth.revenueGrowth >= 0 : undefined} />
-                      <MetricBox label="净利 YoY" value={fmt(selectedGrowth?.netIncomeGrowth, { pct: true, sign: true })}
-                        positive={selectedGrowth?.netIncomeGrowth != null ? selectedGrowth.netIncomeGrowth >= 0 : undefined} />
-                      <MetricBox label="EPS YoY" value={fmt(selectedGrowth?.epsdilutedGrowth, { pct: true, sign: true })}
-                        positive={selectedGrowth?.epsdilutedGrowth != null ? selectedGrowth.epsdilutedGrowth >= 0 : undefined} />
-                    </div>
+                    {isPendingQuarter && !selectedEps ? (() => {
+                      const epsActual = selectedIS?.eps_diluted as number | null ?? null;
+                      const epsEst = selectedIS?.eps_estimated as number | null ?? null;
+                      const revActual = selectedIS?.revenue as number | null ?? null;
+                      const revEst = selectedIS?.revenue_estimated as number | null ?? null;
+                      const epsSurprise = epsActual != null && epsEst != null && epsEst !== 0
+                        ? (epsActual - epsEst) / Math.abs(epsEst) : null;
+                      const revSurprise = revActual != null && revEst != null && revEst !== 0
+                        ? (revActual - revEst) / Math.abs(revEst) : null;
+                      return (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <MetricBox label="EPS" value={epsActual != null ? `$${fmt(epsActual)}` : '--'}
+                              sub={epsSurprise != null ? `${epsSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(epsSurprise, { pct: true, sign: true })}` : (epsEst != null ? `Est. $${fmt(epsEst)}` : undefined)}
+                              positive={epsSurprise != null ? epsSurprise >= 0 : undefined} />
+                            <MetricBox label="Revenue" value={revActual != null ? fmt(revActual, { bn: true }) : '--'}
+                              sub={revSurprise != null ? `${revSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(revSurprise, { pct: true, sign: true })}` : (revEst != null ? `Est. ${fmt(revEst, { bn: true })}` : undefined)}
+                              positive={revSurprise != null ? revSurprise >= 0 : undefined} />
+                          </div>
+                          <div className="bg-muted/30 border border-border/20 rounded-lg px-3 py-2 text-xs text-muted-foreground">
+                            速报数据,详细财务报表将在 1-2 个工作日内更新
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <div className="grid grid-cols-2 gap-3">
+                        <MetricBox label="EPS" value={selectedEps?.eps_actual != null ? `$${fmt(selectedEps.eps_actual)}` : '--'}
+                          sub={selectedEps?.surprise_percent != null ? `${selectedEps.surprise_percent >= 0 ? 'Beat' : 'Miss'} ${fmt(selectedEps.surprise_percent, { pct: true, sign: true })}` : undefined}
+                          positive={selectedEps?.surprise_percent != null ? selectedEps.surprise_percent >= 0 : undefined} />
+                        <MetricBox label="营收 YoY" value={fmt(selectedGrowth?.revenueGrowth, { pct: true, sign: true })}
+                          positive={selectedGrowth?.revenueGrowth != null ? selectedGrowth.revenueGrowth >= 0 : undefined} />
+                        <MetricBox label="净利 YoY" value={fmt(selectedGrowth?.netIncomeGrowth, { pct: true, sign: true })}
+                          positive={selectedGrowth?.netIncomeGrowth != null ? selectedGrowth.netIncomeGrowth >= 0 : undefined} />
+                        <MetricBox label="EPS YoY" value={fmt(selectedGrowth?.epsdilutedGrowth, { pct: true, sign: true })}
+                          positive={selectedGrowth?.epsdilutedGrowth != null ? selectedGrowth.epsdilutedGrowth >= 0 : undefined} />
+                      </div>
+                    )}
                   </SectionCard>
 
                   {/* 营收结构 */}
@@ -676,13 +703,13 @@ export function EarningsTab({
                   )}
 
                   {/* 预期 vs 实际 / 分析师预期 */}
-                  {(analystEstimates?.length || selectedEps || dcfValue) && (() => {
+                  {(analystEstimates?.length || selectedEps || dcfValue || isPendingQuarter) && (() => {
                     // Strict date match for estimates
                     const matchedEstimate = activeQuarter && analystEstimates
                       ? analystEstimates.find(e => e.date?.slice(0, 7) === activeQuarter.slice(0, 7))
                       : null;
 
-                    const isReported = selectedEps?.eps_actual != null;
+                    const isReported = selectedEps?.eps_actual != null || (isPendingQuarter && selectedIS?.eps_diluted != null);
                     const selectedIncomeStmt = activeQuarter
                       ? (findByDate(incomeStatements as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined)
                       : undefined;
@@ -714,42 +741,54 @@ export function EarningsTab({
                                 </tr>
                               </thead>
                               <tbody>
-                                {/* EPS: from yfinance earnings_history (reliable) */}
-                                <tr className="border-t border-border/20">
-                                  <td className="py-2 px-3 text-foreground/90">EPS</td>
-                                  <td className="py-2 px-3 text-right font-data text-muted-foreground">
-                                    {selectedEps?.eps_estimate != null ? `$${fmt(selectedEps.eps_estimate)}` : '--'}
-                                  </td>
-                                  <td className="py-2 px-3 text-right font-data font-medium text-foreground">
-                                    ${fmt(selectedEps?.eps_actual)}
-                                  </td>
-                                  <td className={`py-2 px-3 text-right font-data font-medium text-xs ${
-                                    (selectedEps?.surprise_percent ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                                  }`}>
-                                    {(selectedEps?.surprise_percent ?? 0) >= 0 ? 'Beat' : 'Miss'} {fmt(selectedEps?.surprise_percent, { pct: true, sign: true })}
-                                  </td>
-                                </tr>
-                                {/* Revenue: compare actual IS revenue with matched FMP estimate if available */}
-                                {actualRevenue != null && (
-                                  <tr className="border-t border-border/20">
-                                    <td className="py-2 px-3 text-foreground/90">营收</td>
-                                    <td className="py-2 px-3 text-right font-data text-muted-foreground">
-                                      {matchedEstimate?.revenue_avg != null ? fmt(matchedEstimate.revenue_avg, { bn: true }) : '--'}
-                                    </td>
-                                    <td className="py-2 px-3 text-right font-data font-medium text-foreground">
-                                      {fmt(actualRevenue, { bn: true })}
-                                    </td>
-                                    {matchedEstimate?.revenue_avg != null ? (() => {
-                                      const beat = actualRevenue >= matchedEstimate.revenue_avg!;
-                                      const pct = (actualRevenue - matchedEstimate.revenue_avg!) / matchedEstimate.revenue_avg!;
-                                      return (
-                                        <td className={`py-2 px-3 text-right font-data font-medium text-xs ${beat ? 'text-emerald-400' : 'text-red-400'}`}>
-                                          {beat ? 'Beat' : 'Miss'} {fmt(pct, { pct: true, sign: true })}
-                                        </td>
-                                      );
-                                    })() : <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">--</td>}
-                                  </tr>
-                                )}
+                                {/* EPS: from yfinance earnings_history or pending quarter */}
+                                {(() => {
+                                  const epsA = selectedEps?.eps_actual ?? (isPendingQuarter ? selectedIS?.eps_diluted as number | null : null);
+                                  const epsE = selectedEps?.eps_estimate ?? (isPendingQuarter ? selectedIS?.eps_estimated as number | null : null);
+                                  const surprise = selectedEps?.surprise_percent ?? (
+                                    epsA != null && epsE != null && epsE !== 0 ? (epsA - epsE) / Math.abs(epsE) : null
+                                  );
+                                  return (
+                                    <tr className="border-t border-border/20">
+                                      <td className="py-2 px-3 text-foreground/90">EPS</td>
+                                      <td className="py-2 px-3 text-right font-data text-muted-foreground">
+                                        {epsE != null ? `$${fmt(epsE)}` : '--'}
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-data font-medium text-foreground">
+                                        {epsA != null ? `$${fmt(epsA)}` : '--'}
+                                      </td>
+                                      <td className={`py-2 px-3 text-right font-data font-medium text-xs ${
+                                        surprise != null ? (surprise >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-muted-foreground'
+                                      }`}>
+                                        {surprise != null ? `${surprise >= 0 ? 'Beat' : 'Miss'} ${fmt(surprise, { pct: true, sign: true })}` : '--'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })()}
+                                {/* Revenue: compare actual revenue with estimate */}
+                                {actualRevenue != null && (() => {
+                                  const revEst = matchedEstimate?.revenue_avg ?? (isPendingQuarter ? selectedIS?.revenue_estimated as number | null : null);
+                                  return (
+                                    <tr className="border-t border-border/20">
+                                      <td className="py-2 px-3 text-foreground/90">营收</td>
+                                      <td className="py-2 px-3 text-right font-data text-muted-foreground">
+                                        {revEst != null ? fmt(revEst, { bn: true }) : '--'}
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-data font-medium text-foreground">
+                                        {fmt(actualRevenue, { bn: true })}
+                                      </td>
+                                      {revEst != null ? (() => {
+                                        const beat = actualRevenue >= revEst;
+                                        const pct = (actualRevenue - revEst) / Math.abs(revEst);
+                                        return (
+                                          <td className={`py-2 px-3 text-right font-data font-medium text-xs ${beat ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            {beat ? 'Beat' : 'Miss'} {fmt(pct, { pct: true, sign: true })}
+                                          </td>
+                                        );
+                                      })() : <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">--</td>}
+                                    </tr>
+                                  );
+                                })()}
                               </tbody>
                             </table>
                           </div>
@@ -820,6 +859,12 @@ export function EarningsTab({
               )}
 
           {/* CASH FLOW VIEW */}
+          {rightTab === 'cashflow' && isPendingQuarter && !selectedCashflow && (
+            <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
+              <p className="text-sm text-muted-foreground">详细现金流数据将在 1-2 个工作日内更新</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">可先查看电话会议了解管理层评论</p>
+            </div>
+          )}
           {rightTab === 'cashflow' && selectedCashflow && (
                 <SectionCard title="现金流量表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Cash Flow'} numberLabel="01">
                   <StatementSection title="经营活动" titleEn="Operating Activities" items={[
@@ -856,6 +901,12 @@ export function EarningsTab({
               )}
 
           {/* BALANCE SHEET VIEW */}
+          {rightTab === 'balance' && isPendingQuarter && !selectedBalance && (
+            <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
+              <p className="text-sm text-muted-foreground">详细资产负债数据将在 1-2 个工作日内更新</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">可先查看电话会议了解管理层评论</p>
+            </div>
+          )}
           {rightTab === 'balance' && selectedBalance && (
                 <SectionCard title="资产负债表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Balance Sheet'} numberLabel="01">
                   <StatementSection title="资产" titleEn="Assets" items={[

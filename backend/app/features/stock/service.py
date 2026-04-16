@@ -662,12 +662,13 @@ class StockService:
             asyncio.to_thread(self._get_next_earnings_date, symbol),
             asyncio.to_thread(fmp.get_cash_flow_statement, symbol, "quarter", 12),
             asyncio.to_thread(fmp.get_balance_sheet, symbol, "quarter", 12),
+            asyncio.to_thread(fmp.get_recent_earnings_for_symbol, symbol),
         ]
 
         task_names = [
             "earnings_history", "analyst_estimates", "revenue_segments",
             "revenue_geo_segments", "income_statements", "dcf", "next_earnings",
-            "cashflow_statements", "balance_sheets",
+            "cashflow_statements", "balance_sheets", "recent_earnings",
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -692,8 +693,42 @@ class StockService:
         dcf_result = result_map.get("dcf") or {}
         next_earnings = result_map.get("next_earnings")
 
+        # Detect pending quarter: earnings calendar has actual data but income
+        # statement hasn't been published yet (common on earnings day).
+        recent_ec = result_map.get("recent_earnings")
+        pending_quarter = None
+        if recent_ec and recent_ec.get("epsActual") is not None:
+            ec_date = recent_ec.get("date", "")
+            already_covered = any(
+                (s.get("date") or "")[:7] == ec_date[:7]
+                for s in income_stmts
+            ) if income_stmts and ec_date else False
+
+            if not already_covered:
+                fiscal_year, fiscal_q = self._infer_next_fiscal_period(income_stmts)
+                if fiscal_year and fiscal_q:
+                    pending_quarter = {
+                        "date": ec_date,
+                        "fiscal_year": fiscal_year,
+                        "fiscal_period": f"Q{fiscal_q}",
+                        "is_pending": True,
+                        "revenue": recent_ec.get("revenueActual"),
+                        "eps_diluted": recent_ec.get("epsActual"),
+                        "eps_estimated": recent_ec.get("epsEstimated"),
+                        "revenue_estimated": recent_ec.get("revenueEstimated"),
+                    }
+                    income_stmts = [pending_quarter] + (income_stmts if isinstance(income_stmts, list) else [])
+                    logger.info(
+                        "Injected pending quarter for %s: FY%d Q%d (EPS=%.2f, Rev=%.0f)",
+                        symbol, fiscal_year, fiscal_q,
+                        recent_ec.get("epsActual", 0),
+                        recent_ec.get("revenueActual", 0),
+                    )
+
         # Compute TRUE YoY growth from raw quarterly income statements
-        financial_growth = self._compute_yoy_growth(income_stmts)
+        # (exclude pending quarter which has no detailed line items)
+        real_stmts = [s for s in income_stmts if not s.get("is_pending")] if income_stmts else []
+        financial_growth = self._compute_yoy_growth(real_stmts)
 
         return {
             "symbol": symbol,
@@ -708,7 +743,29 @@ class StockService:
             "income_statements": income_stmts if isinstance(income_stmts, list) else [],
             "cashflow_statements": cashflow_stmts if isinstance(cashflow_stmts, list) else [],
             "balance_sheets": balance_sheets if isinstance(balance_sheets, list) else [],
+            "pending_quarter": pending_quarter,
         }
+
+    @staticmethod
+    def _infer_next_fiscal_period(
+        income_stmts: list,
+    ) -> tuple[int | None, int | None]:
+        """Infer the next fiscal year/quarter from the most recent income statement."""
+        if not income_stmts or not isinstance(income_stmts, list):
+            return None, None
+        latest = income_stmts[0]
+        fy = latest.get("fiscal_year")
+        fp = latest.get("fiscal_period", "")
+        if not fy or not fp or not fp.startswith("Q"):
+            return None, None
+        try:
+            fy = int(fy)
+        except (TypeError, ValueError):
+            return None, None
+        q = int(fp.replace("Q", ""))
+        if q == 4:
+            return fy + 1, 1
+        return fy, q + 1
 
     async def get_transcript(
         self, symbol: str, year: int, quarter: int

@@ -352,6 +352,20 @@ def _prepare_earnings_data_for_agent(
         if clean_growth:
             result["financial_growth"] = clean_growth
 
+    # Pending quarter headline data (available on earnings day before full
+    # income statement is published). Gives the agent EPS/Revenue actuals.
+    pending = earnings_data.get("pending_quarter")
+    if pending:
+        result["pending_quarter"] = {
+            "date": pending.get("date"),
+            "fiscal_year": pending.get("fiscal_year"),
+            "fiscal_period": pending.get("fiscal_period"),
+            "eps_actual": pending.get("eps_diluted"),
+            "eps_estimated": pending.get("eps_estimated"),
+            "revenue_actual": pending.get("revenue"),
+            "revenue_estimated": pending.get("revenue_estimated"),
+        }
+
     # Next earnings date
     next_earnings = earnings_data.get("next_earnings_date")
     if next_earnings:

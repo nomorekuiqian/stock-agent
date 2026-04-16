@@ -809,6 +809,38 @@ class FMPService:
             "source": "fmp",
         }
 
+    def get_recent_earnings_for_symbol(
+        self, symbol: str, days_back: int = 3, days_forward: int = 1
+    ) -> dict | None:
+        """
+        Get the most recent earnings calendar entry for a single symbol.
+
+        Checks a window around today to find earnings that have already been
+        reported (epsActual populated) but whose full income statement may not
+        yet be available in FMP.
+
+        Returns:
+            Single earnings entry dict with epsActual/revenueActual, or None.
+        """
+        symbol = symbol.upper()
+        logger.info("get_recent_earnings_for_symbol(%s, back=%d, fwd=%d)", symbol, days_back, days_forward)
+
+        from_date = days_from_now(-days_back)
+        to_date = days_from_now(days_forward)
+
+        params = {"from": from_date, "to": to_date}
+        data = self._request("/stable/earnings-calendar", params)
+
+        if not data or not isinstance(data, list):
+            return None
+
+        entries = self._parse_earnings(data)
+        # Filter by symbol and find the entry with actual results
+        for entry in entries:
+            if entry.get("symbol") == symbol and entry.get("epsActual") is not None:
+                return entry
+        return None
+
     def _parse_earnings(self, raw_earnings: list) -> list[dict]:
         """Parse FMP earnings calendar data."""
         parsed = []

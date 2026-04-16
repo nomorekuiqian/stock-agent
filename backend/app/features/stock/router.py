@@ -1083,27 +1083,43 @@ async def generate_earnings_analysis_endpoint(
         except Exception as e:
             logger.warning("Could not enrich earnings context for %s: %s", symbol, e)
 
-        # Fetch transcript for the most recent quarter (if available)
+        # Fetch transcript for the most recent quarter (if available).
+        # Priority: pending quarter (just reported) > latest income statement.
         transcript_text = None
         try:
+            pending = earnings_data.get("pending_quarter")
             income_stmts = earnings_data.get("income_statements", [])
-            if income_stmts:
-                latest = income_stmts[0]
-                fiscal_period = latest.get("fiscal_period", "")
-                fiscal_year = latest.get("fiscal_year")
-                if fiscal_year and fiscal_period:
-                    q_num = int(fiscal_period.replace("Q", "")) if fiscal_period.startswith("Q") else None
-                    if q_num:
-                        transcript_result = await stock_service.get_transcript(
-                            symbol, fiscal_year, q_num
-                        )
-                        if transcript_result.get("available"):
-                            transcript_text = transcript_result["content"]
-                            logger.info(
-                                "Transcript available for %s %s %d (%d chars)",
-                                symbol, fiscal_period, fiscal_year,
-                                len(transcript_text),
-                            )
+
+            # Determine which quarter to fetch transcript for
+            target_fy = None
+            target_q = None
+
+            if pending and pending.get("fiscal_year") and pending.get("fiscal_period"):
+                target_fy = pending["fiscal_year"]
+                fp = pending["fiscal_period"]
+                target_q = int(fp.replace("Q", "")) if fp.startswith("Q") else None
+
+            if target_fy is None or target_q is None:
+                # Fall back to latest non-pending income statement
+                latest = next(
+                    (s for s in income_stmts if not s.get("is_pending")), None
+                ) if income_stmts else None
+                if latest:
+                    fp = latest.get("fiscal_period", "")
+                    target_fy = latest.get("fiscal_year")
+                    target_q = int(fp.replace("Q", "")) if fp.startswith("Q") else None
+
+            if target_fy and target_q:
+                transcript_result = await stock_service.get_transcript(
+                    symbol, target_fy, target_q
+                )
+                if transcript_result.get("available"):
+                    transcript_text = transcript_result["content"]
+                    logger.info(
+                        "Transcript available for %s Q%d FY%d (%d chars)",
+                        symbol, target_q, target_fy,
+                        len(transcript_text),
+                    )
         except Exception as e:
             logger.warning("Could not fetch transcript for %s: %s", symbol, e)
 
