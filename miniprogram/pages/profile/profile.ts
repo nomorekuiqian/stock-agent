@@ -1,5 +1,6 @@
+import { request } from '../../services/api';
 import { isLoggedIn, logout } from '../../services/auth';
-import { getAccountState, getEmail, clearAll } from '../../utils/storage';
+import { getAccountState, getEmail, setEmail, clearAll } from '../../utils/storage';
 import { buildWebViewUrl } from '../../services/api';
 import type { AccountState } from '../../utils/storage';
 
@@ -10,10 +11,23 @@ Page({
     emailInitial: 'U',
   },
 
-  onShow() {
+  async onShow() {
     const loggedIn = isLoggedIn();
     const state: AccountState = loggedIn ? getAccountState() : 'unbound';
-    const email = getEmail();
+    let email = getEmail();
+
+    if (loggedIn && state === 'email_only' && !email) {
+      try {
+        const me = await request<{ success: boolean; email?: string; account_state: string }>(
+          '/wechat/me',
+          { needAuth: true }
+        );
+        if (me.success && me.email) {
+          email = me.email;
+          setEmail(email);
+        }
+      } catch (_) { /* ignore */ }
+    }
 
     this.setData({
       accountState: state,
@@ -23,14 +37,12 @@ Page({
 
     if (loggedIn && state === 'bound') {
       const url = buildWebViewUrl('/profile');
-      wx.redirectTo({
-        url: `/pages/webview/webview?url=${encodeURIComponent(url)}`,
-      });
+      wx.redirectTo({ url: `/pages/webview/webview?url=${encodeURIComponent(url)}` });
     }
   },
 
   onGoBindEmail() {
-    wx.navigateTo({ url: '/pages/login/login' });
+    wx.navigateTo({ url: '/pages/login/login?mode=bind' });
   },
 
   onBrowseContent() {

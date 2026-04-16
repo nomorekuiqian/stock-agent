@@ -1,8 +1,7 @@
-import { wechatLogin, registerRequest, refreshLogin } from '../../services/auth';
-import { buildWebViewUrl } from '../../services/api';
-import { setToken, setEmail } from '../../utils/storage';
+import { wechatLogin, sendOtp, verifyOtp } from '../../services/auth';
+import { setEmail, getEmail } from '../../utils/storage';
 
-type LoginView = 'login' | 'register' | 'pending';
+type LoginView = 'login' | 'email_input' | 'otp_input';
 
 Page({
   _countdownTimer: null as ReturnType<typeof setInterval> | null,
@@ -10,8 +9,10 @@ Page({
   data: {
     view: 'login' as LoginView,
     loading: false,
-    registerEmail: '',
-    registerError: '',
+    bindEmail: '',
+    bindError: '',
+    otpCode: '',
+    otpError: '',
     maskedEmail: '',
     countdown: 0,
     countdownActive: false,
@@ -20,9 +21,7 @@ Page({
   _maskEmail(email: string): string {
     const at = email.indexOf('@');
     if (at <= 0) return email;
-    const domain = email.substring(at);
-    if (email.length <= 20) return email;
-    return email[0] + '**' + domain;
+    return email[0] + '**' + email.substring(at);
   },
 
   _startCountdown() {
@@ -51,20 +50,13 @@ Page({
   },
 
   onLoad(options: Record<string, string>) {
-    // Token callback from WebView email login
-    if (options.token) {
-      setToken(options.token);
-      wx.switchTab({ url: '/pages/home/home' });
-      return;
-    }
-    // Redirected back from /wechat-verify in WeChat browser after email confirmation
-    if (options.verified) {
-      this.doRefreshLogin();
+    if (options.mode === 'bind') {
+      this.setData({ view: 'email_input' });
     }
   },
 
   // ------------------------------------------------------------------
-  // WeChat 一键登录
+  // View: login
   // ------------------------------------------------------------------
   async onWechatLogin() {
     this.setData({ loading: true });
@@ -76,95 +68,83 @@ Page({
       return;
     }
 
-    // bound or email_only → can use the app directly
-    if (result.account_state === 'bound' || result.account_state === 'email_only') {
-      wx.switchTab({ url: '/pages/home/home' });
-      return;
-    }
-
-    // unbound → show OTP registration form
-    this.setData({ loading: false, view: 'register' });
-  },
-
-  // ------------------------------------------------------------------
-  // 邮箱注册 (register view)
-  // ------------------------------------------------------------------
-  onEmailInput(e: WechatMiniprogram.Input) {
-    this.setData({ registerEmail: e.detail.value, registerError: '' });
-  },
-
-  async onSendVerification() {
-    const email = this.data.registerEmail.trim();
-    if (!email || !email.includes('@')) {
-      this.setData({ registerError: '请输入有效的邮箱地址' });
-      return;
-    }
-
-    this.setData({ loading: true, registerError: '' });
-    const result = await registerRequest(email);
-
-    if (result.success) {
-      setEmail(email);
-      this.setData({
-        loading: false,
-        view: 'pending',
-        maskedEmail: this._maskEmail(email),
-      });
-      this._startCountdown();
-    } else {
-      const msg = result.error || '发送失败，请稍后重试';
-      const friendlyMsg = msg.includes('1/minute') ? '发送太频繁，请 1 分钟后重试' : msg;
-      this.setData({ loading: false, registerError: friendlyMsg });
-    }
-  },
-
-  onSkip() {
+    // All account states → enter home (no forced registration)
     wx.switchTab({ url: '/pages/home/home' });
   },
 
   // ------------------------------------------------------------------
-  // 等待验证 (pending view)
+  // View: email_input
   // ------------------------------------------------------------------
-  async onVerifiedTap() {
-    this.setData({ loading: true });
-    await this.doRefreshLogin();
+  onEmailInput(e: WechatMiniprogram.Input) {
+    this.setData({ bindEmail: e.detail.value.trim(), bindError: '' });
   },
 
-  async doRefreshLogin() {
-    const result = await refreshLogin();
-
-    if (!result.success) {
-      this.setData({ loading: false });
-      wx.showToast({ title: '刷新登录失败，请重试', icon: 'none' });
+  async onSendOtp() {
+    const email = this.data.bindEmail;
+    if (!email || !email.includes('@')) {
+      this.setData({ bindError: '请输入有效的邮箱地址' });
       return;
     }
-
-    if (result.account_state === 'bound' || result.account_state === 'email_only') {
-      wx.switchTab({ url: '/pages/home/home' });
+    this.setData({ loading: true, bindError: '' });
+    const result = await sendOtp(email);
+    if (result.success) {
+      setEmail(email);
+      this.setData({
+        loading: false,
+        view: 'otp_input',
+        maskedEmail: this._maskEmail(email),
+        otpCode: '',
+        otpError: '',
+      });
+      this._startCountdown();
     } else {
-      // Still unbound — user hasn't verified yet
-      this.setData({ loading: false });
-      wx.showToast({ title: '验证尚未完成，请检查邮箱', icon: 'none' });
+      const msg = result.error || '发送失败，请稍后重试';
+      this.setData({
+        loading: false,
+        bindError: msg.includes('1/minute') ? '发送太频繁，请 1 分钟后重试' : msg,
+      });
     }
   },
 
-  async onResend() {
+  async onResendOtp() {
     if (this.data.countdownActive) return;
-    const email = this.data.registerEmail.trim();
-    const result = await registerRequest(email);
+    const email = this.data.bindEmail || getEmail();
+    const result = await sendOtp(email);
     if (result.success) {
       this._startCountdown();
-      wx.showToast({ title: '验证链接已重新发送', icon: 'none' });
+      this.setData({ otpCode: '', otpError: '' });
+      wx.showToast({ title: '验证码已重新发送', icon: 'none' });
     } else {
       wx.showToast({ title: '发送失败，请稍后重试', icon: 'none' });
     }
   },
 
   // ------------------------------------------------------------------
-  // 邮箱登录 (WebView fallback)
+  // View: otp_input
   // ------------------------------------------------------------------
-  onEmailLogin() {
-    const url = buildWebViewUrl('/wechat-login-callback');
-    wx.navigateTo({ url: `/pages/webview/webview?url=${encodeURIComponent(url)}` });
+  onCodeInput(e: WechatMiniprogram.Input) {
+    this.setData({ otpCode: e.detail.value, otpError: '' });
+  },
+
+  async onVerifyOtp() {
+    const code = this.data.otpCode.trim();
+    if (code.length !== 6) {
+      this.setData({ otpError: '请输入6位验证码' });
+      return;
+    }
+    const email = this.data.bindEmail || getEmail();
+    this.setData({ loading: true, otpError: '' });
+    const result = await verifyOtp(email, code);
+    this.setData({ loading: false });
+    if (result.success) {
+      wx.showToast({ title: '邮箱绑定成功', icon: 'success' });
+      setTimeout(() => wx.switchTab({ url: '/pages/home/home' }), 1200);
+    } else {
+      this.setData({ otpError: result.error || '验证失败，请重试' });
+    }
+  },
+
+  onSkip() {
+    wx.switchTab({ url: '/pages/home/home' });
   },
 });
