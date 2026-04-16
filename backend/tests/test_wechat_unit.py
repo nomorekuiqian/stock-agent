@@ -653,3 +653,55 @@ class TestVerifyOtp:
         result = await verify_otp(email="x@test.com", code="000000")
         assert result["success"] is False
         assert "错误" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# TestOtpRouter
+# ---------------------------------------------------------------------------
+
+class TestOtpRouter:
+
+    def _make_unbound_token(self) -> str:
+        import os; os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        return sign_wechat_jwt(sub="o_test", typ="wechat_unbound", exp_days=1)
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.router.service.send_otp", new_callable=AsyncMock)
+    async def test_otp_send_requires_wechat_token(self, mock_send):
+        from fastapi.testclient import TestClient
+        from app.main import app
+        client = TestClient(app)
+        resp = client.post("/api/wechat/otp/send", json={"email": "x@x.com"})
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.router.service.send_otp", new_callable=AsyncMock)
+    async def test_otp_send_accepts_unbound_token(self, mock_send):
+        from fastapi.testclient import TestClient
+        from app.main import app
+        mock_send.return_value = {"success": True, "action": "create_new"}
+        token = self._make_unbound_token()
+        client = TestClient(app)
+        resp = client.post(
+            "/api/wechat/otp/send",
+            json={"email": "new@test.com"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["action"] == "create_new"
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.router.service.verify_otp", new_callable=AsyncMock)
+    async def test_otp_verify_wrong_code_returns_400(self, mock_verify):
+        from fastapi.testclient import TestClient
+        from app.main import app
+        mock_verify.return_value = {"success": False, "error": "验证码错误，请重试"}
+        token = self._make_unbound_token()
+        client = TestClient(app)
+        resp = client.post(
+            "/api/wechat/otp/verify",
+            json={"email": "x@test.com", "code": "000000"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400

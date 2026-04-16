@@ -69,3 +69,22 @@ class WechatMeResponse(BaseModel):
     email: Optional[str] = None
     user_id: Optional[str] = None
     error: Optional[str] = None
+
+
+class WechatOtpSendRequest(BaseModel):
+    email: str
+
+class WechatOtpSendResponse(BaseModel):
+    success: bool
+    action: Optional[str] = None   # "bind_existing" | "create_new"
+    error: Optional[str] = None
+
+class WechatOtpVerifyRequest(BaseModel):
+    email: str
+    code: str
+
+class WechatOtpVerifyResponse(BaseModel):
+    success: bool
+    token: Optional[str] = None
+    account_state: Optional[str] = None  # "email_only" | "bound"
+    error: Optional[str] = None

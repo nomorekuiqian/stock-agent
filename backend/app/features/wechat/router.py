@@ -12,6 +12,8 @@ from app.features.wechat.models import (
     WechatRegisterRequestBody, WechatRegisterRequestResponse,
     WechatRegisterConfirmBody, WechatRegisterConfirmResponse,
     WechatMeResponse, HomeCard, HomeCardsResponse,
+    WechatOtpSendRequest, WechatOtpSendResponse,
+    WechatOtpVerifyRequest, WechatOtpVerifyResponse,
 )
 from app.features.wechat import service
 from app.features.wechat.jwt_utils import decode_wechat_jwt, extract_openid_from_jwt
@@ -102,6 +104,40 @@ async def wechat_register_confirm(body: WechatRegisterConfirmBody):
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return WechatRegisterConfirmResponse(**result)
+
+
+@router.post("/otp/send", response_model=WechatOtpSendResponse)
+@limiter.limit("1/minute")
+async def wechat_otp_send(request: Request, body: WechatOtpSendRequest):
+    """
+    Send 6-digit OTP to email.
+    Accepts any WeChat JWT including wechat_unbound.
+    Rate-limited 1/min per IP to prevent abuse.
+    """
+    auth_header = request.headers.get("Authorization")
+    payload = _require_wechat_token(auth_header)
+    openid = extract_openid_from_jwt(payload)
+    try:
+        result = await service.send_otp(openid=openid, email=body.email)
+        return WechatOtpSendResponse(**result)
+    except Exception:
+        logger.exception("wechat_otp_send failed")
+        raise HTTPException(status_code=500, detail="Failed to send OTP")
+
+
+@router.post("/otp/verify", response_model=WechatOtpVerifyResponse)
+async def wechat_otp_verify(body: WechatOtpVerifyRequest, request: Request):
+    """
+    Verify 6-digit OTP. Returns new JWT on success.
+    Accepts any WeChat JWT including wechat_unbound.
+    openid is NOT passed here — it was stored inside the OTP entry at send time.
+    """
+    auth_header = request.headers.get("Authorization")
+    _require_wechat_token(auth_header)
+    result = await service.verify_otp(email=body.email, code=body.code)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return WechatOtpVerifyResponse(**result)
 
 
 @router.get("/me", response_model=WechatMeResponse)
