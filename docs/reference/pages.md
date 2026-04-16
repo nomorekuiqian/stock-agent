@@ -11,6 +11,7 @@
 | `/today/archive` | 日报存档 | Insforge (getReportsList) | 否 |
 | `/morning` | 盘前早报 | Backend (morningReports API) | 否 |
 | `/morning/[id]` | 早报详情 | Backend (morningReports.getById) | 否 |
+| `/morning/archive` | 早报存档 | Backend (morningReports API) | 否 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -22,18 +23,28 @@
 | `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 是 |
 | `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 是 |
 | `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 是 |
+| `/macro/weekly` | 宏观周报 | Backend (weekly-report API) | 是 |
 | `/login` | 登录 | Insforge Auth | 否 |
 | `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
-| `/auth/callback` | OAuth 兼容落地页 | Insforge Auth (provider 恢复后跳转) | 否 |
 | `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
 | `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
 | `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
+| `/onboarding` | 用户引导 | 无 API 调用 | 否 |
+| `/pricing` | 定价页 | Backend (payment API) | 否 |
+| `/pricing/success` | 支付成功 | Backend (payment API) | 否 |
 | `/request-access` | 申请邀请码 | Backend (invites/request) | 否 |
 | `/contact` | 联系/反馈 | Backend (feedback/user) | 否 |
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
 | `/research` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
+| `/research-v2` | 投研助手 V2 | Backend (screener/research API) | 是 |
+| `/admin` | 管理后台 | Backend (admin API) | 是 (cron) |
+| `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (cron) |
+| `/(wechat)/wechat-login-callback` | 微信登录回调 | Insforge Auth (WeChat) | 否 |
+| `/(wechat)/wechat-verify` | 微信验证 | Backend (wechat API) | 否 |
+| `/dev/feedback` | 开发反馈页 | Backend (feedback) | 否 |
+| `/webview-check` | WebView 检测 | 无 API 调用 | 否 |
 
 ### 重定向
 | 旧路由 | 目标 |

@@ -4,18 +4,20 @@
 
 | 分类 | 数量 | 说明 |
 |------|------|------|
-| UI 基础 | 7 | shadcn/ui 组件 (Button, Card, Badge 等) |
+| UI 基础 | 11 | shadcn/ui 组件 (Avatar, Badge, Button, Card, Collapsible, Dialog, DropdownMenu, Separator, Skeleton, Switch, Tooltip) |
 | 导航布局 | 5 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle |
-| 数据展示 | 3 | ReportContent, InsightBanner, MacroPageHeader |
-| 图表 | 8 | 各类金融图表 (基于 Lightweight Charts) |
+| 数据展示 | 5 | ReportContent, ReportTabs, InsightBanner, MacroPageHeader, PageShell |
+| 图表 | 9 | 各类金融图表 (基于 Lightweight Charts) + FredAreaChart, FredBarChart |
 | 风险指标 | 4 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
 | 个股 | 4 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
 | 技术分析 | 6 | SignalCard, TechnicalTooltip, TechnicalAnalysisContent, IndicatorBar, TechnicalSignalDashboard, TechnicalChart |
-| 个性化 (for-you) | 5 | PortfolioSnapshotBar, OnboardingSection, DigestInlineReport, FeatureCards, RecentReports |
+| 个性化 (for-you) | 8 | PortfolioSnapshotBar, OnboardingSection, DigestInlineReport, FeatureCards, RecentReports, StockDetailPanel, StockListItem, StockOverviewPanel |
 | 订阅 | 2 | SubscribeForm, PaywallGuard |
-| 装饰 | 2 | TrustBadges, LogoMarquee |
-| 全局 | 2 | Providers, TradingViewWidget |
-| Auth 表单 | 1 | PasswordField |
+| 装饰 | 3 | TrustBadges, LogoMarquee, ProductShowcase |
+| 全局 | 4 | Providers, TradingViewWidget, AuthSubscriptionSync, FeatureSections |
+| Auth 表单 | 2 | PasswordField, InviteCodeModal |
+| AI Chat (assistant-ui) | 5 | thread, attachment, markdown-text, tool-fallback, tooltip-icon-button |
+| 其他 | 1 | AiChatLink |
 
 ---
 
@@ -86,6 +88,9 @@ AI 个股分析卡片，支持三种状态。
 | DigestInlineReport | 内嵌摘要报告展示 | `/for-you` |
 | FeatureCards | 功能介绍卡片组 | `/for-you` |
 | RecentReports | 近期报告列表 | `/for-you` |
+| StockDetailPanel | 个股详情面板 | `/for-you` |
+| StockListItem | 自选股列表项 | `/for-you` |
+| StockOverviewPanel | 个股概览面板 | `/for-you` |
 
 ---
 
@@ -100,6 +105,8 @@ AI 个股分析卡片，支持三种状态。
 | HistoryAreaChart | 面积图 (通用) | 自定义 fetcher | 复用基础组件 |
 | IndexAreaChart | 面积图 | api.getSentimentHistory | `/macro/sentiment` |
 | CommodityAreaChart | 面积图 | api.getCommodityHistory | `/macro/inflation-rates` |
+| FredAreaChart | 面积图 (FRED 数据) | 父组件传入 | 宏观子页面 |
+| FredBarChart | 柱状图 (FRED 数据) | 父组件传入 | 宏观子页面 |
 | TradingViewWidget | 嵌入式 | TradingView CDN | `/stock/[symbol]` |
 
 **技术栈**: Lightweight Charts (lightweight-charts 库)，非 Recharts/D3
@@ -155,3 +162,42 @@ AI 个股分析卡片，支持三种状态。
 - ThemeProvider (next-themes)
 - AuthProvider (自定义认证)
 - SubscriptionProvider
+
+### AuthSubscriptionSync.tsx — 认证订阅同步
+- 监听 AuthContext，订阅状态变化时同步到 SubscriptionContext
+- 全局挂载，无 UI 渲染
+
+### FeatureSections.tsx — 功能介绍区块
+- 首页功能特性展示区
+- 使用场景: `/`
+
+### PageShell.tsx — 页面通用 Shell
+- 统一的页面布局包装器 (标题 + 内容区)
+- 跨多个页面复用
+
+### ReportTabs.tsx — 报告标签页
+- 日报内容的分 Tab 渲染 (市场 / 新闻 / 摘要等)
+- 使用场景: `/today`, `/today/[id]`
+
+### ProductShowcase.tsx — 产品展示组件
+- 首页产品功能截图/预览展示
+- 使用场景: `/`
+
+### InviteCodeModal.tsx — 邀请码弹窗
+- 邀请码输入和兑换弹窗
+- 使用场景: `/login`, `/onboarding`
+
+### AiChatLink.tsx — AI 对话入口链接
+- 跳转到 AI 对话功能的快捷入口组件
+
+---
+
+## AI Chat 组件 (assistant-ui/)
+
+| 组件 | 说明 |
+|------|------|
+| thread.tsx | AI 对话主线程组件，消息列表 + 输入框 |
+| attachment.tsx | 附件上传/展示组件 |
+| markdown-text.tsx | Markdown 内容渲染 |
+| tool-fallback.tsx | Tool call 结果的降级展示 |
+| tooltip-icon-button.tsx | 带 tooltip 的图标按钮 |
