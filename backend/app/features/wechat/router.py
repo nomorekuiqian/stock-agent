@@ -16,6 +16,7 @@ from app.features.wechat.models import (
     WechatOtpVerifyRequest, WechatOtpVerifyResponse,
 )
 from app.features.wechat import service
+from app.features.wechat import db
 from app.features.wechat.jwt_utils import decode_wechat_jwt, extract_openid_from_jwt
 
 logger = get_logger(__name__)
@@ -145,18 +146,23 @@ async def wechat_me(
     request: Request,
     user_id: str = Depends(verify_user_token),
 ):
-    """Return account state. Accepts wechat_bound / wechat_email_only (wechat_unbound → 403)."""
+    """Return account state and email. Accepts wechat_bound / wechat_email_only."""
     auth_header = request.headers.get("Authorization")
     token = auth_header[7:] if auth_header and auth_header.startswith("Bearer ") else ""
+    email = None
     try:
         payload = decode_wechat_jwt(token)
-        return WechatMeResponse(
-            success=True,
-            account_state=payload.get("typ", "").replace("wechat_", ""),
-            user_id=user_id,
-        )
+        typ = payload.get("typ", "")
+        account_state = typ.replace("wechat_", "")
+
+        if typ == "wechat_email_only":
+            openid = extract_openid_from_jwt(payload)
+            lookup = await db.get_by_openid(openid)
+            wechat_user = lookup.get("data") or {}
+            email = wechat_user.get("email")
+
+        return WechatMeResponse(success=True, account_state=account_state, user_id=user_id, email=email)
     except Exception:
-        # Insforge native token (already passed verify_user_token) — treat as bound
         return WechatMeResponse(success=True, account_state="bound", user_id=user_id)
 
 

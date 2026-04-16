@@ -705,3 +705,31 @@ class TestOtpRouter:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# TestWechatMe
+# ---------------------------------------------------------------------------
+
+class TestWechatMe:
+
+    def _make_email_only_token(self) -> str:
+        import os; os.environ.setdefault("WECHAT_JWT_SECRET", "test_secret_32_chars_padding_xxx")
+        from app.features.wechat.jwt_utils import sign_wechat_jwt
+        return sign_wechat_jwt(sub="row-uuid-001", typ="wechat_email_only", exp_days=7, openid="o_test")
+
+    @pytest.mark.asyncio
+    @patch("app.features.wechat.router.db")
+    async def test_me_returns_email_for_email_only(self, mock_db):
+        from fastapi.testclient import TestClient
+        from app.main import app
+        mock_db.get_by_openid = AsyncMock(return_value={
+            "success": True, "data": {"id": "row-uuid-001", "email": "user@test.com"}
+        })
+        token = self._make_email_only_token()
+        client = TestClient(app)
+        resp = client.get("/api/wechat/me", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["account_state"] == "email_only"
+        assert data["email"] == "user@test.com"

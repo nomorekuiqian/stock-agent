@@ -100,7 +100,7 @@ async def login_with_code(code: str) -> Dict[str, Any]:
             "is_bound": False, "account_state": "email_only", "token": token,
         }
 
-    token = sign_wechat_jwt(sub=openid, typ="wechat_unbound", exp_days=1)
+    token = sign_wechat_jwt(sub=openid, typ="wechat_unbound", exp_days=7)
     return {
         "success": True, "openid": openid, "user_id": None,
         "is_bound": False, "account_state": "unbound", "token": token,
