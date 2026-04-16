@@ -10,12 +10,6 @@ class WechatLoginRequest(BaseModel):
     code: str
 
 
-class WechatBindRequest(BaseModel):
-    openid: str
-    email: str
-    password: str
-
-
 class WechatLoginResponse(BaseModel):
     success: bool
     token: Optional[str] = None
@@ -23,13 +17,6 @@ class WechatLoginResponse(BaseModel):
     openid: Optional[str] = None
     is_bound: bool = False
     account_state: Optional[str] = None   # "unbound" | "email_only" | "bound"
-    error: Optional[str] = None
-
-
-class WechatBindResponse(BaseModel):
-    success: bool
-    token: Optional[str] = None
-    user_id: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -46,22 +33,6 @@ class HomeCardsResponse(BaseModel):
     success: bool
     cards: List[HomeCard]
 
-
-class WechatRegisterRequestBody(BaseModel):
-    email: str
-
-class WechatRegisterRequestResponse(BaseModel):
-    success: bool
-    action: Optional[str] = None   # "bind_existing" | "create_new"
-    error: Optional[str] = None
-
-class WechatRegisterConfirmBody(BaseModel):
-    otp_token: str
-
-class WechatRegisterConfirmResponse(BaseModel):
-    success: bool
-    account_state: Optional[str] = None
-    error: Optional[str] = None
 
 class WechatMeResponse(BaseModel):
     success: bool

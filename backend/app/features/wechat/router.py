@@ -8,9 +8,6 @@ from app.core.deps import verify_user_token
 from app.core.rate_limit import limiter
 from app.features.wechat.models import (
     WechatLoginRequest, WechatLoginResponse,
-    WechatBindRequest, WechatBindResponse,
-    WechatRegisterRequestBody, WechatRegisterRequestResponse,
-    WechatRegisterConfirmBody, WechatRegisterConfirmResponse,
     WechatMeResponse, HomeCard, HomeCardsResponse,
     WechatOtpSendRequest, WechatOtpSendResponse,
     WechatOtpVerifyRequest, WechatOtpVerifyResponse,
@@ -57,54 +54,6 @@ async def wechat_login(request: WechatLoginRequest):
         logger.exception("wechat_login failed")
         raise HTTPException(status_code=500, detail="Login failed")
 
-
-@router.post("/bind", response_model=WechatBindResponse)
-async def wechat_bind(request: WechatBindRequest):
-    """Legacy password-based bind. Kept for backwards compatibility."""
-    try:
-        result = await service.bind_account(
-            openid=request.openid, email=request.email, password=request.password
-        )
-        return WechatBindResponse(**result)
-    except Exception:
-        logger.exception("wechat_bind failed")
-        raise HTTPException(status_code=500, detail="Bind failed")
-
-
-@router.post("/register/request", response_model=WechatRegisterRequestResponse)
-@limiter.limit("1/minute")
-async def wechat_register_request(
-    request: Request,
-    body: WechatRegisterRequestBody,
-):
-    """
-    Step 1: Send OTP verification email.
-    Accepts any WeChat JWT (including wechat_unbound).
-    Rate-limited 1/min per IP to prevent email abuse.
-    """
-    auth_header = request.headers.get("Authorization")
-    payload = _require_wechat_token(auth_header)
-    openid = extract_openid_from_jwt(payload)
-
-    try:
-        result = await service.register_request(openid=openid, email=body.email)
-        return WechatRegisterRequestResponse(**result)
-    except Exception:
-        logger.exception("wechat_register_request failed")
-        raise HTTPException(status_code=500, detail="Request failed")
-
-
-@router.post("/register/confirm", response_model=WechatRegisterConfirmResponse)
-async def wechat_register_confirm(body: WechatRegisterConfirmBody):
-    """
-    Step 2: Verify OTP token.
-    Called by the Next.js /wechat-verify web page (no Bearer auth — otp_token IS the credential).
-    On success the DB state is updated; mini program re-calls wx.login() to get updated JWT.
-    """
-    result = await service.register_confirm(otp_token=body.otp_token)
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return WechatRegisterConfirmResponse(**result)
 
 
 @router.post("/otp/send", response_model=WechatOtpSendResponse)

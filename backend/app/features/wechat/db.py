@@ -74,7 +74,7 @@ async def get_by_openid(openid: str) -> Dict[str, Any]:
 
 
 async def bind_user(openid: str, user_id: str) -> Dict[str, Any]:
-    """Bind a wechat openid to an Insforge user_id."""
+    """Bind a wechat openid to an Insforge user_id (legacy password-bind path)."""
     service = get_insforge_service()
     url = service.function_url(_FUNCTION_NAME)
 
@@ -83,7 +83,7 @@ async def bind_user(openid: str, user_id: str) -> Dict[str, Any]:
             resp = await client.post(
                 url,
                 params={"action": "bind"},
-                json={"openid": openid, "user_id": user_id},
+                json={"openid": openid, "insforge_user_id": user_id},
                 headers=_headers(),
                 timeout=10.0,
             )

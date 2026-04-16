@@ -2,7 +2,6 @@
 WeChat Mini Program service — code2Session, JWT generation, account binding.
 """
 
-import urllib.parse
 from typing import Dict, Any, Optional
 
 import httpx
@@ -11,19 +10,12 @@ from app.core.config import (
     WECHAT_APP_ID,
     WECHAT_APP_SECRET,
     INSFORGE_BASE_URL,
-    INSFORGE_ANON_KEY,
     INSFORGE_SERVICE_KEY,
     RESEND_API_KEY,
-    FRONTEND_URL,
 )
 from app.core.logging import get_logger
 from app.features.wechat import db
-from app.features.wechat.jwt_utils import (
-    sign_wechat_jwt,
-    generate_otp_token,
-    verify_otp_token,
-    mark_otp_used,
-)
+from app.features.wechat.jwt_utils import sign_wechat_jwt
 
 logger = get_logger(__name__)
 
@@ -107,48 +99,6 @@ async def login_with_code(code: str) -> Dict[str, Any]:
     }
 
 
-async def bind_account(openid: str, email: str, password: str) -> Dict[str, Any]:
-    """
-    Bind a wechat openid to an existing Insforge account.
-
-    1. Verify email/password via Insforge sign-in API
-    2. If valid, bind openid to the user_id
-    3. Return the JWT token
-    """
-    # Step 1: Verify credentials via Insforge
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                f"{INSFORGE_BASE_URL}/api/auth/sessions?client_type=mobile",
-                json={"email": email, "password": password},
-                headers={"apikey": INSFORGE_ANON_KEY},
-            )
-    except httpx.RequestError as e:
-        logger.error("Insforge auth request failed: %s", e)
-        return {"success": False, "error": "Auth service unavailable"}
-
-    if resp.status_code != 200:
-        return {"success": False, "error": "Invalid email or password"}
-
-    auth_data = resp.json()
-    token = auth_data.get("accessToken")
-    user = auth_data.get("user", {})
-    user_id = user.get("id")
-
-    if not user_id or not token:
-        return {"success": False, "error": "Auth response missing user data"}
-
-    # Step 2: Bind openid to user_id
-    bind_result = await db.bind_user(openid=openid, user_id=user_id)
-    if not bind_result.get("success"):
-        return {"success": False, "error": bind_result.get("error", "Binding failed")}
-
-    return {
-        "success": True,
-        "token": token,
-        "user_id": user_id,
-    }
-
 
 async def _lookup_insforge_user_by_email(email: str) -> Optional[str]:
     """
@@ -178,91 +128,6 @@ async def _lookup_insforge_user_by_email(email: str) -> Optional[str]:
         logger.warning("_lookup_insforge_user_by_email failed: %s", e)
     return None
 
-
-async def _send_otp_email(email: str, otp_token: str) -> None:
-    """Send verification link email via Resend."""
-    if not RESEND_API_KEY:
-        logger.warning("_send_otp_email: RESEND_API_KEY not set, skipping")
-        return
-    verify_url = f"{FRONTEND_URL}/wechat-verify?t={urllib.parse.quote(otp_token)}"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #059669;">TheMarketBrew 邮箱验证</h2>
-      <p>点击下方按钮完成微信小程序账号绑定：</p>
-      <a href="{verify_url}" style="
-        display: inline-block; padding: 12px 24px;
-        background: #059669; color: white; border-radius: 6px;
-        text-decoration: none; font-size: 16px;">
-        完成验证
-      </a>
-      <p style="color: #6b7280; margin-top: 16px;">链接 5 分钟内有效。如非本人操作请忽略。</p>
-    </div>
-    """
-    try:
-        import resend
-        resend.api_key = RESEND_API_KEY
-        resend.Emails.send({
-            "from": "TheMarketBrew <hello@themarketbrew.com>",
-            "to": [email],
-            "subject": "【TheMarketBrew】验证您的邮箱",
-            "html": html,
-        })
-        logger.info("OTP verification email sent to %s", email)
-    except Exception as e:
-        logger.error("_send_otp_email failed: %s", e)
-
-
-async def register_request(openid: str, email: str) -> Dict[str, Any]:
-    """
-    Step 1: Determine bind_existing vs create_new, generate OTP token, send email link.
-    """
-    existing_user_id = await _lookup_insforge_user_by_email(email)
-    action = "bind_existing" if existing_user_id else "create_new"
-
-    otp_token = generate_otp_token(email=email, openid=openid, action=action)
-    await _send_otp_email(email=email, otp_token=otp_token)
-
-    logger.info("register_request: openid=%s email=%s action=%s", openid, email, action)
-    return {"success": True, "action": action}
-
-
-async def register_confirm(otp_token: str) -> Dict[str, Any]:
-    """
-    Step 2: Verify OTP token (called from web /wechat-verify page).
-    On success updates DB state; mini program re-calls wx.login() to get updated JWT.
-    """
-    result = verify_otp_token(otp_token)
-    if not result["valid"]:
-        reason_map = {
-            "expired": "验证链接已过期，请重新发送",
-            "already_used": "验证链接已使用，请重新发送",
-            "invalid": "验证链接无效",
-        }
-        return {"success": False, "error": reason_map.get(result["reason"], "验证失败")}
-
-    email = result["email"]
-    openid = result["openid"]
-    action = result["action"]
-
-    # Consume immediately to prevent replay
-    mark_otp_used(otp_token)
-
-    if action == "bind_existing":
-        insforge_user_id = await _lookup_insforge_user_by_email(email)
-        if not insforge_user_id:
-            return {"success": False, "error": "找不到该邮箱对应的账号"}
-        bind_result = await db.bind_insforge_user(openid=openid, insforge_user_id=insforge_user_id)
-        if not bind_result.get("success"):
-            return {"success": False, "error": "账号绑定失败，请重试"}
-        logger.info("register_confirm: bound openid=%s to insforge_user_id=%s", openid, insforge_user_id)
-        return {"success": True, "account_state": "bound"}
-
-    # create_new: verify email, create email_only state
-    verify_result = await db.update_email_verified(openid=openid, email=email)
-    if not verify_result.get("success"):
-        return {"success": False, "error": "账号状态更新失败"}
-    logger.info("register_confirm: email_only openid=%s email=%s", openid, email)
-    return {"success": True, "account_state": "email_only"}
 
 
 async def _send_otp_code_email(email: str, code: str) -> None:

@@ -1,27 +1,21 @@
 """
-WeChat JWT utilities — sign/decode account JWTs + stateless OTP token generation.
+WeChat JWT utilities — sign/decode account JWTs.
 
 JWT token types:
-  wechat_unbound    sub=openid,           exp=1d  → unbound guest
+  wechat_unbound    sub=openid,           exp=7d  → unbound guest
   wechat_email_only sub=wechat_users.id,  exp=7d  → OTP-verified, no Insforge account
                     openid=<actual openid> (explicit claim)
   wechat_bound      sub=insforge_user_id, exp=7d  → fully bound account
                     openid=<actual openid> (explicit claim)
 
-OTP token:
-  URLSafeTimedSerializer({email, openid, action}, max_age=300s)
-  Replay prevention: _used_otp_tokens in-process dict (same pattern as _token_cache in deps.py)
-  ⚠️ SINGLE-INSTANCE ONLY: dict is not shared across multiple uvicorn workers or containers.
-     Risk is low (ops are idempotent, window is 5 min). For multi-worker deploy, swap for Redis setnx.
+OTP: 6-digit numeric codes live in shared/otp_utils.py (WeChat-agnostic).
 """
 
 import os
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt as pyjwt
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from app.core.logging import get_logger
 
@@ -37,13 +31,8 @@ def _get_secret() -> str:
 
 
 _ALGORITHM = "HS256"
-_OTP_SALT = "wechat-otp-v1"
-_OTP_MAX_AGE = 300  # seconds (5 minutes)
 
 WECHAT_TOKEN_TYPES = {"wechat_unbound", "wechat_email_only", "wechat_bound"}
-
-# Replay guard: token_string → timestamp_used
-_used_otp_tokens: dict[str, float] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -104,58 +93,3 @@ def extract_openid_from_jwt(payload: dict[str, Any]) -> str:
     - wechat_email_only / wechat_bound: openid is an explicit claim (sub is an internal UUID)
     """
     return payload.get("openid") or payload["sub"]
-
-
-# ---------------------------------------------------------------------------
-# OTP helpers
-# ---------------------------------------------------------------------------
-
-def _get_signer() -> URLSafeTimedSerializer:
-    secret = _get_secret()
-    return URLSafeTimedSerializer(secret, salt=_OTP_SALT)
-
-
-def generate_otp_token(email: str, openid: str, action: str) -> str:
-    """
-    Generate a stateless OTP token embedding {email, openid, action}.
-    The token is URL-safe and carries a timestamp (verified server-side).
-    """
-    return _get_signer().dumps({"email": email, "openid": openid, "action": action})
-
-
-def verify_otp_token(token: str) -> dict[str, Any]:
-    """
-    Verify an OTP token.
-
-    Returns:
-        {"valid": True,  "email": ..., "openid": ..., "action": ...}
-        {"valid": False, "reason": "expired" | "invalid" | "already_used"}
-    """
-    # Replay check first (cheap)
-    if token in _used_otp_tokens:
-        return {"valid": False, "reason": "already_used"}
-
-    try:
-        data = _get_signer().loads(token, max_age=_OTP_MAX_AGE)
-    except SignatureExpired:
-        return {"valid": False, "reason": "expired"}
-    except BadSignature:
-        return {"valid": False, "reason": "invalid"}
-
-    return {
-        "valid": True,
-        "email": data["email"],
-        "openid": data["openid"],
-        "action": data["action"],
-    }
-
-
-def mark_otp_used(token: str) -> None:
-    """Mark an OTP token as consumed. Call immediately after successful verify."""
-    _used_otp_tokens[token] = time.time()
-    # Evict tokens older than OTP TTL (can't be replayed anyway after expiry)
-    if len(_used_otp_tokens) > 500:
-        cutoff = time.time() - _OTP_MAX_AGE
-        expired = [k for k, t in _used_otp_tokens.items() if t < cutoff]
-        for k in expired:
-            del _used_otp_tokens[k]
