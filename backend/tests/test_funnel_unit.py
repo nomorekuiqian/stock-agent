@@ -28,6 +28,8 @@ class TestCreateTrialSubscription:
     """Tests for the shared trial creation function."""
 
     @pytest.mark.asyncio
+    @patch("app.features.invites.db.STRIPE_SECRET_KEY", "sk_test_xxx")
+    @patch("app.features.invites.db.STRIPE_MAX_PRICE_ID", "price_max_xxx")
     @patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock)
     @patch("app.features.invites.db.get_or_create_stripe_customer", new_callable=AsyncMock)
     @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock)

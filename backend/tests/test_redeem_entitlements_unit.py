@@ -35,8 +35,10 @@ class TestRedeemCode:
     @pytest.mark.asyncio
     @patch("app.features.invites.db.STRIPE_MAX_PRICE_ID", None)
     @patch("app.features.invites.db.STRIPE_SECRET_KEY", None)
-    async def test_stripe_not_configured(self):
-        """Missing Stripe config -> success=False, error=payment_not_configured."""
+    @patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock)
+    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock, return_value=None)
+    async def test_stripe_not_configured(self, mock_get_sub, mock_upsert):
+        """Missing Stripe config -> success=True, stripe_pending=True (fallback to DB)."""
         from app.features.invites.db import redeem_code
 
         result = await redeem_code(
@@ -45,8 +47,10 @@ class TestRedeemCode:
             code="ALPHA2026",
             valid_codes=VALID_CODES,
         )
-        assert result["success"] is False
-        assert result["error"] == "payment_not_configured"
+        assert result["success"] is True
+        assert result["stripe_pending"] is True
+        assert result["subscription_id"] is None
+        assert mock_upsert.await_count == 2
 
     # ------------------------------------------------------------------
     # 3. Happy path: valid code + Stripe configured

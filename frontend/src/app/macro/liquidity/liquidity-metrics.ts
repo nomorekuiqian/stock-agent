@@ -43,16 +43,16 @@ export function formatLiquidityValue(value: number | null, units: string): strin
   const abs = Math.abs(value);
 
   if (normalizedUnits.includes('billion')) {
-    // >= 1T: show in T with 3 decimals; < 1T: show in B (integer)
-    if (abs >= 1000) return `$${(value / 1000).toFixed(3)}T`;
-    if (abs >= 1) return `$${value.toFixed(0)}B`;
+    // >= 1T: show in T with 2 decimals; < 1T: show in B with 2 decimals
+    if (abs >= 1000) return `$${(value / 1000).toFixed(2)}T`;
+    if (abs >= 1) return `$${value.toFixed(2)}B`;
     return `$${(value * 1000).toFixed(0)}M`;
   }
 
   if (normalizedUnits.includes('million')) {
     // Convert Millions to same logic: >= 1T in T, < 1T in B
-    if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(3)}T`;
-    if (abs >= 1000) return `$${(value / 1000).toFixed(0)}B`;
+    if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}T`;
+    if (abs >= 1000) return `$${(value / 1000).toFixed(2)}B`;
     return `$${value.toFixed(0)}M`;
   }
 
