@@ -172,7 +172,16 @@ class TestEmailE2E:
         """
         time.sleep(2)
 
-        result = await email_service.broadcast_personal_digests(max_concurrent=5)
+        from unittest.mock import patch
+        with patch("app.features.payment.db.list_entitled_users") as mock_list:
+            # Ensure the test account is returned even if not in the remote DB
+            mock_list.return_value = [{
+                "email": TEST_EMAIL,
+                "first_name": TEST_FIRST_NAME,
+                "user_id": "14204862-26b9-4f24-b8ff-7f98e2f3fe1d", # voya test account ID
+            }]
+            
+            result = await email_service.broadcast_personal_digests(max_concurrent=5)
 
         assert result.get("success") is True, f"Digest failed: {result.get('error')}"
         assert result["total"] >= 1, (

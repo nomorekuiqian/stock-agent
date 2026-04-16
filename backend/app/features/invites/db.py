@@ -58,13 +58,6 @@ async def create_trial_subscription(
                 "already_active": True,
             }
 
-    # -- Stripe configuration check --
-    if not STRIPE_SECRET_KEY or not STRIPE_MAX_PRICE_ID:
-        logger.error(
-            "create_trial_subscription: STRIPE_SECRET_KEY or STRIPE_MAX_PRICE_ID not configured"
-        )
-        return {"success": False, "error": "payment_not_configured"}
-
     invite_code = "AUTO_TRIAL" if source == "auto_registration" else source
 
     # -- Try Stripe trial creation --
@@ -75,6 +68,10 @@ async def create_trial_subscription(
     ).isoformat()
 
     try:
+        # If Stripe is not configured, we immediately trigger the exception block
+        if not STRIPE_SECRET_KEY or not STRIPE_MAX_PRICE_ID:
+            raise ValueError("STRIPE_SECRET_KEY or STRIPE_MAX_PRICE_ID not configured")
+
         customer_id = await get_or_create_stripe_customer(user_id, user_email)
 
         subscription = await asyncio.to_thread(

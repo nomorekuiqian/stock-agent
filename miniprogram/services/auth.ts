@@ -1,5 +1,5 @@
 import { request } from './api';
-import { getToken, setToken, setOpenid, getOpenid, clearAll } from '../utils/storage';
+import { getToken, setToken, setOpenid, setAccountState, clearAll, AccountState } from '../utils/storage';
 
 interface LoginResult {
   success: boolean;
@@ -7,19 +7,25 @@ interface LoginResult {
   user_id?: string;
   openid?: string;
   is_bound: boolean;
-  account_state?: string;  // "unbound" | "email_only" | "bound"
+  account_state?: string;
   error?: string;
 }
 
-interface BindResult {
+interface OtpSendResult {
+  success: boolean;
+  action?: string;   // "bind_existing" | "create_new"
+  error?: string;
+}
+
+interface OtpVerifyResult {
   success: boolean;
   token?: string;
-  user_id?: string;
+  account_state?: string;  // "email_only" | "bound"
   error?: string;
 }
 
 /**
- * WeChat login: get code from wx.login, exchange for openid via backend.
+ * WeChat login: exchange wx.login() code for openid and JWT via backend.
  */
 export async function wechatLogin(): Promise<LoginResult> {
   return new Promise((resolve) => {
@@ -34,78 +40,26 @@ export async function wechatLogin(): Promise<LoginResult> {
             method: 'POST',
             data: { code: loginRes.code },
           });
-
-          if (result.success && result.openid) {
-            setOpenid(result.openid);
-          }
-          if (result.token) {
-            setToken(result.token);
-          }
-
+          if (result.success && result.openid) setOpenid(result.openid);
+          if (result.token) setToken(result.token);
+          if (result.account_state) setAccountState(result.account_state as AccountState);
           resolve(result);
         } catch (err) {
           resolve({ success: false, is_bound: false, error: String(err) });
         }
       },
-      fail: (err) => {
-        resolve({ success: false, is_bound: false, error: err.errMsg });
-      },
+      fail: (err) => resolve({ success: false, is_bound: false, error: err.errMsg }),
     });
   });
 }
 
 /**
- * Bind WeChat account to existing email account.
+ * Step 1: Send 6-digit OTP to email.
+ * Requires a valid WeChat JWT (any type) stored via setToken().
  */
-export async function bindAccount(email: string, password: string): Promise<BindResult> {
-  const openid = getOpenid();
-  if (!openid) {
-    return { success: false, error: 'No openid found. Please login with WeChat first.' };
-  }
-
+export async function sendOtp(email: string): Promise<OtpSendResult> {
   try {
-    const result = await request<BindResult>('/wechat/bind', {
-      method: 'POST',
-      data: { openid, email, password },
-    });
-
-    if (result.success && result.token) {
-      setToken(result.token);
-    }
-
-    return result;
-  } catch (err) {
-    return { success: false, error: String(err) };
-  }
-}
-
-/**
- * Check if user is logged in (has valid token).
- */
-export function isLoggedIn(): boolean {
-  return !!getToken();
-}
-
-/**
- * Logout: clear all stored auth data.
- */
-export function logout(): void {
-  clearAll();
-}
-
-interface RegisterRequestResult {
-  success: boolean;
-  action?: string;  // "create_new" | "bind_existing"
-  error?: string;
-}
-
-/**
- * Step 1 of OTP registration: POST email to backend, triggers verification email.
- * Requires a valid WeChat JWT (any type) to be stored via setToken().
- */
-export async function registerRequest(email: string): Promise<RegisterRequestResult> {
-  try {
-    return await request<RegisterRequestResult>('/wechat/register/request', {
+    return await request<OtpSendResult>('/wechat/otp/send', {
       method: 'POST',
       data: { email },
       needAuth: true,
@@ -116,9 +70,36 @@ export async function registerRequest(email: string): Promise<RegisterRequestRes
 }
 
 /**
- * Re-run wx.login() to exchange a fresh code for an updated JWT.
- * Call after user confirms email verification to upgrade unbound → email_only/bound.
+ * Step 2: Verify 6-digit OTP. Stores new JWT on success.
+ */
+export async function verifyOtp(email: string, code: string): Promise<OtpVerifyResult> {
+  try {
+    const result = await request<OtpVerifyResult>('/wechat/otp/verify', {
+      method: 'POST',
+      data: { email, code },
+      needAuth: true,
+    });
+    if (result.success && result.token) {
+      setToken(result.token);
+      if (result.account_state) setAccountState(result.account_state as AccountState);
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Re-run wx.login() to refresh JWT after external state change.
  */
 export async function refreshLogin(): Promise<LoginResult> {
   return wechatLogin();
+}
+
+export function isLoggedIn(): boolean {
+  return !!getToken();
+}
+
+export function logout(): void {
+  clearAll();
 }

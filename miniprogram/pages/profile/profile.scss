@@ -15,6 +15,7 @@
 }
 
 .avatar-wrap {
+  position: relative;
   flex-shrink: 0;
 }
 
@@ -194,4 +195,136 @@
   color: var(--fg-subtle);
   margin-top: 48rpx;
   letter-spacing: 0.05em;
+}
+
+/* --- Avatar badge --- */
+.avatar-badge {
+  position: absolute;
+  bottom: -4rpx;
+  right: -4rpx;
+  font-size: 18rpx;
+  font-weight: 600;
+  padding: 4rpx 10rpx;
+  border-radius: 20rpx;
+  letter-spacing: 0.03em;
+}
+
+.badge-amber {
+  background: rgba(251, 191, 36, 0.2);
+  color: var(--amber);
+  border: 1rpx solid rgba(251, 191, 36, 0.3);
+}
+
+.tag-dot-amber {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.tag-emerald {
+  color: var(--emerald);
+}
+
+/* --- Value Guide Card --- */
+.value-guide-card {
+  margin-top: 24rpx;
+  padding: 0;
+}
+
+.value-guide-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx 32rpx 16rpx;
+  border-bottom: 2rpx solid var(--border);
+}
+
+.value-guide-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.value-guide-list {
+  padding: 8rpx 0;
+}
+
+.value-guide-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  padding: 20rpx 32rpx;
+}
+
+.value-guide-icon {
+  font-size: 36rpx;
+  flex-shrink: 0;
+  width: 48rpx;
+  text-align: center;
+}
+
+.value-guide-label {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--fg);
+  margin-bottom: 4rpx;
+}
+
+.value-guide-desc {
+  font-size: 24rpx;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+/* --- CTA Section --- */
+.cta-section {
+  margin-top: 32rpx;
+}
+
+/* --- Upgrade Hint --- */
+.upgrade-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  margin-top: 32rpx;
+  padding: 0 32rpx;
+}
+
+.upgrade-hint-text {
+  font-size: 24rpx;
+  color: var(--fg-subtle);
+}
+
+.upgrade-hint-link {
+  font-size: 24rpx;
+  color: var(--emerald);
+  font-weight: 500;
+}
+
+/* --- Bound Loading Skeleton --- */
+.bound-loading {
+  padding: 40rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.skeleton-avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+}
+
+.skeleton-name {
+  width: 200rpx;
+  height: 34rpx;
+  border-radius: 8rpx;
+}
+
+.skeleton-tag {
+  width: 120rpx;
+  height: 24rpx;
+  border-radius: 8rpx;
 }

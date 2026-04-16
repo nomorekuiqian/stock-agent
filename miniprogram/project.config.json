@@ -37,7 +37,7 @@
     }
   },
   "compileType": "miniprogram",
-  "libVersion": "3.4.0",
+  "libVersion": "3.15.2",
   "appid": "wxe484a6268c1314c7",
   "projectname": "themarketbrew-miniprogram",
   "condition": {},

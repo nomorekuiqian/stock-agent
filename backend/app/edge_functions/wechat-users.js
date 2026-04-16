@@ -1,7 +1,9 @@
 // Edge function: wechat-users
-// POST ?action=upsert — create or update wechat user by openid
-// GET  ?action=get_by_openid&openid=xxx — lookup by openid
-// POST ?action=bind — bind openid to insforge user_id
+// POST ?action=upsert              — create or update wechat user by openid
+// GET  ?action=get_by_openid       — lookup by openid
+// POST ?action=bind                — bind openid to insforge_user_id (legacy alias for bind_insforge_user)
+// POST ?action=bind_insforge_user  — bind openid to existing Insforge account
+// POST ?action=update_email_verified — mark email as OTP-verified (email_only state)
 
 module.exports = async function (request) {
   const corsHeaders = {
@@ -46,6 +48,7 @@ module.exports = async function (request) {
             session_key: session_key || null,
             nickname: nickname || null,
             avatar_url: avatar_url || null,
+            last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "openid" }
@@ -77,17 +80,24 @@ module.exports = async function (request) {
       return json({ success: true, data });
     }
 
-    // POST ?action=bind
+    // POST ?action=bind — legacy alias: accepts { openid, user_id } or { openid, insforge_user_id }
+    // Both write to insforge_user_id column to keep the data model consistent.
     if (request.method === "POST" && action === "bind") {
-      const { openid, user_id } = await request.json();
+      const body = await request.json();
+      const { openid } = body;
+      const insforge_user_id = body.insforge_user_id || body.user_id;
 
-      if (!openid || !user_id) {
-        return json({ success: false, error: "openid and user_id required" }, 400);
+      if (!openid || !insforge_user_id) {
+        return json({ success: false, error: "openid and insforge_user_id (or user_id) required" }, 400);
       }
 
       const { data, error } = await client.database
         .from("wechat_users")
-        .update({ user_id, updated_at: new Date().toISOString() })
+        .update({
+          insforge_user_id,
+          bound_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
         .eq("openid", openid)
         .select()
         .single();

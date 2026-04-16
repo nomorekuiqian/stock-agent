@@ -3,11 +3,11 @@ import { getToken } from '../utils/storage';
 // Change this to your backend URL
 // Development: use local IP or ngrok
 // Production: use your deployed backend URL
-const BASE_URL = 'https://simona-spanaemic-jules.ngrok-free.dev/api';
+const BASE_URL = 'https://stock-agent-production.up.railway.app/api';
 
 // Change this to your frontend URL for WebView
 // const WEB_BASE_URL = 'http://localhost:3000';
-const WEB_BASE_URL = 'https://swift-sheep-dress.loca.lt';
+const WEB_BASE_URL = 'https://www.themarketbrew.com/';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';

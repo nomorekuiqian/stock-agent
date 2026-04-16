@@ -1,73 +1,119 @@
 <nav-bar title="我的" />
 
 <view class="container profile-page">
-  <!-- User Card -->
-  <view class="card user-card">
-    <view class="user-card-inner" wx:if="{{isLoggedIn}}">
-      <!-- Avatar -->
-      <view class="avatar-wrap">
-        <image
-          class="avatar-img"
-          src="{{avatarUrl}}"
-          mode="aspectFill"
-          wx:if="{{avatarUrl}}"
-        />
-        <view class="avatar-placeholder" wx:else>
-          <text class="avatar-letter">{{nickname[0] || 'U'}}</text>
-        </view>
-      </view>
 
-      <view class="user-info">
-        <view class="user-nickname">{{nickname}}</view>
-        <view class="user-tag">
-          <view class="tag-dot"></view>
-          <text class="tag-text">已登录</text>
+  <!-- ===== unbound（游客态）===== -->
+  <block wx:if="{{accountState === 'unbound'}}">
+    <view class="card user-card">
+      <view class="user-card-inner">
+        <view class="avatar-wrap">
+          <view class="avatar-placeholder avatar-empty">
+            <text class="avatar-letter" style="color: var(--fg-subtle);">?</text>
+          </view>
+          <view class="avatar-badge badge-amber">游客</view>
+        </view>
+        <view class="user-info">
+          <view class="user-nickname" style="color: var(--fg-muted);">游客身份</view>
+          <view class="user-tag">
+            <view class="tag-dot tag-dot-amber"></view>
+            <text class="tag-text">未绑定邮箱</text>
+          </view>
         </view>
       </view>
     </view>
 
-    <view class="user-card-inner" wx:else>
-      <view class="avatar-wrap">
-        <view class="avatar-placeholder avatar-empty">
-          <text class="avatar-letter" style="color: var(--fg-subtle);">?</text>
-        </view>
+    <view class="card value-guide-card">
+      <view class="value-guide-header">
+        <view class="accent-bar"></view>
+        <text class="value-guide-title">绑定邮箱，解锁更多</text>
       </view>
-      <view class="user-info">
-        <view class="user-nickname" style="color: var(--fg-muted);">未登录</view>
-        <view class="user-login-link" bind:tap="onLogin">
-          <text>点击登录</text>
-          <view class="link-arrow"></view>
+      <view class="value-guide-list">
+        <view class="value-guide-item">
+          <text class="value-guide-icon">📊</text>
+          <view class="value-guide-text">
+            <view class="value-guide-label">跨设备访问</view>
+            <view class="value-guide-desc">订阅和偏好在所有设备同步</view>
+          </view>
+        </view>
+        <view class="value-guide-item">
+          <text class="value-guide-icon">✉</text>
+          <view class="value-guide-text">
+            <view class="value-guide-label">每日市场简报</view>
+            <view class="value-guide-desc">精选市场资讯直达邮箱</view>
+          </view>
+        </view>
+        <view class="value-guide-item">
+          <text class="value-guide-icon">🔒</text>
+          <view class="value-guide-text">
+            <view class="value-guide-label">账号安全保障</view>
+            <view class="value-guide-desc">绑定后数据永久保存</view>
+          </view>
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- Menu Section -->
-  <view class="card menu-card" wx:if="{{isLoggedIn}}">
-    <view class="menu-header">
-      <view class="accent-bar"></view>
-      <text class="menu-header-title">账号管理</text>
-      <text class="menu-header-en">Account</text>
+    <view class="cta-section">
+      <view class="btn-primary" bind:tap="onGoBindEmail">立即绑定邮箱</view>
+      <view class="btn-ghost" bind:tap="onBrowseContent" style="margin-top: 16rpx;">继续浏览内容</view>
     </view>
+  </block>
 
-    <view class="menu-item" bind:tap="onEmailSubscribe" hover-class="menu-item-hover">
-      <view class="menu-item-left">
-        <view class="menu-icon-wrap">
-          <text class="menu-icon-text">✉</text>
+  <!-- ===== email_only（邮箱用户态）===== -->
+  <block wx:if="{{accountState === 'email_only'}}">
+    <view class="card user-card">
+      <view class="user-card-inner">
+        <view class="avatar-wrap">
+          <view class="avatar-placeholder">
+            <text class="avatar-letter">{{emailInitial}}</text>
+          </view>
         </view>
-        <text class="menu-label">邮件订阅</text>
-      </view>
-      <view class="menu-item-right">
-        <view class="arrow-chevron"></view>
+        <view class="user-info">
+          <view class="user-nickname">{{email}}</view>
+          <view class="user-tag">
+            <view class="tag-dot"></view>
+            <text class="tag-text tag-emerald">邮箱用户</text>
+          </view>
+        </view>
       </view>
     </view>
-  </view>
 
-  <!-- Logout -->
-  <view class="logout-wrap" wx:if="{{isLoggedIn}}">
-    <view class="logout-btn" bind:tap="onLogout" hover-class="logout-btn-hover">退出登录</view>
-  </view>
+    <view class="card menu-card">
+      <view class="menu-header">
+        <view class="accent-bar"></view>
+        <text class="menu-header-title">账号管理</text>
+        <text class="menu-header-en">Account</text>
+      </view>
+      <view class="menu-item" bind:tap="onEmailSubscribe" hover-class="menu-item-hover">
+        <view class="menu-item-left">
+          <view class="menu-icon-wrap">
+            <text class="menu-icon-text">✉</text>
+          </view>
+          <text class="menu-label">邮件订阅</text>
+        </view>
+        <view class="menu-item-right">
+          <view class="arrow-chevron"></view>
+        </view>
+      </view>
+    </view>
 
-  <!-- Version -->
+    <view class="upgrade-hint">
+      <text class="upgrade-hint-text">想要更多功能？</text>
+      <text class="upgrade-hint-link" bind:tap="onUpgradeAccount">注册完整账号 →</text>
+    </view>
+
+    <view class="logout-wrap">
+      <view class="logout-btn" bind:tap="onLogout" hover-class="logout-btn-hover">退出登录</view>
+    </view>
+  </block>
+
+  <!-- ===== bound（跳转中骨架）===== -->
+  <block wx:if="{{accountState === 'bound'}}">
+    <view class="bound-loading">
+      <view class="skeleton skeleton-avatar"></view>
+      <view class="skeleton skeleton-name"></view>
+      <view class="skeleton skeleton-tag"></view>
+    </view>
+  </block>
+
   <view class="version-text">TheMarketBrew v1.0</view>
 </view>

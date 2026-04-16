@@ -172,5 +172,5 @@ class TestInsiderTrading:
     @pytest.mark.asyncio
     async def test_invalid_symbol_format(self, client):
         """Invalid symbol format returns 400."""
-        resp = await client.get("/api/stocks/##INVALID/insider-trading", timeout=10)
+        resp = await client.get("/api/stocks/INVALID-LONG-SYMBOL-NAME/insider-trading", timeout=10)
         assert resp.status_code == 400

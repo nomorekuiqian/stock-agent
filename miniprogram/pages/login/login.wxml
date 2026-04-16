@@ -17,65 +17,71 @@
     </view>
   </view>
 
-  <!-- view: login — 初始登录按钮 -->
+  <!-- view: login -->
   <view class="login-actions" wx:if="{{view === 'login'}}">
     <view class="btn-primary" bind:tap="onWechatLogin">
       <text wx:if="{{loading}}">登录中...</text>
       <text wx:else>微信一键登录</text>
     </view>
-    <view class="btn-secondary" bind:tap="onEmailLogin" style="margin-top: 24rpx;">
-      使用邮箱登录
-    </view>
     <view class="login-hint">登录即表示同意我们的服务条款</view>
   </view>
 
-  <!-- view: register — 邮箱输入 -->
-  <view class="register-section" wx:if="{{view === 'register'}}">
+  <!-- view: email_input — 邮箱输入 -->
+  <view class="register-section" wx:if="{{view === 'email_input'}}">
     <view class="section-header">
       <view class="section-icon-wrap">
-        <text class="section-icon-text">✓</text>
+        <text class="section-icon-text">✉</text>
       </view>
-      <view class="section-title">微信登录成功</view>
-      <view class="section-desc">输入邮箱以接收验证链接，或跳过直接使用</view>
+      <view class="section-title">绑定邮箱</view>
+      <view class="section-desc">绑定邮箱后可接收每日市场简报，并解锁跨设备同步</view>
     </view>
-
     <view class="register-form">
       <input
         class="input-field"
         type="email"
         placeholder="请输入邮箱"
         placeholder-class="input-field-placeholder"
-        value="{{registerEmail}}"
+        value="{{bindEmail}}"
         bindinput="onEmailInput"
       />
-      <view class="register-error" wx:if="{{registerError}}">{{registerError}}</view>
-      <view class="btn-primary" bind:tap="onSendVerification">
+      <view class="register-error" wx:if="{{bindError}}">{{bindError}}</view>
+      <view class="btn-primary" bind:tap="onSendOtp">
         <text wx:if="{{loading}}">发送中...</text>
-        <text wx:else>发送验证邮件</text>
+        <text wx:else>发送验证码</text>
       </view>
-      <view class="btn-ghost" bind:tap="onSkip">跳过，直接使用</view>
+      <view class="btn-ghost" bind:tap="onSkip">跳过</view>
     </view>
   </view>
 
-  <!-- view: pending — 等待验证 -->
-  <view class="pending-section" wx:if="{{view === 'pending'}}">
+  <!-- view: otp_input — 验证码输入 -->
+  <view class="pending-section" wx:if="{{view === 'otp_input'}}">
     <view class="section-header">
       <view class="pending-icon-wrap">
-        <text class="pending-icon">✉</text>
+        <text class="pending-icon">✓</text>
       </view>
-      <view class="section-title">验证邮件已发送</view>
-      <view class="section-desc">请在 5 分钟内点击邮件中的验证链接，然后返回点击下方按钮</view>
+      <view class="section-title">输入验证码</view>
+      <view class="section-desc">验证码已发至 <text class="email-highlight">{{maskedEmail}}</text>，5 分钟内有效</view>
     </view>
-
     <view class="pending-actions">
-      <view class="btn-primary" bind:tap="onVerifiedTap">
+      <input
+        class="input-field otp-code-input"
+        type="number"
+        maxlength="6"
+        placeholder="请输入6位验证码"
+        placeholder-class="input-field-placeholder"
+        value="{{otpCode}}"
+        bindinput="onCodeInput"
+      />
+      <view class="register-error" wx:if="{{otpError}}">{{otpError}}</view>
+      <view class="btn-primary" bind:tap="onVerifyOtp">
         <text wx:if="{{loading}}">验证中...</text>
-        <text wx:else>我已完成验证</text>
+        <text wx:else>确认验证码</text>
       </view>
-      <view class="btn-secondary" bind:tap="onResendVerification" style="margin-top: 24rpx;">
-        重新发送
+      <view class="btn-secondary {{countdownActive ? 'btn-disabled' : ''}}" bind:tap="onResendOtp" style="margin-top: 24rpx;">
+        <text wx:if="{{countdownActive}}">重新发送（{{countdown}}s）</text>
+        <text wx:else>重新发送</text>
       </view>
-      <view class="btn-ghost" bind:tap="onSkip">跳过，直接使用</view>
+      <view class="btn-ghost" bind:tap="onSkip">跳过</view>
     </view>
   </view>
 </view>
