@@ -9,6 +9,7 @@ const TABS = [
   { href: '/macro/economy', label: '经济基本面' },
   { href: '/macro/inflation-rates', label: '通胀与利率' },
   { href: '/macro/sentiment', label: '市场情绪' },
+  { href: '/macro/weekly', label: '周报' },
 ];
 
 export function MacroTabBar() {

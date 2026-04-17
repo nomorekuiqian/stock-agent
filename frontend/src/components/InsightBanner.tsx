@@ -96,24 +96,9 @@ export function InsightBanner({
     );
   }
 
+  // 没有 AI 分析时直接隐藏,避免"暂无数据"破坏用户对数据可信度的观感
   if (!analysis) {
-    return (
-      <div className="rounded-xl border border-border/40 border-l-2 border-l-muted-foreground/20 bg-muted/[0.03] px-5 py-3.5">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/20 shrink-0" />
-          <Sparkles
-            className="w-3.5 h-3.5 text-muted-foreground/70"
-            strokeWidth={1.5}
-          />
-          <span className="text-sm text-muted-foreground/70">
-            {sectionTitle} &middot; AI 解读
-          </span>
-          <span className="text-micro text-muted-foreground/70 ml-auto">
-            暂无数据
-          </span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const colors = signalColor ? SIGNAL_STYLES[signalColor] : SIGNAL_STYLES.yellow;

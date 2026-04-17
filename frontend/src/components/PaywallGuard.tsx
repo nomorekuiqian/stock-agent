@@ -62,7 +62,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
   // Max-only features that trigger the "upgrade to Max" flow for Pro users
   // Must be checked BEFORE preview mode so Pro users see upgrade flow, not preview
   const MAX_ONLY_FEATURES = new Set([
-    'macro_dashboard', 'stock_research', 'ai_research_engine',
+    'stock_research', 'ai_research_engine',
   ]);
 
   const isProNeedsMax = requiredFeature
@@ -107,7 +107,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
             <p className="text-xs font-semibold tracking-[0.25em] uppercase text-amber-400 mb-2">Max</p>
             <h1 className="text-2xl font-editorial text-foreground mb-2">此功能需要 Max 订阅</h1>
             <p className="text-sm text-muted-foreground">
-              升级到 Max 解锁个股投研、宏观仪表盘等全部功能
+              升级 Max 解锁 AI 投研引擎无限使用 + AI 深度个股分析
             </p>
           </div>
 
@@ -148,7 +148,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
 
           <div className="text-center">
             <p className="text-xs text-muted-foreground/70">
-              Max 包含：AI 深度个股分析 · AI 投研引擎 · 宏观仪表盘 · 盘前早报
+              Max 包含：AI 投研引擎（无限使用）· AI 深度个股分析 · 全部 Pro 功能
             </p>
           </div>
         </div>
@@ -388,7 +388,7 @@ function LockScreen({
           </h1>
           <p className="text-sm text-muted-foreground">
             {requiredPlan === 'max'
-              ? '升级到 Max 解锁个股投研、宏观仪表盘等全部功能'
+              ? '升级 Max 解锁 AI 投研引擎无限使用 + AI 深度个股分析'
               : '订阅后解锁每日 AI 分析，从日报到深度投研'}
           </p>
         </div>

@@ -32,7 +32,7 @@ FEATURE_MAP = {
     "/api/stock/": "stock_research",
     "/api/market/": "daily_report",
     "/api/morning/": "morning_report",
-    "/api/macro/": "macro_dashboard",
+    "/api/macro/": "macro",
     "/api/screener/": "screener",
     "/api/payment/subscription-status": "subscription_check",
     "/api/payment/me/entitlements": "entitlements_check",

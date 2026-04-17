@@ -95,7 +95,7 @@ export function MacroPageHeader({
           <h1 className="font-editorial text-2xl md:text-3xl text-foreground leading-[1.15] tracking-tight">
             {title}
           </h1>
-          <p className="font-editorial text-sm md:text-base text-muted-foreground/70 mt-1 italic">
+          <p className="font-editorial text-base md:text-lg text-foreground/80 mt-2 font-medium">
             {question}
           </p>
         </div>

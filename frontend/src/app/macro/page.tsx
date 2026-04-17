@@ -7,7 +7,7 @@ import { AiChatLink } from '@/components/AiChatLink';
 import { MacroActions } from './_components/MacroActions';
 import { OverviewStrip } from './_components/OverviewStrip';
 import { MacroQuadrant } from './_components/MacroQuadrant';
-import type { MetricItem } from './_components/MacroQuadrant';
+import { DashboardLegend } from './_components/DashboardLegend';
 
 import { useMacroRiskDashboard, useMarketSentiment, useTreasuryCommodities, useInflationRates, useEconomicFundamentals } from '@/hooks/queries/use-macro-data';
 import { useLiquidityMetrics, useLiquidityHistory } from '@/hooks/queries/use-liquidity-data';
@@ -34,18 +34,6 @@ const IndexAreaChart = dynamic(
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function findIndicatorValue(
-  categories: Array<{ category_name: string; indicators: Array<{ series_id: string; value: number | null; change: number | null; units: string }> }>,
-  categoryName: string,
-  seriesId: string,
-): { value: number | null; change: number | null; units: string } | null {
-  const cat = categories.find(c => c.category_name === categoryName);
-  if (!cat) return null;
-  const ind = cat.indicators.find(i => i.series_id === seriesId);
-  if (!ind) return null;
-  return { value: ind.value, change: ind.change, units: ind.units };
-}
-
 function fmtPercent(v: number | null | undefined, decimals = 1): string {
   if (v == null) return 'N/A';
   return `${v.toFixed(decimals)}%`;
@@ -58,9 +46,16 @@ function fmtNumber(v: number | null | undefined, decimals = 2): string {
 
 function fmtK(v: number | null | undefined): string {
   if (v == null) return 'N/A';
+  // Source unit is "thousands of persons" (e.g. PAYEMS). 159,900 → "159.9M"
   const abs = Math.abs(v);
-  if (abs >= 1000) return `${(v / 1000).toFixed(0)}K`;
-  return v.toFixed(0);
+  if (abs >= 1000) return `${(v / 1000).toFixed(1)}M`;
+  return `${v.toFixed(0)}K`;
+}
+
+/** Format a yield-curve spread with explicit sign: +0.45% / -0.12%. */
+function fmtSpread(v: number | null | undefined, decimals = 2): string {
+  if (v == null) return 'N/A';
+  return `${v >= 0 ? '+' : ''}${v.toFixed(decimals)}%`;
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -75,7 +70,7 @@ export default function MacroPage() {
   const { data: sentimentRes, isLoading: sentimentLoading } = useMarketSentiment();
   const { data: treasuryRes, isLoading: treasuryLoading } = useTreasuryCommodities();
   const { data: inflationRes, isLoading: inflationLoading } = useInflationRates();
-  const { data: economyRes } = useEconomicFundamentals();
+  const { data: economyRes, isLoading: economyLoading } = useEconomicFundamentals();
   const { data: weeklyRes, isLoading: weeklyLoading } = useWeeklyReport();
 
   // Derived data
@@ -89,20 +84,25 @@ export default function MacroPage() {
   const inflation = inflationRes?.success ? inflationRes.data : null;
   const economy = economyRes?.success ? economyRes.data : null;
   const verdict = report?.verdict ?? null;
-  const categories = dashboard?.categories ?? [];
 
-  const isAnyLoading = dashboardLoading || liquidityLoading || sentimentLoading || treasuryLoading || inflationLoading || weeklyLoading;
+  const isAnyLoading = dashboardLoading || liquidityLoading || sentimentLoading || treasuryLoading || inflationLoading || weeklyLoading || economyLoading;
 
   // Sentiment sub-dimensions
   const volDim = sentiment?.sub_dimensions?.find(d => d.name === 'volatility');
   const overallScore = sentiment?.overall_score != null ? Math.round(sentiment.overall_score) : null;
   const vix = volDim?.indicators?.find(i => i.series_id === 'VIX');
 
-  // Economy indicators from dashboard categories + economy API
-  const unemp = findIndicatorValue(categories, 'Employment', 'UNRATE');
-  const payrolls = findIndicatorValue(categories, 'Employment', 'PAYEMS');
+  // Economy indicators — pulled from the /api/macro-risk/economy sub_dimensions
+  // response, which is the only endpoint that exposes indicator values/changes
+  // in a display-ready shape. The dashboard API's categories are risk-scoring
+  // metadata and don't carry value/change fields.
   const growthDim = economy?.sub_dimensions?.find(d => d.name === 'growth');
+  const employmentDim = economy?.sub_dimensions?.find(d => d.name === 'employment');
+  const creditDim = economy?.sub_dimensions?.find(d => d.name === 'credit');
   const gdpInd = growthDim?.indicators?.find(i => i.series_id === 'A191RL1Q225SBEA');
+  const unempInd = employmentDim?.indicators?.find(i => i.series_id === 'UNRATE');
+  const payrollsInd = employmentDim?.indicators?.find(i => i.series_id === 'PAYEMS');
+  const yieldCurveInd = creditDim?.indicators?.find(i => i.series_id === 'T10Y2Y');
 
   // Inflation indicators (from inflation-rates API sub_dimensions)
   const inflationDim = inflation?.sub_dimensions?.find(d => d.name === 'inflation');
@@ -135,9 +135,6 @@ export default function MacroPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground/70 mt-0.5 hidden sm:block">
-                流动性 / 经济基本面 / 通胀与利率 / 市场情绪
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -159,6 +156,9 @@ export default function MacroPage() {
 
       {/* ── Content ── */}
       <div className="max-w-[1400px] mx-auto px-4 lg:px-6 py-5 space-y-4">
+
+        {/* Onboarding导读 */}
+        <DashboardLegend />
 
         {/* Executive summary */}
         <OverviewStrip
@@ -187,9 +187,9 @@ export default function MacroPage() {
                   ? <NetLiquidityChart data={historyData.observations} height={200} compact />
                   : <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground/70">加载中...</div>,
               },
-              { key: 'fed_assets', label: 'Fed 资产', value: metrics ? formatLiquidityValue(metrics.fed_assets.value, metrics.fed_assets.units) : 'N/A', trend: { type: 'weekly' as const, label: metrics?.fed_assets.change != null ? `周${metrics.fed_assets.change >= 0 ? '+' : ''}${metrics.fed_assets.change.toFixed(1)}%` : undefined, direction: metrics?.fed_assets.change != null ? (metrics.fed_assets.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="WALCL" timeRange="1Y" height={200} /> },
-              { key: 'tga', label: 'TGA', value: metrics ? formatLiquidityValue(metrics.tga.value, metrics.tga.units) : 'N/A', trend: { type: 'weekly' as const, label: metrics?.tga.change != null ? `周${metrics.tga.change >= 0 ? '+' : ''}${metrics.tga.change.toFixed(1)}%` : undefined, direction: metrics?.tga.change != null ? (metrics.tga.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="WDTGAL" timeRange="1Y" height={200} /> },
-              { key: 'reserves', label: '银行准备金', value: metrics ? formatLiquidityValue(metrics.reserves.value, metrics.reserves.units) : 'N/A', trend: { type: 'weekly' as const, label: metrics?.reserves.change != null ? `周${metrics.reserves.change >= 0 ? '+' : ''}${metrics.reserves.change.toFixed(1)}%` : undefined, direction: metrics?.reserves.change != null ? (metrics.reserves.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="WRESBAL" timeRange="1Y" height={200} /> },
+              { key: 'fed_assets', label: 'Fed 资产', value: metrics ? formatLiquidityValue(metrics.fed_assets.value, metrics.fed_assets.units) : 'N/A', trend: { type: 'weekly' as const, label: metrics?.fed_assets.change != null ? `周${metrics.fed_assets.change >= 0 ? '+' : ''}${metrics.fed_assets.change.toFixed(1)}%` : undefined, direction: metrics?.fed_assets.change != null ? (metrics.fed_assets.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="WALCL" timeRange="1Y" height={200} valueFormat="currency_millions" /> },
+              { key: 'tga', label: 'TGA', value: metrics ? formatLiquidityValue(metrics.tga.value, metrics.tga.units) : 'N/A', trend: { type: 'weekly' as const, label: metrics?.tga.change != null ? `周${metrics.tga.change >= 0 ? '+' : ''}${metrics.tga.change.toFixed(1)}%` : undefined, direction: metrics?.tga.change != null ? (metrics.tga.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="WDTGAL" timeRange="1Y" height={200} valueFormat="currency_millions" /> },
+              { key: 'reserves', label: '银行准备金', value: metrics ? formatLiquidityValue(metrics.reserves.value, metrics.reserves.units) : 'N/A', trend: { type: 'weekly' as const, label: metrics?.reserves.change != null ? `周${metrics.reserves.change >= 0 ? '+' : ''}${metrics.reserves.change.toFixed(1)}%` : undefined, direction: metrics?.reserves.change != null ? (metrics.reserves.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="WRESBAL" timeRange="1Y" height={200} valueFormat="currency_millions" /> },
             ]}
           />
 
@@ -198,7 +198,7 @@ export default function MacroPage() {
             title="经济基本面"
             subtitle={report?.economy_analysis?.summary}
             detailHref="/macro/economy"
-            loading={dashboardLoading && treasuryLoading}
+            loading={economyLoading}
             aiText={report?.economy_analysis?.data_changes}
             defaultChart="gdp"
             metrics={[
@@ -206,11 +206,11 @@ export default function MacroPage() {
                 key: 'gdp', label: 'GDP 增长率',
                 value: fmtPercent(gdpInd?.value),
                 trend: { type: 'quarterly' as const, label: gdpInd?.previous_value != null ? `前值 ${gdpInd.previous_value.toFixed(1)}%` : undefined },
-                chart: <FredAreaChart seriesId="A191RL1Q225SBEA" timeRange="5Y" height={200} />,
+                chart: <FredAreaChart seriesId="A191RL1Q225SBEA" timeRange="5Y" height={200} valueFormat="percent" chartType="histogram" />,
               },
-              { key: 'unemployment', label: '失业率', value: fmtPercent(unemp?.value), trend: { type: 'monthly' as const, direction: unemp?.change != null ? (unemp.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="UNRATE" timeRange="2Y" height={200} /> },
-              { key: 'payrolls', label: '非农就业', value: payrolls?.value != null ? fmtK(payrolls.value) : 'N/A', trend: { type: 'monthly' as const, direction: payrolls?.change != null ? (payrolls.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="PAYEMS" timeRange="2Y" height={200} /> },
-              { key: 'lei', label: 'LEI 领先指标', value: 'N/A', trend: { type: 'monthly' as const }, chart: <FredAreaChart seriesId="USSLIND" timeRange="3Y" height={200} /> },
+              { key: 'unemployment', label: '失业率', value: fmtPercent(unempInd?.value), trend: { type: 'monthly' as const, direction: unempInd?.change != null ? (unempInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="UNRATE" timeRange="2Y" height={200} valueFormat="percent" /> },
+              { key: 'payrolls', label: '非农就业', value: payrollsInd?.value != null ? fmtK(payrollsInd.value) : 'N/A', trend: { type: 'monthly' as const, direction: payrollsInd?.change != null ? (payrollsInd.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="PAYEMS" timeRange="2Y" height={200} valueFormat="thousands" /> },
+              { key: 'yield_curve', label: '10Y-2Y 利差', value: fmtSpread(yieldCurveInd?.value), trend: { type: 'daily' as const, label: yieldCurveInd?.value != null ? (yieldCurveInd.value >= 0 ? '正常' : '倒挂') : undefined, direction: yieldCurveInd?.value != null ? (yieldCurveInd.value >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="T10Y2Y" timeRange="3Y" height={200} valueFormat="percent" /> },
             ]}
           />
 
@@ -227,12 +227,12 @@ export default function MacroPage() {
                 key: 'cpi', label: 'CPI YoY',
                 value: fmtPercent(cpiInd?.value),
                 trend: { type: 'monthly' as const, direction: cpiInd?.change != null ? (cpiInd.change <= 0 ? 'down' as const : 'up' as const) : undefined },
-                chart: <FredAreaChart seriesId="CPIAUCSL" timeRange="2Y" height={200} units="pc1" />,
+                chart: <FredAreaChart seriesId="CPIAUCSL" timeRange="2Y" height={200} units="pc1" valueFormat="percent" />,
               },
-              { key: 'pce', label: '核心 PCE', value: fmtPercent(pceInd?.value), trend: { type: 'monthly' as const, direction: pceInd?.change != null ? (pceInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="PCEPILFE" timeRange="2Y" height={200} units="pc1" /> },
-              { key: 'ffr', label: '联邦基金利率', value: metrics?.effr?.value != null ? fmtPercent(metrics.effr.value, 2) : fmtPercent(ffrInd?.value, 2), trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="FEDFUNDS" timeRange="2Y" height={200} /> },
-              { key: '5y5y', label: '长期通胀预期', value: 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="T5YIFR" timeRange="1Y" height={200} /> },
-              { key: '10y', label: '10Y 国债', value: treasury?.treasury?.rates?.['10Y']?.rate != null ? fmtPercent(treasury.treasury.rates['10Y'].rate, 2) : 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="DGS10" timeRange="2Y" height={200} /> },
+              { key: 'pce', label: '核心 PCE', value: fmtPercent(pceInd?.value), trend: { type: 'monthly' as const, direction: pceInd?.change != null ? (pceInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="PCEPILFE" timeRange="2Y" height={200} units="pc1" valueFormat="percent" /> },
+              { key: 'ffr', label: '联邦基金利率', value: metrics?.effr?.value != null ? fmtPercent(metrics.effr.value, 2) : fmtPercent(ffrInd?.value, 2), trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="FEDFUNDS" timeRange="2Y" height={200} valueFormat="percent" /> },
+              { key: '5y5y', label: '长期通胀预期', value: 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="T5YIFR" timeRange="1Y" height={200} valueFormat="percent" /> },
+              { key: '10y', label: '10Y 国债', value: treasury?.treasury?.rates?.['10Y']?.rate != null ? fmtPercent(treasury.treasury.rates['10Y'].rate, 2) : 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="DGS10" timeRange="2Y" height={200} valueFormat="percent" /> },
             ]}
           />
 

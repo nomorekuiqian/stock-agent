@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import PaywallGuard from '@/components/PaywallGuard';
 import dynamic from 'next/dynamic';
 import { MacroPageHeader } from '@/components/MacroPageHeader';
 
@@ -92,7 +91,7 @@ const HERO_CONFIG: Record<string, {
   rates: {
     primary: 'FEDFUNDS',
     secondary: 'DGS10',
-    label: 'Federal Funds Rate',
+    label: '联邦基金利率',
     format: (ind) => ind.value != null ? `${ind.value.toFixed(2)}%` : 'N/A',
     interpret: (ind) => {
       const v = ind.value;
@@ -495,7 +494,7 @@ function MetricPanel({
         {TV_SYMBOLS[chartKey] ? (
           <TradingViewWidget symbol={TV_SYMBOLS[chartKey]} height={300} interval="W" theme="dark" />
         ) : (
-          <FredAreaChart seriesId={seriesId} timeRange={timeRange} height={300} units={isYoy ? 'pc1' : undefined} />
+          <FredAreaChart seriesId={seriesId} timeRange={timeRange} height={300} units={isYoy ? 'pc1' : undefined} valueFormat="percent" />
         )}
       </div>
     </div>
@@ -667,7 +666,6 @@ export default function InflationRatesPage() {
   }, [selectedDim]);
 
   return (
-    <PaywallGuard requiredFeature="macro_dashboard">
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Inflation & Rates"
@@ -735,10 +733,10 @@ export default function InflationRatesPage() {
                         : 'N/A'}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">Gold (XAU/USD)</p>
+                  <p className="text-xs text-muted-foreground mb-3">黄金 (XAU/USD)</p>
                   <div className="h-px bg-border/50 mb-3 mt-auto" />
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Brent Oil</span>
+                    <span className="text-muted-foreground">布伦特原油</span>
                     <span className="font-data font-medium text-foreground">
                       {oilData?.price != null ? `$${oilData.price.toFixed(2)}` : 'N/A'}
                     </span>
@@ -1038,6 +1036,5 @@ export default function InflationRatesPage() {
         </section>
       </div>
     </main>
-    </PaywallGuard>
   );
 }

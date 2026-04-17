@@ -19,9 +19,8 @@ const PRO_FEATURES = [
 ];
 
 const MAX_ONLY_FEATURES = [
-  { feature: 'AI 深度个股分析',     desc: '基本面、技术面、估值对比一键生成' },
-  { feature: 'AI 投研引擎',        desc: '对话式投研 + 全市场选股，一个 Agent 搞定' },
-  { feature: '宏观仪表盘',         desc: '流动性、经济、通胀、情绪四维度监控' },
+  { feature: 'AI 投研引擎 · 无限使用', desc: '对话式投研 + 全市场 AI 选股，不限次数调用' },
+  { feature: 'AI 深度个股分析',       desc: '基本面、技术面、估值对比一键生成，无使用上限' },
 ];
 
 // ── Testimonials ─────────────────────────────────────────────────────────────
@@ -170,12 +169,12 @@ export default function PricingPage() {
           <div className="flex items-center justify-center gap-3 mb-6 py-3 px-5 rounded-lg border border-border/30 bg-card/20 max-w-md mx-auto">
             <span className="text-sm text-muted-foreground">免费版</span>
             <span className="text-xs text-muted-foreground/70">|</span>
-            <span className="text-sm text-muted-foreground">每日市场日报邮件</span>
+            <span className="text-sm text-muted-foreground">每日市场日报 + 宏观仪表盘</span>
             <Link
-              href="/#subscribe"
+              href="/macro"
               className="ml-auto text-xs text-primary hover:text-primary/80 transition-colors shrink-0"
             >
-              免费订阅 &rarr;
+              立即体验 &rarr;
             </Link>
           </div>
 
@@ -218,7 +217,7 @@ export default function PricingPage() {
                 {/* Max-only teaser */}
                 <div className="pt-2 border-t border-border/20">
                   <p className="text-xs text-muted-foreground/70">
-                    个股投研、AI 投研引擎、宏观仪表盘 → 升级 Max
+                    AI 投研引擎（无限使用）、AI 深度个股分析 → 升级 Max
                   </p>
                 </div>
               </div>
@@ -464,7 +463,7 @@ export default function PricingPage() {
           <div className="space-y-0 divide-y divide-border/30">
             <FaqItem
               q="Pro 和 Max 有什么区别?"
-              a="Pro 包含全部邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报），以及市场日报网站（/today 和历史存档）和自选股管理。Max 在此基础上解锁 AI 深度个股分析、AI 投研引擎、宏观仪表盘，以及 /morning、/macro、/stock、/research 等全部网站深度功能。"
+              a="宏观仪表盘（/macro）和每日市场日报网站免费开放，注册即可使用。Pro 包含全部邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报）和自选股管理。Max 在此基础上解锁 AI 投研引擎（/research）的无限次对话与选股，以及 AI 深度个股分析（/stock）。"
             />
             <FaqItem
               q="抢先体验价会持续多久?"

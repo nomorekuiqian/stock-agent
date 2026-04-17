@@ -74,7 +74,7 @@ export function AIPaywall({ symbol, label }: { symbol: string; label: string }) 
       <p className="text-xs text-muted-foreground mb-6 leading-relaxed max-w-[260px] mx-auto">
         {!isAuthenticated
           ? '注册即可免费体验 14 天全部 AI 投研功能'
-          : '解锁 AI 个股分析、宏观仪表盘等全部功能'}
+          : '解锁 AI 深度个股分析 + AI 投研引擎无限使用'}
       </p>
 
       {/* --- CTA area --- */}

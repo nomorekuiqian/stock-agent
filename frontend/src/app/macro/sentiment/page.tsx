@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import PaywallGuard from '@/components/PaywallGuard';
 import dynamic from 'next/dynamic';
 
 const TradingViewWidget = dynamic(
@@ -133,7 +132,7 @@ const CHART_CONFIG: Record<string, {
   SKEW: {
     chartType: 'yfinance',
     yfSymbol: 'SKEW',
-    description: 'CBOE SKEW 指数，衡量 S&P 500 期权市场对尾部风险（黑天鹅事件）的定价。SKEW > 150 表示市场对极端下行风险的对冲需求异常高。',
+    description: 'CBOE SKEW 指数，衡量 S&P 500 期权市场对尾部风险（黑天鹅事件）的定价。正常范围 110-130；SKEW > 150 表示市场对极端下行风险的对冲需求异常高，投资者在为黑天鹅买保险。',
   },
 };
 
@@ -165,7 +164,7 @@ const SECTION_EXPLAINER: Record<string, {
     items: [
       { label: 'VIX', text: '> 30 通常意味着市场恐慌，< 15 意味着市场异常平静（可能是暴风雨前的宁静）。2020 年 3 月 VIX 曾飙升至 82。' },
       { label: 'VVIX', text: 'VIX 的波动率。高 VVIX 意味着市场对波动率方向存在高度不确定性，通常出现在重大事件前后。' },
-      { label: 'SKEW', text: '衡量尾部风险定价。> 150 表示市场对黑天鹅事件的对冲需求异常高，投资者在为极端下行情景买保险。' },
+      { label: 'SKEW', text: '衡量尾部风险定价。正常范围 110-130；> 150 表示市场对黑天鹅事件的对冲需求异常高，投资者在为极端下行情景买保险。' },
     ],
   },
 };
@@ -617,7 +616,6 @@ export default function SentimentPage() {
     : [];
 
   return (
-    <PaywallGuard requiredFeature="macro_dashboard">
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Sentiment"
@@ -735,6 +733,5 @@ export default function SentimentPage() {
         </section>
       </div>
     </main>
-    </PaywallGuard>
   );
 }

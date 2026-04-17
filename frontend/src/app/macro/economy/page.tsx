@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import PaywallGuard from '@/components/PaywallGuard';
 import dynamic from 'next/dynamic';
 
 const TradingViewWidget = dynamic(
@@ -674,7 +673,6 @@ export default function EconomyPage() {
   const orderedDims = [growthDim, employmentDim, creditDim].filter((d): d is SubDimension => d != null);
 
   return (
-    <PaywallGuard requiredFeature="macro_dashboard">
     <main className="min-h-screen bg-background">
       <MacroPageHeader
         section="Economy"
@@ -775,6 +773,5 @@ export default function EconomyPage() {
         </section>
       </div>
     </main>
-    </PaywallGuard>
   );
 }

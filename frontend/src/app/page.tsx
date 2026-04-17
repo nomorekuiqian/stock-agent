@@ -218,9 +218,9 @@ export default function Home() {
                 {[
                   { ok: true, text: '每日市场日报（网站阅读）' },
                   { ok: true, text: '盘前早报（网站阅读）' },
+                  { ok: true, text: '宏观仪表盘' },
                   { ok: false, text: '专属持仓日报' },
                   { ok: false, text: 'AI 深度个股分析' },
-                  { ok: false, text: '宏观仪表盘' },
                 ].map((item) => (
                   <div key={item.text} className="flex items-center gap-2.5">
                     {item.ok ? (
@@ -257,10 +257,10 @@ export default function Home() {
                   { ok: true, text: '盘前早报 + 盘后晚报' },
                   { ok: true, text: '专属持仓日报（邮件推送）' },
                   { ok: true, text: '宏观周报（邮件推送）' },
+                  { ok: true, text: '宏观仪表盘' },
                   { ok: true, text: '自选股管理' },
+                  { ok: false, text: 'AI 投研引擎（无限使用）' },
                   { ok: false, text: 'AI 深度个股分析' },
-                  { ok: false, text: 'AI 投研助手' },
-                  { ok: false, text: '宏观仪表盘' },
                 ].map((item) => (
                   <div key={item.text} className="flex items-center gap-2.5">
                     {item.ok ? (
@@ -305,9 +305,9 @@ export default function Home() {
                 <div className="space-y-3 mb-6">
                   {[
                     'Pro 的所有功能',
-                    'AI 深度个股分析',
-                    'AI 投研引擎（对话 + 选股）',
-                    '宏观四维度仪表盘',
+                    'AI 投研引擎 · 无限对话与选股',
+                    'AI 深度个股分析 · 无限使用',
+                    '优先支持与新功能抢先体验',
                   ].map((text) => (
                     <div key={text} className="flex items-center gap-2.5">
                       <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>

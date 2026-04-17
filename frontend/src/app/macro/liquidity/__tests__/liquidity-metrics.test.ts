@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { LiquidityMetrics } from '@/lib/api';
 import {
   formatLiquidityValue,
+  formatCompactCurrencyFromMillions,
+  formatCompactCurrencyFromBillions,
   getLatestNonNullObservation,
   mergeLiquidityMetricsForDisplay,
 } from '../liquidity-metrics';
@@ -51,9 +53,64 @@ describe('mergeLiquidityMetricsForDisplay', () => {
 describe('formatLiquidityValue', () => {
   it('keeps liquidity figures granular enough to match charts', () => {
     expect(formatLiquidityValue(0.637, 'Billions of U.S. Dollars')).toBe('$637M');
-    expect(formatLiquidityValue(875.83, 'Billions of U.S. Dollars')).toBe('$875.83B');
+    // B range: integer precision (876B, not 875.83B) — matches chart Y-axis format
+    expect(formatLiquidityValue(875.83, 'Billions of U.S. Dollars')).toBe('$876B');
+    // T range: 2 decimal places (was 3, simplified for readability)
     expect(formatLiquidityValue(3020000, 'Millions of U.S. Dollars')).toBe('$3.02T');
-    expect(formatLiquidityValue(875830, 'Millions of U.S. Dollars')).toBe('$875.83B');
+    expect(formatLiquidityValue(875830, 'Millions of U.S. Dollars')).toBe('$876B');
+  });
+});
+
+describe('formatCompactCurrencyFromMillions', () => {
+  it('converts millions to T/B/M', () => {
+    expect(formatCompactCurrencyFromMillions(7_234_000)).toBe('$7.23T');
+    expect(formatCompactCurrencyFromMillions(1_000_000)).toBe('$1.00T');
+    expect(formatCompactCurrencyFromMillions(800_000)).toBe('$800B');
+    expect(formatCompactCurrencyFromMillions(1_500)).toBe('$2B');
+    expect(formatCompactCurrencyFromMillions(500)).toBe('$500M');
+  });
+
+  it('handles negative values', () => {
+    expect(formatCompactCurrencyFromMillions(-2_500_000)).toBe('$-2.50T');
+  });
+
+  it('handles zero', () => {
+    expect(formatCompactCurrencyFromMillions(0)).toBe('$0M');
+  });
+});
+
+describe('formatCompactCurrencyFromBillions', () => {
+  it('converts billions to T/B/M', () => {
+    expect(formatCompactCurrencyFromBillions(5_500)).toBe('$5.50T');
+    expect(formatCompactCurrencyFromBillions(1_000)).toBe('$1.00T');
+    expect(formatCompactCurrencyFromBillions(637)).toBe('$637B');
+    expect(formatCompactCurrencyFromBillions(0.637)).toBe('$637M');
+  });
+
+  it('handles negative values', () => {
+    expect(formatCompactCurrencyFromBillions(-120)).toBe('$-120B');
+  });
+
+  it('handles zero', () => {
+    expect(formatCompactCurrencyFromBillions(0)).toBe('$0M');
+  });
+});
+
+describe('formatLiquidityValue edge cases', () => {
+  it('returns N/A for null', () => {
+    expect(formatLiquidityValue(null, 'Billions')).toBe('N/A');
+  });
+
+  it('formats percent units', () => {
+    expect(formatLiquidityValue(4.33, 'Percent')).toBe('4.33%');
+  });
+
+  it('formats rate units', () => {
+    expect(formatLiquidityValue(0.0532, 'rate')).toBe('0.0532');
+  });
+
+  it('falls back to 2 decimals for unknown units', () => {
+    expect(formatLiquidityValue(102.456, 'Index')).toBe('102.46');
   });
 });
 

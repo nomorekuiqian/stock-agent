@@ -41,7 +41,7 @@ class TestHasEntitlement:
         mock_get_sub.return_value = {
             "entitlements": ["morning_report_email", "weekly_report_email"],
         }
-        assert await has_entitlement(MOCK_UID, "macro_dashboard") is False
+        assert await has_entitlement(MOCK_UID, "stock_research") is False
 
     @pytest.mark.asyncio
     @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
@@ -133,8 +133,9 @@ class TestGetUserEntitlements:
 
     @pytest.mark.asyncio
     @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
-    async def test_full_max_returns_all_10(self, mock_get_sub):
+    async def test_full_max_returns_all_features(self, mock_get_sub):
         mock_get_sub.return_value = {"entitlements": sorted(MAX_FEATURES)}
         result = await get_user_entitlements(MOCK_UID)
         assert result == MAX_FEATURES
-        assert len(result) == 10
+        # Pro (7) + Max-only (2, after macro_dashboard removal) = 9
+        assert len(result) == 9

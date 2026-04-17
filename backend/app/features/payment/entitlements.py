@@ -24,7 +24,6 @@ PRO_FEATURES: Set[str] = {
 }
 
 MAX_ONLY_FEATURES: Set[str] = {
-    "macro_dashboard",
     "stock_research",
     "ai_research_engine",
 }

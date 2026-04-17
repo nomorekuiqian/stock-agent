@@ -157,7 +157,7 @@ describe('PaywallGuard', () => {
     });
 
     render(
-      <PaywallGuard requiredFeature="macro_dashboard">
+      <PaywallGuard requiredFeature="stock_research">
         <div data-testid="ent-content">Entitlement content</div>
       </PaywallGuard>
     );
@@ -170,7 +170,7 @@ describe('PaywallGuard', () => {
 
   it('accepts requiredFeature prop without error', () => {
     render(
-      <PaywallGuard requiredFeature="macro_dashboard">
+      <PaywallGuard requiredFeature="stock_research">
         <div data-testid="feature-content">Feature content</div>
       </PaywallGuard>
     );

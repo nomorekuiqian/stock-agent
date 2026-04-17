@@ -257,12 +257,12 @@ class TestSyncResendSegmentsMapping:
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_unrelated_entitlement_ignored(self, _wait, mock_resend):
-        """Entitlements like stock_research or macro_dashboard don't affect segments."""
+        """Max-only entitlements like stock_research don't affect email segments."""
         svc = _make_service()
         _mock_current_segments(mock_resend, set())
 
         actions = svc.sync_resend_segments(
-            TEST_EMAIL, {"stock_research", "macro_dashboard", "ai_research_engine"}
+            TEST_EMAIL, {"stock_research", "ai_research_engine"}
         )
 
         mock_resend.ContactSegments.add.assert_not_called()

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createChart, AreaSeries, Time } from 'lightweight-charts';
+import { createChart, AreaSeries, HistogramSeries, Time } from 'lightweight-charts';
 
 interface HistoryDataPoint {
   date: string;
@@ -17,6 +17,21 @@ interface HistoryAreaChartProps {
     success: boolean;
     data: Array<{ date: string; close: number }>;
   }>;
+  /**
+   * Optional custom formatter for the Y-axis price labels and crosshair tooltip.
+   * If provided, replaces the default numeric display so e.g. raw millions values
+   * like 7,234,000 render as "$7.23T" instead of "7,234,000.00" — matching the
+   * compact unit (T/B/M) used on accompanying metric cards.
+   */
+  valueFormatter?: (value: number) => string;
+  /**
+   * Chart render style.
+   *  - 'area' (default): smooth area chart, best for high-frequency data
+   *  - 'histogram': vertical bars, best for low-frequency discrete series
+   *    (e.g. quarterly GDP growth rate). Each bar colors itself green for
+   *    positive values and red for negative ones.
+   */
+  chartType?: 'area' | 'histogram';
 }
 
 const TIME_RANGE_DAYS: Record<string, number> = {
@@ -55,6 +70,8 @@ export function HistoryAreaChart({
   height = 280,
   invertColor = false,
   fetcher,
+  valueFormatter,
+  chartType = 'area',
 }: HistoryAreaChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rawDataRef = useRef<HistoryDataPoint[]>([]);
@@ -127,15 +144,36 @@ export function HistoryAreaChart({
       handleScroll: { vertTouchDrag: false },
     });
 
-    const series = chart.addSeries(AreaSeries, {
-      lineColor: colors.line,
-      topColor: colors.top,
-      bottomColor: colors.bottom,
-      lineWidth: 2,
-      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-    });
+    const priceFormat = valueFormatter
+      ? { type: 'custom' as const, formatter: valueFormatter, minMove: 0.01 }
+      : { type: 'price' as const, precision: 2, minMove: 0.01 };
 
-    series.setData(filtered.map(d => ({ time: d.date as Time, value: d.close })));
+    if (chartType === 'histogram') {
+      const series = chart.addSeries(HistogramSeries, {
+        color: colors.line,
+        priceFormat,
+      });
+      // Color each bar by sign: positive = green, negative = red. Respect
+      // invertColor for indicators where "down is good" (currently unused for
+      // histograms but kept for API symmetry).
+      series.setData(filtered.map(d => ({
+        time: d.date as Time,
+        value: d.close,
+        color: (invertColor ? d.close < 0 : d.close >= 0)
+          ? CHART_COLORS.positive.line
+          : CHART_COLORS.negative.line,
+      })));
+    } else {
+      const series = chart.addSeries(AreaSeries, {
+        lineColor: colors.line,
+        topColor: colors.top,
+        bottomColor: colors.bottom,
+        lineWidth: 2,
+        priceFormat,
+      });
+      series.setData(filtered.map(d => ({ time: d.date as Time, value: d.close })));
+    }
+
     chart.timeScale().fitContent();
 
     function handleResize() {
@@ -150,7 +188,7 @@ export function HistoryAreaChart({
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [dataReady, timeRange, height, symbol, invertColor]);
+  }, [dataReady, timeRange, height, symbol, invertColor, valueFormatter, chartType]);
 
   if (loading) {
     return (

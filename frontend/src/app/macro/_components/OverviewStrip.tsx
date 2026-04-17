@@ -27,12 +27,15 @@ export function OverviewStrip({ verdict, landscape, loading }: OverviewStripProp
     ? landscape.split('\n').filter(l => l.trim()).slice(0, 2).join(' ').slice(0, 300)
     : null;
 
+  // 如果 AI 判断和图景都为空,不显示占位空 strip —— 避免"暂无 AI 判断"破坏首屏信任
+  if (!verdict && !summaryText) {
+    return null;
+  }
+
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 p-5">
-      {verdict ? (
+      {verdict && (
         <p className="text-[15px] text-foreground font-medium leading-relaxed mb-3">{verdict}</p>
-      ) : (
-        <p className="text-sm text-muted-foreground/70 mb-3">暂无 AI 判断</p>
       )}
 
       {summaryText && (

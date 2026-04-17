@@ -132,8 +132,11 @@ export function MacroQuadrant({
                 <span className="text-sm font-data font-bold text-foreground tabular-nums">{m.value}</span>
                 {m.trend && <TrendBadge trend={m.trend} />}
               </div>
-              <span className={`text-xs ${isActive ? 'text-primary' : 'text-muted-foreground/70'} line-clamp-1`}>
+              <span className={`text-xs ${isActive ? 'text-primary' : 'text-muted-foreground/70'} line-clamp-1 flex items-center gap-1`}>
                 {m.label}
+                {hasChart && !isActive && (
+                  <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" aria-hidden="true" />
+                )}
               </span>
             </button>
           );
@@ -142,6 +145,11 @@ export function MacroQuadrant({
 
       {/* Chart area - full width */}
       <div className="px-3 pb-2">
+        {activeMetric && metrics.filter(m => m.chart).length > 1 && (
+          <p className="px-2 pb-1.5 text-[11px] text-muted-foreground/70">
+            正在看 <span className="text-foreground/80 font-medium">{activeMetric.label}</span> 的历史趋势 · 点击上方切换其他指标
+          </p>
+        )}
         <div className="h-[200px] overflow-hidden rounded-lg">
           {chartNode || (
             <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground/50">
