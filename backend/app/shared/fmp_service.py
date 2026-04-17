@@ -1299,83 +1299,140 @@ class FMPService:
 
         return []
 
-    def search_stocks(self, query: str, limit: int = 10) -> dict:
+    # Major exchanges for search ranking boost
+    _MAJOR_EXCHANGES = {
+        "NASDAQ", "NYSE", "AMEX",
+        "KSC", "KSE", "KOSDAQ",
+        "JPX", "TSE",
+        "SSE", "SHH", "SHZ", "SZSE",
+        "HKSE", "HKG",
+        "LSE", "LON",
+    }
+
+    def search_stocks(self, query: str, limit: int = 15) -> dict:
         """
         Search for stocks by symbol or company name.
-        Uses cached stock list with local filtering for fast search.
-
-        Args:
-            query: Search query (symbol or company name)
-            limit: Maximum results to return (default: 10)
-
-        Returns:
-            {
-                "status": "success|error",
-                "stocks": [
-                    {
-                        "symbol": "AAPL",
-                        "name": "Apple Inc.",
-                        "type": "Equity",
-                        "exchange": "NASDAQ"
-                    },
-                    ...
-                ]
-            }
+        Combines cached stock list + FMP search APIs, with dedup and ranking.
         """
         logger.info("search_stocks(query=%s, limit=%d)", query, limit)
 
-        # Get stock list (cached)
+        # 1. Local search from cached stock list
         stock_list = self._get_stock_list()
         if not stock_list:
             return {"status": "error", "stocks": [], "error": "Failed to fetch stock list"}
 
-        # Local search with scoring
         query_upper = query.upper().strip()
         query_lower = query.lower().strip()
-        results = []
+        raw_results = []
 
         for stock in stock_list:
             symbol = stock.get("symbol", "")
             name = stock.get("companyName", "") or stock.get("name", "")
-
             if not symbol:
                 continue
 
             symbol_upper = symbol.upper()
             name_lower = name.lower()
 
-            # Scoring: exact symbol match > symbol starts with > symbol contains > name contains
             score = 0
             if symbol_upper == query_upper:
-                score = 100  # Exact symbol match
+                score = 100
             elif symbol_upper.startswith(query_upper):
-                score = 80  # Symbol starts with query
+                score = 80
             elif query_upper in symbol_upper:
-                score = 60  # Symbol contains query
+                score = 60
             elif query_lower in name_lower:
-                score = 40  # Name contains query
+                score = 40
             else:
-                continue  # No match
+                continue
 
-            results.append({
+            exchange = stock.get("exchange", stock.get("stockExchange", ""))
+
+            # Boost 1: major exchange (from field or inferred from symbol suffix)
+            if exchange in self._MAJOR_EXCHANGES:
+                score += 5
+
+            # Boost 2: primary listing (home exchange via symbol suffix)
+            # .KS/.KQ = Korea, .T = Japan, .SS/.SZ = China, .HK = HK
+            # These are primary listings, not cross-listed ADRs/GDRs
+            _primary_suffixes = {".KS", ".KQ", ".T", ".SS", ".SZ", ".HK"}
+            dot_pos = symbol.rfind(".")
+            if dot_pos > 0 and symbol[dot_pos:] in _primary_suffixes:
+                score += 6
+
+            # Boost 3: parent company (query matches start + generic suffix)
+            # "Samsung" -> "Samsung Electronics" gets +8, "Samsung Card" doesn't
+            name_words = name_lower.split()
+            if name_words and name_words[0] == query_lower:
+                generic = {"electronics", "motor", "group", "corp", "corporation",
+                           "inc", "ltd", "holdings", "co", "plc", "financial"}
+                if len(name_words) > 1 and name_words[1].rstrip(".,") in generic:
+                    score += 8
+
+            raw_results.append({
                 "symbol": symbol,
                 "name": name,
                 "type": "ETF" if "ETF" in name.upper() else "Equity",
-                "exchange": stock.get("exchange", stock.get("stockExchange", "")),
+                "exchange": exchange,
                 "_score": score,
             })
 
-        # Sort by score (highest first) and limit
-        results.sort(key=lambda x: -x["_score"])
-        results = results[:limit]
+        # 2. Supplement with FMP search APIs (finds stocks not in stock list)
+        seen_symbols = {r["symbol"] for r in raw_results}
+        for endpoint in ["/stable/search-name", "/stable/search-symbol"]:
+            try:
+                data = self._request(endpoint, {"query": query, "limit": 10})
+                if not data or not isinstance(data, list):
+                    continue
+                for item in data:
+                    sym = item.get("symbol", "")
+                    if not sym or sym in seen_symbols:
+                        continue
+                    seen_symbols.add(sym)
+                    exchange = item.get("exchange", item.get("exchangeShortName", ""))
+                    score = 35
+                    if exchange in self._MAJOR_EXCHANGES:
+                        score += 5
+                    raw_results.append({
+                        "symbol": sym,
+                        "name": item.get("name", ""),
+                        "type": "Equity",
+                        "exchange": exchange,
+                        "_score": score,
+                    })
+            except Exception:
+                logger.debug("FMP search API %s failed for query=%s", endpoint, query)
+
+        # 3. Sort by score
+        raw_results.sort(key=lambda x: -x["_score"])
+
+        # 4. Dedup cross-listings: same company name on different exchanges -> keep best
+        deduped = []
+        seen_names: dict[str, int] = {}  # normalized name -> index in deduped
+        for r in raw_results:
+            # Normalize: lowercase, strip common suffixes
+            norm = r["name"].lower().strip()
+            for suffix in [", ltd.", " ltd.", ", inc.", " inc.", " co., ltd.", " corp.",
+                           " corporation", " plc", " sa", " ag", " se"]:
+                norm = norm.removesuffix(suffix)
+            norm = norm.strip()
+
+            if norm in seen_names:
+                # Already have this company - skip (the first one has higher score)
+                continue
+            seen_names[norm] = len(deduped)
+            deduped.append(r)
+
+            if len(deduped) >= limit:
+                break
 
         # Remove internal score field
-        for r in results:
-            del r["_score"]
+        for r in deduped:
+            r.pop("_score", None)
 
         return {
             "status": "success",
-            "stocks": results,
+            "stocks": deduped,
         }
 
     # =========================================================================
