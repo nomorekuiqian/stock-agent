@@ -94,7 +94,7 @@ class EarningsAnalysisOutput(BaseModel):
 
 
 EARNINGS_ANALYST_INSTRUCTION = """
-You are a senior equity research analyst writing a quarterly earnings deep-dive for Chinese retail investors who follow US stocks.
+You are a senior equity research analyst writing a quarterly earnings deep-dive for Chinese retail investors who follow global equities.
 
 ## Core Rules
 

@@ -2,6 +2,19 @@
 
 import { useEffect, useRef, memo } from 'react';
 
+const EXCHANGE_TIMEZONE: Record<string, string> = {
+  NYSE: 'America/New_York',
+  NASDAQ: 'America/New_York',
+  AMEX: 'America/New_York',
+  JPX: 'Asia/Tokyo',
+  TSE: 'Asia/Tokyo',
+  SSE: 'Asia/Shanghai',
+  SHH: 'Asia/Shanghai',
+  SHZ: 'Asia/Shanghai',
+  HKSE: 'Asia/Hong_Kong',
+  LSE: 'Europe/London',
+};
+
 interface TradingViewWidgetProps {
   symbol: string;
   title?: string;
@@ -13,6 +26,7 @@ interface TradingViewWidgetProps {
   style?: '1' | '2'; // '1' = candlestick, '2' = line
   studies?: string[];  // TradingView study IDs to preload
   hideVolume?: boolean;
+  exchange?: string;
 }
 
 function TradingViewWidgetComponent({
@@ -26,6 +40,7 @@ function TradingViewWidgetComponent({
   style = '2',
   studies,
   hideVolume = true,
+  exchange,
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +71,7 @@ function TradingViewWidgetComponent({
       height: height,
       symbol: symbol,
       interval: interval,
-      timezone: 'America/New_York',
+      timezone: (exchange && EXCHANGE_TIMEZONE[exchange]) || 'America/New_York',
       theme: theme,
       style: style,
       locale: 'en',
@@ -90,7 +105,7 @@ function TradingViewWidgetComponent({
         container.innerHTML = '';
       }
     };
-  }, [symbol, height, interval, range, theme, showToolbar, style, studies, hideVolume]);
+  }, [symbol, height, interval, range, theme, showToolbar, style, studies, hideVolume, exchange]);
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">

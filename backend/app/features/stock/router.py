@@ -470,15 +470,17 @@ async def generate_stock_analysis_endpoint(
 
 
 
-@router.get("/{symbol}/technical-snapshot")
-async def get_technical_snapshot_endpoint(symbol: str):
+@router.get("/{symbol}/technical-data")
+async def get_technical_data_endpoint(
+    symbol: str,
+    timeframe: str = Query(default="daily", pattern="^(daily|weekly)$"),
+):
     """
-    Get pre-computed technical indicator snapshot for instant signal display.
+    Get complete technical data for chart rendering and analysis.
 
-    Returns TradingView ratings, key oscillators, support/resistance,
-    and Bollinger bands. Served from 15-minute in-memory cache.
-
-    Response time: <100ms (cache hit) or <2s (cache miss)
+    Returns OHLCV history, indicator series, current snapshot, derived signals,
+    support/resistance, and trend summary. Used by the frontend technical chart
+    and AI analysis.
     """
     symbol = symbol.upper()
 
@@ -486,87 +488,37 @@ async def get_technical_snapshot_endpoint(symbol: str):
         raise HTTPException(status_code=400, detail="Invalid stock symbol format")
 
     try:
-        from app.shared.data_tools.technical import get_technical_snapshot, get_technical_trends
+        from app.shared.data_tools.technical import get_technical_data
 
-        snapshot = get_technical_snapshot(symbol)
+        data = get_technical_data(symbol, timeframe=timeframe)
 
-        if snapshot.get("error"):
+        if data.get("error"):
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to fetch technical snapshot: {snapshot.get('error')}",
+                detail=f"Failed to fetch technical data: {data.get('error')}",
             )
-
-        # Also fetch support/resistance from pandas-ta trends (cached 30min)
-        trends = get_technical_trends(symbol)
-        support_resistance = trends.get("support_resistance", {}) if "error" not in trends else {}
-
-        osc = snapshot.get("oscillators", {})
-        trend_data = snapshot.get("trend", {})
-        derived = snapshot.get("derived", {})
-
-        # Extract pandas-ta trend context and pattern signals
-        trends_ok = "error" not in trends
-        trends_data = trends.get("trends", {}) if trends_ok else {}
-        pattern_sigs = trends.get("pattern_signals", {}) if trends_ok else {}
-
-        macd_trend = trends_data.get("macd", {})
-        rsi_trend = trends_data.get("rsi_14", {})
-        volume_data = trends_data.get("volume", {})
 
         return {
             "success": True,
             "symbol": symbol,
-            "ratings": snapshot.get("ratings", {}),
-            "oscillators": {
-                "rsi_14": osc.get("rsi_14"),
-                "macd_histogram": osc.get("macd_histogram"),
-                "rsi_14_weekly": osc.get("rsi_14_weekly"),
-                "macd_histogram_weekly": osc.get("macd_histogram_weekly"),
-                "macd_level": osc.get("macd_level"),
-                "macd_signal": osc.get("macd_signal"),
-            },
-            "trend": {
-                "adx_14": trend_data.get("adx_14"),
-                "adx_14_weekly": trend_data.get("adx_14_weekly"),
-                "adx_plus_di": trend_data.get("adx_plus_di"),
-                "adx_minus_di": trend_data.get("adx_minus_di"),
-            },
-            "moving_averages": snapshot.get("moving_averages", {}),
-            "volatility": snapshot.get("volatility", {}),
-            "price_volume": snapshot.get("price_volume", {}),
-            "support_resistance": support_resistance,
-            "trend_context": {
-                "macd_cross": macd_trend.get("cross"),
-                "macd_histogram_direction": macd_trend.get("histogram_direction"),
-                "rsi_direction": rsi_trend.get("direction"),
-                "rsi_recently_overbought": rsi_trend.get("recently_overbought"),
-                "rsi_recently_oversold": rsi_trend.get("recently_oversold"),
-                "volume_ratio": volume_data.get("ratio"),
-                "volume_trend": volume_data.get("trend"),
-            },
-            "pattern_signals": {
-                "bb_squeeze": pattern_sigs.get("bb_squeeze"),
-                "bb_position": pattern_sigs.get("bb_position"),
-                "volume_confirmation": pattern_sigs.get("volume_confirmation"),
-                "ma_alignment": pattern_sigs.get("ma_alignment"),
-                "sma_cross": pattern_sigs.get("sma_cross"),
-            },
-            "derived": {
-                "above_sma_20": derived.get("above_sma_20"),
-                "rsi_zone": derived.get("rsi_zone"),
-            },
+            "timeframe": timeframe,
+            "ohlcv": data.get("ohlcv", []),
+            "indicators": data.get("indicators", {}),
+            "current": data.get("current", {}),
+            "derived": data.get("derived", {}),
+            "support_resistance": data.get("support_resistance", {}),
+            "trend_summary": data.get("trend_summary", {}),
             "fetched_at": datetime.now().isoformat(),
         }
 
     except HTTPException:
         raise
     except Exception:
-        logger.exception("Failed to fetch technical snapshot for %s", symbol)
+        logger.exception("Failed to fetch technical data for %s", symbol)
         raise HTTPException(
             status_code=500,
-            detail="Failed to fetch technical snapshot.",
+            detail="Failed to fetch technical data.",
         )
-
 
 
 @router.post("/{symbol}/technical")
@@ -619,7 +571,7 @@ async def generate_technical_analysis_endpoint(
         logger.info("Fetching technical data for %s (%s)", symbol, timeframe)
         from app.shared.data_tools.technical import get_technical_data
 
-        technical_data = get_technical_data(symbol)
+        technical_data = get_technical_data(symbol, timeframe=timeframe)
 
         if technical_data.get("error"):
             raise HTTPException(
@@ -978,6 +930,221 @@ async def generate_macro_analysis_endpoint(
         raise HTTPException(
             status_code=500,
             detail="Failed to generate macro analysis. Please try again later.",
+        )
+
+
+# =============================================================================
+# Market Overview AI Analysis (Phase 2 of market-tab-revamp)
+# =============================================================================
+
+
+@router.get("/{symbol}/market-analysis")
+async def get_market_analysis_cache_endpoint(symbol: str):
+    """Return cached market-overview AI analysis if present; empty 200 otherwise."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    cached = await get_stock_analysis(symbol, analysis_type="market_overview")
+    if cached:
+        return {
+            "success": True,
+            "analysis": cached.get("content"),
+            "meta": {
+                "symbol": symbol,
+                "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
+                "generated_at": cached.get("generated_at"),
+                "from_cache": True,
+            },
+        }
+    return {"success": False, "analysis": None, "meta": {"symbol": symbol}}
+
+
+@router.post("/{symbol}/market-analysis")
+@limiter.limit("5/minute")
+async def generate_market_analysis_endpoint(
+    request: Request,
+    symbol: str,
+    force: bool = Query(default=False, description="Force regenerate even if cached"),
+):
+    """
+    Generate AI cross-dimensional market overview for a stock.
+
+    Synthesises 12 data sources (news, press releases, analyst grades, price
+    targets, insider activity, peers, market heat, sector perf, earnings
+    calendar, macro snapshot) into a 6-section Chinese briefing.
+    """
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        if not force:
+            cached = await get_stock_analysis(symbol, analysis_type="market_overview")
+            if cached:
+                logger.info("Using cached market overview for %s", symbol)
+                return {
+                    "success": True,
+                    "analysis": cached.get("content"),
+                    "meta": {
+                        "symbol": symbol,
+                        "model": cached.get("model", "gemini-3.1-flash-lite-preview"),
+                        "generated_at": cached.get("generated_at"),
+                        "from_cache": True,
+                    },
+                }
+
+        import asyncio
+        from app.shared.data_tools.news import get_fmp_news
+        from app.shared.fmp_service import get_fmp_service
+        from app.features.stock.agent import (
+            _prepare_market_overview_context, get_market_overview_agent,
+        )
+
+        fmp = get_fmp_service()
+
+        # Fetch: call the 3 aggregate endpoints we already built + any extras
+        async def _fetch_analyst():
+            g = await asyncio.to_thread(fmp.get_stock_grades, symbol, 30)
+            gc = await asyncio.to_thread(fmp.get_stock_grades_consensus, symbol)
+            gh = await asyncio.to_thread(fmp.get_stock_grades_historical, symbol, 24)
+            pt = await asyncio.to_thread(fmp.get_price_target_consensus, symbol)
+            return {
+                "grades_recent": [
+                    {
+                        "date": x.get("date"),
+                        "firm": x.get("gradingCompany"),
+                        "previous_grade": x.get("previousGrade"),
+                        "new_grade": x.get("newGrade"),
+                        "action": (x.get("action") or "").lower(),
+                    }
+                    for x in (g.get("grades") or [])[:15]
+                ],
+                "grades_summary": gc.get("consensus") or {},
+                "grades_historical": [
+                    {
+                        "date": h.get("date"),
+                        "strong_buy": h.get("analystRatingsStrongBuy"),
+                        "buy": h.get("analystRatingsBuy"),
+                        "hold": h.get("analystRatingsHold"),
+                        "sell": h.get("analystRatingsSell"),
+                        "strong_sell": h.get("analystRatingsStrongSell"),
+                    }
+                    for h in (gh.get("timeline") or [])
+                ],
+                "price_target": pt.get("consensus") or {},
+            }
+
+        news_task = asyncio.to_thread(get_fmp_news, days=7, symbols=[symbol])
+        press_task = asyncio.to_thread(fmp.get_press_releases, symbol, 10)
+        analyst_task = _fetch_analyst()
+        insider_task = asyncio.to_thread(fmp.get_insider_trading_search, symbol, 10)
+        insider_stats_task = asyncio.to_thread(fmp.get_insider_trading_statistics, symbol)
+        quote_task = asyncio.to_thread(fmp.get_stock_quotes, [symbol], True)
+        profile_task = asyncio.to_thread(fmp.get_company_profile_detail, symbol)
+
+        # Reuse market-overview shared cache for heat + peers + sector perf
+        heat_task = _fetch_market_heat()
+        overview_task = get_market_overview_endpoint(symbol)  # cached helper
+
+        (news_r, press_r, analyst_r, insider_r, insider_stats_r,
+         quote_r, profile_r, heat, overview) = await asyncio.gather(
+            news_task, press_task, analyst_task, insider_task, insider_stats_task,
+            quote_task, profile_task, heat_task, overview_task,
+            return_exceptions=True,
+        )
+
+        def _safe_dict(v, fallback=None):
+            if isinstance(v, Exception) or not isinstance(v, dict):
+                return fallback if fallback is not None else {}
+            return v
+
+        news_list = (_safe_dict(news_r, {}).get("news") or [])
+        press_list = (_safe_dict(press_r, {}).get("releases") or [])
+        analyst = _safe_dict(analyst_r, {})
+        insider_trades = (_safe_dict(insider_r, {}).get("trades") or [])
+        insider_stats = (_safe_dict(insider_stats_r, {}).get("statistics") or [])
+        quote_raw = _safe_dict(quote_r, {})
+        quotes_list = quote_raw.get("quotes") or []
+        quote_obj = None
+        if isinstance(quotes_list, list):
+            for item in quotes_list:
+                if isinstance(item, dict) and item.get("symbol", "").upper() == symbol:
+                    quote_obj = item
+                    break
+        profile = _safe_dict(profile_r, {})
+        overview_dict = _safe_dict(overview, {})
+        market_heat = overview_dict.get("market_heat") or {}
+        peers_comparison = overview_dict.get("peers_comparison") or []
+        next_earnings = (overview_dict.get("header") or {}).get("next_earnings")
+        sector_perf = (overview_dict.get("market_heat") or {}).get("sector_perf") or {}
+
+        context = _prepare_market_overview_context(
+            symbol=symbol,
+            quote=quote_obj,
+            news=news_list,
+            press_releases=press_list,
+            grades_summary=analyst.get("grades_summary") or {},
+            grades_recent=analyst.get("grades_recent") or [],
+            grades_historical=analyst.get("grades_historical") or [],
+            price_target=analyst.get("price_target") or {},
+            insider_stats=insider_stats,
+            insider_trades=insider_trades,
+            peers_comparison=peers_comparison,
+            market_heat=market_heat,
+            sector_perf=sector_perf,
+            next_earnings=next_earnings,
+            macro_snapshot={
+                "sector": (profile.get("classification") or {}).get("sector"),
+                "industry": (profile.get("classification") or {}).get("industry"),
+            },
+        )
+
+        # Run agent
+        logger.info("Generating AI market overview for %s", symbol)
+        agent = get_market_overview_agent()
+        result = await agent.analyze(symbol, context)
+        analysis = result.get("analysis", {})
+        meta = result.get("meta", {})
+
+        if meta.get("error"):
+            logger.error("Market overview agent error for %s: %s", symbol, meta["error"])
+            raise HTTPException(
+                status_code=500,
+                detail="Market overview generation failed. Please try again later.",
+            )
+
+        save_result = await save_stock_analysis(
+            symbol=symbol,
+            analysis_type="market_overview",
+            content=analysis,
+            data_snapshot={
+                "news_count": len(news_list),
+                "press_count": len(press_list),
+                "grade_changes_count": len(analyst.get("grades_recent") or []),
+                "peers_count": len(peers_comparison),
+            },
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
+            expires_hours=8,
+        )
+        logger.info("Market overview save result: %s", save_result)
+
+        return {
+            "success": True,
+            "analysis": analysis,
+            "meta": {
+                **meta,
+                "from_cache": False,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to generate market overview for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate market overview. Please try again later.",
         )
 
 
@@ -1347,6 +1514,506 @@ async def get_insider_trading_endpoint(symbol: str):
 
 
 # =============================================================================
+# Analyst Activity (Phase 1 of market-tab-revamp)
+# =============================================================================
+
+
+_analyst_activity_cache: dict = {}
+_analyst_activity_lock = threading.Lock()
+ANALYST_ACTIVITY_TTL_MINUTES = 60  # grades change slowly, 1h is fine
+
+
+def _safe_float_or_none(v):
+    try:
+        if v is None or v == "":
+            return None
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+@router.get("/{symbol}/analyst-activity")
+async def get_analyst_activity_endpoint(symbol: str):
+    """
+    Aggregated analyst activity for a stock.
+
+    Combines 5 FMP endpoints in parallel:
+    - grades (recent rating changes)
+    - grades-consensus (strongBuy/buy/hold/sell/strongSell summary)
+    - grades-historical (monthly rating distribution, 12+ months)
+    - price-target-consensus (low/avg/high target + current)
+    - price-target-summary (coverage by time window)
+
+    Returns a unified shape consumed by AnalystRatingsCard (Phase 1 UI).
+    """
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    # Cache check
+    with _analyst_activity_lock:
+        entry = _analyst_activity_cache.get(symbol)
+        if entry and datetime.now() < entry["expires"]:
+            return entry["data"]
+
+    try:
+        import asyncio
+        from app.shared.fmp_service import get_fmp_service
+
+        fmp = get_fmp_service()
+
+        grades_task = asyncio.to_thread(fmp.get_stock_grades, symbol, 30)
+        consensus_task = asyncio.to_thread(fmp.get_stock_grades_consensus, symbol)
+        historical_task = asyncio.to_thread(fmp.get_stock_grades_historical, symbol, 24)
+        pt_consensus_task = asyncio.to_thread(fmp.get_price_target_consensus, symbol)
+        pt_summary_task = asyncio.to_thread(fmp.get_price_target_summary, symbol)
+
+        grades_r, consensus_r, historical_r, pt_consensus_r, pt_summary_r = await asyncio.gather(
+            grades_task, consensus_task, historical_task, pt_consensus_task, pt_summary_task,
+            return_exceptions=True,
+        )
+
+        def _unwrap(r, key, default):
+            if isinstance(r, Exception):
+                logger.warning("analyst-activity sub-call failed: %s", r)
+                return default
+            return r.get(key, default) if isinstance(r, dict) else default
+
+        grades = _unwrap(grades_r, "grades", [])
+        consensus = _unwrap(consensus_r, "consensus", {})
+        historical = _unwrap(historical_r, "timeline", [])
+        pt_consensus = _unwrap(pt_consensus_r, "consensus", {})
+        pt_summary = _unwrap(pt_summary_r, "summary", {})
+
+        # Normalize consensus (grades-consensus → 5-bucket summary)
+        summary_out = {
+            "strong_buy": int(consensus.get("strongBuy", 0) or 0),
+            "buy": int(consensus.get("buy", 0) or 0),
+            "hold": int(consensus.get("hold", 0) or 0),
+            "sell": int(consensus.get("sell", 0) or 0),
+            "strong_sell": int(consensus.get("strongSell", 0) or 0),
+            "consensus": consensus.get("consensus", ""),  # e.g. "Buy"
+        }
+        summary_out["total"] = (
+            summary_out["strong_buy"] + summary_out["buy"] + summary_out["hold"]
+            + summary_out["sell"] + summary_out["strong_sell"]
+        )
+
+        # Price target: merge consensus + summary
+        price_target_out = {
+            "low": _safe_float_or_none(pt_consensus.get("targetLow")),
+            "average": _safe_float_or_none(pt_consensus.get("targetConsensus")),
+            "median": _safe_float_or_none(pt_consensus.get("targetMedian")),
+            "high": _safe_float_or_none(pt_consensus.get("targetHigh")),
+            # price-target-summary has lastMonthAvgPriceTarget etc & analyst counts
+            "last_month_avg": _safe_float_or_none(pt_summary.get("lastMonthAvgPriceTarget")),
+            "last_month_count": int(pt_summary.get("lastMonthCount", 0) or 0),
+            "last_quarter_avg": _safe_float_or_none(pt_summary.get("lastQuarterAvgPriceTarget")),
+            "last_quarter_count": int(pt_summary.get("lastQuarterCount", 0) or 0),
+            "last_year_avg": _safe_float_or_none(pt_summary.get("lastYearAvgPriceTarget")),
+            "last_year_count": int(pt_summary.get("lastYearCount", 0) or 0),
+            "all_time_avg": _safe_float_or_none(pt_summary.get("allTimeAvgPriceTarget")),
+            "all_time_count": int(pt_summary.get("allTimeCount", 0) or 0),
+        }
+
+        # Grade changes: normalize for UI
+        grade_changes_out = []
+        for g in grades[:20]:
+            grade_changes_out.append({
+                "date": g.get("date", ""),
+                "firm": g.get("gradingCompany", ""),
+                "previous_grade": g.get("previousGrade") or None,
+                "new_grade": g.get("newGrade", ""),
+                "action": (g.get("action") or "").lower(),
+            })
+
+        # Historical timeline: normalize to ascending by date for charting
+        historical_out = []
+        for h in historical:
+            historical_out.append({
+                "date": h.get("date", ""),
+                "strong_buy": int(h.get("analystRatingsStrongBuy", 0) or 0),
+                "buy": int(h.get("analystRatingsBuy", 0) or 0),
+                "hold": int(h.get("analystRatingsHold", 0) or 0),
+                "sell": int(h.get("analystRatingsSell", 0) or 0),
+                "strong_sell": int(h.get("analystRatingsStrongSell", 0) or 0),
+            })
+        # Sort ascending by date so charting libs are happy
+        historical_out.sort(key=lambda x: x["date"])
+
+        response = {
+            "success": True,
+            "symbol": symbol,
+            "summary": summary_out,
+            "price_target": price_target_out,
+            "grade_changes": grade_changes_out,
+            "historical_timeline": historical_out,
+        }
+
+        with _analyst_activity_lock:
+            _analyst_activity_cache[symbol] = {
+                "data": response,
+                "expires": datetime.now() + timedelta(minutes=ANALYST_ACTIVITY_TTL_MINUTES),
+            }
+
+        return response
+
+    except Exception:
+        logger.exception("Failed to get analyst activity for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch analyst activity.",
+        )
+
+
+# =============================================================================
+# Press Releases (Phase 2 of market-tab-revamp)
+# =============================================================================
+
+
+@router.get("/{symbol}/press-releases")
+async def get_press_releases_endpoint(
+    symbol: str,
+    limit: int = Query(default=30, ge=1, le=100, description="Max number of releases"),
+):
+    """Official company press releases from FMP."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    try:
+        import asyncio
+        from app.shared.fmp_service import get_fmp_service
+
+        fmp = get_fmp_service()
+        result = await asyncio.to_thread(fmp.get_press_releases, symbol, limit)
+
+        releases = []
+        for r in result.get("releases", []):
+            text = r.get("text") or ""
+            preview = text[:300] + ("..." if len(text) > 300 else "")
+            releases.append({
+                "symbol": r.get("symbol", symbol),
+                "published_date": r.get("publishedDate", ""),
+                "publisher": r.get("publisher", ""),
+                "title": r.get("title", ""),
+                "image": r.get("image", ""),
+                "site": r.get("site", ""),
+                "url": r.get("url", ""),
+                "preview": preview,
+            })
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "count": len(releases),
+            "releases": releases,
+        }
+
+    except Exception:
+        logger.exception("Failed to get press releases for %s", symbol)
+        raise HTTPException(status_code=500, detail="Failed to fetch press releases.")
+
+
+# =============================================================================
+# Market Overview (Phase 2 of market-tab-revamp)
+# =============================================================================
+
+
+_market_overview_cache: dict = {}
+_market_overview_lock = threading.Lock()
+MARKET_OVERVIEW_TTL_MINUTES = 10
+_market_heat_cache: dict = {"data": None, "expires": None}
+_market_heat_lock = threading.Lock()
+MARKET_HEAT_TTL_MINUTES = 5
+
+
+def _get_market_heat_cached():
+    """Shared cache of gainers/losers/most-actives/sector/industry snapshots.
+
+    These are market-wide (symbol-independent), so we cache once and let all
+    /market-overview calls share it.
+    """
+    with _market_heat_lock:
+        if _market_heat_cache["data"] and _market_heat_cache["expires"] and datetime.now() < _market_heat_cache["expires"]:
+            return _market_heat_cache["data"]
+    return None
+
+
+def _set_market_heat_cached(data):
+    with _market_heat_lock:
+        _market_heat_cache["data"] = data
+        _market_heat_cache["expires"] = datetime.now() + timedelta(minutes=MARKET_HEAT_TTL_MINUTES)
+
+
+async def _fetch_market_heat():
+    import asyncio
+    from app.shared.fmp_service import get_fmp_service
+
+    cached = _get_market_heat_cached()
+    if cached is not None:
+        return cached
+
+    fmp = get_fmp_service()
+    gainers_t = asyncio.to_thread(fmp.get_biggest_gainers)
+    losers_t = asyncio.to_thread(fmp.get_biggest_losers)
+    actives_t = asyncio.to_thread(fmp.get_most_actives)
+    sector_t = asyncio.to_thread(fmp.get_sector_performance_snapshot)
+    industry_t = asyncio.to_thread(fmp.get_industry_performance_snapshot)
+
+    gainers_r, losers_r, actives_r, sector_r, industry_r = await asyncio.gather(
+        gainers_t, losers_t, actives_t, sector_t, industry_t,
+        return_exceptions=True,
+    )
+
+    def _stocks(r):
+        if isinstance(r, Exception):
+            return []
+        return r.get("stocks", []) if isinstance(r, dict) else []
+
+    def _sectors(r):
+        if isinstance(r, Exception):
+            return []
+        return r.get("sectors", []) if isinstance(r, dict) else []
+
+    def _industries(r):
+        if isinstance(r, Exception):
+            return []
+        return r.get("industries", []) if isinstance(r, dict) else []
+
+    data = {
+        "gainers": _stocks(gainers_r),
+        "losers": _stocks(losers_r),
+        "actives": _stocks(actives_r),
+        "sectors": _sectors(sector_r),
+        "industries": _industries(industry_r),
+    }
+    _set_market_heat_cached(data)
+    return data
+
+
+def _rank_in_list(stocks: list, symbol: str, top_n: int = 50):
+    for idx, s in enumerate(stocks[:top_n]):
+        if s.get("symbol", "").upper() == symbol:
+            return idx + 1
+    return None
+
+
+@router.get("/{symbol}/market-overview")
+async def get_market_overview_endpoint(symbol: str):
+    """
+    Aggregated market overview for the Market Tab header + KPI row + heat card + peers.
+
+    Returns header (earnings countdown + market badges), kpis (5 numbers),
+    market_heat (rankings + sector perf), peers_comparison.
+    """
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    with _market_overview_lock:
+        entry = _market_overview_cache.get(symbol)
+        if entry and datetime.now() < entry["expires"]:
+            return entry["data"]
+
+    try:
+        import asyncio
+        from app.shared.fmp_service import get_fmp_service
+        from app.shared.data_tools.news import get_fmp_news
+        from app.shared.data_tools.peers import get_peer_companies
+        from app.shared.data_tools.quotes import get_batch_quotes
+
+        fmp = get_fmp_service()
+
+        # Parallel root fetches
+        heat_task = _fetch_market_heat()
+        earnings_task = asyncio.to_thread(fmp.get_recent_earnings_for_symbol, symbol, 1, 30)
+        quote_task = asyncio.to_thread(fmp.get_stock_quotes, [symbol], True)
+        profile_task = asyncio.to_thread(fmp.get_company_profile_detail, symbol)
+        peers_task = asyncio.to_thread(get_peer_companies, symbol, 3)
+        news_task = asyncio.to_thread(get_fmp_news, 1, [symbol])  # last 24h
+        grades_task = asyncio.to_thread(fmp.get_stock_grades, symbol, 30)
+        pt_consensus_task = asyncio.to_thread(fmp.get_price_target_consensus, symbol)
+        insider_stats_task = asyncio.to_thread(fmp.get_insider_trading_statistics, symbol)
+
+        heat, earnings_r, quote_r, profile_r, peers_r, news_r, grades_r, pt_r, insider_r = await asyncio.gather(
+            heat_task, earnings_task, quote_task, profile_task, peers_task,
+            news_task, grades_task, pt_consensus_task, insider_stats_task,
+            return_exceptions=True,
+        )
+
+        # --- Header: next earnings ---
+        next_earnings = None
+        if not isinstance(earnings_r, Exception) and isinstance(earnings_r, dict):
+            items = earnings_r.get("earnings") or []
+            # Find the first upcoming
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            for e in items:
+                d = e.get("date", "")
+                if d >= today_str:
+                    try:
+                        days_until = (datetime.strptime(d, "%Y-%m-%d") - datetime.now()).days
+                    except ValueError:
+                        days_until = None
+                    next_earnings = {
+                        "date": d,
+                        "days_until": days_until,
+                        "eps_estimate": _safe_float_or_none(e.get("epsEstimated") or e.get("eps_estimate")),
+                    }
+                    break
+
+        # --- Header: market badges (is this stock on any top list?) ---
+        badges = {
+            "gainers_rank": _rank_in_list(heat.get("gainers", []), symbol),
+            "losers_rank": _rank_in_list(heat.get("losers", []), symbol),
+            "most_active_rank": _rank_in_list(heat.get("actives", []), symbol),
+        }
+
+        # --- KPIs ---
+        # news_24h count
+        news_24h = 0
+        if not isinstance(news_r, Exception) and isinstance(news_r, dict):
+            news_24h = len(news_r.get("news", []))
+
+        # 7d grade changes (count non-maintain actions in last 7 days)
+        grade_changes_7d = 0
+        if not isinstance(grades_r, Exception) and isinstance(grades_r, dict):
+            cutoff = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+            for g in grades_r.get("grades", []):
+                if g.get("date", "") >= cutoff and (g.get("action") or "").lower() != "maintain":
+                    grade_changes_7d += 1
+
+        # target consensus
+        target_consensus = None
+        if not isinstance(pt_r, Exception) and isinstance(pt_r, dict):
+            target_consensus = _safe_float_or_none(pt_r.get("consensus", {}).get("targetConsensus"))
+
+        # Current price — quotes is a list
+        current_price = None
+        q = None
+        if not isinstance(quote_r, Exception) and isinstance(quote_r, dict):
+            quotes_list = quote_r.get("quotes") or []
+            if isinstance(quotes_list, list):
+                for item in quotes_list:
+                    if isinstance(item, dict) and item.get("symbol", "").upper() == symbol:
+                        q = item
+                        break
+            if q:
+                current_price = _safe_float_or_none(q.get("price"))
+
+        # NOTE: insider_net_30d KPI removed — FMP data too sparse for most
+        # liquid names; retained in context for AI analysis but not surfaced to UI.
+
+        # sector relative perf: profile → find in heat.sectors, compare to stock's today's change
+        sector_relative_perf_1m = None
+        stock_sector = None
+        if not isinstance(profile_r, Exception) and isinstance(profile_r, dict):
+            # profile shape: top-level has 'classification' dict with 'sector' (see get_company_profile_detail)
+            classification = profile_r.get("classification") or {}
+            stock_sector = (
+                classification.get("sector")
+                or (profile_r.get("profile") or {}).get("sector")
+                or profile_r.get("sector")
+            )
+        sector_avg_today = None
+        stock_exchange = None
+        if not isinstance(profile_r, Exception) and isinstance(profile_r, dict):
+            stock_exchange = (profile_r.get("exchange") or "").upper()
+        if stock_sector:
+            # Prefer the same-exchange sector row; fall back to any exchange.
+            same_exchange_match = None
+            any_match = None
+            for s in heat.get("sectors", []):
+                if s.get("sector") == stock_sector:
+                    any_match = s
+                    if stock_exchange and s.get("exchange", "").upper() == stock_exchange:
+                        same_exchange_match = s
+                        break
+            chosen = same_exchange_match or any_match
+            if chosen:
+                sector_avg_today = _safe_float_or_none(chosen.get("averageChange"))
+        # Stock's own 1-day change (we compare today's change vs sector today's avg)
+        stock_change_today_pct = None
+        if q:
+            stock_change_today_pct = _safe_float_or_none(
+                q.get("daily_change") or q.get("changesPercentage") or q.get("changePercentage")
+            )
+        if stock_change_today_pct is not None and sector_avg_today is not None:
+            sector_relative_perf_1m = stock_change_today_pct - sector_avg_today
+
+        kpis = {
+            "news_24h": news_24h,
+            "grade_changes_7d": grade_changes_7d,
+            "target_consensus": target_consensus,
+            "current_price": current_price,
+            "target_upside_pct": (
+                ((target_consensus - current_price) / current_price * 100)
+                if target_consensus and current_price else None
+            ),
+            "sector_relative_perf_today": sector_relative_perf_1m,
+            "stock_sector": stock_sector,
+        }
+
+        # --- market heat card ---
+        market_heat_out = {
+            "rankings": badges,
+            "sector_perf": {
+                "sector_name": stock_sector,
+                "stock_change_today_pct": stock_change_today_pct,
+                "sector_avg_today_pct": sector_avg_today,
+            },
+        }
+
+        # --- peers comparison ---
+        peers_out = []
+        if not isinstance(peers_r, Exception):
+            peer_list = peers_r if isinstance(peers_r, list) else (peers_r.get("peers", []) if isinstance(peers_r, dict) else [])
+            peer_symbols = [p.get("symbol") if isinstance(p, dict) else p for p in peer_list][:3]
+            if peer_symbols:
+                peer_quotes_r = await asyncio.to_thread(fmp.get_stock_quotes, peer_symbols, True)
+                peer_quotes_list = (peer_quotes_r or {}).get("quotes") if isinstance(peer_quotes_r, dict) else []
+                peer_by_sym = {}
+                if isinstance(peer_quotes_list, list):
+                    for item in peer_quotes_list:
+                        if isinstance(item, dict) and item.get("symbol"):
+                            peer_by_sym[item["symbol"].upper()] = item
+                for p_sym in peer_symbols:
+                    pq = peer_by_sym.get(p_sym.upper(), {})
+                    peers_out.append({
+                        "symbol": p_sym,
+                        "name": pq.get("name", ""),
+                        "price": _safe_float_or_none(pq.get("price")),
+                        "change_pct_today": _safe_float_or_none(
+                            pq.get("daily_change") or pq.get("changesPercentage") or pq.get("changePercentage")
+                        ),
+                    })
+
+        response = {
+            "success": True,
+            "symbol": symbol,
+            "header": {
+                "next_earnings": next_earnings,
+                "market_badges": badges,
+            },
+            "kpis": kpis,
+            "market_heat": market_heat_out,
+            "peers_comparison": peers_out,
+        }
+
+        with _market_overview_lock:
+            _market_overview_cache[symbol] = {
+                "data": response,
+                "expires": datetime.now() + timedelta(minutes=MARKET_OVERVIEW_TTL_MINUTES),
+            }
+
+        return response
+
+    except Exception:
+        logger.exception("Failed to get market overview for %s", symbol)
+        raise HTTPException(status_code=500, detail="Failed to fetch market overview.")
+
+
+# =============================================================================
 # Legacy routes: redirect /api/stock/* -> /api/stocks/*
 # =============================================================================
 
@@ -1383,11 +2050,6 @@ async def legacy_valuation(symbol: str, request: Request):
 @legacy_router.post("/{symbol}/analysis")
 async def legacy_analysis(symbol: str, request: Request):
     return _legacy_redirect(f"/api/stocks/{symbol}/analysis", request)
-
-
-@legacy_router.get("/{symbol}/technical-snapshot")
-async def legacy_technical_snapshot(symbol: str, request: Request):
-    return _legacy_redirect(f"/api/stocks/{symbol}/technical-snapshot", request)
 
 
 @legacy_router.post("/{symbol}/technical")

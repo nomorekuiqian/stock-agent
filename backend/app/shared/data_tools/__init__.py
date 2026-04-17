@@ -32,16 +32,6 @@ def get_technical_data(*args, **kwargs):
     return _fn(*args, **kwargs)
 
 
-def get_technical_snapshot(*args, **kwargs):
-    from app.shared.data_tools.technical import get_technical_snapshot as _fn
-    return _fn(*args, **kwargs)
-
-
-def get_technical_trends(*args, **kwargs):
-    from app.shared.data_tools.technical import get_technical_trends as _fn
-    return _fn(*args, **kwargs)
-
-
 def get_company_profile(*args, **kwargs):
     from app.shared.data_tools.fundamentals import get_company_profile as _fn
     return _fn(*args, **kwargs)
@@ -114,8 +104,6 @@ __all__ = [
     "get_batch_quotes",
     # Technical
     "get_technical_data",
-    "get_technical_snapshot",
-    "get_technical_trends",
     # Fundamentals
     "get_company_profile",
     "get_income_statements",

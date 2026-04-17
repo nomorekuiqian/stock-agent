@@ -1,36 +1,36 @@
 """
 Technical Analysis Data Tools
 
-Fetches technical indicators from two sources:
-1. tvscreener (primary) - TradingView pre-computed indicators + buy/sell ratings
-2. pandas-ta (secondary) - Historical indicator trends computed from yfinance OHLCV
+Fetches technical indicators from FMP (Financial Modeling Prep) API service.
+Computes derived signals (MACD, Bollinger Bands, support/resistance, crossovers)
+locally using pandas + numpy.
 
 Usage:
     from app.shared.data_tools.technical import get_technical_data
     data = get_technical_data("AAPL")
 """
 
-import math
 import threading
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+import numpy as np
 import pandas as pd
-import yfinance as yf
 
 from app.core.logging import get_logger
 from app.shared.data_tools.market_data import safe_float
+from app.shared.fmp_service import get_fmp_service
 
 logger = get_logger(__name__)
 
 
-_tv_snapshot_cache: dict = {}
-_tv_snapshot_lock = threading.Lock()
-TV_SNAPSHOT_TTL_MINUTES = 15
+# ---------------------------------------------------------------------------
+# Thread-safe cache helpers
+# ---------------------------------------------------------------------------
 
-_trends_cache: dict = {}
-_trends_lock = threading.Lock()
-TRENDS_TTL_MINUTES = 30
+_technical_cache: dict = {}
+_technical_lock = threading.Lock()
+CACHE_TTL_MINUTES = 15
 
 
 def _get_cached(cache: dict, lock: threading.Lock, key: str) -> Optional[dict]:
@@ -49,329 +49,118 @@ def _set_cached(cache: dict, lock: threading.Lock, key: str, data: dict, ttl_min
         }
 
 
-_EXCHANGE_OVERRIDES = {
-    # NYSE blue chips
-    "JPM": "NYSE", "GS": "NYSE", "BAC": "NYSE", "WFC": "NYSE",
-    "JNJ": "NYSE", "PG": "NYSE", "UNH": "NYSE", "V": "NYSE",
-    "MA": "NYSE", "DIS": "NYSE", "KO": "NYSE", "PEP": "NYSE",
-    "WMT": "NYSE", "HD": "NYSE", "CRM": "NYSE", "BA": "NYSE",
-    "CAT": "NYSE", "GE": "NYSE", "XOM": "NYSE", "CVX": "NYSE",
-    "BRK.B": "NYSE", "BRK.A": "NYSE", "NKE": "NYSE", "MCD": "NYSE",
-    "IBM": "NYSE", "ABBV": "NYSE", "LLY": "NYSE", "MRK": "NYSE",
-    "PFE": "NYSE", "ABT": "NYSE", "TMO": "NYSE", "DHR": "NYSE",
-    "PM": "NYSE", "RTX": "NYSE", "LMT": "NYSE", "NOC": "NYSE",
-    "MMM": "NYSE", "SQ": "NYSE", "UBER": "NYSE", "SNAP": "NYSE",
-    "BABA": "NYSE", "NIO": "NYSE", "LI": "NYSE", "RIVN": "NASDAQ",
-    # NASDAQ tech
-    "AAPL": "NASDAQ", "MSFT": "NASDAQ", "GOOGL": "NASDAQ", "GOOG": "NASDAQ",
-    "AMZN": "NASDAQ", "META": "NASDAQ", "NVDA": "NASDAQ", "TSLA": "NASDAQ",
-    "AMD": "NASDAQ", "INTC": "NASDAQ", "AVGO": "NASDAQ", "QCOM": "NASDAQ",
-    "NFLX": "NASDAQ", "ADBE": "NASDAQ", "PYPL": "NASDAQ", "COIN": "NASDAQ",
-    "PLTR": "NASDAQ", "SNOW": "NASDAQ", "DDOG": "NASDAQ", "ZS": "NASDAQ",
-    "CRWD": "NASDAQ", "NET": "NASDAQ", "MDB": "NASDAQ", "PANW": "NASDAQ",
-    "MRVL": "NASDAQ", "MU": "NASDAQ", "SMCI": "NASDAQ", "ARM": "NASDAQ",
-    "PDD": "NASDAQ", "BIDU": "NASDAQ", "JD": "NASDAQ",
-}
+# ---------------------------------------------------------------------------
+# Local computation helpers (pandas + numpy, NO pandas-ta)
+# ---------------------------------------------------------------------------
+
+def _ema(series: pd.Series, span: int) -> pd.Series:
+    """Compute exponential moving average."""
+    return series.ewm(span=span, adjust=False).mean()
 
 
-def detect_exchange(symbol: str) -> str:
+def _compute_macd(ema_12_series: list[dict], ema_26_series: list[dict]) -> list[dict]:
     """
-    Detect TradingView exchange prefix for a US stock symbol.
-    Returns 'NASDAQ' or 'NYSE'. Falls back to trying both.
+    Compute MACD from EMA(12) and EMA(26) time series.
+
+    MACD line = EMA(12) - EMA(26)
+    Signal line = EMA(9) of MACD line
+    Histogram = MACD - Signal
     """
-    symbol = symbol.upper()
-    if symbol in _EXCHANGE_OVERRIDES:
-        return _EXCHANGE_OVERRIDES[symbol]
-    # Default: try NASDAQ first (more tech stocks)
-    return "NASDAQ"
+    if not ema_12_series or not ema_26_series:
+        return []
+
+    df_12 = pd.DataFrame(ema_12_series).rename(columns={"value": "ema_12"})
+    df_26 = pd.DataFrame(ema_26_series).rename(columns={"value": "ema_26"})
+
+    merged = pd.merge(df_12, df_26, on="date", how="inner")
+    if merged.empty:
+        return []
+
+    merged["macd"] = merged["ema_12"] - merged["ema_26"]
+    merged["signal"] = _ema(merged["macd"], 9)
+    merged["histogram"] = merged["macd"] - merged["signal"]
+
+    result = []
+    for _, row in merged.iterrows():
+        result.append({
+            "date": row["date"],
+            "macd": round(float(row["macd"]), 4),
+            "signal": round(float(row["signal"]), 4),
+            "histogram": round(float(row["histogram"]), 4),
+        })
+    return result
 
 
-
-def _rating_to_label(value: float) -> str:
-    """Convert TradingView numeric rating (-1 to 1) to human label."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
-        return "NEUTRAL"
-    if value >= 0.5:
-        return "STRONG_BUY"
-    if value >= 0.1:
-        return "BUY"
-    if value <= -0.5:
-        return "STRONG_SELL"
-    if value <= -0.1:
-        return "SELL"
-    return "NEUTRAL"
-
-
-def get_technical_snapshot(symbol: str, exchange: Optional[str] = None) -> dict:
+def _compute_bollinger_bands(
+    ohlcv: list[dict], period: int = 20, std_mult: float = 2.0
+) -> list[dict]:
     """
-    Fetch current technical indicator values from TradingView via tvscreener.
+    Compute Bollinger Bands from OHLCV close prices.
 
-    Returns dict with ratings, moving averages, oscillators, volatility,
-    trend indicators, and price/volume for both daily and weekly timeframes.
+    Middle = SMA(period)
+    Upper = Middle + std_mult * StdDev(period)
+    Lower = Middle - std_mult * StdDev(period)
     """
-    symbol = symbol.upper()
-    cache_key = symbol
-    cached = _get_cached(_tv_snapshot_cache, _tv_snapshot_lock, cache_key)
-    if cached:
-        logger.info("tvscreener cache HIT for %s", symbol)
-        return cached
+    if len(ohlcv) < period:
+        return []
 
+    df = pd.DataFrame(ohlcv)
+    close = df["close"].astype(float)
+
+    middle = close.rolling(window=period).mean()
+    std = close.rolling(window=period).std(ddof=0)
+    upper = middle + std_mult * std
+    lower = middle - std_mult * std
+
+    result = []
+    for i in range(len(df)):
+        if pd.notna(middle.iloc[i]):
+            result.append({
+                "date": df["date"].iloc[i],
+                "upper": round(float(upper.iloc[i]), 2),
+                "middle": round(float(middle.iloc[i]), 2),
+                "lower": round(float(lower.iloc[i]), 2),
+            })
+    return result
+
+
+def _find_support_resistance(ohlcv: list[dict], window: int = 10) -> dict:
+    """
+    Find support/resistance levels from recent swing highs/lows.
+
+    Input: list of {"date", "open", "high", "low", "close", "volume"} dicts.
+    """
     try:
-        from tvscreener import StockScreener
-        from tvscreener.field.stock import StockField
-        from tvscreener.core.stock import Market
-
-        screener = StockScreener()
-        screener.set_markets(Market.AMERICA)
-        screener.select(
-            # --- Daily Ratings ---
-            StockField.TECHNICAL_RATING,
-            StockField.MOVING_AVERAGES_RATING,
-            StockField.OSCILLATORS_RATING,
-            # --- Weekly Ratings ---
-            StockField.RECOMMEND_ALL_1W,
-            StockField.RECOMMEND_MA_1W,
-            StockField.RECOMMEND_OTHER_1W,
-            # --- Daily Moving Averages ---
-            StockField.SIMPLE_MOVING_AVERAGE_20,
-            StockField.SIMPLE_MOVING_AVERAGE_50,
-            StockField.SIMPLE_MOVING_AVERAGE_200,
-            StockField.EMA12,
-            StockField.EMA26,
-            # --- Daily Oscillators ---
-            StockField.RELATIVE_STRENGTH_INDEX_14,
-            StockField.MACD_LEVEL_12_26,
-            StockField.MACD_SIGNAL_12_26,
-            StockField.MACD_HIST,
-            StockField.STOCHASTIC_PERCENTK_14_3_3,
-            StockField.STOCHASTIC_PERCENTD_14_3_3,
-            StockField.COMMODITY_CHANNEL_INDEX_20,
-            StockField.AWESOME_OSCILLATOR,
-            StockField.MOMENTUM_10,
-            StockField.WILLIAMS_PERCENT_RANGE_14,
-            # --- Weekly Oscillators ---
-            StockField.RSI_1W,
-            StockField.MACD_MACD_1W,
-            StockField.MACD_SIGNAL_1W,
-            StockField.MACD_HIST_1W,
-            # --- Daily Volatility ---
-            StockField.AVERAGE_TRUE_RANGE_14,
-            StockField.BOLLINGER_UPPER_BAND_20,
-            StockField.BOLLINGER_LOWER_BAND_20,
-            # --- Daily Trend ---
-            StockField.AVERAGE_DIRECTIONAL_INDEX_14,
-            StockField.POSITIVE_DIRECTIONAL_INDICATOR_14,
-            StockField.NEGATIVE_DIRECTIONAL_INDICATOR_14,
-            StockField.PARABOLIC_SAR,
-            StockField.ICHIMOKU_BASE_LINE_9_26_52_26,
-            StockField.ICHIMOKU_CONVERSION_LINE_9_26_52_26,
-            # --- Weekly Trend ---
-            StockField.ADX_1W,
-            # --- Price & Volume ---
-            StockField.PRICE,
-            StockField.VOLUME,
-            StockField.AVERAGE_VOLUME,
-        )
-
-        df = screener.get()
-
-        # Try to find the symbol with exchange prefix
-        if exchange is None:
-            exchange = detect_exchange(symbol)
-
-        tv_symbol = f"{exchange}:{symbol}"
-        row_df = df[df["Symbol"] == tv_symbol]
-
-        # If not found, try the other exchange
-        if row_df.empty and exchange == "NASDAQ":
-            tv_symbol = f"NYSE:{symbol}"
-            row_df = df[df["Symbol"] == tv_symbol]
-        elif row_df.empty and exchange == "NYSE":
-            tv_symbol = f"NASDAQ:{symbol}"
-            row_df = df[df["Symbol"] == tv_symbol]
-
-        # Still not found, try AMEX
-        if row_df.empty:
-            tv_symbol = f"AMEX:{symbol}"
-            row_df = df[df["Symbol"] == tv_symbol]
-
-        if row_df.empty:
-            logger.warning("tvscreener: %s not found in any exchange", symbol)
-            return {"source": "tvscreener", "error": "symbol_not_found", "symbol": symbol}
-
-        row = row_df.iloc[0]
-
-        def val(col_name: str) -> Optional[float]:
-            try:
-                v = row[col_name]
-                if v is None or (isinstance(v, float) and math.isnan(v)):
-                    return None
-                return round(float(v), 4)
-            except (KeyError, TypeError, ValueError):
-                return None
-
-        price = val("Price")
-
-        # Build structured result
-        result = {
-            "source": "tvscreener",
-            "symbol": symbol,
-            "tv_symbol": tv_symbol,
-            "ratings": {
-                "daily": {
-                    "overall": _rating_to_label(val("Technical Rating")),
-                    "overall_score": val("Technical Rating"),
-                    "moving_averages": _rating_to_label(val("Moving Averages Rating")),
-                    "ma_score": val("Moving Averages Rating"),
-                    "oscillators": _rating_to_label(val("Oscillators Rating")),
-                    "osc_score": val("Oscillators Rating"),
-                },
-                "weekly": {
-                    "overall": _rating_to_label(val("Recommend All|1w")),
-                    "overall_score": val("Recommend All|1w"),
-                    "moving_averages": _rating_to_label(val("Recommend Ma|1w")),
-                    "ma_score": val("Recommend Ma|1w"),
-                    "oscillators": _rating_to_label(val("Recommend Other|1w")),
-                    "osc_score": val("Recommend Other|1w"),
-                },
-            },
-            "moving_averages": {
-                "sma_20": val("Simple Moving Average (20)"),
-                "sma_50": val("Simple Moving Average (50)"),
-                "sma_200": val("Simple Moving Average (200)"),
-                "ema_12": val("Ema12"),
-                "ema_26": val("Ema26"),
-            },
-            "oscillators": {
-                "rsi_14": val("Relative Strength Index (14)"),
-                "rsi_14_weekly": val("Rsi|1w"),
-                "macd_level": val("MACD Level (12, 26)"),
-                "macd_signal": val("MACD Signal (12, 26)"),
-                "macd_histogram": val("MACD Hist"),
-                "macd_level_weekly": val("MACD Macd|1w"),
-                "macd_signal_weekly": val("MACD Signal|1w"),
-                "macd_histogram_weekly": val("MACD Hist|1w"),
-                "stochastic_k": val("Stochastic %K (14, 3, 3)"),
-                "stochastic_d": val("Stochastic %D (14, 3, 3)"),
-                "cci_20": val("Commodity Channel Index (20)"),
-                "awesome_oscillator": val("Awesome Oscillator"),
-                "momentum_10": val("Momentum (10)"),
-                "williams_r": val("Williams Percent Range (14)"),
-            },
-            "volatility": {
-                "atr_14": val("Average True Range (14)"),
-                "bb_upper": val("Bollinger Upper Band (20)"),
-                "bb_lower": val("Bollinger Lower Band (20)"),
-            },
-            "trend": {
-                "adx_14": val("Average Directional Index (14)"),
-                "adx_14_weekly": val("Adx|1w"),
-                "adx_plus_di": val("Positive Directional Indicator (14)"),
-                "adx_minus_di": val("Negative Directional Indicator (14)"),
-                "parabolic_sar": val("Parabolic SAR"),
-                "ichimoku_base": val("Ichimoku Base Line (9, 26, 52, 26)"),
-                "ichimoku_conversion": val("Ichimoku Conversion Line (9, 26, 52, 26)"),
-            },
-            "price_volume": {
-                "price": price,
-                "volume": val("Volume"),
-                "avg_volume": val("Average Volume"),
-            },
-        }
-
-        # Derived signals
-        sma_20 = result["moving_averages"]["sma_20"]
-        sma_50 = result["moving_averages"]["sma_50"]
-        sma_200 = result["moving_averages"]["sma_200"]
-
-        result["derived"] = {}
-
-        if price and sma_20 and sma_50 and sma_200:
-            result["derived"]["above_sma_20"] = price > sma_20
-            result["derived"]["above_sma_50"] = price > sma_50
-            result["derived"]["above_sma_200"] = price > sma_200
-
-            # MA alignment
-            if price > sma_20 > sma_50 > sma_200:
-                result["derived"]["ma_alignment"] = "bullish"
-            elif price < sma_20 < sma_50 < sma_200:
-                result["derived"]["ma_alignment"] = "bearish"
-            else:
-                result["derived"]["ma_alignment"] = "mixed"
-
-        # RSI zone
-        rsi = result["oscillators"]["rsi_14"]
-        if rsi is not None:
-            if rsi > 70:
-                result["derived"]["rsi_zone"] = "overbought"
-            elif rsi < 30:
-                result["derived"]["rsi_zone"] = "oversold"
-            else:
-                result["derived"]["rsi_zone"] = "neutral"
-
-        # BB position
-        bb_upper = result["volatility"]["bb_upper"]
-        bb_lower = result["volatility"]["bb_lower"]
-        if price and bb_upper and bb_lower:
-            bb_mid = (bb_upper + bb_lower) / 2
-            if price > bb_upper:
-                result["derived"]["bb_position"] = "above_upper"
-            elif price < bb_lower:
-                result["derived"]["bb_position"] = "below_lower"
-            elif price > bb_mid:
-                result["derived"]["bb_position"] = "upper_half"
-            else:
-                result["derived"]["bb_position"] = "lower_half"
-
-        _set_cached(_tv_snapshot_cache, _tv_snapshot_lock, cache_key, result, TV_SNAPSHOT_TTL_MINUTES)
-        logger.info("tvscreener OK for %s: price=%s, RSI=%s", tv_symbol, price, rsi)
-        return result
-
-    except Exception as e:
-        logger.exception("tvscreener error for %s: %s", symbol, e)
-        return {"source": "tvscreener", "error": str(e), "symbol": symbol}
-
-
-
-def _direction(current: float, previous: float, threshold: float = 0.02) -> str:
-    """Determine trend direction between two values."""
-    if previous == 0:
-        return "flat"
-    pct_change = (current - previous) / abs(previous)
-    if pct_change > threshold:
-        return "rising"
-    if pct_change < -threshold:
-        return "declining"
-    return "flat"
-
-
-def _find_support_resistance(df: pd.DataFrame, window: int = 10) -> dict:
-    """Find support/resistance levels from recent swing highs/lows."""
-    try:
-        if len(df) < window * 2:
+        if len(ohlcv) < window * 2:
             return {}
 
-        # Use rolling window to find local highs and lows
-        highs = df["High"].rolling(window=window, center=True).max()
-        lows = df["Low"].rolling(window=window, center=True).min()
+        df = pd.DataFrame(ohlcv)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
+        df["close"] = df["close"].astype(float)
 
-        # Swing highs: where High equals the rolling max
-        swing_high_mask = df["High"] == highs
-        swing_highs = df.loc[swing_high_mask, "High"].dropna()
+        highs = df["high"].rolling(window=window, center=True).max()
+        lows = df["low"].rolling(window=window, center=True).min()
 
-        # Swing lows: where Low equals the rolling min
-        swing_low_mask = df["Low"] == lows
-        swing_lows = df.loc[swing_low_mask, "Low"].dropna()
+        swing_high_mask = df["high"] == highs
+        swing_highs = df.loc[swing_high_mask, "high"].dropna()
 
-        current_price = safe_float(df["Close"].iloc[-1])
+        swing_low_mask = df["low"] == lows
+        swing_lows = df.loc[swing_low_mask, "low"].dropna()
+
+        current_price = safe_float(df["close"].iloc[-1])
         if current_price <= 0:
             return {}
 
-        # Get unique levels, sorted
-        resistances = sorted(set(safe_float(h) for h in swing_highs if safe_float(h) > current_price))
-        supports = sorted(set(safe_float(l) for l in swing_lows if safe_float(l) < current_price), reverse=True)
+        resistances = sorted(
+            set(safe_float(h) for h in swing_highs if safe_float(h) > current_price)
+        )
+        supports = sorted(
+            set(safe_float(l) for l in swing_lows if safe_float(l) < current_price),
+            reverse=True,
+        )
 
-        result = {"current_price": round(current_price, 2)}
+        result: dict[str, Any] = {"current_price": round(current_price, 2)}
         if len(supports) > 0:
             result["support_1"] = round(supports[0], 2)
         if len(supports) > 1:
@@ -387,263 +176,531 @@ def _find_support_resistance(df: pd.DataFrame, window: int = 10) -> dict:
         return {}
 
 
-def get_technical_trends(symbol: str, days: int = 180) -> dict:
+def _compute_derived_signals(
+    current_values: dict, ohlcv: list[dict], indicators: dict, bb_series: list[dict]
+) -> dict:
     """
-    Compute historical indicator trends using pandas-ta + yfinance.
-    Provides directional context that tvscreener snapshot cannot.
+    Compute derived analysis signals from current indicator values and OHLCV.
 
-    Returns trend directions, signal conditions, support/resistance,
-    and volume analysis.
+    Signals: MA alignment, RSI zone, MACD cross, SMA 50/200 cross,
+    BB position, BB squeeze, trend direction/strength, volume trend.
+    """
+    derived: dict[str, Any] = {}
+    price = current_values.get("price")
+    sma_20 = current_values.get("sma_20")
+    sma_50 = current_values.get("sma_50")
+    sma_200 = current_values.get("sma_200")
+
+    # --- MA alignment ---
+    if price and sma_20 and sma_50 and sma_200:
+        if price > sma_20 > sma_50 > sma_200:
+            derived["ma_alignment"] = "bullish"
+        elif price < sma_20 < sma_50 < sma_200:
+            derived["ma_alignment"] = "bearish"
+        else:
+            derived["ma_alignment"] = "mixed"
+    else:
+        derived["ma_alignment"] = "mixed"
+
+    # --- RSI zone ---
+    rsi = current_values.get("rsi_14")
+    if rsi is not None:
+        if rsi > 70:
+            derived["rsi_zone"] = "overbought"
+        elif rsi < 30:
+            derived["rsi_zone"] = "oversold"
+        else:
+            derived["rsi_zone"] = "neutral"
+    else:
+        derived["rsi_zone"] = "neutral"
+
+    # --- MACD cross (last 5 days) ---
+    macd_series = indicators.get("macd", [])
+    derived["macd_cross"] = "none"
+    if len(macd_series) >= 5:
+        recent = macd_series[-5:]
+        for i in range(1, len(recent)):
+            prev_diff = recent[i - 1]["macd"] - recent[i - 1]["signal"]
+            curr_diff = recent[i]["macd"] - recent[i]["signal"]
+            if prev_diff <= 0 < curr_diff:
+                derived["macd_cross"] = "bullish_cross"
+            elif prev_diff >= 0 > curr_diff:
+                derived["macd_cross"] = "bearish_cross"
+
+    # --- SMA 50/200 cross (last 10 days) ---
+    sma_50_series = indicators.get("sma_50", [])
+    sma_200_series = indicators.get("sma_200", [])
+    derived["sma_50_200_cross"] = "none"
+    if len(sma_50_series) >= 10 and len(sma_200_series) >= 10:
+        sma50_df = pd.DataFrame(sma_50_series[-10:]).rename(columns={"value": "sma50"})
+        sma200_df = pd.DataFrame(sma_200_series[-10:]).rename(columns={"value": "sma200"})
+        merged = pd.merge(sma50_df, sma200_df, on="date", how="inner")
+        if len(merged) >= 2:
+            diff = merged["sma50"] - merged["sma200"]
+            crosses = diff.iloc[:-1].values * diff.iloc[1:].values
+            if (crosses < 0).any():
+                latest_diff = diff.iloc[-1]
+                derived["sma_50_200_cross"] = (
+                    "golden_cross" if latest_diff > 0 else "death_cross"
+                )
+
+    # --- BB position ---
+    bb_upper = current_values.get("bb_upper")
+    bb_lower = current_values.get("bb_lower")
+    if price and bb_upper and bb_lower:
+        bb_mid = (bb_upper + bb_lower) / 2
+        if price > bb_upper:
+            derived["bb_position"] = "above_upper"
+        elif price < bb_lower:
+            derived["bb_position"] = "below_lower"
+        elif price > bb_mid:
+            derived["bb_position"] = "upper_half"
+        else:
+            derived["bb_position"] = "lower_half"
+    else:
+        derived["bb_position"] = "upper_half"
+
+    # --- BB squeeze ---
+    derived["bb_squeeze"] = False
+    if len(bb_series) >= 20:
+        widths = []
+        for entry in bb_series[-20:]:
+            mid = entry.get("middle", 0)
+            if mid and mid > 0:
+                widths.append((entry["upper"] - entry["lower"]) / mid)
+        if len(widths) >= 2:
+            current_width = widths[-1]
+            avg_width = np.mean(widths)
+            derived["bb_squeeze"] = bool(current_width < avg_width * 0.8)
+
+    # --- Trend direction and strength (ADX) ---
+    adx = current_values.get("adx_14")
+    if adx is not None:
+        derived["trend_strength"] = min(int(round(adx)), 100)
+    else:
+        derived["trend_strength"] = 0
+
+    # Determine trend direction from price vs SMA 20
+    if price and sma_20:
+        pct = (price - sma_20) / sma_20
+        if pct > 0.02:
+            derived["trend_direction"] = "up"
+        elif pct < -0.02:
+            derived["trend_direction"] = "down"
+        else:
+            derived["trend_direction"] = "sideways"
+    else:
+        derived["trend_direction"] = "sideways"
+
+    # --- Volume trend ---
+    derived["volume_trend"] = "average"
+    derived["volume_ratio"] = 1.0
+    if len(ohlcv) >= 20:
+        recent_vol = ohlcv[-1].get("volume")
+        vol_values = [
+            safe_float(d.get("volume", 0))
+            for d in ohlcv[-21:-1]
+            if safe_float(d.get("volume", 0)) > 0
+        ]
+        if recent_vol and vol_values:
+            avg_vol = np.mean(vol_values)
+            if avg_vol > 0:
+                ratio = float(recent_vol) / avg_vol
+                derived["volume_ratio"] = round(ratio, 2)
+                if ratio > 1.1:
+                    derived["volume_trend"] = "above_average"
+                elif ratio < 0.9:
+                    derived["volume_trend"] = "below_average"
+                else:
+                    derived["volume_trend"] = "average"
+
+    return derived
+
+
+def _aggregate_to_weekly(daily_ohlcv: list[dict]) -> list[dict]:
+    """
+    Aggregate daily OHLCV into weekly candles.
+
+    Groups by ISO week. Open = first day's open, High = max high,
+    Low = min low, Close = last day's close, Volume = sum.
+    """
+    if not daily_ohlcv:
+        return []
+
+    df = pd.DataFrame(daily_ohlcv)
+    df["date_parsed"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date_parsed")
+
+    # Group by ISO year + week number
+    df["iso_year_week"] = df["date_parsed"].dt.isocalendar().year.astype(str) + "-" + (
+        df["date_parsed"].dt.isocalendar().week.astype(str).str.zfill(2)
+    )
+
+    weekly = []
+    for _, group in df.groupby("iso_year_week", sort=True):
+        weekly.append({
+            "date": str(group["date"].iloc[-1]),
+            "open": safe_float(group["open"].iloc[0]),
+            "high": safe_float(group["high"].max()),
+            "low": safe_float(group["low"].min()),
+            "close": safe_float(group["close"].iloc[-1]),
+            "volume": int(group["volume"].sum()) if group["volume"].notna().any() else 0,
+        })
+
+    return weekly
+
+
+def _compute_trend_summary(
+    indicators: dict, ohlcv: list[dict], lookback: int = 20
+) -> dict:
+    """
+    Summarize recent indicator changes for AI agent context.
+
+    Provides a condensed view of the last `lookback` days of indicator changes.
+    """
+    summary: dict[str, Any] = {}
+
+    # --- RSI trend ---
+    rsi_series = indicators.get("rsi_14", [])
+    if len(rsi_series) >= lookback:
+        rsi_now = rsi_series[-1]["value"]
+        rsi_ago = rsi_series[-lookback]["value"]
+        summary["rsi_20d_ago"] = round(rsi_ago, 1)
+        if rsi_now > rsi_ago + 2:
+            summary["rsi_direction"] = "rising"
+        elif rsi_now < rsi_ago - 2:
+            summary["rsi_direction"] = "declining"
+        else:
+            summary["rsi_direction"] = "flat"
+        # Check if recently overbought/oversold (last 5 days)
+        recent_rsi = [r["value"] for r in rsi_series[-5:]]
+        summary["rsi_recently_overbought"] = any(v > 70 for v in recent_rsi)
+        summary["rsi_recently_oversold"] = any(v < 30 for v in recent_rsi)
+    else:
+        summary["rsi_20d_ago"] = None
+        summary["rsi_direction"] = "unknown"
+        summary["rsi_recently_overbought"] = False
+        summary["rsi_recently_oversold"] = False
+
+    # --- MACD histogram direction ---
+    macd_series = indicators.get("macd", [])
+    summary["macd_histogram_direction"] = "unknown"
+    summary["macd_recent_cross"] = "none"
+    if len(macd_series) >= 5:
+        recent_hist = [m["histogram"] for m in macd_series[-5:]]
+        if len(recent_hist) >= 2:
+            if abs(recent_hist[-1]) > abs(recent_hist[-2]):
+                summary["macd_histogram_direction"] = "expanding"
+            else:
+                summary["macd_histogram_direction"] = "contracting"
+        # Check for recent cross
+        for i in range(1, len(macd_series[-5:])):
+            prev = macd_series[-5 + i - 1]
+            curr = macd_series[-5 + i]
+            prev_diff = prev["macd"] - prev["signal"]
+            curr_diff = curr["macd"] - curr["signal"]
+            if prev_diff <= 0 < curr_diff:
+                summary["macd_recent_cross"] = "bullish_cross"
+            elif prev_diff >= 0 > curr_diff:
+                summary["macd_recent_cross"] = "bearish_cross"
+
+    # --- Price change ---
+    if len(ohlcv) >= lookback:
+        close_now = safe_float(ohlcv[-1]["close"])
+        close_5d = safe_float(ohlcv[-5]["close"]) if len(ohlcv) >= 5 else close_now
+        close_20d = safe_float(ohlcv[-lookback]["close"])
+        if close_5d and close_5d > 0:
+            summary["price_change_5d"] = round((close_now - close_5d) / close_5d * 100, 1)
+        else:
+            summary["price_change_5d"] = 0.0
+        if close_20d and close_20d > 0:
+            summary["price_change_20d"] = round((close_now - close_20d) / close_20d * 100, 1)
+        else:
+            summary["price_change_20d"] = 0.0
+    else:
+        summary["price_change_5d"] = 0.0
+        summary["price_change_20d"] = 0.0
+
+    # --- Volume vs average ---
+    if len(ohlcv) >= lookback:
+        vol_values = [
+            safe_float(d.get("volume", 0))
+            for d in ohlcv[-lookback:-1]
+            if safe_float(d.get("volume", 0)) > 0
+        ]
+        current_vol = safe_float(ohlcv[-1].get("volume", 0))
+        if vol_values and current_vol > 0:
+            avg_vol = np.mean(vol_values)
+            summary["volume_vs_avg"] = round(current_vol / avg_vol, 1) if avg_vol > 0 else 1.0
+        else:
+            summary["volume_vs_avg"] = 1.0
+    else:
+        summary["volume_vs_avg"] = 1.0
+
+    return summary
+
+
+def _latest_value(series: list[dict]) -> Optional[float]:
+    """Get the latest value from an indicator series."""
+    if series:
+        return series[-1].get("value")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def get_technical_data(
+    symbol: str, timeframe: str = "daily", limit: int = 200
+) -> dict:
+    """
+    Main entry point: fetch OHLCV + indicators from FMP, compute local
+    derived signals, and return a comprehensive technical analysis dict.
+
+    Args:
+        symbol: Stock ticker (e.g. "AAPL")
+        timeframe: "daily" or "weekly"
+        limit: Number of data points to fetch (default 200)
+
+    Returns:
+        Comprehensive technical data dict with ohlcv, indicators,
+        current snapshot, derived signals, support/resistance, and
+        trend summary. On error returns {"symbol": ..., "error": ...}.
     """
     symbol = symbol.upper()
-    cache_key = f"{symbol}_{days}"
-    cached = _get_cached(_trends_cache, _trends_lock, cache_key)
+    cache_key = "%s_%s" % (symbol, timeframe)
+
+    cached = _get_cached(_technical_cache, _technical_lock, cache_key)
     if cached:
-        logger.info("trends cache HIT for %s", symbol)
+        logger.info("Technical cache HIT for %s (%s)", symbol, timeframe)
         return cached
 
+    logger.info("Fetching technical data for %s (%s)", symbol, timeframe)
+
     try:
-        import pandas_ta as ta
+        fmp = get_fmp_service()
 
-        # Download OHLCV data
-        period = "1y" if days > 180 else "6mo"
-        df = yf.download(symbol, period=period, progress=False)
-
-        if df.empty or len(df) < 30:
-            logger.warning("Insufficient data for %s: %d rows", symbol, len(df))
-            return {"source": "pandas-ta", "error": "insufficient_data", "symbol": symbol}
-
-        # Flatten MultiIndex columns if present (yfinance sometimes returns multi-level)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-
-        # Compute indicators
-        df.ta.rsi(length=14, append=True)
-        df.ta.macd(fast=12, slow=26, signal=9, append=True)
-        df.ta.bbands(length=20, std=2, append=True)
-        df.ta.sma(length=20, append=True)
-        df.ta.sma(length=50, append=True)
-        df.ta.sma(length=200, append=True)
-        df.ta.adx(length=14, append=True)
-        df.ta.atr(length=14, append=True)
-        df.ta.stoch(k=14, d=3, append=True)
-
-        # Get latest, 5-day ago, and 20-day ago values
-        latest = df.iloc[-1]
-        d5 = df.iloc[-6] if len(df) > 5 else df.iloc[0]
-        d20 = df.iloc[-21] if len(df) > 20 else df.iloc[0]
-
-        def sf(val):
-            return safe_float(val, None)
-
-        # RSI trend
-        rsi_current = sf(latest.get("RSI_14"))
-        rsi_5d = sf(d5.get("RSI_14"))
-        rsi_20d = sf(d20.get("RSI_14"))
-        rsi_trend = {}
-        if rsi_current is not None:
-            rsi_trend = {
-                "current": round(rsi_current, 1),
-                "5d_ago": round(rsi_5d, 1) if rsi_5d else None,
-                "20d_ago": round(rsi_20d, 1) if rsi_20d else None,
-                "direction": _direction(rsi_current, rsi_5d) if rsi_5d else "unknown",
-                "zone": "overbought" if rsi_current > 70 else ("oversold" if rsi_current < 30 else "neutral"),
+        # 1. Fetch daily OHLCV from FMP
+        price_resp = fmp.get_historical_price(symbol, limit=limit)
+        if price_resp.get("status") != "success" or not price_resp.get("data"):
+            return {
+                "symbol": symbol,
+                "error": "Failed to fetch OHLCV data: %s" % price_resp.get("error", "no data"),
+                "source": "fmp",
             }
-            # Check if recently overbought/oversold (last 5 days)
-            recent_rsi = df["RSI_14"].iloc[-6:].dropna()
-            if not recent_rsi.empty:
-                rsi_trend["recently_overbought"] = bool((recent_rsi > 70).any())
-                rsi_trend["recently_oversold"] = bool((recent_rsi < 30).any())
 
-        # MACD trend
-        macd_col = "MACD_12_26_9"
-        signal_col = "MACDs_12_26_9"
-        hist_col = "MACDh_12_26_9"
-        macd_current = sf(latest.get(macd_col))
-        macd_signal_current = sf(latest.get(signal_col))
-        macd_hist_current = sf(latest.get(hist_col))
-        macd_hist_5d = sf(d5.get(hist_col))
-        macd_trend = {}
-        if macd_current is not None:
-            macd_trend = {
-                "current": round(macd_current, 4),
-                "signal": round(macd_signal_current, 4) if macd_signal_current else None,
-                "histogram": round(macd_hist_current, 4) if macd_hist_current else None,
-                "histogram_direction": _direction(macd_hist_current, macd_hist_5d) if macd_hist_5d and macd_hist_current else "unknown",
-            }
-            # Detect MACD cross in last 5 days
-            recent_macd = df[[macd_col, signal_col]].iloc[-6:].dropna()
-            if len(recent_macd) >= 2:
-                diff = recent_macd[macd_col] - recent_macd[signal_col]
-                crosses = diff.iloc[:-1].values * diff.iloc[1:].values
-                if (crosses < 0).any():
-                    # A cross happened
-                    latest_diff = diff.iloc[-1]
-                    macd_trend["cross"] = "bullish_cross" if latest_diff > 0 else "bearish_cross"
-                else:
-                    macd_trend["cross"] = "none"
+        daily_ohlcv = price_resp["data"]  # oldest-first
 
-        # Volume trend
-        vol_current = sf(latest.get("Volume"))
-        volume_trend = {}
-        if vol_current is not None:
-            vol_20d_avg = sf(df["Volume"].iloc[-21:].mean()) if len(df) > 20 else None
-            volume_trend = {
-                "current": int(vol_current) if vol_current else None,
-                "avg_20d": int(vol_20d_avg) if vol_20d_avg else None,
-            }
-            if vol_current and vol_20d_avg and vol_20d_avg > 0:
-                ratio = vol_current / vol_20d_avg
-                volume_trend["ratio"] = round(ratio, 2)
-                volume_trend["trend"] = "above_average" if ratio > 1.1 else ("below_average" if ratio < 0.9 else "average")
+        # 2. Fetch indicator time series from FMP
+        ind_resp = fmp.get_technical_indicators(
+            symbol, timeframe="1day", limit=limit
+        )
+        raw_indicators = ind_resp.get("indicators", {}) if ind_resp.get("status") == "success" else {}
 
-        # Support / Resistance
-        sr_levels = _find_support_resistance(df)
+        # 3. For weekly timeframe: aggregate daily into weekly candles
+        if timeframe == "weekly":
+            ohlcv = _aggregate_to_weekly(daily_ohlcv)
+        else:
+            ohlcv = daily_ohlcv
 
-        # MA alignment signal
-        price = sf(latest.get("Close"))
-        sma_20 = sf(latest.get("SMA_20"))
-        sma_50 = sf(latest.get("SMA_50"))
-        pattern_signals = {}
-        if price and sma_20 and sma_50:
-            if price > sma_20 > sma_50:
-                pattern_signals["ma_alignment"] = "bullish"
-            elif price < sma_20 < sma_50:
-                pattern_signals["ma_alignment"] = "bearish"
-            else:
-                pattern_signals["ma_alignment"] = "mixed"
+        # 4. Compute MACD locally from EMA 12 and EMA 26 series
+        macd_series = _compute_macd(
+            raw_indicators.get("ema_12", []),
+            raw_indicators.get("ema_26", []),
+        )
 
-        # BB position
-        bb_upper = sf(latest.get("BBU_20_2.0"))
-        bb_lower = sf(latest.get("BBL_20_2.0"))
-        if price and bb_upper and bb_lower:
-            bb_mid = (bb_upper + bb_lower) / 2
-            if price > bb_upper:
-                pattern_signals["bb_position"] = "above_upper"
-            elif price < bb_lower:
-                pattern_signals["bb_position"] = "below_lower"
-            elif price > bb_mid:
-                pattern_signals["bb_position"] = "upper_half"
-            else:
-                pattern_signals["bb_position"] = "lower_half"
+        # 5. Compute Bollinger Bands locally from OHLCV
+        bb_series = _compute_bollinger_bands(ohlcv, period=20, std_mult=2.0)
 
-            # BB width (squeeze detection)
-            bb_width = (bb_upper - bb_lower) / bb_mid if bb_mid > 0 else 0
-            bb_width_20d = None
-            if len(df) > 20:
-                bbu_series = df.get("BBU_20_2.0")
-                bbl_series = df.get("BBL_20_2.0")
-                if bbu_series is not None and bbl_series is not None:
-                    widths = (bbu_series - bbl_series) / ((bbu_series + bbl_series) / 2)
-                    bb_width_20d = sf(widths.iloc[-21:].mean())
-            if bb_width_20d and bb_width_20d > 0:
-                pattern_signals["bb_squeeze"] = bb_width < bb_width_20d * 0.8
+        # If weekly timeframe, also compute indicators locally from weekly OHLCV
+        # because FMP indicators are daily-only
+        if timeframe == "weekly" and ohlcv:
+            df_w = pd.DataFrame(ohlcv)
+            close_w = df_w["close"].astype(float)
 
-        # Volume confirmation
-        if vol_current and vol_20d_avg and vol_20d_avg > 0:
-            pattern_signals["volume_confirmation"] = vol_current > vol_20d_avg
+            # SMA
+            for period, key in [(20, "sma_20"), (50, "sma_50"), (200, "sma_200")]:
+                if len(close_w) >= period:
+                    sma_vals = close_w.rolling(window=period).mean()
+                    series_data = []
+                    for i in range(len(df_w)):
+                        if pd.notna(sma_vals.iloc[i]):
+                            series_data.append({
+                                "date": df_w["date"].iloc[i],
+                                "value": round(float(sma_vals.iloc[i]), 4),
+                            })
+                    raw_indicators[key] = series_data
 
-        # SMA50/200 cross detection (golden cross / death cross)
-        sma50_series = df.get("SMA_50")
-        sma200_series = df.get("SMA_200")
-        if sma50_series is not None and sma200_series is not None:
-            recent_sma = pd.DataFrame({
-                "sma50": sma50_series, "sma200": sma200_series
-            }).iloc[-11:].dropna()
-            if len(recent_sma) >= 2:
-                diff = recent_sma["sma50"] - recent_sma["sma200"]
-                crosses = diff.iloc[:-1].values * diff.iloc[1:].values
-                if (crosses < 0).any():
-                    latest_diff = diff.iloc[-1]
-                    pattern_signals["sma_cross"] = "golden_cross" if latest_diff > 0 else "death_cross"
-                else:
-                    pattern_signals["sma_cross"] = "none"
+            # EMA
+            for span, key in [(12, "ema_12"), (26, "ema_26")]:
+                ema_vals = _ema(close_w, span)
+                series_data = []
+                for i in range(len(df_w)):
+                    if pd.notna(ema_vals.iloc[i]):
+                        series_data.append({
+                            "date": df_w["date"].iloc[i],
+                            "value": round(float(ema_vals.iloc[i]), 4),
+                        })
+                raw_indicators[key] = series_data
 
-        result = {
-            "source": "pandas-ta",
-            "symbol": symbol,
-            "period": period,
-            "data_points": len(df),
-            "trends": {
-                "rsi_14": rsi_trend,
-                "macd": macd_trend,
-                "volume": volume_trend,
-            },
-            "support_resistance": sr_levels,
-            "pattern_signals": pattern_signals,
+            # Recompute MACD and BB for weekly
+            macd_series = _compute_macd(
+                raw_indicators.get("ema_12", []),
+                raw_indicators.get("ema_26", []),
+            )
+            bb_series = _compute_bollinger_bands(ohlcv, period=20, std_mult=2.0)
+
+        # 6. Build indicator dict (include FMP series + locally computed)
+        ind: dict[str, Any] = {}
+        for key in ["rsi_14", "sma_20", "sma_50", "sma_200", "ema_12", "ema_26", "adx_14"]:
+            ind[key] = raw_indicators.get(key, [])
+        ind["macd"] = macd_series
+        ind["bb"] = bb_series
+
+        # 7. Support/Resistance
+        sr_levels = _find_support_resistance(ohlcv)
+
+        # 8. Current snapshot (latest values)
+        latest_close = safe_float(ohlcv[-1]["close"]) if ohlcv else 0
+        latest_vol = ohlcv[-1].get("volume") if ohlcv else 0
+
+        latest_macd = macd_series[-1] if macd_series else {}
+        latest_bb = bb_series[-1] if bb_series else {}
+
+        # Williams %R from FMP (if available via raw_indicators)
+        williams_series = raw_indicators.get("williams_r", [])
+        williams_val = _latest_value(williams_series) if williams_series else None
+
+        current = {
+            "price": safe_float(latest_close),
+            "volume": latest_vol,
+            "rsi_14": _latest_value(ind.get("rsi_14", [])),
+            "macd_histogram": safe_float(latest_macd.get("histogram")),
+            "macd_level": safe_float(latest_macd.get("macd")),
+            "macd_signal": safe_float(latest_macd.get("signal")),
+            "adx_14": _latest_value(ind.get("adx_14", [])),
+            "sma_20": _latest_value(ind.get("sma_20", [])),
+            "sma_50": _latest_value(ind.get("sma_50", [])),
+            "sma_200": _latest_value(ind.get("sma_200", [])),
+            "bb_upper": safe_float(latest_bb.get("upper")),
+            "bb_lower": safe_float(latest_bb.get("lower")),
+            "williams_r": safe_float(williams_val),
         }
 
-        _set_cached(_trends_cache, _trends_lock, cache_key, result, TRENDS_TTL_MINUTES)
-        logger.info("pandas-ta OK for %s: %d data points", symbol, len(df))
+        # 9. Derived signals
+        derived = _compute_derived_signals(current, ohlcv, ind, bb_series)
+
+        # 10. Trend summary (for AI agent context)
+        trend_summary = _compute_trend_summary(ind, ohlcv, lookback=20)
+
+        result = {
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "source": "fmp",
+            # For chart rendering (frontend)
+            "ohlcv": ohlcv,
+            # Indicator series (frontend chart overlays + AI context)
+            "indicators": ind,
+            # Current snapshot (latest values)
+            "current": current,
+            # Derived analysis signals
+            "derived": derived,
+            # Support/resistance levels
+            "support_resistance": sr_levels,
+            # Recent trend context (for AI agent)
+            "trend_summary": trend_summary,
+
+            # ------------------------------------------------------------------
+            # Backward-compatible keys used by router / research_tools callers
+            # ------------------------------------------------------------------
+            "sources": ["fmp"],
+            "ratings": {},  # tvscreener ratings removed
+            "moving_averages": {
+                "sma_20": current.get("sma_20"),
+                "sma_50": current.get("sma_50"),
+                "sma_200": current.get("sma_200"),
+                "ema_12": _latest_value(ind.get("ema_12", [])),
+                "ema_26": _latest_value(ind.get("ema_26", [])),
+            },
+            "oscillators": {
+                "rsi_14": current.get("rsi_14"),
+                "macd_level": current.get("macd_level"),
+                "macd_signal": current.get("macd_signal"),
+                "macd_histogram": current.get("macd_histogram"),
+                "williams_r": current.get("williams_r"),
+            },
+            "volatility": {
+                "bb_upper": current.get("bb_upper"),
+                "bb_lower": current.get("bb_lower"),
+            },
+            "trend": {
+                "adx_14": current.get("adx_14"),
+            },
+            "price_volume": {
+                "price": current.get("price"),
+                "volume": current.get("volume"),
+            },
+            "trends": {
+                "rsi_14": {
+                    "current": current.get("rsi_14"),
+                    "direction": trend_summary.get("rsi_direction", "unknown"),
+                    "zone": derived.get("rsi_zone", "neutral"),
+                    "recently_overbought": trend_summary.get("rsi_recently_overbought", False),
+                    "recently_oversold": trend_summary.get("rsi_recently_oversold", False),
+                },
+                "macd": {
+                    "current": current.get("macd_level"),
+                    "signal": current.get("macd_signal"),
+                    "histogram": current.get("macd_histogram"),
+                    "histogram_direction": trend_summary.get("macd_histogram_direction", "unknown"),
+                    "cross": derived.get("macd_cross", "none"),
+                },
+                "volume": {
+                    "current": current.get("volume"),
+                    "ratio": derived.get("volume_ratio", 1.0),
+                    "trend": derived.get("volume_trend", "average"),
+                },
+            },
+            "pattern_signals": {
+                "ma_alignment": derived.get("ma_alignment", "mixed"),
+                "bb_position": derived.get("bb_position"),
+                "bb_squeeze": derived.get("bb_squeeze", False),
+                "sma_cross": derived.get("sma_50_200_cross", "none"),
+                "volume_confirmation": derived.get("volume_trend") == "above_average",
+            },
+        }
+
+        _set_cached(_technical_cache, _technical_lock, cache_key, result, CACHE_TTL_MINUTES)
+        logger.info(
+            "Technical data OK for %s (%s): price=%s, RSI=%s",
+            symbol, timeframe, current.get("price"), current.get("rsi_14"),
+        )
         return result
 
     except Exception as e:
-        logger.exception("pandas-ta error for %s: %s", symbol, e)
-        return {"source": "pandas-ta", "error": str(e), "symbol": symbol}
+        logger.exception("Technical data error for %s: %s", symbol, e)
+        return {"symbol": symbol, "error": str(e), "source": "fmp"}
 
 
+# ---------------------------------------------------------------------------
+# Backward-compatible entry points used by router.py
+# ---------------------------------------------------------------------------
 
-def get_technical_data(symbol: str, exchange: Optional[str] = None) -> dict:
+def get_technical_trends(symbol: str, days: int = 180) -> dict:  # noqa: ARG001
     """
-    Main entry point: Combines tvscreener snapshot + pandas-ta trends.
-    Handles fallback if tvscreener fails.
-
-    Returns merged dict with all data needed for the Technical Agent.
+    Deprecated: redirects to get_technical_data() and returns a
+    backward-compatible trends dict.
     """
-    symbol = symbol.upper()
-    logger.info("Fetching technical data for %s", symbol)
+    data = get_technical_data(symbol)
 
-    # 1. tvscreener snapshot (current indicators + ratings)
-    snapshot = get_technical_snapshot(symbol, exchange)
-    tv_ok = "error" not in snapshot
+    if data.get("error"):
+        return {"source": "fmp", "error": data["error"], "symbol": symbol}
 
-    # 2. pandas-ta trends (historical context)
-    trends = get_technical_trends(symbol)
-    trends_ok = "error" not in trends
-
-    if not tv_ok and not trends_ok:
-        return {
-            "symbol": symbol,
-            "error": "Both tvscreener and pandas-ta failed",
-            "tv_error": snapshot.get("error"),
-            "trends_error": trends.get("error"),
-        }
-
-    result: dict[str, Any] = {
+    return {
+        "source": "fmp",
         "symbol": symbol,
-        "sources": [],
+        "trends": data.get("trends", {}),
+        "support_resistance": data.get("support_resistance", {}),
+        "pattern_signals": data.get("pattern_signals", {}),
     }
-
-    if tv_ok:
-        result["sources"].append("tvscreener")
-        result["ratings"] = snapshot.get("ratings", {})
-        result["moving_averages"] = snapshot.get("moving_averages", {})
-        result["oscillators"] = snapshot.get("oscillators", {})
-        result["volatility"] = snapshot.get("volatility", {})
-        result["trend"] = snapshot.get("trend", {})
-        result["price_volume"] = snapshot.get("price_volume", {})
-        result["derived"] = snapshot.get("derived", {})
-
-    if trends_ok:
-        result["sources"].append("pandas-ta")
-        result["trends"] = trends.get("trends", {})
-        result["support_resistance"] = trends.get("support_resistance", {})
-        result["pattern_signals"] = trends.get("pattern_signals", {})
-
-    # If tvscreener failed, fill core fields from pandas-ta
-    if not tv_ok and trends_ok:
-        rsi = trends.get("trends", {}).get("rsi_14", {})
-        macd = trends.get("trends", {}).get("macd", {})
-        result["oscillators"] = {
-            "rsi_14": rsi.get("current"),
-            "macd_level": macd.get("current"),
-            "macd_signal": macd.get("signal"),
-            "macd_histogram": macd.get("histogram"),
-        }
-        result["derived"] = {
-            "rsi_zone": rsi.get("zone"),
-            "ma_alignment": trends.get("pattern_signals", {}).get("ma_alignment"),
-            "bb_position": trends.get("pattern_signals", {}).get("bb_position"),
-        }
-
-    return result

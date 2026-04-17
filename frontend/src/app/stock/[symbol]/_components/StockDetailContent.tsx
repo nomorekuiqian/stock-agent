@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import { type StockAIAnalysis } from '@/components/StockAnalysisCard';
-import { type Timeframe } from '@/components/technical/TechnicalSignalDashboard';
+import { type Timeframe } from '@/hooks/queries/use-technical-data';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AiChatLink } from '@/components/AiChatLink';
@@ -18,7 +18,6 @@ import {
   useStockDetail,
   usePriceHistory,
   useValuationComparison,
-  useTechnicalSnapshot,
   useStockAnalysisCache,
   useGenerateStockAnalysis,
   useGenerateTechnicalAnalysis,
@@ -60,12 +59,20 @@ interface QuarterlyData {
   };
 }
 
+interface TechnicalSignalDetail {
+  name: string;
+  value: string;
+  definition: string;
+  reading: string;
+}
+
 interface StockTechnicalAnalysis {
   title: string;
-  trend_analysis: string;
-  entry_exit_signals: string;
-  pattern_analysis: string;
-  technical_summary: string;
+  tldr?: string;
+  signals?: TechnicalSignalDetail[];
+  situation?: string;
+  summary?: string;
+  chart_annotations?: { type: string; price?: number; date?: string; label: string; direction: string }[];
 }
 
 type AnalysisTab = 'overview' | 'earnings' | 'technical' | 'market';
@@ -384,6 +391,7 @@ export function formatNumber(value: number | null | undefined, options?: {
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;
   compact?: boolean;
+  currency?: string;
 }): string {
   if (value === null || value === undefined) return '--';
 
@@ -394,20 +402,27 @@ export function formatNumber(value: number | null | undefined, options?: {
   }
 
   if (style === 'currency') {
+    const cur = options?.currency || 'USD';
+    // Zero-decimal currencies (no cents)
+    const zeroDecimal = ['JPY', 'KRW', 'VND', 'IDR', 'CLP', 'TWD'].includes(cur);
+    // Extract symbol from Intl (works for any currency)
+    const sym = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur })
+      .formatToParts(0).find(p => p.type === 'currency')?.value || cur;
     if (compact && Math.abs(value) >= 1e12) {
-      return `$${(value / 1e12).toFixed(2)}T`;
+      return `${sym}${(value / 1e12).toFixed(2)}T`;
     }
     if (compact && Math.abs(value) >= 1e9) {
-      return `$${(value / 1e9).toFixed(2)}B`;
+      return `${sym}${(value / 1e9).toFixed(2)}B`;
     }
     if (compact && Math.abs(value) >= 1e6) {
-      return `$${(value / 1e6).toFixed(2)}M`;
+      return `${sym}${(value / 1e6).toFixed(2)}M`;
     }
+    const fd = zeroDecimal ? 0 : undefined;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits,
-      maximumFractionDigits,
+      currency: cur,
+      minimumFractionDigits: fd ?? minimumFractionDigits,
+      maximumFractionDigits: fd ?? maximumFractionDigits,
     }).format(value);
   }
 
@@ -535,7 +550,7 @@ export function StatRow({ metricKey, value, trend }: {
   );
 }
 
-export function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
+export function FinancialsTable({ quarters, currency }: { quarters: QuarterlyData[]; currency?: string }) {
   if (!quarters || quarters.length === 0) {
     return (
       <div className="text-center py-6 text-muted-foreground">
@@ -593,8 +608,8 @@ export function FinancialsTable({ quarters }: { quarters: QuarterlyData[] }) {
                 {sortedQuarters.slice(0, 4).map((q, i) => (
                   <td key={i} className="text-right py-3 px-3 text-foreground whitespace-nowrap">
                     {key === 'eps'
-                      ? formatNumber(getter(q), { style: 'currency', maximumFractionDigits: 2 })
-                      : formatNumber(getter(q), { style: 'currency', compact: true })
+                      ? formatNumber(getter(q), { style: 'currency', maximumFractionDigits: 2, currency })
+                      : formatNumber(getter(q), { style: 'currency', compact: true, currency })
                     }
                   </td>
                 ))}
@@ -1036,9 +1051,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
       : 'overview'
   );
 
-  // Technical Snapshot (lazy-loaded on tab change)
-  const [snapshotEnabled, setSnapshotEnabled] = useState(false);
-  const { data: technicalSnapshot = null, isLoading: snapshotLoading } = useTechnicalSnapshot(symbol, snapshotEnabled);
   const [technicalTimeframe, setTechnicalTimeframe] = useState<Timeframe>('daily');
 
   // Redirect to login with current page as redirect target
@@ -1071,12 +1083,9 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   // Computed: current timeframe's technical analysis
   const technicalAnalysis = technicalTimeframe === 'daily' ? dailyTechnicalAnalysis : weeklyTechnicalAnalysis;
 
-  // Handle analysis tab change (enable snapshot fetch on first technical tab visit)
+  // Handle analysis tab change
   const handleAnalysisTabChange = (tab: AnalysisTab) => {
     setActiveAnalysisTab(tab);
-    if (tab === 'technical' && !snapshotEnabled) {
-      setSnapshotEnabled(true);
-    }
     // Update URL without full page reload
     const params = new URLSearchParams(searchParams.toString());
     if (tab === 'overview') {
@@ -1202,7 +1211,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                 {quote?.price != null && (
                   <div className="flex items-baseline gap-2 flex-shrink-0">
                     <span className="text-xl font-data font-bold text-foreground">
-                      ${quote.price.toFixed(2)}
+                      {formatNumber(quote.price, { style: 'currency', currency: profile?.currency })}
                     </span>
                     <span className={`text-sm font-data font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                       {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
@@ -1294,6 +1303,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
           <OverviewTab
             symbol={symbol}
             companyName={profile?.company_name || symbol}
+            currency={profile?.currency}
             quote={quote}
             fundamentals={fundamentals}
             financials={financials}
@@ -1314,6 +1324,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             <EarningsTab
               symbol={symbol}
               companyName={profile?.company_name || symbol}
+              currency={profile?.currency}
               earningsHistory={earningsData?.earnings_history ?? []}
               revenueSegments={earningsData?.revenue_segments ?? []}
               revenueGeoSegments={earningsData?.revenue_geo_segments}
@@ -1344,8 +1355,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             technicalLoading={technicalLoading}
             onGenerate={() => handleGenerateTechnical(false)}
             onRegenerate={() => handleGenerateTechnical(true)}
-            technicalSnapshot={technicalSnapshot}
-            snapshotLoading={snapshotLoading}
             hasAIAccess={hasAIAccess}
           />
         )}
@@ -1354,14 +1363,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
           <MarketTab
             symbol={symbol}
             companyName={profile?.company_name || symbol}
-            newsAnalysis={newsAnalysis}
-            newsLoading={newsLoading}
-            onGenerateNews={() => handleGenerateNews(false)}
-            onRegenerateNews={() => handleGenerateNews(true)}
-            macroAnalysis={macroAnalysis}
-            macroLoading={macroLoading}
-            onGenerateMacro={() => handleGenerateMacro(false)}
-            onRegenerateMacro={() => handleGenerateMacro(true)}
             hasAIAccess={hasAIAccess}
           />
         )}

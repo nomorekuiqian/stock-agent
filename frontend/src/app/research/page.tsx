@@ -79,6 +79,9 @@ function ScreenerContent() {
   const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
   const searchParams = useSearchParams();
   const contextInitialized = useRef(false);
+  const skipPanelSaveRef = useRef(true);
+  const latestStateRef = useRef(state);
+  latestStateRef.current = state;
 
   // URL parameter-driven context entry (e.g. /screener?context=daily_report&date=2026-03-19)
   // Uses CONTEXT_ENTRY action to skip welcome and start in chat+loading phase.
@@ -294,6 +297,37 @@ function ScreenerContent() {
       setSaveStatus('idle');
     }
   }, []);
+
+  // Persist panel state to backend when user navigates the right panel
+  // (catches navigation that happens between or after chat messages)
+  useEffect(() => {
+    if (skipPanelSaveRef.current) {
+      skipPanelSaveRef.current = false;
+      return;
+    }
+    const s = latestStateRef.current;
+    if (!s.conversationId || s.messages.length === 0) return;
+
+    const convData = buildConversationData(
+      s.messages,
+      {
+        accumulated_filters: s.accumulatedFilters,
+        candidates: s.candidates,
+        candidate_count: s.candidateCount,
+        universe_size: s.universeSize,
+        recommendations: s.recommendations,
+      },
+      s.funnelSteps,
+      s.activeContent,
+      s.contentStack,
+    );
+    saveConversation(
+      s.conversationId,
+      s.conversationTitle,
+      convData as Record<string, unknown>,
+      s.messages.length,
+    );
+  }, [state.activeContent, state.contentStack, state.conversationId, buildConversationData, saveConversation]);
 
   // Navigate right panel to a stock's research view
   const handleStockClick = useCallback((symbol: string) => {
@@ -751,6 +785,7 @@ function ScreenerContent() {
 
   // Load a saved conversation
   const loadConversationData = useCallback((conversationId: string, conv: Record<string, unknown>) => {
+    skipPanelSaveRef.current = true;
     const data = (conv.data || {}) as Record<string, unknown>;
     dispatch({
       type: 'LOAD_CONVERSATION',
@@ -774,6 +809,25 @@ function ScreenerContent() {
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
     pendingSeed.current = null;
 
+    // Save current conversation's panel state before switching
+    const cur = latestStateRef.current;
+    if (cur.conversationId && cur.conversationId !== conversationId && cur.messages.length > 0) {
+      const convData = buildConversationData(
+        cur.messages,
+        {
+          accumulated_filters: cur.accumulatedFilters,
+          candidates: cur.candidates,
+          candidate_count: cur.candidateCount,
+          universe_size: cur.universeSize,
+          recommendations: cur.recommendations,
+        },
+        cur.funnelSteps,
+        cur.activeContent,
+        cur.contentStack,
+      );
+      saveConversation(cur.conversationId, cur.conversationTitle, convData as Record<string, unknown>, cur.messages.length);
+    }
+
     // Cache hit — instant switch, no network request
     const cached = convCache.current.get(conversationId);
     if (cached) {
@@ -784,6 +838,7 @@ function ScreenerContent() {
     // Cache miss — show placeholder, then fetch
     const summary = conversations.find(c => c.id === conversationId);
     if (summary) {
+      skipPanelSaveRef.current = true;
       dispatch({
         type: 'LOAD_CONVERSATION',
         data: {
@@ -808,7 +863,7 @@ function ScreenerContent() {
     } catch {
       if (summary) dispatch({ type: 'RESET' });
     }
-  }, [conversations, loadConversationData]);
+  }, [conversations, loadConversationData, buildConversationData, saveConversation]);
 
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {

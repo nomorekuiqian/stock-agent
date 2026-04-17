@@ -24,6 +24,7 @@ const StockPriceChart = dynamic(
 interface OverviewTabProps {
   symbol: string;
   companyName: string;
+  currency?: string;
   quote: {
     price: number | null;
     market_cap: number | null;
@@ -82,12 +83,21 @@ function fmtPct(v: number | null | undefined, sign = false): string {
   return sign && v > 0 ? `+${s}%` : `${s}%`;
 }
 
-function fmtBig(v: number | null | undefined): string {
+function getCurrencySymbol(currency?: string): string {
+  if (!currency || currency === 'USD') return '$';
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency })
+      .formatToParts(0).find(p => p.type === 'currency')?.value || currency;
+  } catch { return currency; }
+}
+
+function fmtBig(v: number | null | undefined, currency?: string): string {
   if (v === null || v === undefined) return '--';
-  if (Math.abs(v) >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
-  if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
-  if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
-  return `$${v.toFixed(0)}`;
+  const sym = getCurrencySymbol(currency);
+  if (Math.abs(v) >= 1e12) return `${sym}${(v / 1e12).toFixed(2)}T`;
+  if (Math.abs(v) >= 1e9) return `${sym}${(v / 1e9).toFixed(1)}B`;
+  if (Math.abs(v) >= 1e6) return `${sym}${(v / 1e6).toFixed(0)}M`;
+  return `${sym}${v.toFixed(0)}`;
 }
 
 function computeHealthScore(fundamentals: OverviewTabProps['fundamentals']): {
@@ -112,11 +122,12 @@ function computeHealthScore(fundamentals: OverviewTabProps['fundamentals']): {
 // Stock Snapshot Card (右上, 图表旁边)
 // =============================================================================
 
-function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue }: {
+function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue, currency }: {
   quote: OverviewTabProps['quote'];
   fundamentals: OverviewTabProps['fundamentals'];
   analystTargets?: OverviewTabProps['analystTargets'];
   dcfValue?: number | null;
+  currency?: string;
 }) {
   const price = quote?.price ?? 0;
   const pe = fundamentals?.valuation.pe;
@@ -187,20 +198,20 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue }: {
               />
             </div>
             <div className="flex justify-between text-xs font-data text-muted-foreground mt-0.5">
-              <span>${tLow?.toFixed(0)}</span>
+              <span>{formatNumber(tLow, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
               {upside && (
                 <span className={Number(upside) > 0 ? 'text-emerald-400' : 'text-red-400'}>
                   {Number(upside) > 0 ? '+' : ''}{upside}%
                 </span>
               )}
-              <span>${tHigh?.toFixed(0)}</span>
+              <span>{formatNumber(tHigh, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
             </div>
           </div>
         )}
         {dcfValue && (
           <div className="flex justify-between text-xs mt-1">
             <span className="text-muted-foreground">DCF 估值</span>
-            <span className="font-data text-foreground">${dcfValue.toFixed(0)}</span>
+            <span className="font-data text-foreground">{formatNumber(dcfValue, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
           </div>
         )}
       </div>
@@ -253,8 +264,8 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue }: {
               />
             </div>
             <div className="flex justify-between text-xs font-data text-muted-foreground">
-              <span>${w52Low?.toFixed(0)} (52周低)</span>
-              <span>${w52High?.toFixed(0)} (52周高)</span>
+              <span>{formatNumber(w52Low, { style: 'currency', currency, maximumFractionDigits: 0 })} (52周低)</span>
+              <span>{formatNumber(w52High, { style: 'currency', currency, maximumFractionDigits: 0 })} (52周高)</span>
             </div>
           </div>
         )}
@@ -265,7 +276,7 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue }: {
             positive={fundamentals?.growth.revenue_yoy ? fundamentals.growth.revenue_yoy > 0 : undefined} />
           <MetricRow label="EPS 增速" value={fmtPct(fundamentals?.growth.net_income_yoy, true)}
             positive={fundamentals?.growth.net_income_yoy ? fundamentals.growth.net_income_yoy > 0 : undefined} />
-          <MetricRow label="市值" value={fmtBig(quote?.market_cap)} />
+          <MetricRow label="市值" value={fmtBig(quote?.market_cap, currency)} />
           <MetricRow label="股息率" value={fundamentals?.valuation.dividend_yield ? fmtPct(fundamentals.valuation.dividend_yield) : '--'} />
         </div>
       </div>
@@ -291,6 +302,7 @@ function MetricRow({ label, value, positive }: { label: string; value: string; p
 export function OverviewTab({
   symbol,
   companyName,
+  currency,
   quote,
   fundamentals,
   financials,
@@ -356,6 +368,7 @@ export function OverviewTab({
           fundamentals={fundamentals}
           analystTargets={analystTargets}
           dcfValue={dcfValue}
+          currency={currency}
         />
       </div>
 
@@ -426,9 +439,9 @@ export function OverviewTab({
             <SectionCard title="公司概览" titleEn="Overview" numberLabel="01">
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
+                <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true, currency })} />
                 <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
-                <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2 })} />
+                <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2, currency })} />
                 <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
                 <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
               </div>
@@ -445,9 +458,9 @@ export function OverviewTab({
                         style={{ left: `${Math.min(Math.max(pos, 2), 98)}%`, transform: 'translateX(-50%)' }} />
                     </div>
                     <div className="flex justify-between text-xs font-data text-muted-foreground">
-                      <span>${quote.week_52_low?.toFixed(0)}</span>
-                      <span className="text-foreground font-medium">${quote.price?.toFixed(2)}</span>
-                      <span>${quote.week_52_high?.toFixed(0)}</span>
+                      <span>{formatNumber(quote.week_52_low, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
+                      <span className="text-foreground font-medium">{formatNumber(quote.price, { style: 'currency', currency })}</span>
+                      <span>{formatNumber(quote.week_52_high, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
                     </div>
                   </div>
                 );
@@ -500,8 +513,8 @@ export function OverviewTab({
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {fundamentals.balance_sheet.current_ratio != null && <MetricCard metricKey="current_ratio" value={formatNumber(fundamentals.balance_sheet.current_ratio)} />}
                     {fundamentals.balance_sheet.debt_to_equity != null && <MetricCard metricKey="debt_to_equity" value={formatNumber(fundamentals.balance_sheet.debt_to_equity)} />}
-                    {fundamentals.balance_sheet.total_debt != null && <MetricCard metricKey="total_debt" value={formatNumber(fundamentals.balance_sheet.total_debt, { style: 'currency', compact: true })} />}
-                    {fundamentals.balance_sheet.total_cash != null && <MetricCard metricKey="total_cash" value={formatNumber(fundamentals.balance_sheet.total_cash, { style: 'currency', compact: true })} />}
+                    {fundamentals.balance_sheet.total_debt != null && <MetricCard metricKey="total_debt" value={formatNumber(fundamentals.balance_sheet.total_debt, { style: 'currency', compact: true, currency })} />}
+                    {fundamentals.balance_sheet.total_cash != null && <MetricCard metricKey="total_cash" value={formatNumber(fundamentals.balance_sheet.total_cash, { style: 'currency', compact: true, currency })} />}
                   </div>
                 </div>
               )}
@@ -510,12 +523,12 @@ export function OverviewTab({
               <div>
                 <SubsectionHeader title="过去十二个月" titleEn="TTM" />
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true })} />
-                  <MetricCard metricKey="net_income" value={formatNumber(fundamentals.ttm.net_income, { style: 'currency', compact: true })} />
-                  <MetricCard metricKey="ebitda" value={formatNumber(fundamentals.ttm.ebitda, { style: 'currency', compact: true })} />
-                  <MetricCard metricKey="operating_cash_flow" value={formatNumber(fundamentals.ttm.operating_cash_flow, { style: 'currency', compact: true })} />
-                  <MetricCard metricKey="free_cash_flow" value={formatNumber(fundamentals.ttm.free_cash_flow, { style: 'currency', compact: true })} />
-                  <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2 })} />
+                  <MetricCard metricKey="revenue" value={formatNumber(fundamentals.ttm.revenue, { style: 'currency', compact: true, currency })} />
+                  <MetricCard metricKey="net_income" value={formatNumber(fundamentals.ttm.net_income, { style: 'currency', compact: true, currency })} />
+                  <MetricCard metricKey="ebitda" value={formatNumber(fundamentals.ttm.ebitda, { style: 'currency', compact: true, currency })} />
+                  <MetricCard metricKey="operating_cash_flow" value={formatNumber(fundamentals.ttm.operating_cash_flow, { style: 'currency', compact: true, currency })} />
+                  <MetricCard metricKey="free_cash_flow" value={formatNumber(fundamentals.ttm.free_cash_flow, { style: 'currency', compact: true, currency })} />
+                  <MetricCard metricKey="eps" value={formatNumber(fundamentals.ttm.eps, { style: 'currency', maximumFractionDigits: 2, currency })} />
                 </div>
               </div>
 
@@ -523,7 +536,7 @@ export function OverviewTab({
               {financials && financials.quarters.length > 0 && (
                 <div>
                   <SubsectionHeader title="季度数据" titleEn="Quarterly" />
-                  <FinancialsTable quarters={financials.quarters} />
+                  <FinancialsTable quarters={financials.quarters} currency={currency} />
                 </div>
               )}
             </SectionCard>

@@ -68,6 +68,7 @@ interface EarningsAnalysis {
 interface EarningsTabProps {
   symbol: string;
   companyName: string;
+  currency?: string;
   earningsHistory: EarningsSurprise[];
   revenueSegments: RevenueSegment[];
   revenueGeoSegments?: RevenueSegment[];
@@ -90,19 +91,32 @@ interface EarningsTabProps {
 // Helpers
 // =============================================================================
 
-function fmt(v: number | null | undefined, opts?: { pct?: boolean; bn?: boolean; sign?: boolean }): string {
+const ZERO_DECIMAL_CURRENCIES = ['JPY', 'KRW', 'VND', 'IDR', 'CLP', 'TWD'];
+
+function getCurrSym(currency?: string): string {
+  if (!currency || currency === 'USD') return '$';
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency })
+      .formatToParts(0).find(p => p.type === 'currency')?.value || currency;
+  } catch { return currency; }
+}
+
+function fmt(v: number | null | undefined, opts?: { pct?: boolean; bn?: boolean; sign?: boolean; currency?: string }): string {
   if (v === null || v === undefined) return '--';
   if (opts?.pct) {
     const s = (v * 100).toFixed(1);
     return opts.sign && v > 0 ? `+${s}%` : `${s}%`;
   }
+  const sym = getCurrSym(opts?.currency);
   if (opts?.bn) {
-    if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
-    if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
-    return `$${v.toFixed(0)}`;
+    if (Math.abs(v) >= 1e9) return `${sym}${(v / 1e9).toFixed(1)}B`;
+    if (Math.abs(v) >= 1e6) return `${sym}${(v / 1e6).toFixed(0)}M`;
+    return `${sym}${v.toFixed(0)}`;
   }
-  const s = v.toFixed(2);
-  return opts?.sign && v > 0 ? `+${s}` : s;
+  const decimals = opts?.currency && ZERO_DECIMAL_CURRENCIES.includes(opts.currency) ? 0 : 2;
+  const s = v.toFixed(decimals);
+  const prefix = opts?.currency ? sym : '';
+  return opts?.sign && v > 0 ? `+${prefix}${s}` : `${prefix}${s}`;
 }
 
 function qLabel(q: string): string {
@@ -158,10 +172,11 @@ function QuarterDropdown({ quarters, selected, onSelect, labelMap }: {
 // =============================================================================
 
 /** Revenue breakdown table (product or geo) */
-function SegmentTable({ segment, prev, type }: {
+function SegmentTable({ segment, prev, type, currency }: {
   segment: RevenueSegment;
   prev: RevenueSegment | undefined;
   type: 'product' | 'geo';
+  currency?: string;
 }) {
   const entries = Object.entries(segment.data).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((sum, [, v]) => sum + v, 0);
@@ -186,7 +201,7 @@ function SegmentTable({ segment, prev, type }: {
           return (
             <tr key={name} className="border-t border-border/20">
               <td className="py-2 px-3 text-foreground/90">{name}</td>
-              <td className="py-2 px-3 text-right font-data text-foreground">{fmt(revenue, { bn: true })}</td>
+              <td className="py-2 px-3 text-right font-data text-foreground">{fmt(revenue, { bn: true, currency })}</td>
               <td className="py-2 px-3 text-right font-data text-muted-foreground">{(share * 100).toFixed(1)}%</td>
               {prev && (
                 <td className={`py-2 px-3 text-right font-data ${qoq === null ? 'text-muted-foreground' : colorForGrowth(qoq)}`}>
@@ -200,7 +215,7 @@ function SegmentTable({ segment, prev, type }: {
       <tfoot>
         <tr className="border-t border-border/30 bg-card/40">
           <td className="py-2 px-3 text-foreground/80 font-medium">合计</td>
-          <td className="py-2 px-3 text-right font-data font-medium text-foreground">{fmt(total, { bn: true })}</td>
+          <td className="py-2 px-3 text-right font-data font-medium text-foreground">{fmt(total, { bn: true, currency })}</td>
           <td className="py-2 px-3 text-right font-data text-muted-foreground">100%</td>
           {prev && <td />}
         </tr>
@@ -213,21 +228,23 @@ function SegmentTable({ segment, prev, type }: {
 // StatementSection (table-style financial statement section)
 // =============================================================================
 
-function fmtStatementVal(v: unknown, key: string): string {
+function fmtStatementVal(v: unknown, key: string, currency?: string): string {
   if (v === null || v === undefined) return '--';
   const n = Number(v);
   if (isNaN(n)) return '--';
   if (key.includes('shares')) return `${(n / 1e6).toFixed(0)}M`;
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
-  return `$${n.toFixed(0)}`;
+  const sym = getCurrSym(currency);
+  if (Math.abs(n) >= 1e9) return `${sym}${(n / 1e9).toFixed(2)}B`;
+  if (Math.abs(n) >= 1e6) return `${sym}${(n / 1e6).toFixed(0)}M`;
+  return `${sym}${n.toFixed(0)}`;
 }
 
-function StatementSection({ title, titleEn, items, data }: {
+function StatementSection({ title, titleEn, items, data, currency }: {
   title: string;
   titleEn: string;
   items: Array<{ label: string; key: string; bold?: boolean; indent?: boolean }>;
   data: Record<string, unknown>;
+  currency?: string;
 }) {
   // Filter to items that have data
   const visibleItems = items.filter(item => {
@@ -256,7 +273,7 @@ function StatementSection({ title, titleEn, items, data }: {
               <span className={`font-data text-sm ${item.bold ? 'font-semibold' : ''} ${
                 isNegative ? 'text-red-400' : 'text-foreground'
               }`}>
-                {fmtStatementVal(val, item.key)}
+                {fmtStatementVal(val, item.key, currency)}
               </span>
             </div>
           );
@@ -290,6 +307,7 @@ function MetricBox({ label, value, sub, positive }: {
 
 export function EarningsTab({
   symbol,
+  currency,
   earningsHistory,
   revenueSegments,
   revenueGeoSegments,
@@ -599,11 +617,11 @@ export function EarningsTab({
                       return (
                         <div className="space-y-3">
                           <div className="grid grid-cols-2 gap-3">
-                            <MetricBox label="EPS" value={epsActual != null ? `$${fmt(epsActual)}` : '--'}
-                              sub={epsSurprise != null ? `${epsSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(epsSurprise, { pct: true, sign: true })}` : (epsEst != null ? `Est. $${fmt(epsEst)}` : undefined)}
+                            <MetricBox label="EPS" value={epsActual != null ? fmt(epsActual, { bn: false, currency }) : '--'}
+                              sub={epsSurprise != null ? `${epsSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(epsSurprise, { pct: true, sign: true })}` : (epsEst != null ? `Est. ${fmt(epsEst, { currency })}` : undefined)}
                               positive={epsSurprise != null ? epsSurprise >= 0 : undefined} />
-                            <MetricBox label="Revenue" value={revActual != null ? fmt(revActual, { bn: true }) : '--'}
-                              sub={revSurprise != null ? `${revSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(revSurprise, { pct: true, sign: true })}` : (revEst != null ? `Est. ${fmt(revEst, { bn: true })}` : undefined)}
+                            <MetricBox label="Revenue" value={revActual != null ? fmt(revActual, { bn: true, currency }) : '--'}
+                              sub={revSurprise != null ? `${revSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(revSurprise, { pct: true, sign: true })}` : (revEst != null ? `Est. ${fmt(revEst, { bn: true, currency })}` : undefined)}
                               positive={revSurprise != null ? revSurprise >= 0 : undefined} />
                           </div>
                           <div className="bg-muted/30 border border-border/20 rounded-lg px-3 py-2 text-xs text-muted-foreground">
@@ -632,13 +650,13 @@ export function EarningsTab({
                       {selectedRevenue && (
                         <div>
                           <SubsectionHeader title="按产品线" titleEn="By Product" />
-                          <div className="overflow-x-auto"><SegmentTable segment={selectedRevenue} prev={prevRevenue} type="product" /></div>
+                          <div className="overflow-x-auto"><SegmentTable segment={selectedRevenue} prev={prevRevenue} type="product" currency={currency} /></div>
                         </div>
                       )}
                       {selectedGeo && (
                         <div>
                           <SubsectionHeader title="按地区" titleEn="By Region" />
-                          <div className="overflow-x-auto"><SegmentTable segment={selectedGeo} prev={prevGeo} type="geo" /></div>
+                          <div className="overflow-x-auto"><SegmentTable segment={selectedGeo} prev={prevGeo} type="geo" currency={currency} /></div>
                         </div>
                       )}
                     </SectionCard>
@@ -772,10 +790,10 @@ export function EarningsTab({
                                     <tr className="border-t border-border/20">
                                       <td className="py-2 px-3 text-foreground/90">营收</td>
                                       <td className="py-2 px-3 text-right font-data text-muted-foreground">
-                                        {revEst != null ? fmt(revEst, { bn: true }) : '--'}
+                                        {revEst != null ? fmt(revEst, { bn: true, currency }) : '--'}
                                       </td>
                                       <td className="py-2 px-3 text-right font-data font-medium text-foreground">
-                                        {fmt(actualRevenue, { bn: true })}
+                                        {fmt(actualRevenue, { bn: true, currency })}
                                       </td>
                                       {revEst != null ? (() => {
                                         const beat = actualRevenue >= revEst;
@@ -816,14 +834,14 @@ export function EarningsTab({
                                 {futureEstimate.revenue_avg != null && (
                                   <tr className="border-t border-border/20">
                                     <td className="py-2 px-3 text-foreground/90">营收</td>
-                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.revenue_avg, { bn: true })}</td>
-                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">{fmt(futureEstimate.revenue_low, { bn: true })} - {fmt(futureEstimate.revenue_high, { bn: true })}</td>
+                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.revenue_avg, { bn: true, currency })}</td>
+                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">{fmt(futureEstimate.revenue_low, { bn: true, currency })} - {fmt(futureEstimate.revenue_high, { bn: true, currency })}</td>
                                   </tr>
                                 )}
                                 {futureEstimate.net_income_avg != null && (
                                   <tr className="border-t border-border/20">
                                     <td className="py-2 px-3 text-foreground/90">净利润</td>
-                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.net_income_avg, { bn: true })}</td>
+                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.net_income_avg, { bn: true, currency })}</td>
                                     <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">--</td>
                                   </tr>
                                 )}
@@ -876,27 +894,27 @@ export function EarningsTab({
                     { label: '应收账款变动', key: 'accounts_receivables', indent: true },
                     { label: '应付账款变动', key: 'accounts_payables', indent: true },
                     { label: '经营活动现金流 OCF', key: 'operating_cash_flow', bold: true },
-                  ]} data={selectedCashflow} />
+                  ]} data={selectedCashflow} currency={currency} />
                   <StatementSection title="投资活动" titleEn="Investing Activities" items={[
                     { label: '资本支出 CapEx', key: 'capital_expenditure' },
                     { label: '收购 Acquisitions', key: 'acquisitions', indent: true },
                     { label: '购买投资', key: 'purchases_of_investments', indent: true },
                     { label: '出售投资', key: 'sales_of_investments', indent: true },
                     { label: '投资活动现金流', key: 'net_cash_from_investing', bold: true },
-                  ]} data={selectedCashflow} />
+                  ]} data={selectedCashflow} currency={currency} />
                   <StatementSection title="融资活动" titleEn="Financing Activities" items={[
                     { label: '债务净发行', key: 'net_debt_issuance' },
                     { label: '股票回购 Buyback', key: 'stock_repurchase', indent: true },
                     { label: '股息支付 Dividends', key: 'dividends_paid', indent: true },
                     { label: '融资活动现金流', key: 'net_cash_from_financing', bold: true },
-                  ]} data={selectedCashflow} />
+                  ]} data={selectedCashflow} currency={currency} />
                   <StatementSection title="汇总" titleEn="Summary" items={[
                     { label: '现金净变动', key: 'net_change_in_cash', bold: true },
                     { label: '自由现金流 FCF', key: 'free_cash_flow', bold: true },
                     { label: '期末现金', key: 'cash_at_end' },
                     { label: '已付所得税', key: 'income_taxes_paid', indent: true },
                     { label: '已付利息', key: 'interest_paid', indent: true },
-                  ]} data={selectedCashflow} />
+                  ]} data={selectedCashflow} currency={currency} />
                 </SectionCard>
               )}
 
@@ -922,7 +940,7 @@ export function EarningsTab({
                     { label: '长期投资', key: 'long_term_investments', indent: true },
                     { label: '非流动资产合计', key: 'total_non_current_assets', bold: true },
                     { label: '总资产 Total Assets', key: 'total_assets', bold: true },
-                  ]} data={selectedBalance} />
+                  ]} data={selectedBalance} currency={currency} />
                   <StatementSection title="负债" titleEn="Liabilities" items={[
                     { label: '应付账款', key: 'accounts_payable' },
                     { label: '流动负债合计', key: 'total_current_liabilities', bold: true },
@@ -931,13 +949,13 @@ export function EarningsTab({
                     { label: '负债合计', key: 'total_liabilities', bold: true },
                     { label: '总债务 Total Debt', key: 'total_debt' },
                     { label: '净债务 Net Debt', key: 'net_debt' },
-                  ]} data={selectedBalance} />
+                  ]} data={selectedBalance} currency={currency} />
                   <StatementSection title="股东权益" titleEn="Equity" items={[
                     { label: '留存收益', key: 'retained_earnings' },
                     { label: '资本公积', key: 'additional_paid_in_capital' },
                     { label: '股东权益合计', key: 'total_equity', bold: true },
                     { label: '流通股数 Shares', key: 'shares_outstanding' },
-                  ]} data={selectedBalance} />
+                  ]} data={selectedBalance} currency={currency} />
                 </SectionCard>
               )}
             </>

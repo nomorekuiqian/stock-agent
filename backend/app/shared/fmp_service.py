@@ -7,6 +7,7 @@ import httpx
 import time
 from typing import Optional
 from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_pacific, today_str, days_from_now
@@ -207,6 +208,19 @@ FMP_NEWS_SYMBOLS = [
 ]
 
 
+# Default technical indicator configurations for get_technical_indicators()
+DEFAULT_TECHNICAL_INDICATORS = [
+    {"type": "rsi", "period": 14, "key": "rsi_14"},
+    {"type": "sma", "period": 20, "key": "sma_20"},
+    {"type": "sma", "period": 50, "key": "sma_50"},
+    {"type": "sma", "period": 200, "key": "sma_200"},
+    {"type": "ema", "period": 12, "key": "ema_12"},
+    {"type": "ema", "period": 26, "key": "ema_26"},
+    {"type": "adx", "period": 14, "key": "adx_14"},
+    {"type": "williams", "period": 14, "key": "williams_r"},
+]
+
+
 class FMPService:
     """Financial Modeling Prep API"""
 
@@ -240,6 +254,153 @@ class FMPService:
             except Exception as e:
                 logger.error("FMP API unexpected error: %s", e)
                 return None
+
+    # =========================================================================
+    # Technical Indicators & Historical Price
+    # =========================================================================
+
+    def get_technical_indicators(
+        self,
+        symbol: str,
+        indicators: list[dict] | None = None,
+        timeframe: str = "1day",
+        limit: int = 200,
+    ) -> dict:
+        """
+        Fetch multiple technical indicator series from FMP stable API in parallel.
+
+        Args:
+            symbol: Stock symbol (e.g. "AAPL")
+            indicators: List of indicator configs, each with keys:
+                - type: indicator name (rsi, sma, ema, adx, williams, standarddeviation)
+                - period: period length (e.g. 14, 20, 50)
+                - key: output key name (e.g. "sma_20", "rsi_14")
+                Default set covers core technical analysis needs.
+            timeframe: "1day" (FMP does not support weekly)
+            limit: Number of data points (default 200)
+
+        Returns:
+            {
+                "status": "success",
+                "symbol": "AAPL",
+                "indicators": {
+                    "rsi_14": [{"date": "...", "value": 62.2}, ...],
+                    "sma_20": [{"date": "...", "value": 254.6}, ...],
+                    ...
+                },
+                "source": "fmp"
+            }
+        """
+        indicators = indicators or DEFAULT_TECHNICAL_INDICATORS
+
+        # Field name mapping: most indicator types use their own name as the
+        # response field, except "standarddeviation" which maps to "standardDeviation"
+        field_name_map = {
+            "standarddeviation": "standardDeviation",
+        }
+
+        def _fetch_one(ind: dict) -> tuple[str, list[dict]]:
+            """Fetch a single indicator series and return (key, parsed_data)."""
+            ind_type = ind["type"]
+            ind_key = ind["key"]
+            params = {
+                "symbol": symbol,
+                "periodLength": ind["period"],
+                "timeframe": timeframe,
+            }
+            data = self._request(
+                "/stable/technical-indicators/%s" % ind_type, params=params
+            )
+            if not data or not isinstance(data, list):
+                return ind_key, []
+
+            field = field_name_map.get(ind_type, ind_type)
+            parsed = []
+            for item in data:
+                val = self._safe_float(item.get(field))
+                if val is not None:
+                    parsed.append({
+                        "date": str(item.get("date", ""))[:10],
+                        "value": val,
+                    })
+
+            # FMP returns newest-first; reverse to oldest-first, then limit
+            parsed.reverse()
+            parsed = parsed[-limit:] if len(parsed) > limit else parsed
+            return ind_key, parsed
+
+        results = {}
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(_fetch_one, ind): ind["key"]
+                for ind in indicators
+            }
+            for future in futures:
+                key, data = future.result()
+                results[key] = data
+
+        logger.info(
+            "get_technical_indicators(%s): fetched %d indicators",
+            symbol, len(results),
+        )
+
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "indicators": results,
+            "source": "fmp",
+        }
+
+    def get_historical_price(self, symbol: str, limit: int = 200) -> dict:
+        """
+        Fetch historical daily OHLCV data for chart rendering.
+
+        Returns:
+            {
+                "status": "success",
+                "symbol": "AAPL",
+                "data": [
+                    {"date": "2025-10-01", "open": 150.0, "high": 155.0, "low": 149.0, "close": 153.0, "volume": 50000000},
+                    ...
+                ],
+                "source": "fmp"
+            }
+        """
+        logger.info("get_historical_price(symbol=%s, limit=%d)", symbol, limit)
+
+        data = self._request(
+            "/stable/historical-price-eod/full", params={"symbol": symbol}
+        )
+
+        if not data or not isinstance(data, list):
+            return {
+                "status": "error",
+                "symbol": symbol,
+                "data": [],
+                "source": "fmp",
+                "error": "No historical price data returned",
+            }
+
+        # Parse, limit, and sort oldest-first (FMP returns newest-first)
+        parsed = []
+        for item in data[:limit]:
+            parsed.append({
+                "date": item.get("date", ""),
+                "open": self._safe_float(item.get("open")),
+                "high": self._safe_float(item.get("high")),
+                "low": self._safe_float(item.get("low")),
+                "close": self._safe_float(item.get("close")),
+                "volume": item.get("volume"),
+            })
+
+        parsed.reverse()
+
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "data": parsed,
+            "source": "fmp",
+        }
 
     def get_treasury_rates(self, date: Optional[str] = None) -> dict:
         """
@@ -1821,6 +1982,8 @@ class FMPService:
         return {
             "company_name": company_name,
             "exchange": raw.get("exchangeShortName") or raw.get("exchange"),
+            "currency": raw.get("currency") or "USD",
+            "country": raw.get("country"),
             "classification": {
                 "sector": raw.get("sector"),
                 "industry": raw.get("industry"),
@@ -2406,6 +2569,230 @@ class FMPService:
             logger.error("Error fetching price target summary for %s: %s", symbol, e)
             return {"status": "error", "error": str(e)}
 
+    # =========================================================================
+    # Analyst Grades (评级)
+    # =========================================================================
+
+    def get_stock_grades(self, symbol: str, limit: int = 30) -> dict:
+        """
+        Get recent analyst grade changes for a stock.
+
+        FMP endpoint: /stable/grades?symbol={symbol}
+        Returns list of {date, gradingCompany, previousGrade, newGrade, action}.
+        Note: action values observed = "maintain" | "upgrade" | "downgrade" | "initialise"
+        """
+        logger.info("get_stock_grades(symbol=%s, limit=%d)", symbol, limit)
+
+        try:
+            params = {"symbol": symbol, "limit": limit}
+            data = self._request("/stable/grades", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "grades": [],
+                    "source": "fmp",
+                    "error": "No grades data returned",
+                }
+
+            return {
+                "status": "success",
+                "grades": data[:limit],
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching stock grades for %s: %s", symbol, e)
+            return {"status": "error", "grades": [], "error": str(e)}
+
+    def get_stock_grades_consensus(self, symbol: str) -> dict:
+        """
+        Get analyst grade consensus summary.
+
+        FMP endpoint: /stable/grades-consensus?symbol={symbol}
+        Returns {strongBuy, buy, hold, sell, strongSell, consensus}.
+        """
+        logger.info("get_stock_grades_consensus(symbol=%s)", symbol)
+
+        try:
+            params = {"symbol": symbol}
+            data = self._request("/stable/grades-consensus", params)
+
+            if not data or not isinstance(data, list) or len(data) == 0:
+                return {
+                    "status": "error",
+                    "consensus": {},
+                    "source": "fmp",
+                    "error": "No grades consensus data returned",
+                }
+
+            return {
+                "status": "success",
+                "consensus": data[0],
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching grades consensus for %s: %s", symbol, e)
+            return {"status": "error", "consensus": {}, "error": str(e)}
+
+    def get_stock_grades_historical(self, symbol: str, limit: int = 24) -> dict:
+        """
+        Get historical monthly grade distribution for a stock.
+
+        FMP endpoint: /stable/grades-historical?symbol={symbol}
+        Returns list of {date, analystRatingsStrongBuy, analystRatingsBuy,
+        analystRatingsHold, analystRatingsSell, analystRatingsStrongSell}.
+        Data is aggregated by month.
+        """
+        logger.info("get_stock_grades_historical(symbol=%s, limit=%d)", symbol, limit)
+
+        try:
+            params = {"symbol": symbol, "limit": limit}
+            data = self._request("/stable/grades-historical", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "timeline": [],
+                    "source": "fmp",
+                    "error": "No historical grades data returned",
+                }
+
+            # FMP returns newest first; keep as-is so UI can decide ordering
+            return {
+                "status": "success",
+                "timeline": data[:limit],
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching historical grades for %s: %s", symbol, e)
+            return {"status": "error", "timeline": [], "error": str(e)}
+
+    # =========================================================================
+    # Press Releases
+    # =========================================================================
+
+    def get_press_releases(self, symbol: str, limit: int = 30) -> dict:
+        """
+        Get official company press releases.
+
+        FMP endpoint: /stable/news/press-releases?symbols={symbol}
+        Returns list of {symbol, publishedDate, publisher, title, image, site, text, url}.
+        """
+        logger.info("get_press_releases(symbol=%s, limit=%d)", symbol, limit)
+
+        try:
+            params = {"symbols": symbol, "limit": limit}
+            data = self._request("/stable/news/press-releases", params)
+
+            if not data or not isinstance(data, list):
+                return {
+                    "status": "error",
+                    "releases": [],
+                    "source": "fmp",
+                    "error": "No press releases data returned",
+                }
+
+            return {
+                "status": "success",
+                "releases": data[:limit],
+                "source": "fmp",
+            }
+        except Exception as e:
+            logger.error("Error fetching press releases for %s: %s", symbol, e)
+            return {"status": "error", "releases": [], "error": str(e)}
+
+    # =========================================================================
+    # Market Heat (gainers/losers/most-actives + sector/industry perf)
+    # =========================================================================
+
+    def _last_trading_date(self) -> str:
+        """Return yyyy-mm-dd of the most recent US trading day (weekday fallback)."""
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        # Rough: weekday 5=Sat, 6=Sun. Roll back to Friday.
+        if now.weekday() == 5:
+            now = now - timedelta(days=1)
+        elif now.weekday() == 6:
+            now = now - timedelta(days=2)
+        return now.strftime("%Y-%m-%d")
+
+    def get_biggest_gainers(self) -> dict:
+        """
+        Get today's biggest stock gainers (top ~50 by % change).
+
+        FMP endpoint: /stable/biggest-gainers
+        Returns {symbol, price, name, change, changesPercentage, exchange}.
+        """
+        logger.info("get_biggest_gainers()")
+        try:
+            data = self._request("/stable/biggest-gainers", {})
+            if not data or not isinstance(data, list):
+                return {"status": "error", "stocks": [], "source": "fmp"}
+            return {"status": "success", "stocks": data, "source": "fmp"}
+        except Exception as e:
+            logger.error("Error fetching biggest gainers: %s", e)
+            return {"status": "error", "stocks": [], "error": str(e)}
+
+    def get_biggest_losers(self) -> dict:
+        """Get today's biggest stock losers."""
+        logger.info("get_biggest_losers()")
+        try:
+            data = self._request("/stable/biggest-losers", {})
+            if not data or not isinstance(data, list):
+                return {"status": "error", "stocks": [], "source": "fmp"}
+            return {"status": "success", "stocks": data, "source": "fmp"}
+        except Exception as e:
+            logger.error("Error fetching biggest losers: %s", e)
+            return {"status": "error", "stocks": [], "error": str(e)}
+
+    def get_most_actives(self) -> dict:
+        """Get today's most actively traded stocks (by volume)."""
+        logger.info("get_most_actives()")
+        try:
+            data = self._request("/stable/most-actives", {})
+            if not data or not isinstance(data, list):
+                return {"status": "error", "stocks": [], "source": "fmp"}
+            return {"status": "success", "stocks": data, "source": "fmp"}
+        except Exception as e:
+            logger.error("Error fetching most actives: %s", e)
+            return {"status": "error", "stocks": [], "error": str(e)}
+
+    def get_sector_performance_snapshot(self, date: str = None) -> dict:
+        """
+        Get sector average performance snapshot for a date.
+
+        FMP endpoint: /stable/sector-performance-snapshot?date=YYYY-MM-DD
+        If date omitted, uses the most recent trading day.
+        Returns list of {date, sector, exchange, averageChange}.
+        """
+        date = date or self._last_trading_date()
+        logger.info("get_sector_performance_snapshot(date=%s)", date)
+        try:
+            data = self._request("/stable/sector-performance-snapshot", {"date": date})
+            if not data or not isinstance(data, list):
+                return {"status": "error", "sectors": [], "source": "fmp"}
+            return {"status": "success", "sectors": data, "source": "fmp", "date": date}
+        except Exception as e:
+            logger.error("Error fetching sector perf snapshot: %s", e)
+            return {"status": "error", "sectors": [], "error": str(e)}
+
+    def get_industry_performance_snapshot(self, date: str = None) -> dict:
+        """
+        Get industry average performance snapshot for a date.
+
+        FMP endpoint: /stable/industry-performance-snapshot?date=YYYY-MM-DD
+        Returns list of {date, industry, exchange, averageChange}.
+        """
+        date = date or self._last_trading_date()
+        logger.info("get_industry_performance_snapshot(date=%s)", date)
+        try:
+            data = self._request("/stable/industry-performance-snapshot", {"date": date})
+            if not data or not isinstance(data, list):
+                return {"status": "error", "industries": [], "source": "fmp"}
+            return {"status": "success", "industries": data, "source": "fmp", "date": date}
+        except Exception as e:
+            logger.error("Error fetching industry perf snapshot: %s", e)
+            return {"status": "error", "industries": [], "error": str(e)}
 
     # =========================================================================
     # Earnings Transcript
