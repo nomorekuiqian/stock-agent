@@ -119,10 +119,6 @@ describe('queryKeys', () => {
       expect(queryKeys.stocks.technical('BABA')).toEqual(['stocks', 'technical', 'BABA']);
     });
 
-    it('technicalSnapshot(symbol) includes symbol', () => {
-      expect(queryKeys.stocks.technicalSnapshot('AMD')).toEqual(['stocks', 'technical-snapshot', 'AMD']);
-    });
-
     it('earningsData(symbol) includes symbol', () => {
       expect(queryKeys.stocks.earningsData('AAPL')).toEqual(['stocks', 'earnings-data', 'AAPL']);
     });

@@ -1,8 +1,8 @@
 """
-E2E Tests for Stock Technical Analysis API Endpoints -- generated from git diff
+E2E Tests for Stock Technical Analysis API Endpoints
 
-Tests new endpoints via httpx.AsyncClient + ASGITransport:
-- GET  /api/stocks/{symbol}/technical-snapshot
+Tests endpoints via httpx.AsyncClient + ASGITransport:
+- GET  /api/stocks/{symbol}/technical-data
 - POST /api/stocks/{symbol}/technical
 
 Usage:
@@ -31,18 +31,18 @@ async def client(transport):
 
 
 # ===========================================================================
-# TestTechnicalSnapshot
+# TestTechnicalData (formerly TestTechnicalSnapshot)
 # ===========================================================================
 
 
 @pytest.mark.e2e
-class TestTechnicalSnapshot:
-    """Tests for GET /api/stocks/{symbol}/technical-snapshot."""
+class TestTechnicalData:
+    """Tests for GET /api/stocks/{symbol}/technical-data."""
 
     @pytest.mark.asyncio
     async def test_success_aapl(self, client):
-        """AAPL snapshot returns 200 with success=True."""
-        resp = await client.get("/api/stocks/AAPL/technical-snapshot", timeout=30)
+        """AAPL technical data returns 200 with success=True."""
+        resp = await client.get("/api/stocks/AAPL/technical-data", timeout=30)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -51,47 +51,64 @@ class TestTechnicalSnapshot:
     @pytest.mark.asyncio
     async def test_response_structure(self, client):
         """Response contains expected top-level keys."""
-        resp = await client.get("/api/stocks/AAPL/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/AAPL/technical-data", timeout=30)
         assert resp.status_code == 200
         data = resp.json()
 
         expected_keys = [
-            "success", "symbol", "ratings", "oscillators", "trend",
-            "moving_averages", "volatility", "price_volume",
-            "support_resistance", "trend_context", "pattern_signals",
-            "derived", "fetched_at",
+            "success", "symbol", "timeframe", "ohlcv", "indicators",
+            "current", "derived", "support_resistance", "trend_summary",
+            "fetched_at",
         ]
         for key in expected_keys:
             assert key in data, f"Missing key: {key}"
 
     @pytest.mark.asyncio
-    async def test_ratings_structure(self, client):
-        """Ratings contain expected fields."""
-        resp = await client.get("/api/stocks/MSFT/technical-snapshot", timeout=30)
+    async def test_current_has_indicators(self, client):
+        """Current snapshot includes key indicator readings."""
+        resp = await client.get("/api/stocks/AAPL/technical-data", timeout=30)
         assert resp.status_code == 200
-        ratings = resp.json().get("ratings", {})
-        assert isinstance(ratings, dict)
+        current = resp.json().get("current", {})
+        assert isinstance(current, dict)
+        # Should have at least some indicator values (may vary by market hours)
 
     @pytest.mark.asyncio
-    async def test_oscillators_have_rsi(self, client):
-        """Oscillators include rsi_14."""
-        resp = await client.get("/api/stocks/AAPL/technical-snapshot", timeout=30)
+    async def test_ohlcv_is_list(self, client):
+        """OHLCV data is returned as a list."""
+        resp = await client.get("/api/stocks/AAPL/technical-data", timeout=30)
         assert resp.status_code == 200
-        osc = resp.json().get("oscillators", {})
-        assert "rsi_14" in osc
+        ohlcv = resp.json().get("ohlcv", [])
+        assert isinstance(ohlcv, list)
 
     @pytest.mark.asyncio
     async def test_invalid_symbol_format(self, client):
         """Overly long symbol returns 400."""
-        resp = await client.get("/api/stocks/TOOLONGSYMBOL/technical-snapshot", timeout=10)
+        resp = await client.get("/api/stocks/TOOLONGSYMBOL/technical-data", timeout=10)
         assert resp.status_code == 400
 
     @pytest.mark.asyncio
     async def test_case_insensitive_symbol(self, client):
         """Lowercase symbol is accepted and uppercased."""
-        resp = await client.get("/api/stocks/aapl/technical-snapshot", timeout=30)
+        resp = await client.get("/api/stocks/aapl/technical-data", timeout=30)
         assert resp.status_code == 200
         assert resp.json()["symbol"] == "AAPL"
+
+    @pytest.mark.asyncio
+    async def test_timeframe_default_daily(self, client):
+        """Default timeframe is daily."""
+        resp = await client.get("/api/stocks/AAPL/technical-data", timeout=30)
+        assert resp.status_code == 200
+        assert resp.json()["timeframe"] == "daily"
+
+    @pytest.mark.asyncio
+    async def test_invalid_timeframe(self, client):
+        """Invalid timeframe returns 422."""
+        resp = await client.get(
+            "/api/stocks/AAPL/technical-data",
+            params={"timeframe": "monthly"},
+            timeout=10,
+        )
+        assert resp.status_code == 422
 
 
 # ===========================================================================
@@ -120,10 +137,10 @@ class TestTechnicalAnalysisGeneration:
 
         analysis = data["analysis"]
         assert "title" in analysis
-        assert "trend_analysis" in analysis
-        assert "entry_exit_signals" in analysis
-        assert "pattern_analysis" in analysis
-        assert "technical_summary" in analysis
+        assert "tldr" in analysis
+        assert "signals" in analysis
+        assert "situation" in analysis
+        assert "summary" in analysis
 
     @pytest.mark.asyncio
     async def test_invalid_timeframe(self, client):

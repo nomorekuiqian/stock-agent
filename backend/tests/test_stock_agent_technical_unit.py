@@ -1,5 +1,5 @@
 """
-Stock Technical Analysis Agent Unit Tests -- generated from git diff
+Stock Technical Analysis Agent Unit Tests
 
 Tests for: _empty_technical_analysis, _prepare_technical_data_for_agent
 No network access, no database. All data constructed in fixtures.
@@ -32,14 +32,21 @@ class TestEmptyTechnicalAnalysis:
         for field in TECHNICAL_FIELDS:
             assert field in result
 
-    def test_all_values_empty_string(self):
+    def test_list_fields_are_lists(self):
+        """signals and chart_annotations default to empty lists."""
         result = _empty_technical_analysis()
-        for field in TECHNICAL_FIELDS:
-            assert result[field] == ""
+        assert result["signals"] == []
+        assert result["chart_annotations"] == []
+
+    def test_string_fields_are_empty_string(self):
+        """Non-list fields default to empty strings."""
+        result = _empty_technical_analysis()
+        for field in ("title", "tldr", "situation", "summary"):
+            assert result[field] == "", f"{field} should be empty string"
 
     def test_expected_fields(self):
         result = _empty_technical_analysis()
-        expected = {"title", "trend_analysis", "entry_exit_signals", "pattern_analysis", "technical_summary"}
+        expected = {"title", "tldr", "signals", "situation", "summary", "chart_annotations"}
         assert set(result.keys()) == expected
 
 
@@ -49,124 +56,101 @@ class TestEmptyTechnicalAnalysis:
 
 
 class TestPrepareTechnicalDataForAgent:
-    """Tests for _prepare_technical_data_for_agent()."""
+    """Tests for _prepare_technical_data_for_agent().
+
+    The function extracts current readings, derived signals, trend summary,
+    and key levels from the raw technical data dict. It strips None values
+    to keep the LLM context compact.
+    """
 
     @pytest.fixture
     def full_technical_data(self):
-        """Realistic technical data dict with both daily and weekly fields."""
+        """Realistic technical data dict matching get_technical_data() output."""
         return {
             "symbol": "NVDA",
-            "ratings": {
-                "daily": {"overall": "BUY", "overall_score": 0.3},
-                "weekly": {"overall": "STRONG_BUY", "overall_score": 0.6},
-            },
-            "oscillators": {
-                "rsi_14": 55.0,
-                "rsi_14_weekly": 62.0,
-                "macd_level": 1.5,
-                "macd_signal": 1.2,
-                "macd_histogram": 0.3,
-                "macd_level_weekly": 2.0,
-                "macd_signal_weekly": 1.8,
-                "macd_histogram_weekly": 0.2,
-            },
-            "trend": {
-                "adx_14": 25.0,
-                "adx_14_weekly": 30.0,
-                "adx_plus_di": 20.0,
-                "adx_minus_di": 15.0,
-            },
-            "moving_averages": {
+            "current": {
+                "price": 135.0,
                 "sma_20": 130.0,
                 "sma_50": 125.0,
                 "sma_200": 110.0,
+                "rsi_14": 55.0,
+                "macd_level": 1.5,
+                "macd_signal": 1.2,
+                "macd_histogram": 0.3,
+                "adx_14": 25.0,
+                "bb_upper": 140.0,
+                "bb_lower": 120.0,
+                "volume": 50000000,
+                "volume_sma_20": 40000000,
             },
-            "volatility": {"atr_14": 5.0, "bb_upper": 140.0, "bb_lower": 120.0},
-            "price_volume": {"price": 135.0, "volume": 50000000},
-            "derived": {"above_sma_20": True, "rsi_zone": "neutral"},
-            "trends": {"rsi_14": {"direction": "rising"}},
-            "support_resistance": {"support_1": 125.0, "resistance_1": 145.0},
-            "pattern_signals": {"ma_alignment": "bullish"},
+            "derived": {
+                "above_sma_20": True,
+                "rsi_zone": "neutral",
+                "macd_cross": "bullish",
+            },
+            "trend_summary": {
+                "direction": "up",
+                "strength": "moderate",
+                "duration_days": 15,
+            },
+            "support_resistance": {
+                "support_1": 125.0,
+                "resistance_1": 145.0,
+                "support_2": None,
+            },
         }
-
-    def test_daily_includes_daily_ratings(self, full_technical_data):
-        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        assert "daily" in result["tv_ratings"]
-        assert "weekly" not in result["tv_ratings"]
-
-    def test_weekly_includes_weekly_ratings(self, full_technical_data):
-        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="weekly")
-        assert "weekly" in result["tv_ratings"]
-        assert "daily" not in result["tv_ratings"]
-
-    def test_daily_filters_weekly_oscillators(self, full_technical_data):
-        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        osc = result["oscillators"]
-        # Daily should NOT contain *_weekly fields
-        for key in osc:
-            assert not key.endswith("_weekly"), f"Daily result contains weekly field: {key}"
-
-    def test_weekly_remaps_oscillators(self, full_technical_data):
-        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="weekly")
-        osc = result["oscillators"]
-        # Weekly RSI should come from rsi_14_weekly
-        assert osc["rsi_14"] == 62.0
-        # Weekly MACD histogram should come from macd_histogram_weekly
-        assert osc["macd_histogram"] == 0.2
-
-    def test_daily_filters_weekly_trend(self, full_technical_data):
-        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        trend = result["trend_indicators"]
-        for key in trend:
-            assert not key.endswith("_weekly"), f"Daily trend contains weekly field: {key}"
-
-    def test_weekly_remaps_adx(self, full_technical_data):
-        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="weekly")
-        trend = result["trend_indicators"]
-        assert trend["adx_14"] == 30.0
 
     def test_preserves_symbol(self, full_technical_data):
         result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
         assert result["symbol"] == "NVDA"
 
-    def test_includes_moving_averages(self, full_technical_data):
+    def test_includes_timeframe(self, full_technical_data):
         result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        assert "moving_averages" in result
-        assert result["moving_averages"]["sma_20"] == 130.0
+        assert result["timeframe"] == "daily"
 
-    def test_includes_volatility(self, full_technical_data):
+    def test_includes_current_readings(self, full_technical_data):
         result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        assert "volatility" in result
+        assert "current_readings" in result
+        assert result["current_readings"]["rsi_14"] == 55.0
+        assert result["current_readings"]["sma_20"] == 130.0
 
     def test_includes_derived_signals(self, full_technical_data):
         result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
         assert "derived_signals" in result
         assert result["derived_signals"]["rsi_zone"] == "neutral"
 
-    def test_includes_support_resistance(self, full_technical_data):
+    def test_includes_recent_trend(self, full_technical_data):
         result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        assert "support_resistance" in result
+        assert "recent_trend" in result
+        assert result["recent_trend"]["direction"] == "up"
 
-    def test_includes_pattern_signals(self, full_technical_data):
+    def test_includes_key_levels(self, full_technical_data):
         result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
-        assert "pattern_signals" in result
-        assert result["pattern_signals"]["ma_alignment"] == "bullish"
+        assert "key_levels" in result
+        assert result["key_levels"]["support_1"] == 125.0
 
-    def test_none_values_filtered(self):
-        """Fields with None values should be excluded from oscillators."""
-        data = {
-            "symbol": "TEST",
-            "ratings": {"daily": {}},
-            "oscillators": {"rsi_14": 50.0, "macd_level": None, "rsi_14_weekly": None},
-            "trend": {},
-        }
-        result = _prepare_technical_data_for_agent(data, timeframe="daily")
-        osc = result.get("oscillators", {})
-        assert "macd_level" not in osc
-        assert "rsi_14" in osc
+    def test_none_values_filtered(self, full_technical_data):
+        """None values stripped from each sub-dict to keep LLM context compact."""
+        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="daily")
+        # support_2 was None in fixture, should not appear
+        assert "support_2" not in result.get("key_levels", {})
 
     def test_empty_data_returns_symbol(self):
-        """Minimal data returns at least symbol."""
+        """Minimal data returns at least symbol and timeframe."""
         data = {"symbol": "EMPTY"}
         result = _prepare_technical_data_for_agent(data, timeframe="daily")
         assert result["symbol"] == "EMPTY"
+        assert result["timeframe"] == "daily"
+
+    def test_missing_sections_omitted(self):
+        """Sections not present in input are simply not in output."""
+        data = {"symbol": "TEST"}
+        result = _prepare_technical_data_for_agent(data, timeframe="daily")
+        assert "current_readings" not in result
+        assert "derived_signals" not in result
+        assert "recent_trend" not in result
+        assert "key_levels" not in result
+
+    def test_weekly_timeframe_label(self, full_technical_data):
+        result = _prepare_technical_data_for_agent(full_technical_data, timeframe="weekly")
+        assert result["timeframe"] == "weekly"
