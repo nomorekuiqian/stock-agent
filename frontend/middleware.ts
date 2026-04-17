@@ -18,6 +18,7 @@ const PUBLIC_ROUTES = [
   '/email-test',
   '/pricing',
   '/webview-check',
+  '/macro',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';
