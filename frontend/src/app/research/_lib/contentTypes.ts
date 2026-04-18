@@ -11,11 +11,17 @@
 
 export type ContentType = 'screener' | 'stock' | 'daily_report' | 'morning_report' | 'macro' | 'macro_liquidity' | 'macro_economy' | 'macro_inflation' | 'macro_sentiment' | 'sector' | 'brew';
 
+export type StockTab = 'overview' | 'earnings' | 'technical' | 'market';
+export type MacroTab = 'overview' | 'liquidity' | 'economy' | 'inflation' | 'sentiment';
+
 export interface ContentContext {
   type: ContentType;
   label: string;
   summary: string;
-  params: Record<string, string>;
+  params: Record<string, string> & {
+    /** Agent can specify which tab to activate in stock/macro panels */
+    tab?: string;
+  };
   available_actions: string[];
 }
 

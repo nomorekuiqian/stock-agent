@@ -2,7 +2,7 @@
 
 import type { ContentContext } from '../_lib/contentTypes';
 import type { FilterStep } from './FilterProgress';
-import type { StockContextPayload } from './StockResearchView';
+import type { StockPanelContextPayload } from './panel/StockPanelView';
 import type { DailyReportContextPayload } from './DailyReportView';
 import type { MorningReportContextPayload } from './MorningReportView';
 import type { MacroContextPayload } from './MacroOverview';
@@ -11,8 +11,9 @@ import type { LiquidityContextPayload } from './LiquidityView';
 import type { EconomyContextPayload } from './EconomyView';
 import type { InflationContextPayload } from './InflationView';
 import type { SentimentContextPayload } from './SentimentView';
+import type { StockTab, MacroTab } from '../_lib/contentTypes';
 import ResultsPanel from './ResultsPanel';
-import StockResearchView from './StockResearchView';
+import StockPanelView from './panel/StockPanelView';
 import DailyReportView from './DailyReportView';
 import MorningReportView from './MorningReportView';
 import MacroOverview from './MacroOverview';
@@ -41,8 +42,8 @@ interface ContentPanelProps {
     loading: boolean;
     onStockClick?: (symbol: string) => void;
   };
-  /** Called when stock data is loaded in StockResearchView, for Agent context. */
-  onStockContextReady?: (payload: StockContextPayload) => void;
+  /** Called when stock data is loaded in StockPanelView, for Agent context. */
+  onStockContextReady?: (payload: StockPanelContextPayload) => void;
   /** Called when daily report data is loaded in DailyReportView, for Agent context. */
   onReportContextReady?: (payload: DailyReportContextPayload) => void;
   /** Called when morning report data is loaded in MorningReportView, for Agent context. */
@@ -100,9 +101,10 @@ export default function ContentPanel({
         )}
 
         {activeContent.type === 'stock' && activeContent.params.symbol && (
-          <StockResearchView
-            key={activeContent.params.symbol}
+          <StockPanelView
+            key={`${activeContent.params.symbol}-${activeContent.params.tab || ''}`}
             symbol={activeContent.params.symbol}
+            defaultTab={(activeContent.params.tab as StockTab) || undefined}
             onContextReady={onStockContextReady}
           />
         )}
@@ -123,10 +125,16 @@ export default function ContentPanel({
           />
         )}
 
-        {activeContent.type === 'macro' && (
-          <MacroOverview onContextReady={onMacroContextReady} />
-        )}
+        {activeContent.type === 'macro' && (() => {
+          const macroTab = activeContent.params.tab as MacroTab | undefined;
+          if (macroTab === 'liquidity') return <LiquidityView onContextReady={onLiquidityContextReady} />;
+          if (macroTab === 'economy') return <EconomyView onContextReady={onEconomyContextReady} />;
+          if (macroTab === 'inflation') return <InflationView onContextReady={onInflationContextReady} />;
+          if (macroTab === 'sentiment') return <SentimentView onContextReady={onSentimentContextReady} />;
+          return <MacroOverview onContextReady={onMacroContextReady} />;
+        })()}
 
+        {/* Legacy: keep old macro_* types working for backward compat */}
         {activeContent.type === 'macro_liquidity' && (
           <LiquidityView onContextReady={onLiquidityContextReady} />
         )}
