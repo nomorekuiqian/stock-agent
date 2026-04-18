@@ -197,6 +197,7 @@ def _compute_economic_deterioration(indicators: dict) -> CategoryRiskScore:
             date=data.get("date"),
             units=data.get("units", ""),
             change=data.get("change"),
+            previous_value=data.get("previous_value"),
             source="fred",
         ))
 
@@ -244,6 +245,7 @@ def _compute_credit_risk(indicators: dict) -> CategoryRiskScore:
             date=data.get("date"),
             units=data.get("units", ""),
             change=data.get("change"),
+            previous_value=data.get("previous_value"),
             source="fred",
         ))
 
@@ -301,6 +303,7 @@ def _compute_employment_risk(indicators: dict) -> CategoryRiskScore:
             date=data.get("date"),
             units=data.get("units", ""),
             change=data.get("change"),
+            previous_value=data.get("previous_value"),
             source="fred",
         ))
 
@@ -708,6 +711,7 @@ def _compute_subdimension(
             date=data.get("date"),
             units=data.get("units", ""),
             change=data.get("change"),
+            previous_value=data.get("previous_value"),
             source="fred",
         ))
 
