@@ -785,7 +785,16 @@ export interface ResearchRequest {
     symbol?: string;
     quote?: Record<string, unknown>;
     fundamentals?: Record<string, unknown>;
-    ai_analysis?: string;
+    // Stock earnings data
+    earnings_history?: unknown[];
+    financial_growth?: unknown[];
+    income_statements?: unknown[];
+    // Stock technical data
+    technical_derived?: Record<string, unknown>;
+    support_resistance?: Record<string, unknown>;
+    // Stock market data
+    analyst_summary?: Record<string, unknown>;
+    recent_news?: unknown[];
     // daily_report fields
     date?: string;
     title?: string;

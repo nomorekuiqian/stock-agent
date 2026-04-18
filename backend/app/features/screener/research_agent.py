@@ -809,14 +809,35 @@ You can navigate the user's right panel to show a stock's detailed research view
 
 ### How to navigate:
 Set the `navigate` field in your output:
-- For screener: type: "screener", params: {}, reason: "..." (when user wants to find/screen stocks)
-- For stock: type: "stock", params: {"symbol": "AAPL"}, reason: "..."
+- For screener: type: "screener", params: {}, reason: "..."
+- For stock: type: "stock", params: {"symbol": "AAPL", "tab": "<tab>"}, reason: "..."
+  Tab options: "overview" (fundamentals/valuation), "earnings" (EPS/revenue/financials), "technical" (RSI/MACD/chart), "market" (news/analyst/sentiment)
+  Omit "tab" to default to "overview".
 - For daily report: type: "daily_report", params: {"date": "2026-03-18"}, reason: "..."
-  (include the date in YYYY-MM-DD format so the panel navigates to that specific report)
+  ONLY use when user EXPLICITLY asks for "日报"/"每日报告"/"今日简报". Do NOT navigate here when user asks about "宏观" or "大盘".
 - For morning report: type: "morning_report", params: {"date": "2026-03-18"}, reason: "..."
-  (include the date in YYYY-MM-DD format so the panel navigates to that specific morning report)
-- For macro dashboard: type: "macro", params: {}, reason: "..."
+  ONLY use when user EXPLICITLY asks for "早报"/"盘前简报".
+- For macro dashboard: type: "macro", params: {"tab": "<tab>"}, reason: "..."
+  Tab options: "liquidity" (Fed/TGA/RRP), "economy" (GDP/employment), "inflation" (CPI/rates), "sentiment" (VIX/fear&greed)
+  Omit "tab" to show the macro overview homepage.
 - For brew digest: type: "brew", params: {}, reason: "..."
+
+### Tab-Aware Navigation Rules (CRITICAL):
+When navigating to stock, ALWAYS pick the tab matching the discussion topic:
+- Valuation/PE/fundamentals/overview -> tab: "overview"
+- Earnings/EPS/revenue/quarterly -> tab: "earnings"
+- Chart/RSI/MACD/trend/support/resistance -> tab: "technical"
+- News/analyst/rating/sentiment/market -> tab: "market"
+
+When navigating to macro, pick the tab matching the dimension:
+- General macro/risk/market environment -> NO tab (shows overview homepage)
+- Fed/TGA/RRP/net liquidity/balance sheet -> tab: "liquidity"
+- GDP/employment/recession/economic -> tab: "economy"
+- CPI/rates/inflation/Fed policy -> tab: "inflation"
+- VIX/fear/greed/put-call/sentiment -> tab: "sentiment"
+
+CRITICAL: 聊"宏观"/"大盘"/"市场环境" -> navigate to macro (首页), NOT daily_report.
+只有用户明确说"日报"/"早报"/"今日报告"才跳日报/早报。
 
 ### When viewing a stock:
 - You have the stock's data in the context above
@@ -1229,15 +1250,105 @@ class ResearchAgent:
                     if growth.get("revenue_yoy"): parts.append("Revenue YoY %+.1f%%" % (growth["revenue_yoy"] * 100))
                     if parts:
                         prompt_parts.append("Fundamentals: %s" % " | ".join(parts))
-                # AI analysis if available
-                ai_analysis = content_context.get("ai_analysis")
-                if ai_analysis:
-                    prompt_parts.append("\n### AI Investment Analysis (already generated)")
-                    prompt_parts.append(ai_analysis[:3000])  # Truncate to stay within limits
+                # Earnings data
+                earnings_history = content_context.get("earnings_history")
+                if earnings_history:
+                    eps_parts = []
+                    for eh in earnings_history[:4]:
+                        if isinstance(eh, dict):
+                            q = eh.get("quarter", "")
+                            actual = eh.get("eps_actual")
+                            est = eh.get("eps_estimate")
+                            surprise = eh.get("surprise_percent")
+                            eps_parts.append("%s: EPS $%.2f (est $%.2f, %s%.1f%%)" % (
+                                q[:7] if q else "?",
+                                actual or 0, est or 0,
+                                "+" if (surprise or 0) >= 0 else "", (surprise or 0) * 100
+                            ))
+                    if eps_parts:
+                        prompt_parts.append("EPS History: " + " | ".join(eps_parts))
+
+                financial_growth = content_context.get("financial_growth")
+                if financial_growth and len(financial_growth) > 0:
+                    latest = financial_growth[0] if isinstance(financial_growth[0], dict) else {}
+                    g_parts = []
+                    if latest.get("revenueGrowth") is not None:
+                        g_parts.append("Revenue YoY %+.1f%%" % (latest["revenueGrowth"] * 100))
+                    if latest.get("netIncomeGrowth") is not None:
+                        g_parts.append("Net Income YoY %+.1f%%" % (latest["netIncomeGrowth"] * 100))
+                    if latest.get("epsdilutedGrowth") is not None:
+                        g_parts.append("EPS YoY %+.1f%%" % (latest["epsdilutedGrowth"] * 100))
+                    if g_parts:
+                        prompt_parts.append("Latest Quarter Growth: " + " | ".join(g_parts))
+
+                income_stmts = content_context.get("income_statements")
+                if income_stmts and len(income_stmts) > 0:
+                    latest_is = income_stmts[0] if isinstance(income_stmts[0], dict) else {}
+                    is_parts = []
+                    if latest_is.get("revenue"):
+                        is_parts.append("Revenue %s" % _format_market_cap(latest_is["revenue"]))
+                    if latest_is.get("net_income"):
+                        is_parts.append("Net Income %s" % _format_market_cap(latest_is["net_income"]))
+                    if latest_is.get("gross_profit_ratio"):
+                        is_parts.append("Gross Margin %.1f%%" % (latest_is["gross_profit_ratio"] * 100))
+                    if is_parts:
+                        prompt_parts.append("Latest Income Statement: " + " | ".join(is_parts))
+
+                # Technical data
+                tech_derived = content_context.get("technical_derived")
+                if tech_derived and isinstance(tech_derived, dict):
+                    t_parts = []
+                    if tech_derived.get("trend_direction"):
+                        t_parts.append("Trend: %s" % tech_derived["trend_direction"])
+                    if tech_derived.get("rsi_zone"):
+                        t_parts.append("RSI: %s" % tech_derived["rsi_zone"])
+                    if tech_derived.get("macd_cross"):
+                        t_parts.append("MACD: %s" % tech_derived["macd_cross"])
+                    if tech_derived.get("ma_alignment"):
+                        t_parts.append("MA: %s" % tech_derived["ma_alignment"])
+                    if tech_derived.get("bb_position"):
+                        t_parts.append("BB: %s" % tech_derived["bb_position"])
+                    if tech_derived.get("volume_trend"):
+                        t_parts.append("Volume: %s" % tech_derived["volume_trend"])
+                    if t_parts:
+                        prompt_parts.append("Technical Signals: " + " | ".join(t_parts))
+
+                sr = content_context.get("support_resistance")
+                if sr and isinstance(sr, dict):
+                    sr_parts = []
+                    if sr.get("resistance_1"):
+                        sr_parts.append("R1 $%.2f" % sr["resistance_1"])
+                    if sr.get("support_1"):
+                        sr_parts.append("S1 $%.2f" % sr["support_1"])
+                    if sr_parts:
+                        prompt_parts.append("Support/Resistance: " + " | ".join(sr_parts))
+
+                # Market / analyst data
+                analyst = content_context.get("analyst_summary")
+                if analyst and isinstance(analyst, dict):
+                    a_parts = []
+                    if analyst.get("consensus"):
+                        a_parts.append("Consensus: %s" % analyst["consensus"])
+                    if analyst.get("total"):
+                        a_parts.append("%d analysts" % analyst["total"])
+                    if analyst.get("price_target_avg"):
+                        a_parts.append("Avg Target $%.0f" % analyst["price_target_avg"])
+                    if a_parts:
+                        prompt_parts.append("Analyst Ratings: " + " | ".join(a_parts))
+
+                recent_news = content_context.get("recent_news")
+                if recent_news and isinstance(recent_news, list):
+                    news_titles = [n.get("title", "") for n in recent_news[:5] if isinstance(n, dict) and n.get("title")]
+                    if news_titles:
+                        prompt_parts.append("Recent News Headlines:")
+                        for title in news_titles:
+                            prompt_parts.append("- %s" % title[:120])
+
                 prompt_parts.append("")
                 prompt_parts.append(
-                    "The user can see all this data in the right panel. "
-                    "Answer questions about this stock using the data above. "
+                    "The user can see all this data in the right panel (4 tabs: Overview, Earnings, Technical, Market). "
+                    "You have the full picture: quote, fundamentals, earnings history, technical signals, analyst ratings, and recent news. "
+                    "Use ALL of this data to answer the user's questions comprehensively. "
                     "If user wants to see a different stock, use the navigate field to switch to that stock's research view."
                 )
                 prompt_parts.append("")

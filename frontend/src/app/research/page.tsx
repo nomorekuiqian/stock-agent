@@ -17,7 +17,7 @@ import {
   STORAGE_KEY,
 } from './_lib/researchReducer';
 import type { LoadConversationData } from './_lib/researchReducer';
-import type { StockContextPayload } from './_components/StockResearchView';
+import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
 import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
 import type { MacroContextPayload } from './_components/MacroOverview';
@@ -330,7 +330,7 @@ function ScreenerContent() {
   }, [state.activeContent, state.contentStack, state.conversationId, buildConversationData, saveConversation]);
 
   // Navigate right panel to a stock's research view
-  const handleStockClick = useCallback((symbol: string) => {
+  const handleStockClick = useCallback((symbol: string, tab?: string) => {
     stockContextRef.current = null;
     dispatch({
       type: 'PUSH_CONTENT',
@@ -338,7 +338,7 @@ function ScreenerContent() {
         type: 'stock',
         label: `${symbol} 个股研究`,
         summary: symbol,
-        params: { symbol },
+        params: { symbol, ...(tab ? { tab } : {}) },
         available_actions: ['查看基本面', '技术分析', '返回选股'],
       },
     });
@@ -425,7 +425,16 @@ function ScreenerContent() {
           symbol: ctx.symbol,
           quote: ctx.quote ?? undefined,
           fundamentals: ctx.fundamentals ?? undefined,
-          ai_analysis: ctx.ai_analysis ?? undefined,
+          // Earnings
+          earnings_history: ctx.earnings_history ?? undefined,
+          financial_growth: ctx.financial_growth ?? undefined,
+          income_statements: ctx.income_statements ?? undefined,
+          // Technical
+          technical_derived: ctx.technical_derived ?? undefined,
+          support_resistance: ctx.support_resistance ?? undefined,
+          // Market
+          analyst_summary: ctx.analyst_summary ?? undefined,
+          recent_news: ctx.recent_news ?? undefined,
         };
       } else if (state.activeContent.type === 'daily_report' && reportContextRef.current) {
         const ctx = reportContextRef.current;
@@ -549,7 +558,7 @@ function ScreenerContent() {
 
       // Handle agent-driven navigation (e.g. "show me NVDA" or "show daily report")
       if (result.navigate?.type === 'stock' && result.navigate.params?.symbol) {
-        handleStockClick(result.navigate.params.symbol);
+        handleStockClick(result.navigate.params.symbol, result.navigate.params?.tab);
       } else if (result.navigate?.type === 'daily_report') {
         reportContextRef.current = null;
         dispatch({
@@ -584,7 +593,7 @@ function ScreenerContent() {
             type: 'macro',
             label: '宏观风险仪表盘',
             summary: '',
-            params: {},
+            params: { ...(result.navigate.params?.tab ? { tab: result.navigate.params.tab } : {}) },
             available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
           },
         });
@@ -602,55 +611,28 @@ function ScreenerContent() {
           },
         });
         setMobileTab('results');
-      } else if (result.navigate?.type === 'macro_liquidity') {
-        liquidityContextRef.current = null;
+      } else if (
+        result.navigate?.type === 'macro_liquidity' ||
+        result.navigate?.type === 'macro_economy' ||
+        result.navigate?.type === 'macro_inflation' ||
+        result.navigate?.type === 'macro_sentiment'
+      ) {
+        // Consolidate macro sub-types into macro + tab
+        const tabMap: Record<string, string> = {
+          macro_liquidity: 'liquidity',
+          macro_economy: 'economy',
+          macro_inflation: 'inflation',
+          macro_sentiment: 'sentiment',
+        };
+        macroContextRef.current = null;
         dispatch({
           type: 'PUSH_CONTENT',
           content: {
-            type: 'macro_liquidity',
-            label: '流动性环境',
+            type: 'macro',
+            label: '宏观风险仪表盘',
             summary: '',
-            params: {},
-            available_actions: ['解读流动性含义', '查看宏观全景', '返回选股'],
-          },
-        });
-        setMobileTab('results');
-      } else if (result.navigate?.type === 'macro_economy') {
-        economyContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'macro_economy',
-            label: '经济基本面',
-            summary: '',
-            params: {},
-            available_actions: ['深入某个维度', '查看流动性', '返回选股'],
-          },
-        });
-        setMobileTab('results');
-      } else if (result.navigate?.type === 'macro_inflation') {
-        inflationContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'macro_inflation',
-            label: '通胀与利率',
-            summary: '',
-            params: {},
-            available_actions: ['分析通胀趋势', '查看美联储政策', '返回选股'],
-          },
-        });
-        setMobileTab('results');
-      } else if (result.navigate?.type === 'macro_sentiment') {
-        sentimentContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'macro_sentiment',
-            label: '市场情绪',
-            summary: '',
-            params: {},
-            available_actions: ['解读恐贪指数', '查看宏观全景', '返回选股'],
+            params: { tab: tabMap[result.navigate.type] },
+            available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
           },
         });
         setMobileTab('results');

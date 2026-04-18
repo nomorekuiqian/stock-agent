@@ -492,11 +492,57 @@ class StockPickerAgent:
                     if growth.get("revenue_yoy"): parts.append("Revenue YoY %+.1f%%" % (growth["revenue_yoy"] * 100))
                     if parts:
                         prompt_parts.append("Fundamentals: %s" % " | ".join(parts))
-                # AI analysis if available
-                ai_analysis = content_context.get("ai_analysis")
-                if ai_analysis:
-                    prompt_parts.append("\n### AI Investment Analysis (already generated)")
-                    prompt_parts.append(ai_analysis[:3000])  # Truncate to stay within limits
+                # Earnings data
+                earnings_history = content_context.get("earnings_history")
+                if earnings_history:
+                    eps_parts = []
+                    for eh in earnings_history[:4]:
+                        if isinstance(eh, dict):
+                            q = eh.get("quarter", "")
+                            actual = eh.get("eps_actual")
+                            est = eh.get("eps_estimate")
+                            surprise = eh.get("surprise_percent")
+                            eps_parts.append("%s: EPS $%.2f (est $%.2f, %s%.1f%%)" % (
+                                q[:7] if q else "?",
+                                actual or 0, est or 0,
+                                "+" if (surprise or 0) >= 0 else "", (surprise or 0) * 100
+                            ))
+                    if eps_parts:
+                        prompt_parts.append("EPS History: " + " | ".join(eps_parts))
+
+                # Technical data
+                tech_derived = content_context.get("technical_derived")
+                if tech_derived and isinstance(tech_derived, dict):
+                    t_parts = []
+                    if tech_derived.get("trend_direction"):
+                        t_parts.append("Trend: %s" % tech_derived["trend_direction"])
+                    if tech_derived.get("rsi_zone"):
+                        t_parts.append("RSI: %s" % tech_derived["rsi_zone"])
+                    if tech_derived.get("macd_cross"):
+                        t_parts.append("MACD: %s" % tech_derived["macd_cross"])
+                    if t_parts:
+                        prompt_parts.append("Technical: " + " | ".join(t_parts))
+
+                # Analyst data
+                analyst = content_context.get("analyst_summary")
+                if analyst and isinstance(analyst, dict):
+                    a_parts = []
+                    if analyst.get("consensus"):
+                        a_parts.append(analyst["consensus"])
+                    if analyst.get("total"):
+                        a_parts.append("%d analysts" % analyst["total"])
+                    if analyst.get("price_target_avg"):
+                        a_parts.append("Target $%.0f" % analyst["price_target_avg"])
+                    if a_parts:
+                        prompt_parts.append("Analyst: " + " | ".join(a_parts))
+
+                # Recent news
+                recent_news = content_context.get("recent_news")
+                if recent_news and isinstance(recent_news, list):
+                    news_titles = [n.get("title", "") for n in recent_news[:3] if isinstance(n, dict) and n.get("title")]
+                    if news_titles:
+                        prompt_parts.append("News: " + " | ".join(t[:80] for t in news_titles))
+
                 prompt_parts.append("")
                 prompt_parts.append(
                     "The user can see all this data in the right panel. "
