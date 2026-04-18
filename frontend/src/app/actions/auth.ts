@@ -20,6 +20,7 @@ export interface AuthActionResult {
   success: boolean;
   user?: User;
   error?: string;
+  accessToken?: string;
 }
 
 export interface SignUpActionResult extends AuthActionResult {
@@ -53,7 +54,7 @@ export async function signInAction(
     return { success: false, error: error?.message ?? 'Authentication failed' };
   }
   await setAuthCookies(data.accessToken, data.refreshToken);
-  return { success: true, user: mapUser(data.user) };
+  return { success: true, user: mapUser(data.user), accessToken: data.accessToken };
 }
 
 export async function signUpAction(
@@ -78,7 +79,7 @@ export async function signUpAction(
   if (data.user && data.accessToken) {
     await setAuthCookies(data.accessToken, data.refreshToken);
   }
-  return { success: true, user: mapUser(data.user ?? undefined) };
+  return { success: true, user: mapUser(data.user ?? undefined), accessToken: data.accessToken ?? undefined };
 }
 
 export async function signOutAction(): Promise<{ success: boolean; error?: string }> {
@@ -103,7 +104,7 @@ export async function verifyEmailAction(
     return { success: false, error: error?.message ?? 'Verification failed' };
   }
   await setAuthCookies(data.accessToken, data.refreshToken);
-  return { success: true, user: mapUser(data.user) };
+  return { success: true, user: mapUser(data.user), accessToken: data.accessToken };
 }
 
 export async function resendVerificationEmailAction(

@@ -225,9 +225,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignIn = useCallback(async (email: string, password: string) => {
     const result = await signInAction(email, password);
     if (result.success && result.user) {
-      // Fetch session to get the access token from the newly set cookies
-      const session = await fetchSession();
-      _cachedAccessToken = session.accessToken;
+      // Use token directly from server action to avoid cookie-propagation race
+      _cachedAccessToken = result.accessToken ?? null;
       setUser(result.user);
     }
     return { success: result.success, error: result.error };
@@ -245,8 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await signUpAction(email, password, name, emailRedirectTo);
 
     if (result.success && result.user) {
-      const session = await fetchSession();
-      _cachedAccessToken = session.accessToken;
+      _cachedAccessToken = result.accessToken ?? null;
       setUser(result.user);
     }
 
@@ -300,8 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleVerifyEmail = useCallback(async (otp: string, email?: string) => {
     const result = await verifyEmailAction(otp, email);
     if (result.success && result.user) {
-      const session = await fetchSession();
-      _cachedAccessToken = session.accessToken;
+      _cachedAccessToken = result.accessToken ?? null;
       setUser(result.user);
     }
     return { success: result.success, error: result.error };
