@@ -43,7 +43,6 @@ const FRED_SERIES: Record<string, string> = {
   fed_funds_rate: 'FEDFUNDS',
   treasury_10y: 'DGS10',
   real_rate_10y: 'DFII10',
-  inflation_expectations_5y5y: 'T5YIFR',
 };
 
 const SERIES_TO_CHART: Record<string, string> = {
@@ -54,7 +53,6 @@ const SERIES_TO_CHART: Record<string, string> = {
   FEDFUNDS: 'fed_funds_rate',
   DGS10: 'treasury_10y',
   DFII10: 'real_rate_10y',
-  T5YIFR: 'inflation_expectations_5y5y',
 };
 
 // Inflation indicators: use FredAreaChart with YoY% trend
@@ -65,7 +63,6 @@ const TV_SYMBOLS: Record<string, string> = {
   fed_funds_rate: 'FRED:FEDFUNDS',
   treasury_10y: 'FRED:DGS10',
   real_rate_10y: 'FRED:DFII10',
-  inflation_expectations_5y5y: 'FRED:T5YIFR',
 };
 
 const HERO_CONFIG: Record<string, {
@@ -146,10 +143,6 @@ const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
     title: '消费者通胀预期',
     description: '密歇根大学调查的消费者对未来一年物价预期。如果老百姓觉得物价会继续涨，他们可能会提前消费，反过来推高通胀（自我实现的预期）。',
   },
-  inflation_expectations_5y5y: {
-    title: '长期通胀预期 (5Y5Y)',
-    description: '市场对"5年后开始的未来5年"通胀水平的预期，是美联储最关注的长期通胀锚定指标。如果这个数字持续上升，说明市场担心通胀会长期化。',
-  },
 };
 
 const CHANGE_PERIOD: Record<string, string> = {
@@ -160,7 +153,6 @@ const CHANGE_PERIOD: Record<string, string> = {
   fed_funds_rate: 'MoM',
   treasury_10y: 'DoD',
   real_rate_10y: 'DoD',
-  inflation_expectations_5y5y: 'DoD',
 };
 
 const SUB_DIM_NAMES: Record<string, string> = {
@@ -171,7 +163,7 @@ const SUB_DIM_NAMES: Record<string, string> = {
 
 const SECTION_META: Record<string, { number: string; subtitle: string }> = {
   inflation: { number: '01', subtitle: 'CPI / 核心 PCE / PPI / 消费者通胀预期' },
-  rates: { number: '02', subtitle: '收益率曲线 / 联邦基金利率 / 10Y 国债 / 实际利率 / 长期通胀预期' },
+  rates: { number: '02', subtitle: '收益率曲线 / 联邦基金利率 / 10Y 国债 / 实际利率' },
   commodities: { number: '03', subtitle: '黄金 / 白银 / 原油 / 铜 / 美元指数' },
 };
 

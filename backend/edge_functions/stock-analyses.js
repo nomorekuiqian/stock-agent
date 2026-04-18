@@ -109,7 +109,7 @@ module.exports = async function(request) {
 
       const upperSymbol = symbol.toUpperCase();
       const now = new Date().toISOString();
-      const defaultExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const defaultExpiry = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString();
 
       // Delete existing record for same symbol + analysis_type, then insert new one
       await client.database

@@ -231,7 +231,6 @@ export default function MacroPage() {
               },
               { key: 'pce', label: '核心 PCE', value: fmtPercent(pceInd?.value), trend: { type: 'monthly' as const, direction: pceInd?.change != null ? (pceInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="PCEPILFE" timeRange="2Y" height={200} units="pc1" valueFormat="percent" /> },
               { key: 'ffr', label: '联邦基金利率', value: metrics?.effr?.value != null ? fmtPercent(metrics.effr.value, 2) : fmtPercent(ffrInd?.value, 2), trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="FEDFUNDS" timeRange="2Y" height={200} valueFormat="percent" /> },
-              { key: '5y5y', label: '长期通胀预期', value: 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="T5YIFR" timeRange="1Y" height={200} valueFormat="percent" /> },
               { key: '10y', label: '10Y 国债', value: treasury?.treasury?.rates?.['10Y']?.rate != null ? fmtPercent(treasury.treasury.rates['10Y'].rate, 2) : 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="DGS10" timeRange="2Y" height={200} valueFormat="percent" /> },
             ]}
           />
