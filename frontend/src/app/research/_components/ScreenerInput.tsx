@@ -21,6 +21,7 @@ export default function ScreenerInput({
 }: ScreenerInputProps) {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const isComposingRef = useRef(false);
 
   const isMaxed = roundCount >= maxRounds;
 
@@ -31,7 +32,16 @@ export default function ScreenerInput({
     setValue('');
   }, [value, loading, disabled, isMaxed, onSubmit]);
 
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
+
+  const handleCompositionEnd = useCallback(() => {
+    setTimeout(() => { isComposingRef.current = false; }, 0);
+  }, []);
+
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposingRef.current || e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -56,6 +66,8 @@ export default function ScreenerInput({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           placeholder={isMaxed ? '已达最大对话轮数，请重新开始' : (placeholder || defaultPlaceholder)}
           disabled={loading || disabled || isMaxed}
           className={`

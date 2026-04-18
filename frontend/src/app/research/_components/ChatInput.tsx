@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface ChatInputProps {
   onSubmit: (message: string) => void;
@@ -19,6 +19,7 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
 
   const hasValue = value.trim().length > 0;
 
@@ -45,8 +46,19 @@ export default function ChatInput({
     }
   };
 
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
+
+  const handleCompositionEnd = useCallback(() => {
+    // Chrome/macOS: compositionend fires BEFORE keydown for the Enter that
+    // confirms IME selection. Delay clearing so the subsequent keydown is
+    // still suppressed.
+    setTimeout(() => { isComposingRef.current = false; }, 0);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
+    if (isComposingRef.current || e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -60,6 +72,8 @@ export default function ChatInput({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         placeholder={placeholder}
         disabled={loading}
         rows={1}
