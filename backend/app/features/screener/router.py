@@ -24,10 +24,11 @@ import asyncio
 import time
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.deps import verify_cron_secret, verify_user_token
+from app.core.deps import verify_cron_secret, verify_user_token, optional_user_token
+from app.core.rate_limit import _get_real_ip
 from app.core.logging import get_logger
 from app.utils.timezone import utc_now_iso
 from app.features.screener.db import (
@@ -602,37 +603,69 @@ async def delete_conversation(
 research_router = APIRouter(prefix="/api/research", tags=["research"])
 
 
+@research_router.get("/quota")
+async def research_quota(
+    request: Request,
+    user_id: str | None = Depends(optional_user_token),
+):
+    """Check remaining research quota for the current user/IP."""
+    from app.features.quota.service import check_quota
+
+    client_ip = _get_real_ip(request)
+    quota = await check_quota(user_id, client_ip)
+    return {"success": True, **quota}
+
+
 @research_router.post("/chat", response_model=ResearchResult)
-async def research_chat(req: ResearchRequest, user_id: str = Depends(verify_user_token)):
-    """Unified research chat endpoint. Delegates to pick_stocks."""
+async def research_chat(
+    req: ResearchRequest,
+    request: Request,
+    user_id: str | None = Depends(optional_user_token),
+):
+    """Unified research chat endpoint. Open to all users with quota."""
+    from app.features.quota.service import consume_quota
+
+    client_ip = _get_real_ip(request)
+    quota = await consume_quota(user_id, client_ip)
+    if not quota["allowed"]:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=429,
+            detail="今日免费提问次数已用完，升级 Max 解锁无限使用",
+        )
+
     logger.info("research_chat called (new endpoint)")
-    return await pick_stocks(req, user_id)
+    return await pick_stocks(req, user_id or "anonymous")
 
 
 @research_router.get("/conversations")
-async def research_list_conversations(user_id: str = Depends(verify_user_token)):
-    """List research conversations (new endpoint)."""
-    logger.info("research_list_conversations called (new endpoint)")
+async def research_list_conversations(user_id: str | None = Depends(optional_user_token)):
+    """List research conversations. Anonymous users get empty list."""
+    if not user_id:
+        return {"conversations": []}
     return await list_conversations(user_id)
 
 
 @research_router.get("/conversations/{conversation_id}")
 async def research_get_conversation(
     conversation_id: str,
-    user_id: str = Depends(verify_user_token),
+    user_id: str | None = Depends(optional_user_token),
 ):
-    """Get a single conversation (new endpoint)."""
-    logger.info("research_get_conversation called (new endpoint)")
+    """Get a single conversation."""
+    if not user_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Login required to load conversations")
     return await get_conversation(conversation_id, user_id)
 
 
 @research_router.post("/conversations", status_code=201)
 async def research_create_conversation(
     req: ConversationSaveRequest,
-    user_id: str = Depends(verify_user_token),
+    user_id: str | None = Depends(optional_user_token),
 ):
-    """Create a research conversation (new endpoint)."""
-    logger.info("research_create_conversation called (new endpoint)")
+    """Create a research conversation. Silently skip for anonymous."""
+    if not user_id:
+        return {"id": None, "skipped": True}
     return await create_conversation(req, user_id)
 
 
@@ -640,20 +673,23 @@ async def research_create_conversation(
 async def research_update_conversation(
     conversation_id: str,
     req: ConversationSaveRequest,
-    user_id: str = Depends(verify_user_token),
+    user_id: str | None = Depends(optional_user_token),
 ):
-    """Update a research conversation (new endpoint)."""
-    logger.info("research_update_conversation called (new endpoint)")
+    """Update a research conversation. Silently skip for anonymous."""
+    if not user_id:
+        return {"success": True, "skipped": True}
     return await update_conversation(conversation_id, req, user_id)
 
 
 @research_router.delete("/conversations/{conversation_id}")
 async def research_delete_conversation(
     conversation_id: str,
-    user_id: str = Depends(verify_user_token),
+    user_id: str | None = Depends(optional_user_token),
 ):
-    """Delete a research conversation (new endpoint)."""
-    logger.info("research_delete_conversation called (new endpoint)")
+    """Delete a research conversation."""
+    if not user_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Login required")
     return await delete_conversation(conversation_id, user_id)
 
 
@@ -665,19 +701,32 @@ async def research_delete_conversation(
 @research_router.post("/chat/stream")
 async def research_chat_stream(
     req: ResearchRequest,
-    user_id: str = Depends(verify_user_token),
+    request: Request,
+    user_id: str | None = Depends(optional_user_token),
 ):
-    """SSE streaming research chat.
-
-    Uses ADK's before_tool_callback/after_tool_callback for tool events
-    and RunConfig(streaming_mode=SSE) for streaming. All orchestration
-    lives in ResearchAgent.run_stream().
-    """
+    """SSE streaming research chat. Open to all users with quota."""
     import json as _json
 
+    from app.features.quota.service import consume_quota
     from app.features.screener.research_agent import get_research_agent
 
-    logger.info("research_chat_stream called by user %s", user_id[:12])
+    # Check and consume quota before streaming
+    client_ip = _get_real_ip(request)
+    quota = await consume_quota(user_id, client_ip)
+    if not quota["allowed"]:
+        async def quota_error():
+            yield "data: %s\n\n" % _json.dumps(
+                {
+                    "type": "error",
+                    "message": "今日免费提问次数已用完，升级 Max 解锁无限使用",
+                    "quota_exceeded": True,
+                },
+                ensure_ascii=False,
+            )
+        return StreamingResponse(quota_error(), media_type="text/event-stream")
+
+    effective_user_id = user_id or "anonymous"
+    logger.info("research_chat_stream called by user %s", effective_user_id[:12])
 
     cache = await _load_universe()
     universe = cache["universe"]
@@ -712,7 +761,7 @@ async def research_chat_stream(
             accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
             universe_size=len(universe),
             content_context=req.active_context,
-            user_id=user_id,
+            user_id=effective_user_id,
         )
 
         freshness = cache.get("freshness")

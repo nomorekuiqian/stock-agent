@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = [
   '/pricing',
   '/webview-check',
   '/macro',
+  '/research',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';

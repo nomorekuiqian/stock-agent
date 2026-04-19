@@ -74,27 +74,28 @@ class TestResearchAgent:
 
 @pytest.mark.e2e
 class TestResearchChatEndpoint:
-    """Tests for POST /api/research/chat (new unified endpoint)."""
+    """Tests for POST /api/research/chat (open with quota)."""
 
     @pytest.mark.asyncio
-    async def test_chat_requires_auth(self, client):
-        """Endpoint returns 401 without auth token."""
+    async def test_chat_anonymous_not_401(self, client):
+        """Endpoint accepts anonymous requests (quota-gated, not auth-gated)."""
         resp = await client.post(
             "/api/research/chat",
             json={"message": "hello"},
-            timeout=10,
+            timeout=60,
         )
-        assert resp.status_code == 401
+        # Should get 200 or 429 (quota), never 401
+        assert resp.status_code != 401
 
     @pytest.mark.asyncio
-    async def test_chat_no_body_returns_error(self, client):
-        """No body returns 401 (auth checked before validation) or 422."""
+    async def test_chat_no_body_returns_422(self, client):
+        """No message field returns 422 validation error."""
         resp = await client.post(
             "/api/research/chat",
             json={},
             timeout=10,
         )
-        assert resp.status_code in (401, 422)
+        assert resp.status_code == 422
 
     @pytest.mark.asyncio
     async def test_chat_response_structure(self, client):
@@ -102,10 +103,8 @@ class TestResearchChatEndpoint:
         resp = await client.post(
             "/api/research/chat",
             json={"message": "test"},
-            headers={"Authorization": "Bearer test-token"},
             timeout=60,
         )
-        # May be 200 (with empty cache message) or 401 (invalid token)
         if resp.status_code == 200:
             data = resp.json()
             assert "success" in data
@@ -125,25 +124,26 @@ class TestResearchChatEndpoint:
                 "history": [{"role": "user", "content": "hi"}],
                 "accumulated_filters": [{"field": "roe", "op": "gt", "value": 15}],
             },
-            headers={"Authorization": "Bearer test-token"},
             timeout=60,
         )
-        # Should not crash; 401 (invalid token) or 200 both acceptable
-        assert resp.status_code in (200, 401)
+        # Should not crash; 200, 429 (quota) both acceptable
+        assert resp.status_code in (200, 429)
 
 
 @pytest.mark.e2e
 class TestResearchConversationsEndpoint:
-    """Tests for /api/research/conversations (new unified endpoints)."""
+    """Tests for /api/research/conversations (open with optional auth)."""
 
     @pytest.mark.asyncio
-    async def test_list_requires_auth(self, client):
-        """GET /api/research/conversations returns 401 without auth."""
+    async def test_list_anonymous_returns_empty(self, client):
+        """GET /api/research/conversations without auth returns empty list."""
         resp = await client.get(
             "/api/research/conversations",
             timeout=10,
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["conversations"] == []
 
     @pytest.mark.asyncio
     async def test_get_requires_auth(self, client):
@@ -155,24 +155,28 @@ class TestResearchConversationsEndpoint:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_create_requires_auth(self, client):
-        """POST /api/research/conversations returns 401 without auth."""
+    async def test_create_anonymous_skipped(self, client):
+        """POST /api/research/conversations without auth is silently skipped."""
         resp = await client.post(
             "/api/research/conversations",
             json={"title": "Test", "data": {}, "message_count": 0},
             timeout=10,
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data.get("skipped") is True
 
     @pytest.mark.asyncio
-    async def test_update_requires_auth(self, client):
-        """PUT /api/research/conversations/{id} returns 401 without auth."""
+    async def test_update_anonymous_skipped(self, client):
+        """PUT /api/research/conversations/{id} without auth is silently skipped."""
         resp = await client.put(
             "/api/research/conversations/some-id",
             json={"title": "Test", "data": {}, "message_count": 0},
             timeout=10,
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("skipped") is True
 
     @pytest.mark.asyncio
     async def test_delete_requires_auth(self, client):

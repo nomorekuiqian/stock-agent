@@ -197,6 +197,8 @@ class TestNoCrossFeatureImports:
         ("payment", "subscription"),    # entitlements webhook syncs Resend segments
         ("brew", "subscription"),       # brew trial activation subscribes user to emails
         ("screener", "brew"),           # research agent reads user watchlist from brew.db
+        ("screener", "quota"),          # research endpoints check/consume quota
+        ("quota", "payment"),           # quota checks Max subscription status
     }
 
     def test_no_cross_feature_imports(self):

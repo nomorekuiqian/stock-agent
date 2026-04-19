@@ -142,6 +142,8 @@ DB_WRITE_FUNCTIONS = [
     ("app.features.macro.cache.db", "set_cached"),
     # Insforge service write operations
     ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
+    # Quota
+    ("app.features.quota.db", "increment_usage"),
 ]
 
 

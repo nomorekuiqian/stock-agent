@@ -144,6 +144,21 @@ async def get_optional_user_email(
         return None
 
 
+async def optional_user_token(
+    authorization: Optional[str] = Header(None),
+) -> Optional[str]:
+    """
+    Try to verify Bearer token. Returns user_id if valid, None if missing/invalid.
+    Never raises — anonymous access is allowed.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        return await verify_user_token(authorization)
+    except HTTPException:
+        return None
+
+
 async def verify_cron_secret(
     x_cron_secret: str = Header(None, alias="X-Cron-Secret"),
 ) -> str:
