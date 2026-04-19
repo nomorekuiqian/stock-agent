@@ -306,12 +306,17 @@ async def get_liquidity_history(days: int = 365) -> dict:
                 return lookup_dict[d]
         return None
 
+    # Build lookup for fed assets (Millions -> Billions)
+    fed_by_date = {obs["date"]: obs["value"] / 1000 for obs in fed_data["observations"]}
+
+    # Use the union of all three core series dates as backbone
+    # so the chart extends as far as any component has data
+    all_dates = sorted(set(fed_by_date.keys()) | set(tga_by_date.keys()) | set(rrp_by_date.keys()))
+
     net_liquidity_history = []
 
-    for obs in fed_data["observations"]:
-        date = obs["date"]
-        fed_val = obs["value"] / 1000
-
+    for date in all_dates:
+        fed_val = find_closest_value(fed_by_date, date)
         tga_val = find_closest_value(tga_by_date, date)
         rrp_val = find_closest_value(rrp_by_date, date)
         reserves_val = find_closest_value(reserves_by_date, date)

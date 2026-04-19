@@ -382,7 +382,33 @@ export function OverviewTab({
           <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
             {!hasAIAccess ? (
               <AIPaywall symbol={symbol} label="AI 投研分析" />
-            ) : !hasAnalysis && !analysisLoading ? (
+            ) : hasAnalysis ? (
+              <>
+                <div className="px-4 py-2.5 border-b border-border/20 bg-card/40 flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">AI 投研分析</span>
+                  {hasAIAccess && (
+                    <button onClick={onRegenerate} disabled={analysisLoading}
+                      className="text-muted-foreground hover:text-emerald-400 transition-colors p-1 rounded cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:outline-none disabled:opacity-50" title="重新生成">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="px-4 py-3">
+                  <AnalysisSection label="公司概览" content={getAI('company_profile') || getAI('company_overview')} accentColor="emerald" />
+                  <AnalysisSection label="财务健康" content={getAI('financial_health')} accentColor="emerald" />
+                  <AnalysisSection label="估值判断" content={getAI('valuation_judgment')} accentColor="emerald" />
+                  <AnalysisSection label="催化剂与风险" content={getAI('catalysts_and_risks')} accentColor="emerald" defaultOpen={false} />
+                  <AnalysisSection label="投资摘要" content={getAI('investment_summary')} accentColor="emerald" />
+                </div>
+              </>
+            ) : analysisLoading ? (
+              <div className="p-8 text-center">
+                <div className="w-6 h-6 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs text-muted-foreground">正在生成 {symbol} 投资分析...</p>
+              </div>
+            ) : (
               <div className="p-6 text-center">
                 <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-emerald-500/50 mb-3">
                   <div className="w-4 h-px bg-emerald-500/25" />
@@ -403,30 +429,6 @@ export function OverviewTab({
                   </svg>
                 </button>
               </div>
-            ) : analysisLoading ? (
-              <div className="p-8 text-center">
-                <div className="w-6 h-6 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-xs text-muted-foreground">正在生成 {symbol} 投资分析...</p>
-              </div>
-            ) : (
-              <>
-                <div className="px-4 py-2.5 border-b border-border/20 bg-card/40 flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">AI 投研分析</span>
-                  <button onClick={onRegenerate} disabled={analysisLoading}
-                    className="text-muted-foreground hover:text-emerald-400 transition-colors p-1 rounded cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:outline-none disabled:opacity-50" title="重新生成">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="px-4 py-3">
-                  <AnalysisSection label="公司概览" content={getAI('company_profile') || getAI('company_overview')} accentColor="emerald" />
-                  <AnalysisSection label="财务健康" content={getAI('financial_health')} accentColor="emerald" />
-                  <AnalysisSection label="估值判断" content={getAI('valuation_judgment')} accentColor="emerald" />
-                  <AnalysisSection label="催化剂与风险" content={getAI('catalysts_and_risks')} accentColor="emerald" defaultOpen={false} />
-                  <AnalysisSection label="投资摘要" content={getAI('investment_summary')} accentColor="emerald" />
-                </div>
-              </>
             )}
           </div>
         </div>
