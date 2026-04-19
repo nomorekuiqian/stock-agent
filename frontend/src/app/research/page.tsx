@@ -4,7 +4,6 @@ import { useReducer, useCallback, useEffect, useState, useRef, Suspense } from '
 import ReactDOM from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import PaywallGuard from '@/components/PaywallGuard';
 import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
@@ -60,6 +59,7 @@ function ScreenerContent() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [quota, setQuota] = useState<{ allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean } | null>(null);
   const stockContextRef = useRef<StockContextPayload | null>(null);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
@@ -189,7 +189,6 @@ function ScreenerContent() {
   // Load conversation list when on welcome screen, or when history sidebar opens in chat phase
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) return;
     if (state.phase !== 'welcome' && !historyOpen) return;
     let cancelled = false;
     api.research.conversations.list()
@@ -203,14 +202,14 @@ function ScreenerContent() {
         if (!cancelled) setConversationsLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [state.phase, authLoading, isAuthenticated, historyOpen, state.conversationId]);
+  }, [state.phase, authLoading, historyOpen, state.conversationId]);
 
-  // Auth redirect
+  // Fetch quota on mount and when messages change
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login?redirect=/research');
-    }
-  }, [authLoading, isAuthenticated, router]);
+    api.research.quota().then(q => {
+      if (q.success) setQuota(q);
+    }).catch(() => {});
+  }, [state.messages.length]);
 
   // Reset scroll position when transitioning from welcome to chat
   useEffect(() => {
@@ -465,6 +464,7 @@ function ScreenerContent() {
       }
 
       let streamResult: ResearchResult | null = null;
+      let streamErrorHandled = false;
 
       await api.research.chatStream(
         {
@@ -486,13 +486,19 @@ function ScreenerContent() {
           } else if (event.type === 'done' && event.result) {
             streamResult = event.result as ResearchResult;
           } else if (event.type === 'error') {
-            dispatch({ type: 'SET_ERROR', error: event.message || 'AI 助手暂时无法响应' });
+            streamErrorHandled = true;
+            const msg = (event as Record<string, unknown>).quota_exceeded
+              ? '今日免费提问次数已用完。点击输入框下方的「升级 Max」即可解锁无限使用。'
+              : event.message || 'AI 助手暂时无法响应';
+            dispatch({ type: 'SET_ERROR', error: msg });
           }
         },
       );
 
       if (!streamResult) {
-        dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
+        if (!streamErrorHandled) {
+          dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
+        }
         return;
       }
 
@@ -835,8 +841,6 @@ function ScreenerContent() {
     );
   }
 
-  if (!isAuthenticated) return null;
-
   // Welcome phase — same sidebar as chat phase
   if (state.phase === 'welcome') {
     return (
@@ -885,6 +889,7 @@ function ScreenerContent() {
               onSelect={handleSend}
               universeSize={state.universeSize || undefined}
               userName={user?.name}
+              quota={quota}
             />
           </div>
         </div>
@@ -967,6 +972,7 @@ function ScreenerContent() {
               loading={state.isLoading}
               onCancelLoading={state.isLoading ? handleCancelLoading : undefined}
               toolActivities={state.toolActivities}
+              quota={quota}
             />
           </div>
         </div>
@@ -1011,10 +1017,8 @@ function ScreenerContent() {
 
 export default function ScreenerPage() {
   return (
-    <PaywallGuard requiredFeature="ai_research_engine">
-      <Suspense>
-        <ScreenerContent />
-      </Suspense>
-    </PaywallGuard>
+    <Suspense>
+      <ScreenerContent />
+    </Suspense>
   );
 }

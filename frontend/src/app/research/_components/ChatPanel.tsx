@@ -14,6 +14,14 @@ export interface ToolActivity {
   status: 'start' | 'end';
 }
 
+interface QuotaInfo {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+  unlimited: boolean;
+}
+
 interface ChatPanelProps {
   messages: ChatMsg[];
   onSend: (message: string) => void;
@@ -21,6 +29,7 @@ interface ChatPanelProps {
   onCancelLoading?: () => void;
   inputPlaceholder?: string;
   toolActivities?: ToolActivity[];
+  quota?: QuotaInfo | null;
 }
 
 /**
@@ -33,7 +42,7 @@ interface ChatPanelProps {
  * - Newest AI message gets word-by-word animation
  * - Option chips under AI messages
  */
-export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [] }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [], quota }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -177,6 +186,7 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
           loading={loading}
           onCancel={onCancelLoading}
           placeholder={inputPlaceholder}
+          quota={quota}
         />
       </div>
     </div>
