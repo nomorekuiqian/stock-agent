@@ -20,12 +20,8 @@ import type { LoadConversationData } from './_lib/researchReducer';
 import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
 import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
-import type { MacroContextPayload } from './_components/MacroOverview';
+import type { MacroPanelContextPayload } from './_components/panel/MacroPanelView';
 import type { BrewContextPayload } from './_components/BrewDigestView';
-import type { LiquidityContextPayload } from './_components/LiquidityView';
-import type { EconomyContextPayload } from './_components/EconomyView';
-import type { InflationContextPayload } from './_components/InflationView';
-import type { SentimentContextPayload } from './_components/SentimentView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
@@ -67,12 +63,8 @@ function ScreenerContent() {
   const stockContextRef = useRef<StockContextPayload | null>(null);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
-  const macroContextRef = useRef<MacroContextPayload | null>(null);
+  const macroPanelContextRef = useRef<MacroPanelContextPayload | null>(null);
   const brewContextRef = useRef<BrewContextPayload | null>(null);
-  const liquidityContextRef = useRef<LiquidityContextPayload | null>(null);
-  const economyContextRef = useRef<EconomyContextPayload | null>(null);
-  const inflationContextRef = useRef<InflationContextPayload | null>(null);
-  const sentimentContextRef = useRef<SentimentContextPayload | null>(null);
   const convCache = useRef<Map<string, Record<string, unknown>>>(new Map());
   const pendingSeed = useRef<string | null>(null);
   const pendingSeedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -376,35 +368,15 @@ function ScreenerContent() {
     flushPendingSeed();
   }, [flushPendingSeed]);
 
-  // Receive macro data from MacroOverview for Agent context
-  const handleMacroContextReady = useCallback((payload: MacroContextPayload) => {
-    macroContextRef.current = payload;
+  // Receive macro panel data from MacroPanelView for Agent context
+  const handleMacroPanelContextReady = useCallback((payload: MacroPanelContextPayload) => {
+    macroPanelContextRef.current = payload;
     flushPendingSeed();
   }, [flushPendingSeed]);
 
   // Receive brew digest data from BrewDigestView for Agent context
   const handleBrewContextReady = useCallback((payload: BrewContextPayload) => {
     brewContextRef.current = payload;
-    flushPendingSeed();
-  }, [flushPendingSeed]);
-
-  const handleLiquidityContextReady = useCallback((payload: LiquidityContextPayload) => {
-    liquidityContextRef.current = payload;
-    flushPendingSeed();
-  }, [flushPendingSeed]);
-
-  const handleEconomyContextReady = useCallback((payload: EconomyContextPayload) => {
-    economyContextRef.current = payload;
-    flushPendingSeed();
-  }, [flushPendingSeed]);
-
-  const handleInflationContextReady = useCallback((payload: InflationContextPayload) => {
-    inflationContextRef.current = payload;
-    flushPendingSeed();
-  }, [flushPendingSeed]);
-
-  const handleSentimentContextReady = useCallback((payload: SentimentContextPayload) => {
-    sentimentContextRef.current = payload;
     flushPendingSeed();
   }, [flushPendingSeed]);
 
@@ -461,44 +433,21 @@ function ScreenerContent() {
           today_focus: ctx.today_focus ?? undefined,
           morning_summary: ctx.summary ?? undefined,
         };
-      } else if (state.activeContent.type === 'macro' && macroContextRef.current) {
-        const ctx = macroContextRef.current;
+      } else if ((state.activeContent.type === 'macro' || state.activeContent.type.startsWith('macro_')) && macroPanelContextRef.current) {
+        const ctx = macroPanelContextRef.current;
         activeContext = {
-          type: ctx.type,
-          week_label: ctx.week_label ?? undefined,
-          verdict: ctx.verdict ?? undefined,
-          signal_lights: ctx.signal_lights ?? undefined,
-          landscape: ctx.landscape ?? undefined,
-          narrative: ctx.narrative ?? undefined,
-          takeaway: ctx.takeaway ?? undefined,
-        };
-      } else if (state.activeContent.type === 'macro_liquidity' && liquidityContextRef.current) {
-        const ctx = liquidityContextRef.current;
-        activeContext = {
-          type: 'macro_liquidity',
-          net_liquidity: ctx.net_liquidity ?? undefined,
-          net_liquidity_change: ctx.net_liquidity_change ?? undefined,
-        };
-      } else if (state.activeContent.type === 'macro_economy' && economyContextRef.current) {
-        const ctx = economyContextRef.current;
-        activeContext = {
-          type: 'macro_economy',
-          overall_headline: ctx.overall_headline ?? undefined,
-          dimensions: ctx.dimensions ?? undefined,
-        };
-      } else if (state.activeContent.type === 'macro_inflation' && inflationContextRef.current) {
-        const ctx = inflationContextRef.current;
-        activeContext = {
-          type: 'macro_inflation',
-          overall_headline: ctx.overall_headline ?? undefined,
-          cpi_components: ctx.cpi_components ?? undefined,
-        };
-      } else if (state.activeContent.type === 'macro_sentiment' && sentimentContextRef.current) {
-        const ctx = sentimentContextRef.current;
-        activeContext = {
-          type: 'macro_sentiment',
-          overall_score: ctx.overall_score ?? undefined,
-          overall_headline: ctx.overall_headline ?? undefined,
+          type: 'macro',
+          active_tab: ctx.active_tab,
+          week_label: ctx.week_label,
+          verdict: ctx.verdict,
+          signal_lights: ctx.signal_lights,
+          landscape: ctx.landscape,
+          narrative: ctx.narrative,
+          takeaway: ctx.takeaway,
+          liquidity: ctx.liquidity,
+          economy: ctx.economy,
+          inflation: ctx.inflation,
+          sentiment: ctx.sentiment,
         };
       } else if (state.activeContent.type === 'brew' && brewContextRef.current) {
         const ctx = brewContextRef.current;
@@ -586,7 +535,7 @@ function ScreenerContent() {
         });
         setMobileTab('results');
       } else if (result.navigate?.type === 'macro') {
-        macroContextRef.current = null;
+        macroPanelContextRef.current = null;
         dispatch({
           type: 'PUSH_CONTENT',
           content: {
@@ -624,7 +573,7 @@ function ScreenerContent() {
           macro_inflation: 'inflation',
           macro_sentiment: 'sentiment',
         };
-        macroContextRef.current = null;
+        macroPanelContextRef.current = null;
         dispatch({
           type: 'PUSH_CONTENT',
           content: {
@@ -641,12 +590,8 @@ function ScreenerContent() {
         stockContextRef.current = null;
         reportContextRef.current = null;
         morningContextRef.current = null;
-        macroContextRef.current = null;
+        macroPanelContextRef.current = null;
         brewContextRef.current = null;
-        liquidityContextRef.current = null;
-        economyContextRef.current = null;
-        inflationContextRef.current = null;
-        sentimentContextRef.current = null;
         dispatch({
           type: 'SWITCH_CONTENT',
           content: {
@@ -1051,12 +996,8 @@ function ScreenerContent() {
             onStockContextReady={handleStockContextReady}
             onReportContextReady={handleReportContextReady}
             onMorningContextReady={handleMorningContextReady}
-            onMacroContextReady={handleMacroContextReady}
+            onMacroPanelContextReady={handleMacroPanelContextReady}
             onBrewContextReady={handleBrewContextReady}
-            onLiquidityContextReady={handleLiquidityContextReady}
-            onEconomyContextReady={handleEconomyContextReady}
-            onInflationContextReady={handleInflationContextReady}
-            onSentimentContextReady={handleSentimentContextReady}
           />
         </div>
       </div>

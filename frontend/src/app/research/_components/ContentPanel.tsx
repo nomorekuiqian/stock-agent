@@ -5,23 +5,15 @@ import type { FilterStep } from './FilterProgress';
 import type { StockPanelContextPayload } from './panel/StockPanelView';
 import type { DailyReportContextPayload } from './DailyReportView';
 import type { MorningReportContextPayload } from './MorningReportView';
-import type { MacroContextPayload } from './MacroOverview';
 import type { BrewContextPayload } from './BrewDigestView';
-import type { LiquidityContextPayload } from './LiquidityView';
-import type { EconomyContextPayload } from './EconomyView';
-import type { InflationContextPayload } from './InflationView';
-import type { SentimentContextPayload } from './SentimentView';
+import type { MacroPanelContextPayload } from './panel/MacroPanelView';
 import type { StockTab, MacroTab } from '../_lib/contentTypes';
 import ResultsPanel from './ResultsPanel';
 import StockPanelView from './panel/StockPanelView';
+import MacroPanelView from './panel/MacroPanelView';
 import DailyReportView from './DailyReportView';
 import MorningReportView from './MorningReportView';
-import MacroOverview from './MacroOverview';
 import BrewDigestView from './BrewDigestView';
-import LiquidityView from './LiquidityView';
-import EconomyView from './EconomyView';
-import InflationView from './InflationView';
-import SentimentView from './SentimentView';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -48,14 +40,10 @@ interface ContentPanelProps {
   onReportContextReady?: (payload: DailyReportContextPayload) => void;
   /** Called when morning report data is loaded in MorningReportView, for Agent context. */
   onMorningContextReady?: (payload: MorningReportContextPayload) => void;
-  /** Called when macro data is loaded in MacroOverview, for Agent context. */
-  onMacroContextReady?: (payload: MacroContextPayload) => void;
+  /** Called when macro panel data is loaded in MacroPanelView, for Agent context. */
+  onMacroPanelContextReady?: (payload: MacroPanelContextPayload) => void;
   /** Called when brew digest data is loaded in BrewDigestView, for Agent context. */
   onBrewContextReady?: (payload: BrewContextPayload) => void;
-  onLiquidityContextReady?: (payload: LiquidityContextPayload) => void;
-  onEconomyContextReady?: (payload: EconomyContextPayload) => void;
-  onInflationContextReady?: (payload: InflationContextPayload) => void;
-  onSentimentContextReady?: (payload: SentimentContextPayload) => void;
 }
 
 export default function ContentPanel({
@@ -66,12 +54,8 @@ export default function ContentPanel({
   onStockContextReady,
   onReportContextReady,
   onMorningContextReady,
-  onMacroContextReady,
+  onMacroPanelContextReady,
   onBrewContextReady,
-  onLiquidityContextReady,
-  onEconomyContextReady,
-  onInflationContextReady,
-  onSentimentContextReady,
 }: ContentPanelProps) {
   return (
     <div className="flex flex-col h-full">
@@ -125,30 +109,26 @@ export default function ContentPanel({
           />
         )}
 
-        {activeContent.type === 'macro' && (() => {
-          const macroTab = activeContent.params.tab as MacroTab | undefined;
-          if (macroTab === 'liquidity') return <LiquidityView onContextReady={onLiquidityContextReady} />;
-          if (macroTab === 'economy') return <EconomyView onContextReady={onEconomyContextReady} />;
-          if (macroTab === 'inflation') return <InflationView onContextReady={onInflationContextReady} />;
-          if (macroTab === 'sentiment') return <SentimentView onContextReady={onSentimentContextReady} />;
-          return <MacroOverview onContextReady={onMacroContextReady} />;
-        })()}
+        {activeContent.type === 'macro' && (
+          <MacroPanelView
+            key={`macro-${activeContent.params.tab || 'overview'}`}
+            defaultTab={(activeContent.params.tab as MacroTab) || undefined}
+            onContextReady={onMacroPanelContextReady}
+          />
+        )}
 
-        {/* Legacy: keep old macro_* types working for backward compat */}
+        {/* Legacy: map old macro_* types through MacroPanelView */}
         {activeContent.type === 'macro_liquidity' && (
-          <LiquidityView onContextReady={onLiquidityContextReady} />
+          <MacroPanelView key="macro-liquidity" defaultTab="liquidity" onContextReady={onMacroPanelContextReady} />
         )}
-
         {activeContent.type === 'macro_economy' && (
-          <EconomyView onContextReady={onEconomyContextReady} />
+          <MacroPanelView key="macro-economy" defaultTab="economy" onContextReady={onMacroPanelContextReady} />
         )}
-
         {activeContent.type === 'macro_inflation' && (
-          <InflationView onContextReady={onInflationContextReady} />
+          <MacroPanelView key="macro-inflation" defaultTab="inflation" onContextReady={onMacroPanelContextReady} />
         )}
-
         {activeContent.type === 'macro_sentiment' && (
-          <SentimentView onContextReady={onSentimentContextReady} />
+          <MacroPanelView key="macro-sentiment" defaultTab="sentiment" onContextReady={onMacroPanelContextReady} />
         )}
 
         {activeContent.type === 'brew' && (

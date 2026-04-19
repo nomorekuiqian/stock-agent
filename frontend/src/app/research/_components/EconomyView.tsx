@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useEconomicFundamentals } from '@/hooks/queries/use-macro-data';
 import type { SubDimension } from '@/lib/api';
+import { DeepDiveSection } from '@/app/macro/economy/components';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,6 +18,7 @@ export interface EconomyContextPayload {
 }
 
 interface EconomyViewProps {
+  embedded?: boolean;
   onContextReady?: (payload: EconomyContextPayload) => void;
 }
 
@@ -42,14 +44,20 @@ const RISK_LABELS: Record<string, string> = {
   high: '高风险',
 };
 
+const DIM_TABS: { key: string; label: string }[] = [
+  { key: 'growth', label: '增长' },
+  { key: 'employment', label: '就业' },
+  { key: 'credit', label: '信用' },
+];
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export default function EconomyView({ onContextReady }: EconomyViewProps) {
+export default function EconomyView({ embedded, onContextReady }: EconomyViewProps) {
   const { data: response, isLoading, error } = useEconomicFundamentals();
   const econ = response?.success ? response.data : null;
-  const [selectedDim, setSelectedDim] = useState(0);
+  const [selectedDim, setSelectedDim] = useState('growth');
 
   useEffect(() => {
     if (!onContextReady || !econ) return;
@@ -87,18 +95,21 @@ export default function EconomyView({ onContextReady }: EconomyViewProps) {
     );
   }
 
-  const dims = econ.sub_dimensions;
-  const activeDim: SubDimension | undefined = dims[selectedDim];
+  const activeDim: SubDimension | undefined = econ.sub_dimensions.find((d) => d.name === selectedDim);
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="px-5 pt-4 pb-4">
-        <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">ECONOMY</span>
-        <h2 className="text-xl font-editorial text-foreground leading-tight mt-1">经济基本面</h2>
-        <p className="text-sm text-muted-foreground mt-1">增长、就业、信用风险</p>
-      </div>
+    <div className={embedded ? '' : 'h-full overflow-y-auto'}>
+      {!embedded && (
+        <>
+          <div className="px-5 pt-4 pb-4">
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">ECONOMY</span>
+            <h2 className="text-xl font-editorial text-foreground leading-tight mt-1">经济基本面</h2>
+            <p className="text-sm text-muted-foreground mt-1">增长、就业、信用风险</p>
+          </div>
 
-      <div className="border-b border-border/30" />
+          <div className="border-b border-border/30" />
+        </>
+      )}
 
       <div className="px-5 py-5 space-y-6">
         {/* Overall Score */}
@@ -120,54 +131,25 @@ export default function EconomyView({ onContextReady }: EconomyViewProps) {
 
         {/* Dimension Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {dims.map((dim, i) => (
+          {DIM_TABS.map((t) => (
             <button
-              key={dim.name}
-              onClick={() => setSelectedDim(i)}
-              className={`shrink-0 flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                selectedDim === i
+              key={t.key}
+              onClick={() => setSelectedDim(t.key)}
+              className={`shrink-0 flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                selectedDim === t.key
                   ? 'border-primary/40 bg-primary/10 text-foreground'
                   : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
               }`}
             >
-              <div className={`w-2 h-2 rounded-full ${RISK_COLORS[dim.risk_level] || 'bg-muted'}`} />
-              {dim.name_zh}
+              <div className={`w-2 h-2 rounded-full ${RISK_COLORS[econ.sub_dimensions.find(d => d.name === t.key)?.risk_level ?? ''] || 'bg-muted'}`} />
+              {t.label}
             </button>
           ))}
         </div>
 
-        {/* Active Dimension Detail */}
+        {/* Deep dive section with full charts */}
         {activeDim && (
-          <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border/40 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-foreground">{activeDim.name_zh}</h3>
-                <span className={`text-xs font-medium ${RISK_TEXT_COLORS[activeDim.risk_level] || ''}`}>
-                  风险: {activeDim.score.toFixed(1)}/10
-                </span>
-              </div>
-              <p className="text-sm text-foreground leading-relaxed mb-4">{activeDim.headline}</p>
-
-              {/* Indicators */}
-              <div className="space-y-2">
-                {activeDim.indicators.map((ind) => (
-                  <div key={ind.series_id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
-                    <span className="text-xs text-muted-foreground">{ind.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-foreground tabular-nums">
-                        {ind.value != null ? ind.value.toLocaleString() : '--'}
-                      </span>
-                      {ind.change != null && (
-                        <span className={`text-xs tabular-nums ${ind.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                          {ind.change >= 0 ? '+' : ''}{ind.change.toFixed(2)}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <DeepDiveSection dim={activeDim} theme="dark" interval="W" />
         )}
       </div>
     </div>

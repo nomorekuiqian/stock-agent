@@ -22,6 +22,7 @@ export interface MacroContextPayload {
 }
 
 interface MacroOverviewProps {
+  embedded?: boolean;
   onContextReady?: (payload: MacroContextPayload) => void;
 }
 
@@ -142,7 +143,7 @@ function formatWeekLabel(label: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
+export default function MacroOverview({ embedded, onContextReady }: MacroOverviewProps) {
   const { data: response, isLoading, error } = useWeeklyReport();
   const report = response?.success ? response.data : null;
 
@@ -211,22 +212,26 @@ export default function MacroOverview({ onContextReady }: MacroOverviewProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      {/* Header */}
-      <div className="px-5 pt-4 pb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MACRO WEEKLY</span>
-        </div>
-        <h2 className="text-xl font-editorial text-foreground leading-tight">
-          {report.title || '宏观周报'}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          {formatWeekLabel(report.week_label)} &middot; {report.generated_at ? new Date(report.generated_at).toLocaleDateString('zh-CN') : ''}
-        </p>
-      </div>
+    <div className={embedded ? '' : 'h-full overflow-y-auto'}>
+      {!embedded && (
+        <>
+          {/* Header */}
+          <div className="px-5 pt-4 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MACRO WEEKLY</span>
+            </div>
+            <h2 className="text-xl font-editorial text-foreground leading-tight">
+              {report.title || '宏观周报'}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {formatWeekLabel(report.week_label)} &middot; {report.generated_at ? new Date(report.generated_at).toLocaleDateString('zh-CN') : ''}
+            </p>
+          </div>
 
-      {/* Divider */}
-      <div className="border-b border-border/30" />
+          {/* Divider */}
+          <div className="border-b border-border/30" />
+        </>
+      )}
 
       {/* Content */}
       <div className="px-5 py-5 space-y-6">

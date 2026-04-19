@@ -825,13 +825,19 @@ export interface ResearchRequest {
     stocks?: unknown;
     events?: unknown;
     summary_content?: string;
-    // macro sub-page fields (liquidity / economy / inflation / sentiment)
+    // macro sub-page fields (legacy flat format)
     net_liquidity?: number;
     net_liquidity_change?: number;
     overall_headline?: string;
     dimensions?: unknown;
     cpi_components?: unknown;
     overall_score?: number;
+    // Unified macro panel data (all dimensions in one payload)
+    active_tab?: string;
+    liquidity?: unknown;
+    economy?: unknown;
+    inflation?: unknown;
+    sentiment?: unknown;
   };
 }
 

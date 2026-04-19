@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import StockPanelView from '../_components/panel/StockPanelView';
+import MacroPanelView from '../_components/panel/MacroPanelView';
 import DailyReportView from '../_components/DailyReportView';
 import MorningReportView from '../_components/MorningReportView';
 import MacroOverview from '../_components/MacroOverview';
@@ -24,6 +25,12 @@ interface PanelEntry {
 
 const PANELS: PanelEntry[] = [
   {
+    id: 'macro_panel',
+    label: '宏观市场 (Panel)',
+    description: 'MacroPanelView - 周报/流动性/经济/通胀/情绪 五合一面板',
+    render: () => <MacroPanelView />,
+  },
+  {
     id: 'daily_report',
     label: '市场日报',
     description: 'DailyReportView - 每日市场总结、指数、新闻、日历',
@@ -37,8 +44,8 @@ const PANELS: PanelEntry[] = [
   },
   {
     id: 'macro_overview',
-    label: '宏观总览',
-    description: 'MacroOverview - 宏观风险仪表盘，信号灯、四维分析',
+    label: '宏观总览 (旧)',
+    description: 'MacroOverview - 独立宏观周报视图（已整合入宏观面板）',
     render: () => <MacroOverview />,
   },
   {
