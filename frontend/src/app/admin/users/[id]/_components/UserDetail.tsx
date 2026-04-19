@@ -88,7 +88,7 @@ export function UserDetail({
 }) {
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
-  const [showInteractionForm, setShowInteractionForm] = useState(false);
+  const [showDetailedForm, setShowDetailedForm] = useState(false);
 
   const profile = data.profile;
   const sub = data.subscription;
@@ -133,7 +133,9 @@ export function UserDetail({
     summary: '',
     content: '',
     sentiment: 'neutral',
+    key_feedback: [] as string[],
   });
+  const [feedbackInput, setFeedbackInput] = useState('');
 
   const addInteraction = useCallback(async () => {
     if (!newInteraction.summary.trim()) return;
@@ -152,8 +154,9 @@ export function UserDetail({
           ...d,
           interactions: [result.interaction, ...d.interactions],
         }));
-        setNewInteraction({ type: '微信', summary: '', content: '', sentiment: 'neutral' });
-        setShowInteractionForm(false);
+        setNewInteraction({ type: '微信', summary: '', content: '', sentiment: 'neutral', key_feedback: [] });
+        setFeedbackInput('');
+        setShowDetailedForm(false);
       }
     } finally {
       setSaving(false);
@@ -168,6 +171,19 @@ export function UserDetail({
       setData((d) => ({
         ...d,
         interactions: d.interactions.filter((i) => i.id !== id),
+      }));
+    }
+  }, [cronSecret]);
+
+  const updateInteraction = useCallback(async (id: string, updates: Record<string, unknown>) => {
+    const result = await crmFetch('/interactions', cronSecret, {
+      method: 'PUT',
+      body: JSON.stringify({ id, ...updates }),
+    });
+    if (result.interaction) {
+      setData((d) => ({
+        ...d,
+        interactions: d.interactions.map((i) => i.id === id ? result.interaction : i),
       }));
     }
   }, [cronSecret]);
@@ -348,85 +364,154 @@ export function UserDetail({
             />
           )}
 
-          {/* Interactions timeline */}
+          {/* Interactions */}
           <div className="space-y-4">
-          <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">交互记录</h2>
-            <button
-              onClick={() => setShowInteractionForm(!showInteractionForm)}
-              className="rounded-lg bg-foreground text-background px-3 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              {showInteractionForm ? '取消' : '+ 新记录'}
-            </button>
-          </div>
 
-          {/* New interaction form */}
-          {showInteractionForm && (
-            <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="类型" compact>
-                  <select
-                    value={newInteraction.type}
-                    onChange={(e) => setNewInteraction((p) => ({ ...p, type: e.target.value }))}
-                    className="input-field"
-                  >
-                    {INTERACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </Field>
-                <Field label="情绪" compact>
-                  <select
-                    value={newInteraction.sentiment}
-                    onChange={(e) => setNewInteraction((p) => ({ ...p, sentiment: e.target.value }))}
-                    className="input-field"
-                  >
-                    {SENTIMENTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                </Field>
-              </div>
-              <Field label="摘要" compact>
+            {/* Quick entry bar */}
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 p-3">
+                <select
+                  value={newInteraction.type}
+                  onChange={(e) => setNewInteraction((p) => ({ ...p, type: e.target.value }))}
+                  className="text-xs border border-border rounded-md px-2 py-1.5 bg-background shrink-0"
+                >
+                  {INTERACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
                 <input
                   type="text"
                   value={newInteraction.summary}
                   onChange={(e) => setNewInteraction((p) => ({ ...p, summary: e.target.value }))}
-                  className="input-field"
-                  placeholder="一句话总结这次沟通"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing && newInteraction.summary.trim() && !showDetailedForm) {
+                      addInteraction();
+                    }
+                  }}
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+                  placeholder="记录一次沟通... (Enter 快速保存)"
                 />
-              </Field>
-              <Field label="详细内容" compact>
-                <textarea
-                  value={newInteraction.content}
-                  onChange={(e) => setNewInteraction((p) => ({ ...p, content: e.target.value }))}
-                  rows={6}
-                  className="input-field resize-none"
-                  placeholder="完整聊天记录、要点记录..."
-                />
-              </Field>
-              <button
-                onClick={addInteraction}
-                disabled={saving || !newInteraction.summary.trim()}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-              >
-                {saving ? '保存中...' : '保存记录'}
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={() => setShowDetailedForm(!showDetailedForm)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 px-2 py-1"
+                >
+                  {showDetailedForm ? '收起' : '展开'}
+                </button>
+                {!showDetailedForm && newInteraction.summary.trim() && (
+                  <button
+                    onClick={addInteraction}
+                    disabled={saving}
+                    className="text-xs bg-emerald-600 text-white rounded-md px-3 py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors shrink-0"
+                  >
+                    保存
+                  </button>
+                )}
+              </div>
 
-          {/* Timeline */}
-          {data.interactions.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              暂无交互记录
+              {showDetailedForm && (
+                <div className="border-t border-border p-3 space-y-3 bg-muted/20">
+                  <Field label="情绪" compact>
+                    <div className="flex gap-2">
+                      {SENTIMENTS.map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => setNewInteraction((p) => ({ ...p, sentiment: s.value }))}
+                          className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                            newInteraction.sentiment === s.value
+                              ? `${s.color} bg-muted ring-1 ring-current`
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="详细内容" compact>
+                    <textarea
+                      value={newInteraction.content}
+                      onChange={(e) => setNewInteraction((p) => ({ ...p, content: e.target.value }))}
+                      rows={4}
+                      className="input-field resize-none"
+                      placeholder="完整聊天记录、要点记录..."
+                    />
+                  </Field>
+                  <Field label="关键反馈" compact>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {newInteraction.key_feedback.map((f, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-700">
+                          {f}
+                          <button
+                            onClick={() => setNewInteraction((p) => ({
+                              ...p,
+                              key_feedback: p.key_feedback.filter((_, idx) => idx !== i),
+                            }))}
+                            className="hover:text-purple-900"
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={feedbackInput}
+                        onChange={(e) => setFeedbackInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                            e.preventDefault();
+                            const val = feedbackInput.trim();
+                            if (val && !newInteraction.key_feedback.includes(val)) {
+                              setNewInteraction((p) => ({ ...p, key_feedback: [...p.key_feedback, val] }));
+                            }
+                            setFeedbackInput('');
+                          }
+                        }}
+                        className="input-field flex-1"
+                        placeholder="输入后 Enter 添加"
+                      />
+                    </div>
+                  </Field>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setNewInteraction({ type: '微信', summary: '', content: '', sentiment: 'neutral', key_feedback: [] });
+                        setFeedbackInput('');
+                        setShowDetailedForm(false);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={addInteraction}
+                      disabled={saving || !newInteraction.summary.trim()}
+                      className="text-xs bg-emerald-600 text-white rounded-md px-3 py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                      {saving ? '保存中...' : '保存记录'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {data.interactions.map((interaction) => (
-                <InteractionCard
-                  key={interaction.id}
-                  interaction={interaction}
-                  onDelete={deleteInteraction}
-                />
-              ))}
-            </div>
-          )}
+
+            {/* Timeline */}
+            {data.interactions.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                暂无交互记录
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {data.interactions.map((interaction) => (
+                  <InteractionCard
+                    key={interaction.id}
+                    interaction={interaction}
+                    onDelete={deleteInteraction}
+                    onUpdate={updateInteraction}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -499,12 +584,151 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
 function InteractionCard({
   interaction,
   onDelete,
+  onUpdate,
 }: {
   interaction: Interaction;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sentimentCfg = SENTIMENTS.find((s) => s.value === interaction.sentiment);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    type: interaction.type ?? '',
+    summary: interaction.summary ?? '',
+    content: interaction.content ?? '',
+    sentiment: interaction.sentiment ?? 'neutral',
+    key_feedback: [...(interaction.key_feedback ?? [])],
+  });
+  const [editFeedbackInput, setEditFeedbackInput] = useState('');
+
+  const startEdit = () => {
+    setEditForm({
+      type: interaction.type ?? '',
+      summary: interaction.summary ?? '',
+      content: interaction.content ?? '',
+      sentiment: interaction.sentiment ?? 'neutral',
+      key_feedback: [...(interaction.key_feedback ?? [])],
+    });
+    setEditFeedbackInput('');
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!editForm.summary.trim()) return;
+    setSaving(true);
+    try {
+      await onUpdate(interaction.id, editForm);
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sentimentCfg = SENTIMENTS.find((s) => s.value === (isEditing ? editForm.sentiment : interaction.sentiment));
+
+  if (isEditing) {
+    return (
+      <div className="border border-emerald-300/60 rounded-lg p-4 space-y-3 bg-emerald-50/30">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="类型" compact>
+            <select
+              value={editForm.type}
+              onChange={(e) => setEditForm((p) => ({ ...p, type: e.target.value }))}
+              className="input-field"
+            >
+              {INTERACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </Field>
+          <Field label="情绪" compact>
+            <div className="flex gap-2 items-center h-[34px]">
+              {SENTIMENTS.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setEditForm((p) => ({ ...p, sentiment: s.value }))}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                    editForm.sentiment === s.value
+                      ? `${s.color} bg-muted ring-1 ring-current`
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </div>
+        <Field label="摘要" compact>
+          <input
+            type="text"
+            value={editForm.summary}
+            onChange={(e) => setEditForm((p) => ({ ...p, summary: e.target.value }))}
+            className="input-field"
+          />
+        </Field>
+        <Field label="详细内容" compact>
+          <textarea
+            value={editForm.content}
+            onChange={(e) => setEditForm((p) => ({ ...p, content: e.target.value }))}
+            rows={6}
+            className="input-field resize-none"
+          />
+        </Field>
+        <Field label="关键反馈" compact>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {editForm.key_feedback.map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-700">
+                {f}
+                <button
+                  onClick={() => setEditForm((p) => ({
+                    ...p,
+                    key_feedback: p.key_feedback.filter((_, idx) => idx !== i),
+                  }))}
+                  className="hover:text-purple-900"
+                >
+                  x
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={editFeedbackInput}
+              onChange={(e) => setEditFeedbackInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  const val = editFeedbackInput.trim();
+                  if (val && !editForm.key_feedback.includes(val)) {
+                    setEditForm((p) => ({ ...p, key_feedback: [...p.key_feedback, val] }));
+                  }
+                  setEditFeedbackInput('');
+                }
+              }}
+              className="input-field flex-1"
+              placeholder="输入后 Enter 添加"
+            />
+          </div>
+        </Field>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            onClick={() => setIsEditing(false)}
+            className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !editForm.summary.trim()}
+            className="text-xs bg-emerald-600 text-white rounded-md px-3 py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="border border-border rounded-lg p-4 hover:border-border/80 transition-colors">
@@ -518,12 +742,22 @@ function InteractionCard({
           )}
           <span className="text-xs text-muted-foreground">{formatDateTime(interaction.date)}</span>
         </div>
-        <button
-          onClick={() => onDelete(interaction.id)}
-          className="text-xs text-muted-foreground hover:text-red-600 transition-colors"
-        >
-          删除
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={startEdit}
+            className="text-xs text-muted-foreground hover:text-emerald-600 transition-colors"
+          >
+            编辑
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('确定删除这条记录?')) onDelete(interaction.id);
+            }}
+            className="text-xs text-muted-foreground hover:text-red-600 transition-colors"
+          >
+            删除
+          </button>
+        </div>
       </div>
       <p className="text-sm mt-2 font-medium">{interaction.summary}</p>
       {interaction.content && (
