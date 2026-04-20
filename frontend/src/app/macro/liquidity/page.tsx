@@ -177,11 +177,12 @@ export default function LiquidityPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const queryClient = useQueryClient();
 
-  // TanStack Query hooks
+  // TanStack Query hooks — defer heavy global history until that tab is selected
+  const isGlobalTab = selectedTab === 'global_liquidity';
   const { data: metricsResponse } = useLiquidityMetrics();
   const { data: historyResponse, isLoading: historyLoading, error: historyError } = useLiquidityHistory(365);
   const { data: globalResponse, isLoading: globalLoading } = useGlobalLiquidity();
-  const { data: globalHistoryResponse, isLoading: globalHistoryLoading, error: globalHistoryErr } = useGlobalLiquidityHistory(365);
+  const { data: globalHistoryResponse, isLoading: globalHistoryLoading, error: globalHistoryErr } = useGlobalLiquidityHistory(365, isGlobalTab);
   const { data: weeklyResponse, isLoading: weeklyLoading } = useWeeklyReport();
 
   // Derived state from query results

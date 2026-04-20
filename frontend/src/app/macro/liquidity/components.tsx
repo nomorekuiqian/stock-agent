@@ -200,11 +200,20 @@ export function interpretChange(change: number | null): string {
   return change >= 0 ? 'emerald' : 'red';
 }
 
-export function useInView(threshold = 0.1) {
+/**
+ * @param threshold  IntersectionObserver threshold
+ * @param immediate  Skip animation and show content right away (e.g. when data
+ *                   is already cached from a previous visit).
+ */
+export function useInView(threshold = 0.1, immediate = false) {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    () => immediate || (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   );
+
+  useEffect(() => {
+    if (immediate && !isVisible) setIsVisible(true);
+  }, [immediate, isVisible]);
 
   useEffect(() => {
     if (isVisible) return;
@@ -231,20 +240,32 @@ export function useInView(threshold = 0.1) {
 // Components
 // ---------------------------------------------------------------------------
 
+/** Defers rendering children until the container scrolls into view. */
+function LazySection({ children, className, immediate }: { children: React.ReactNode; className?: string; immediate?: boolean }) {
+  const { ref, isVisible } = useInView(0.01, immediate);
+  return (
+    <div ref={ref} className={className}>
+      {isVisible ? children : <div className="h-[350px] bg-card/60 animate-pulse rounded-xl" />}
+    </div>
+  );
+}
+
 export function LiquidityMetricPanel({
   indicatorKey,
   metric,
   theme,
   interval,
   range,
+  immediate,
 }: {
   indicatorKey: string;
   metric: LiquidityMetric;
   theme: 'light' | 'dark';
   interval: string;
   range?: string;
+  immediate?: boolean;
 }) {
-  const { ref, isVisible } = useInView(0.05);
+  const { ref, isVisible } = useInView(0.05, immediate);
   const info = INDICATOR_INFO[indicatorKey];
   const symbol = FRED_SYMBOLS[indicatorKey];
 
@@ -289,15 +310,19 @@ export function LiquidityMetricPanel({
         </p>
       </div>
 
-      {/* Chart */}
+      {/* Chart - only mount TradingView when visible */}
       <div className="border-t border-border/30">
-        <TradingViewWidget
-          symbol={symbol}
-          height={300}
-          interval={interval}
-          range={range}
-          theme={theme}
-        />
+        {isVisible ? (
+          <TradingViewWidget
+            symbol={symbol}
+            height={300}
+            interval={interval}
+            range={range}
+            theme={theme}
+          />
+        ) : (
+          <div className="h-[300px] bg-card animate-pulse rounded-lg" />
+        )}
       </div>
     </div>
   );
@@ -414,7 +439,9 @@ export function USLiquidityDeepDive({
   interval: string;
   loading: boolean;
 }) {
-  const { ref, isVisible } = useInView();
+  // Skip fade-in animation when data is already cached from a previous visit
+  const hasCachedData = historyData.length > 0 && !historyLoading;
+  const { ref, isVisible } = useInView(0.1, hasCachedData);
 
   const bsIndicatorKeys = ['fedAssets', 'tga', 'rrp', 'reserves'] as const;
   const metricKeys: Record<string, keyof LiquidityMetrics> = {
@@ -587,6 +614,7 @@ export function USLiquidityDeepDive({
               metric={metrics[metricKeys[key]]}
               theme={theme}
               interval={interval}
+              immediate={hasCachedData}
             />
           ))}
         </div>
@@ -641,6 +669,7 @@ export function USLiquidityDeepDive({
             metric={EMPTY_METRIC}
             theme={theme}
             interval={interval}
+            immediate={hasCachedData}
           />
         </div>
       </section>
@@ -683,7 +712,7 @@ export function USLiquidityDeepDive({
         </div>
 
         {/* NFCI Gauge + Chart */}
-        <div className="mb-5">
+        <LazySection className="mb-5" immediate={hasCachedData}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <NFCIGauge value={metrics.nfci?.value ?? 0} loading={loading} />
             <div className="bg-card/60 rounded-xl border border-border/40 overflow-hidden">
@@ -696,7 +725,7 @@ export function USLiquidityDeepDive({
               />
             </div>
           </div>
-        </div>
+        </LazySection>
 
         {/* SOFR & EFFR */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -705,12 +734,14 @@ export function USLiquidityDeepDive({
             metric={metrics.sofr}
             theme={theme}
             interval={interval}
+            immediate={hasCachedData}
           />
           <LiquidityMetricPanel
             indicatorKey="effr"
             metric={metrics.effr}
             theme={theme}
             interval={interval}
+            immediate={hasCachedData}
           />
         </div>
       </section>
@@ -743,7 +774,8 @@ export function GlobalLiquidityDeepDive({
   onTimeRangeChange: (range: string) => void;
   theme: 'light' | 'dark';
 }) {
-  const { ref, isVisible } = useInView();
+  const hasCachedData = globalMetrics !== null && !globalLoading;
+  const { ref, isVisible } = useInView(0.1, hasCachedData);
   const latestGlobalObservation = useMemo(
     () => getLatestNonNullObservation(globalHistoryData),
     [globalHistoryData],
@@ -907,6 +939,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            immediate={hasCachedData}
           />
           <LiquidityMetricPanel
             indicatorKey="japanM2"
@@ -914,6 +947,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            immediate={hasCachedData}
           />
           <LiquidityMetricPanel
             indicatorKey="usdjpy"
@@ -921,6 +955,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="D"
             range="12M"
+            immediate={hasCachedData}
           />
         </div>
       </section>
@@ -960,6 +995,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            immediate={hasCachedData}
           />
           <LiquidityMetricPanel
             indicatorKey="euroM2"
@@ -967,6 +1003,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            immediate={hasCachedData}
           />
           <LiquidityMetricPanel
             indicatorKey="eurusd"
@@ -974,6 +1011,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="D"
             range="12M"
+            immediate={hasCachedData}
           />
         </div>
       </section>

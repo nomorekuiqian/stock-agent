@@ -29,8 +29,8 @@ FRED_API_KEY = os.getenv("FRED_API_KEY")
 FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 
 _FRED_SEMAPHORE: asyncio.Semaphore | None = None
-_CACHE_TTL = 600  # 10 minutes
-_SERIES_CACHE_TTL = 300  # 5 min cache for individual series fetches
+_CACHE_TTL = 1800  # 30 minutes — FRED data updates at most daily
+_SERIES_CACHE_TTL = 1800  # 30 min cache for individual series fetches
 _liquidity_cache: dict = {}
 _liquidity_lock: asyncio.Lock | None = None
 _series_cache: dict[str, dict] = {}  # per-series result cache

@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { queryKeys } from './query-keys';
 
-const LIQUIDITY_STALE_TIME = 10 * 60 * 1000;  // 10 min
-const LIQUIDITY_GC_TIME = 60 * 60 * 1000;     // 1 hour
+// FRED data updates weekly (some daily) — 30 min stale is safe and reduces
+// redundant API calls / FRED rate-limit pressure.
+const LIQUIDITY_STALE_TIME = 30 * 60 * 1000;  // 30 min
+const LIQUIDITY_GC_TIME = 2 * 60 * 60 * 1000; // 2 hours
 
 export function useLiquidityMetrics() {
   return useQuery({
@@ -23,20 +25,22 @@ export function useLiquidityHistory(days: number = 365) {
   });
 }
 
-export function useGlobalLiquidity() {
+export function useGlobalLiquidity(enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.liquidity.global(),
     queryFn: () => api.getGlobalLiquidity(),
     staleTime: LIQUIDITY_STALE_TIME,
     gcTime: LIQUIDITY_GC_TIME,
+    enabled,
   });
 }
 
-export function useGlobalLiquidityHistory(days: number = 365) {
+export function useGlobalLiquidityHistory(days: number = 365, enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.liquidity.globalHistory(days),
     queryFn: () => api.getGlobalLiquidityHistory(days),
     staleTime: LIQUIDITY_STALE_TIME,
     gcTime: LIQUIDITY_GC_TIME,
+    enabled,
   });
 }
