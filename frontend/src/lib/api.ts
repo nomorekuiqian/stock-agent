@@ -1,4 +1,4 @@
-import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
+import { getAccessTokenAsync as getAccessToken, refreshSession } from '@/contexts/AuthContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -925,6 +925,18 @@ async function fetchProtected(
     headers: await _authHeaders(baseHeaders, { required: true }),
   });
   if (response.status === 401) {
+    // Try refreshing the session and retry once
+    const newToken = await refreshSession();
+    if (newToken) {
+      const retryResponse = await fetch(url, {
+        ...init,
+        headers: { ...baseHeaders, Authorization: `Bearer ${newToken}` },
+      });
+      if (!retryResponse.ok && retryResponse.status === 401) {
+        throw new Error(AUTH_EXPIRED_ERROR);
+      }
+      return retryResponse;
+    }
     throw new Error(AUTH_EXPIRED_ERROR);
   }
   return response;

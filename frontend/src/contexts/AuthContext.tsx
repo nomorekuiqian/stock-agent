@@ -32,6 +32,15 @@ export async function getAccessTokenAsync(): Promise<string | null> {
   return _cachedAccessToken;
 }
 
+/** Refresh the session and return the new access token, or null if refresh failed. */
+export async function refreshSession(): Promise<string | null> {
+  const session = await fetchSession();
+  if (session.accessToken) {
+    _cachedAccessToken = session.accessToken;
+  }
+  return session.accessToken;
+}
+
 // --- Session fetch ---
 
 async function fetchSession(): Promise<{ user: User | null; accessToken: string | null }> {
@@ -200,19 +209,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate session from server on mount
+  // Hydrate session on mount + periodic refresh + visibility change
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
+    const refresh = async (isInitial = false) => {
       const session = await fetchSession();
       if (cancelled) return;
+      // On background refresh, only update state if we got a valid session.
+      // A transient network error returns { user: null, accessToken: null }
+      // and we must not log the user out because of it.
+      if (!isInitial && !session.user && _cachedAccessToken) {
+        return;
+      }
       _cachedAccessToken = session.accessToken;
       setUser(session.user);
-      setIsLoading(false);
+      return session;
+    };
+
+    // Initial hydration (always applies the result, even if null)
+    void (async () => {
+      await refresh(true);
+      if (!cancelled) setIsLoading(false);
     })();
 
-    return () => { cancelled = true; };
+    // Refresh token every 12 minutes (access token TTL is 15 min)
+    const interval = setInterval(() => { void refresh(); }, 12 * 60 * 1000);
+
+    // Refresh when user returns to the tab
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   // Subscription sync on user change
