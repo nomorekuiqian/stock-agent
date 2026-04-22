@@ -1,12 +1,11 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { UserDetail } from "./_components/UserDetail";
+import { getAuthCookies } from "@/lib/auth-cookies";
 
 export const dynamic = "force-dynamic";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
-const CRON_SECRET = process.env.CRON_SECRET ?? "";
-const IS_DEV = process.env.NODE_ENV === "development";
 
 export const metadata: Metadata = {
   title: "User Detail - Admin",
@@ -88,17 +87,36 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+async function getValidAccessToken(): Promise<string | null> {
+  const { accessToken, refreshToken } = await getAuthCookies();
+  if (accessToken) return accessToken;
+  if (!refreshToken) return null;
+  const { createServerClient } = await import("@/lib/insforge-server");
+  try {
+    const client = createServerClient();
+    const { data } = await client.auth.refreshSession({ refreshToken });
+    if (data?.accessToken) {
+      const { setAuthCookies } = await import("@/lib/auth-cookies");
+      await setAuthCookies(data.accessToken, data.refreshToken);
+      return data.accessToken;
+    }
+  } catch { /* refresh failed */ }
+  return null;
+}
+
 export default async function UserDetailPage({ params }: PageProps) {
-  if (!IS_DEV) notFound();
+  const token = await getValidAccessToken();
+  if (!token) notFound();
 
   const { id } = await params;
 
   let data: UserDetailData;
   try {
     const res = await fetch(`${API_BASE}/admin/crm/users/${id}`, {
-      headers: { "X-Cron-Secret": CRON_SECRET },
+      headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
+    if (res.status === 403 || res.status === 401) notFound();
     if (!res.ok) notFound();
     data = await res.json();
   } catch {
@@ -109,5 +127,5 @@ export default async function UserDetailPage({ params }: PageProps) {
     );
   }
 
-  return <UserDetail data={data} cronSecret={CRON_SECRET} />;
+  return <UserDetail data={data} />;
 }

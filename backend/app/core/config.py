@@ -61,6 +61,13 @@ RESEND_SEGMENT_WEEKLY = os.getenv("RESEND_SEGMENT_WEEKLY", "")
 # Invite codes (comma-separated shared codes for public distribution)
 INVITE_CODES = os.getenv("INVITE_CODES", "")
 
+# Admin access whitelist (comma-separated emails)
+ADMIN_EMAILS = [
+    e.strip().lower()
+    for e in os.getenv("ADMIN_EMAILS", "kedengpan@gmail.com").split(",")
+    if e.strip()
+]
+
 # Feature flags
 # EMAIL_PRO_GATE: when true, only Pro subscribers receive email broadcasts.
 # Default false — logic is deployed but inactive, same pattern as NEXT_PUBLIC_ENABLE_PAYWALL.

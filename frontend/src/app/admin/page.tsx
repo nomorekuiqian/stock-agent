@@ -1,12 +1,11 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { AdminDashboard } from './_components/AdminDashboard';
+import { getAuthCookies } from '@/lib/auth-cookies';
 
 export const dynamic = 'force-dynamic';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
-const CRON_SECRET = process.env.CRON_SECRET ?? '';
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 export const metadata: Metadata = {
   title: 'Admin',
@@ -63,13 +62,13 @@ export interface DashboardData {
   error?: string;
 }
 
-async function getDashboardData(): Promise<DashboardData | null> {
-  if (!CRON_SECRET) return null;
+async function getDashboardData(accessToken: string): Promise<DashboardData | null> {
   try {
     const res = await fetch(`${API_BASE}/admin/dashboard`, {
-      headers: { 'X-Cron-Secret': CRON_SECRET },
+      headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
     });
+    if (res.status === 403 || res.status === 401) return null;
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -77,25 +76,45 @@ async function getDashboardData(): Promise<DashboardData | null> {
   }
 }
 
+async function getValidAccessToken(): Promise<string | null> {
+  const { accessToken, refreshToken } = await getAuthCookies();
+  if (accessToken) return accessToken;
+  if (!refreshToken) return null;
+  // Access token expired but refresh token exists - try refresh
+  const { createServerClient } = await import('@/lib/insforge-server');
+  try {
+    const client = createServerClient();
+    const { data } = await client.auth.refreshSession({ refreshToken });
+    if (data?.accessToken) {
+      const { setAuthCookies } = await import('@/lib/auth-cookies');
+      await setAuthCookies(data.accessToken, data.refreshToken);
+      return data.accessToken;
+    }
+  } catch { /* refresh failed */ }
+  return null;
+}
+
 export default async function AdminPage() {
-  if (!IS_DEV) notFound();
+  const token = await getValidAccessToken();
+  if (!token) notFound();
 
-  const data = await getDashboardData();
+  const data = await getDashboardData(token);
 
-  if (!data || data.error) {
+  if (data === null) {
+    notFound();
+  }
+
+  if (data.error) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">
-            {data?.error ?? '无法加载管理面板数据'}
-          </p>
-          <p className="text-xs text-muted-foreground/60">
-            请确认 CRON_SECRET 环境变量已配置
+            {data.error}
           </p>
         </div>
       </div>
     );
   }
 
-  return <AdminDashboard data={data} cronSecret={CRON_SECRET} />;
+  return <AdminDashboard data={data} />;
 }

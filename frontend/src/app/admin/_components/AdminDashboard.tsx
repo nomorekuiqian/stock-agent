@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
 import type { DashboardData, UserRecord } from '../page';
 
 // ---------------------------------------------------------------------------
@@ -136,7 +137,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
 const OPS_STATUSES = ['待联系', '已联系', '跟进中', '已反馈', '活跃', '流失'] as const;
 
-export function AdminDashboard({ data: initialData, cronSecret }: { data: DashboardData; cronSecret: string }) {
+export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   const [data, setData] = useState(initialData);
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
@@ -186,15 +187,16 @@ export function AdminDashboard({ data: initialData, cronSecret }: { data: Dashbo
 
   const bulkUpdateStatus = useCallback(async (status: string) => {
     if (selectedIds.size === 0) return;
+    const token = getAccessTokenSync() ?? await getAccessTokenAsync();
+    if (!token) return;
     setBulkSaving(true);
     try {
       const res = await fetch(`${API_BASE}/admin/crm/profiles/bulk`, {
         method: 'POST',
-        headers: { 'X-Cron-Secret': cronSecret, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_ids: [...selectedIds], ops_status: status }),
       });
       if (res.ok) {
-        // Update local state
         setData((prev) => ({
           ...prev,
           users: prev.users.map((u) =>
@@ -206,7 +208,7 @@ export function AdminDashboard({ data: initialData, cronSecret }: { data: Dashbo
     } finally {
       setBulkSaving(false);
     }
-  }, [selectedIds, cronSecret]);
+  }, [selectedIds]);
 
   const hasActiveFilters = activeCategory !== 'all' || activeTags.size > 0 || search.trim().length > 0;
 

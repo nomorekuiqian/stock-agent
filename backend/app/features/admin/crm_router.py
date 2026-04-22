@@ -1,31 +1,25 @@
 """
 Admin CRM API - user profiles and interaction tracking.
-Dev-only: blocked in production.
+Protected by admin email whitelist.
 """
 
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.database import get_insforge_service
-from app.core.config import ENVIRONMENT
-from app.core.deps import verify_cron_secret
+from app.core.deps import verify_admin_user
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-def _require_dev():
-    if ENVIRONMENT == "production":
-        raise HTTPException(status_code=404, detail="Not found")
-
-
 router = APIRouter(
     prefix="/api/admin/crm",
     tags=["admin-crm"],
-    dependencies=[Depends(_require_dev)],
+    dependencies=[Depends(verify_admin_user)],
 )
 
 
@@ -81,7 +75,6 @@ class InteractionUpdate(BaseModel):
 @router.get("/users/{user_id}")
 async def get_user_detail(
     user_id: str,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """Get full user detail: subscription data + CRM profile + interactions + feedback."""
 
@@ -169,7 +162,6 @@ async def get_user_detail(
 
 @router.get("/profiles")
 async def list_profiles(
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """List all CRM profiles."""
     service = get_insforge_service()
@@ -188,7 +180,6 @@ async def list_profiles(
 @router.post("/profiles")
 async def upsert_profile(
     body: ProfileUpsert,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """Create or update a user CRM profile."""
     service = get_insforge_service()
@@ -209,7 +200,6 @@ async def upsert_profile(
 @router.post("/profiles/bulk")
 async def bulk_update_profiles(
     body: BulkProfileUpdate,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """Bulk update ops_status / priority / tags for multiple users."""
     if not body.user_ids:
@@ -253,7 +243,6 @@ async def bulk_update_profiles(
 @router.get("/interactions/{user_id}")
 async def list_interactions(
     user_id: str,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """List all interactions for a user, newest first."""
     service = get_insforge_service()
@@ -272,7 +261,6 @@ async def list_interactions(
 @router.post("/interactions")
 async def add_interaction(
     body: InteractionCreate,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """Add a new interaction record."""
     service = get_insforge_service()
@@ -293,7 +281,6 @@ async def add_interaction(
 @router.put("/interactions")
 async def update_interaction(
     body: InteractionUpdate,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """Update an existing interaction."""
     service = get_insforge_service()
@@ -314,7 +301,6 @@ async def update_interaction(
 @router.delete("/interactions/{interaction_id}")
 async def delete_interaction(
     interaction_id: str,
-    _secret: str = Depends(verify_cron_secret),
 ) -> dict[str, Any]:
     """Delete an interaction."""
     service = get_insforge_service()

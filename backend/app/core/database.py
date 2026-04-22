@@ -29,6 +29,11 @@ class InsforgeService:
             self._client = httpx.AsyncClient(
                 headers=self.headers,
                 timeout=30.0,
+                limits=httpx.Limits(
+                    max_connections=20,
+                    max_keepalive_connections=5,
+                    keepalive_expiry=30,  # Drop idle connections after 30s
+                ),
             )
         return self._client
 

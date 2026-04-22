@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
 import type { UserDetailData, UserProfile, Interaction, ContactFeedback, Questionnaire } from '../page';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
@@ -62,13 +63,13 @@ function formatDateTime(iso: string | null | undefined): string {
 
 async function crmFetch(
   path: string,
-  cronSecret: string,
   options?: RequestInit,
 ) {
+  const token = getAccessTokenSync() ?? await getAccessTokenAsync();
   const res = await fetch(`${API_BASE}/admin/crm${path}`, {
     ...options,
     headers: {
-      'X-Cron-Secret': cronSecret,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   });
@@ -81,10 +82,8 @@ async function crmFetch(
 
 export function UserDetail({
   data: initialData,
-  cronSecret,
 }: {
   data: UserDetailData;
-  cronSecret: string;
 }) {
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
@@ -115,7 +114,7 @@ export function UserDetail({
         tags,
         next_followup: editProfile.next_followup || null,
       };
-      const result = await crmFetch('/profiles', cronSecret, {
+      const result = await crmFetch('/profiles', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -125,7 +124,7 @@ export function UserDetail({
     } finally {
       setSaving(false);
     }
-  }, [data.user_id, editProfile, tags, cronSecret]);
+  }, [data.user_id, editProfile, tags]);
 
   // ------ Interaction form ------
   const [newInteraction, setNewInteraction] = useState({
@@ -141,7 +140,7 @@ export function UserDetail({
     if (!newInteraction.summary.trim()) return;
     setSaving(true);
     try {
-      const result = await crmFetch('/interactions', cronSecret, {
+      const result = await crmFetch('/interactions', {
         method: 'POST',
         body: JSON.stringify({
           user_id: data.user_id,
@@ -161,10 +160,10 @@ export function UserDetail({
     } finally {
       setSaving(false);
     }
-  }, [data.user_id, newInteraction, cronSecret]);
+  }, [data.user_id, newInteraction]);
 
   const deleteInteraction = useCallback(async (id: string) => {
-    const result = await crmFetch(`/interactions/${id}`, cronSecret, {
+    const result = await crmFetch(`/interactions/${id}`, {
       method: 'DELETE',
     });
     if (result.deleted) {
@@ -173,10 +172,10 @@ export function UserDetail({
         interactions: d.interactions.filter((i) => i.id !== id),
       }));
     }
-  }, [cronSecret]);
+  }, []);
 
   const updateInteraction = useCallback(async (id: string, updates: Record<string, unknown>) => {
-    const result = await crmFetch('/interactions', cronSecret, {
+    const result = await crmFetch('/interactions', {
       method: 'PUT',
       body: JSON.stringify({ id, ...updates }),
     });
@@ -186,7 +185,7 @@ export function UserDetail({
         interactions: d.interactions.map((i) => i.id === id ? result.interaction : i),
       }));
     }
-  }, [cronSecret]);
+  }, []);
 
   const addTag = () => {
     const t = tagInput.trim();

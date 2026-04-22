@@ -9,8 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from app.core.database import get_insforge_service
-from app.core.config import ENVIRONMENT
-from app.core.deps import verify_cron_secret
+from app.core.deps import verify_admin_user
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -70,16 +69,9 @@ def _categorize_users(users: list[dict[str, Any]]) -> dict[str, Any]:
     return {"summary": summary, "users": annotated}
 
 
-def _require_dev():
-    """Block admin endpoints in production."""
-    from fastapi import HTTPException
-    if ENVIRONMENT == "production":
-        raise HTTPException(status_code=404, detail="Not found")
-
-
-@router.get("/dashboard", dependencies=[Depends(_require_dev)])
+@router.get("/dashboard")
 async def get_dashboard(
-    _secret: str = Depends(verify_cron_secret),
+    _admin: dict = Depends(verify_admin_user),
 ):
     """Return user overview for the admin dashboard."""
     service = get_insforge_service()

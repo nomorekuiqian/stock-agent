@@ -11,7 +11,7 @@ import httpx
 import jwt as pyjwt
 from fastapi import Header, HTTPException
 
-from app.core.config import CRON_SECRET, INSFORGE_BASE_URL, INSFORGE_ANON_KEY
+from app.core.config import CRON_SECRET, INSFORGE_BASE_URL, INSFORGE_ANON_KEY, ADMIN_EMAILS
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -166,3 +166,17 @@ async def verify_cron_secret(
     if CRON_SECRET and not hmac.compare_digest(x_cron_secret or "", CRON_SECRET):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return x_cron_secret
+
+
+async def verify_admin_user(
+    authorization: Optional[str] = Header(None),
+) -> dict:
+    """
+    Verify Bearer token and check email is in ADMIN_EMAILS whitelist.
+    Returns {"user_id": ..., "email": ...} for admin users only.
+    """
+    user_info = await verify_user_token_with_email(authorization)
+    email = (user_info.get("email") or "").lower()
+    if email not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access denied")
+    return user_info
