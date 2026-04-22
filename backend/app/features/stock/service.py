@@ -877,6 +877,7 @@ class StockService:
         try:
             import yfinance as yf
             import warnings
+            from zoneinfo import ZoneInfo
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -884,7 +885,9 @@ class StockService:
 
             timestamp = info.get("earningsTimestamp")
             if timestamp:
-                dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                # Earnings dates are announced in US Eastern Time
+                et = ZoneInfo("America/New_York")
+                dt = datetime.fromtimestamp(timestamp, tz=et)
                 return dt.strftime("%Y-%m-%d")
         except Exception as e:
             logger.warning("Failed to get next earnings date for %s: %s", symbol, e)
