@@ -93,7 +93,7 @@ export function FredBarChart({ seriesId, timeRange, height = 200, units }: FredB
       },
       timeScale: {
         borderColor: 'rgba(255, 255, 255, 0.1)',
-        timeVisible: false,
+        timeVisible: true,
       },
       handleScroll: { vertTouchDrag: false },
     });

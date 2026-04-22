@@ -230,7 +230,7 @@ export function TechnicalChart({ data, annotations, height = 600 }: TechnicalCha
       },
       timeScale: {
         borderVisible: false,
-        timeVisible: false,
+        timeVisible: true,
       },
       handleScroll: {
         vertTouchDrag: false,

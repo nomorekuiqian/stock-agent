@@ -8,6 +8,7 @@ interface IndexData {
   name: string;
   value: number;
   change_percent?: number;
+  change_unit?: string;
 }
 
 // Props use snake_case to match database schema directly
@@ -114,7 +115,9 @@ export function ReportContent({
                       : index.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
                   <p className={`text-sm font-semibold mt-1 ${isPositive ? 'text-primary' : 'text-destructive'}`}>
-                    {isPositive ? '+' : ''}{change.toFixed(2)}%
+                    {index.change_unit === 'bps'
+                      ? `${isPositive ? '+' : ''}${change.toFixed(1)}bp`
+                      : `${isPositive ? '+' : ''}${change.toFixed(2)}%`}
                   </p>
                 </div>
               );
