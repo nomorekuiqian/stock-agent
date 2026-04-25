@@ -146,8 +146,6 @@ def _prepare_market_overview_context(
     price_target: Optional[Dict[str, Any]] = None,
     insider_stats: Optional[list] = None,
     insider_trades: Optional[list] = None,
-    peers_comparison: Optional[list] = None,
-    market_heat: Optional[Dict[str, Any]] = None,
     sector_perf: Optional[Dict[str, Any]] = None,
     next_earnings: Optional[Dict[str, Any]] = None,
     macro_snapshot: Optional[Dict[str, Any]] = None,
@@ -225,12 +223,6 @@ def _prepare_market_overview_context(
             }
             for t in (insider_trades or [])[:5]
         ]
-
-    if peers_comparison:
-        ctx["peers"] = peers_comparison
-
-    if market_heat:
-        ctx["market_heat"] = market_heat
 
     if sector_perf:
         ctx["sector_performance"] = sector_perf

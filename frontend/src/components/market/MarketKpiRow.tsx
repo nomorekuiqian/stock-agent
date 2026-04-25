@@ -8,6 +8,11 @@ function formatPct(v: number | null | undefined, digits = 1): string {
   return `${sign}${v.toFixed(digits)}%`;
 }
 
+function formatPrice(v: number | null | undefined): string {
+  if (v == null || !isFinite(v)) return '—';
+  return `$${v.toFixed(2)}`;
+}
+
 function KpiCard({
   label,
   value,
@@ -42,8 +47,8 @@ export function MarketKpiRow({
 }) {
   if (loading || !overview) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="bg-card/40 border border-border/25 rounded-xl px-3 py-2.5">
             <div className="h-3 bg-muted/20 rounded animate-pulse mb-2" />
             <div className="h-5 bg-muted/20 rounded animate-pulse" />
@@ -55,31 +60,22 @@ export function MarketKpiRow({
 
   const k = overview.kpis;
 
-  const targetUpsidePct = k.target_upside_pct;
-  const isTargetUp = targetUpsidePct != null && targetUpsidePct > 0;
-
   const sectorTone: 'positive' | 'negative' | 'neutral' =
     k.sector_relative_perf_today != null
       ? (k.sector_relative_perf_today > 0 ? 'positive' : k.sector_relative_perf_today < 0 ? 'negative' : 'neutral')
       : 'neutral';
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <KpiCard
+        label="现价"
+        value={formatPrice(k.current_price)}
+        sub="实时行情"
+      />
       <KpiCard
         label="24h 新闻"
         value={String(k.news_24h)}
         sub="过去一天"
-      />
-      <KpiCard
-        label="7d 评级变动"
-        value={String(k.grade_changes_7d)}
-        sub="升降级数"
-      />
-      <KpiCard
-        label="目标价共识"
-        value={k.target_consensus != null ? `$${k.target_consensus.toFixed(0)}` : '—'}
-        sub={targetUpsidePct != null ? `${formatPct(targetUpsidePct)} vs 现价` : undefined}
-        tone={isTargetUp ? 'positive' : targetUpsidePct != null && targetUpsidePct < 0 ? 'negative' : 'neutral'}
       />
       <KpiCard
         label="今日 vs 板块"

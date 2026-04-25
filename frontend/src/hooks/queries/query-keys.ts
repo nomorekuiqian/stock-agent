@@ -42,7 +42,6 @@ export const queryKeys = {
     newsFeed: (symbol: string, days: number) => ['stocks', 'news-feed', symbol, days] as const,
     insiderTrading: (symbol: string) => ['stocks', 'insider-trading', symbol] as const,
     technicalData: (symbol: string, timeframe: string) => ['stocks', 'technical-data', symbol, timeframe] as const,
-    analystActivity: (symbol: string) => ['stocks', 'analyst-activity', symbol] as const,
     marketOverview: (symbol: string) => ['stocks', 'market-overview', symbol] as const,
     pressReleases: (symbol: string, limit: number) => ['stocks', 'press-releases', symbol, limit] as const,
     marketAnalysis: (symbol: string) => ['stocks', 'market-analysis', symbol] as const,

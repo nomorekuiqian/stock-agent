@@ -56,7 +56,7 @@ function computeHealthScore(fundamentals: StockFundamentals | null): {
 
 interface StockFundamentals {
   ttm: { revenue?: number; net_income?: number; eps?: number; ebitda?: number; free_cash_flow?: number; operating_cash_flow?: number };
-  valuation: { pe?: number; ps?: number; pb?: number; ev_to_ebitda?: number; dividend_yield?: number; peg?: number };
+  valuation: { pe?: number; forward_pe?: number; ps?: number; pb?: number; ev_to_ebitda?: number; dividend_yield?: number; peg?: number };
   growth: { revenue_yoy?: number; net_income_yoy?: number; revenue_qoq?: number };
   profitability: { gross_margin?: number; operating_margin?: number; net_margin?: number; roe?: number; roa?: number };
   balance_sheet?: { current_ratio?: number; debt_to_equity?: number; total_debt?: number; total_cash?: number };
@@ -138,7 +138,7 @@ export default function PanelOverviewTab({ symbol, stockData }: { symbol: string
             positive={fundamentals?.growth.revenue_yoy ? fundamentals.growth.revenue_yoy > 0 : undefined} />
           <MetricRow label="EPS 增速" value={fmtPct(fundamentals?.growth.net_income_yoy, true)}
             positive={fundamentals?.growth.net_income_yoy ? fundamentals.growth.net_income_yoy > 0 : undefined} />
-          <MetricRow label="P/E" value={fmtNum(fundamentals?.valuation.pe, 1)} />
+          <MetricRow label={fundamentals?.valuation.pe != null ? "P/E" : "Fwd P/E"} value={fmtNum(fundamentals?.valuation.pe ?? fundamentals?.valuation.forward_pe, 1)} />
           <MetricRow label="P/S" value={fmtNum(fundamentals?.valuation.ps, 1)} />
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function PanelOverviewTab({ symbol, stockData }: { symbol: string
         <SectionCard title="公司概览" titleEn="Overview" numberLabel="01">
           <div className="grid grid-cols-2 gap-3">
             <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true, currency })} />
-            <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
+            <MetricCard metricKey={fundamentals?.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals?.valuation.pe ?? fundamentals?.valuation.forward_pe)} />
             <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2, currency })} />
             <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
             <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
@@ -244,7 +244,7 @@ export default function PanelOverviewTab({ symbol, stockData }: { symbol: string
       {fundamentals && (
         <SectionCard title="估值判断" titleEn="Valuation" numberLabel="03">
           <div className="grid grid-cols-2 gap-3">
-            <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+            <MetricCard metricKey={fundamentals.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals.valuation.pe ?? fundamentals.valuation.forward_pe)} />
             <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
             <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
             <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />

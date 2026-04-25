@@ -9,9 +9,13 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from datetime import datetime, timezone, timedelta
+
 from app.core.database import get_insforge_service
 from app.core.deps import verify_admin_user
 from app.core.logging import get_logger
+from app.features.payment.db import get_subscription, upsert_subscription
+from app.features.payment.entitlements import MAX_FEATURES
 
 logger = get_logger(__name__)
 
@@ -44,6 +48,12 @@ class BulkProfileUpdate(BaseModel):
     ops_status: str | None = None
     priority: str | None = None
     tags: list[str] | None = None
+
+
+class GrantSubscription(BaseModel):
+    user_id: str
+    days: int = Field(ge=1, le=365, default=30)
+    plan: str = "max"
 
 
 class InteractionCreate(BaseModel):
@@ -296,6 +306,60 @@ async def update_interaction(
         logger.error("Failed to update interaction: %s", data)
         return {"error": data.get("error", "Failed to update interaction")}
     return {"interaction": data.get("data")}
+
+
+# ---------------------------------------------------------------------------
+# Grant subscription (admin gift)
+# ---------------------------------------------------------------------------
+
+@router.post("/users/{user_id}/grant-subscription")
+async def grant_subscription(
+    user_id: str,
+    body: GrantSubscription,
+) -> dict[str, Any]:
+    """Admin grants a subscription to a user (gift / trial extension).
+
+    If the user already has an active subscription with a future expiry,
+    the granted days are added on top of that date.
+    """
+    now = datetime.now(timezone.utc)
+    base = now
+
+    existing = await get_subscription(user_id)
+    if existing and existing.get("access_expires_at"):
+        try:
+            existing_expiry = datetime.fromisoformat(existing["access_expires_at"])
+            if existing_expiry > now:
+                base = existing_expiry
+        except (ValueError, TypeError):
+            pass
+
+    access_expires_at = (base + timedelta(days=body.days)).isoformat()
+
+    success = await upsert_subscription(
+        user_id=user_id,
+        plan=body.plan,
+        status="active",
+        invite_code="ADMIN_GRANT",
+        access_expires_at=access_expires_at,
+        current_period_end=access_expires_at,
+        entitlements=sorted(MAX_FEATURES),
+    )
+
+    if not success:
+        logger.error("Failed to grant subscription for user %s", user_id[:8])
+        return {"success": False, "error": "Failed to grant subscription"}
+
+    logger.info(
+        "Admin granted %s subscription: user=%s days=%d expires=%s",
+        body.plan, user_id[:8], body.days, access_expires_at[:10],
+    )
+    return {
+        "success": True,
+        "plan": body.plan,
+        "days": body.days,
+        "access_expires_at": access_expires_at,
+    }
 
 
 @router.delete("/interactions/{interaction_id}")

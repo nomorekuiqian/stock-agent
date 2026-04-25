@@ -44,6 +44,7 @@ interface FundamentalsReportProps {
     };
     valuation: {
       pe?: number;
+      forward_pe?: number;
       ps?: number;
       pb?: number;
       ev_to_ebitda?: number;
@@ -409,7 +410,7 @@ export default function FundamentalsReport({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true })} />
                 <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2 })} />
-                <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
+                <MetricCard metricKey={fundamentals?.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals?.valuation.pe ?? fundamentals?.valuation.forward_pe)} />
                 <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
                 <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
               </div>
@@ -575,7 +576,7 @@ export default function FundamentalsReport({
             <div>
               <SubsectionHeader title="估值指标" titleEn="Valuation Multiples" />
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+                <MetricCard metricKey={fundamentals.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals.valuation.pe ?? fundamentals.valuation.forward_pe)} />
                 <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
                 <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
                 <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />

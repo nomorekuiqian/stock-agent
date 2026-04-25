@@ -7,7 +7,6 @@ import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
 import {
   useStockDetail,
   useEarningsData,
-  useAnalystActivity,
   useNewsFeed,
 } from '@/hooks/queries/use-stock-data';
 import { useTechnicalData } from '@/hooks/queries/use-technical-data';
@@ -30,7 +29,6 @@ export interface StockPanelContextPayload {
   technical_derived?: Record<string, unknown> | null;
   support_resistance?: Record<string, unknown> | null;
   // Market data
-  analyst_summary?: Record<string, unknown> | null;
   recent_news?: unknown[] | null;
 }
 
@@ -90,7 +88,6 @@ export default function StockPanelView({
   const { data: stockData, isLoading, error } = useStockDetail(symbol);
   const { data: earningsData } = useEarningsData(symbol);
   const { data: techData } = useTechnicalData(symbol, 'daily');
-  const { data: analystData } = useAnalystActivity(symbol);
   const { data: newsData } = useNewsFeed(symbol);
 
   const profile = stockData?.profile;
@@ -112,20 +109,14 @@ export default function StockPanelView({
       // Technical: derived signals + support/resistance
       technical_derived: techData?.derived ?? null,
       support_resistance: techData?.support_resistance ?? null,
-      // Market: analyst consensus + recent news headlines
-      analyst_summary: analystData?.success ? {
-        ...analystData.summary,
-        price_target_avg: analystData.price_target.average,
-        price_target_high: analystData.price_target.high,
-        price_target_low: analystData.price_target.low,
-      } : null,
+      // Market: recent news headlines
       recent_news: newsData?.news?.slice(0, 5).map((n: Record<string, string>) => ({
         title: n.title,
         source: n.source,
         date: n.publishedDate,
       })) ?? null,
     });
-  }, [symbol, stockData, earningsData, techData, analystData, newsData, onContextReady, quote, fundamentals]);
+  }, [symbol, stockData, earningsData, techData, newsData, onContextReady, quote, fundamentals]);
 
   if (isLoading) {
     return (

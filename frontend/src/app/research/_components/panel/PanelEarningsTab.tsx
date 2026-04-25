@@ -176,7 +176,8 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
       if (!ymMap.has(ym)) {
         const fy = s.fiscal_year as number | null;
         const fp = s.fiscal_period as string | null;
-        const label = fy && fp ? `FY${String(fy).slice(-2)} ${fp}` : d.slice(0, 7);
+        const isPending = !!s.is_pending;
+        const label = fy && fp ? `FY${String(fy).slice(-2)} ${fp}${isPending ? ' (速报)' : ''}` : d.slice(0, 7);
         ymMap.set(ym, { date: d, label });
       }
     }
@@ -192,6 +193,11 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
   }, [earningsHistory, incomeStatements]);
 
   const availableQuarters = useMemo(() => quarterEntries.map(e => e.date), [quarterEntries]);
+  const quarterLabelMap = useMemo(() => {
+    const m = new Map<string, string>();
+    quarterEntries.forEach(e => m.set(e.date, e.label));
+    return m;
+  }, [quarterEntries]);
   const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null);
   const activeQuarter = selectedQuarter || availableQuarters[0] || null;
 
@@ -206,6 +212,10 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
   const selectedIS = useMemo(() => activeQuarter ? findByDate(incomeStatements, activeQuarter) : undefined, [incomeStatements, activeQuarter]);
   const selectedCashflow = useMemo(() => activeQuarter ? findByDate(cashflowStatements, activeQuarter) : undefined, [cashflowStatements, activeQuarter]);
   const selectedBalance = useMemo(() => activeQuarter ? findByDate(balanceSheets, activeQuarter) : undefined, [balanceSheets, activeQuarter]);
+  const selectedEps = useMemo(() => {
+    if (!activeQuarter) return undefined;
+    return earningsHistory.find((e: Record<string, unknown>) => (e.quarter as string)?.slice(0, 7) === activeQuarter.slice(0, 7)) as Record<string, unknown> | undefined;
+  }, [earningsHistory, activeQuarter]);
 
   const selectedRevenue = useMemo(() => {
     if (!activeQuarter || !revenueSegments.length) return undefined;
@@ -279,11 +289,11 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
       {stmtTab === 'income' && (
         <>
           {/* Current quarter performance */}
-          <SectionCard title="本季表现" titleEn={activeQuarter ? qLabel(activeQuarter) : ''} numberLabel="01">
+          <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : ''} numberLabel="01">
             <div className="grid grid-cols-2 gap-3">
               <MetricBox label="EPS"
-                value={(() => { const v = (earningsHistory.find((e: Record<string, unknown>) => (e.quarter as string)?.slice(0, 7) === activeQuarter?.slice(0, 7)) as Record<string, unknown> | undefined)?.eps_actual as number | null; return v != null ? `$${v.toFixed(2)}` : '--'; })()}
-                positive={(() => { const v = (earningsHistory.find((e: Record<string, unknown>) => (e.quarter as string)?.slice(0, 7) === activeQuarter?.slice(0, 7)) as Record<string, unknown> | undefined)?.surprise_percent as number | null; return v != null ? v >= 0 : undefined; })()} />
+                value={(() => { const v = selectedEps?.eps_actual as number | null; return v != null ? `$${v.toFixed(2)}` : '--'; })()}
+                positive={(() => { const v = selectedEps?.surprise_percent as number | null; return v != null ? v >= 0 : undefined; })()} />
               <MetricBox label="营收 YoY" value={fmt(selectedGrowth?.revenueGrowth as number | null, { pct: true, sign: true })}
                 positive={(selectedGrowth?.revenueGrowth as number | null) != null ? (selectedGrowth?.revenueGrowth as number) >= 0 : undefined} />
             </div>
@@ -356,7 +366,7 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
 
       {/* CASH FLOW */}
       {stmtTab === 'cashflow' && (selectedCashflow ? (
-        <SectionCard title="现金流量表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Cash Flow'} numberLabel="01">
+        <SectionCard title="现金流量表" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Cash Flow'} numberLabel="01">
           <StatementSection title="经营活动" titleEn="Operating" items={[
             { label: '净利润', key: 'net_income', bold: true },
             { label: '折旧摊销', key: 'depreciation_and_amortization', indent: true },
@@ -390,7 +400,7 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
 
       {/* BALANCE SHEET */}
       {stmtTab === 'balance' && (selectedBalance ? (
-        <SectionCard title="资产负债表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Balance Sheet'} numberLabel="01">
+        <SectionCard title="资产负债表" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Balance Sheet'} numberLabel="01">
           <StatementSection title="资产" titleEn="Assets" items={[
             { label: '现金', key: 'cash_and_equivalents' },
             { label: '短期投资', key: 'short_term_investments' },

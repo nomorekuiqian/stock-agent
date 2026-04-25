@@ -88,6 +88,9 @@ export function UserDetail({
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
   const [showDetailedForm, setShowDetailedForm] = useState(false);
+  const [showGrantModal, setShowGrantModal] = useState(false);
+  const [grantDays, setGrantDays] = useState(30);
+  const [granting, setGranting] = useState(false);
 
   const profile = data.profile;
   const sub = data.subscription;
@@ -125,6 +128,31 @@ export function UserDetail({
       setSaving(false);
     }
   }, [data.user_id, editProfile, tags]);
+
+  const grantSubscription = useCallback(async () => {
+    setGranting(true);
+    try {
+      const result = await crmFetch(`/users/${data.user_id}/grant-subscription`, {
+        method: 'POST',
+        body: JSON.stringify({ user_id: data.user_id, days: grantDays, plan: 'max' }),
+      });
+      if (result.success && data.subscription) {
+        setData((d) => ({
+          ...d,
+          subscription: d.subscription ? {
+            ...d.subscription,
+            plan: 'max',
+            status: 'active',
+            access_expires_at: result.access_expires_at,
+            invite_code: 'ADMIN_GRANT',
+          } : d.subscription,
+        }));
+        setShowGrantModal(false);
+      }
+    } finally {
+      setGranting(false);
+    }
+  }, [data.user_id, grantDays]);
 
   // ------ Interaction form ------
   const [newInteraction, setNewInteraction] = useState({
@@ -243,7 +271,67 @@ export function UserDetail({
             <InfoRow label="邀请码" value={sub?.invite_code ?? '-'} />
             <InfoRow label="注册时间" value={formatDate(sub?.created_at)} />
             <InfoRow label="Stripe ID" value={sub?.stripe_customer_id?.slice(0, 16) ?? '-'} mono />
+            <button
+              onClick={() => setShowGrantModal(true)}
+              className="w-full mt-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+            >
+              赠送订阅
+            </button>
           </Section>
+
+          {/* Grant subscription modal */}
+          {showGrantModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-background border border-border rounded-xl p-6 w-80 space-y-4 shadow-lg">
+                <h3 className="text-base font-semibold">赠送订阅</h3>
+                <p className="text-sm text-muted-foreground">
+                  为 {profile?.name || data.email || data.user_id.slice(0, 8)} 赠送 Max 订阅
+                </p>
+                <Field label="天数">
+                  <div className="flex gap-2">
+                    {[7, 14, 30, 90].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setGrantDays(d)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                          grantDays === d
+                            ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-400'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {d}天
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                <Field label="自定义天数">
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={grantDays}
+                    onChange={(e) => setGrantDays(Math.max(1, Math.min(365, Number(e.target.value))))}
+                    className="input-field"
+                  />
+                </Field>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setShowGrantModal(false)}
+                    className="text-sm text-muted-foreground hover:text-foreground px-3 py-1.5 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={grantSubscription}
+                    disabled={granting}
+                    className="text-sm bg-emerald-600 text-white rounded-lg px-4 py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    {granting ? '处理中...' : `确认赠送 ${grantDays} 天`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Editable profile */}
           <Section title="运营档案">

@@ -139,6 +139,11 @@ const METRIC_EXPLANATIONS: Record<string, { zh: string; en: string; tip: string 
     en: 'P/E',
     tip: '股价与每股收益的比值。较低的值可能意味着被低估，但需结合行业背景分析。',
   },
+  forward_pe: {
+    zh: '预期市盈率',
+    en: 'Fwd P/E',
+    tip: '基于分析师未来12个月盈利预期计算的市盈率。当公司当前亏损时，预期市盈率是更有参考价值的估值指标。',
+  },
   ps: {
     zh: '市销率 P/S',
     en: 'P/S',

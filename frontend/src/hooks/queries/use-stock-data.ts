@@ -240,112 +240,21 @@ export function useInsiderTrading(symbol: string) {
 }
 
 // =============================================================================
-// Market Tab revamp — Phase 1 / 2 hooks
+// Market Tab revamp hooks
 // =============================================================================
-
-export interface AnalystGradeSummary {
-  strong_buy: number;
-  buy: number;
-  hold: number;
-  sell: number;
-  strong_sell: number;
-  consensus: string;
-  total: number;
-}
-
-export interface AnalystPriceTarget {
-  low: number | null;
-  average: number | null;
-  median: number | null;
-  high: number | null;
-  last_month_avg: number | null;
-  last_month_count: number;
-  last_quarter_avg: number | null;
-  last_quarter_count: number;
-  last_year_avg: number | null;
-  last_year_count: number;
-  all_time_avg: number | null;
-  all_time_count: number;
-}
-
-export interface AnalystGradeChange {
-  date: string;
-  firm: string;
-  previous_grade: string | null;
-  new_grade: string;
-  action: string;  // "upgrade" | "downgrade" | "maintain" | "initialise"
-}
-
-export interface AnalystHistoricalPoint {
-  date: string;
-  strong_buy: number;
-  buy: number;
-  hold: number;
-  sell: number;
-  strong_sell: number;
-}
-
-export interface AnalystActivityResponse {
-  success: boolean;
-  symbol: string;
-  summary: AnalystGradeSummary;
-  price_target: AnalystPriceTarget;
-  grade_changes: AnalystGradeChange[];
-  historical_timeline: AnalystHistoricalPoint[];
-}
-
-export function useAnalystActivity(symbol: string) {
-  return useQuery<AnalystActivityResponse>({
-    queryKey: queryKeys.stocks.analystActivity(symbol),
-    queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analyst-activity`);
-      if (!response.ok) throw new Error(`Failed to fetch analyst activity: ${response.status}`);
-      return response.json();
-    },
-    enabled: !!symbol,
-    staleTime: 30 * 60 * 1000,  // 30 min
-    gcTime: 60 * 60 * 1000,     // 1 hour
-  });
-}
 
 export interface MarketOverviewResponse {
   success: boolean;
   symbol: string;
   header: {
     next_earnings: { date: string; days_until: number | null; eps_estimate: number | null } | null;
-    market_badges: {
-      gainers_rank: number | null;
-      losers_rank: number | null;
-      most_active_rank: number | null;
-    };
   };
   kpis: {
     news_24h: number;
-    grade_changes_7d: number;
-    target_consensus: number | null;
     current_price: number | null;
-    target_upside_pct: number | null;
     sector_relative_perf_today: number | null;
     stock_sector: string | null;
   };
-  market_heat: {
-    rankings: {
-      gainers_rank: number | null;
-      losers_rank: number | null;
-      most_active_rank: number | null;
-    };
-    sector_perf: {
-      sector_name: string | null;
-      stock_change_today_pct: number | null;
-      sector_avg_today_pct: number | null;
-    };
-  };
-  peers_comparison: Array<{
-    symbol: string;
-    name: string;
-    price: number | null;
-    change_pct_today: number | null;
-  }>;
 }
 
 export function useMarketOverview(symbol: string) {

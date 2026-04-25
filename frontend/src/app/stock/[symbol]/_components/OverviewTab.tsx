@@ -36,7 +36,7 @@ interface OverviewTabProps {
   } | null;
   fundamentals: {
     ttm: { revenue?: number; net_income?: number; eps?: number; ebitda?: number; free_cash_flow?: number; operating_cash_flow?: number };
-    valuation: { pe?: number; ps?: number; pb?: number; ev_to_ebitda?: number; dividend_yield?: number; peg?: number };
+    valuation: { pe?: number; forward_pe?: number; ps?: number; pb?: number; ev_to_ebitda?: number; dividend_yield?: number; peg?: number };
     growth: { revenue_yoy?: number; net_income_yoy?: number; revenue_qoq?: number };
     profitability: { gross_margin?: number; operating_margin?: number; net_margin?: number; roe?: number; roa?: number };
     balance_sheet?: { current_ratio?: number; debt_to_equity?: number; total_debt?: number; total_cash?: number; quick_ratio?: number };
@@ -130,7 +130,7 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue, currency
   currency?: string;
 }) {
   const price = quote?.price ?? 0;
-  const pe = fundamentals?.valuation.pe;
+  const pe = fundamentals?.valuation.pe ?? fundamentals?.valuation.forward_pe;
   const w52High = quote?.week_52_high;
   const w52Low = quote?.week_52_low;
   const healthData = useMemo(() => computeHealthScore(fundamentals), [fundamentals]);
@@ -174,7 +174,7 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue, currency
           <span className="text-2xl font-data font-bold text-foreground">
             {pe ? fmtNum(pe, 1) : '--'}
           </span>
-          <span className="text-xs text-muted-foreground">P/E</span>
+          <span className="text-xs text-muted-foreground">{fundamentals?.valuation.pe != null ? 'P/E' : 'Fwd P/E'}</span>
           {fundamentals?.valuation.ps && (
             <span className="text-xs font-data text-muted-foreground ml-2">
               P/S {fmtNum(fundamentals.valuation.ps, 1)}
@@ -442,7 +442,7 @@ export function OverviewTab({
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true, currency })} />
-                <MetricCard metricKey="pe" value={formatNumber(fundamentals?.valuation.pe)} />
+                <MetricCard metricKey={fundamentals?.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals?.valuation.pe ?? fundamentals?.valuation.forward_pe)} />
                 <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2, currency })} />
                 <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
                 <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
@@ -549,7 +549,7 @@ export function OverviewTab({
             <SectionCard title="估值判断" titleEn="Valuation" numberLabel="03">
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <MetricCard metricKey="pe" value={formatNumber(fundamentals.valuation.pe)} />
+                <MetricCard metricKey={fundamentals.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals.valuation.pe ?? fundamentals.valuation.forward_pe)} />
                 <MetricCard metricKey="ps" value={formatNumber(fundamentals.valuation.ps)} />
                 <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
                 <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />

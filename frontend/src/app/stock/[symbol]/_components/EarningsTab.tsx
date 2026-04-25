@@ -475,7 +475,7 @@ export function EarningsTab({
             ) : analysisLoading ? (
               <div className="p-8 text-center">
                 <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-xs text-muted-foreground">正在解读 {symbol} {activeQuarter ? qLabel(activeQuarter) : ''} 财报...</p>
+                <p className="text-xs text-muted-foreground">正在解读 {symbol} {activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : ''} 财报...</p>
               </div>
             ) : earningsAnalysis ? (
               <>
@@ -605,7 +605,7 @@ export function EarningsTab({
                 <>
                   {/* 本季表现 */}
                   <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Performance'} numberLabel="01">
-                    {isPendingQuarter && !selectedEps ? (() => {
+                    {isPendingQuarter ? (() => {
                       const epsActual = selectedIS?.eps_diluted as number | null ?? null;
                       const epsEst = selectedIS?.eps_estimated as number | null ?? null;
                       const revActual = selectedIS?.revenue as number | null ?? null;
@@ -727,10 +727,10 @@ export function EarningsTab({
                       ? analystEstimates.find(e => e.date?.slice(0, 7) === activeQuarter.slice(0, 7))
                       : null;
 
-                    const isReported = selectedEps?.eps_actual != null || (isPendingQuarter && selectedIS?.eps_diluted != null);
                     const selectedIncomeStmt = activeQuarter
                       ? (findByDate(incomeStatements as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined)
                       : undefined;
+                    const isReported = selectedEps?.eps_actual != null || selectedIncomeStmt?.eps_calendar_actual != null || (isPendingQuarter && selectedIS?.eps_diluted != null);
                     const actualRevenue = selectedIncomeStmt?.revenue as number | null ?? null;
 
                     // For reported quarters: show EPS beat/miss from yfinance (always available)
@@ -761,8 +761,8 @@ export function EarningsTab({
                               <tbody>
                                 {/* EPS: from yfinance earnings_history or pending quarter */}
                                 {(() => {
-                                  const epsA = selectedEps?.eps_actual ?? (isPendingQuarter ? selectedIS?.eps_diluted as number | null : null);
-                                  const epsE = selectedEps?.eps_estimate ?? (isPendingQuarter ? selectedIS?.eps_estimated as number | null : null);
+                                  const epsA = selectedEps?.eps_actual ?? (selectedIncomeStmt?.eps_calendar_actual as number | null) ?? (isPendingQuarter ? selectedIS?.eps_diluted as number | null : null);
+                                  const epsE = selectedEps?.eps_estimate ?? (selectedIncomeStmt?.eps_estimated as number | null) ?? (isPendingQuarter ? selectedIS?.eps_estimated as number | null : null);
                                   const surprise = selectedEps?.surprise_percent ?? (
                                     epsA != null && epsE != null && epsE !== 0 ? (epsA - epsE) / Math.abs(epsE) : null
                                   );
@@ -785,7 +785,7 @@ export function EarningsTab({
                                 })()}
                                 {/* Revenue: compare actual revenue with estimate */}
                                 {actualRevenue != null && (() => {
-                                  const revEst = matchedEstimate?.revenue_avg ?? (isPendingQuarter ? selectedIS?.revenue_estimated as number | null : null);
+                                  const revEst = matchedEstimate?.revenue_avg ?? (selectedIncomeStmt?.revenue_estimated as number | null) ?? null;
                                   return (
                                     <tr className="border-t border-border/20">
                                       <td className="py-2 px-3 text-foreground/90">营收</td>
@@ -884,7 +884,7 @@ export function EarningsTab({
             </div>
           )}
           {rightTab === 'cashflow' && selectedCashflow && (
-                <SectionCard title="现金流量表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Cash Flow'} numberLabel="01">
+                <SectionCard title="现金流量表" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Cash Flow'} numberLabel="01">
                   <StatementSection title="经营活动" titleEn="Operating Activities" items={[
                     { label: '净利润 Net Income', key: 'net_income', bold: true },
                     { label: '折旧摊销 D&A', key: 'depreciation_and_amortization', indent: true },
@@ -926,7 +926,7 @@ export function EarningsTab({
             </div>
           )}
           {rightTab === 'balance' && selectedBalance && (
-                <SectionCard title="资产负债表" titleEn={activeQuarter ? qLabel(activeQuarter) : 'Balance Sheet'} numberLabel="01">
+                <SectionCard title="资产负债表" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Balance Sheet'} numberLabel="01">
                   <StatementSection title="资产" titleEn="Assets" items={[
                     { label: '现金 Cash', key: 'cash_and_equivalents' },
                     { label: '短期投资', key: 'short_term_investments' },

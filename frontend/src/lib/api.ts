@@ -793,7 +793,6 @@ export interface ResearchRequest {
     technical_derived?: Record<string, unknown>;
     support_resistance?: Record<string, unknown>;
     // Stock market data
-    analyst_summary?: Record<string, unknown>;
     recent_news?: unknown[];
     // daily_report fields
     date?: string;

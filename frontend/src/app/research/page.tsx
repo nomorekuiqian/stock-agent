@@ -73,7 +73,10 @@ function ScreenerContent() {
   const contextInitialized = useRef(false);
   const skipPanelSaveRef = useRef(true);
   const latestStateRef = useRef(state);
-  latestStateRef.current = state;
+
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
 
   // URL parameter-driven context entry (e.g. /screener?context=daily_report&date=2026-03-19)
   // Uses CONTEXT_ENTRY action to skip welcome and start in chat+loading phase.
@@ -404,7 +407,6 @@ function ScreenerContent() {
           technical_derived: ctx.technical_derived ?? undefined,
           support_resistance: ctx.support_resistance ?? undefined,
           // Market
-          analyst_summary: ctx.analyst_summary ?? undefined,
           recent_news: ctx.recent_news ?? undefined,
         };
       } else if (state.activeContent.type === 'daily_report' && reportContextRef.current) {

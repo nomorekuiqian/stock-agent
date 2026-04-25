@@ -35,6 +35,7 @@ from app.shared.data_tools.quotes import get_realtime_quote
 from app.shared.data_tools.peers import get_peer_companies, get_industry_valuation
 from app.shared.fmp_service import get_fmp_service
 from app.shared.yfinance_service import get_yfinance_service
+from app.utils.timezone import market_today
 from app.features.stock.db import (
     get_stock_profile,
     upsert_stock_profile,
@@ -684,6 +685,9 @@ class StockService:
 
         # Extract data from result dicts
         earnings_history_result = result_map.get("earnings_history") or {}
+        earnings_history = earnings_history_result.get("history", [])
+        if not isinstance(earnings_history, list):
+            earnings_history = []
         analyst_result = result_map.get("analyst_estimates") or {}
         rev_seg_result = result_map.get("revenue_segments") or {}
         rev_geo_result = result_map.get("revenue_geo_segments") or {}
@@ -697,12 +701,18 @@ class StockService:
         # statement hasn't been published yet (common on earnings day).
         recent_ec = result_map.get("recent_earnings")
         pending_quarter = None
+        matched_income_stmt = None
         if recent_ec and recent_ec.get("epsActual") is not None:
             ec_date = recent_ec.get("date", "")
-            already_covered = any(
-                (s.get("date") or "")[:7] == ec_date[:7]
-                for s in income_stmts
-            ) if income_stmts and ec_date else False
+            matched_income_stmt = self._find_statement_for_recent_earnings(
+                income_stmts, recent_ec
+            )
+            already_covered = matched_income_stmt is not None
+
+            if matched_income_stmt:
+                self._annotate_statement_with_calendar_earnings(
+                    matched_income_stmt, recent_ec
+                )
 
             if not already_covered:
                 fiscal_year, fiscal_q = self._infer_next_fiscal_period(income_stmts)
@@ -725,6 +735,12 @@ class StockService:
                         recent_ec.get("revenueActual", 0),
                     )
 
+        earnings_history = self._merge_recent_calendar_earnings(
+            earnings_history,
+            recent_ec if isinstance(recent_ec, dict) else None,
+            matched_income_stmt or pending_quarter,
+        )
+
         # Compute TRUE YoY growth from raw quarterly income statements
         # (exclude pending quarter which has no detailed line items)
         real_stmts = [s for s in income_stmts if not s.get("is_pending")] if income_stmts else []
@@ -732,7 +748,7 @@ class StockService:
 
         return {
             "symbol": symbol,
-            "earnings_history": earnings_history_result.get("history", []),
+            "earnings_history": earnings_history,
             "analyst_estimates": analyst_result.get("estimates", []),
             "revenue_segments": rev_seg_result.get("segments", []),
             "revenue_geo_segments": rev_geo_result.get("segments", []),
@@ -766,6 +782,125 @@ class StockService:
         if q == 4:
             return fy + 1, 1
         return fy, q + 1
+
+    @staticmethod
+    def _float_or_none(value: Any) -> float | None:
+        """Convert numeric API values to float while preserving missing data."""
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @classmethod
+    def _find_statement_for_recent_earnings(
+        cls, income_stmts: list, recent_earnings: dict | None
+    ) -> dict | None:
+        """Find the full statement that corresponds to a recent earnings release.
+
+        Earnings calendar dates are announcement dates, while statements use
+        fiscal period end dates. Revenue matching catches cases such as INTC
+        reporting on 2026-04-23 for the quarter ended 2026-03-28.
+        """
+        if not income_stmts or not isinstance(income_stmts, list) or not recent_earnings:
+            return None
+
+        ec_date = recent_earnings.get("date", "")
+        ec_revenue = cls._float_or_none(recent_earnings.get("revenueActual"))
+
+        for stmt in income_stmts:
+            if not isinstance(stmt, dict):
+                continue
+
+            stmt_date = stmt.get("date") or ""
+            if ec_date and stmt_date[:7] == ec_date[:7]:
+                return stmt
+
+            stmt_revenue = cls._float_or_none(stmt.get("revenue"))
+            if (
+                ec_revenue is not None
+                and stmt_revenue is not None
+                and abs(stmt_revenue - ec_revenue) / max(abs(ec_revenue), 1) < 0.001
+            ):
+                return stmt
+
+        return None
+
+    @staticmethod
+    def _annotate_statement_with_calendar_earnings(
+        stmt: dict, recent_earnings: dict
+    ) -> None:
+        """Attach earnings-calendar actual/estimate metadata to a statement."""
+        stmt["earnings_date"] = recent_earnings.get("date")
+        stmt["earnings_time"] = recent_earnings.get("time")
+        stmt["earnings_last_updated"] = recent_earnings.get("lastUpdated")
+        stmt["eps_calendar_actual"] = recent_earnings.get("epsActual")
+        stmt["eps_estimated"] = recent_earnings.get("epsEstimated")
+        stmt["revenue_calendar_actual"] = recent_earnings.get("revenueActual")
+        stmt["revenue_estimated"] = recent_earnings.get("revenueEstimated")
+
+    @classmethod
+    def _merge_recent_calendar_earnings(
+        cls,
+        earnings_history: list,
+        recent_earnings: dict | None,
+        quarter_source: dict | None,
+    ) -> list:
+        """Merge FMP earnings-calendar actuals when yfinance history lags.
+
+        yfinance often updates EPS surprise data after the full FMP statements
+        are already available. The frontend matches EPS data by statement month,
+        so calendar entries must use the matched statement date when possible.
+        """
+        history = [h for h in earnings_history if isinstance(h, dict)]
+        if not recent_earnings or recent_earnings.get("epsActual") is None:
+            return sorted(history, key=lambda h: h.get("quarter") or "", reverse=True)
+
+        target_date = (
+            quarter_source.get("date")
+            if isinstance(quarter_source, dict) and quarter_source.get("date")
+            else recent_earnings.get("date")
+        )
+        if not target_date:
+            return sorted(history, key=lambda h: h.get("quarter") or "", reverse=True)
+
+        target_ym = target_date[:7]
+        calendar_ym = (recent_earnings.get("date") or "")[:7]
+        has_target_month = any((h.get("quarter") or "")[:7] == target_ym for h in history)
+
+        if not has_target_month and calendar_ym and calendar_ym != target_ym:
+            calendar_match = next(
+                (h for h in history if (h.get("quarter") or "")[:7] == calendar_ym),
+                None,
+            )
+            if calendar_match:
+                calendar_match["quarter"] = target_date
+                has_target_month = True
+
+        if not has_target_month:
+            eps_actual = cls._float_or_none(recent_earnings.get("epsActual"))
+            eps_estimate = cls._float_or_none(recent_earnings.get("epsEstimated"))
+            eps_difference = (
+                eps_actual - eps_estimate
+                if eps_actual is not None and eps_estimate is not None
+                else None
+            )
+            surprise_percent = (
+                eps_difference / abs(eps_estimate)
+                if eps_difference is not None and eps_estimate not in (None, 0)
+                else None
+            )
+            history.append({
+                "quarter": target_date,
+                "eps_actual": eps_actual,
+                "eps_estimate": eps_estimate,
+                "eps_difference": eps_difference,
+                "surprise_percent": surprise_percent,
+                "source": "fmp_earnings_calendar",
+            })
+
+        return sorted(history, key=lambda h: h.get("quarter") or "", reverse=True)
 
     async def get_transcript(
         self, symbol: str, year: int, quarter: int
@@ -888,6 +1023,8 @@ class StockService:
                 # Earnings dates are announced in US Eastern Time
                 et = ZoneInfo("America/New_York")
                 dt = datetime.fromtimestamp(timestamp, tz=et)
+                if dt.date() < market_today():
+                    return None
                 return dt.strftime("%Y-%m-%d")
         except Exception as e:
             logger.warning("Failed to get next earnings date for %s: %s", symbol, e)

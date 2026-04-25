@@ -210,8 +210,8 @@ export default function StockResearchView({
         {/* Key stats strip */}
         <div className="flex items-center gap-1 mt-4">
           <StatPill label="市值" value={formatMarketCap(quote?.market_cap)} />
-          {fundamentals?.valuation?.pe != null && (
-            <StatPill label="PE" value={formatRatio(fundamentals.valuation.pe)} />
+          {(fundamentals?.valuation?.pe ?? fundamentals?.valuation?.forward_pe) != null && (
+            <StatPill label={fundamentals?.valuation?.pe != null ? "PE" : "Fwd PE"} value={formatRatio((fundamentals!.valuation.pe ?? fundamentals!.valuation.forward_pe)!)} />
           )}
           {fundamentals?.profitability?.roe != null && (
             <StatPill label="ROE" value={formatPercent(fundamentals.profitability.roe)} />
@@ -327,7 +327,7 @@ function FundamentalTab({
     {
       title: '估值',
       items: [
-        { label: 'P/E', value: formatRatio(valuation.pe as number) },
+        { label: valuation.pe != null ? 'P/E' : 'Fwd P/E', value: formatRatio(((valuation.pe ?? valuation.forward_pe) ?? null) as number) },
         { label: 'P/B', value: formatRatio(valuation.pb as number) },
         { label: 'P/S', value: formatRatio(valuation.ps as number) },
         { label: 'EV/EBITDA', value: formatRatio(valuation.ev_to_ebitda as number) },

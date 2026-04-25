@@ -3,6 +3,7 @@ Stock Earnings Unit Tests -- generated from git diff
 
 Tests for:
 - StockService._compute_yoy_growth (static, pure logic)
+- StockService earnings-calendar merge helpers (FMP/yfinance lag handling)
 - StockService.calculate_financial_health_score (pure scoring)
 - _prepare_earnings_data_for_agent (data trimming)
 - _empty_earnings_analysis (field list)
@@ -236,6 +237,102 @@ class TestComputeYoyGrowth:
         ]
         result = StockService._compute_yoy_growth(stmts)
         assert len(result) == 0
+
+
+# ===========================================================================
+# TestEarningsCalendarMerge
+# ===========================================================================
+
+
+class TestEarningsCalendarMerge:
+    """Tests for filling yfinance EPS-history gaps from FMP earnings calendar."""
+
+    def test_matches_statement_by_revenue_when_announcement_month_differs(self):
+        """INTC-style release: report date is April, fiscal quarter ended in March."""
+        income_stmts = [
+            {
+                "date": "2026-03-28",
+                "fiscal_year": "2026",
+                "fiscal_period": "Q1",
+                "revenue": 13_577_000_000,
+            },
+            {
+                "date": "2025-12-27",
+                "fiscal_year": "2025",
+                "fiscal_period": "Q4",
+                "revenue": 13_674_000_000,
+            },
+        ]
+        recent = {
+            "date": "2026-04-23",
+            "epsEstimated": 0.01897,
+            "epsActual": 0.29,
+            "revenueEstimated": 12_417_920_000,
+            "revenueActual": 13_577_000_000,
+            "lastUpdated": "2026-04-24",
+        }
+
+        matched = StockService._find_statement_for_recent_earnings(income_stmts, recent)
+
+        assert matched is income_stmts[0]
+
+    def test_annotates_matched_statement_with_calendar_estimates(self):
+        """Full statements keep GAAP fields while receiving calendar estimates."""
+        stmt = {"date": "2026-03-28", "revenue": 13_577_000_000, "eps_diluted": -0.73}
+        recent = {
+            "date": "2026-04-23",
+            "epsEstimated": 0.01897,
+            "epsActual": 0.29,
+            "revenueEstimated": 12_417_920_000,
+            "revenueActual": 13_577_000_000,
+        }
+
+        StockService._annotate_statement_with_calendar_earnings(stmt, recent)
+
+        assert stmt["earnings_date"] == "2026-04-23"
+        assert stmt["eps_diluted"] == -0.73
+        assert stmt["eps_calendar_actual"] == 0.29
+        assert stmt["eps_estimated"] == 0.01897
+        assert stmt["revenue_estimated"] == 12_417_920_000
+
+    def test_merges_recent_calendar_earnings_to_top_using_statement_date(self):
+        """Synthesized EPS surprise aligns with the income-statement month."""
+        history = [
+            {"quarter": "2025-12-31", "eps_actual": 0.15, "eps_estimate": 0.08},
+            {"quarter": "2025-09-30", "eps_actual": 0.23, "eps_estimate": 0.01},
+        ]
+        stmt = {"date": "2026-03-28"}
+        recent = {
+            "date": "2026-04-23",
+            "epsEstimated": 0.01897,
+            "epsActual": 0.29,
+        }
+
+        result = StockService._merge_recent_calendar_earnings(history, recent, stmt)
+
+        assert result[0]["quarter"] == "2026-03-28"
+        assert result[0]["eps_actual"] == 0.29
+        assert result[0]["eps_estimate"] == 0.01897
+        assert result[0]["eps_difference"] == pytest.approx(0.27103)
+        assert result[0]["surprise_percent"] == pytest.approx(14.2873, abs=0.0001)
+        assert result[0]["source"] == "fmp_earnings_calendar"
+
+    def test_existing_calendar_month_entry_is_realigned_to_statement_date(self):
+        """Avoid duplicate rows if an API used announcement date as quarter."""
+        history = [
+            {"quarter": "2026-04-23", "eps_actual": 0.29, "eps_estimate": 0.01897},
+        ]
+        stmt = {"date": "2026-03-28"}
+        recent = {
+            "date": "2026-04-23",
+            "epsEstimated": 0.01897,
+            "epsActual": 0.29,
+        }
+
+        result = StockService._merge_recent_calendar_earnings(history, recent, stmt)
+
+        assert len(result) == 1
+        assert result[0]["quarter"] == "2026-03-28"
 
 
 # ===========================================================================

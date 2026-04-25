@@ -2,7 +2,7 @@
 
 > Status: Planning
 > Related: features/brew/.context.md, frontend/src/app/for-you/.context.md
-> Vision: 产品策略.md > 持仓日报 / /for-you 模块
+> Vision: 产品策略.md > 持仓日报 / /for-you 模块tui
 
 ## 目标
 
@@ -13,6 +13,7 @@
 ### 当前数据结构
 
 **user_watchlists 表**（Insforge Edge Function `user-watchlists`）:
+
 ```
 user_id  TEXT (PK)
 symbols  JSON ARRAY    -- ["AAPL", "NVDA", "TSLA"]
@@ -35,13 +36,13 @@ updated_at TIMESTAMPTZ
 
 ### 当前组件
 
-| 组件 | 用途 |
-|------|------|
-| `StockCard` | 股票卡片（logo + 代码 + 价格 + 涨跌幅） |
-| `StockSearchDropdown` | 搜索下拉（cmdk） |
-| `WatchlistPanel` | 可复用的 watchlist 面板 |
-| `DigestInlineReport` | 摘要内联渲染 |
-| `ForYouContent` | /for-you 主内容（onboarding / digest / 工具栏） |
+| 组件                  | 用途                                            |
+| --------------------- | ----------------------------------------------- |
+| `StockCard`           | 股票卡片（logo + 代码 + 价格 + 涨跌幅）         |
+| `StockSearchDropdown` | 搜索下拉（cmdk）                                |
+| `WatchlistPanel`      | 可复用的 watchlist 面板                         |
+| `DigestInlineReport`  | 摘要内联渲染                                    |
+| `ForYouContent`       | /for-you 主内容（onboarding / digest / 工具栏） |
 
 ## 设计
 
@@ -63,6 +64,7 @@ CREATE TABLE user_portfolios (
 ```
 
 **字段说明**:
+
 - `shares`: 持有股数，支持小数（fractional shares），精度 6 位小数
 - `cost_basis`: 预留字段，暂时可为 NULL。未来可用于计算盈亏
 - 按 `(user_id, symbol)` 去重，同一股票只有一条记录
@@ -89,14 +91,14 @@ all_symbols = list(dict.fromkeys(watchlist_symbols + portfolio_symbols))  # 去�
 
 #### 新增端点（portfolio）
 
-| 端点 | 方法 | 描述 | 认证 |
-|------|------|------|------|
-| `/api/portfolio` | GET | 获取用户持仓列表 | Bearer |
-| `/api/portfolio` | PUT | 批量保存/更新持仓 | Bearer |
-| `/api/portfolio/{symbol}` | PATCH | 更新单只股票股数 | Bearer |
-| `/api/portfolio/{symbol}` | DELETE | 删除单只持仓 | Bearer |
-| `/api/portfolio/import` | POST | 截图导入持仓（AI 解析） | Bearer |
-| `/api/portfolio/summary` | GET | 持仓汇总（总市值 + 板块分布） | Bearer |
+| 端点                      | 方法   | 描述                          | 认证   |
+| ------------------------- | ------ | ----------------------------- | ------ |
+| `/api/portfolio`          | GET    | 获取用户持仓列表              | Bearer |
+| `/api/portfolio`          | PUT    | 批量保存/更新持仓             | Bearer |
+| `/api/portfolio/{symbol}` | PATCH  | 更新单只股票股数              | Bearer |
+| `/api/portfolio/{symbol}` | DELETE | 删除单只持仓                  | Bearer |
+| `/api/portfolio/import`   | POST   | 截图导入持仓（AI 解析）       | Bearer |
+| `/api/portfolio/summary`  | GET    | 持仓汇总（总市值 + 板块分布） | Bearer |
 
 #### GET /api/portfolio 响应
 
@@ -141,13 +143,13 @@ all_symbols = list(dict.fromkeys(watchlist_symbols + portfolio_symbols))  # 去�
 {
   "success": true,
   "data": {
-    "total_value": 125680.50,
+    "total_value": 125680.5,
     "holdings": [
       {
         "symbol": "NVDA",
         "shares": 100,
         "price": 850.25,
-        "market_value": 85025.00,
+        "market_value": 85025.0,
         "weight": 67.65,
         "daily_change_pct": 2.35,
         "sector": "Technology",
@@ -155,8 +157,8 @@ all_symbols = list(dict.fromkeys(watchlist_symbols + portfolio_symbols))  # 去�
       }
     ],
     "sector_breakdown": [
-      { "sector": "Technology", "value": 110500.00, "weight": 87.93 },
-      { "sector": "Consumer Cyclical", "value": 15180.50, "weight": 12.07 }
+      { "sector": "Technology", "value": 110500.0, "weight": 87.93 },
+      { "sector": "Consumer Cyclical", "value": 15180.5, "weight": 12.07 }
     ],
     "as_of": "2026-04-01T16:00:00Z"
   }
@@ -171,6 +173,7 @@ image: <截图文件>
 ```
 
 响应:
+
 ```json
 {
   "success": true,
@@ -241,6 +244,7 @@ image: <截图文件>
 #### 持仓卡片组件 (`PortfolioCard`)
 
 与 `StockCard` 类似，但增加：
+
 - 持有股数
 - 持仓市值 = shares × price
 - 占总持仓的百分比（weight）
@@ -249,6 +253,7 @@ image: <截图文件>
 #### 板块分布条 (`SectorBar`)
 
 水平条形图，按板块占比着色：
+
 - Technology → emerald
 - Consumer → amber
 - Healthcare → blue
@@ -284,11 +289,13 @@ async def parse_portfolio_screenshot(image_bytes: bytes) -> dict:
 ```
 
 **支持的券商截图**（按优先级）：
+
 1. Robinhood（最常见，布局简单）
 2. Schwab / Fidelity / Interactive Brokers
 3. 通用表格格式
 
 **用户流程**：
+
 ```
 用户点击"截图导入"
   → 上传图片（拖拽或选择文件）
@@ -364,41 +371,41 @@ profile = await fmp.get_company_profile(symbol)
 
 ### 已有可复用
 
-| 资源 | 位置 | 复用方式 |
-|------|------|----------|
-| StockCard 组件 | `components/StockCard.tsx` | PortfolioCard 基础模板 |
-| StockSearchDropdown | `components/StockSearchDropdown.tsx` | 持仓页添加股票搜索 |
-| cmdk Command | 已安装 | 搜索交互 |
-| FMP company profile | `shared/fmp_service.py` | 板块/行业数据 |
-| Edge Function 模式 | `edge_functions/*.js` | portfolio 表的 CRUD 模板 |
-| InsforgeService | `core/database.py` | 数据库调用 |
-| useStockQuotes hook | `hooks/queries/` | 实时报价 |
-| useStockSearch hook | `hooks/` | 股票搜索 |
+| 资源                | 位置                                 | 复用方式                 |
+| ------------------- | ------------------------------------ | ------------------------ |
+| StockCard 组件      | `components/StockCard.tsx`           | PortfolioCard 基础模板   |
+| StockSearchDropdown | `components/StockSearchDropdown.tsx` | 持仓页添加股票搜索       |
+| cmdk Command        | 已安装                               | 搜索交互                 |
+| FMP company profile | `shared/fmp_service.py`              | 板块/行业数据            |
+| Edge Function 模式  | `edge_functions/*.js`                | portfolio 表的 CRUD 模板 |
+| InsforgeService     | `core/database.py`                   | 数据库调用               |
+| useStockQuotes hook | `hooks/queries/`                     | 实时报价                 |
+| useStockSearch hook | `hooks/`                             | 股票搜索                 |
 
 ### 新增依赖
 
-| 依赖 | 用途 | 备注 |
-|------|------|------|
-| Gemini Vision API | 截图解析 | 需要 `GOOGLE_API_KEY`（已有） |
-| `python-multipart` | FastAPI 文件上传 | 可能已安装，需确认 |
+| 依赖               | 用途             | 备注                          |
+| ------------------ | ---------------- | ----------------------------- |
+| Gemini Vision API  | 截图解析         | 需要 `GOOGLE_API_KEY`（已有） |
+| `python-multipart` | FastAPI 文件上传 | 可能已安装，需确认            |
 
 ### 成本评估
 
-| 项目 | 成本 |
-|------|------|
-| FMP profile API | 免费额度内（按 symbol 缓存 24h） |
-| Gemini Vision（截图导入） | ~$0.002/次（gemini-2.0-flash） |
-| 额外数据库存储 | 极低（每用户几十行） |
+| 项目                      | 成本                             |
+| ------------------------- | -------------------------------- |
+| FMP profile API           | 免费额度内（按 symbol 缓存 24h） |
+| Gemini Vision（截图导入） | ~$0.002/次（gemini-2.0-flash）   |
+| 额外数据库存储            | 极低（每用户几十行）             |
 
 ## 难度评估
 
-| Phase | 难度 | 原因 |
-|-------|------|------|
-| Phase 1: 后端数据层 | **低** | 与现有 watchlist Edge Function 模式完全一致，套模板 |
+| Phase               | 难度   | 原因                                                         |
+| ------------------- | ------ | ------------------------------------------------------------ |
+| Phase 1: 后端数据层 | **低** | 与现有 watchlist Edge Function 模式完全一致，套模板          |
 | Phase 2: 前端持仓页 | **中** | 需要新的 PortfolioCard + 股数输入交互，但复用 StockCard 模式 |
-| Phase 3: 主页改版 | **中** | Tab 切换 + 两个数据源合并，需要处理加载态 |
-| Phase 4: 截图导入 | **高** | AI 图片解析准确率不确定、多券商格式适配、文件上传流程 |
-| Phase 5: 测试 | **低** | 按现有测试模式写 |
+| Phase 3: 主页改版   | **中** | Tab 切换 + 两个数据源合并，需要处理加载态                    |
+| Phase 4: 截图导入   | **高** | AI 图片解析准确率不确定、多券商格式适配、文件上传流程        |
+| Phase 5: 测试       | **低** | 按现有测试模式写                                             |
 
 **总体难度**: 中等偏上。核心 CRUD 简单，截图导入是风险最高的部分。
 

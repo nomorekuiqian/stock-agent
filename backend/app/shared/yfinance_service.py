@@ -407,6 +407,9 @@ class YFinanceService:
         peg = _positive_or_none(_get("trailingPegRatio"))
         if peg is not None:
             valuation["peg"] = _round(peg, 2)
+        forward_pe = _positive_or_none(_get("forwardPE"))
+        if forward_pe is not None:
+            valuation["forward_pe"] = _round(forward_pe, 2)
 
         # Forward EPS (used for target price multiples fallback, not displayed)
         forward = {
