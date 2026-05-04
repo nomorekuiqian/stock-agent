@@ -17,11 +17,11 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 export function AIPaywall({ symbol, label }: { symbol: string; label: string }) {
   const { isAuthenticated } = useAuth();
   const { refreshSubscription } = useSubscription();
-  const { refresh: refreshEntitlements } = useEntitlements();
+  const { trialEligible, refresh: refreshEntitlements } = useEntitlements();
 
   const [isActivating, setIsActivating] = useState(false);
   const [activateError, setActivateError] = useState('');
-  const [trialUsed, setTrialUsed] = useState(false);
+  const trialUsed = !trialEligible;
 
   const handleActivateTrial = async () => {
     setIsActivating(true);
@@ -38,13 +38,10 @@ export function AIPaywall({ symbol, label }: { symbol: string; label: string }) 
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.already_active) {
-          setTrialUsed(true);
-        } else {
-          await refreshSubscription();
-          await refreshEntitlements({ fresh: true });
-        }
+        // Always refresh — `already_active=true` may mean the trial is
+        // currently running, not expired. Server truth wins.
+        await refreshSubscription();
+        await refreshEntitlements({ fresh: true });
       } else {
         const data = await res.json().catch(() => ({}));
         setActivateError(data.detail || '激活失败，请稍后再试');

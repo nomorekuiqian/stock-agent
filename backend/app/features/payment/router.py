@@ -138,13 +138,18 @@ async def api_my_entitlements(
     fresh: bool = False,
     user_id: str = Depends(verify_user_token),
 ):
-    """Return the current user's feature entitlement set."""
+    """Return the current user's feature entitlement set and trial eligibility."""
     from app.features.payment.entitlements import get_user_entitlements
 
     if fresh:
         invalidate_subscription_cache(user_id)
     ents = await get_user_entitlements(user_id)
-    return {"entitlements": sorted(ents)}
+    # trial_eligible: user has no subscription record yet (never used trial or paid)
+    sub = await get_subscription(user_id)
+    return {
+        "entitlements": sorted(ents),
+        "trial_eligible": sub is None,
+    }
 
 
 @router.post("/portal-session", response_model=PortalSessionResponse)

@@ -26,8 +26,8 @@ interface PaywallGuardProps {
 export default function PaywallGuard({ children, requiredPlan = 'pro', requiredFeature, preview }: PaywallGuardProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { isPro, isMax, isLoading: subLoading, status, redeemInviteCode, createCheckout, refreshSubscription } = useSubscription();
-  const { has: hasEntitlement, isLoading: entLoading, refresh: refreshEntitlements } = useEntitlements();
+  const { isPro, isMax, isLoading: subLoading, redeemInviteCode, createCheckout, refreshSubscription } = useSubscription();
+  const { has: hasEntitlement, trialEligible, isLoading: entLoading, refresh: refreshEntitlements } = useEntitlements();
 
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
@@ -76,9 +76,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
       <PreviewOverlay
         preview={preview}
         isAuthenticated={isAuthenticated}
-        status={status}
-        isPro={isPro}
-        isMax={isMax}
+        trialEligible={trialEligible}
         refreshSubscription={refreshSubscription}
         refreshEntitlements={() => refreshEntitlements({ fresh: true })}
       />
@@ -161,6 +159,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
     <LockScreen
       isAuthenticated={isAuthenticated}
       requiredPlan={requiredPlan}
+      trialEligible={trialEligible}
       redeemInviteCode={redeemInviteCode}
       refreshSubscription={refreshSubscription}
       refreshEntitlements={() => refreshEntitlements({ fresh: true })}
@@ -175,25 +174,23 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
 function PreviewOverlay({
   preview,
   isAuthenticated,
-  status,
-  isPro,
-  isMax,
+  trialEligible,
   refreshSubscription,
   refreshEntitlements,
 }: {
   preview: ReactNode;
   isAuthenticated: boolean;
-  status: string;
-  isPro: boolean;
-  isMax: boolean;
+  trialEligible: boolean;
   refreshSubscription: () => Promise<void>;
   refreshEntitlements: () => Promise<void>;
 }) {
   const [isActivating, setIsActivating] = useState(false);
   const [activateError, setActivateError] = useState('');
 
-  // Trial activation state
-  const [trialUsed, setTrialUsed] = useState(false);
+  // Whether the user has used up their trial — derived from server-truth
+  // trialEligible flag, but can also flip to true after a refresh proves the
+  // user has no active entitlement and isn't trial-eligible.
+  const trialUsed = !trialEligible;
 
   const handleActivateTrial = async () => {
     setIsActivating(true);
@@ -210,15 +207,11 @@ function PreviewOverlay({
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.already_active) {
-          // User already had a trial before, can't get another one
-          setTrialUsed(true);
-        } else {
-          // Trial activated successfully, refresh to unlock content
-          await refreshSubscription();
-          await refreshEntitlements();
-        }
+        // Always refresh — `already_active=true` may mean the trial is
+        // currently running (race with auth callback), not that it's expired.
+        // The refreshed entitlements / trial_eligible flag is the truth.
+        await refreshSubscription();
+        await refreshEntitlements();
       } else {
         const data = await res.json().catch(() => ({}));
         setActivateError(data.detail || '激活失败，请稍后再试');
@@ -311,23 +304,26 @@ function PreviewOverlay({
 function LockScreen({
   isAuthenticated,
   requiredPlan,
+  trialEligible,
   redeemInviteCode,
   refreshSubscription,
   refreshEntitlements,
 }: {
   isAuthenticated: boolean;
   requiredPlan: string;
+  trialEligible: boolean;
   redeemInviteCode: (code: string) => Promise<{ success: boolean; error?: string }>;
   refreshSubscription: () => Promise<void>;
   refreshEntitlements: () => Promise<void>;
 }) {
   const [isActivating, setIsActivating] = useState(false);
   const [activateError, setActivateError] = useState('');
-  const [trialUsed, setTrialUsed] = useState(false);
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const trialUsed = !trialEligible;
 
   const handleActivateTrial = async () => {
     setIsActivating(true);
@@ -344,13 +340,10 @@ function LockScreen({
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.already_active) {
-          setTrialUsed(true);
-        } else {
-          await refreshSubscription();
-          await refreshEntitlements();
-        }
+        // Always refresh — `already_active=true` may mean the trial is
+        // currently running, not expired. Server truth wins.
+        await refreshSubscription();
+        await refreshEntitlements();
       } else {
         const data = await res.json().catch(() => ({}));
         setActivateError(data.detail || '激活失败，请稍后再试');

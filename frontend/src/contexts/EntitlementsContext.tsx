@@ -8,6 +8,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 
 interface EntitlementsContextValue {
   entitlements: Set<string>;
+  trialEligible: boolean;
   isLoading: boolean;
   has: (feature: string) => boolean;
   refresh: (opts?: { fresh?: boolean }) => Promise<void>;
@@ -18,11 +19,14 @@ const EntitlementsContext = createContext<EntitlementsContextValue | null>(null)
 export function EntitlementsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [entitlements, setEntitlements] = useState<Set<string>>(new Set());
+  // Default true for unauthenticated/loading state so the trial CTA shows optimistically.
+  const [trialEligible, setTrialEligible] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async (opts?: { fresh?: boolean }) => {
     if (!isAuthenticated) {
       setEntitlements(new Set());
+      setTrialEligible(true);
       setIsLoading(false);
       return;
     }
@@ -41,6 +45,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setEntitlements(new Set(data.entitlements || []));
+        setTrialEligible(data.trial_eligible !== false);
       }
     } catch {
       // Silently fail - entitlements will be empty, paywall will show
@@ -61,7 +66,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <EntitlementsContext.Provider value={{ entitlements, isLoading, has, refresh }}>
+    <EntitlementsContext.Provider value={{ entitlements, trialEligible, isLoading, has, refresh }}>
       {children}
     </EntitlementsContext.Provider>
   );

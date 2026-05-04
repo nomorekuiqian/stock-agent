@@ -157,3 +157,100 @@ describe('EntitlementsContext - provider boundary', () => {
     spy.mockRestore();
   });
 });
+
+// ---------------------------------------------------------------------------
+// trialEligible flag — drives the paywall CTA decision
+// ---------------------------------------------------------------------------
+describe('EntitlementsContext - trialEligible', () => {
+  it('reads trial_eligible=true from API response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ entitlements: [], trial_eligible: true }),
+    });
+
+    const { result } = renderHook(() => useEntitlements(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.trialEligible).toBe(true);
+  });
+
+  it('reads trial_eligible=false from API response (user already used trial)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ entitlements: [], trial_eligible: false }),
+    });
+
+    const { result } = renderHook(() => useEntitlements(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.trialEligible).toBe(false);
+  });
+
+  it('defaults to true when API omits trial_eligible field (backward compat)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ entitlements: [] }),
+    });
+
+    const { result } = renderHook(() => useEntitlements(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.trialEligible).toBe(true);
+  });
+
+  it('resets to true when user becomes unauthenticated', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useEntitlements(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Unauthenticated users default to trial-eligible (will see "开启免费试用" CTA)
+    expect(result.current.trialEligible).toBe(true);
+  });
+
+  it('updates trialEligible after refresh({ fresh: true })', async () => {
+    // Initial: user has no record (eligible)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ entitlements: [], trial_eligible: true }),
+    });
+
+    const { result } = renderHook(() => useEntitlements(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.trialEligible).toBe(true);
+
+    // After activating trial: backend now returns eligible=false
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        entitlements: ['morning_website'],
+        trial_eligible: false,
+      }),
+    });
+
+    await act(async () => {
+      await result.current.refresh({ fresh: true });
+    });
+
+    expect(result.current.trialEligible).toBe(false);
+    expect(result.current.has('morning_website')).toBe(true);
+  });
+});

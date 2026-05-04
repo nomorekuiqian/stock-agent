@@ -26,10 +26,14 @@ class TestMeEntitlements:
     # ------------------------------------------------------------------
 
     @patch(
+        "app.features.payment.router.get_subscription",
+        new_callable=AsyncMock,
+    )
+    @patch(
         "app.features.payment.entitlements.get_user_entitlements",
         new_callable=AsyncMock,
     )
-    def test_returns_entitlements_for_user(self, mock_get_ents):
+    def test_returns_entitlements_for_user(self, mock_get_ents, mock_get_sub):
         """Authenticated user gets their sorted entitlements list."""
         self._override_auth("user-ent-001")
         mock_get_ents.return_value = {
@@ -37,6 +41,7 @@ class TestMeEntitlements:
             "weekly_report_email",
             "personal_digest_email",
         }
+        mock_get_sub.return_value = {"plan": "max", "status": "active"}
 
         resp = self.client.get("/api/payment/me/entitlements")
 
@@ -47,20 +52,27 @@ class TestMeEntitlements:
             "personal_digest_email",
             "weekly_report_email",
         ]
+        # User has a subscription record -> not trial-eligible
+        assert body["trial_eligible"] is False
 
     # ------------------------------------------------------------------
     # 2. Fresh param invalidates cache
     # ------------------------------------------------------------------
 
+    @patch(
+        "app.features.payment.router.get_subscription",
+        new_callable=AsyncMock,
+    )
     @patch("app.features.payment.router.invalidate_subscription_cache")
     @patch(
         "app.features.payment.entitlements.get_user_entitlements",
         new_callable=AsyncMock,
     )
-    def test_fresh_invalidates_cache(self, mock_get_ents, mock_invalidate):
+    def test_fresh_invalidates_cache(self, mock_get_ents, mock_invalidate, mock_get_sub):
         """?fresh=true should call invalidate_subscription_cache before fetching."""
         self._override_auth("user-ent-002")
         mock_get_ents.return_value = {"today_website"}
+        mock_get_sub.return_value = {"plan": "pro", "status": "active"}
 
         resp = self.client.get("/api/payment/me/entitlements?fresh=true")
 
@@ -72,18 +84,23 @@ class TestMeEntitlements:
     # ------------------------------------------------------------------
 
     @patch(
+        "app.features.payment.router.get_subscription",
+        new_callable=AsyncMock,
+    )
+    @patch(
         "app.features.payment.entitlements.get_user_entitlements",
         new_callable=AsyncMock,
     )
-    def test_empty_entitlements_for_free_user(self, mock_get_ents):
-        """Free user with no entitlements gets empty list."""
+    def test_empty_entitlements_for_free_user(self, mock_get_ents, mock_get_sub):
+        """Free user with no subscription record gets empty entitlements + trial_eligible=true."""
         self._override_auth("user-free-003")
         mock_get_ents.return_value = set()
+        mock_get_sub.return_value = None
 
         resp = self.client.get("/api/payment/me/entitlements")
 
         assert resp.status_code == 200
-        assert resp.json() == {"entitlements": []}
+        assert resp.json() == {"entitlements": [], "trial_eligible": True}
 
     # ------------------------------------------------------------------
     # 4. Unauthenticated request returns 401
