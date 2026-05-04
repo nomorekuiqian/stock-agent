@@ -1,4 +1,5 @@
 import { getAccessTokenAsync as getAccessToken, refreshSession } from '@/contexts/AuthContext';
+import type { DailyDigest } from '@/app/twitter-digest/_components/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -1561,6 +1562,35 @@ export const api = {
       }
       const json = await response.json();
       return json.data || null;
+    },
+  },
+
+  // Twitter KOL Digest API (V2 read endpoints; auth required)
+  twitterDigest: {
+    getLatest: async (): Promise<DailyDigest | null> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/twitter-digest/latest`,
+        {},
+        'Failed to fetch latest twitter digest',
+      );
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch latest twitter digest');
+      }
+      return response.json();
+    },
+
+    getByDate: async (date: string): Promise<DailyDigest | null> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/twitter-digest/${encodeURIComponent(date)}`,
+        {},
+        'Failed to fetch twitter digest',
+      );
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch twitter digest');
+      }
+      return response.json();
     },
   },
 

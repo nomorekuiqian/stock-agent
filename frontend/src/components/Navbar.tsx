@@ -57,6 +57,7 @@ export function Navbar() {
               items={[
                 { href: '/morning', label: '早报' },
                 { href: '/today', label: '晚报' },
+                { href: '/twitter-digest', label: '推特日报' },
               ]}
             />
             <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>

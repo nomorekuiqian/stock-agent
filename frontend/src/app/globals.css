@@ -447,6 +447,98 @@ h6 {
       0 0 0 1px rgba(228, 228, 231, 0.8),
       0 4px 12px rgba(0, 0, 0, 0.08);
   }
+
+  /* ============================================
+     EDITORIAL — used by /twitter-digest "Daily Broadside" layout
+     A pre-digital newsdesk vocabulary: hairline rules, ornaments,
+     paper-grain overlay, classical drop-quote treatment.
+     ============================================ */
+
+  /* Hair-fine horizontal rule, full-bleed */
+  .editorial-rule {
+    border: 0;
+    border-top: 1px solid var(--border);
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  /* Double rule used under section rubrics */
+  .editorial-rule-double {
+    height: 5px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    opacity: 0.65;
+  }
+
+  /* Centered ornament + hairlines: ── ◇ ── */
+  .editorial-ornament {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: color-mix(in srgb, var(--foreground) 35%, transparent);
+  }
+  .editorial-ornament::before,
+  .editorial-ornament::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    opacity: 0.6;
+  }
+
+  /* Faint paper-grain overlay (SVG noise blended over background) */
+  .editorial-paper {
+    position: relative;
+  }
+  .editorial-paper::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.025;
+    mix-blend-mode: overlay;
+  }
+
+  /* Editorial item — replaces the terminal card; hairline left rule */
+  .editorial-item {
+    position: relative;
+    padding-left: 1.25rem;
+    transition: padding 0.2s ease;
+  }
+  .editorial-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 1px;
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+    transition: background 0.2s ease, width 0.2s ease;
+  }
+  .editorial-item:hover::before {
+    background: var(--primary);
+    width: 2px;
+  }
+
+  /* Drop quote — used inside "查看原文" expanded blockquotes */
+  .editorial-quote {
+    position: relative;
+    padding-left: 1.25rem;
+    color: color-mix(in srgb, var(--foreground) 75%, transparent);
+    font-style: normal;
+  }
+  .editorial-quote::before {
+    content: "\201C";
+    position: absolute;
+    left: -0.25rem;
+    top: -0.5rem;
+    font-family: var(--font-serif);
+    font-size: 2.25rem;
+    line-height: 1;
+    color: color-mix(in srgb, var(--primary) 70%, transparent);
+  }
 }
 
 /* ============================================

@@ -123,6 +123,7 @@ export function MobileMenu() {
       children: [
         { href: '/morning', label: '盘前早报' },
         { href: '/today', label: '盘后晚报' },
+        { href: '/twitter-digest', label: '推特日报' },
       ],
     },
     {
