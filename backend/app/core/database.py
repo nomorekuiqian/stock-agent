@@ -54,6 +54,7 @@ class InsforgeService:
         params: Optional[dict] = None,
         json_body: Optional[dict] = None,
         timeout: float = 30.0,
+        extra_headers: Optional[dict] = None,
     ) -> dict:
         """
         Generic helper to call an Insforge Edge Function.
@@ -64,6 +65,9 @@ class InsforgeService:
             params: Query parameters dict (automatically URL-encoded)
             json_body: JSON request body
             timeout: Request timeout in seconds
+            extra_headers: Optional per-request headers merged on top of the
+                client defaults. Used for internal-only edge functions that
+                require ``X-Internal-Secret``.
 
         Returns:
             Parsed JSON response dict
@@ -76,13 +80,13 @@ class InsforgeService:
 
         try:
             if method == "GET":
-                response = await client.get(url, params=clean_params, timeout=timeout)
+                response = await client.get(url, params=clean_params, headers=extra_headers, timeout=timeout)
             elif method == "POST":
                 response = await client.post(
-                    url, params=clean_params, json=json_body, timeout=timeout
+                    url, params=clean_params, json=json_body, headers=extra_headers, timeout=timeout
                 )
             elif method == "DELETE":
-                response = await client.delete(url, params=clean_params, timeout=timeout)
+                response = await client.delete(url, params=clean_params, headers=extra_headers, timeout=timeout)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 

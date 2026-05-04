@@ -11,7 +11,13 @@ import httpx
 import jwt as pyjwt
 from fastapi import Header, HTTPException
 
-from app.core.config import CRON_SECRET, INSFORGE_BASE_URL, INSFORGE_ANON_KEY, ADMIN_EMAILS
+from app.core.config import (
+    ADMIN_EMAILS,
+    CRON_SECRET,
+    ENVIRONMENT,
+    INSFORGE_ANON_KEY,
+    INSFORGE_BASE_URL,
+)
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -180,3 +186,42 @@ async def verify_admin_user(
     if email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Admin access denied")
     return user_info
+
+
+async def verify_admin_or_nonprod_or_cron(
+    x_cron_secret: Optional[str] = Header(None, alias="X-Cron-Secret"),
+    authorization: Optional[str] = Header(None),
+) -> str:
+    """
+    Gate for endpoints that trigger expensive side-effects (LLM calls,
+    third-party API spend, write-amplifying jobs). Allow if any of:
+
+    1. Valid X-Cron-Secret  — scheduled cron / internal automation
+    2. ENVIRONMENT != "production"  — open in dev/staging for testing
+    3. Bearer token belongs to ADMIN_EMAILS  — manual admin trigger
+
+    Otherwise 403. Returned string identifies which path matched
+    (useful for logging).
+    """
+    # 1. Cron secret
+    if CRON_SECRET and x_cron_secret and hmac.compare_digest(x_cron_secret, CRON_SECRET):
+        return "cron"
+
+    # 2. Non-prod env — open
+    if ENVIRONMENT != "production":
+        return "nonprod"
+
+    # 3. Admin user (only meaningful in prod)
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            user_info = await verify_user_token_with_email(authorization)
+            email = (user_info.get("email") or "").lower()
+            if email in ADMIN_EMAILS:
+                return "admin"
+        except HTTPException:
+            pass
+
+    raise HTTPException(
+        status_code=403,
+        detail="This endpoint requires cron secret, admin user, or non-production environment",
+    )
