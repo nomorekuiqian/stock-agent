@@ -16,40 +16,56 @@ const GREETINGS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Question pool — 3 large-cap + 3 small-cap + 2 market, shuffled each session
+// Capability cards
+// 上排：主动用工具（选股 / 个股 / 宏观）
+// 下排：被动看内容（日报 / 早报 / 专属日报）
 // ---------------------------------------------------------------------------
 
-const LARGE_CAP_QUESTIONS = [
-  '特斯拉还能买吗',
-  '英伟达现在什么情况',
-  '苹果值得入手吗',
-  '亚马逊还能涨吗',
-  'META 现在贵不贵',
-  '谷歌值得长期持有吗',
-  '微软还有上涨空间吗',
-];
-
-const SMALL_CAP_QUESTIONS = [
-  'PLTR 能不能追',
-  'AMD 现在能买吗',
-  'SOFI 值得关注吗',
-  'COIN 还能上车吗',
-  'NIO 还有戏吗',
-  'SMCI 现在能抄底吗',
-  'ARM 还值得买吗',
-];
-
-const MARKET_QUESTIONS = [
-  '今天大盘怎么样',
-  '现在是买入时机吗',
-  '最近有什么值得关注的股票',
-  '现在适合抄底吗',
-];
-
-function pickRandom<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+interface CapabilityCard {
+  number: string;
+  title: string;
+  description: string;
+  example: string;
 }
+
+const CAPABILITIES: CapabilityCard[] = [
+  {
+    number: '01',
+    title: '一句话选股',
+    description: '大白话从 5000 只里筛到几只',
+    example: 'PE 小于 20、有分红',
+  },
+  {
+    number: '02',
+    title: '个股研究台',
+    description: '基本面、技术面、新闻、同行对标',
+    example: '深入分析 NVDA',
+  },
+  {
+    number: '03',
+    title: '宏观仪表盘',
+    description: '流动性、经济、通胀、情绪 四维信号灯',
+    example: '现在宏观环境怎么样',
+  },
+  {
+    number: '04',
+    title: '市场日报',
+    description: '复盘昨日市场发生了什么',
+    example: '解读今天的市场日报',
+  },
+  {
+    number: '05',
+    title: '盘前早报',
+    description: '今天开盘前要看什么',
+    example: '今早盘前要点',
+  },
+  {
+    number: '06',
+    title: '专属日报',
+    description: '基于你的持仓自动生成',
+    example: '我持仓今天怎么样',
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -81,20 +97,13 @@ export default function WelcomeScreen({
     [],
   );
 
-  const questions = useMemo(() => {
-    const large = pickRandom(LARGE_CAP_QUESTIONS, 3);
-    const small = pickRandom(SMALL_CAP_QUESTIONS, 3);
-    const market = pickRandom(MARKET_QUESTIONS, 2);
-    return [...large, ...small, ...market].sort(() => Math.random() - 0.5);
-  }, []);
-
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-2xl flex-col justify-center px-4 sm:px-5 py-8 sm:py-12 min-h-full">
+        <div className="mx-auto flex w-full max-w-4xl flex-col px-4 sm:px-6 py-8 sm:py-12">
 
           {/* -- Logo + Greeting -- */}
-          <div className="mb-8 sm:mb-12 animate-fade-in-up">
+          <div className="mb-10 sm:mb-14 animate-fade-in-up">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none">
@@ -117,7 +126,7 @@ export default function WelcomeScreen({
                 Hi{userName ? `，${userName}` : ''}
               </p>
             </div>
-            <h1 className="font-editorial text-2xl sm:text-4xl md:text-5xl leading-[1.2] text-foreground tracking-tight mb-3">
+            <h1 className="font-editorial text-2xl sm:text-4xl md:text-5xl leading-[1.15] text-foreground tracking-tight mb-3">
               {greeting.main}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -126,17 +135,61 @@ export default function WelcomeScreen({
             </p>
           </div>
 
-          {/* -- Question pills -- */}
-          <div className="flex flex-wrap gap-2.5">
-            {questions.map((q, i) => (
+          {/* -- Capability grid: 1 col mobile, 2 cols tablet, 3 cols desktop -- */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {CAPABILITIES.map((cap, i) => (
               <button
-                key={q}
+                key={cap.number}
                 type="button"
-                onClick={() => onSelect(q)}
-                className="px-4 py-2.5 rounded-full border border-border/50 hover:border-primary/30 hover:bg-primary/[0.04] text-sm text-foreground/90 hover:text-foreground transition-all duration-150 cursor-pointer animate-fade-in-up"
-                style={{ animationDelay: `${i * 50}ms` }}
+                onClick={() => onSelect(cap.example)}
+                className="
+                  group relative flex flex-col text-left
+                  p-5 rounded-xl
+                  border border-border/50
+                  hover:border-primary/40 hover:bg-primary/[0.02]
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30
+                  transition-colors duration-200
+                  animate-fade-in-up cursor-pointer
+                "
+                style={{ animationDelay: `${i * 60}ms` }}
               >
-                {q}
+                {/* Editorial number marker — magazine ToC vibe */}
+                <div className="font-editorial italic text-xs text-muted-foreground/50 tracking-[0.15em] mb-2.5">
+                  {cap.number}
+                </div>
+
+                {/* Title — editorial display */}
+                <h3 className="font-editorial text-lg leading-tight text-foreground mb-1.5">
+                  {cap.title}
+                </h3>
+
+                {/* Description — single line, muted */}
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                  {cap.description}
+                </p>
+
+                {/* Example — pinned to bottom, divided by hairline; reads as a pull quote */}
+                <div className="
+                  mt-auto pt-3
+                  border-t border-border/40 group-hover:border-primary/20
+                  flex items-center gap-2
+                  transition-colors
+                ">
+                  <span className="text-sm text-foreground/70 group-hover:text-primary transition-colors flex-1 truncate">
+                    {cap.example}
+                  </span>
+                  <svg
+                    className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </div>
               </button>
             ))}
           </div>
@@ -145,7 +198,7 @@ export default function WelcomeScreen({
       </div>
 
       {/* -- Composer -- */}
-      <div className="shrink-0 mx-auto w-full max-w-2xl px-4 sm:px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 sm:pt-4">
+      <div className="shrink-0 mx-auto w-full max-w-4xl px-4 sm:px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 sm:pt-4">
         <ChatInput
           onSubmit={onSelect}
           placeholder="随便问点什么..."
