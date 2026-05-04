@@ -182,6 +182,7 @@ class TestNoCrossFeatureImports:
         "morning_report",    # composes stock + macro data
         "daily_report",      # composes macro data
         "subscription",      # email service orchestrates brew/daily_report/payment
+        "admin",             # admin CRM surfaces user state across payment/etc by design
     }
 
     # Specific allowed cross-feature imports (importer_feature, imported_feature)
