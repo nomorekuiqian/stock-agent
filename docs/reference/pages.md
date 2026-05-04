@@ -12,6 +12,8 @@
 | `/morning` | 盘前早报 | Backend (morningReports API) | 否 |
 | `/morning/[id]` | 早报详情 | Backend (morningReports.getById) | 否 |
 | `/morning/archive` | 早报存档 | Backend (morningReports API) | 否 |
+| `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest) | 是 |
+| `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate) | 是 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -74,6 +76,19 @@
 - `MorningReportContent` 组件渲染 (期货 grid + 全球市场 + 新闻 + 焦点 + 总结)
 - SEO: 动态 metadata + JSON-LD 结构化数据
 - 琥珀色主题 (amber accent)
+
+### `/twitter-digest` 推特 KOL 观点日报
+- Client Component,需要登录后读取
+- 调用 `api.twitterDigest.getLatest()` 获取最近一份 `DailyDigest`
+- 页面结构: 今日要点 + 大盘走势 + 行业判断 + 个股判断 + 追踪 KOL
+- `industry_picks` 按 `sector` 分组,`stock_picks` 按 `primary_ticker` 分组
+- 未登录时跳转登录引导,当前尚未接 Pro / Max 付费墙
+
+### `/twitter-digest/[date]` 推特 KOL 观点日报详情
+- Client Component,需要登录后读取
+- 调用 `api.twitterDigest.getByDate(date)`
+- 复用 `DigestView`
+- 后端校验日期格式 `YYYY-MM-DD`,不存在返回 404
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口

@@ -1,7 +1,7 @@
 # 市场 Tab 改造计划 — 散户视角的股价解释器
 
 > Status: Planning
-> Updated: 2026-04-21
+> Updated: 2026-04-25
 > Related: `frontend/src/app/stock/[symbol]/_components/MarketTab.tsx`, `frontend/src/components/market/`, `backend/app/features/stock/`
 > Vision: 当用户发现股票涨跌时，来这个页面就能理解原因
 
@@ -39,19 +39,18 @@
 
 ### 布局
 
-左栏固定（AI 解读）+ 右栏滚动（KPI + 子 Tab）。整体框架不变，内容全换。
+左栏固定（观点总结）+ 右栏滚动（KPI + 原始内容）。整体框架不变，内容优先级调整为 Twitter KOL 观点监控。
 
 ```
 +-- HeaderStrip (财报倒计时 + 催化剂提醒) ---------------------+
 |                                                                |
 |  +-- 左栏 (sticky) ----+  +-- 右栏 (scroll) ---------------+ |
 |  |                      |  |                                 | |
-|  |  今日股价解读         |  |  新 KPI 行                      | |
-|  |  (AI 因果叙事)       |  |  (社交热度/资金信号/情绪/...)   | |
+|  |  KOL 观点总结          |  |  新 KPI 行                      | |
+|  |  (每个大 V 怎么看)     |  |  (现价/新闻/相对板块/...)       | |
 |  |                      |  |                                 | |
-|  |  "NVDA 今日下跌      |  |  +-- 子 Tab ----------------+  | |
-|  |   3.2%, 主要受       |  |  | 舆情动态 | 视频解读 | 资金面 | | |
-|  |   两个因素驱动..."   |  |  +-------------------------+  | |
+|  |  "@KOL1 认为毛利率    |  |  Twitter 推文时间线              | |
+|  |   压力仍未缓解..."    |  |  每条推文 + 原始链接             | |
 |  |                      |  |                                 | |
 |  |                      |  |  [active sub-tab content]       | |
 |  |                      |  |                                 | |
@@ -59,23 +58,29 @@
 +----------------------------------------------------------------+
 ```
 
-### 子 Tab 1：舆情动态（最高优先级）
+### 第一优先级：Twitter KOL 数据管道
 
-社交媒体 + 新闻的统一时间线。
+先做可信金融博主的推文采集管道。只有数据稳定入库后，再做“我认可的大 V 如何看待这只股票”的查询和展示。
 
 **数据源**：
-- 主流财经媒体新闻（已有 FMP news-feed）
-- Reddit 热帖（r/wallstreetbets, r/stocks, r/investing）
-- X/Twitter 相关讨论
-- 公司官方公告（已有 FMP press-releases）
+- 配置好的 Twitter KOL 账号列表
+- TwitterAPI.io user timeline（已有 `backend/app/features/twitter/` 基础）
+- Twitter Article 补全文本（复用已有 fetch-articles 能力）
+- `kol_tweets` 数据库存储
 
-**展示**：
-- 统一时间线，按时间倒序混合呈现，来源用标签区分
-- 情绪指标面板：看涨/看跌/中性分布（饼图或条形图）
-- 24h 讨论量趋势（折线图）
-- 每条内容标注情绪标签
+**本阶段不做**：
+- 不做股票 ticker 匹配
+- 不做 LLM 总结
+- 不做前端 Market Tab 展示
+- 不在用户请求时调用 TwitterAPI.io
 
-### 子 Tab 2：视频解读
+**验收**：
+- 每小时 cron 可以批量抓取配置 KOL 的最新推文。
+- 每次使用 2-3 小时安全窗口，upsert 去重，避免漏抓。
+- 每个 KOL 采集失败不会影响其他 KOL。
+- 每次运行有可查询的 run 记录。
+
+### 后续：视频解读
 
 YouTube 财经博主视频聚合。
 
@@ -87,7 +92,7 @@ YouTube 财经博主视频聚合。
 - AI 摘要：每个视频的核心观点提取（1-2 句话）
 - 博主立场标签：看涨/看跌/中性
 
-### 子 Tab 3：资金面（Smart Money）
+### 后续：资金面（Smart Money）
 
 散户缺乏的"深层洞察"。
 
@@ -114,22 +119,25 @@ YouTube 财经博主视频聚合。
 - 语言更口语化，像一个分析师朋友在跟你聊天
 
 **示例**：
-> NVDA 今日下跌 3.2%，主要受两个因素驱动：(1) 商务部宣布对华 AI 芯片出口新限制，直接影响收入预期；(2) 半导体板块整体回调 -1.8%，资金从科技股流出转向防御性板块。Reddit 上 r/wallstreetbets 讨论量激增 340%，情绪偏空。不过值得注意的是，CEO Jensen Huang 上周刚增持了 $12M 股票。
+> NVDA 今日下跌 3.2%，主要受两个因素驱动：(1) 商务部宣布对华 AI 芯片出口新限制，直接影响收入预期；(2) 半导体板块整体回调 -1.8%，资金从科技股流出转向防御性板块。值得注意的是，配置的 Twitter KOL 中，半导体产业链账号普遍担心短期订单节奏，但长期基本面账号仍认为数据中心需求没有被破坏。
 
 ### KPI 行重新设计
 
 | 指标 | 说明 |
 |------|------|
-| 社交热度 | 24h 讨论量 + 较前日变化 |
-| 舆情情绪 | 看涨/看跌比例 |
-| 资金信号 | 内部人近 30 天净买/卖 |
+| 采集状态 | 最近一次 Twitter KOL 数据管道是否正常 |
+| 已采 KOL | 当前启用并成功入库的 KOL 数 |
+| 最新推文 | 最近一次入库时间 |
 | 宏观关联 | 相对板块表现 |
 
 ## 后端新增端点
 
 | 端点 | 数据源 | 缓存 | 说明 |
 |------|--------|------|------|
-| `GET /stocks/{symbol}/social-sentiment` | Reddit API + X API | 15min | 社交媒体聚合 + 情绪分析 |
+| `POST /twitter/fetch-configured-kols` | TwitterAPI.io | 持久化 | 批量采集配置大 V 推文，cron 调用 |
+| `GET /twitter/kol-accounts` | 配置/DB | 5min | 返回启用的 KOL 目录 |
+| `GET /twitter/fetch-runs` | DB | 1min | 查看采集运行记录 |
+| `GET /stocks/{symbol}/twitter-kol-opinions` | kol_tweets + stock mention index + LLM | TBD | Deferred：LLM 总结 + 推文证据 |
 | `GET /stocks/{symbol}/youtube-videos` | YouTube Data API v3 | 1h | 相关视频搜索 + AI 摘要 |
 | `GET /stocks/{symbol}/smart-money` | FMP (部分已有) | 30min | 内部人 + 机构 + 期权信号 |
 | `POST /stocks/{symbol}/market-analysis` | 已有，改造 prompt | 8h | AI 因果叙事 |
@@ -144,24 +152,43 @@ YouTube 财经博主视频聚合。
 
 ## 执行计划
 
-### Phase 1 — 舆情动态 Tab（最高优先级）
+### Phase 1 — Twitter KOL 数据管道（最高优先级）
 
-社交媒体监控是用户最想要的功能。
+先保证可信博主推文能稳定、低成本、可观测地进入数据库。
 
 **后端**：
-1. 调研 Reddit API / X API 的接入方式和限制
-2. 实现 `/stocks/{symbol}/social-sentiment` 端点
-3. 情绪分析：可用 LLM 或简单的关键词/表情分析
+1. 配置 KOL 白名单。
+2. 实现 `/twitter/fetch-configured-kols`，批量复用现有 `fetch_and_store_tweets()`。
+3. 每小时 cron 调用，每个 KOL 默认拉最新 1 页，使用 2-3 小时安全窗口过滤。
+4. 建立或扩展采集运行记录，保存每个 KOL 的 fetched/stored/skipped/error。
 
 **前端**：
-1. 新建 `SocialSentimentCard` 组件
-2. 统一时间线（新闻 + 社交帖子混合）
-3. 情绪指标面板
-4. 24h 讨论量趋势图
+1. 本阶段不做股票页 UI。
+2. 如需要，只做内部调试视图查看 KOL 列表和最近采集状态。
 
-**里程碑**：用户打开市场 Tab 能看到 Reddit/X 上关于该股票的最新讨论
+**里程碑**：数据库中持续累积配置 KOL 的最新 tweets，后续股票观点查询只读数据库，不直接调用 TwitterAPI.io。
 
-### Phase 2 — AI 解读改造
+### Phase 2 — 股票相关性索引
+
+**后端**：
+1. 实现 tweet -> stock 的候选召回层：cashtag regex、company aliases、上下文 ticker 匹配。
+2. 建立 `tweet_stock_mentions` 或等价缓存。
+3. 对 `META`、`NOW`、`ON`、`ARE`、`IT`、`AI` 等易误匹配 ticker 启用严格规则。
+4. 本阶段只判断“是否值得作为候选推文”，不判断推文观点类型。
+
+### Phase 3 — KOL LLM 总结与 Market Tab 展示
+
+**后端**：
+1. 实现 `/stocks/{symbol}/twitter-kol-opinions`。
+2. 从 `tweet_stock_mentions` 读取候选推文，按作者和时间组织后交给 LLM。
+3. LLM 输出自然语言总结，不强制 bullish/bearish、观点类型、时间周期等结构化字段。
+4. API 返回 `summary_markdown`、`cited_tweet_ids` 和原始 tweets，用于证据核验。
+
+**前端**：
+1. 新建 `TwitterKolOpinionsPanel`。
+2. 左栏展示 LLM 总结，右栏展示原始 tweet 证据。
+
+### 后续 — AI 解读改造
 
 **后端**：
 1. 重写 `market_overview_agent` 的 prompt，聚焦因果叙事
@@ -172,7 +199,7 @@ YouTube 财经博主视频聚合。
 1. 改造 `AIMarketAnalysisCard` 的展示方式
 2. 简化为一段文字 + 关键标签
 
-### Phase 3 — 资金面 Tab
+### 后续 — 资金面 Tab
 
 **后端**：
 1. 整合已有 insider 数据
@@ -185,7 +212,7 @@ YouTube 财经博主视频聚合。
 2. 信号化展示（非原始数据表）
 3. 资金流向趋势图
 
-### Phase 4 — 视频解读 Tab
+### 后续 — 视频解读 Tab
 
 **后端**：
 1. 接入 YouTube Data API v3
@@ -196,7 +223,7 @@ YouTube 财经博主视频聚合。
 1. 新建 `YouTubeVideosCard` 组件
 2. 视频卡片列表 + AI 摘要 + 立场标签
 
-### Phase 5 — 清理
+### 后续 — 清理
 
 1. 移除 `AnalystRatingsCard`（465 行）
 2. 移除 `MarketHeatCard`（88 行）
@@ -218,10 +245,11 @@ YouTube 财经博主视频聚合。
 
 | 风险 | 应对 |
 |------|------|
-| Reddit API 限制（免费 tier 100 req/min） | 后端缓存 + 按需请求，不实时轮询 |
-| X/Twitter API 成本高（Basic $100/mo） | 先评估 ROI，可先只做 Reddit |
+| TwitterAPI.io 成本 | Phase 1 只采集配置 KOL，每小时默认每人 1 页；不做全网搜索 |
+| cron 漏跑 | 每次使用 2-3 小时安全窗口，upsert 去重 |
+| 单个 KOL 失败 | 单账号独立 try/catch，并写入 run 记录 |
 | YouTube API 配额（10,000 units/day） | 搜索请求 100 units，一天约 100 只股票上限 |
-| 社交媒体数据质量参差不齐 | LLM 过滤 + 情绪分析做质量门控 |
+| AI 总结过度概括 | 总结必须返回 cited_tweet_ids，右栏可核验原文 |
 | AI 摘要成本（视频数量多） | 批量处理 + 缓存，只摘要热门视频 |
 | 移除分析师数据后部分用户不满 | 可保留为折叠区域或独立页面 |
 
@@ -229,7 +257,7 @@ YouTube 财经博主视频聚合。
 
 **前端（需改动）**
 - `frontend/src/app/stock/[symbol]/_components/MarketTab.tsx` — 重构子 Tab 结构
-- `frontend/src/components/market/` — 新增/改造/移除组件
+- `frontend/src/components/market/` — 新增 Twitter KOL 总结和推文时间线组件
 - `frontend/src/hooks/queries/use-stock-data.ts` — 新增 hooks
 
 **前端（需移除）**
@@ -238,10 +266,9 @@ YouTube 财经博主视频聚合。
 - `frontend/src/components/market/PeersComparisonCard.tsx` (57 行)
 
 **后端（需改动）**
-- `backend/app/features/stock/router.py` — 新增端点
-- `backend/app/features/stock/agent/market_overview.py` — 改造 prompt
-- `backend/app/features/stock/service.py` — 新增社交媒体/YouTube 服务
+- `backend/app/features/twitter/` — 增加 KOL 配置、批量采集、采集运行记录
 
 **后端（需新增）**
-- 社交媒体服务（Reddit/X API 集成）
+- Deferred: `backend/app/features/twitter/stock_matcher.py` — 股票相关性索引
+- Deferred: `backend/app/features/stock/agent/twitter_kol_summary.py` — KOL 推文 LLM 总结 Agent
 - YouTube 服务（Data API v3 集成）
