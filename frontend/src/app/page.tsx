@@ -430,7 +430,7 @@ export default function Home() {
                 <div className="w-52 md:w-64 mx-auto mb-5 rounded-xl overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0502.jpg"
+                    src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0510.jpg"
                     alt="TheMarketBrew WeChat Group QR Code"
                     className="w-full h-auto"
                   />

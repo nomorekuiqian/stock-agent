@@ -1395,7 +1395,7 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
                             <tr>
                                 <td width="50%" style="padding: 0 6px 0 0; text-align: center; vertical-align: top;">
-                                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0502.jpg"
+                                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0510.jpg"
                                          alt="TheMarketBrew WeChat Group QR Code"
                                          style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
                                     />
