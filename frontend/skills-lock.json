@@ -9,12 +9,12 @@
     "insforge": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "f8b94c0722ae6eba0b2fa83dbdaf2cef06dd59474c0630061f240c248b4d10c5"
+      "computedHash": "3af1ad55e61ac657723338a3b8cbb82d8a32aeca3a931089c833ce5115cac5c6"
     },
     "insforge-cli": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "9eefd32f8ed7195969d5fac788baa7ef99b452892e5ea9b00eb65e08a3ebece6"
+      "computedHash": "5e81c4d05916b052559a4d0896fa2cefa799b9ae5b0e61459b7cf3c61236a284"
     }
   }
 }
