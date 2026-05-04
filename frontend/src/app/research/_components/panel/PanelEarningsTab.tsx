@@ -176,8 +176,7 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
       if (!ymMap.has(ym)) {
         const fy = s.fiscal_year as number | null;
         const fp = s.fiscal_period as string | null;
-        const isPending = !!s.is_pending;
-        const label = fy && fp ? `FY${String(fy).slice(-2)} ${fp}${isPending ? ' (速报)' : ''}` : d.slice(0, 7);
+        const label = fy && fp ? `FY${String(fy).slice(-2)} ${fp}` : d.slice(0, 7);
         ymMap.set(ym, { date: d, label });
       }
     }

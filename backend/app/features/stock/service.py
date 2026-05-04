@@ -697,54 +697,31 @@ class StockService:
         dcf_result = result_map.get("dcf") or {}
         next_earnings = result_map.get("next_earnings")
 
-        # Detect pending quarter: earnings calendar has actual data but income
-        # statement hasn't been published yet (common on earnings day).
+        # Merge earnings-calendar actuals into the income statement list.
+        # FMP populates earnings-calendar (EPS/Revenue) on announcement day,
+        # while the full income statement (margins, expenses, etc.) appears
+        # hours-to-days later. We unify both into the same per-quarter object
+        # so the UI/AI never has to distinguish a "pending" state — fields
+        # that aren't available yet are simply None.
         recent_ec = result_map.get("recent_earnings")
-        pending_quarter = None
         matched_income_stmt = None
         if recent_ec and recent_ec.get("epsActual") is not None:
-            ec_date = recent_ec.get("date", "")
-            matched_income_stmt = self._find_statement_for_recent_earnings(
-                income_stmts, recent_ec
+            income_stmts, matched_income_stmt = self._merge_calendar_into_statements(
+                income_stmts if isinstance(income_stmts, list) else [],
+                recent_ec,
+                symbol,
             )
-            already_covered = matched_income_stmt is not None
-
-            if matched_income_stmt:
-                self._annotate_statement_with_calendar_earnings(
-                    matched_income_stmt, recent_ec
-                )
-
-            if not already_covered:
-                fiscal_year, fiscal_q = self._infer_next_fiscal_period(income_stmts)
-                if fiscal_year and fiscal_q:
-                    pending_quarter = {
-                        "date": ec_date,
-                        "fiscal_year": fiscal_year,
-                        "fiscal_period": f"Q{fiscal_q}",
-                        "is_pending": True,
-                        "revenue": recent_ec.get("revenueActual"),
-                        "eps_diluted": recent_ec.get("epsActual"),
-                        "eps_estimated": recent_ec.get("epsEstimated"),
-                        "revenue_estimated": recent_ec.get("revenueEstimated"),
-                    }
-                    income_stmts = [pending_quarter] + (income_stmts if isinstance(income_stmts, list) else [])
-                    logger.info(
-                        "Injected pending quarter for %s: FY%d Q%d (EPS=%.2f, Rev=%.0f)",
-                        symbol, fiscal_year, fiscal_q,
-                        recent_ec.get("epsActual", 0),
-                        recent_ec.get("revenueActual", 0),
-                    )
 
         earnings_history = self._merge_recent_calendar_earnings(
             earnings_history,
             recent_ec if isinstance(recent_ec, dict) else None,
-            matched_income_stmt or pending_quarter,
+            matched_income_stmt,
         )
 
-        # Compute TRUE YoY growth from raw quarterly income statements
-        # (exclude pending quarter which has no detailed line items)
-        real_stmts = [s for s in income_stmts if not s.get("is_pending")] if income_stmts else []
-        financial_growth = self._compute_yoy_growth(real_stmts)
+        # Compute TRUE YoY growth from quarterly income statements.
+        # Stub statements (calendar-only, no detailed line items) are skipped
+        # automatically since YoY needs revenue from the same quarter last year.
+        financial_growth = self._compute_yoy_growth(income_stmts)
 
         return {
             "symbol": symbol,
@@ -759,29 +736,7 @@ class StockService:
             "income_statements": income_stmts if isinstance(income_stmts, list) else [],
             "cashflow_statements": cashflow_stmts if isinstance(cashflow_stmts, list) else [],
             "balance_sheets": balance_sheets if isinstance(balance_sheets, list) else [],
-            "pending_quarter": pending_quarter,
         }
-
-    @staticmethod
-    def _infer_next_fiscal_period(
-        income_stmts: list,
-    ) -> tuple[int | None, int | None]:
-        """Infer the next fiscal year/quarter from the most recent income statement."""
-        if not income_stmts or not isinstance(income_stmts, list):
-            return None, None
-        latest = income_stmts[0]
-        fy = latest.get("fiscal_year")
-        fp = latest.get("fiscal_period", "")
-        if not fy or not fp or not fp.startswith("Q"):
-            return None, None
-        try:
-            fy = int(fy)
-        except (TypeError, ValueError):
-            return None, None
-        q = int(fp.replace("Q", ""))
-        if q == 4:
-            return fy + 1, 1
-        return fy, q + 1
 
     @staticmethod
     def _float_or_none(value: Any) -> float | None:
@@ -793,39 +748,209 @@ class StockService:
         except (TypeError, ValueError):
             return None
 
-    @classmethod
-    def _find_statement_for_recent_earnings(
-        cls, income_stmts: list, recent_earnings: dict | None
-    ) -> dict | None:
-        """Find the full statement that corresponds to a recent earnings release.
+    # Date-proximity threshold: an income statement whose period-end date is
+    # within this many days BEFORE the announcement date is treated as the
+    # statement for that announcement. 90 days covers normal filing lag (the
+    # vast majority of filings are within 60 days of quarter-end). Any larger
+    # gap implies the announcement is for a NEW quarter not yet in our data.
+    _ANNOUNCEMENT_LAG_DAYS = 90
 
-        Earnings calendar dates are announcement dates, while statements use
-        fiscal period end dates. Revenue matching catches cases such as INTC
-        reporting on 2026-04-23 for the quarter ended 2026-03-28.
+    @classmethod
+    def _merge_calendar_into_statements(
+        cls,
+        income_stmts: list,
+        recent_earnings: dict,
+        symbol: str,
+    ) -> tuple[list, dict | None]:
+        """Merge earnings-calendar actuals into the income statement list.
+
+        Returns (updated_statements, matched_or_synthesized_statement).
+
+        Strategy: try to match the announcement to the most recent income
+        statement using date proximity (a quarter-end within ~90 days before
+        the announcement is the same quarter). If no match, synthesize a stub
+        statement with whatever calendar data is available (revenue, EPS,
+        estimates) and inferred fiscal period — its other fields stay None,
+        which the UI/AI handle as "not available yet".
         """
-        if not income_stmts or not isinstance(income_stmts, list) or not recent_earnings:
+        if recent_earnings.get("epsActual") is None and recent_earnings.get("revenueActual") is None:
+            # No actuals to merge — caller normally gates on this, but be defensive.
+            return income_stmts, None
+
+        ec_date = recent_earnings.get("date") or ""
+        if not ec_date:
+            return income_stmts, None
+
+        ec_dt = cls._parse_date(ec_date)
+        if ec_dt is None:
+            return income_stmts, None
+
+        match = cls._match_statement_to_announcement(income_stmts, ec_dt, recent_earnings)
+        if match is not None:
+            cls._annotate_statement_with_calendar_earnings(match, recent_earnings)
+            return income_stmts, match
+
+        stub = cls._synthesize_statement_from_calendar(income_stmts, recent_earnings)
+        if stub is None:
+            return income_stmts, None
+
+        logger.info(
+            "Synthesized calendar-only statement for %s: FY%s %s (date=%s, EPS=%.2f, Rev=%.0f)",
+            symbol,
+            stub.get("fiscal_year"),
+            stub.get("fiscal_period"),
+            stub.get("date"),
+            float(stub.get("eps_diluted") or 0),
+            float(stub.get("revenue") or 0),
+        )
+        return [stub] + list(income_stmts), stub
+
+    @classmethod
+    def _match_statement_to_announcement(
+        cls, income_stmts: list, announcement_dt: datetime, recent_earnings: dict
+    ) -> dict | None:
+        """Pick the income statement that corresponds to this earnings announcement.
+
+        A statement matches when its period-end date is BEFORE the announcement
+        and within the typical filing-lag window. EPS/revenue values give a
+        secondary confirmation when the date gap is borderline.
+        """
+        if not income_stmts:
             return None
 
-        ec_date = recent_earnings.get("date", "")
+        ec_eps = cls._float_or_none(recent_earnings.get("epsActual"))
         ec_revenue = cls._float_or_none(recent_earnings.get("revenueActual"))
 
+        candidates = []
         for stmt in income_stmts:
             if not isinstance(stmt, dict):
                 continue
+            stmt_dt = cls._parse_date(stmt.get("date") or "")
+            if stmt_dt is None or stmt_dt > announcement_dt:
+                continue
+            gap_days = (announcement_dt - stmt_dt).days
+            if gap_days > cls._ANNOUNCEMENT_LAG_DAYS * 2:
+                # Way too old to be related to this announcement.
+                continue
+            candidates.append((gap_days, stmt))
 
-            stmt_date = stmt.get("date") or ""
-            if ec_date and stmt_date[:7] == ec_date[:7]:
-                return stmt
+        if not candidates:
+            return None
 
-            stmt_revenue = cls._float_or_none(stmt.get("revenue"))
-            if (
-                ec_revenue is not None
-                and stmt_revenue is not None
-                and abs(stmt_revenue - ec_revenue) / max(abs(ec_revenue), 1) < 0.001
-            ):
-                return stmt
+        # Sort by gap ascending — the most recent statement before the
+        # announcement is the strongest candidate.
+        candidates.sort(key=lambda x: x[0])
+        gap_days, best = candidates[0]
+
+        if gap_days <= cls._ANNOUNCEMENT_LAG_DAYS:
+            return best
+
+        # Borderline gap (90-180 days). The statement may be the same quarter
+        # as the announcement OR a stale prior quarter — only commit when EPS
+        # AND/OR revenue numerically equal the announcement values. We require
+        # tight match (~1%) here because Q-on-Q swings are often 5-30%, so any
+        # meaningful divergence indicates the announcement is for a NEW quarter.
+        stmt_eps = cls._float_or_none(best.get("eps_diluted"))
+        if (
+            ec_eps is not None
+            and stmt_eps is not None
+            and abs(stmt_eps - ec_eps) / max(abs(ec_eps), 0.01) < 0.01
+        ):
+            return best
+
+        stmt_revenue = cls._float_or_none(best.get("revenue"))
+        if (
+            ec_revenue is not None
+            and stmt_revenue is not None
+            and abs(stmt_revenue - ec_revenue) / max(abs(ec_revenue), 1) < 0.01
+        ):
+            return best
 
         return None
+
+    @classmethod
+    def _synthesize_statement_from_calendar(
+        cls, income_stmts: list, recent_earnings: dict
+    ) -> dict | None:
+        """Build a stub income statement from earnings-calendar data alone.
+
+        Used when the announcement is for a brand-new quarter that hasn't yet
+        appeared in FMP's income-statement endpoint. The stub carries only
+        what the calendar provides; every other field stays absent so the
+        UI/AI render it as "not available yet" without any special flag.
+        """
+        ec_date = recent_earnings.get("date") or ""
+        ec_dt = cls._parse_date(ec_date)
+        if ec_dt is None:
+            return None
+
+        fiscal_year, fiscal_period = cls._infer_fiscal_period_from_announcement(
+            income_stmts, ec_dt
+        )
+        if fiscal_year is None or fiscal_period is None:
+            return None
+
+        stub = {
+            "date": ec_date,
+            "fiscal_year": fiscal_year,
+            "fiscal_period": fiscal_period,
+            "revenue": recent_earnings.get("revenueActual"),
+            "eps_diluted": recent_earnings.get("epsActual"),
+        }
+        cls._annotate_statement_with_calendar_earnings(stub, recent_earnings)
+        return stub
+
+    @classmethod
+    def _infer_fiscal_period_from_announcement(
+        cls, income_stmts: list, announcement_dt: datetime
+    ) -> tuple[int | None, str | None]:
+        """Infer fiscal year + period for an announcement that has no matching statement.
+
+        Prefers extending the existing income-statement sequence (most recent
+        statement + 1 quarter) — this preserves a company's actual fiscal
+        calendar. Falls back to a calendar-quarter heuristic when we have no
+        prior statements at all.
+        """
+        if income_stmts:
+            for stmt in income_stmts:
+                if not isinstance(stmt, dict):
+                    continue
+                fy = stmt.get("fiscal_year")
+                fp = stmt.get("fiscal_period") or ""
+                if not fy or not fp.startswith("Q"):
+                    continue
+                try:
+                    fy_int = int(fy)
+                    q_int = int(fp.replace("Q", ""))
+                except (TypeError, ValueError):
+                    continue
+                if q_int == 4:
+                    return fy_int + 1, "Q1"
+                return fy_int, f"Q{q_int + 1}"
+
+        # No prior statements — fall back to calendar quarter from announcement.
+        # Announcements typically land 1-2 months after quarter-end.
+        month = announcement_dt.month
+        year = announcement_dt.year
+        if month <= 2:
+            return year - 1, "Q4"
+        if month <= 5:
+            return year, "Q1"
+        if month <= 8:
+            return year, "Q2"
+        if month <= 11:
+            return year, "Q3"
+        return year, "Q4"
+
+    @staticmethod
+    def _parse_date(value: str) -> datetime | None:
+        """Parse YYYY-MM-DD date strings; return None on failure."""
+        if not value or not isinstance(value, str):
+            return None
+        try:
+            return datetime.strptime(value[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
 
     @staticmethod
     def _annotate_statement_with_calendar_earnings(

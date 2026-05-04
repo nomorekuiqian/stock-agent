@@ -245,20 +245,22 @@ class TestComputeYoyGrowth:
 
 
 class TestEarningsCalendarMerge:
-    """Tests for filling yfinance EPS-history gaps from FMP earnings calendar."""
+    """Tests for unifying earnings-calendar actuals into the income statement list."""
 
-    def test_matches_statement_by_revenue_when_announcement_month_differs(self):
-        """INTC-style release: report date is April, fiscal quarter ended in March."""
+    def test_merges_into_statement_when_period_end_just_before_announcement(self):
+        """INTC-style: announcement on Apr 23 for the quarter ended Mar 28 — matches via date proximity."""
         income_stmts = [
             {
                 "date": "2026-03-28",
-                "fiscal_year": "2026",
+                "fiscal_year": 2026,
                 "fiscal_period": "Q1",
                 "revenue": 13_577_000_000,
+                "net_income": 1_200_000_000,
+                "eps_diluted": 0.29,
             },
             {
                 "date": "2025-12-27",
-                "fiscal_year": "2025",
+                "fiscal_year": 2025,
                 "fiscal_period": "Q4",
                 "revenue": 13_674_000_000,
             },
@@ -272,9 +274,128 @@ class TestEarningsCalendarMerge:
             "lastUpdated": "2026-04-24",
         }
 
-        matched = StockService._find_statement_for_recent_earnings(income_stmts, recent)
+        updated, matched = StockService._merge_calendar_into_statements(income_stmts, recent, "INTC")
 
+        # No new entry was added — the calendar data merged into the existing Q1 statement.
+        assert len(updated) == 2
         assert matched is income_stmts[0]
+        assert matched["eps_calendar_actual"] == 0.29
+        assert matched["earnings_date"] == "2026-04-23"
+
+    def test_merges_into_existing_q1_even_when_revenues_disagree(self):
+        """The Meta bug: Q1 income statement is already loaded but its revenue
+        differs slightly from the calendar value. Old logic mismatched and
+        synthesized a phantom Q2; new logic relies on date proximity."""
+        income_stmts = [
+            {
+                "date": "2026-03-31",
+                "fiscal_year": 2026,
+                "fiscal_period": "Q1",
+                # 0.5% off the calendar value — far outside the old 0.1% threshold.
+                "revenue": 42_310_000_000,
+                "net_income": 12_000_000_000,
+                "eps_diluted": 5.21,
+            },
+        ]
+        recent = {
+            "date": "2026-04-30",
+            "epsEstimated": 5.10,
+            "epsActual": 5.21,
+            "revenueEstimated": 41_800_000_000,
+            "revenueActual": 42_500_000_000,
+        }
+
+        updated, matched = StockService._merge_calendar_into_statements(income_stmts, recent, "META")
+
+        # Critical: NO synthetic FY26 Q2 row gets added.
+        assert len(updated) == 1
+        assert matched is income_stmts[0]
+        assert matched["fiscal_period"] == "Q1"
+        assert matched["eps_calendar_actual"] == 5.21
+
+    def test_synthesizes_stub_when_no_matching_statement_yet(self):
+        """Calendar fires for a brand-new quarter that FMP hasn't ingested yet
+        — synthesize a stub with calendar fields only, no `is_pending` flag."""
+        income_stmts = [
+            {
+                "date": "2025-12-31",
+                "fiscal_year": 2025,
+                "fiscal_period": "Q4",
+                "revenue": 40_000_000_000,
+                "eps_diluted": 5.00,
+            },
+        ]
+        recent = {
+            "date": "2026-04-30",
+            "epsEstimated": 5.10,
+            "epsActual": 5.21,
+            "revenueEstimated": 41_800_000_000,
+            "revenueActual": 42_500_000_000,
+        }
+
+        updated, matched = StockService._merge_calendar_into_statements(income_stmts, recent, "META")
+
+        assert len(updated) == 2
+        # Stub goes to the head of the list.
+        stub = updated[0]
+        assert stub is matched
+        assert stub["fiscal_year"] == 2026
+        assert stub["fiscal_period"] == "Q1"
+        assert stub["revenue"] == 42_500_000_000
+        assert stub["eps_diluted"] == 5.21
+        # Detailed line items stay absent — UI/AI render them as empty.
+        assert "net_income" not in stub
+        assert "operating_income" not in stub
+        # Critically: no `is_pending` flag exists on the stub anymore.
+        assert "is_pending" not in stub
+
+    def test_no_merge_when_calendar_has_no_actuals(self):
+        """If recent_earnings carries no epsActual, nothing happens."""
+        income_stmts = [{"date": "2026-03-31", "fiscal_year": 2026, "fiscal_period": "Q1"}]
+        recent = {"date": "2026-04-30", "epsActual": None, "revenueActual": None}
+
+        updated, matched = StockService._merge_calendar_into_statements(income_stmts, recent, "META")
+
+        # The merger function expects callers to gate on epsActual; when it's
+        # None the helper still returns the original list with no match.
+        assert updated is income_stmts or updated == income_stmts
+        assert matched is None
+
+    def test_borderline_gap_uses_eps_match_as_tiebreaker(self):
+        """Statement is 100 days before announcement (over the 90-day threshold)
+        — only merged when EPS or revenue numerically confirms it's the same quarter."""
+        income_stmts = [
+            {
+                "date": "2026-01-15",
+                "fiscal_year": 2026,
+                "fiscal_period": "Q1",
+                "revenue": 10_000_000_000,
+                "eps_diluted": 1.50,
+            },
+        ]
+        recent_match = {
+            "date": "2026-04-25",  # 100 days after
+            "epsActual": 1.50,
+            "revenueActual": 10_000_000_000,
+        }
+        recent_mismatch = {
+            "date": "2026-04-25",
+            "epsActual": 1.85,  # noticeably different EPS
+            "revenueActual": 11_500_000_000,
+        }
+
+        # EPS matches → treat as same quarter, merge.
+        _, matched = StockService._merge_calendar_into_statements(
+            list(income_stmts), recent_match, "TEST"
+        )
+        assert matched is not None
+        assert matched["fiscal_period"] == "Q1"
+        # EPS clearly differs → treat as new quarter, synthesize.
+        updated, matched = StockService._merge_calendar_into_statements(
+            list(income_stmts), recent_mismatch, "TEST"
+        )
+        assert len(updated) == 2
+        assert matched["fiscal_period"] == "Q2"  # next quarter inferred from prior FY26 Q1
 
     def test_annotates_matched_statement_with_calendar_estimates(self):
         """Full statements keep GAAP fields while receiving calendar estimates."""

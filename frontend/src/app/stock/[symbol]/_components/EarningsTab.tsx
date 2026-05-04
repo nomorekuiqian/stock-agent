@@ -339,10 +339,7 @@ export function EarningsTab({
       if (!ymMap.has(ym)) {
         const fy = s.fiscal_year as number | null;
         const fp = s.fiscal_period as string | null;
-        const isPending = !!(s as Record<string, unknown>).is_pending;
-        const label = fy && fp
-          ? `FY${String(fy).slice(-2)} ${fp}${isPending ? ' (速报)' : ''}`
-          : d.slice(0, 7);
+        const label = fy && fp ? `FY${String(fy).slice(-2)} ${fp}` : d.slice(0, 7);
         ymMap.set(ym, { date: d, label });
       }
     }
@@ -435,8 +432,7 @@ export function EarningsTab({
   );
   const transcript = transcriptData?.available ? transcriptData.content : null;
 
-  const isPendingQuarter = !!selectedIS?.is_pending;
-  const hasData = earningsHistory.length > 0 || revenueSegments.length > 0 || financialGrowth.length > 0 || isPendingQuarter;
+  const hasData = earningsHistory.length > 0 || revenueSegments.length > 0 || financialGrowth.length > 0 || incomeStatements.length > 0;
 
   // Right panel tab
   type RightTab = 'transcript' | 'income' | 'cashflow' | 'balance';
@@ -603,45 +599,49 @@ export function EarningsTab({
               {/* INCOME STATEMENT VIEW */}
               {rightTab === 'income' && (
                 <>
-                  {/* 本季表现 */}
+                  {/* 本季表现 — single unified template; missing fields render as '--' */}
                   <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : 'Performance'} numberLabel="01">
-                    {isPendingQuarter ? (() => {
-                      const epsActual = selectedIS?.eps_diluted as number | null ?? null;
-                      const epsEst = selectedIS?.eps_estimated as number | null ?? null;
-                      const revActual = selectedIS?.revenue as number | null ?? null;
-                      const revEst = selectedIS?.revenue_estimated as number | null ?? null;
-                      const epsSurprise = epsActual != null && epsEst != null && epsEst !== 0
-                        ? (epsActual - epsEst) / Math.abs(epsEst) : null;
+                    {(() => {
+                      // EPS: prefer yfinance history (rich surprise data); fall back to
+                      // calendar-derived value on the income statement when only the
+                      // calendar entry is available.
+                      const epsActual = selectedEps?.eps_actual ?? (selectedIS?.eps_diluted as number | null) ?? null;
+                      const epsEst = selectedEps?.eps_estimate ?? (selectedIS?.eps_estimated as number | null) ?? null;
+                      const epsSurprise = selectedEps?.surprise_percent ?? (
+                        epsActual != null && epsEst != null && epsEst !== 0
+                          ? (epsActual - epsEst) / Math.abs(epsEst) : null
+                      );
+
+                      // Revenue: prefer the income statement value; fall back to the
+                      // calendar actual stored on the same statement.
+                      const revActual = (selectedIS?.revenue as number | null)
+                        ?? (selectedIS?.revenue_calendar_actual as number | null) ?? null;
+                      const revEst = (selectedIS?.revenue_estimated as number | null) ?? null;
                       const revSurprise = revActual != null && revEst != null && revEst !== 0
                         ? (revActual - revEst) / Math.abs(revEst) : null;
+
+                      // YoY metrics come from financial_growth (only computed for
+                      // statements with detailed line items). Stubs simply omit them
+                      // by rendering '--', which fmt(undefined) does naturally.
                       return (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricBox label="EPS" value={epsActual != null ? fmt(epsActual, { bn: false, currency }) : '--'}
-                              sub={epsSurprise != null ? `${epsSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(epsSurprise, { pct: true, sign: true })}` : (epsEst != null ? `Est. ${fmt(epsEst, { currency })}` : undefined)}
-                              positive={epsSurprise != null ? epsSurprise >= 0 : undefined} />
-                            <MetricBox label="Revenue" value={revActual != null ? fmt(revActual, { bn: true, currency }) : '--'}
-                              sub={revSurprise != null ? `${revSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(revSurprise, { pct: true, sign: true })}` : (revEst != null ? `Est. ${fmt(revEst, { bn: true, currency })}` : undefined)}
-                              positive={revSurprise != null ? revSurprise >= 0 : undefined} />
-                          </div>
-                          <div className="bg-muted/30 border border-border/20 rounded-lg px-3 py-2 text-xs text-muted-foreground">
-                            速报数据,详细财务报表将在 1-2 个工作日内更新
-                          </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <MetricBox label="EPS" value={epsActual != null ? `$${fmt(epsActual)}` : '--'}
+                            sub={epsSurprise != null
+                              ? `${epsSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(epsSurprise, { pct: true, sign: true })}`
+                              : (epsEst != null ? `Est. $${fmt(epsEst)}` : undefined)}
+                            positive={epsSurprise != null ? epsSurprise >= 0 : undefined} />
+                          <MetricBox label="Revenue" value={revActual != null ? fmt(revActual, { bn: true, currency }) : '--'}
+                            sub={revSurprise != null
+                              ? `${revSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(revSurprise, { pct: true, sign: true })}`
+                              : (revEst != null ? `Est. ${fmt(revEst, { bn: true, currency })}` : undefined)}
+                            positive={revSurprise != null ? revSurprise >= 0 : undefined} />
+                          <MetricBox label="净利 YoY" value={fmt(selectedGrowth?.netIncomeGrowth, { pct: true, sign: true })}
+                            positive={selectedGrowth?.netIncomeGrowth != null ? selectedGrowth.netIncomeGrowth >= 0 : undefined} />
+                          <MetricBox label="EPS YoY" value={fmt(selectedGrowth?.epsdilutedGrowth, { pct: true, sign: true })}
+                            positive={selectedGrowth?.epsdilutedGrowth != null ? selectedGrowth.epsdilutedGrowth >= 0 : undefined} />
                         </div>
                       );
-                    })() : (
-                      <div className="grid grid-cols-2 gap-3">
-                        <MetricBox label="EPS" value={selectedEps?.eps_actual != null ? `$${fmt(selectedEps.eps_actual)}` : '--'}
-                          sub={selectedEps?.surprise_percent != null ? `${selectedEps.surprise_percent >= 0 ? 'Beat' : 'Miss'} ${fmt(selectedEps.surprise_percent, { pct: true, sign: true })}` : undefined}
-                          positive={selectedEps?.surprise_percent != null ? selectedEps.surprise_percent >= 0 : undefined} />
-                        <MetricBox label="营收 YoY" value={fmt(selectedGrowth?.revenueGrowth, { pct: true, sign: true })}
-                          positive={selectedGrowth?.revenueGrowth != null ? selectedGrowth.revenueGrowth >= 0 : undefined} />
-                        <MetricBox label="净利 YoY" value={fmt(selectedGrowth?.netIncomeGrowth, { pct: true, sign: true })}
-                          positive={selectedGrowth?.netIncomeGrowth != null ? selectedGrowth.netIncomeGrowth >= 0 : undefined} />
-                        <MetricBox label="EPS YoY" value={fmt(selectedGrowth?.epsdilutedGrowth, { pct: true, sign: true })}
-                          positive={selectedGrowth?.epsdilutedGrowth != null ? selectedGrowth.epsdilutedGrowth >= 0 : undefined} />
-                      </div>
-                    )}
+                    })()}
                   </SectionCard>
 
                   {/* 营收结构 */}
@@ -721,7 +721,7 @@ export function EarningsTab({
                   )}
 
                   {/* 预期 vs 实际 / 分析师预期 */}
-                  {(analystEstimates?.length || selectedEps || dcfValue || isPendingQuarter) && (() => {
+                  {(analystEstimates?.length || selectedEps || dcfValue || selectedIS?.eps_diluted != null) && (() => {
                     // Strict date match for estimates
                     const matchedEstimate = activeQuarter && analystEstimates
                       ? analystEstimates.find(e => e.date?.slice(0, 7) === activeQuarter.slice(0, 7))
@@ -730,7 +730,9 @@ export function EarningsTab({
                     const selectedIncomeStmt = activeQuarter
                       ? (findByDate(incomeStatements as Array<Record<string, unknown> & { date?: string }>, activeQuarter) as Record<string, unknown> | undefined)
                       : undefined;
-                    const isReported = selectedEps?.eps_actual != null || selectedIncomeStmt?.eps_calendar_actual != null || (isPendingQuarter && selectedIS?.eps_diluted != null);
+                    const isReported = selectedEps?.eps_actual != null
+                      || selectedIncomeStmt?.eps_calendar_actual != null
+                      || selectedIS?.eps_diluted != null;
                     const actualRevenue = selectedIncomeStmt?.revenue as number | null ?? null;
 
                     // For reported quarters: show EPS beat/miss from yfinance (always available)
@@ -759,10 +761,18 @@ export function EarningsTab({
                                 </tr>
                               </thead>
                               <tbody>
-                                {/* EPS: from yfinance earnings_history or pending quarter */}
+                                {/* EPS: prefer yfinance history, fall back to calendar
+                                    fields on the income statement (always populated when
+                                    the calendar carries actuals, even for stub statements). */}
                                 {(() => {
-                                  const epsA = selectedEps?.eps_actual ?? (selectedIncomeStmt?.eps_calendar_actual as number | null) ?? (isPendingQuarter ? selectedIS?.eps_diluted as number | null : null);
-                                  const epsE = selectedEps?.eps_estimate ?? (selectedIncomeStmt?.eps_estimated as number | null) ?? (isPendingQuarter ? selectedIS?.eps_estimated as number | null : null);
+                                  const epsA = selectedEps?.eps_actual
+                                    ?? (selectedIncomeStmt?.eps_calendar_actual as number | null)
+                                    ?? (selectedIS?.eps_diluted as number | null)
+                                    ?? null;
+                                  const epsE = selectedEps?.eps_estimate
+                                    ?? (selectedIncomeStmt?.eps_estimated as number | null)
+                                    ?? (selectedIS?.eps_estimated as number | null)
+                                    ?? null;
                                   const surprise = selectedEps?.surprise_percent ?? (
                                     epsA != null && epsE != null && epsE !== 0 ? (epsA - epsE) / Math.abs(epsE) : null
                                   );
@@ -877,10 +887,10 @@ export function EarningsTab({
               )}
 
           {/* CASH FLOW VIEW */}
-          {rightTab === 'cashflow' && isPendingQuarter && !selectedCashflow && (
+          {rightTab === 'cashflow' && !selectedCashflow && (
             <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
-              <p className="text-sm text-muted-foreground">详细现金流数据将在 1-2 个工作日内更新</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">可先查看电话会议了解管理层评论</p>
+              <p className="text-sm text-muted-foreground">该季度暂无现金流量表数据</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">完整数据通常在公司提交 10-Q 后 1-3 个工作日内补全</p>
             </div>
           )}
           {rightTab === 'cashflow' && selectedCashflow && (
@@ -919,10 +929,10 @@ export function EarningsTab({
               )}
 
           {/* BALANCE SHEET VIEW */}
-          {rightTab === 'balance' && isPendingQuarter && !selectedBalance && (
+          {rightTab === 'balance' && !selectedBalance && (
             <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
-              <p className="text-sm text-muted-foreground">详细资产负债数据将在 1-2 个工作日内更新</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">可先查看电话会议了解管理层评论</p>
+              <p className="text-sm text-muted-foreground">该季度暂无资产负债表数据</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">完整数据通常在公司提交 10-Q 后 1-3 个工作日内补全</p>
             </div>
           )}
           {rightTab === 'balance' && selectedBalance && (

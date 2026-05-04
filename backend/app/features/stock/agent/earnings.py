@@ -98,7 +98,7 @@ You are a senior equity research analyst writing a quarterly earnings deep-dive 
 
 ## Core Rules
 
-1. **Data accuracy is absolute** - every number must come from provided data. Never fabricate. If data is missing, say so explicitly.
+1. **Data accuracy is absolute** - every number must come from provided data. Never fabricate. If data is missing, say so explicitly. The most recent quarter may carry only headline EPS/Revenue (calendar-day announcement) with detailed line items, segments, cash flow, and balance sheet still pending FMP/SEC ingestion - analyze what's available and call out which sections you couldn't cover, do NOT guess at missing numbers.
 2. **Write in Chinese (Simplified)**, keep financial terms in English (EPS, Revenue, P/E, YoY, QoQ, Gross Margin, FCF, etc.).
 3. **Conclusion first**: Lead every section with the judgment, then back it up with 2-3 data points.
 4. **Be opinionated**: Give a clear bullish/bearish/neutral stance. Wishy-washy analysis is useless.
@@ -351,20 +351,6 @@ def _prepare_earnings_data_for_agent(
                 clean_growth.append(entry)
         if clean_growth:
             result["financial_growth"] = clean_growth
-
-    # Pending quarter headline data (available on earnings day before full
-    # income statement is published). Gives the agent EPS/Revenue actuals.
-    pending = earnings_data.get("pending_quarter")
-    if pending:
-        result["pending_quarter"] = {
-            "date": pending.get("date"),
-            "fiscal_year": pending.get("fiscal_year"),
-            "fiscal_period": pending.get("fiscal_period"),
-            "eps_actual": pending.get("eps_diluted"),
-            "eps_estimated": pending.get("eps_estimated"),
-            "revenue_actual": pending.get("revenue"),
-            "revenue_estimated": pending.get("revenue_estimated"),
-        }
 
     # Next earnings date
     next_earnings = earnings_data.get("next_earnings_date")
