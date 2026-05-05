@@ -56,6 +56,16 @@ interface FilterGroup {
 
 const FILTER_GROUPS: FilterGroup[] = [
   {
+    key: 'mail',
+    label: '邮件',
+    chips: [
+      { tag: 'm:digest',   label: '订阅专属日报', match: (u) => !!u.personal_digest_subscribed },
+      { tag: 'm:no_digest', label: '未订阅专属',  match: (u) => !u.personal_digest_subscribed },
+      { tag: 'm:morning',  label: 'Pro 早报权限', match: (u) => (u.entitlements ?? []).includes('morning_report_email') },
+      { tag: 'm:weekly',   label: 'Pro 周报权限', match: (u) => (u.entitlements ?? []).includes('weekly_report_email') },
+    ],
+  },
+  {
     key: 'engagement',
     label: '互动',
     chips: [
@@ -279,7 +289,19 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
       withFeedback: users.filter((u) => u.feedback_count > 0).length,
       totalConversations: users.reduce((sum, u) => sum + u.conversations, 0),
       totalMessages: users.reduce((sum, u) => sum + u.messages, 0),
+      personalDigestSubscribers: users.filter((u) => u.personal_digest_subscribed).length,
     };
+  }, [data.users]);
+
+  // Per-chip count over the full user set, recomputed when users change.
+  const chipCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const group of FILTER_GROUPS) {
+      for (const chip of group.chips) {
+        counts.set(chip.tag, data.users.filter(chip.match).length);
+      }
+    }
+    return counts;
   }, [data.users]);
 
   const cards: { key: Category; count: number }[] = [
@@ -303,7 +325,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">用户管理看板</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            共 {summary.total} 位用户 · {engagementStats.withConversations} 人有对话 · {engagementStats.totalMessages} 条消息
+            共 {summary.total} 位用户 · {engagementStats.withConversations} 人有对话 · {engagementStats.totalMessages} 条消息 · {engagementStats.personalDigestSubscribers} 人订阅专属日报
           </p>
         </div>
       </div>
@@ -376,6 +398,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
             </span>
             {group.chips.map((chip) => {
               const isActive = activeTags.has(chip.tag);
+              const count = chipCounts.get(chip.tag) ?? 0;
               return (
                 <button
                   key={chip.tag}
@@ -387,6 +410,11 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
                   }`}
                 >
                   {chip.label}
+                  <span className={`ml-1 tabular-nums ${
+                    isActive ? 'text-background/70' : 'text-muted-foreground/60'
+                  }`}>
+                    {count}
+                  </span>
                 </button>
               );
             })}
@@ -442,6 +470,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
                 </th>
                 <SortTh label="邮箱" field="email" current={sortKey} asc={sortAsc} onSort={handleSort} />
                 <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">订阅</th>
+                <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">邮件</th>
                 <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">运营</th>
                 <SortTh label="对话" field="conversations" current={sortKey} asc={sortAsc} onSort={handleSort} />
                 <SortTh label="消息" field="messages" current={sortKey} asc={sortAsc} onSort={handleSort} />
@@ -455,7 +484,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
             <tbody className="divide-y divide-border">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td>
+                  <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td>
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
@@ -536,6 +565,9 @@ function UserRowGroup({
           </span>
         </td>
         <td className="px-3 py-2.5">
+          <EmailBadges user={user} />
+        </td>
+        <td className="px-3 py-2.5">
           <OpsStatusBadge status={user.ops_status} />
         </td>
         <td className="px-3 py-2.5 tabular-nums">
@@ -562,7 +594,7 @@ function UserRowGroup({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={11} className="bg-muted/20 px-4 py-4 border-t border-border/50">
+          <td colSpan={12} className="bg-muted/20 px-4 py-4 border-t border-border/50">
             <UserDetail user={user} />
           </td>
         </tr>
@@ -585,6 +617,37 @@ function OpsStatusBadge({ status }: { status: string | null }) {
 function NumCell({ value }: { value: number }) {
   if (!value) return <span className="text-xs text-muted-foreground/40">0</span>;
   return <span className="text-xs font-medium">{value}</span>;
+}
+
+function EmailBadges({ user }: { user: UserRecord }) {
+  const ents = user.entitlements ?? [];
+  const hasMorning = ents.includes('morning_report_email');
+  const hasWeekly = ents.includes('weekly_report_email');
+  const digestSubscribed = !!user.personal_digest_subscribed;
+  const digestCount = user.personal_digest_count_30d ?? 0;
+
+  const Pill = ({ active, char, title }: { active: boolean; char: string; title: string }) => (
+    <span
+      title={title}
+      className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${
+        active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-300'
+      }`}
+    >
+      {char}
+    </span>
+  );
+
+  const digestTitle = digestSubscribed
+    ? `已订阅专属日报${digestCount > 0 ? ` · 近 30 天 ${digestCount} 期` : ''}`
+    : '未订阅专属日报';
+
+  return (
+    <div className="flex items-center gap-1">
+      <Pill active={hasMorning} char="早" title={`早报 entitlement · ${hasMorning ? '有' : '无'}`} />
+      <Pill active={hasWeekly}  char="周" title={`周报 entitlement · ${hasWeekly ? '有' : '无'}`} />
+      <Pill active={digestSubscribed} char="专" title={digestTitle} />
+    </div>
+  );
 }
 
 const CONTACT_RATING_LABEL: Record<string, { text: string; style: string }> = {

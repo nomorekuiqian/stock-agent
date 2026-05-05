@@ -47,6 +47,11 @@ export interface UserRecord {
   contact_feedback_rating: string | null;
   has_questionnaire: boolean;
   questionnaire_background: string | null;
+  // Personal digest aggregates (carried by subscriptions list_all edge function)
+  personal_digest_count_30d?: number;
+  personal_digest_last_date?: string | null;
+  // Real-time subscription status (Resend audience membership, set by /admin/dashboard)
+  personal_digest_subscribed?: boolean;
 }
 
 export interface DashboardData {

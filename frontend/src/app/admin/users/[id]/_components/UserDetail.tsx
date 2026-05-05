@@ -3,7 +3,20 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
-import type { UserDetailData, UserProfile, Interaction, ContactFeedback, Questionnaire } from '../page';
+import type {
+  UserDetailData,
+  UserProfile,
+  Interaction,
+  ContactFeedback,
+  Questionnaire,
+  EmailSubscriptions,
+  PersonalDigestSummary,
+  ConversationSummary,
+  ConversationFull,
+  ConversationMessage,
+  Watchlist,
+  PortfolioRow,
+} from '../page';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
@@ -443,6 +456,23 @@ export function UserDetail({
 
         {/* ────── Right column: Feedback + Interactions ────── */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Email subscriptions */}
+          <EmailSubscriptionsSection
+            email={data.email}
+            subscriptions={data.email_subscriptions}
+            personalDigest={data.personal_digest}
+          />
+
+          {/* Watchlist + Portfolio */}
+          <HoldingsSection watchlist={data.watchlist} portfolio={data.portfolio} />
+
+          {/* Agent conversations */}
+          <ConversationsSection
+            userId={data.user_id}
+            initial={data.conversations}
+            total={data.conversations_total}
+          />
+
           {/* User feedback section */}
           {(data.questionnaires.length > 0 || data.contact_feedbacks.length > 0) && (
             <FeedbackSection
@@ -991,6 +1021,335 @@ function FeedbackSection({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Email Subscriptions Section
+// ---------------------------------------------------------------------------
+
+const EMAIL_CHANNELS = [
+  { key: 'morning_report' as const,  label: '早报',          hint: 'Pro · 盘前邮件' },
+  { key: 'daily_report' as const,    label: '收盘日报',       hint: '免费 · 用户偏好' },
+  { key: 'weekly_report' as const,   label: '周报',           hint: 'Pro · 周末' },
+  { key: 'personal_digest' as const, label: '专属持仓日报',    hint: 'Pro · 基于持仓' },
+];
+
+function EmailSubscriptionsSection({
+  email,
+  subscriptions,
+  personalDigest,
+}: {
+  email: string | null;
+  subscriptions: EmailSubscriptions | null;
+  personalDigest: PersonalDigestSummary;
+}) {
+  return (
+    <div className="border border-border rounded-lg p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+        邮件订阅
+      </h3>
+      {!email ? (
+        <p className="text-sm text-muted-foreground">用户无邮箱，无法查询订阅状态</p>
+      ) : !subscriptions ? (
+        <p className="text-sm text-muted-foreground">订阅状态加载失败（Resend 未响应）</p>
+      ) : (
+        <div className="space-y-2">
+          {EMAIL_CHANNELS.map((ch) => {
+            const subscribed = subscriptions[ch.key];
+            return (
+              <div key={ch.key} className="flex items-center justify-between py-1">
+                <div className="flex flex-col">
+                  <span className="text-sm">{ch.label}</span>
+                  <span className="text-[11px] text-muted-foreground">{ch.hint}</span>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    subscribed
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {subscribed ? '✓ 已订阅' : '未订阅'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="pt-2 border-t border-border">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">专属日报近 30 天发送</span>
+          <span className="font-medium">{personalDigest.count_30d} 期</span>
+        </div>
+        <div className="flex items-center justify-between text-xs mt-1">
+          <span className="text-muted-foreground">最近一期</span>
+          <span className="font-medium">{personalDigest.last_date ?? '-'}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Conversations Section
+// ---------------------------------------------------------------------------
+
+function ConversationsSection({
+  userId,
+  initial,
+  total,
+}: {
+  userId: string;
+  initial: ConversationSummary[];
+  total: number;
+}) {
+  const [conversations, setConversations] = useState(initial);
+  const [showingAll, setShowingAll] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedFull, setExpandedFull] = useState<ConversationFull | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const totalMessages = conversations.reduce((sum, c) => sum + (c.message_count ?? 0), 0);
+
+  const loadAll = useCallback(async () => {
+    setLoadingAll(true);
+    try {
+      const result = await crmFetch(`/users/${userId}/conversations`);
+      if (Array.isArray(result.conversations)) {
+        setConversations(result.conversations);
+        setShowingAll(true);
+      }
+    } finally {
+      setLoadingAll(false);
+    }
+  }, [userId]);
+
+  const toggleExpand = useCallback(async (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+      setExpandedFull(null);
+      return;
+    }
+    setExpandedId(id);
+    setExpandedFull(null);
+    setLoadingDetail(true);
+    try {
+      const result = await crmFetch(`/users/${userId}/conversations/${id}`);
+      if (result.conversation) {
+        setExpandedFull(result.conversation as ConversationFull);
+      }
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, [expandedId, userId]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-base font-semibold">Agent 对话</h2>
+        <span className="text-xs text-muted-foreground">
+          {total} 个对话 · 共 {totalMessages} 条消息（已显示 {conversations.length}）
+        </span>
+      </div>
+
+      {conversations.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground text-sm border border-border rounded-lg">
+          暂无对话
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {conversations.map((c) => (
+            <div
+              key={c.id}
+              className="border border-border rounded-lg hover:border-border/80 transition-colors"
+            >
+              <button
+                onClick={() => toggleExpand(c.id)}
+                className="w-full flex items-center justify-between p-3 text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {c.title || '(未命名对话)'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {c.message_count} 条消息 · {formatDateTime(c.updated_at)}
+                  </p>
+                </div>
+                <span className="text-xs text-emerald-600 ml-3 shrink-0">
+                  {expandedId === c.id ? '收起' : '展开'}
+                </span>
+              </button>
+
+              {expandedId === c.id && (
+                <div className="border-t border-border p-3 bg-muted/20">
+                  {loadingDetail && !expandedFull ? (
+                    <p className="text-xs text-muted-foreground">加载中...</p>
+                  ) : (
+                    <ConversationMessages messages={expandedFull?.data?.messages} />
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!showingAll && total > conversations.length && (
+        <button
+          onClick={loadAll}
+          disabled={loadingAll}
+          className="w-full text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 py-2 border border-dashed border-border rounded-lg transition-colors"
+        >
+          {loadingAll ? '加载中...' : `查看全部 ${total} 个对话`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ConversationMessages({ messages }: { messages: ConversationMessage[] | undefined }) {
+  if (!messages || messages.length === 0) {
+    return <p className="text-xs text-muted-foreground">无消息内容</p>;
+  }
+
+  return (
+    <div className="space-y-2 max-h-96 overflow-y-auto">
+      {messages.map((msg, i) => {
+        const text =
+          typeof msg.content === 'string' ? msg.content :
+          typeof msg.text === 'string'    ? msg.text :
+          JSON.stringify(msg.content ?? msg, null, 2);
+        const role = msg.role ?? 'system';
+        const isUser = role === 'user';
+        return (
+          <div
+            key={i}
+            className={`rounded-lg p-2.5 text-xs ${
+              isUser
+                ? 'bg-emerald-50 border border-emerald-200/60'
+                : 'bg-background border border-border'
+            }`}
+          >
+            <div className={`text-[10px] font-medium uppercase tracking-wider mb-1 ${
+              isUser ? 'text-emerald-700' : 'text-muted-foreground'
+            }`}>
+              {isUser ? '用户' : role === 'assistant' ? 'Agent' : role}
+            </div>
+            <pre className="whitespace-pre-wrap text-foreground font-sans">
+              {text}
+            </pre>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Holdings Section - watchlist (symbols + preferences) + portfolio (positions)
+// ---------------------------------------------------------------------------
+
+function HoldingsSection({
+  watchlist,
+  portfolio,
+}: {
+  watchlist: Watchlist | null;
+  portfolio: PortfolioRow[];
+}) {
+  const hasWatchlist = !!(watchlist && watchlist.symbols && watchlist.symbols.length > 0);
+  const hasPortfolio = portfolio.length > 0;
+
+  if (!hasWatchlist && !hasPortfolio) {
+    return (
+      <div className="border border-border rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          关注列表
+        </h3>
+        <p className="text-sm text-muted-foreground mt-2">用户尚未设置自选股或持仓</p>
+      </div>
+    );
+  }
+
+  const prefs = (watchlist?.preferences ?? {}) as Record<string, unknown>;
+  const focus = Array.isArray(prefs.focus) ? (prefs.focus as string[]) : [];
+  const style = typeof prefs.style === 'string' ? (prefs.style as string) : null;
+
+  return (
+    <div className="border border-border rounded-lg p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+        关注列表
+      </h3>
+
+      {hasWatchlist && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">自选股 ({watchlist!.symbols.length})</span>
+            <span className="text-muted-foreground">{formatDate(watchlist!.updated_at)}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {watchlist!.symbols.map((sym) => (
+              <span
+                key={sym}
+                className="inline-block rounded-md bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs font-mono font-medium"
+              >
+                {sym}
+              </span>
+            ))}
+          </div>
+          {(focus.length > 0 || style) && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {style && (
+                <span className="text-[11px] text-muted-foreground">
+                  风格: <span className="text-foreground font-medium">{style}</span>
+                </span>
+              )}
+              {focus.length > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  关注:{' '}
+                  {focus.map((f, i) => (
+                    <span key={f} className="text-foreground font-medium">
+                      {f}{i < focus.length - 1 ? '、' : ''}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {hasPortfolio && (
+        <div className={`space-y-2 ${hasWatchlist ? 'pt-3 border-t border-border' : ''}`}>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">持仓 ({portfolio.length})</span>
+          </div>
+          <div className="space-y-1.5">
+            {portfolio.map((p) => (
+              <div key={p.symbol} className="flex items-baseline gap-3 py-1.5 border-b border-border/40 last:border-b-0">
+                <span className="text-xs font-mono font-semibold text-foreground w-16 shrink-0">
+                  {p.symbol}
+                </span>
+                <div className="flex-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {p.shares != null && <span>{Number(p.shares).toLocaleString(undefined, { maximumFractionDigits: 4 })} 股</span>}
+                  {p.cost_basis != null && <span>成本 ${Number(p.cost_basis).toLocaleString()}</span>}
+                  {p.entry_price != null && <span>入价 ${Number(p.entry_price).toLocaleString()}</span>}
+                  {p.target != null && <span>目标 ${Number(p.target).toLocaleString()}</span>}
+                  {p.stop_loss != null && <span>止损 ${Number(p.stop_loss).toLocaleString()}</span>}
+                  {p.conviction != null && <span>信心 {p.conviction}/5</span>}
+                </div>
+                {p.thesis && (
+                  <span className="text-[11px] text-foreground italic max-w-[40%] truncate" title={p.thesis}>
+                    “{p.thesis}”
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

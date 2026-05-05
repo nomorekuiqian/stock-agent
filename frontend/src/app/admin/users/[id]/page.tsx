@@ -73,6 +73,58 @@ export interface Questionnaire {
   created_at: string;
 }
 
+export interface EmailSubscriptions {
+  morning_report: boolean;
+  daily_report: boolean;
+  weekly_report: boolean;
+  personal_digest: boolean;
+}
+
+export interface PersonalDigestSummary {
+  count_30d: number;
+  last_date: string | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  user_id: string;
+  title: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessage {
+  role: "user" | "assistant" | "system";
+  content?: string;
+  text?: string;
+  // Some flows store rich payloads — keep this open-ended.
+  [k: string]: unknown;
+}
+
+export interface ConversationFull extends ConversationSummary {
+  data: { messages?: ConversationMessage[] } | null;
+}
+
+export interface Watchlist {
+  symbols: string[];
+  preferences: { focus?: string[]; style?: string } | Record<string, unknown> | null;
+  email: string | null;
+  updated_at: string;
+}
+
+export interface PortfolioRow {
+  symbol: string;
+  shares: number | null;
+  cost_basis: number | null;
+  entry_price: number | null;
+  target: number | null;
+  stop_loss: number | null;
+  conviction: number | null;
+  thesis: string | null;
+  updated_at: string;
+}
+
 export interface UserDetailData {
   user_id: string;
   email: string | null;
@@ -81,6 +133,12 @@ export interface UserDetailData {
   interactions: Interaction[];
   contact_feedbacks: ContactFeedback[];
   questionnaires: Questionnaire[];
+  email_subscriptions: EmailSubscriptions | null;
+  personal_digest: PersonalDigestSummary;
+  conversations: ConversationSummary[];
+  conversations_total: number;
+  watchlist: Watchlist | null;
+  portfolio: PortfolioRow[];
 }
 
 interface PageProps {
