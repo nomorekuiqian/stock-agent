@@ -86,7 +86,8 @@ class InteractionUpdate(BaseModel):
 async def get_user_detail(
     user_id: str,
 ) -> dict[str, Any]:
-    """Get full user detail: subscription data + CRM profile + interactions + feedback."""
+    """Get full user detail: subscription + CRM profile + interactions + feedback +
+    email subscriptions + personal digest summary + recent agent conversations."""
 
     service = get_insforge_service()
 
@@ -101,7 +102,7 @@ async def get_user_detail(
     user_record = next((u for u in all_users if u.get("user_id") == user_id), None)
     email = user_record.get("email") if user_record else None
 
-    # 2) CRM profile + interactions (parallel)
+    # 2) Parallel: CRM profile, interactions, conversations, watchlist, portfolio
     profile_task = service.call_function(
         "crm",
         method="GET",
@@ -112,9 +113,29 @@ async def get_user_detail(
         method="GET",
         params={"action": "list_interactions", "user_id": user_id},
     )
+    conversations_task = service.call_function(
+        "picker-conversations",
+        method="GET",
+        params={"action": "list", "user_id": user_id},
+    )
+    watchlist_task = service.call_function(
+        "user-holdings",
+        method="GET",
+        params={"action": "get_watchlist", "user_id": user_id},
+    )
+    portfolio_task = service.call_function(
+        "user-holdings",
+        method="GET",
+        params={"action": "get_portfolio", "user_id": user_id},
+    )
 
-    profile_result, interactions_result = await asyncio.gather(
-        profile_task, interactions_task, return_exceptions=True,
+    (
+        profile_result, interactions_result, conversations_result,
+        watchlist_result, portfolio_result,
+    ) = await asyncio.gather(
+        profile_task, interactions_task, conversations_task,
+        watchlist_task, portfolio_task,
+        return_exceptions=True,
     )
 
     profile = (
@@ -125,8 +146,50 @@ async def get_user_detail(
         interactions_result.get("data", {}).get("data", [])
         if isinstance(interactions_result, dict) else []
     )
+    conversations_full = (
+        conversations_result.get("data", {}).get("data", [])
+        if isinstance(conversations_result, dict) else []
+    )
+    watchlist = (
+        watchlist_result.get("data", {}).get("data")
+        if isinstance(watchlist_result, dict) else None
+    )
+    portfolio = (
+        portfolio_result.get("data", {}).get("data", [])
+        if isinstance(portfolio_result, dict) else []
+    )
+    # Edge function already orders by updated_at desc and limits to 20; trim to 10 for the page.
+    conversations = conversations_full[:10]
+    conversations_total = len(conversations_full)
 
-    # 3) Feedback data (needs email)
+    # 3) Personal digest summary — reuse aggregates carried by list_all
+    personal_digest = {
+        "count_30d": user_record.get("personal_digest_count_30d", 0) if user_record else 0,
+        "last_date": user_record.get("personal_digest_last_date") if user_record else None,
+    }
+
+    # 4) Email subscriptions
+    # - morning/daily/weekly come from Resend ContactSegments (one email lookup)
+    # - personal_digest reflects the actual broadcast trigger:
+    #   broadcast_personal_digests iterates list_entitled_users("personal_digest_email"),
+    #   so subscription is determined by entitlements, not by Resend audience.
+    email_subscriptions: dict[str, bool] | None = None
+    if email:
+        try:
+            from app.features.subscription.service import get_subscription_service
+            sub_svc = get_subscription_service()
+            prefs = await asyncio.to_thread(sub_svc.get_email_preferences, email)
+            ents = (user_record.get("entitlements") if user_record else None) or []
+            email_subscriptions = {
+                "morning_report": bool(prefs.get("morning_report")),
+                "daily_report": bool(prefs.get("daily_report")),
+                "weekly_report": bool(prefs.get("weekly_report")),
+                "personal_digest": "personal_digest_email" in ents,
+            }
+        except Exception as e:
+            logger.warning("email_subscriptions lookup failed for %s: %s", email, e)
+
+    # 5) Feedback data (needs email)
     contact_feedbacks: list[dict[str, Any]] = []
     questionnaires: list[dict[str, Any]] = []
 
@@ -163,7 +226,49 @@ async def get_user_detail(
         "interactions": interactions,
         "contact_feedbacks": contact_feedbacks,
         "questionnaires": questionnaires,
+        "email_subscriptions": email_subscriptions,
+        "personal_digest": personal_digest,
+        "conversations": conversations,
+        "conversations_total": conversations_total,
+        "watchlist": watchlist,
+        "portfolio": portfolio,
     }
+
+
+@router.get("/users/{user_id}/conversations")
+async def list_user_conversations(
+    user_id: str,
+) -> dict[str, Any]:
+    """List all (up to 20, edge function limit) Agent conversations for a user."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "picker-conversations",
+        method="GET",
+        params={"action": "list", "user_id": user_id},
+    )
+    data = result.get("data", {})
+    if not data.get("success"):
+        logger.error("Failed to list conversations for %s: %s", user_id[:8], data)
+        return {"conversations": [], "error": "Failed to fetch conversations"}
+    return {"conversations": data.get("data", [])}
+
+
+@router.get("/users/{user_id}/conversations/{conversation_id}")
+async def get_user_conversation(
+    user_id: str,
+    conversation_id: str,
+) -> dict[str, Any]:
+    """Get full conversation including messages."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "picker-conversations",
+        method="GET",
+        params={"action": "get", "id": conversation_id, "user_id": user_id},
+    )
+    data = result.get("data", {})
+    if not data.get("success"):
+        return {"conversation": None, "error": data.get("error", "Failed to fetch conversation")}
+    return {"conversation": data.get("data")}
 
 
 # ---------------------------------------------------------------------------

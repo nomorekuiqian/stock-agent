@@ -298,10 +298,25 @@ module.exports = async function(request) {
       const { data: activityStats } = await client.database
         .rpc("admin_activity_stats");
 
+      // 6. Personal digest aggregates via RPC (DB-side GROUP BY, ~340 rows
+      // returned regardless of underlying table size). The previous client-side
+      // scan got truncated at PostgREST's default 1000-row limit, so users with
+      // recent digests beyond that boundary appeared stale.
+      const { data: digestRows } = await client.database
+        .rpc("admin_personal_digest_stats");
+
       // Index everything by key
       const subMap = {};
       for (const sub of (subs || [])) {
         subMap[sub.user_id] = sub;
+      }
+
+      const digestMap = {};
+      for (const row of (digestRows || [])) {
+        digestMap[row.user_id] = {
+          count_30d: Number(row.count_30d) || 0,
+          last_date: row.last_date ? String(row.last_date).slice(0, 10) : null,
+        };
       }
 
       const convMap = {};
@@ -328,12 +343,13 @@ module.exports = async function(request) {
         }
       }
 
-      // 6. Merge everything per user
+      // 7. Merge everything per user
       const merged = (authUsers || []).map((u) => {
         const sub = subMap[u.user_id] || {};
         const conv = convMap[u.user_id] || {};
         const fb = feedbackMap[u.email] || {};
         const act = activityMap[u.user_id] || {};
+        const digest = digestMap[u.user_id] || { count_30d: 0, last_date: null };
 
         return {
           user_id: u.user_id,
@@ -359,6 +375,9 @@ module.exports = async function(request) {
           api_calls: act.total || 0,
           api_by_type: act.by_type || {},
           last_active_at: act.last_at || conv.last_conversation_at || fb.last_feedback_at || null,
+          // Personal digest aggregates
+          personal_digest_count_30d: digest.count_30d,
+          personal_digest_last_date: digest.last_date,
         };
       });
 

@@ -109,19 +109,20 @@ async def get_dashboard(
 
     crm_result, contact_fb_result, questionnaire_result = await asyncio.gather(
         crm_task, contact_fb_task, questionnaire_task,
+        return_exceptions=True,
     )
 
     # CRM profiles
-    crm_data = crm_result.get("data", {})
+    crm_data = crm_result.get("data", {}) if isinstance(crm_result, dict) else {}
     profiles_list = crm_data.get("data", []) if crm_data.get("success") else []
     profile_map = {p["user_id"]: p for p in profiles_list}
 
     # Contact page feedback aggregated by email
-    cf_data = contact_fb_result.get("data", {})
+    cf_data = contact_fb_result.get("data", {}) if isinstance(contact_fb_result, dict) else {}
     contact_fb_map = cf_data.get("data", {}) if cf_data.get("success") else {}
 
     # Questionnaire submissions aggregated by email
-    q_data = questionnaire_result.get("data", {})
+    q_data = questionnaire_result.get("data", {}) if isinstance(questionnaire_result, dict) else {}
     questionnaire_map = q_data.get("data", {}) if q_data.get("success") else {}
 
     for user in users:
@@ -140,5 +141,11 @@ async def get_dashboard(
         q = questionnaire_map.get(email) if email else None
         user["has_questionnaire"] = bool(q)
         user["questionnaire_background"] = q["background"] if q else None
+        # Email subscriptions — derived from entitlements (real broadcast trigger).
+        # broadcast_personal_digests calls list_entitled_users("personal_digest_email"),
+        # so a user is "subscribed" iff that entitlement is present.
+        user["personal_digest_subscribed"] = (
+            "personal_digest_email" in (user.get("entitlements") or [])
+        )
 
     return _categorize_users(users)
