@@ -23,6 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 6. **前端组件优先使用标准库**: shadcn/ui、Radix UI、cmdk，不重新造轮子
 7. **UI 语言统一中文**: 按钮、标签、提示等面向用户的文本均用中文
 8. **测试账号**: 邮箱 `voya.technologies@gmail.com`，密码 `123456`
+9. **Insforge 后端部署**: 部署 edge function、数据库迁移、bucket 等任何 Insforge 基础设施操作，统一使用 `insforge-cli` skill 和 Insforge CLI（`insforge functions deploy`、`insforge db sql` 等），不要手动复制粘贴 Web Dashboard。前端集成代码用 `insforge` skill。
 
 ## 项目概述
 
