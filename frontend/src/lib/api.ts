@@ -1210,6 +1210,25 @@ export const api = {
     return response.json();
   },
 
+  getTwitterDigestPreview: async (date?: string): Promise<{
+    success: boolean;
+    html: string;
+    digest_date: string | null;
+    input_tweet_count: number;
+    tracked_kol_count: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    const qs = params.toString();
+    const url = `${API_BASE_URL}/twitter-digest/preview${qs ? `?${qs}` : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to get twitter digest preview' }));
+      throw new Error(error.detail || 'Failed to get twitter digest preview');
+    }
+    return response.json();
+  },
+
   getOnboardingPreview: async (day: number = 1, firstName?: string): Promise<{
     success: boolean;
     day: number;
@@ -1565,7 +1584,8 @@ export const api = {
     },
   },
 
-  // Twitter KOL Digest API (V2 read endpoints; auth required)
+  // Twitter KOL Digest API (V3 read endpoints; auth required for reads.
+  // generate is nonprod / admin / cron only — see backend deps.)
   twitterDigest: {
     getLatest: async (): Promise<DailyDigest | null> => {
       const response = await fetchProtected(
@@ -1589,6 +1609,22 @@ export const api = {
       if (response.status === 404) return null;
       if (!response.ok) {
         await throwProtectedApiError(response, 'Failed to fetch twitter digest');
+      }
+      return response.json();
+    },
+
+    // Trigger today's digest generation. The backend gates this to nonprod /
+    // admin / cron — production users get 401/403 and the UI button is
+    // hidden. Returns the generated DailyDigest on success. Long-running:
+    // typical pipeline takes 30-90s.
+    generate: async (windowHours: number = 24): Promise<DailyDigest> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/twitter-digest/generate?window_hours=${windowHours}&persist=true`,
+        { method: 'POST' },
+        'Failed to generate twitter digest',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to generate twitter digest');
       }
       return response.json();
     },

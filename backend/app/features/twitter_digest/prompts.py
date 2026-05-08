@@ -1,210 +1,194 @@
 """
-Single-stage prompt for the V2 daily digest pipeline.
+V3 digest prompt — aggregation + editorial synthesis.
 
-V2 design philosophy:
-  1. Each kept tweet must show at least ONE form of structured reasoning —
-     numbers, inference chain, falsifiable claim, comparison, or risk.
-     Pure stance / price reactions / vague endorsements still get dropped.
-  2. Bucket by content TYPE (macro / industry / stock), not sentiment.
-  3. Same KOL × same subject deduped to one to keep multi-KOL signal density.
-  4. Each card carries TWO summaries:
-       - headline (interpretation_zh): the non-obvious angle, ≤120 chars
-       - TLDR (tldr_zh): 3-5 sentence digest of the actual content
+Major change vs V2:
+  - V2 picked single high-quality tweets and bucketed them by macro/industry/
+    stock. Quality judgment was done HERE.
+  - V3 receives already-enriched tweets (quality + summary + tickers/sectors/
+    events from the daily flash-lite enrichment cron). The pro model's job
+    is now CLUSTERING + SYNTHESIS + EDITORIAL OUTPUT — not picking.
+
+Pipeline:
+  enriched 24h tweets (quality in {high, medium})
+    -> cluster into Topics by event/ticker/sector
+    -> for unaggregated singles: emit as Briefs
+    -> for solo high-quality threads/articles: emit as SoloVoices
+    -> write headline + intro + takeaway + crosscut + watch_next
+
+Backend post-processing then:
+  - fills `Topic.stance_distribution` from `key_arguments[].stance` counts
+  - fills `Brief.one_liner_zh` from the source `content_summary_zh`
+  - validates triggers (high vs medium, thread/article requirement)
 """
 
 CURATE_INSTRUCTION = """
-You curate a daily Chinese-language digest of high-signal fintwit tweets for
-serious retail investors. The default action is still to DROP — short and
-high-signal beats long and padded. But the quality bar is set so that any
-tweet showing structured reasoning earns a place.
+You are the editor of a daily Chinese-language digest of fintwit KOL activity
+for serious retail investors. The reader wants to know two things in 5 minutes:
+  1. What is the talk of the town today (events being discussed across KOLs)?
+  2. Are there any deep-dive single-KOL pieces worth slowing down for?
 
-You will receive a JSON payload with:
-  - kols: [{username, display_name}]  (the tracked roster — mixes English and
-          Chinese-language accounts, plus crypto KOLs)
-  - tweets: [{id, author_username, text, tweet_type, created_at, like_count,
-              retweet_count, reply_count, view_count, quoted_tweet_text,
-              in_reply_to_username, url}]
+You are NOT picking individual tweets. You are clustering, synthesizing, and
+writing.
 
-# The quality bar
+# Input
 
-A tweet earns its place when it shows clear reasoning, not a bare opinion.
-Concretely, it must satisfy AT LEAST ONE of the following 5 features:
+You receive a JSON payload with:
+  - kols: [{username, display_name}]  — the tracked roster
+  - tweets: [{
+      id, author_username, text, tweet_type, created_at, url,
+      quoted_tweet_text, in_reply_to_username,
+      like_count, retweet_count, reply_count,
+      enrichment: {
+        quality: "high" | "medium",   // 'low' has been pre-filtered
+        quality_features: [...],
+        content_summary_zh: "...",
+        tickers: [...],
+        sectors: [...],
+        events: [...]
+      }
+    }]
 
-  1. **Specific data / numbers** — P/E ratios, growth rates, market share,
-     Capex figures, shipment counts, financial-model variables. Anything a
-     reader can verify or argue with.
-  2. **Explicit reasoning chain** — "因为 X → Y → Z" or a multi-step argument.
-     The reader can follow the logic, not just the conclusion.
-  3. **Falsifiable claim or specific catalyst** — "若 RPO 环比 < 8% 则证伪
-     共识"; "下周三盘后看 [指标]"; "等 Stage 3 客户官宣". A claim that
-     could be wrong, or a date / metric to watch.
-  4. **Comparison or historical analogue** — POET vs LWLG side-by-side; "this
-     looks like 2018 memory cycle except…"; horizontal or temporal mapping.
-  5. **Self-acknowledged risk / counter-argument** — KOL flags what would
-     break their own thesis, not just talks their book.
+Quality has already been assessed — DO NOT second-guess the enrichment. Use
+the enrichment fields directly when clustering.
 
-Tweets that fail the bar (no feature hit at all): pure stance ("我看多 NVDA"),
-price reactions ("NVDA up 5%!"), vague endorsements ("AI 板块值得关注"),
-portfolio-change announcements with no thesis ("刚加仓"). DROP these.
+# Cluster into three card types
 
-# Examples — KEEP
+## 1. Topic (full topic card)
 
-[KEEP-A] qinbafrank's earnings-season thread:
-  - Numbers: Azure 38% / AWS 32% / GCP 58% / Meta 32%
-  - Reasoning: 订单结构 + 容量解锁节奏 + 绝对增量 三层嵌套变量
-  - Falsifiable: "若 RPO 环比 < 8% 则 GCP 58% 增速可证伪"
-  → Multiple features hit. KEEP.
+Trigger: >= 2 tweets where `quality="high"` cluster under the same event/
+ticker/sector (use the enrichment events/tickers/sectors fields). OR a single
+`quality="high"` tweet whose `tweet_type` is 'thread' or 'article' AND that
+tweet stands as a topic on its own (e.g. a major event coverage from a single
+KOL but with substantive multi-angle reasoning — rare).
 
-[KEEP-B] cnfinancewatch's POET vs LWLG long thread:
-  - Comparison: technology layer + business model + customer status side-by-side
-  - Reasoning + Risk: 4 个 bullish 论点 + 1 个 bear 风险显式列出
-  → KEEP.
+Output per topic:
+  - `title`: card title in the form '$TICKER · 事件' or '行业 · 主题' or
+    '宏观 · 主题'. ~10-30 Chinese chars. Be specific — '$CRCL · Clarity Act
+    通过推涨', not '$CRCL 看多'.
+  - `layer`: 'macro' | 'industry' | 'stock'. Choose the most specific —
+    stock > industry > macro when ambiguous.
+  - `primary_ticker`: required when layer='stock', else "".
+  - `sector`: required when layer='industry', else "".
+  - `event`: optional canonical event label after merging (e.g. you might
+    see "Clarity Act" and "稳定币立法" in two tweets; merge to "Clarity Act").
+  - `participating_kols`: list of distinct KOL usernames in this topic.
+  - `synthesis_zh`: editorial synthesis, 4-6 Chinese sentences, 150-300 chars.
+    MUST contain:
+      (1) ≥1 SPECIFIC data point: a number, date, company name, mechanism,
+          or named catalyst. Example: "Q1 营收同比 +35%" / "DTCC 拒绝接入" /
+          "Clarity Act 预计 6 月二读". NOT generic phrasing like "市场表现亮眼"
+          or "业绩向好" — those are filler.
+      (2) ≥1 explicit divergence point when stances differ — name the bull
+          thesis AND the bear/cautious thesis with the KOL handles
+          (e.g. "@A 看好 Y 因为 Z;@B 担心 W").
+      (3) The strongest single argument across all participating KOLs and
+          briefly say WHY it's the strongest (data quality, novelty,
+          falsifiability).
+    Reader after reading should know: what happened, what most KOLs think,
+    where dissent lies, which argument carries the most weight.
+  - `stance_distribution`: leave as "" — backend computes.
+  - `key_arguments`: 2-5 distilled arguments. Each:
+      * `tweet_id`, `username`, `display_name` from input
+      * `stance`: "bullish" | "bearish" | "neutral" — your assessment of the
+        KOL's posture in THIS argument
+      * `tldr_zh`: 2-3 Chinese sentences, ~80-150 chars (<=200 hard cap).
+        Structure:
+          (1) 核心观点 — the KOL's main claim, in their voice
+          (2) 数据/催化剂支撑 — the specific number, date, company name,
+              comparison, or mechanism the KOL cited
+          (3) 推断结论 — what action / risk / opportunity follows
+        Be concrete: cite the exact data point. AVOID generic framings like
+        "看好该公司前景" or "提示风险" without naming specifics. Preserve
+        the KOL's reasoning chain — readers should understand WHY they
+        think this, not just WHAT they think.
+      * `tweet_url` from input
+    Pick the strongest 2-5 by argument quality, NOT by like count.
 
-[KEEP-C] beth_kindig adding to NVDA position with named sovereign customers
-  and a specific catalyst (GTC backlog commentary):
-  → Numbers + catalyst hit. KEEP.
+Aim for 5-15 topics on a normal day. Empty list allowed for sparse days.
 
-[KEEP-D] A short tweet with one solid number and a clear logical step
-  — even brief tweets count if they hit at least one feature.
+## 2. Brief (one-liner)
 
-# Examples — DROP
+Trigger: a single tweet with `quality in {high, medium}`, has at least one
+ticker OR sector, that wasn't aggregated into any Topic. Multiple briefs per
+day per KOL is fine. Briefs let the reader see "what else is being mentioned"
+without drowning them in noise.
 
-[DROP-A] "Just bought more $TSLA, long-term confidence."
-  → Pure stance. No data, no reasoning, no catalyst, no comparison, no risk. DROP.
+Output per brief:
+  - `layer`: 'macro' | 'industry' | 'stock'
+  - `label`: '$TICKER' (with $ prefix) for stock; sector name for industry;
+    event name for macro. Single short label, no comma list.
+  - `username`, `display_name`, `tweet_id`, `tweet_url` from input
+  - `one_liner_zh`: leave as "" — backend fills from enrichment.
+  - `why_it_matters_zh`: 1 short Chinese sentence, ~30-60 chars (<=120 hard
+    cap). Beyond what the tweet states, name WHY it's worth knowing — a
+    sector implication, beneficiary, risk signal, or read-across to other
+    names. Example for `$DOCN 业绩超预期`: "AI 基建中小客户付费意愿被验证,利好
+    云原生标的。" Empty string allowed when there is no clear secondary read.
 
-[DROP-B] "今天 SPX 跌破 5800 支撑位,谨慎为宜。"
-  → Price-level reaction with no thesis behind why support matters here. DROP.
+Aim for 10-25 briefs on a normal day. Empty list allowed.
 
-[DROP-C] "市场只会造神和毁神,每个周期都重复昨天的故事。"
-  → Cycle psychology / philosophical reflection. Reads well but no verifiable
-     claim, no specific stock / sector, no actionable signal. DROP.
+## 3. SoloVoice (single-KOL deep dive)
 
-[DROP-D] "看好海光信息,国产替代空间广阔,长期成长清晰。"
-  → Vague endorsement. No numbers, no specific path, no catalyst, no risk
-     acknowledged. DROP.
+Trigger: a single KOL's `quality="high"` tweet with `tweet_type in {thread,
+article}`, that did NOT get aggregated into a Topic. These are the
+"slow read" pieces — long-form analyses with no peer chatter today.
 
-# Three buckets (by content TYPE, not sentiment)
+Output per solo voice:
+  - `title`: editorial Chinese title, 15-30 chars. e.g. '@beth_kindig 长文:
+    Hopper 出货 vs Sovereign AI 增量'
+  - `username`, `display_name`, `tweet_type`, `tweet_id`, `tweet_url` from input
+  - `primary_ticker`: ticker if the piece is about one stock, else "".
+  - `tldr_zh`: 3-5 Chinese sentences distilling the long-form argument
+    structure (hypothesis -> data -> conclusion).
+  - `interpretation_zh`: 1 sentence on why this is worth reading.
 
-Classify each KEPT tweet into ONE category:
+Aim for 0-5 solo voices. Empty list is the norm on most days.
 
-  - **macro**: broad market / indices / rates / cross-asset flow.
-    Examples: SPY 走势判断, FOMC, 美股整体估值, A 股大盘, 比特币与美股相关性,
-              地缘 / 关税对全市场影响.
-    Set `primary_ticker = ""` and `sector = ""`.
+# Coverage rules
 
-  - **industry**: sector-level views including crypto-as-asset-class. Set
-    `sector` to a natural Chinese label (e.g. "AI 算力", "加密", "锂电",
-    "光通信", "国产替代"). Set `primary_ticker = ""`.
+A single tweet must NOT appear in more than one of (Topic.key_arguments,
+Brief, SoloVoice). Choose the strongest fit:
+  - If it cluster-aggregates to a Topic, it's a Topic key_argument.
+  - Else if it's a `quality="high"` thread/article, it's a SoloVoice.
+  - Else it's a Brief.
 
-    **Crypto rule**: All BTC / ETH content (cycle judgments, ETF / institutional
-    flows, derivatives strategies, regulatory takes) belongs here under
-    `sector = "加密"` — these two are treated as the asset class, not single
-    tickers. Single altcoin / project tokens (SOL, ARB, individual L2 tokens)
-    may go in `stock` with the symbol as ticker.
+# Editorial layer (top of digest)
 
-  - **stock**: single-ticker views. Set `primary_ticker` to the symbol
-    (e.g. "NVDA", "600519", "688041"). Set `sector = ""`.
+  - `headline`: single sentence, 15-25 Chinese chars, NEVER more than 60
+    chars. Captures the dominant thread of today's KOL discourse. Be
+    specific about the topic, not generic ("市场分歧加剧" is generic;
+    "稳定币立法落地,加密板块抢跑" is specific).
 
-When a tweet plausibly fits multiple buckets, prefer the most specific:
-**stock > industry > macro**.
+  - `intro`: 20-50 Chinese chars. Editorial voice — what is everyone
+    arguing about today? Avoid bullet-point repetition; this should
+    paragraph-flow.
 
-# What to drop entirely (in addition to quality-bar failures)
+  - `takeaway`: 3-5 short Chinese bullet lines (~30 chars each). Each
+    line should reference a Topic title (so the frontend can anchor-link
+    it). Example: "$CRCL: 多头共识,但估值已 price in 利好".
 
-- Pure news retweets / link-only posts
-- One-line price reactions without any thesis
-- Off-topic content (politics, jokes, lifestyle, personal life updates)
-- Pure philosophical / cycle-psychology posts (however well-written)
-- "刚加仓 / 减仓" announcements without thesis
-- Tweets whose meaning is unclear out of context
+  - `crosscut`: DEPRECATED in V3.1. ALWAYS emit empty string "". The frontend
+    no longer renders this section — meta-commentary across topics was found
+    to be low-signal next to the per-topic synthesis_zh. Do NOT spend tokens
+    on it.
 
-# Same-KOL same-subject dedup
-
-Within each bucket, if one KOL has multiple kept tweets covering the same
-subject, keep ONE — the highest-signal version (richest argument, most data,
-highest engagement). Specifically:
-  - stock bucket: dedup by (username, primary_ticker)
-  - industry bucket: dedup by (username, sector)
-  - macro bucket: dedup by username (one macro view per KOL)
-
-# For each kept tweet, output
-
-- `tweet_id`, `username`, `display_name`, `created_at`, `tweet_type`, `url`:
-  copy from input.
-- `text_en`: original English VERBATIM. **If the source is already Chinese,
-  set `text_en` to empty string ""** — do NOT back-translate.
-- `text_zh`:
-    - If source is English: faithful, idiomatic Chinese translation (NOT a summary).
-    - If source is already Chinese: copy original verbatim.
-- `category`: "macro" / "industry" / "stock".
-- `primary_ticker`: required when category="stock"; else "".
-- `sector`: required when category="industry"; else "".
-
-- `interpretation_zh` — **HEADLINE**, ≤2 Chinese sentences, ≤120 chars total.
-  This is the punchy, scannable angle that earns the user's attention.
-  Must do at least ONE of:
-    (a) call out a counter-consensus or contrarian take embedded in the post
-    (b) connect to a prior thesis the same KOL held (continuity / pivot)
-    (c) point to a specific catalyst / data point to watch next
-    (d) flag the key risk or assumption the KOL is making
-  Forbidden:
-    - Starting with "作者" / "博主" / "@username" (third-person paraphrase
-      defeats the purpose of this field)
-    - Repeating phrases obvious from the tweet
-    - Generic boilerplate ("值得关注", "需要观察") with no specifics
-
-- `tldr_zh` — **TLDR**, 3-5 Chinese sentences, 200-400 chars. The substance
-  of the tweet, distilled. The reader should get the actual ARGUMENT and
-  KEY NUMBERS without opening the original. Distinct from headline:
-    - Headline = the angle / why-it-matters (one breath)
-    - TLDR     = the content / what-it-says (a short paragraph)
-  Required:
-    - Preserve the structure of the KOL's reasoning (hypothesis → data →
-      conclusion, or comparison setup → A vs B → verdict)
-    - Surface specific numbers, thresholds, names, and dates
-    - End with the KOL's conclusion or recommendation, even if implicit
-  Forbidden:
-    - Generic recap ("博主分析了…")
-    - Repeating the headline in different words
-    - Adding info that's not in the source tweet
-
-- Engagement fields (`like_count`, `retweet_count`, `view_count`): leave at 0.
-  Backend will fill from source. Do not invent.
-
-# Headline + TLDR example pair (for qinbafrank's earnings thread)
-
-  interpretation_zh:
-    "提供量化 AI 商业化拐点的三重嵌套指标 — RPO 环比、营收/Capex 比值、加权
-     剩余期限。买方预期已超共识,任何'指引持平'都可能触发回调。"
-
-  tldr_zh:
-    "下周三盘后谷歌、微软、亚马逊、Meta 财报是 AI 商业化拐点关键检验。三家
-     公有云增速预计:Azure 38% / AWS 32% / GCP 58%,Meta 广告 32%。资本开支
-     总额 6600 亿,扩散重心从 GPU 转向电力、网络、存储。最关键指标是营收/Capex
-     比值:跌破 3.5 触发产能过剩定价回调,守住 3.8+ 拐点推迟至 2028 上半年。
-     市场预期已被推到比共识更高位置,'指引持平'就足以引发盘后下杀。"
-
-# Bucket targets (after quality bar + dedup)
-
-- macro_picks: 1-3 picks, max 4
-- industry_picks: 3-6 picks across 2-4 sectors, max 8
-- stock_picks: 3-6 picks across 3-5 tickers, max 10
-
-If today is sparse, fewer is correct. NEVER pad — silence beats filler.
-
-# Takeaway (top of digest)
-
-Write 3-5 short Chinese bullet lines (each ≤30 chars) so a reader can scan
-the day in 30 seconds. Each line should capture ONE of:
-  - A standout signal: "qinbafrank 量化四大科技财报指引,营收/Capex 拐点关键"
-  - A controversy / contrarian take
-  - A deep-read flag
-  - A macro / catalyst
-
-Empty list is allowed if today's content is too thin. Most days produce 3+ lines.
+  - `watch_next`: DEPRECATED in V3.1. ALWAYS emit empty list []. The frontend
+    no longer renders this section — most days it ended up too generic
+    ("关注 Q2 财报") to be worth the space. Do NOT spend tokens on it.
 
 # Output
 
-Output ONLY the structured JSON matching CuratedDigestOutput:
-  {takeaway: [...], macro_picks: [...], industry_picks: [...], stock_picks: [...]}
-All lists may be empty but should not be padded.
+Output ONLY structured JSON matching CuratedDigestOutput:
+  {
+    "headline": "...",
+    "intro": "...",
+    "takeaway": [...],
+    "topics": [...],
+    "briefs": [...],
+    "solo_voices": [...],
+    "crosscut": "...",
+    "watch_next": [...]
+  }
+
+Empty lists/strings are allowed. Never pad — silence beats filler.
 """

@@ -1,0 +1,73 @@
+name: Twitter KOL Digest Generation
+
+on:
+  schedule:
+    # Beijing 06:00 Mon-Fri = UTC 22:00 Sun-Thu (China is UTC+8, no DST).
+    # GitHub Actions cron may delay 5-30 min; downstream email send (08:00 BJT)
+    # has a 2h cushion before the 07:30 retry cutoff defined in the plan.
+    - cron: '0 22 * * 0-4'
+  workflow_dispatch:
+    inputs:
+      window_hours:
+        description: "Look-back window for tweets (12-72)"
+        required: false
+        default: "24"
+      persist:
+        description: "Persist result to kol_daily_digests"
+        required: false
+        default: "true"
+
+jobs:
+  generate-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate KOL Digest
+        run: |
+          window_hours="${{ github.event.inputs.window_hours || '24' }}"
+          persist="${{ github.event.inputs.persist || 'true' }}"
+
+          response=$(curl -s -w "\n%{http_code}" \
+            --retry 3 --retry-delay 60 --retry-connrefused --max-time 900 \
+            -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/twitter-digest/generate?window_hours=${window_hours}&persist=${persist}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::digest generate returned HTTP $http_code"
+            exit 1
+          fi
+
+          # Surface bucket counts so the workflow run shows whether the day
+          # produced enough material. Empty days are allowed by the prompt
+          # (we don't backfill garbage), so this is informational, not a fail.
+          input_tweets=$(echo "$body" | grep -o '"input_tweet_count":[0-9]*' | cut -d':' -f2)
+          macro=$(echo "$body" | grep -o '"macro_picks":\[' | wc -l | tr -d ' ')
+          industry=$(echo "$body" | grep -o '"industry_picks":\[' | wc -l | tr -d ' ')
+          stock=$(echo "$body" | grep -o '"stock_picks":\[' | wc -l | tr -d ' ')
+          echo "Digest summary -> input_tweets=${input_tweets:-0} macro=$macro industry=$industry stock=$stock"
+
+          if [ -z "$input_tweets" ] || [ "${input_tweets:-0}" -eq 0 ]; then
+            echo "::warning::generated digest had 0 input tweets — KOL ingestion may be lagging"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Twitter KOL Digest generation failed on ${new Date().toISOString().slice(0,10)}`;
+            const body = `**Workflow:** ${context.workflow}\n**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Triggered by:** ${context.actor}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci-failure']
+            });

@@ -50,10 +50,16 @@ export function CuratedTweetCard({ tweet, groupBy }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const tldr = (tweet.tldr_zh ?? '').trim();
+  // Treat depth='flash' (or absent TLDR on older digests) as the compact form.
+  const isFlash = tweet.depth === 'flash' || (!tweet.depth && !tldr);
 
   // Surface group label inline when the parent section dropped sub-headers.
   const inlineTicker = groupBy === 'ticker' ? (tweet.primary_ticker ?? '').trim() : '';
   const inlineSector = groupBy === 'sector' ? (tweet.sector ?? '').trim() : '';
+
+  if (isFlash) {
+    return <FlashCard tweet={tweet} inlineTicker={inlineTicker} inlineSector={inlineSector} />;
+  }
 
   const hasChips = !!(inlineTicker || inlineSector || typeBadge);
 
@@ -166,6 +172,65 @@ export function CuratedTweetCard({ tweet, groupBy }: Props) {
           </svg>
         </a>
       </footer>
+    </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FlashCard — compact one-line form for depth='flash' picks.
+// Headline + tight byline, no TLDR / no original-text expander. Reader can
+// always click through to the source tweet. Visual density is intentionally
+// lighter than deep cards so a section can mix many flashes with a few deeps.
+// ---------------------------------------------------------------------------
+
+function FlashCard({
+  tweet, inlineTicker, inlineSector,
+}: {
+  tweet: CuratedTweet;
+  inlineTicker: string;
+  inlineSector: string;
+}) {
+  return (
+    <article className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-x-4 gap-y-1.5">
+      <div className="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
+        {inlineTicker && (
+          <a
+            href={`/stock/${inlineTicker}`}
+            className="inline-flex items-baseline gap-0.5 text-xs font-data font-medium text-foreground/85 hover:text-primary transition-colors whitespace-nowrap"
+          >
+            <span className="text-primary/65">$</span>
+            <span>{inlineTicker}</span>
+          </a>
+        )}
+        {inlineSector && (
+          <span className="text-xs font-medium text-foreground/75 whitespace-nowrap">
+            #{inlineSector}
+          </span>
+        )}
+        <p className="text-sm md:text-[0.95rem] leading-snug text-foreground/95">
+          {tweet.interpretation_zh}
+        </p>
+      </div>
+      <div className="flex items-baseline gap-2 text-xs text-muted-foreground whitespace-nowrap shrink-0">
+        <a
+          href={`https://x.com/${tweet.username}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-primary transition-colors"
+        >
+          @{tweet.username}
+        </a>
+        <span aria-hidden className="text-muted-foreground/60">·</span>
+        <a
+          href={tweet.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-primary transition-colors"
+          title="查看原推"
+        >
+          原推 ↗
+        </a>
+      </div>
     </article>
   );
 }

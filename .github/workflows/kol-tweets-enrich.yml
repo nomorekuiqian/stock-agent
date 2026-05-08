@@ -1,0 +1,67 @@
+name: Twitter KOL Tweets Enrichment
+
+on:
+  schedule:
+    # Beijing 05:30 Mon-Fri = UTC 21:30 Sun-Thu (China is UTC+8, no DST).
+    # Runs 30 min before the digest cron at 06:00 BJT so the digest pipeline
+    # sees enriched tweets. GitHub Actions cron may delay 5-30 min; this
+    # cushion covers normal lag without bumping into digest start.
+    - cron: '30 21 * * 0-4'
+  workflow_dispatch:
+    inputs:
+      window_hours:
+        description: "Look-back window for unenriched tweets (12-72)"
+        required: false
+        default: "24"
+
+jobs:
+  enrich-tweets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enrich KOL Tweets
+        run: |
+          window_hours="${{ github.event.inputs.window_hours || '24' }}"
+
+          response=$(curl -s -w "\n%{http_code}" \
+            --retry 3 --retry-delay 60 --retry-connrefused --max-time 900 \
+            -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/twitter-digest/enrich?window_hours=${window_hours}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::enrich returned HTTP $http_code"
+            exit 1
+          fi
+
+          # Surface counts so the workflow run shows whether the day produced
+          # enough material. Empty days are fine (no new unenriched tweets).
+          scanned=$(echo "$body" | grep -o '"scanned":[0-9]*' | cut -d':' -f2)
+          enriched=$(echo "$body" | grep -o '"enriched":[0-9]*' | cut -d':' -f2)
+          errors=$(echo "$body" | grep -o '"errors":[0-9]*' | cut -d':' -f2)
+          echo "Enrich summary -> scanned=${scanned:-0} enriched=${enriched:-0} errors=${errors:-0}"
+
+          if [ -n "$errors" ] && [ "${errors:-0}" -gt 0 ]; then
+            echo "::warning::enrichment had ${errors} batch error(s) — partial coverage"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Twitter KOL Enrichment failed on ${new Date().toISOString().slice(0,10)}`;
+            const body = `**Workflow:** ${context.workflow}\n**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Triggered by:** ${context.actor}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci-failure']
+            });

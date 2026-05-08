@@ -200,6 +200,7 @@ class TestNoCrossFeatureImports:
         ("screener", "brew"),           # research agent reads user watchlist from brew.db
         ("screener", "quota"),          # research endpoints check/consume quota
         ("quota", "payment"),           # quota checks Max subscription status
+        ("twitter_digest", "subscription"),  # /preview endpoint reuses email html renderer
     }
 
     def test_no_cross_feature_imports(self):

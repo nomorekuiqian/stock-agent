@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { marketTodayStr } from '@/lib/timezone';
 
 import { DigestView } from './_components/DigestView';
+import { GenerateButton } from './_components/GenerateButton';
 import type { DailyDigest } from './_components/types';
 
 export default function TwitterDigestLatestPage() {
@@ -16,6 +17,11 @@ export default function TwitterDigestLatestPage() {
   const [date, setDate] = useState<string>(marketTodayStr());
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refetchLatest = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -28,8 +34,6 @@ export default function TwitterDigestLatestPage() {
         setDigest(result);
         setError(null);
         if (result?.generated_at) {
-          // Use generated_at as the displayed date so the header reflects
-          // the actual digest date instead of "today" when no digest exists yet.
           const isoDate = result.generated_at.slice(0, 10);
           if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
             setDate(isoDate);
@@ -47,7 +51,7 @@ export default function TwitterDigestLatestPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, refreshKey]);
 
   if (authLoading || (isAuthenticated && fetching)) {
     return (
@@ -112,5 +116,12 @@ export default function TwitterDigestLatestPage() {
     );
   }
 
-  return <DigestView date={date} digest={digest} />;
+  return (
+    <>
+      <div className="max-w-4xl mx-auto px-4 md:px-6 pt-4">
+        <GenerateButton onGenerated={refetchLatest} />
+      </div>
+      <DigestView date={date} digest={digest} />
+    </>
+  );
 }

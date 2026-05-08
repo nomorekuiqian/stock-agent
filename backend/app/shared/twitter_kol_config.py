@@ -2,7 +2,6 @@
 Twitter KOL Catalog - Source of truth for which financial bloggers we ingest.
 
 Phase 1 keeps this list in code; later phases may move it to DB / Admin UI.
-The list is intentionally empty -- fill in trusted accounts before enabling cron.
 """
 
 from typing import TypedDict
@@ -14,12 +13,11 @@ class KolAccount(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Catalog -- fill in before enabling cron.
+# Catalog.
 # ---------------------------------------------------------------------------
 
 TWITTER_KOL_ACCOUNTS: list[KolAccount] = [
     {"username": "Bitwux", "display_name": "BITWU.ETH"},
-    {"username": "PhyrexNi", "display_name": "Phyrex"},
     {"username": "cnfinancewatch", "display_name": "华尔街观察 Xtrader"},
     {"username": "viviennaBTC", "display_name": "vivienna.btc"},
     {"username": "wufantouzi", "display_name": "wu fan"},
@@ -33,10 +31,34 @@ TWITTER_KOL_ACCOUNTS: list[KolAccount] = [
     {"username": "xiaomustock", "display_name": "川沐 | Trumoo"},
     {"username": "fi56622380", "display_name": "fin"},
     {"username": "Trader_S18", "display_name": "TraderS | 缺德道人"},
-    {"username": "druncle", "display_name": "纽约博叔"},
     {"username": "TJ_Research", "display_name": "投资TALK君"},
     {"username": "yuyy614893671", "display_name": "金融汪"},
     {"username": "artinmemes", "display_name": "美股OK哥"},
+    {"username": "charliebilello", "display_name": "Charlie Bilello"},
+    {"username": "LizAnnSonders", "display_name": "Liz Ann Sonders"},
+    {"username": "TimmerFidelity", "display_name": "Jurrien Timmer"},
+    {"username": "RyanDetrick", "display_name": "Ryan Detrick"},
+    {"username": "LynAldenContact", "display_name": "Lyn Alden"},
+    {"username": "biancoresearch", "display_name": "Jim Bianco"},
+    {"username": "FedGuy12", "display_name": "Joseph Wang"},
+    {"username": "SoberLook", "display_name": "The Daily Shot"},
+    {"username": "TheTranscript_", "display_name": "The Transcript"},
+    {"username": "SemiAnalysis_", "display_name": "SemiAnalysis"},
+    {"username": "dylan522p", "display_name": "Dylan Patel"},
+    {"username": "Beth_Kindig", "display_name": "Beth Kindig"},
+    {"username": "ParadisLabs", "display_name": "Paradis Labs"},
+    {"username": "damnang2", "display_name": "Damnang2"},
+    {"username": "PhotonCap", "display_name": "Photon Capital"},
+    {"username": "crux_capital_", "display_name": "Gaetano"},
+    {"username": "KawzInvests", "display_name": "KawzInvests"},
+    {"username": "Kaizen_Investor", "display_name": "KaizenInvestor"},
+    {"username": "michaelsikand", "display_name": "Michael Sikand"},
+    {"username": "Blinklebloop", "display_name": "Davy"},
+    {"username": "illyquid", "display_name": "Illiquid"},
+    {"username": "CoffeeStocksGuy", "display_name": "Coffee House Stocks"},
+    {"username": "PhotonBull", "display_name": "PhotonBull"},
+    {"username": "StockSavvyShay", "display_name": "Shay Boloor"},
+    {"username": "Yeah_Dave", "display_name": "YeahDave"},
 ]
 
 

@@ -57,16 +57,27 @@ module.exports = async function(request) {
   // Gate POST actions behind X-Internal-Secret. Reads (GET) stay open so
   // any user can view the digest like a regular daily report. Without this,
   // the public internet could upsert tweets / overwrite digests directly.
+  //
+  // Fail CLOSED: if EDGE_FUNCTION_SECRET is unset in the runtime environment,
+  // refuse all writes. Earlier versions silently allowed writes when the env
+  // var was absent, which made misconfiguration in prod a public write hole.
   if (request.method === "POST") {
     const expected = Deno.env.get("EDGE_FUNCTION_SECRET");
-    if (expected) {
-      const provided = request.headers.get("x-internal-secret") || "";
-      if (provided !== expected) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized" }),
-          { status: 401, headers: jsonHeaders }
-        );
-      }
+    if (!expected) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "EDGE_FUNCTION_SECRET not configured — writes refused",
+        }),
+        { status: 503, headers: jsonHeaders }
+      );
+    }
+    const provided = request.headers.get("x-internal-secret") || "";
+    if (provided !== expected) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized" }),
+        { status: 401, headers: jsonHeaders }
+      );
     }
   }
 
@@ -327,6 +338,101 @@ module.exports = async function(request) {
       );
     }
 
+    // POST ?action=list_unenriched - list tweets that need V3 enrichment
+    //   body: { since: ISO, limit?: number }
+    //
+    // "Needs enrichment" = symbols IS NULL OR symbols isn't the V3 object shape
+    // (legacy Phase 1 array form, missing `quality` key, non-object). We can't
+    // express the union cleanly via the SDK's typed filter chain so we pull
+    // the window without a symbols filter and decide per-row in JS. Volume is
+    // bounded by the time window (36h × small KOL set ≈ a few hundred rows).
+    if (request.method === "POST" && action === "list_unenriched") {
+      const body = await request.json();
+      const since = body.since || null;
+      const limit = Math.min(parseInt(body.limit || "5000", 10), 10000);
+
+      let query = client.database
+        .from(TABLE)
+        .select("id, author_username, text, tweet_type, conversation_id, quoted_tweet_text, in_reply_to_username, created_at, url, like_count, retweet_count, reply_count, view_count, category, symbols")
+        .order("created_at", { ascending: false })
+        .range(0, limit - 1);
+
+      if (since) query = query.gte("created_at", since);
+
+      const { data, error } = await query;
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+
+      const needsEnrichment = (row) => {
+        const s = row?.symbols;
+        if (s === null || s === undefined) return true;
+        if (Array.isArray(s)) return true;        // legacy Phase 1 ticker array
+        if (typeof s !== "object") return true;
+        if (typeof s.quality !== "string") return true;  // V3 shape but unfilled
+        return false;
+      };
+      const filtered = (data || []).filter(needsEnrichment);
+
+      return new Response(
+        JSON.stringify({ success: true, data: filtered }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
+    // POST ?action=upsert_enrichment - bulk write per-tweet enrichment metadata
+    //   body: { updates: [{ id, symbols: { quality, ..., enriched_at, enriched_model } }] }
+    // Each row's `symbols` JSONB is overwritten with the new payload. Backend
+    // (enrichment.py) is responsible for shaping the payload; the edge function
+    // just persists it.
+    if (request.method === "POST" && action === "upsert_enrichment") {
+      const body = await request.json();
+      const updates = body.updates;
+
+      if (!updates || !Array.isArray(updates) || updates.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "updates array required" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errorDetails = [];
+
+      for (const update of updates) {
+        if (!update.id || !update.symbols) {
+          errorCount++;
+          continue;
+        }
+        const { error } = await client.database
+          .from(TABLE)
+          .update({ symbols: update.symbols })
+          .eq("id", update.id);
+        if (error) {
+          errorCount++;
+          if (errorDetails.length < 5) {
+            errorDetails.push({ id: update.id, error: error.message });
+          }
+        } else {
+          successCount++;
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          updated: successCount,
+          errors: errorCount,
+          error_samples: errorDetails,
+        }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
     // POST ?action=start_run - record start of a per-KOL fetch attempt
     if (request.method === "POST" && action === "start_run") {
       const body = await request.json();
@@ -432,36 +538,36 @@ module.exports = async function(request) {
     }
 
     // POST ?action=upsert_digest - upsert a daily digest (overwrites by date)
-    //
-    // V2 schema rename note: the application now sends macro_picks /
-    // industry_picks / stock_picks. The DB table still has columns named
-    // bullish_picks / bearish_picks / neutral_analyses (legacy). We accept
-    // either set of field names from the client and map to the legacy column
-    // names internally, so renaming the table is a future cleanup, not a
-    // blocker for the V2 product.
+    // Accepts both V2 (macro/industry/stock_picks) and V3 (topics/briefs/
+    // solo_voices/headline/intro/crosscut/watch_next + schema_version) fields.
+    // Unspecified fields are left at the column default (empty array / "" / null).
     if (request.method === "POST" && action === "upsert_digest") {
       const body = await request.json();
       const {
         date,
-        // V2 names (preferred)
         macro_picks,
         industry_picks,
         stock_picks,
-        // V1.5 names (still accepted)
-        bullish_picks,
-        bearish_picks,
-        neutral_analyses,
         tracked_kols,
         takeaway,
         window_hours,
         input_tweet_count,
         generated_at,
         model_version,
+        // V3 fields
+        schema_version,
+        headline,
+        intro,
+        topics,
+        briefs,
+        solo_voices,
+        crosscut,
+        watch_next,
+        // V3.1 hot-list fields (backend-computed frequency tallies)
+        hot_sectors,
+        hot_tickers,
+        hot_events,
       } = body;
-      // Pick whichever set the client sent; V2 wins when both arrive.
-      const macroBucket = macro_picks ?? bullish_picks ?? [];
-      const industryBucket = industry_picks ?? bearish_picks ?? [];
-      const stockBucket = stock_picks ?? neutral_analyses ?? [];
 
       if (!date || window_hours === undefined || input_tweet_count === undefined ||
           !generated_at || !model_version) {
@@ -476,20 +582,27 @@ module.exports = async function(request) {
 
       const row = {
         date,
-        // Legacy column names retained — see V2 rename note above.
-        bullish_picks: macroBucket,
-        bearish_picks: industryBucket,
-        neutral_analyses: stockBucket,
+        macro_picks: macro_picks || [],
+        industry_picks: industry_picks || [],
+        stock_picks: stock_picks || [],
         tracked_kols: tracked_kols || [],
-        // takeaway requires a `takeaway JSONB` column on kol_daily_digests.
-        // If the column does not yet exist, Insforge will surface a
-        // column-not-found error and the upsert will fail; backfill the
-        // schema before deploying this revision.
         takeaway: takeaway || [],
         window_hours,
         input_tweet_count,
         generated_at,
         model_version,
+        // V3 — all optional, fall back to empty equivalents
+        schema_version: schema_version || "v2",
+        headline: headline || "",
+        intro: intro || "",
+        topics: topics || [],
+        briefs: briefs || [],
+        solo_voices: solo_voices || [],
+        crosscut: crosscut || "",
+        watch_next: watch_next || [],
+        hot_sectors: hot_sectors || [],
+        hot_tickers: hot_tickers || [],
+        hot_events: hot_events || [],
         updated_at: new Date().toISOString(),
       };
 
@@ -554,7 +667,7 @@ module.exports = async function(request) {
 
       const { data, error } = await client.database
         .from(DIGESTS_TABLE)
-        .select("date, bullish_picks, bearish_picks, neutral_analyses, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version")
+        .select("date, macro_picks, industry_picks, stock_picks, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version, schema_version, headline, intro, topics, briefs, solo_voices, crosscut, watch_next, hot_sectors, hot_tickers, hot_events")
         .eq("date", date)
         .maybeSingle();
 
@@ -575,7 +688,7 @@ module.exports = async function(request) {
     if (request.method === "GET" && action === "get_latest_digest") {
       const { data, error } = await client.database
         .from(DIGESTS_TABLE)
-        .select("date, bullish_picks, bearish_picks, neutral_analyses, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version")
+        .select("date, macro_picks, industry_picks, stock_picks, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version, schema_version, headline, intro, topics, briefs, solo_voices, crosscut, watch_next, hot_sectors, hot_tickers, hot_events")
         .order("date", { ascending: false })
         .limit(1);
 
@@ -594,7 +707,7 @@ module.exports = async function(request) {
     }
 
     return new Response(
-      JSON.stringify({ success: false, error: "Invalid request. Use action param: list, list_batch, stats, get, upsert_batch, update_category, update_categories_batch, start_run, finish_run, list_runs, upsert_digest, get_digest, get_latest_digest" }),
+      JSON.stringify({ success: false, error: "Invalid request. Use action param: list, list_batch, list_unenriched, stats, get, upsert_batch, upsert_enrichment, update_category, update_categories_batch, start_run, finish_run, list_runs, upsert_digest, get_digest, get_latest_digest" }),
       { status: 400, headers: jsonHeaders }
     );
   } catch (err) {

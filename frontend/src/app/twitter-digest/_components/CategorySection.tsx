@@ -11,7 +11,12 @@ interface Props {
   groupBy: GroupBy;
 }
 
-function tweetEngagement(t: CuratedTweet): number {
+function tweetScore(t: CuratedTweet): number {
+  // Prefer backend-computed composite score; fall back to raw engagement
+  // for older digests written before quality_score was added.
+  if (typeof t.quality_score === 'number' && t.quality_score > 0) {
+    return t.quality_score;
+  }
   return (t.like_count ?? 0) + (t.retweet_count ?? 0);
 }
 
@@ -33,12 +38,12 @@ function groupTweets(tweets: CuratedTweet[], by: GroupBy): Array<[string, Curate
   }
 
   for (const arr of buckets.values()) {
-    arr.sort((a, b) => tweetEngagement(b) - tweetEngagement(a));
+    arr.sort((a, b) => tweetScore(b) - tweetScore(a));
   }
 
   const groupScore = new Map<string, number>();
   for (const [key, arr] of buckets) {
-    groupScore.set(key, arr.reduce((acc, t) => acc + tweetEngagement(t), 0));
+    groupScore.set(key, arr.reduce((acc, t) => acc + tweetScore(t), 0));
   }
   const entries = Array.from(buckets.entries());
   entries.sort(([a], [b]) => {
@@ -65,7 +70,7 @@ export function CategorySection({ tweets, emptyMessage, groupBy }: Props) {
       <ul className="divide-y divide-border/40 -my-5 md:-my-6">
         {tweets
           .slice()
-          .sort((a, b) => tweetEngagement(b) - tweetEngagement(a))
+          .sort((a, b) => tweetScore(b) - tweetScore(a))
           .map((t) => (
             <li key={t.tweet_id} className="py-5 md:py-6">
               <CuratedTweetCard tweet={t} />
@@ -83,7 +88,7 @@ export function CategorySection({ tweets, emptyMessage, groupBy }: Props) {
       <ul className="divide-y divide-border/40 -my-5 md:-my-6">
         {tweets
           .slice()
-          .sort((a, b) => tweetEngagement(b) - tweetEngagement(a))
+          .sort((a, b) => tweetScore(b) - tweetScore(a))
           .map((t) => (
             <li key={t.tweet_id} className="py-5 md:py-6">
               <CuratedTweetCard tweet={t} groupBy={groupBy} />

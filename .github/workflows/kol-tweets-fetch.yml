@@ -1,0 +1,60 @@
+name: KOL Tweets Ingestion
+
+on:
+  schedule:
+    # Every hour, Mon-Sun. KOLs tweet across timezones and on weekends, so we
+    # do not gate to weekday. Bandwidth is bounded by per-KOL max_pages_per_kol.
+    - cron: '0 * * * *'
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  fetch-kol-tweets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch configured KOL timelines
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            --retry 3 --retry-delay 30 --retry-connrefused --max-time 600 \
+            -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"max_pages_per_kol":1,"safety_window_hours":3,"include_articles":false}' \
+            "${{ secrets.BACKEND_URL }}/api/twitter/fetch-configured-kols")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::fetch-configured-kols returned HTTP $http_code"
+            exit 1
+          fi
+
+          if echo "$body" | grep -q '"success":false'; then
+            echo "::error::fetch-configured-kols returned success:false"
+            exit 1
+          fi
+
+          # Soft-warn if any individual KOL run flagged a window-overflow.
+          # The endpoint returns per-KOL records under "results"; we surface
+          # counts so a flaky day shows up in the workflow logs.
+          ok_count=$(echo "$body" | grep -o '"status":"ok"' | wc -l | tr -d ' ')
+          err_count=$(echo "$body" | grep -o '"status":"error"' | wc -l | tr -d ' ')
+          echo "KOL fetch summary -> ok=$ok_count error=$err_count"
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `KOL Tweets Ingestion failed on ${new Date().toISOString().slice(0,16)}`;
+            const body = `**Workflow:** ${context.workflow}\n**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Triggered by:** ${context.actor}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci-failure']
+            });

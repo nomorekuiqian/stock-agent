@@ -35,6 +35,7 @@
 - [pages.md](reference/pages.md) — 前端页面路由表
 - [components.md](reference/components.md) — 前端组件清单
 - [agent-transformation.md](reference/agent-transformation.md) — Agent 架构演进
+- [twitter-kol-source-research.md](reference/twitter-kol-source-research.md) — 推特 KOL 信息源扩展 research
 
 ## 模块文档 (.context.md)
 
