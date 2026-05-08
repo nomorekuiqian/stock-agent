@@ -140,6 +140,52 @@ module.exports = async function(request) {
       );
     }
 
+    // POST ?action=set_lifetime
+    // Body: { user_id, is_lifetime: true|false, entitlements?: [...] }
+    // Marks a user as lifetime (or revokes). When granting, callers should
+    // pass the full max entitlements list so the cached column stays in sync.
+    if (request.method === "POST" && action === "set_lifetime") {
+      const body = await request.json();
+      const { user_id, is_lifetime, entitlements } = body;
+
+      if (!user_id || typeof is_lifetime !== "boolean") {
+        return new Response(
+          JSON.stringify({ success: false, error: "user_id and is_lifetime (boolean) required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const patch = {
+        user_id,
+        is_lifetime,
+        updated_at: new Date().toISOString(),
+      };
+      if (is_lifetime) {
+        patch.plan = "max";
+        patch.status = "active";
+        patch.access_expires_at = null;
+        if (Array.isArray(entitlements)) patch.entitlements = entitlements;
+      }
+
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .upsert(patch, { onConflict: "user_id" })
+        .select()
+        .single();
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // GET ?action=find_by_referral_code&referral_code=xxx
     if (request.method === "GET" && action === "find_by_referral_code") {
       const referralCode = url.searchParams.get("referral_code");
@@ -358,6 +404,7 @@ module.exports = async function(request) {
           auth_created_at: u.created_at,
           plan: sub.plan || null,
           status: sub.status || null,
+          is_lifetime: sub.is_lifetime || false,
           access_expires_at: sub.access_expires_at || null,
           invite_code: sub.invite_code || null,
           entitlements: sub.entitlements || null,

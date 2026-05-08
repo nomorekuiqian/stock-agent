@@ -259,6 +259,10 @@ async def stripe_webhook(request: Request):
         try:
             user_id = obj.get("metadata", {}).get("user_id")
             if user_id:
+                existing = await get_subscription(user_id)
+                if existing and existing.get("is_lifetime"):
+                    logger.info("Skipped subscription.updated for lifetime user %s", user_id)
+                    return {"received": True}
                 status = obj.get("status", "active")
                 _, period_end = _get_period(obj)
                 await upsert_subscription(
@@ -277,6 +281,9 @@ async def stripe_webhook(request: Request):
             deleted_sub_id = obj.get("id")
             if user_id:
                 existing = await get_subscription(user_id)
+                if existing and existing.get("is_lifetime"):
+                    logger.info("Skipped subscription.deleted for lifetime user %s (sub %s)", user_id, deleted_sub_id)
+                    return {"received": True}
                 stored_sub_id = existing.get("stripe_subscription_id") if existing else None
 
                 if stored_sub_id and stored_sub_id != deleted_sub_id:
@@ -331,6 +338,10 @@ async def stripe_webhook(request: Request):
         user_id = sub_record.get("user_id")
         if not user_id:
             logger.warning("entitlements webhook: no user_id for customer %s", customer_id)
+            return {"received": True}
+
+        if sub_record.get("is_lifetime"):
+            logger.info("Skipped entitlements webhook for lifetime user %s (customer %s)", user_id, customer_id)
             return {"received": True}
 
         # Fetch full entitlements from Stripe API

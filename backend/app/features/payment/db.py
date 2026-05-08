@@ -55,6 +55,7 @@ async def upsert_subscription(
     referral_code: Optional[str] = None,
     referral_count: Optional[int] = None,
     entitlements: Optional[list] = None,
+    is_lifetime: Optional[bool] = None,
 ) -> bool:
     """Insert or update a subscription record.
 
@@ -88,6 +89,8 @@ async def upsert_subscription(
         body["referral_count"] = referral_count
     if entitlements is not None:
         body["entitlements"] = entitlements
+    if is_lifetime is not None:
+        body["is_lifetime"] = is_lifetime
 
     service = get_insforge_service()
     result = await service.call_function(
@@ -103,6 +106,34 @@ async def upsert_subscription(
     if success:
         invalidate_subscription_cache(user_id)
 
+    return success
+
+
+async def set_lifetime(
+    user_id: str,
+    is_lifetime: bool,
+    entitlements: Optional[list] = None,
+) -> bool:
+    """Mark a user as lifetime (or revoke).
+
+    When granting (is_lifetime=True), pass the full max entitlements list so
+    the cached column stays consistent with the lifetime flag.
+    """
+    body: Dict[str, Any] = {"user_id": user_id, "is_lifetime": is_lifetime}
+    if entitlements is not None:
+        body["entitlements"] = entitlements
+
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="POST",
+        params={"action": "set_lifetime"},
+        json_body=body,
+    )
+    data = result.get("data", {})
+    success = data.get("success", False)
+    if success:
+        invalidate_subscription_cache(user_id)
     return success
 
 
