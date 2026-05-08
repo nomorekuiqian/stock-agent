@@ -471,6 +471,11 @@ class TestFeedbackSectionReportType:
         assert "report_type=daily" in html
 
 
+@pytest.mark.skip(
+    reason="Bottom CTA temporarily disabled — see "
+    "docs/plans/active/paid-user-cta-handoff.md. Re-enable these tests when "
+    "get_digest_cta_section's early return is removed."
+)
 class TestDigestCtaSection:
     """Tests for the bottom Pro vs Max comparison CTA."""
 

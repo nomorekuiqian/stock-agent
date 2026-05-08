@@ -396,7 +396,13 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
     * All text meets WCAG AA: dark brand tones (emerald-800 ``#065f46``
       / amber-900 ``#78350f``) for feature emphasis in descriptions,
       neutral-600 ``#52525b`` for body copy.
+
+    NOTE: Temporarily disabled. See ``docs/plans/active/paid-user-cta-handoff.md``
+    for context on why the upsell-vs-thank-you split is on hold. To restore
+    the bottom CTA block, delete the early ``return ""`` below.
     """
+    return ""
+
     if variant == "paid":
         return _get_paid_digest_cta_section()
 
