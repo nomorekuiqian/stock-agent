@@ -24,6 +24,10 @@ def _make_service():
             "daily_report": "seg-evening",
             "weekly_report": "seg-weekly",
         }
+        svc.DAILY_CTA_SEGMENT_IDS = {
+            "free": "",
+            "paid": "",
+        }
         return svc
 
 
@@ -267,3 +271,62 @@ class TestSyncResendSegmentsMapping:
 
         mock_resend.ContactSegments.add.assert_not_called()
         assert actions == []
+
+
+class TestSyncDailyCtaSegments:
+    """Daily CTA sending lists follow paid-email truth, not entitlements."""
+
+    def _make_cta_service(self):
+        svc = _make_service()
+        svc.DAILY_CTA_SEGMENT_IDS = {
+            "free": "seg-daily-free-cta",
+            "paid": "seg-daily-paid-cta",
+        }
+        return svc
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
+    def test_trial_entitlements_stay_in_free_cta(self, _wait, mock_resend):
+        svc = self._make_cta_service()
+        _mock_current_segments(mock_resend, {"seg-evening"})
+
+        actions = svc.sync_resend_segments(
+            "trial@example.com",
+            {"morning_report_email", "weekly_report_email"},
+        )
+
+        add_calls = mock_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        assert "seg-daily-free-cta" in added
+        assert "seg-daily-paid-cta" not in added
+        assert "added to daily_free_cta" in actions
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
+    def test_curated_paid_email_moves_to_paid_cta(self, _wait, mock_resend):
+        svc = self._make_cta_service()
+        _mock_current_segments(mock_resend, {"seg-evening"})
+
+        actions = svc.sync_resend_segments("kedengpan@gmail.com", set())
+
+        add_calls = mock_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        remove_calls = mock_resend.ContactSegments.remove.call_args_list
+        removed = {c[0][0]["segment_id"] for c in remove_calls}
+        assert "seg-daily-paid-cta" in added
+        assert "seg-daily-free-cta" in removed
+        assert "added to daily_paid_cta" in actions
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
+    def test_daily_disabled_removes_both_cta_segments(self, _wait, mock_resend):
+        svc = self._make_cta_service()
+        _mock_current_segments(mock_resend, set())
+
+        actions = svc.sync_resend_segments("trial@example.com", set())
+
+        remove_calls = mock_resend.ContactSegments.remove.call_args_list
+        removed = {c[0][0]["segment_id"] for c in remove_calls}
+        assert removed == {"seg-daily-free-cta", "seg-daily-paid-cta"}
+        assert "removed from daily_free_cta" in actions
+        assert "removed from daily_paid_cta" in actions

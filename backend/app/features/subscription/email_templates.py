@@ -7,7 +7,7 @@ constants replace the old ``self.frontend_url`` / ``self.logo_url``.
 
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from app.core.config import FRONTEND_URL
 from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
@@ -298,7 +298,62 @@ def get_email_footer(
         """
 
 
-def get_digest_cta_section() -> str:
+DailyCtaVariant = Literal["upsell", "paid"]
+
+
+def _get_paid_digest_cta_section() -> str:
+    """Thank-you CTA for paying users at the bottom of the daily report."""
+    for_you_url = f"{_EMAIL_LINK_BASE}/for-you"
+    stock_url = f"{_EMAIL_LINK_BASE}/stock"
+    return f"""
+        <style>
+            @media only screen and (max-width: 540px) {{
+                .tmb-paid-cta-card {{
+                    max-width: 100% !important;
+                    margin: 0 0 12px !important;
+                }}
+            }}
+        </style>
+        <div style="background: #ffffff; padding: 28px 20px 32px; border-top: 1px solid #e4e4e7;">
+            <div style="text-align: center; margin-bottom: 22px;">
+                <div style="font-size: 11px; font-weight: 600; color: #047857; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px;">感谢订阅</div>
+                <div style="font-size: 16px; color: #0a0a0a; font-weight: 600;">你的会员权益已经开通</div>
+            </div>
+            <div style="font-size: 0; line-height: 0; text-align: center;">
+                <div class="tmb-paid-cta-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #ecfdf5; border: 2px solid #047857; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">For You</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; line-height: 1.4; margin-bottom: 10px;">
+                            查看你的专属持仓日报
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
+                            每天追踪你自选股里的新闻、财报日程和关键变化，不再只看大盘摘要。
+                        </div>
+                        <a href="{for_you_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center;">
+                            打开 For You &rarr;
+                        </a>
+                    </div>
+                </div>
+                <div class="tmb-paid-cta-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Research</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; line-height: 1.4; margin-bottom: 10px;">
+                            深度研究一只股票
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
+                            用 AI 投研引擎生成基本面、技术面和估值分析，快速整理你的投资判断。
+                        </div>
+                        <a href="{stock_url}" style="display: block; padding: 11px 20px; background-color: #b45309; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #b45309; text-align: center;">
+                            打开个股研究 &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+
+
+def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
     """Pain-point driven Pro vs Max CTA at the bottom of the free daily report.
 
     The only promotional surface in the email — no mid-email banners —
@@ -342,6 +397,9 @@ def get_digest_cta_section() -> str:
       / amber-900 ``#78350f``) for feature emphasis in descriptions,
       neutral-600 ``#52525b`` for body copy.
     """
+    if variant == "paid":
+        return _get_paid_digest_cta_section()
+
     pro_url = f"{_EMAIL_LINK_BASE}/pricing"
     max_url = f"{_EMAIL_LINK_BASE}/pricing"
     return f"""
@@ -443,6 +501,7 @@ def format_html_report(
     report_date: Optional[str] = None,
     report_id: Optional[str] = None,
     show_conversion_hook: bool = False,
+    cta_variant: DailyCtaVariant = "upsell",
 ) -> str:
     """Format the macro analysis data into an HTML email (Daily Report)."""
     timestamp = data.get("timestamp", now_iso())
@@ -703,7 +762,7 @@ def format_html_report(
                 </div>
 
                 {get_feedback_section(feedback_report_date, feedback_report_id)}
-                {get_digest_cta_section()}
+                {get_digest_cta_section(cta_variant)}
                 {get_email_footer()}
             </div>
         </body>

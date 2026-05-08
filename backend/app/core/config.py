@@ -59,6 +59,14 @@ if GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
 RESEND_SEGMENT_MORNING = os.getenv("RESEND_SEGMENT_MORNING", "")
 RESEND_SEGMENT_EVENING = os.getenv("RESEND_SEGMENT_EVENING", "")
 RESEND_SEGMENT_WEEKLY = os.getenv("RESEND_SEGMENT_WEEKLY", "")
+RESEND_SEGMENT_DAILY_FREE_CTA = os.getenv(
+    "RESEND_SEGMENT_DAILY_FREE_CTA",
+    "a081542c-7411-4cd3-bb24-80aedd7af9e2",
+)
+RESEND_SEGMENT_DAILY_PAID_CTA = os.getenv(
+    "RESEND_SEGMENT_DAILY_PAID_CTA",
+    "f119ea94-de81-4a78-bb7a-f7ebf016bdaf",
+)
 
 # Invite codes (comma-separated shared codes for public distribution)
 INVITE_CODES = os.getenv("INVITE_CODES", "")

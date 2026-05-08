@@ -29,13 +29,19 @@ class TestSegmentMethods:
             "daily_report": "seg-evening",
             "weekly_report": "seg-weekly",
         }
+        svc.DAILY_CTA_SEGMENT_IDS = {
+            "free": "seg-free-cta",
+            "paid": "seg-paid-cta",
+        }
 
         svc.add_to_default_segments("user@test.com")
 
-        # Should only add to evening segment
-        mock_resend.ContactSegments.add.assert_called_once_with({
+        add_calls = mock_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        assert added == {"seg-evening", "seg-free-cta"}
+        mock_resend.ContactSegments.remove.assert_called_once_with({
             "email": "user@test.com",
-            "segment_id": "seg-evening",
+            "segment_id": "seg-paid-cta",
         })
 
 

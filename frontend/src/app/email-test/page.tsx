@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatTimestamp } from '@/lib/timezone';
 
-type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report' | 'onboarding';
+type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report' | 'twitter_digest' | 'onboarding';
 
 function EmailTestContent() {
   const searchParams = useSearchParams();
@@ -45,6 +45,15 @@ function EmailTestContent() {
   } | null>(null);
   const [weekLabel, setWeekLabel] = useState(weekParam || '');
 
+  // Twitter Digest state
+  const [twitterDigestHtml, setTwitterDigestHtml] = useState<string>('');
+  const [twitterDigestInfo, setTwitterDigestInfo] = useState<{
+    digestDate: string | null;
+    inputTweetCount: number;
+    trackedKolCount: number;
+  } | null>(null);
+  const [twitterDigestDate, setTwitterDigestDate] = useState('');
+
   // Onboarding state (-1 = welcome email, 0+ = drip days)
   const [onboardingHtml, setOnboardingHtml] = useState<string>('');
   const [onboardingDay, setOnboardingDay] = useState(-1);
@@ -68,6 +77,8 @@ function EmailTestContent() {
       loadDigestPreview({ userId: user?.id, digestId: digestIdParam || undefined });
     } else if (activeChannel === 'weekly_report') {
       loadWeeklyPreview({ week: weekParam || undefined, firstName: user?.name });
+    } else if (activeChannel === 'twitter_digest') {
+      loadTwitterDigestPreview(twitterDigestDate || undefined);
     } else {
       loadOnboardingPreview(onboardingDay);
     }
@@ -128,6 +139,25 @@ function EmailTestContent() {
     }
   };
 
+  const loadTwitterDigestPreview = async (date?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.getTwitterDigestPreview(date);
+      setTwitterDigestHtml(result.html);
+      setTwitterDigestInfo({
+        digestDate: result.digest_date,
+        inputTweetCount: result.input_tweet_count,
+        trackedKolCount: result.tracked_kol_count,
+      });
+      if (result.digest_date) setTwitterDigestDate(result.digest_date);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load twitter digest preview');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadOnboardingPreview = async (day: number = -1) => {
     setLoading(true);
     setError(null);
@@ -182,6 +212,11 @@ function EmailTestContent() {
           success: false,
           message: '个人摘要暂不支持发送测试，请使用广播功能。',
         });
+      } else if (activeChannel === 'twitter_digest') {
+        setSendResult({
+          success: false,
+          message: '推特日报邮件发送链路尚未实现，仅支持预览。',
+        });
       } else {
         setSendResult({
           success: false,
@@ -208,6 +243,8 @@ function EmailTestContent() {
       loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
     } else if (channel === 'weekly_report') {
       loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name });
+    } else if (channel === 'twitter_digest') {
+      loadTwitterDigestPreview(twitterDigestDate || undefined);
     } else {
       loadOnboardingPreview(onboardingDay);
     }
@@ -220,6 +257,8 @@ function EmailTestContent() {
       loadDigestPreview({ userId: user?.id, digestId: digestId || undefined });
     } else if (activeChannel === 'weekly_report') {
       loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name });
+    } else if (activeChannel === 'twitter_digest') {
+      loadTwitterDigestPreview(twitterDigestDate || undefined);
     } else {
       loadOnboardingPreview(onboardingDay);
     }
@@ -232,7 +271,9 @@ function EmailTestContent() {
         ? digestHtml
         : activeChannel === 'weekly_report'
           ? weeklyHtml
-          : onboardingHtml;
+          : activeChannel === 'twitter_digest'
+            ? twitterDigestHtml
+            : onboardingHtml;
 
   const channelLabel =
     activeChannel === 'daily_report'
@@ -241,9 +282,11 @@ function EmailTestContent() {
         ? 'Personal Digest'
         : activeChannel === 'weekly_report'
           ? 'Weekly Report'
-          : onboardingDay === -1
-            ? 'Welcome Email'
-            : `Onboarding (Day ${onboardingDay})`;
+          : activeChannel === 'twitter_digest'
+            ? 'Twitter KOL Digest'
+            : onboardingDay === -1
+              ? 'Welcome Email'
+              : `Onboarding (Day ${onboardingDay})`;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -320,6 +363,21 @@ function EmailTestContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Weekly Report
+              </div>
+            </button>
+            <button
+              onClick={() => handleChannelChange('twitter_digest')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeChannel === 'twitter_digest'
+                  ? 'bg-primary/10 text-primary border-primary/30'
+                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Twitter Digest
               </div>
             </button>
             <button
@@ -400,7 +458,7 @@ function EmailTestContent() {
             {/* Info Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : activeChannel === 'weekly_report' ? 'Weekly Report Info' : 'Onboarding Info'}
+                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : activeChannel === 'weekly_report' ? 'Weekly Report Info' : activeChannel === 'twitter_digest' ? 'Twitter Digest Info' : 'Onboarding Info'}
               </h2>
               {loading ? (
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
@@ -483,6 +541,21 @@ function EmailTestContent() {
                     </span>
                   </div>
                 </div>
+              ) : activeChannel === 'twitter_digest' && twitterDigestInfo ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Digest Date</span>
+                    <span className="text-gray-900 font-medium">{twitterDigestInfo.digestDate || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Input Tweets</span>
+                    <span className="text-gray-900 font-medium">{twitterDigestInfo.inputTweetCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Tracked KOLs</span>
+                    <span className="text-gray-900 font-medium">{twitterDigestInfo.trackedKolCount}</span>
+                  </div>
+                </div>
               ) : activeChannel === 'onboarding' ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -558,6 +631,29 @@ function EmailTestContent() {
                         Load
                       </button>
                     </div>
+                  </>
+                ) : activeChannel === 'twitter_digest' ? (
+                  <>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Load Specific Date
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={twitterDigestDate}
+                        onChange={(e) => setTwitterDigestDate(e.target.value)}
+                        placeholder="YYYY-MM-DD"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        onClick={() => loadTwitterDigestPreview(twitterDigestDate || undefined)}
+                        disabled={loading}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        Load
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">留空加载最新一期</p>
                   </>
                 ) : activeChannel === 'weekly_report' ? (
                   <>
@@ -695,7 +791,9 @@ function EmailTestContent() {
                         ? 'Make sure you have generated a digest for this user'
                         : activeChannel === 'weekly_report'
                           ? 'Make sure a weekly report has been generated'
-                          : 'Make sure the backend is running'}
+                          : activeChannel === 'twitter_digest'
+                            ? 'Make sure /api/twitter-digest/generate has run at least once'
+                            : 'Make sure the backend is running'}
                     </p>
                   </div>
                 ) : viewMode === 'preview' ? (

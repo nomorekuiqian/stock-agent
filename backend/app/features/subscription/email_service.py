@@ -8,6 +8,7 @@ This module handles send/broadcast orchestration only.
 
 import asyncio
 import time
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
 
@@ -17,6 +18,8 @@ from app.core.config import (
     RESEND_API_KEY,
     FRONTEND_URL,
     ENVIRONMENT,
+    RESEND_SEGMENT_DAILY_FREE_CTA,
+    RESEND_SEGMENT_DAILY_PAID_CTA,
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
     RESEND_SEGMENT_WEEKLY,
@@ -27,6 +30,7 @@ from app.features.subscription.service import (
     get_subscription_service,
     SubscriptionChannel,
 )
+from app.features.subscription.paid_cta import is_paid_daily_cta_email
 from app.features.brew.db import save_user_digest, get_user_watchlist
 
 # Import all template functions (used directly + re-exported as proxy methods)
@@ -53,6 +57,76 @@ from app.features.subscription.email_templates import (
 )
 
 logger = get_logger(__name__)
+
+
+async def _filter_active_subscribers(entitled_users: list) -> list:
+    """Drop entries whose access has already expired.
+
+    list_entitled_users returns only email/first_name/user_id/entitlements,
+    so we cross-reference list_all_users to pick up access_expires_at and
+    is_lifetime. Lifetime users and rows without an expiry are kept; rows
+    with an expiry strictly in the past are dropped. On lookup failure we
+    fall back to keeping the input unchanged (fail-open: better to send a
+    digest than to silently drop a paying customer).
+    """
+    if not entitled_users:
+        return entitled_users
+
+    from app.core.database import get_insforge_service
+
+    try:
+        result = await get_insforge_service().call_function(
+            "subscriptions",
+            method="GET",
+            params={"action": "list_all"},
+            timeout=60.0,
+        )
+    except Exception as e:
+        logger.warning(
+            "Expiry filter: list_all RPC failed (%s); skipping filter", e,
+        )
+        return entitled_users
+
+    data = result.get("data", {})
+    if not data.get("success"):
+        logger.warning(
+            "Expiry filter: list_all returned non-success; skipping filter",
+        )
+        return entitled_users
+
+    sub_by_id = {row["user_id"]: row for row in data.get("data", []) if row.get("user_id")}
+    now = datetime.now(timezone.utc)
+    kept: list = []
+    dropped_emails: list = []
+    for u in entitled_users:
+        sub = sub_by_id.get(u.get("user_id"))
+        if not sub:
+            kept.append(u)
+            continue
+        if sub.get("is_lifetime"):
+            kept.append(u)
+            continue
+        expires_raw = sub.get("access_expires_at")
+        if not expires_raw:
+            kept.append(u)
+            continue
+        try:
+            expires = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
+        except (AttributeError, ValueError):
+            kept.append(u)
+            continue
+        if expires > now:
+            kept.append(u)
+        else:
+            dropped_emails.append(u.get("email") or u.get("user_id"))
+
+    if dropped_emails:
+        logger.info(
+            "Expiry filter: dropped %d expired subscribers from digest "
+            "broadcast (kept %d). Dropped: %s",
+            len(dropped_emails), len(kept), dropped_emails,
+        )
+    return kept
 
 
 class EmailService:
@@ -125,16 +199,17 @@ class EmailService:
     ) -> str:
         return get_email_footer(unsubscribe_url)
 
-    def _get_digest_cta_section(self) -> str:
-        return get_digest_cta_section()
+    def _get_digest_cta_section(self, variant: str = "upsell") -> str:
+        return get_digest_cta_section(variant)
 
     def _format_html_report(
         self,
         data: dict,
         report_date: Optional[str] = None,
         report_id: Optional[str] = None,
+        cta_variant: str = "upsell",
     ) -> str:
-        return format_html_report(data, report_date, report_id)
+        return format_html_report(data, report_date, report_id, cta_variant=cta_variant)
 
     def _format_digest_html(
         self,
@@ -375,7 +450,13 @@ class EmailService:
         try:
             report_date = data.get("report_date") or today_str()
             report_id = data.get("report_id")
-            html_content = format_html_report(data, report_date, report_id)
+            cta_variant = "paid" if is_paid_daily_cta_email(recipient) else "upsell"
+            html_content = format_html_report(
+                data,
+                report_date,
+                report_id,
+                cta_variant=cta_variant,
+            )
 
             display_name = first_name
             if not display_name:
@@ -626,8 +707,6 @@ class EmailService:
             today = today_str()
             report_date = data.get("report_date") or today
             report_id = data.get("report_id")
-            html_content = format_html_report(data, report_date, report_id)
-
             report_title = data.get("title", "")
             subject = (
                 f"[TheMarketBrew] {report_title}"
@@ -635,10 +714,85 @@ class EmailService:
                 else f"[TheMarketBrew] {today}"
             )
 
+            # Dev/test and explicit audience sends keep the old one-broadcast path
+            # to avoid sending duplicate test emails.
+            if not self.is_production or audience_id:
+                html_content = format_html_report(data, report_date, report_id)
+                if audience_id:
+                    segment_id = None
+                    fallback_audience = self._resolve_audience(
+                        audience_id,
+                        SubscriptionChannel.DAILY_REPORT,
+                    )
+                else:
+                    segment_id = self._resolve_segment(RESEND_SEGMENT_EVENING)
+                    fallback_audience = (
+                        self._resolve_audience(
+                            None,
+                            SubscriptionChannel.DAILY_REPORT,
+                        )
+                        if not segment_id
+                        else None
+                    )
+
+                return self._create_and_send_broadcast(
+                    label="Daily",
+                    audience_id=fallback_audience,
+                    segment_id=segment_id,
+                    subject=subject,
+                    broadcast_name=f"Daily Report {today}",
+                    html=html_content,
+                )
+
+            free_segment_id = self._resolve_segment(RESEND_SEGMENT_DAILY_FREE_CTA)
+            paid_segment_id = self._resolve_segment(RESEND_SEGMENT_DAILY_PAID_CTA)
+
+            if free_segment_id and paid_segment_id:
+                free_result = self._create_and_send_broadcast(
+                    label="Daily Free CTA",
+                    segment_id=free_segment_id,
+                    subject=subject,
+                    broadcast_name=f"Daily Report {today} Free CTA",
+                    html=format_html_report(
+                        data,
+                        report_date,
+                        report_id,
+                        cta_variant="upsell",
+                    ),
+                )
+                paid_result = self._create_and_send_broadcast(
+                    label="Daily Paid CTA",
+                    segment_id=paid_segment_id,
+                    subject=subject,
+                    broadcast_name=f"Daily Report {today} Paid CTA",
+                    html=format_html_report(
+                        data,
+                        report_date,
+                        report_id,
+                        cta_variant="paid",
+                    ),
+                )
+                success = free_result.get("success") and paid_result.get("success")
+                return {
+                    "success": bool(success),
+                    "broadcast_id": free_result.get("broadcast_id"),
+                    "broadcasts": {
+                        "free": free_result,
+                        "paid": paid_result,
+                    },
+                    "failed": 0 if success else 1,
+                }
+
+            logger.warning(
+                "Daily CTA segments are not fully configured; falling back to "
+                "single upsell broadcast"
+            )
+
+            html_content = format_html_report(data, report_date, report_id)
             # Use segment for targeted send, fallback to audience
             segment_id = self._resolve_segment(RESEND_SEGMENT_EVENING)
             fallback_audience = (
-                self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
+                self._resolve_audience(None, SubscriptionChannel.DAILY_REPORT)
                 if not segment_id
                 else None
             )
@@ -811,6 +965,13 @@ class EmailService:
             from app.features.payment.db import list_entitled_users
 
             entitled_users = await list_entitled_users("personal_digest_email")
+
+            # Defense in depth: drop expired-trial users whose entitlements
+            # column was not cleared (e.g. invite-code trials that never
+            # produced a Stripe webhook). list_entitled_users does not return
+            # access_expires_at or is_lifetime, so we enrich from list_all
+            # (one extra RPC, same source the admin dashboard uses).
+            entitled_users = await _filter_active_subscribers(entitled_users)
 
             # Non-production safety: only send to test account to prevent
             # accidentally emailing real subscribers during development.

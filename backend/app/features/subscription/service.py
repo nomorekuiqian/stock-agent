@@ -9,11 +9,14 @@ import resend
 
 from app.core.config import (
     RESEND_API_KEY,
+    RESEND_SEGMENT_DAILY_FREE_CTA,
+    RESEND_SEGMENT_DAILY_PAID_CTA,
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
     RESEND_SEGMENT_WEEKLY,
 )
 from app.core.logging import get_logger
+from app.features.subscription.paid_cta import is_paid_daily_cta_email
 
 logger = get_logger(__name__)
 
@@ -155,9 +158,78 @@ class SubscriptionService:
         "daily_report": RESEND_SEGMENT_EVENING,
         "weekly_report": RESEND_SEGMENT_WEEKLY,
     }
+    DAILY_CTA_SEGMENT_IDS = {
+        "free": RESEND_SEGMENT_DAILY_FREE_CTA,
+        "paid": RESEND_SEGMENT_DAILY_PAID_CTA,
+    }
+
+    def _sync_daily_cta_segments(self, email: str, daily_enabled: bool) -> list:
+        """Keep the daily free/paid CTA sending lists in the expected state."""
+        free_seg_id = self.DAILY_CTA_SEGMENT_IDS.get("free")
+        paid_seg_id = self.DAILY_CTA_SEGMENT_IDS.get("paid")
+        actions = []
+
+        if not free_seg_id and not paid_seg_id:
+            return actions
+
+        if not daily_enabled:
+            for label, seg_id in (("free", free_seg_id), ("paid", paid_seg_id)):
+                if not seg_id:
+                    continue
+                try:
+                    _rate_limit_wait()
+                    resend.ContactSegments.remove(
+                        {"email": email, "segment_id": seg_id}
+                    )
+                    actions.append("removed from daily_%s_cta" % label)
+                except Exception as e:
+                    logger.warning(
+                        "sync_daily_cta: remove %s from %s failed: %s",
+                        email,
+                        label,
+                        e,
+                    )
+            return actions
+
+        desired_label = "paid" if is_paid_daily_cta_email(email) else "free"
+        desired_seg_id = paid_seg_id if desired_label == "paid" else free_seg_id
+        other_label = "free" if desired_label == "paid" else "paid"
+        other_seg_id = free_seg_id if desired_label == "paid" else paid_seg_id
+
+        if desired_seg_id:
+            try:
+                _rate_limit_wait()
+                resend.ContactSegments.add(
+                    {"email": email, "segment_id": desired_seg_id}
+                )
+                actions.append("added to daily_%s_cta" % desired_label)
+            except Exception as e:
+                logger.warning(
+                    "sync_daily_cta: add %s to %s failed: %s",
+                    email,
+                    desired_label,
+                    e,
+                )
+
+        if other_seg_id:
+            try:
+                _rate_limit_wait()
+                resend.ContactSegments.remove(
+                    {"email": email, "segment_id": other_seg_id}
+                )
+                actions.append("removed from daily_%s_cta" % other_label)
+            except Exception as e:
+                logger.warning(
+                    "sync_daily_cta: remove %s from %s failed: %s",
+                    email,
+                    other_label,
+                    e,
+                )
+
+        return actions
 
     def add_to_default_segments(self, email: str) -> None:
-        """Add a new contact to the free-tier default segment (evening daily report only).
+        """Add a new contact to daily report delivery lists.
 
         Morning and weekly segments are Pro-only and managed by
         sync_resend_segments() via the Stripe entitlements webhook.
@@ -177,6 +249,9 @@ class SubscriptionService:
             logger.info("Added %s to default (evening) segment", email)
         except Exception as e:
             logger.warning("Failed to add %s to default segment: %s", email, e)
+            return
+
+        self._sync_daily_cta_segments(email, daily_enabled=True)
 
     def sync_resend_segments(self, email: str, entitlements: set) -> list:
         """Reconcile Resend segment membership to match entitlements.
@@ -218,6 +293,13 @@ class SubscriptionService:
                     actions.append("removed from %s" % report_type)
                 except Exception as e:
                     logger.warning("sync_resend: remove %s from %s failed: %s", email, report_type, e)
+
+        actions.extend(
+            self._sync_daily_cta_segments(
+                email,
+                daily_enabled=current.get("daily_report", False),
+            )
+        )
 
         if actions:
             logger.info("sync_resend_segments: email=%s actions=%s", email, actions)
@@ -282,6 +364,9 @@ class SubscriptionService:
                     email,
                     e,
                 )
+                continue
+            if report_type == "daily_report":
+                self._sync_daily_cta_segments(email, daily_enabled=enabled)
         return self.get_email_preferences(email)
 
     # =========================================================================
@@ -326,6 +411,9 @@ class SubscriptionService:
             contact = resend.Contacts.create(params)
             logger.info("Subscribed %s to %s: %s", email, channel, contact.get("id"))
 
+            if channel == SubscriptionChannel.DAILY_REPORT:
+                self.add_to_default_segments(email)
+
             return {
                 "success": True,
                 "channel": channel.value,
@@ -366,6 +454,8 @@ class SubscriptionService:
             _rate_limit_wait()
             resend.Contacts.update(update_params)
             logger.info("Unsubscribed %s from %s", email, channel)
+            if channel == SubscriptionChannel.DAILY_REPORT:
+                self._sync_daily_cta_segments(email, daily_enabled=False)
             return {
                 "success": True,
                 "channel": channel.value,
@@ -411,6 +501,9 @@ class SubscriptionService:
             _rate_limit_wait()
             resend.Contacts.update(update_params)
             logger.info("Updated %s in %s", email, channel)
+
+            if channel == SubscriptionChannel.DAILY_REPORT:
+                self.add_to_default_segments(email)
 
             return {
                 "success": True,
@@ -728,6 +821,9 @@ class SubscriptionService:
 
                     _rate_limit_wait()
                     resend.Contacts.update(update_params)
+
+                    if channel == SubscriptionChannel.DAILY_REPORT:
+                        self.add_to_default_segments(email)
 
                     return {
                         "success": True,

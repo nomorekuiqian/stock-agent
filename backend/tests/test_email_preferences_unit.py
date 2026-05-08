@@ -166,22 +166,38 @@ class TestBroadcastProdSegmentRouting:
     """Test that all broadcast methods use segment_id in production."""
 
     @pytest.mark.asyncio
-    async def test_daily_uses_evening_segment_in_prod(
+    async def test_daily_uses_free_and_paid_cta_segments_in_prod(
         self, prod_email_svc, mock_resend
     ):
-        """broadcast_daily_report sends to RESEND_SEGMENT_EVENING in prod."""
+        """broadcast_daily_report sends separate CTA variants in prod."""
         with patch(
-            "app.features.subscription.email_service.RESEND_SEGMENT_EVENING",
-            "seg-evening-real",
+            "app.features.subscription.email_service.RESEND_SEGMENT_DAILY_FREE_CTA",
+            "seg-daily-free-cta",
+        ), patch(
+            "app.features.subscription.email_service.RESEND_SEGMENT_DAILY_PAID_CTA",
+            "seg-daily-paid-cta",
         ):
             result = await prod_email_svc.broadcast_daily_report(
                 {"title": "Test", "report_date": "2026-03-11"}
             )
 
         assert result["success"] is True
-        create_params = mock_resend.Broadcasts.create.call_args[0][0]
-        assert create_params.get("segment_id") == "seg-evening-real"
-        assert "audience_id" not in create_params
+        assert mock_resend.Broadcasts.create.call_count == 2
+        create_calls = [c[0][0] for c in mock_resend.Broadcasts.create.call_args_list]
+        segment_ids = {params.get("segment_id") for params in create_calls}
+        assert segment_ids == {"seg-daily-free-cta", "seg-daily-paid-cta"}
+        free_html = next(
+            params["html"]
+            for params in create_calls
+            if params.get("segment_id") == "seg-daily-free-cta"
+        )
+        paid_html = next(
+            params["html"]
+            for params in create_calls
+            if params.get("segment_id") == "seg-daily-paid-cta"
+        )
+        assert "订阅 Pro" in free_html
+        assert "感谢订阅" in paid_html
 
     @pytest.mark.asyncio
     async def test_morning_uses_morning_segment_in_prod(
@@ -233,6 +249,10 @@ class TestBroadcastProdSegmentRouting:
     ):
         """If RESEND_SEGMENT is empty in prod, falls back to audience."""
         with patch(
+            "app.features.subscription.email_service.RESEND_SEGMENT_DAILY_FREE_CTA", ""
+        ), patch(
+            "app.features.subscription.email_service.RESEND_SEGMENT_DAILY_PAID_CTA", ""
+        ), patch(
             "app.features.subscription.email_service.RESEND_SEGMENT_EVENING", ""
         ):
             result = await prod_email_svc.broadcast_daily_report(
@@ -242,6 +262,22 @@ class TestBroadcastProdSegmentRouting:
         assert result["success"] is True
         create_params = mock_resend.Broadcasts.create.call_args[0][0]
         assert "audience_id" in create_params
+        assert "segment_id" not in create_params
+
+    @pytest.mark.asyncio
+    async def test_explicit_audience_wins_in_prod(
+        self, prod_email_svc, mock_resend
+    ):
+        """Explicit production test audience sends one broadcast to that audience."""
+        result = await prod_email_svc.broadcast_daily_report(
+            {"title": "Test", "report_date": "2026-03-11"},
+            audience_id="aud-test-only",
+        )
+
+        assert result["success"] is True
+        assert mock_resend.Broadcasts.create.call_count == 1
+        create_params = mock_resend.Broadcasts.create.call_args[0][0]
+        assert create_params["audience_id"] == "aud-test-only"
         assert "segment_id" not in create_params
 
 
@@ -386,11 +422,7 @@ class TestSubscriptionServicePreferences:
         )
 
     def test_add_to_default_segments(self, mock_service_resend):
-        """add_to_default_segments only adds the new contact to the free-tier
-        evening segment. Morning and weekly are Pro-only and must not be
-        auto-populated on signup (otherwise free users would receive Pro
-        emails by default).
-        """
+        """add_to_default_segments adds Daily plus the free CTA sending list."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -400,16 +432,19 @@ class TestSubscriptionServicePreferences:
             "daily_report": "seg-evening-id",
             "weekly_report": "seg-weekly-id",
         }
+        svc.DAILY_CTA_SEGMENT_IDS = {
+            "free": "seg-free-cta",
+            "paid": "seg-paid-cta",
+        }
 
         with patch("app.features.subscription.service._rate_limit_wait"):
             svc.add_to_default_segments("new@test.com")
 
-        assert mock_service_resend.ContactSegments.add.call_count == 1
-        mock_service_resend.ContactSegments.add.assert_called_once_with(
-            {
-                "email": "new@test.com",
-                "segment_id": "seg-evening-id",
-            }
+        add_calls = mock_service_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        assert added == {"seg-evening-id", "seg-free-cta"}
+        mock_service_resend.ContactSegments.remove.assert_called_once_with(
+            {"email": "new@test.com", "segment_id": "seg-paid-cta"}
         )
 
 
