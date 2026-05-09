@@ -118,6 +118,11 @@ async def set_lifetime(
 
     When granting (is_lifetime=True), pass the full max entitlements list so
     the cached column stays consistent with the lifetime flag.
+
+    On success, also pushes the new state to Resend so the daily report
+    paid/free CTA segment membership reflects the change. Lifetime grants
+    bypass Stripe webhooks entirely, so this is the only place that can
+    trigger Resend sync for lifetime transitions.
     """
     body: Dict[str, Any] = {"user_id": user_id, "is_lifetime": is_lifetime}
     if entitlements is not None:
@@ -132,9 +137,31 @@ async def set_lifetime(
     )
     data = result.get("data", {})
     success = data.get("success", False)
-    if success:
-        invalidate_subscription_cache(user_id)
-    return success
+    if not success:
+        return False
+
+    invalidate_subscription_cache(user_id)
+
+    # Resend sync — lifetime is the one path Stripe webhooks never see.
+    try:
+        import asyncio
+        from app.features.subscription.service import SubscriptionService
+
+        email = await get_user_email_by_id(user_id)
+        if email:
+            fresh_sub = await get_subscription(user_id)
+            await asyncio.to_thread(
+                SubscriptionService().sync_resend_segments, email, fresh_sub
+            )
+    except Exception as e:
+        from app.core.logging import get_logger
+        get_logger(__name__).warning(
+            "set_lifetime: Resend sync failed for user %s: %s",
+            user_id[:8] if user_id else "?",
+            e,
+        )
+
+    return True
 
 
 async def list_entitled_users(feature: str) -> list:
@@ -149,6 +176,30 @@ async def list_entitled_users(feature: str) -> list:
     if data.get("success"):
         return data.get("data", [])
     return []
+
+
+async def get_user_email_by_id(user_id: str) -> Optional[str]:
+    """Look up a user's email by their Insforge user_id.
+
+    Reuses the existing ``list_user_profiles`` edge function action and
+    filters in Python — acceptable because callers (lifetime grants,
+    drift-audit fixups) are rare and the user list is bounded.
+    """
+    if not user_id:
+        return None
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "list_user_profiles"},
+    )
+    data = result.get("data", {})
+    if not data.get("success"):
+        return None
+    for profile in data.get("data", []):
+        if profile.get("user_id") == user_id:
+            return profile.get("email")
+    return None
 
 
 async def get_subscription_by_customer(stripe_customer_id: str) -> Optional[Dict[str, Any]]:

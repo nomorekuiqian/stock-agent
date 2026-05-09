@@ -186,9 +186,19 @@ class TestBroadcastProdSegmentRouting:
         create_calls = [c[0][0] for c in mock_resend.Broadcasts.create.call_args_list]
         segment_ids = {params.get("segment_id") for params in create_calls}
         assert segment_ids == {"seg-daily-free-cta", "seg-daily-paid-cta"}
-        # CTA content asserts (订阅 Pro / 感谢订阅) are intentionally omitted while
-        # get_digest_cta_section is short-circuited — see paid-user-cta-handoff.md.
-        # The segment-routing behavior above is still load-bearing and verified.
+
+        # Verify each broadcast's HTML contains the variant-specific CTA copy.
+        by_seg = {params.get("segment_id"): params.get("html", "")
+                  for params in create_calls}
+        free_html = by_seg["seg-daily-free-cta"]
+        paid_html = by_seg["seg-daily-paid-cta"]
+        # Free variant: upsell to /pricing
+        assert "/pricing" in free_html
+        # Paid variant: thank-you, points to /for-you and /stock
+        assert "感谢订阅" in paid_html
+        assert "/for-you" in paid_html
+        # Paid variant must NOT push the user to upgrade.
+        assert "/pricing" not in paid_html
 
     @pytest.mark.asyncio
     async def test_morning_uses_morning_segment_in_prod(
@@ -493,12 +503,22 @@ class TestPreferencesEndpoints:
 
     def test_post_preferences_update(self, client):
         """POST /api/subscriptions/preferences updates and returns preferences."""
+        fake_sub = {
+            "user_id": "user-123",
+            "entitlements": [],
+            "access_expires_at": None,
+            "is_lifetime": False,
+        }
         with patch(
             "app.features.subscription.router.get_subscription_service"
         ) as mock_svc_fn, patch(
             "app.features.subscription.router.has_entitlement",
             new_callable=AsyncMock,
             return_value=False,
+        ), patch(
+            "app.features.payment.db.get_subscription",
+            new_callable=AsyncMock,
+            return_value=fake_sub,
         ):
             mock_svc = MagicMock()
             mock_svc.get_email_preferences.return_value = {
@@ -520,7 +540,7 @@ class TestPreferencesEndpoints:
         assert data["success"] is True
         assert data["preferences"]["morning_report"] is False
         mock_svc.update_email_preferences.assert_called_once_with(
-            "test@example.com", {"morning_report": False}
+            "test@example.com", {"morning_report": False}, fake_sub
         )
 
     def test_get_preferences_no_auth_returns_401(self):

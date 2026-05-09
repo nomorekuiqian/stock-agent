@@ -320,6 +320,29 @@ async def stripe_webhook(request: Request):
                             entitlements=[],
                         )
                         logger.info("Subscription %s canceled for user %s, no active subs remain", deleted_sub_id, user_id)
+
+                # Resend sync — defends against the entitlements webhook
+                # missing or arriving out of order. Idempotent: noop when
+                # state already matches.
+                try:
+                    customer_id = obj.get("customer")
+                    if customer_id:
+                        customer = await asyncio.to_thread(
+                            stripe.Customer.retrieve, customer_id
+                        )
+                        email = _to_dict(customer).get("email")
+                        if email:
+                            from app.features.subscription.service import SubscriptionService
+                            fresh_sub = await get_subscription(user_id)
+                            await asyncio.to_thread(
+                                SubscriptionService().sync_resend_segments,
+                                email,
+                                fresh_sub,
+                            )
+                except Exception as resend_err:
+                    logger.warning(
+                        "subscription.deleted: Resend sync failed: %s", resend_err
+                    )
         except Exception as e:
             logger.warning("subscription.deleted handler failed: %s", e)
 
@@ -395,7 +418,12 @@ async def stripe_webhook(request: Request):
             customer_dict = _to_dict(customer)
             email = customer_dict.get("email")
             if email:
-                svc.sync_resend_segments(email, set(feature_keys))
+                # Re-read sub so access_expires_at + is_lifetime + the freshly
+                # written entitlements are visible to is_real_paid_sub.
+                fresh_sub = await get_subscription(user_id)
+                await asyncio.to_thread(
+                    svc.sync_resend_segments, email, fresh_sub
+                )
         except Exception as e:
             logger.warning("entitlements webhook: Resend sync failed: %s", e)
 

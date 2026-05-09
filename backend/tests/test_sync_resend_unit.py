@@ -4,14 +4,19 @@ Unit tests for SubscriptionService.sync_resend_segments().
 Tests the idempotent Resend segment reconciliation logic. Instead of mocking
 get_email_preferences directly, we mock the underlying resend.ContactSegments
 API so the real preference-reading and diffing logic executes.
+
+The function takes a subscription record (dict) rather than a raw entitlement
+set, and the daily CTA tier is derived from the record via
+``cta_tier.is_real_paid_sub`` rather than a hand-curated whitelist.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 # ---------------------------------------------------------------------------
-# Helper
+# Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_service():
     """Create a SubscriptionService with fake API key and deterministic segment IDs."""
@@ -35,19 +40,46 @@ TEST_EMAIL = "user@example.com"
 
 
 def _mock_current_segments(mock_resend, segment_ids: set):
-    """Configure mock so get_email_preferences sees the user in these segments.
-
-    get_email_preferences calls resend.ContactSegments.list({"email": ...})
-    and checks which segment IDs are in the response.
-    """
+    """Configure mock so get_email_preferences sees the user in these segments."""
     mock_resend.ContactSegments.list.return_value = {
         "data": [{"id": sid} for sid in segment_ids]
+    }
+
+
+def _trial_sub(entitlements: list) -> dict:
+    """Subscription record matching a trial user (state #2/#3 in the plan)."""
+    return {
+        "entitlements": entitlements,
+        "access_expires_at": "2030-01-01T00:00:00Z",
+        "invite_code": "AUTO_TRIAL",
+        "is_lifetime": False,
+    }
+
+
+def _paid_sub(entitlements: list) -> dict:
+    """Subscription record matching a real paid user (state #4)."""
+    return {
+        "entitlements": entitlements,
+        "access_expires_at": None,
+        "invite_code": None,
+        "is_lifetime": False,
+    }
+
+
+def _free_sub() -> dict:
+    """Subscription record matching a free user with no entitlements."""
+    return {
+        "entitlements": [],
+        "access_expires_at": None,
+        "invite_code": None,
+        "is_lifetime": False,
     }
 
 
 # ---------------------------------------------------------------------------
 # 1. Add: entitlement present, not in segment -> add
 # ---------------------------------------------------------------------------
+
 
 class TestSyncResendSegmentsAdd:
     """Entitlement present + not currently in segment = add."""
@@ -56,14 +88,14 @@ class TestSyncResendSegmentsAdd:
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_morning_entitlement_adds_to_morning_segment(self, _wait, mock_resend):
         svc = _make_service()
-        _mock_current_segments(mock_resend, set())  # not in any segment
+        _mock_current_segments(mock_resend, set())
 
-        actions = svc.sync_resend_segments(TEST_EMAIL, {"morning_report_email"})
+        actions = svc.sync_resend_segments(
+            TEST_EMAIL, _paid_sub(["morning_report_email"])
+        )
 
-        # get_email_preferences should have been called (reads from resend API)
         mock_resend.ContactSegments.list.assert_called_once()
 
-        # Should add to morning segment
         add_calls = mock_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls}
         assert "seg-morning" in added
@@ -73,10 +105,11 @@ class TestSyncResendSegmentsAdd:
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_weekly_entitlement_adds_to_weekly_segment(self, _wait, mock_resend):
         svc = _make_service()
-        _mock_current_segments(mock_resend, {"seg-evening"})  # only in daily
+        _mock_current_segments(mock_resend, {"seg-evening"})
 
         actions = svc.sync_resend_segments(
-            TEST_EMAIL, {"morning_report_email", "weekly_report_email"}
+            TEST_EMAIL,
+            _paid_sub(["morning_report_email", "weekly_report_email"]),
         )
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
@@ -90,6 +123,7 @@ class TestSyncResendSegmentsAdd:
 # 2. Remove: no entitlement, currently in segment -> remove
 # ---------------------------------------------------------------------------
 
+
 class TestSyncResendSegmentsRemove:
     """No entitlement + currently in segment = remove."""
 
@@ -97,28 +131,24 @@ class TestSyncResendSegmentsRemove:
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_no_entitlement_removes_from_morning(self, _wait, mock_resend):
         svc = _make_service()
-        # User is currently in morning + weekly segments
         _mock_current_segments(mock_resend, {"seg-morning", "seg-weekly", "seg-evening"})
 
-        actions = svc.sync_resend_segments(TEST_EMAIL, set())  # no entitlements
+        actions = svc.sync_resend_segments(TEST_EMAIL, _free_sub())
 
         remove_calls = mock_resend.ContactSegments.remove.call_args_list
         removed = {c[0][0]["segment_id"] for c in remove_calls}
         assert "seg-morning" in removed
         assert "seg-weekly" in removed
-        # Daily should NOT be removed (not managed by sync)
         assert "seg-evening" not in removed
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_daily_never_removed_even_if_absent(self, _wait, mock_resend):
-        """Even with empty entitlements, daily_report is not touched by sync."""
         svc = _make_service()
-        _mock_current_segments(mock_resend, {"seg-evening"})  # only daily
+        _mock_current_segments(mock_resend, {"seg-evening"})
 
-        actions = svc.sync_resend_segments(TEST_EMAIL, set())
+        actions = svc.sync_resend_segments(TEST_EMAIL, _free_sub())
 
-        # No adds, no removes — daily is user-preference only
         mock_resend.ContactSegments.add.assert_not_called()
         mock_resend.ContactSegments.remove.assert_not_called()
         assert actions == []
@@ -128,18 +158,18 @@ class TestSyncResendSegmentsRemove:
 # 3. Noop: state already matches desired
 # ---------------------------------------------------------------------------
 
+
 class TestSyncResendSegmentsNoop:
-    """No change when current state matches desired state."""
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_noop_when_state_matches(self, _wait, mock_resend):
         svc = _make_service()
-        # User has morning+weekly entitlements and is already in those segments
         _mock_current_segments(mock_resend, {"seg-morning", "seg-weekly", "seg-evening"})
 
         actions = svc.sync_resend_segments(
-            TEST_EMAIL, {"morning_report_email", "weekly_report_email"}
+            TEST_EMAIL,
+            _paid_sub(["morning_report_email", "weekly_report_email"]),
         )
 
         mock_resend.ContactSegments.add.assert_not_called()
@@ -150,9 +180,9 @@ class TestSyncResendSegmentsNoop:
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_noop_empty_entitlements_empty_segments(self, _wait, mock_resend):
         svc = _make_service()
-        _mock_current_segments(mock_resend, set())  # not in any segment
+        _mock_current_segments(mock_resend, set())
 
-        actions = svc.sync_resend_segments(TEST_EMAIL, set())
+        actions = svc.sync_resend_segments(TEST_EMAIL, _free_sub())
 
         mock_resend.ContactSegments.add.assert_not_called()
         mock_resend.ContactSegments.remove.assert_not_called()
@@ -163,17 +193,16 @@ class TestSyncResendSegmentsNoop:
 # 4. Evening (daily_report) is not touched by sync
 # ---------------------------------------------------------------------------
 
+
 class TestSyncResendSegmentsEvening:
-    """daily_report (evening) is user-preference only, not synced by entitlements."""
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_evening_not_added_by_sync(self, _wait, mock_resend):
-        """sync should NOT add daily_report even if user is not in it."""
         svc = _make_service()
-        _mock_current_segments(mock_resend, set())  # not in any segment
+        _mock_current_segments(mock_resend, set())
 
-        actions = svc.sync_resend_segments(TEST_EMAIL, set())
+        svc.sync_resend_segments(TEST_EMAIL, _free_sub())
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls} if add_calls else set()
@@ -182,12 +211,12 @@ class TestSyncResendSegmentsEvening:
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_evening_not_removed_by_sync(self, _wait, mock_resend):
-        """daily_report stays untouched even when user has pro entitlements."""
         svc = _make_service()
         _mock_current_segments(mock_resend, {"seg-evening"})
 
-        actions = svc.sync_resend_segments(
-            TEST_EMAIL, {"morning_report_email", "weekly_report_email"}
+        svc.sync_resend_segments(
+            TEST_EMAIL,
+            _paid_sub(["morning_report_email", "weekly_report_email"]),
         )
 
         remove_calls = mock_resend.ContactSegments.remove.call_args_list
@@ -199,29 +228,26 @@ class TestSyncResendSegmentsEvening:
 # 5. Error handling: individual failures don't crash the whole sync
 # ---------------------------------------------------------------------------
 
+
 class TestSyncResendSegmentsErrors:
-    """Errors in individual segment operations don't crash the whole sync."""
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_add_failure_continues_to_next(self, _wait, mock_resend):
-        """If adding to morning fails, weekly should still be attempted."""
         svc = _make_service()
         _mock_current_segments(mock_resend, set())
 
-        # First add fails, second succeeds
         mock_resend.ContactSegments.add.side_effect = [
             Exception("API error"),
             None,
         ]
 
         actions = svc.sync_resend_segments(
-            TEST_EMAIL, {"morning_report_email", "weekly_report_email"}
+            TEST_EMAIL,
+            _paid_sub(["morning_report_email", "weekly_report_email"]),
         )
 
-        # Both were attempted despite first failure
         assert mock_resend.ContactSegments.add.call_count == 2
-        # Only the successful one appears in actions
         assert "added to weekly_report" in actions
 
 
@@ -229,17 +255,16 @@ class TestSyncResendSegmentsErrors:
 # 6. Entitlement-to-segment mapping correctness
 # ---------------------------------------------------------------------------
 
+
 class TestSyncResendSegmentsMapping:
-    """Verify the entitlement-to-segment name mapping is correct."""
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_morning_report_email_maps_to_morning_report(self, _wait, mock_resend):
-        """morning_report_email entitlement -> morning_report segment."""
         svc = _make_service()
         _mock_current_segments(mock_resend, set())
 
-        svc.sync_resend_segments(TEST_EMAIL, {"morning_report_email"})
+        svc.sync_resend_segments(TEST_EMAIL, _paid_sub(["morning_report_email"]))
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
         assert len(add_calls) == 1
@@ -248,11 +273,10 @@ class TestSyncResendSegmentsMapping:
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_weekly_report_email_maps_to_weekly_report(self, _wait, mock_resend):
-        """weekly_report_email entitlement -> weekly_report segment."""
         svc = _make_service()
         _mock_current_segments(mock_resend, set())
 
-        svc.sync_resend_segments(TEST_EMAIL, {"weekly_report_email"})
+        svc.sync_resend_segments(TEST_EMAIL, _paid_sub(["weekly_report_email"]))
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
         assert len(add_calls) == 1
@@ -261,20 +285,26 @@ class TestSyncResendSegmentsMapping:
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
     def test_unrelated_entitlement_ignored(self, _wait, mock_resend):
-        """Max-only entitlements like stock_research don't affect email segments."""
         svc = _make_service()
         _mock_current_segments(mock_resend, set())
 
         actions = svc.sync_resend_segments(
-            TEST_EMAIL, {"stock_research", "ai_research_engine"}
+            TEST_EMAIL, _paid_sub(["stock_research", "ai_research_engine"])
         )
 
         mock_resend.ContactSegments.add.assert_not_called()
-        assert actions == []
+        # Note: actions may include daily CTA changes since paid sub triggers
+        # paid CTA add. We assert the morning/weekly are untouched, which is
+        # the actual contract of this test.
+
+
+# ---------------------------------------------------------------------------
+# 7. Daily CTA tier routing — derived from sub, not whitelist
+# ---------------------------------------------------------------------------
 
 
 class TestSyncDailyCtaSegments:
-    """Daily CTA sending lists follow paid-email truth, not entitlements."""
+    """Daily CTA sending lists follow is_real_paid_sub(sub), not entitlements."""
 
     def _make_cta_service(self):
         svc = _make_service()
@@ -286,13 +316,14 @@ class TestSyncDailyCtaSegments:
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
-    def test_trial_entitlements_stay_in_free_cta(self, _wait, mock_resend):
+    def test_trial_user_stays_in_free_cta(self, _wait, mock_resend):
+        """Trial users have entitlements but access_expires_at set -> free CTA."""
         svc = self._make_cta_service()
         _mock_current_segments(mock_resend, {"seg-evening"})
 
         actions = svc.sync_resend_segments(
             "trial@example.com",
-            {"morning_report_email", "weekly_report_email"},
+            _trial_sub(["morning_report_email", "weekly_report_email"]),
         )
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
@@ -303,11 +334,15 @@ class TestSyncDailyCtaSegments:
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
-    def test_curated_paid_email_moves_to_paid_cta(self, _wait, mock_resend):
+    def test_real_paid_user_moves_to_paid_cta(self, _wait, mock_resend):
+        """Real paid sub (entitlements + access_expires_at=None) -> paid CTA."""
         svc = self._make_cta_service()
-        _mock_current_segments(mock_resend, {"seg-evening"})
+        _mock_current_segments(mock_resend, {"seg-evening", "seg-daily-free-cta"})
 
-        actions = svc.sync_resend_segments("kedengpan@gmail.com", set())
+        actions = svc.sync_resend_segments(
+            "paid@example.com",
+            _paid_sub(["morning_report_email", "for_you_website"]),
+        )
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls}
@@ -319,14 +354,46 @@ class TestSyncDailyCtaSegments:
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
+    def test_lifetime_user_routed_to_paid_cta(self, _wait, mock_resend):
+        """is_lifetime=True short-circuits to paid CTA regardless of other fields."""
+        svc = self._make_cta_service()
+        _mock_current_segments(mock_resend, {"seg-evening"})
+
+        actions = svc.sync_resend_segments(
+            "lifetime@example.com",
+            {"is_lifetime": True, "entitlements": [], "access_expires_at": None},
+        )
+
+        add_calls = mock_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        assert "seg-daily-paid-cta" in added
+        assert "added to daily_paid_cta" in actions
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
     def test_daily_disabled_removes_both_cta_segments(self, _wait, mock_resend):
+        """When user is not subscribed to daily, both CTA segments are cleaned."""
         svc = self._make_cta_service()
         _mock_current_segments(mock_resend, set())
 
-        actions = svc.sync_resend_segments("trial@example.com", set())
+        actions = svc.sync_resend_segments("free@example.com", _free_sub())
 
         remove_calls = mock_resend.ContactSegments.remove.call_args_list
         removed = {c[0][0]["segment_id"] for c in remove_calls}
         assert removed == {"seg-daily-free-cta", "seg-daily-paid-cta"}
         assert "removed from daily_free_cta" in actions
         assert "removed from daily_paid_cta" in actions
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
+    def test_none_sub_treated_as_free(self, _wait, mock_resend):
+        """When sub is None (anonymous signup), user is treated as free."""
+        svc = self._make_cta_service()
+        _mock_current_segments(mock_resend, {"seg-evening"})
+
+        actions = svc.sync_resend_segments("anon@example.com", None)
+
+        add_calls = mock_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        assert "seg-daily-free-cta" in added
+        assert "seg-daily-paid-cta" not in added

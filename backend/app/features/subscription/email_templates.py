@@ -389,20 +389,17 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
 
     Visual hierarchy / color
     ------------------------
-    * Pro is the RECOMMENDED tier: emerald-700 border (2px), emerald
-      "推荐" badge. Dominant.
-    * Max is the premium tier: amber-200 border (1px), no badge,
-      amber-700 accent. Secondary but visually distinct.
+    * Max is the RECOMMENDED tier (left position): amber-700 border
+      (2px), amber "推荐" badge. Dominant.
+    * Pro is the entry tier (right position): emerald-200 border (1px),
+      no badge, emerald-700 accent. Secondary but visually distinct.
+    * Tier color identity is preserved (Pro=emerald, Max=amber); only
+      the visual prominence (border weight + badge) marks which tier
+      we are recommending.
     * All text meets WCAG AA: dark brand tones (emerald-800 ``#065f46``
       / amber-900 ``#78350f``) for feature emphasis in descriptions,
       neutral-600 ``#52525b`` for body copy.
-
-    NOTE: Temporarily disabled. See ``docs/plans/active/paid-user-cta-handoff.md``
-    for context on why the upsell-vs-thank-you split is on hold. To restore
-    the bottom CTA block, delete the early ``return ""`` below.
     """
-    return ""
-
     if variant == "paid":
         return _get_paid_digest_cta_section()
 
@@ -415,9 +412,9 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                     max-width: 100% !important;
                     margin: 0 0 12px !important;
                 }}
-                /* Hide the Max card's badge-row spacer on mobile:
+                /* Hide the Pro card's badge-row spacer on mobile:
                    cards stack vertically so we no longer need to
-                   optically align the "Max" label with Pro's "Pro" label. */
+                   optically align the "Pro" label with Max's "Max" label. */
                 .tmb-tier-spacer {{
                     display: none !important;
                     height: 0 !important;
@@ -436,36 +433,10 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
             <td valign="top" width="272" style="padding:0 4px;">
             <![endif]-->
             <div style="font-size: 0; line-height: 0; text-align: center;">
-                <!-- Pro card (RECOMMENDED) -->
+                <!-- Max card (RECOMMENDED) -->
                 <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
-                    <div style="background: #ecfdf5; border: 2px solid #047857; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
-                        <div style="display: inline-block; background: #047857; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;">推荐</div>
-                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Pro</div>
-                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
-                            没看到你持仓的股票?
-                        </div>
-                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                            Pro 会员每天多收到一份<strong style="color: #065f46; font-weight: 600;">专属持仓日报</strong>，只分析你自选股里的股票。
-                        </div>
-                        <div style="margin-bottom: 14px; line-height: 1;">
-                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$4.99</span>
-                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
-                        </div>
-                        <a href="{pro_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center; margin-bottom: 16px;">
-                            订阅 Pro &rarr;
-                        </a>
-                        <div style="border-top: 1px dashed #a7f3d0; padding-top: 12px;">
-                            <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
-                                <span style="color: #71717a;">以及&nbsp;</span>盘前早报 &middot; 宏观周报 &middot; 自选股 25 只
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!--[if mso]></td><td valign="top" width="272" style="padding:0 4px;"><![endif]-->
-                <!-- Max card -->
-                <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
-                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
-                        <div class="tmb-tier-spacer" style="height: 18px; margin-bottom: 12px; line-height: 0; font-size: 0;"><!-- spacer to align "Max" label with Pro's "Pro" label (matches 18px badge + 12px margin) --></div>
+                    <div style="background: #fffbeb; border: 2px solid #b45309; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div style="display: inline-block; background: #b45309; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;">推荐</div>
                         <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Max</div>
                         <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
                             想深度研究一只股票?
@@ -483,6 +454,32 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                         <div style="border-top: 1px dashed #fcd34d; padding-top: 12px;">
                             <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
                                 <span style="color: #71717a;">以及&nbsp;</span>Pro 全部功能 &middot; AI 深度个股分析 &middot; 宏观仪表盘
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!--[if mso]></td><td valign="top" width="272" style="padding:0 4px;"><![endif]-->
+                <!-- Pro card -->
+                <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div class="tmb-tier-spacer" style="height: 18px; margin-bottom: 12px; line-height: 0; font-size: 0;"><!-- spacer to align "Pro" label with Max's "Max" label (matches 18px badge + 12px margin) --></div>
+                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Pro</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
+                            没看到你持仓的股票?
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
+                            Pro 会员每天多收到一份<strong style="color: #065f46; font-weight: 600;">专属持仓日报</strong>，只分析你自选股里的股票。
+                        </div>
+                        <div style="margin-bottom: 14px; line-height: 1;">
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$4.99</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                        </div>
+                        <a href="{pro_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center; margin-bottom: 16px;">
+                            订阅 Pro &rarr;
+                        </a>
+                        <div style="border-top: 1px dashed #a7f3d0; padding-top: 12px;">
+                            <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
+                                <span style="color: #71717a;">以及&nbsp;</span>盘前早报 &middot; 宏观周报 &middot; 自选股 25 只
                             </div>
                         </div>
                     </div>

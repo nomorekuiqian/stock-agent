@@ -30,12 +30,12 @@ from app.features.subscription.service import (
     get_subscription_service,
     SubscriptionChannel,
 )
-from app.features.subscription.paid_cta import is_paid_daily_cta_email
 from app.features.brew.db import save_user_digest, get_user_watchlist
 
 # Import all template functions (used directly + re-exported as proxy methods)
 import app.features.subscription.email_templates as email_templates
 from app.features.subscription.email_templates import (
+    DailyCtaVariant,
     format_html_report,
     format_digest_html,
     format_weekly_report_html,
@@ -199,7 +199,7 @@ class EmailService:
     ) -> str:
         return get_email_footer(unsubscribe_url)
 
-    def _get_digest_cta_section(self, variant: str = "upsell") -> str:
+    def _get_digest_cta_section(self, variant: DailyCtaVariant = "upsell") -> str:
         return get_digest_cta_section(variant)
 
     def _format_html_report(
@@ -207,7 +207,7 @@ class EmailService:
         data: dict,
         report_date: Optional[str] = None,
         report_id: Optional[str] = None,
-        cta_variant: str = "upsell",
+        cta_variant: DailyCtaVariant = "upsell",
     ) -> str:
         return format_html_report(data, report_date, report_id, cta_variant=cta_variant)
 
@@ -436,6 +436,7 @@ class EmailService:
         data: dict,
         to_email: Optional[str] = None,
         first_name: Optional[str] = None,
+        cta_variant: DailyCtaVariant = "upsell",
     ) -> dict:
         """Send the daily market report email to a single recipient."""
         logger.info("send_daily_report to=%s", to_email)
@@ -450,7 +451,6 @@ class EmailService:
         try:
             report_date = data.get("report_date") or today_str()
             report_id = data.get("report_id")
-            cta_variant = "paid" if is_paid_daily_cta_email(recipient) else "upsell"
             html_content = format_html_report(
                 data,
                 report_date,
@@ -834,7 +834,7 @@ class EmailService:
             # Use segment for targeted send, fallback to audience
             segment_id = self._resolve_segment(RESEND_SEGMENT_WEEKLY)
             fallback_audience = (
-                self._resolve_audience(audience_id, SubscriptionChannel.DAILY_REPORT)
+                self._resolve_audience(audience_id, SubscriptionChannel.WEEKLY_REPORT)
                 if not segment_id
                 else None
             )

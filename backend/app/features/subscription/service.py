@@ -16,7 +16,7 @@ from app.core.config import (
     RESEND_SEGMENT_WEEKLY,
 )
 from app.core.logging import get_logger
-from app.features.subscription.paid_cta import is_paid_daily_cta_email
+from app.features.subscription.cta_tier import is_real_paid_sub
 
 logger = get_logger(__name__)
 
@@ -163,8 +163,15 @@ class SubscriptionService:
         "paid": RESEND_SEGMENT_DAILY_PAID_CTA,
     }
 
-    def _sync_daily_cta_segments(self, email: str, daily_enabled: bool) -> list:
-        """Keep the daily free/paid CTA sending lists in the expected state."""
+    def _sync_daily_cta_segments(
+        self, email: str, daily_enabled: bool, is_paid: bool
+    ) -> list:
+        """Keep the daily free/paid CTA sending lists in the expected state.
+
+        ``is_paid`` should be derived from the user's subscription record via
+        ``cta_tier.is_real_paid_sub``. Callers without a sub record (e.g.
+        anonymous email-only signups) should pass ``is_paid=False``.
+        """
         free_seg_id = self.DAILY_CTA_SEGMENT_IDS.get("free")
         paid_seg_id = self.DAILY_CTA_SEGMENT_IDS.get("paid")
         actions = []
@@ -191,7 +198,7 @@ class SubscriptionService:
                     )
             return actions
 
-        desired_label = "paid" if is_paid_daily_cta_email(email) else "free"
+        desired_label = "paid" if is_paid else "free"
         desired_seg_id = paid_seg_id if desired_label == "paid" else free_seg_id
         other_label = "free" if desired_label == "paid" else "paid"
         other_seg_id = free_seg_id if desired_label == "paid" else paid_seg_id
@@ -228,11 +235,18 @@ class SubscriptionService:
 
         return actions
 
-    def add_to_default_segments(self, email: str) -> None:
+    def add_to_default_segments(
+        self, email: str, sub: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Add a new contact to daily report delivery lists.
 
         Morning and weekly segments are Pro-only and managed by
         sync_resend_segments() via the Stripe entitlements webhook.
+
+        ``sub`` is the user's subscription record (from
+        ``payment.db.get_subscription``). When omitted the user is treated as
+        free — appropriate for anonymous email-only signups that have no
+        ``subscriptions`` row yet.
         """
         seg_id = self.SEGMENT_IDS.get("daily_report")
         if not seg_id:
@@ -251,17 +265,30 @@ class SubscriptionService:
             logger.warning("Failed to add %s to default segment: %s", email, e)
             return
 
-        self._sync_daily_cta_segments(email, daily_enabled=True)
+        self._sync_daily_cta_segments(
+            email,
+            daily_enabled=True,
+            is_paid=is_real_paid_sub(sub),
+        )
 
-    def sync_resend_segments(self, email: str, entitlements: set) -> list:
-        """Reconcile Resend segment membership to match entitlements.
+    def sync_resend_segments(
+        self,
+        email: str,
+        sub: Optional[Dict[str, Any]],
+    ) -> list:
+        """Reconcile Resend segment membership to match the subscription record.
 
         Idempotent. Only touches segments whose state differs from desired.
         This is the ONLY function that should write Resend segments going forward.
 
+        ``sub`` is the user's subscription record. When ``None`` the user is
+        treated as free (no entitlements, not paid).
+
         Returns list of actions taken (for logging/audit).
         """
         self._validate_api_key()
+
+        entitlements = set((sub or {}).get("entitlements") or [])
 
         # Only sync entitlement-controlled segments (morning, weekly).
         # daily_report (evening) is user-preference only — don't override opt-outs.
@@ -298,6 +325,7 @@ class SubscriptionService:
             self._sync_daily_cta_segments(
                 email,
                 daily_enabled=current.get("daily_report", False),
+                is_paid=is_real_paid_sub(sub),
             )
         )
 
@@ -327,9 +355,17 @@ class SubscriptionService:
         return prefs
 
     def update_email_preferences(
-        self, email: str, preferences: Dict[str, bool]
+        self,
+        email: str,
+        preferences: Dict[str, bool],
+        sub: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, bool]:
-        """Update email preferences by adding/removing from segments."""
+        """Update email preferences by adding/removing from segments.
+
+        ``sub`` is the user's subscription record. When omitted the user is
+        treated as free for daily CTA routing — appropriate when called from
+        contexts without authentication.
+        """
         self._validate_api_key()
         for report_type, enabled in preferences.items():
             seg_id = self.SEGMENT_IDS.get(report_type)
@@ -366,7 +402,11 @@ class SubscriptionService:
                 )
                 continue
             if report_type == "daily_report":
-                self._sync_daily_cta_segments(email, daily_enabled=enabled)
+                self._sync_daily_cta_segments(
+                    email,
+                    daily_enabled=enabled,
+                    is_paid=is_real_paid_sub(sub),
+                )
         return self.get_email_preferences(email)
 
     # =========================================================================
@@ -455,7 +495,11 @@ class SubscriptionService:
             resend.Contacts.update(update_params)
             logger.info("Unsubscribed %s from %s", email, channel)
             if channel == SubscriptionChannel.DAILY_REPORT:
-                self._sync_daily_cta_segments(email, daily_enabled=False)
+                # daily_enabled=False removes from both CTA segments regardless
+                # of paid status, so is_paid is a no-op here.
+                self._sync_daily_cta_segments(
+                    email, daily_enabled=False, is_paid=False
+                )
             return {
                 "success": True,
                 "channel": channel.value,

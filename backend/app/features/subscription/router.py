@@ -517,8 +517,22 @@ async def update_email_preferences(
             segment_prefs["weekly_report"] = request.weekly_report
 
         if segment_prefs:
+            # Best-effort sub lookup for CTA tier classification. If it
+            # fails we fall back to free CTA — drift audit will reconcile.
+            sub = None
+            try:
+                from app.features.payment.db import get_subscription
+                sub = await get_subscription(user["user_id"])
+            except Exception as e:
+                logger.warning(
+                    "preferences: sub lookup failed for %s: %s",
+                    user["user_id"][:8], e,
+                )
             await asyncio.to_thread(
-                subscription_service.update_email_preferences, email, segment_prefs
+                subscription_service.update_email_preferences,
+                email,
+                segment_prefs,
+                sub,
             )
 
         # Return current preferences

@@ -10,7 +10,7 @@ Handles:
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import quote
 
 from app.core.deps import verify_cron_secret
@@ -185,6 +185,7 @@ async def get_verification_email_preview(
 async def get_email_preview(
     report_id: Optional[str] = Query(None),
     first_name: Optional[str] = Query(None),
+    cta_variant: Literal["upsell", "paid"] = Query("upsell"),
 ):
     """
     Get rendered HTML email preview for an existing report.
@@ -192,6 +193,7 @@ async def get_email_preview(
 
     Args:
         report_id: Optional report ID. If not provided, uses the latest report.
+        cta_variant: 'upsell' (default, free/trial users) or 'paid' (real paid).
     """
     try:
         if report_id:
@@ -206,7 +208,9 @@ async def get_email_preview(
 
         # Render HTML using the real email template
         email_service = get_email_service()
-        html_content = email_service._format_html_report(report_data)
+        html_content = email_service._format_html_report(
+            report_data, cta_variant=cta_variant
+        )
 
         # Replace placeholder with actual name (or default)
         display_name = first_name or "朋友"
