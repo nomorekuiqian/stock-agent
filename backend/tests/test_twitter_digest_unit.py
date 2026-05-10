@@ -139,7 +139,7 @@ class TestPullCandidateTweets:
     @pytest.mark.asyncio
     async def test_empty_catalog_returns_empty(self):
         from app.features.twitter_digest import service
-        with patch("app.features.twitter_digest.service.enabled_kols", return_value=[]):
+        with patch("app.features.twitter_digest.service.get_enabled_kols", new=AsyncMock(return_value=[])):
             tweets, usernames = await service.pull_candidate_tweets()
         assert tweets == []
         assert usernames == []
@@ -158,7 +158,7 @@ class TestPullCandidateTweets:
             "status_code": 200,
             "data": {"success": True, "data": edge_tweets},
         })
-        with patch("app.features.twitter_digest.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter_digest.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter_digest.service.get_insforge_service",
                    return_value=fake_db):
             tweets, _ = await service.pull_candidate_tweets()
@@ -178,7 +178,7 @@ class TestPullCandidateTweets:
             "status_code": 200,
             "data": {"success": True, "data": edge_tweets},
         })
-        with patch("app.features.twitter_digest.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter_digest.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter_digest.service.get_insforge_service",
                    return_value=fake_db):
             tweets, _ = await service.pull_candidate_tweets()
@@ -199,7 +199,7 @@ class TestPullCandidateTweets:
             "status_code": 200,
             "data": {"success": True, "data": edge_tweets},
         })
-        with patch("app.features.twitter_digest.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter_digest.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter_digest.service.get_insforge_service",
                    return_value=fake_db):
             tweets, _ = await service.pull_candidate_tweets()
@@ -214,7 +214,7 @@ class TestPullCandidateTweets:
         fake_db.call_function = AsyncMock(return_value={
             "status_code": 500, "text": "boom",
         })
-        with patch("app.features.twitter_digest.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter_digest.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter_digest.service.get_insforge_service",
                    return_value=fake_db):
             with pytest.raises(RuntimeError, match="list_batch failed"):
@@ -249,9 +249,9 @@ class TestCuratePostProcessing:
         )
 
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "alice", "display_name": "Alice"},
-                                 {"username": "bob", "display_name": "Bob"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "alice", "display_name": "Alice"},
+                                 {"username": "bob", "display_name": "Bob"}])):
             result = await service.curate_tweets(raw, ["alice", "bob"])
 
         assert len(result.topics) == 1
@@ -274,8 +274,8 @@ class TestCuratePostProcessing:
             ],
         )
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "alice", "display_name": "Alice"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "alice", "display_name": "Alice"}])):
             result = await service.curate_tweets(raw, ["alice"])
 
         assert len(result.topics) == 1
@@ -303,9 +303,9 @@ class TestCuratePostProcessing:
             ],
         )
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": u, "display_name": u}
-                                 for u in ("alice", "bob", "carol")]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": u, "display_name": u}
+                                 for u in ("alice", "bob", "carol")])):
             result = await service.curate_tweets(raw, ["alice", "bob", "carol"])
 
         ids = [s.tweet_id for s in result.solo_voices]
@@ -327,9 +327,9 @@ class TestCuratePostProcessing:
 
         llm_out = CuratedDigestOutput(headline="x", intro="x", topics=[topic])
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "alice", "display_name": "Alice"},
-                                 {"username": "bob", "display_name": "Bob"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "alice", "display_name": "Alice"},
+                                 {"username": "bob", "display_name": "Bob"}])):
             result = await service.curate_tweets(raw, ["alice", "bob"])
 
         assert sorted(result.topics[0].participating_kols) == ["alice", "bob"]
@@ -348,8 +348,8 @@ class TestCuratePostProcessing:
         )
 
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "alice", "display_name": "Alice"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "alice", "display_name": "Alice"}])):
             result = await service.curate_tweets(raw, ["alice"])
 
         assert len(result.solo_voices) == 1
@@ -376,9 +376,9 @@ class TestCuratePostProcessing:
         )
 
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": u, "display_name": u}
-                                 for u in ("alice", "bob", "carol")]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": u, "display_name": u}
+                                 for u in ("alice", "bob", "carol")])):
             result = await service.curate_tweets(raw, ["alice", "bob", "carol"])
 
         topic = result.topics[0]
@@ -404,8 +404,8 @@ class TestCuratePostProcessing:
         )
 
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "bob", "display_name": "Bob"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "bob", "display_name": "Bob"}])):
             result = await service.curate_tweets(raw, ["bob"])
 
         assert result.briefs[0].one_liner_zh == "TSLA Q2 deliveries 数据"
@@ -425,8 +425,8 @@ class TestCuratePostProcessing:
         )
 
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "bob", "display_name": "Bob"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "bob", "display_name": "Bob"}])):
             result = await service.curate_tweets(raw, ["bob"])
 
         assert result.briefs == []
@@ -464,8 +464,8 @@ class TestCuratePostProcessing:
         )
 
         with patch.object(service, "_run_agent", AsyncMock(return_value=llm_out)), \
-             patch("app.features.twitter_digest.service.enabled_kols",
-                   return_value=[{"username": "alice", "display_name": "Alice"}]):
+             patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=[{"username": "alice", "display_name": "Alice"}])):
             result = await service.curate_tweets(raw, ["alice"])
 
         assert len(result.topics) <= 15
@@ -485,40 +485,58 @@ class TestCuratePostProcessing:
 class TestGenerateDailyDigest:
     @pytest.mark.asyncio
     async def test_happy_path(self):
+        """V4 happy path: generate_daily_digest now produces ticker_theses + macro_threads."""
         from app.features.twitter_digest import service
+        from app.features.twitter_digest.models import (
+            Argument, CuratedDigestOutputV4, TickerThesis,
+        )
 
         tweets = [_fake_tweet("1", "alice", tickers=["NVDA"]),
                   _fake_tweet("2", "bob", tickers=["NVDA"])]
         usernames = ["alice", "bob"]
-        fake_curated = CuratedDigestOutput(
+        fake_curated = CuratedDigestOutputV4(
             headline="今日主线",
-            intro="导言段",
+            intro="导言段含具体抓手数字 60% 与具体事件 NVDA Q1 财报。",
             takeaway=["要点 1", "要点 2"],
-            topics=[
-                _topic("$NVDA · AI Capex", "stock",
-                       [_key_arg("1", "alice"), _key_arg("2", "bob")],
-                       primary_ticker="NVDA"),
+            ticker_theses=[
+                TickerThesis(
+                    ticker="NVDA",
+                    primary_kols=["alice", "bob"],
+                    tweet_count=2,
+                    synthesis_zh="综述含焦点 + 共识 + 分歧三段。" * 5,
+                    buy_arguments=[
+                        Argument(
+                            kol="alice",
+                            point_zh="看多论据 60 字以上,含具体数字 +18% 和具体事件。" * 2,
+                            direction="buy",
+                            tweet_url="https://x.com/alice/status/1",
+                        ),
+                        Argument(
+                            kol="bob",
+                            point_zh="看多论据 60 字以上,含具体数字 30% 和事件。" * 2,
+                            direction="buy",
+                            tweet_url="https://x.com/bob/status/2",
+                        ),
+                    ],
+                ),
             ],
-            briefs=[],
-            solo_voices=[],
-            crosscut="跨话题观察",
-            watch_next=["明日观察 1"],
         )
 
         with patch.object(service, "pull_candidate_tweets",
                           AsyncMock(return_value=(tweets, usernames))), \
-             patch.object(service, "curate_tweets",
+             patch.object(service, "curate_tweets_v4",
                           AsyncMock(return_value=fake_curated)):
             digest = await service.generate_daily_digest(window_hours=24, persist=False)
 
         assert isinstance(digest, DailyDigest)
-        assert digest.schema_version == "v3"
+        assert digest.schema_version == "v4"
         assert digest.headline == "今日主线"
-        assert len(digest.topics) == 1
+        assert len(digest.ticker_theses) == 1
+        assert digest.ticker_theses[0].ticker == "NVDA"
         assert digest.tracked_kols == ["alice", "bob"]
         assert digest.input_tweet_count == 2
         assert digest.window_hours == 24
-        assert "v3:enrich=" in digest.model_version
+        assert "v4:enrich=" in digest.model_version
         assert "digest=" in digest.model_version
 
     @pytest.mark.asyncio

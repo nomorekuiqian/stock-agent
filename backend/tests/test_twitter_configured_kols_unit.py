@@ -75,8 +75,8 @@ class TestFetchConfiguredKols:
     @pytest.mark.asyncio
     async def test_empty_catalog_no_op(self, patched_db):
         with patch(
-            "app.features.twitter.service.enabled_kols",
-            return_value=[],
+            "app.features.twitter.service.get_enabled_kols",
+            new=AsyncMock(return_value=[]),
         ):
             result = await twitter_service.fetch_configured_kols()
 
@@ -99,7 +99,7 @@ class TestFetchConfiguredKols:
             "total_skipped_retweets": 0,
         })
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets", fake_fetch):
             result = await twitter_service.fetch_configured_kols()
 
@@ -131,7 +131,7 @@ class TestFetchConfiguredKols:
                 "total_stored": 3, "total_skipped_retweets": 0,
             }
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets",
                    side_effect=fake_fetch):
             result = await twitter_service.fetch_configured_kols()
@@ -161,7 +161,7 @@ class TestFetchConfiguredKols:
             "error": "TWITTER_API_KEY not configured",
         })
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets", fake_fetch):
             result = await twitter_service.fetch_configured_kols()
 
@@ -194,7 +194,7 @@ class TestFetchConfiguredKols:
             "total_stored": 1, "total_skipped_retweets": 0,
         })
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets", fake_fetch):
             result = await twitter_service.fetch_configured_kols(safety_window_hours=3)
 
@@ -212,7 +212,7 @@ class TestFetchConfiguredKols:
             "total_stored": 40, "total_skipped_retweets": 0,
         })
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets", fake_fetch):
             await twitter_service.fetch_configured_kols(max_pages_per_kol=2)
 
@@ -232,7 +232,7 @@ class TestFetchConfiguredKols:
             "success": True, "articles_fetched": 0,
         })
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets", fake_fetch), \
              patch("app.features.twitter.service.fetch_and_store_articles", fake_articles):
             result = await twitter_service.fetch_configured_kols(include_articles=True)
@@ -248,7 +248,7 @@ class TestFetchConfiguredKols:
             "total_stored": 1, "total_skipped_retweets": 0, "username": "x",
         })
 
-        with patch("app.features.twitter.service.enabled_kols", return_value=kols), \
+        with patch("app.features.twitter.service.get_enabled_kols", new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter.service.fetch_and_store_tweets", fake_fetch):
             result = await twitter_service.fetch_configured_kols()
 
