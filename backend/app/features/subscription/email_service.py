@@ -36,6 +36,7 @@ from app.features.brew.db import save_user_digest, get_user_watchlist
 import app.features.subscription.email_templates as email_templates
 from app.features.subscription.email_templates import (
     DailyCtaVariant,
+    PersonalDigestCtaVariant,
     format_html_report,
     format_digest_html,
     format_weekly_report_html,
@@ -59,6 +60,28 @@ from app.features.subscription.email_templates import (
 logger = get_logger(__name__)
 
 
+def _annotate_default_paid(users: list) -> list:
+    """When we cannot classify users (RPC failure / non-success / missing
+    list_all row), force `_is_real_paid` to True for every user.
+
+    Why True (and not False): callers of this function pass us users from
+    `list_entitled_users("personal_digest_email")` — these users *already
+    have* the entitlement, so they are either real paid or trial. When we
+    cannot distinguish, the safer fallback is "treat as real paid" so we
+    never accidentally show the upsell CTA to someone who has actually
+    paid. The cost of this default is that a trial user might miss the
+    upsell once during an Insforge outage; that is recoverable on the
+    next broadcast and far less harmful than the inverse mistake.
+
+    Direct assignment (not ``setdefault``) so an upstream caller cannot
+    accidentally set ``_is_real_paid=False`` on a row before it reaches
+    this function and have that value silently survive a fail-open path.
+    """
+    for u in users:
+        u["_is_real_paid"] = True
+    return users
+
+
 async def _filter_active_subscribers(entitled_users: list) -> list:
     """Drop entries whose access has already expired.
 
@@ -68,6 +91,11 @@ async def _filter_active_subscribers(entitled_users: list) -> list:
     with an expiry strictly in the past are dropped. On lookup failure we
     fall back to keeping the input unchanged (fail-open: better to send a
     digest than to silently drop a paying customer).
+
+    Also annotates each kept user with `_is_real_paid` (True/False) so
+    downstream broadcast code can pick the right CTA variant. When
+    classification cannot be performed the default is True (no upsell)
+    to avoid showing the upsell CTA to an actual paying user.
     """
     if not entitled_users:
         return entitled_users
@@ -85,14 +113,16 @@ async def _filter_active_subscribers(entitled_users: list) -> list:
         logger.warning(
             "Expiry filter: list_all RPC failed (%s); skipping filter", e,
         )
-        return entitled_users
+        return _annotate_default_paid(entitled_users)
 
     data = result.get("data", {})
     if not data.get("success"):
         logger.warning(
             "Expiry filter: list_all returned non-success; skipping filter",
         )
-        return entitled_users
+        return _annotate_default_paid(entitled_users)
+
+    from app.features.subscription.cta_tier import is_real_paid_sub
 
     sub_by_id = {row["user_id"]: row for row in data.get("data", []) if row.get("user_id")}
     now = datetime.now(timezone.utc)
@@ -100,6 +130,12 @@ async def _filter_active_subscribers(entitled_users: list) -> list:
     dropped_emails: list = []
     for u in entitled_users:
         sub = sub_by_id.get(u.get("user_id"))
+        # Annotate every kept user with the paid/trial classification so the
+        # broadcast loop can pick the right CTA variant without re-querying.
+        # When the user is in entitled_users but missing from list_all (rare
+        # divergence between the two queries), default to True — they are
+        # entitled, so don't upsell them just because of a data race.
+        u["_is_real_paid"] = is_real_paid_sub(sub) if sub else True
         if not sub:
             kept.append(u)
             continue
@@ -500,9 +536,16 @@ class EmailService:
         first_name: Optional[str] = None,
         digest_date: Optional[str] = None,
         digest_id: Optional[str] = None,
+        cta_variant: PersonalDigestCtaVariant = "paid",
     ) -> dict:
-        """Send a personal digest email to a single recipient."""
-        logger.info("send_personal_digest to=%s", to_email)
+        """Send a personal digest email to a single recipient.
+
+        ``cta_variant`` decides whether to show the trial/free upsell CTA
+        block or the paid (no-CTA) version. Defaults to ``paid`` so a caller
+        that hasn't classified the recipient won't accidentally upsell a
+        real paying user.
+        """
+        logger.info("send_personal_digest to=%s cta=%s", to_email, cta_variant)
 
         if not self.api_key:
             return {"success": False, "error": "RESEND_API_KEY not configured"}
@@ -512,7 +555,8 @@ class EmailService:
             feedback_id = digest_id or data.get("digest_id")
 
             html_content = format_digest_html(
-                data, first_name or "", feedback_date, feedback_id
+                data, first_name or "", feedback_date, feedback_id,
+                cta_variant=cta_variant,
             )
 
             html_content = html_content.replace("{{{email}}}", quote(to_email))
@@ -994,6 +1038,7 @@ class EmailService:
                     "metadata": {
                         "first_name": u.get("first_name", ""),
                         "user_id": u.get("user_id"),
+                        "is_real_paid": bool(u.get("_is_real_paid")),
                     },
                 }
                 for u in entitled_users
@@ -1044,14 +1089,22 @@ class EmailService:
                     logger.error("DB save failed for %s: %s", email, db_err)
 
             async def prepare_digest_email(
-                email: str, first_name: str, user_id: str, symbols: list
+                email: str,
+                first_name: str,
+                user_id: str,
+                symbols: list,
+                cta_variant: PersonalDigestCtaVariant = "paid",
             ) -> dict:
                 """Generate digest, format HTML, save DB. Return email params (no send)."""
-                digest_result = await digest_agent.generate(symbols)
+                # Pass user_id so PersonalDigest can route paying users to
+                # the deeper Pro model and trial/free to the cheaper Flash one.
+                digest_result = await digest_agent.generate(symbols, user_id=user_id)
                 if not digest_result.get("success"):
                     raise Exception(digest_result.get("error", "Generation failed"))
 
-                html_content = format_digest_html(digest_result, first_name or "")
+                html_content = format_digest_html(
+                    digest_result, first_name or "", cta_variant=cta_variant,
+                )
                 html_content = html_content.replace("{{{email}}}", quote(email))
 
                 today = today_str()
@@ -1116,6 +1169,10 @@ class EmailService:
                 metadata = sub.get("metadata", {})
                 first_name = metadata.get("first_name", "")
                 user_id = metadata.get("user_id")
+                # Trial readers see the upsell CTA; real paying readers don't.
+                cta_variant: PersonalDigestCtaVariant = (
+                    "paid" if metadata.get("is_real_paid") else "upsell"
+                )
 
                 # No Pro gate needed — subscribers are loaded from entitlements,
                 # which already guarantees they have personal_digest_email access.
@@ -1131,7 +1188,7 @@ class EmailService:
                 async with semaphore:
                     try:
                         return await prepare_digest_email(
-                            email, first_name, user_id, symbols
+                            email, first_name, user_id, symbols, cta_variant,
                         )
                     except Exception as e:
                         logger.warning("First attempt failed for %s: %s", email, e)
@@ -1139,7 +1196,7 @@ class EmailService:
                     await asyncio.sleep(2)
                     try:
                         return await prepare_digest_email(
-                            email, first_name, user_id, symbols
+                            email, first_name, user_id, symbols, cta_variant,
                         )
                     except Exception as retry_error:
                         logger.error("Retry failed for %s: %s", email, retry_error)

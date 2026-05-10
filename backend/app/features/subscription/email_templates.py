@@ -299,6 +299,7 @@ def get_email_footer(
 
 
 DailyCtaVariant = Literal["upsell", "paid"]
+PersonalDigestCtaVariant = Literal["upsell", "paid"]
 
 
 def _get_paid_digest_cta_section() -> str:
@@ -492,6 +493,119 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
             <![endif]-->
         </div>
         """
+
+
+def _get_personal_digest_upsell_cta() -> str:
+    """Upsell CTA for trial / free readers of the personal digest.
+
+    Aspirational framing — never tells the reader the version they're
+    looking at is "simplified" or "degraded" (that destroys retention),
+    only points up to a deeper version they could unlock.
+
+    Max is the recommended tier (amber 2px, 推荐 badge). It bundles the
+    digest upgrades with the AI research engine — positioned as the
+    "complete analysis workflow" so it feels like the natural pick over
+    just-upgrading-the-digest.
+
+    Card copy avoids:
+    - Specific model names (today Gemini, tomorrow something else)
+    - Watchlist size (same 25 across tiers, so not a differentiator)
+    - 盘前早报 / 宏观周报 (separate products with their own CTAs)
+    Instead anchors on the four upgrades the reader actually wants:
+    更高级的模型 · 更深度的推理 · 持仓监控 · 事件提醒.
+    """
+    pro_url = f"{_EMAIL_LINK_BASE}/pricing"
+    max_url = f"{_EMAIL_LINK_BASE}/pricing"
+    return f"""
+        <style>
+            @media only screen and (max-width: 540px) {{
+                .tmb-tier-card {{
+                    max-width: 100% !important;
+                    margin: 0 0 12px !important;
+                }}
+                .tmb-tier-spacer {{
+                    display: none !important;
+                    height: 0 !important;
+                    margin: 0 !important;
+                }}
+            }}
+        </style>
+        <div style="background: #ffffff; padding: 28px 20px 32px; border-top: 1px solid #e4e4e7;">
+            <div style="text-align: center; margin-bottom: 22px;">
+                <div style="font-size: 11px; font-weight: 600; color: #71717a; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px;">升级订阅</div>
+                <div style="font-size: 17px; color: #0a0a0a; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px;">想看更深度的每日分析?</div>
+                <div style="font-size: 12px; color: #52525b; line-height: 1.6;">更高级的模型 &middot; 更深度的推理 &middot; 持仓监控 &middot; 事件提醒</div>
+            </div>
+            <!--[if mso]>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="560" style="width:560px;">
+            <tr>
+            <td valign="top" width="272" style="padding:0 4px;">
+            <![endif]-->
+            <div style="font-size: 0; line-height: 0; text-align: center;">
+                <!-- Max card (RECOMMENDED) -->
+                <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #fffbeb; border: 2px solid #b45309; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div style="display: inline-block; background: #b45309; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;">推荐</div>
+                        <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Max</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 12px;">
+                            完整的 AI 投资分析工作流
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.85; margin-bottom: 16px;">
+                            <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">更高级的模型</strong>生成更深度的每日分析</div>
+                            <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;持仓监控 &amp; 个股事件提醒</div>
+                            <div><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">AI 投研引擎</strong> — 自己研究任意一只股票</div>
+                        </div>
+                        <div style="margin-bottom: 14px; line-height: 1;">
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$9.99</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                        </div>
+                        <a href="{max_url}" style="display: block; padding: 11px 20px; background-color: #b45309; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #b45309; text-align: center;">
+                            升级 Max &rarr;
+                        </a>
+                    </div>
+                </div>
+                <!--[if mso]></td><td valign="top" width="272" style="padding:0 4px;"><![endif]-->
+                <!-- Pro card (secondary) -->
+                <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
+                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
+                        <div class="tmb-tier-spacer" style="height: 18px; margin-bottom: 12px; line-height: 0; font-size: 0;"><!-- desktop spacer to align Pro label with Max's badge row --></div>
+                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Pro</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 12px;">
+                            只升级每日日报
+                        </div>
+                        <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
+                            升级到<strong style="color: #065f46; font-weight: 600;">更高级的模型</strong>，更深度的推理与持仓事件分析。
+                        </div>
+                        <div style="margin-bottom: 14px; line-height: 1;">
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$4.99</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                        </div>
+                        <a href="{pro_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center;">
+                            升级 Pro &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <!--[if mso]>
+            </td>
+            </tr>
+            </table>
+            <![endif]-->
+        </div>
+        """
+
+
+def get_personal_digest_cta_section(
+    variant: PersonalDigestCtaVariant = "paid",
+) -> str:
+    """CTA block at the bottom of the personal digest email.
+
+    - ``upsell``: shown to trial / free readers — Max + Pro upgrade cards.
+    - ``paid``: real paying readers see no CTA (they already have access).
+    """
+    if variant == "paid":
+        return ""
+    return _get_personal_digest_upsell_cta()
 
 
 # ---------------------------------------------------------------------------
@@ -779,8 +893,18 @@ def format_digest_html(
     first_name: str = "",
     digest_date: Optional[str] = None,
     digest_id: Optional[str] = None,
+    cta_variant: PersonalDigestCtaVariant = "paid",
 ) -> str:
-    """Format personal digest data into an HTML email."""
+    """Format personal digest data into an HTML email.
+
+    ``cta_variant``:
+      - ``upsell``: trial / free readers see the Max+Pro upgrade cards.
+      - ``paid`` (default): real paying readers see no CTA.
+
+    Default is ``paid`` so callers that don't pass a variant don't accidentally
+    show an upsell to a real paying user. Broadcast paths classify the
+    recipient via ``cta_tier.is_real_paid_sub`` and pass the right variant.
+    """
     timestamp = data.get("timestamp", now_iso())
     formatted_date = format_timestamp(timestamp)
 
@@ -984,6 +1108,7 @@ def format_digest_html(
                 </div>
 
                 {get_feedback_section(feedback_digest_date, feedback_digest_id, "digest")}
+                {get_personal_digest_cta_section(cta_variant)}
                 {get_email_footer()}
             </div>
         </body>

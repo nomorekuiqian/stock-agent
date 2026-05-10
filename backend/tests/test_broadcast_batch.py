@@ -127,7 +127,7 @@ class TestBroadcastBatchFlow:
 
         call_count = 0
 
-        async def generate_side_effect(symbols):
+        async def generate_side_effect(symbols, user_id=None):
             nonlocal call_count
             call_count += 1
             # Fail on calls 2 and 4 (first attempts for subscriber 1 and 2)
@@ -182,7 +182,7 @@ class TestBroadcastBatchFlow:
 
         call_count = 0
 
-        async def generate_side_effect(symbols):
+        async def generate_side_effect(symbols, user_id=None):
             nonlocal call_count
             call_count += 1
             # Fail first 2 calls (Phase 1: first attempt + internal retry)
