@@ -164,26 +164,45 @@ class TestEmailE2E:
         print(f"\n[E2E] Welcome email sent to {TEST_EMAIL}")
 
     @pytest.mark.asyncio
-    @pytest.mark.timeout(180)
     async def test_personal_digest(self, email_service):
-        """Send a real personal digest to the test account.
+        """Send a personal digest to the test account.
 
-        Calls broadcast_personal_digests() which, in non-production,
-        filters to the test email only. The digest agent runs a real LLM
-        generation (gemini-3.1-pro-preview, ~30-90s) plus real Resend
-        delivery, so the global 60s timeout is too tight for this test.
+        This e2e exercises the real Insforge watchlist query, the HTML
+        renderer, and the Resend batch-send pipeline. The LLM digest
+        agent is mocked because LLM correctness is not what this test
+        is checking, it would add 30-90s of latency, and the agent gets
+        its own dedicated unit tests elsewhere.
         """
+        from unittest.mock import AsyncMock, patch
+        from app.utils.timezone import now_iso
+
+        fake_digest = {
+            "success": True,
+            "timestamp": now_iso(),
+            "greeting": "[E2E test fixture]",
+            "one_line_summary": "E2E render+send check",
+            "stocks": [],
+            "news": {},
+            "events": [],
+            "summary": {},
+            "symbols_used": ["AAPL"],
+        }
+
         time.sleep(2)
 
-        from unittest.mock import patch
-        with patch("app.features.payment.db.list_entitled_users") as mock_list:
+        with patch("app.features.payment.db.list_entitled_users") as mock_list, \
+             patch(
+                "app.features.brew.agent.PersonalDigest.generate",
+                new_callable=AsyncMock,
+                return_value=fake_digest,
+             ):
             # Ensure the test account is returned even if not in the remote DB
             mock_list.return_value = [{
                 "email": TEST_EMAIL,
                 "first_name": TEST_FIRST_NAME,
                 "user_id": "14204862-26b9-4f24-b8ff-7f98e2f3fe1d", # voya test account ID
             }]
-            
+
             result = await email_service.broadcast_personal_digests(max_concurrent=5)
 
         assert result.get("success") is True, f"Digest failed: {result.get('error')}"
