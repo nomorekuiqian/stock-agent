@@ -164,11 +164,14 @@ class TestEmailE2E:
         print(f"\n[E2E] Welcome email sent to {TEST_EMAIL}")
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(180)
     async def test_personal_digest(self, email_service):
         """Send a real personal digest to the test account.
 
         Calls broadcast_personal_digests() which, in non-production,
-        filters to the test email only.
+        filters to the test email only. The digest agent runs a real LLM
+        generation (gemini-3.1-pro-preview, ~30-90s) plus real Resend
+        delivery, so the global 60s timeout is too tight for this test.
         """
         time.sleep(2)
 
