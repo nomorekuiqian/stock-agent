@@ -4,11 +4,15 @@ import Link from 'next/link';
 
 import { BriefRow } from './BriefRow';
 import { CategorySection } from './CategorySection';
-import { HotList } from './HotList';
+import { HotLeaderboard } from './HotLeaderboard';
+import { MacroSection } from './MacroSection';
 import { OpeningSection } from './OpeningSection';
+import { WatchpointsSection } from './WatchpointsSection';
 import { SoloVoiceCard } from './SoloVoiceCard';
+import { TickerSection } from './TickerSection';
 import { TopicCard } from './TopicCard';
 import { TrackedKolsSection } from './TrackedKolsSection';
+import { TrustBanner } from './TrustBanner';
 import type { Brief, DailyDigest, Topic, TopicLayer } from './types';
 
 interface Props {
@@ -28,6 +32,10 @@ function formatHeaderDate(date: string): string {
   }
 }
 
+function v4IsEmpty(d: DailyDigest): boolean {
+  return (d.ticker_theses ?? []).length === 0 && (d.macro_threads ?? []).length === 0;
+}
+
 function v3IsEmpty(d: DailyDigest): boolean {
   return d.topics.length === 0 && d.briefs.length === 0 && d.solo_voices.length === 0;
 }
@@ -37,6 +45,7 @@ function v2IsEmpty(d: DailyDigest): boolean {
 }
 
 function isEmpty(d: DailyDigest): boolean {
+  if (d.schema_version === 'v4') return v4IsEmpty(d);
   return d.schema_version === 'v3' ? v3IsEmpty(d) : v2IsEmpty(d);
 }
 
@@ -67,7 +76,9 @@ export function DigestView({ date, digest }: Props) {
     <main className="min-h-screen bg-background editorial-paper">
       <BackBar />
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-10 space-y-6">
-        {digest.schema_version === 'v3'
+        {digest.schema_version === 'v4'
+          ? <V4Body date={date} digest={digest} />
+          : digest.schema_version === 'v3'
           ? <V3Body date={date} digest={digest} />
           : <V2Body date={date} digest={digest} />}
 
@@ -122,9 +133,18 @@ function Footer({ digest }: { digest: DailyDigest }) {
 
 function V3Body({ date, digest }: { date: string; digest: DailyDigest }) {
   const empty = isEmpty(digest);
+  const tickers = digest.hot_tickers ?? [];
+  const sectors = digest.hot_sectors ?? [];
+  const events = digest.hot_events ?? [];
 
   return (
     <>
+      <TrustBanner
+        trackedKolCount={digest.tracked_kols.length}
+        inputTweetCount={digest.input_tweet_count}
+        windowHours={digest.window_hours}
+      />
+
       <OpeningSection
         date={date}
         headline={digest.headline}
@@ -132,6 +152,9 @@ function V3Body({ date, digest }: { date: string; digest: DailyDigest }) {
         takeaway={digest.takeaway}
         windowHours={digest.window_hours}
         trackedKolCount={digest.tracked_kols.length}
+        topTicker={tickers[0]}
+        topSector={sectors[0]}
+        topEvent={events[0]}
       />
 
       {empty ? (
@@ -140,11 +163,6 @@ function V3Body({ date, digest }: { date: string; digest: DailyDigest }) {
         </p>
       ) : (
         <>
-          <HotList
-            sectors={digest.hot_sectors ?? []}
-            tickers={digest.hot_tickers ?? []}
-            events={digest.hot_events ?? []}
-          />
           {digest.topics.length > 0 && (
             <TopicsSection topics={digest.topics} />
           )}
@@ -154,6 +172,102 @@ function V3Body({ date, digest }: { date: string; digest: DailyDigest }) {
           {digest.solo_voices.length > 0 && (
             <SoloVoicesSection voices={digest.solo_voices} />
           )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ===========================================================================
+// V4 body — ticker-as-topic + 论据指向
+// ===========================================================================
+
+function V4Body({ date, digest }: { date: string; digest: DailyDigest }) {
+  const empty = isEmpty(digest);
+  const theses = digest.ticker_theses ?? [];
+  const macros = digest.macro_threads ?? [];
+
+  // Top-1 ticker chip in OpeningSection — mirrors the leaderboard #1.
+  const topThesis = theses[0];
+  const topTickerForChip = topThesis
+    ? {
+        label: topThesis.ticker,
+        count: topThesis.tweet_count,
+        kols: topThesis.primary_kols.length,
+      }
+    : undefined;
+
+  return (
+    <>
+      <TrustBanner
+        trackedKolCount={digest.tracked_kols.length}
+        inputTweetCount={digest.input_tweet_count}
+        windowHours={digest.window_hours}
+      />
+
+      <OpeningSection
+        date={date}
+        headline={digest.headline}
+        intro={digest.intro}
+        takeaway={digest.takeaway}
+        windowHours={digest.window_hours}
+        trackedKolCount={digest.tracked_kols.length}
+        topTicker={topTickerForChip}
+      />
+
+      {empty ? (
+        <p className="text-sm text-muted-foreground italic py-12 text-center">
+          — 今天 KOL 圈子整体偏静,没有达到收录标准的话题。
+        </p>
+      ) : (
+        <>
+          <HotLeaderboard theses={theses} />
+
+          {theses.length > 0 && (
+            <section
+              className="space-y-5"
+              id="ticker-discussions"
+              aria-label="个股讨论"
+            >
+              <div className="flex items-baseline gap-3 px-2">
+                <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">
+                  个股讨论
+                </h2>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  <span className="font-data text-foreground/70">{theses.length}</span> 个 ticker
+                </span>
+              </div>
+              <div className="space-y-5">
+                {theses.map((t, i) => (
+                  <TickerSection key={t.ticker} thesis={t} index={i} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {macros.length > 0 && (
+            <section
+              className="space-y-4"
+              id="macro-threads"
+              aria-label="宏观与行业讨论"
+            >
+              <div className="flex items-baseline gap-3 px-2">
+                <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">
+                  宏观与行业
+                </h2>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  <span className="font-data text-foreground/70">{macros.length}</span> 条
+                </span>
+              </div>
+              <div className="space-y-4">
+                {macros.map((m, i) => (
+                  <MacroSection key={`${m.title}-${i}`} thread={m} index={i} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <WatchpointsSection watchpoints={digest.watchpoints ?? []} />
         </>
       )}
     </>
