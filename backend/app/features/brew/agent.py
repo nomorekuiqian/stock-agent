@@ -28,6 +28,7 @@ from app.shared.data_tools import get_combined_market_news
 from app.shared.data_tools.quotes import get_batch_quotes
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
+from app.shared.profile_cache import get_profiles_cached, summarize_for_prompt
 from app.features.brew.models import PersonalDigestOutput
 from app.features.brew import db as digest_db
 
@@ -42,6 +43,19 @@ DIGEST_INSTRUCTION = """
 注意：这是用户关注的股票，不一定是用户实际持有的股票。用户可能在观察这些股票，考虑买入，或者只是想跟踪它们的动态。
 
 你不是在填表格，而是在帮朋友写一份有洞见的投资笔记。
+
+## 权威数据约束（最重要！必读）
+输入 JSON 的 stocks 字典里，每只股票的 name / company_name / company_name_zh / sector / industry / description 字段是 FMP 实时返回的权威数据。
+
+公司随时可能改名、转型、被收购、拆分。你的训练知识可能已经过期，但 stocks 字段一定是最新的。
+
+规则：
+- 公司名以 stocks[symbol].name 或 company_name 为准。如果你"记得"这个 ticker 以前叫别的名字，忽略你的记忆，使用输入数据。
+- 行业和业务描述以 stocks[symbol].sector / industry / description 为准。
+- 中文公司名优先使用 stocks[symbol].company_name_zh；没有则根据 company_name 翻译，不要凭印象。
+- 例：若 stocks["PSTG"].name = "Everpure, Inc."，那这家公司现在叫 Everpure，即使你训练数据里它叫 Pure Storage。讨论该股票时一律用 Everpure，可在首次提及时附注"前身 Pure Storage"作为上下文，但不要把分析建立在旧业务上。
+
+如果输入数据中某个字段缺失，可以保守表述（"这家公司"），但禁止用训练知识填补——宁可不写也不要写错。
 
 ## 核心原则
 - 围绕用户关注的股票组织内容，这不是泛泛的市场日报
@@ -242,14 +256,35 @@ DIGEST_INSTRUCTION = """
 """
 
 
-personal_digest_agent = LlmAgent(
-    name="personal_digest",
-    model="gemini-3-flash-preview",
-    description="Generates personalized daily digest based on user's watchlist",
+# Two-tier model routing:
+#   free  -> gemini-3-flash-preview     (cheap, fast, template-y)
+#   paid  -> gemini-3.1-pro-preview     (deeper analysis, better differentiation)
+# Paid users are identified by the "personal_digest_email" entitlement (Pro+ tier).
+FREE_TIER_MODEL = "gemini-3-flash-preview"
+PAID_TIER_MODEL = "gemini-3.1-pro-preview"
+PAID_ENTITLEMENT = "personal_digest_email"
+
+personal_digest_agent_free = LlmAgent(
+    name="personal_digest_free",
+    model=FREE_TIER_MODEL,
+    description="Generates personalized daily digest (free tier)",
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,
     output_key="digest",
 )
+
+personal_digest_agent_paid = LlmAgent(
+    name="personal_digest_paid",
+    model=PAID_TIER_MODEL,
+    description="Generates personalized daily digest (paid tier)",
+    instruction=DIGEST_INSTRUCTION,
+    output_schema=PersonalDigestOutput,
+    output_key="digest",
+)
+
+# Backward-compat alias — existing code paths that import `personal_digest_agent`
+# continue to work and resolve to the free-tier agent.
+personal_digest_agent = personal_digest_agent_free
 
 
 # =============================================================================
@@ -263,9 +298,33 @@ class PersonalDigest:
     DEFAULT_MACRO_SYMBOLS = ["SPY", "QQQ", "^VIX"]
 
     def __init__(self):
-        self._runner = InMemoryRunner(
-            agent=personal_digest_agent, app_name="personal_digest"
+        self._runner_free = InMemoryRunner(
+            agent=personal_digest_agent_free, app_name="personal_digest"
         )
+        self._runner_paid = InMemoryRunner(
+            agent=personal_digest_agent_paid, app_name="personal_digest"
+        )
+        # Backward-compat: tests that monkey-patch self._runner still work
+        self._runner = self._runner_free
+
+    async def _resolve_runner_for_user(self, user_id: str | None):
+        """Pick paid vs free runner based on subscription entitlement.
+
+        Returns (runner, tier_label, model_name). Falls back to free on any
+        error (no DB access locally, transient Insforge failure, etc.) so
+        that digest generation never breaks because the entitlement check did.
+        """
+        if user_id:
+            try:
+                from app.features.payment.entitlements import has_entitlement
+                if await has_entitlement(user_id, PAID_ENTITLEMENT):
+                    return self._runner_paid, "paid", PAID_TIER_MODEL
+            except Exception as e:
+                logger.warning(
+                    "Entitlement check failed for %s; defaulting to free model: %s",
+                    (user_id or "?")[:8], e,
+                )
+        return self._runner_free, "free", FREE_TIER_MODEL
 
     async def generate(
         self,
@@ -336,6 +395,33 @@ class PersonalDigest:
                 len(fetched_symbols), len(missing_symbols),
             )
 
+            # Step 1.5: Enrich each stock with authoritative profile facts
+            # (sector / industry / description / Chinese name) so the LLM doesn't
+            # rely on its training-data guess for tickers that have been renamed
+            # or rebranded (e.g. PSTG -> Everpure). FMP profile is the source of
+            # truth; cache hit rate ~99% via shared profile_cache.
+            try:
+                profiles = await get_profiles_cached(symbols)
+                for sym, raw in profiles.items():
+                    summary = summarize_for_prompt(raw)
+                    if not summary:
+                        continue
+                    entry = stock_data["stocks"].get(sym)
+                    if not entry:
+                        continue
+                    if summary.get("company_name"):
+                        entry["company_name"] = summary["company_name"]
+                    if summary.get("company_name_zh"):
+                        entry["company_name_zh"] = summary["company_name_zh"]
+                    if summary.get("sector"):
+                        entry["sector"] = summary["sector"]
+                    if summary.get("industry"):
+                        entry["industry"] = summary["industry"]
+                    if summary.get("description"):
+                        entry["description"] = summary["description"]
+            except Exception as e:
+                logger.warning("Profile enrichment failed, continuing without: %s", e)
+
             # Step 2: Fetch news filtered by user's symbols + macro symbols
             logger.info("Fetching news...")
             news_symbols = symbols + self.DEFAULT_MACRO_SYMBOLS
@@ -397,10 +483,14 @@ class PersonalDigest:
             if previous_digests:
                 data_for_agent["previous_digests"] = previous_digests
 
-            # Step 6: Run agent
-            logger.info("Running agent...")
+            # Step 6: Run agent (model tier picked from user entitlement)
+            runner, tier_label, model_name = await self._resolve_runner_for_user(user_id)
+            logger.info(
+                "Running agent (tier=%s, model=%s) for user=%s",
+                tier_label, model_name, (user_id or "?")[:8],
+            )
 
-            session = await self._runner.session_service.create_session(
+            session = await runner.session_service.create_session(
                 app_name="personal_digest", user_id="digest"
             )
 
@@ -413,13 +503,13 @@ class PersonalDigest:
                 role="user",
             )
 
-            async for _ in self._runner.run_async(
+            async for _ in runner.run_async(
                 user_id="digest", session_id=session.id, new_message=message
             ):
                 pass
 
             # Get output from session state
-            session_data = await self._runner.session_service.get_session(
+            session_data = await runner.session_service.get_session(
                 app_name="personal_digest", user_id="digest", session_id=session.id
             )
 
@@ -454,6 +544,8 @@ class PersonalDigest:
                 "success": True,
                 "timestamp": now_iso(),
                 "symbols_used": symbols,
+                "model_tier": tier_label,
+                "model_name": model_name,
                 **digest_output,
             }
 
