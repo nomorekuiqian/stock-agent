@@ -13,7 +13,7 @@ V3 design (2026-05-04):
     `schema_version` field on `DailyDigest` selects the rendering path.
 """
 
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -289,6 +289,54 @@ class CuratedDigestOutput(BaseModel):
 
 
 # ============================================================================
+# V4 LLM output — ticker-as-topic + 论据指向
+# ============================================================================
+
+
+class CuratedDigestOutputV4(BaseModel):
+    """V4 LLM structured output. Ticker-clustered, direction-driven.
+
+    Forward-looking schema: replaces V3's topics+briefs with ticker_theses+
+    macro_threads. The LLM no longer judges KOL stance; it classifies the
+    direction of arguments (buy/sell/observation) as decision input.
+    """
+
+    headline: str = Field(
+        max_length=60,
+        description="主线一句, 15-25 字, <=60 cap.",
+    )
+    intro: str = Field(
+        max_length=240,
+        description="导言段, 30-80 字. 编辑话术 — 今天最值得注意的事.",
+    )
+    takeaway: list[str] = Field(
+        default_factory=list,
+        description="3-5 条要点, 每条 15-30 字. 锚到下方 ticker_thesis 或 macro_thread.",
+    )
+    ticker_theses: list["TickerThesis"] = Field(
+        default_factory=list,
+        description="≥2 KOL 提到同一 ticker 即聚合. 5-15 个/天典型.",
+    )
+    macro_threads: list["MacroThread"] = Field(
+        default_factory=list,
+        description="非个股讨论 (Fed/CPI/地缘/监管). 0-5 个/天.",
+    )
+    crosscut: str = Field(
+        default="",
+        max_length=400,
+        description="(deprecated in V4.2) 跨主题观察, 不再渲染.",
+    )
+    watch_next: list[str] = Field(
+        default_factory=list,
+        description="(deprecated in V4.2) plain string watchpoints, 不再渲染. 请用 watchpoints.",
+    )
+    watchpoints: list["WatchpointItem"] = Field(
+        default_factory=list,
+        description="V4.2: 4-7 条结构化短期未来注意点.",
+    )
+
+
+# ============================================================================
 # DailyDigest — top-level read model used by API + DB
 # ============================================================================
 
@@ -310,9 +358,10 @@ class DailyDigest(BaseModel):
     input_tweet_count: int
     tracked_kols: list[str]
     model_version: str
-    schema_version: Literal["v2", "v3"] = Field(
+    schema_version: Literal["v2", "v3", "v4"] = Field(
         default="v2",
-        description="Selects rendering path; v2 for legacy rows, v3 for new.",
+        description="Selects rendering path: v2=legacy buckets, v3=topics+briefs, "
+                    "v4=ticker_theses+macro_threads (论据指向 driven).",
     )
 
     # Shared
@@ -339,11 +388,159 @@ class DailyDigest(BaseModel):
     hot_tickers: list["HotItem"] = Field(default_factory=list)
     hot_events: list["HotItem"] = Field(default_factory=list)
 
+    # V4 — ticker-as-topic + 论据指向 (buy/sell/observation)
+    # Replaces V3 `topics` for stock-level discussions. Macro/industry topics
+    # move to `macro_threads`. V2/V3 fields preserved for backward compat.
+    ticker_theses: list["TickerThesis"] = Field(default_factory=list)
+    macro_threads: list["MacroThread"] = Field(default_factory=list)
+
+    # V4.1 — 其他热议 (transparency tail)
+    other_tickers: list["OtherTickerMention"] = Field(default_factory=list)
+    notable_tweets: list["NotableTweet"] = Field(default_factory=list)
+
+    # V4.2 — 短期未来注意点 (replaces watch_next plain strings)
+    watchpoints: list["WatchpointItem"] = Field(default_factory=list)
+
+
+class StanceCounts(BaseModel):
+    """Bullish / bearish / neutral counts for ticker-level stance display."""
+    bullish: int = 0
+    bearish: int = 0
+    neutral: int = 0
+
 
 class HotItem(BaseModel):
-    """One row in a hot-list ranking — raw label + mention count."""
+    """One row in a hot-list ranking.
+
+    `count` is mention count across kept tweets. `kols` is the count of
+    distinct KOL authors (always <= count). `stance` is populated only for
+    tickers that appear as a topic's primary_ticker — projected from
+    `key_arguments[].stance`. None means we have mention data but no stance
+    signal (so the UI hides the bar).
+    """
     label: str
     count: int
+    kols: int = 0
+    stance: Optional[StanceCounts] = None
+
+
+# ============================================================================
+# V4 — ticker-as-topic + 论据指向
+# ============================================================================
+
+
+class Argument(BaseModel):
+    """One argument in a TickerThesis or MacroThread.
+
+    `direction` is the LOGICAL DIRECTION of the argument as decision input —
+    not the author's emotional stance. `buy` = supports buying, `sell` =
+    supports selling/avoiding, `observation` = data/research/news without
+    a clear directional claim. The reframing avoids LLM having to interpret
+    KOL intent; it only classifies what the argument supports.
+    """
+    kol: str = Field(..., description="KOL username (lowercase)")
+    point_zh: str = Field(
+        ..., max_length=400,
+        description="60-150 字中文论据 — 必须含具体数据/事件/对比/catalyst,"
+                    "不接受'强劲''看好'这类空形容词",
+    )
+    direction: Literal["buy", "sell", "observation"]
+    tweet_url: str = Field(..., description="Source tweet URL for provenance")
+
+
+class TickerThesis(BaseModel):
+    """A ticker-centric section.
+
+    Triggered when ≥2 distinct KOLs mentioned the same ticker in the window.
+    Aggregates all relevant arguments under buy / sell / observation, with
+    a 1-sentence synthesis. NOT clustered by event — all NVDA discussion
+    goes here regardless of underlying event.
+    """
+    ticker: str = Field(..., description="Ticker symbol, no $ prefix, e.g. 'NVDA'")
+    primary_kols: list[str] = Field(default_factory=list)
+    tweet_count: int = 0
+    synthesis_zh: str = Field(
+        default="", max_length=900,
+        description="150-300 字综述,三段式:焦点 + 共识 + 分歧/风险点。"
+                    "前端默认只显示 synthesis,论据折叠,所以这段必须自给自足、有信息密度。",
+    )
+    buy_arguments: list[Argument] = Field(default_factory=list)
+    sell_arguments: list[Argument] = Field(default_factory=list)
+    observation_arguments: list[Argument] = Field(default_factory=list)
+
+
+class MacroThread(BaseModel):
+    """Non-ticker discussion: Fed, CPI, geopolitics, regulation, sector-wide."""
+    title: str = Field(..., description="标题, 例: '美联储 5 月议息预期', 'Clarity Act 立法投票'")
+    layer: Literal["macro", "industry"] = "macro"
+    primary_kols: list[str] = Field(default_factory=list)
+    synthesis_zh: str = Field(
+        default="", max_length=1200,
+        description="200-400 字综述,三段式:焦点 + 共识 + 分歧/影响。"
+                    "前端默认只显示 synthesis,key_points 折叠,所以这段必须自给自足。",
+    )
+    key_points: list[Argument] = Field(
+        default_factory=list,
+        description="Key points; direction may be 'observation' for most macro.",
+    )
+
+
+# ============================================================================
+# V4.1 — 其他热议 (transparency tail)
+# ============================================================================
+
+
+class OtherTickerMention(BaseModel):
+    """A ticker that was mentioned by ≥N KOLs but didn't make the main 6 theses."""
+    ticker: str
+    mentions: int
+    kols: int
+
+
+class NotableTweet(BaseModel):
+    """A high-engagement quality tweet not cited in any thesis or macro thread."""
+    kol: str
+    summary_zh: str  # from enrichment.content_summary_zh
+    tweet_url: str
+    engagement: int  # likes + 2*retweets + 5*replies
+    tickers: list[str] = Field(default_factory=list)  # for context chips
+
+
+# ============================================================================
+# V4.2 — 短期未来注意点 (forward-looking aggregation, replaces watch_next)
+# ============================================================================
+
+
+class WatchpointItem(BaseModel):
+    """A forward-looking event multiple KOLs are watching.
+
+    Replaces the single-line `watch_next`. Aggregates structured signal:
+    - title: concrete event with subject (NOT generic '财报' / 'CPI')
+    - date_hint: when it lands ('6/24', '下周三', '本月底', or '' if vague)
+    - why_it_matters_zh: 100-200 字 explaining stakes + key debate
+    - related_tickers: tickers directly affected (for jump links)
+    - evidence: source tweets — 2-5 KOL quotes that flagged this event
+    """
+    title: str = Field(
+        ..., max_length=80,
+        description="具体事件名,必须含主体. 例: 'NVDA Q1 财报', '美国 4 月 CPI'.",
+    )
+    date_hint: str = Field(
+        default="", max_length=40,
+        description="时间锚, 例: '6/24', '下周三', '本月底'. 不知道留空.",
+    )
+    why_it_matters_zh: str = Field(
+        ..., max_length=500,
+        description="100-200 字: 焦点 + 关键看点 + 多空分歧 (如有).",
+    )
+    related_tickers: list[str] = Field(default_factory=list)
+    evidence: list["Argument"] = Field(
+        default_factory=list,
+        description="2-5 条原推引用,每条 kol + point_zh + tweet_url. "
+                    "direction 通常是 observation(在等事件,还没发生).",
+    )
+    # kols_watching kept as derived/summary field — frontend can compute from evidence
+    kols_watching: list[str] = Field(default_factory=list)
 
 
 DailyDigest.model_rebuild()

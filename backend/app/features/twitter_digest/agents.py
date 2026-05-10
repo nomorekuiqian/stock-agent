@@ -26,9 +26,11 @@ from google.adk.runners import InMemoryRunner
 from app.features.twitter_digest.enrichment_prompts import ENRICH_INSTRUCTION
 from app.features.twitter_digest.models import (
     CuratedDigestOutput,
+    CuratedDigestOutputV4,
     EnrichmentOutput,
 )
 from app.features.twitter_digest.prompts import CURATE_INSTRUCTION
+from app.features.twitter_digest.prompts_v4 import CURATE_INSTRUCTION_V4
 
 CURATE_MODEL = "gemini-3.1-pro-preview"
 ENRICH_MODEL = "gemini-3.1-flash-lite-preview"
@@ -75,6 +77,18 @@ curate_agent = LlmAgent(
     instruction=CURATE_INSTRUCTION,
     output_schema=CuratedDigestOutput,
     output_key="curated_digest",
+)
+
+
+# V4: ticker-as-topic + 论据指向. Replaces V3 going forward; V3 agent kept for
+# any reruns of historical data.
+curate_agent_v4 = LlmAgent(
+    name="kol_digest_curate_v4",
+    model=CURATE_MODEL,
+    description="V4: cluster by ticker, output buy/sell/observation arguments",
+    instruction=CURATE_INSTRUCTION_V4,
+    output_schema=CuratedDigestOutputV4,
+    output_key="curated_digest_v4",
 )
 
 

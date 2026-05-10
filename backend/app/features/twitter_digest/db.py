@@ -20,8 +20,13 @@ from app.features.twitter_digest.models import (
     Brief,
     CuratedTweet,
     DailyDigest,
+    MacroThread,
+    NotableTweet,
+    OtherTickerMention,
     SoloVoice,
+    TickerThesis,
     Topic,
+    WatchpointItem,
 )
 
 logger = get_logger(__name__)
@@ -62,6 +67,36 @@ def _row_to_digest(row: dict) -> DailyDigest:
             return []
         return [SoloVoice.model_validate(item) for item in items]
 
+    def _ticker_thesis_list(raw: object) -> list[TickerThesis]:
+        items = raw or []
+        if not isinstance(items, list):
+            return []
+        return [TickerThesis.model_validate(item) for item in items]
+
+    def _macro_thread_list(raw: object) -> list[MacroThread]:
+        items = raw or []
+        if not isinstance(items, list):
+            return []
+        return [MacroThread.model_validate(item) for item in items]
+
+    def _other_tickers_list(raw: object) -> list[OtherTickerMention]:
+        items = raw or []
+        if not isinstance(items, list):
+            return []
+        return [OtherTickerMention.model_validate(item) for item in items]
+
+    def _notable_tweets_list(raw: object) -> list[NotableTweet]:
+        items = raw or []
+        if not isinstance(items, list):
+            return []
+        return [NotableTweet.model_validate(item) for item in items]
+
+    def _watchpoints_list(raw: object) -> list[WatchpointItem]:
+        items = raw or []
+        if not isinstance(items, list):
+            return []
+        return [WatchpointItem.model_validate(item) for item in items]
+
     raw_takeaway = row.get("takeaway") or []
     takeaway = [str(x) for x in raw_takeaway] if isinstance(raw_takeaway, list) else []
 
@@ -83,7 +118,7 @@ def _row_to_digest(row: dict) -> DailyDigest:
         return out
 
     schema_version = row.get("schema_version") or "v2"
-    if schema_version not in ("v2", "v3"):
+    if schema_version not in ("v2", "v3", "v4"):
         # Forward compat: unknown versions default back to v2 path so we
         # render whatever V2 columns the row carries instead of crashing.
         schema_version = "v2"
@@ -111,6 +146,14 @@ def _row_to_digest(row: dict) -> DailyDigest:
         hot_sectors=_hot_list(row.get("hot_sectors")),
         hot_tickers=_hot_list(row.get("hot_tickers")),
         hot_events=_hot_list(row.get("hot_events")),
+        # V4
+        ticker_theses=_ticker_thesis_list(row.get("ticker_theses")),
+        macro_threads=_macro_thread_list(row.get("macro_threads")),
+        # V4.1
+        other_tickers=_other_tickers_list(row.get("other_tickers")),
+        notable_tweets=_notable_tweets_list(row.get("notable_tweets")),
+        # V4.2
+        watchpoints=_watchpoints_list(row.get("watchpoints")),
     )
 
 
@@ -141,6 +184,14 @@ async def save_digest(digest: DailyDigest, date: str) -> None:
         "hot_sectors": [h.model_dump() for h in digest.hot_sectors],
         "hot_tickers": [h.model_dump() for h in digest.hot_tickers],
         "hot_events": [h.model_dump() for h in digest.hot_events],
+        # V4
+        "ticker_theses": [t.model_dump() for t in digest.ticker_theses],
+        "macro_threads": [t.model_dump() for t in digest.macro_threads],
+        # V4.1
+        "other_tickers": [t.model_dump() for t in digest.other_tickers],
+        "notable_tweets": [t.model_dump() for t in digest.notable_tweets],
+        # V4.2
+        "watchpoints": [w.model_dump() for w in digest.watchpoints],
     }
 
     result = await db.call_function(
