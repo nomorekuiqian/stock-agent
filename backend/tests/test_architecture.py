@@ -201,6 +201,8 @@ class TestNoCrossFeatureImports:
         ("screener", "quota"),          # research endpoints check/consume quota
         ("quota", "payment"),           # quota checks Max subscription status
         ("twitter_digest", "subscription"),  # /preview endpoint reuses email html renderer
+        ("twitter_digest", "twitter"),  # KOL list source for digest curation
+        ("brew", "payment"),            # digest model tier gated by entitlement check
     }
 
     def test_no_cross_feature_imports(self):

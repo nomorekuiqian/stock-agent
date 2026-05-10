@@ -36,9 +36,10 @@ class TestEntitlementsWebhook:
 
     @patch("app.features.payment.router.stripe")
     @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
+    @patch("app.features.payment.router.get_subscription", new_callable=AsyncMock)
     @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
     def test_max_features_webhook(
-        self, mock_get_sub, mock_upsert, mock_stripe,
+        self, mock_get_sub, mock_get_sub_full, mock_upsert, mock_stripe,
     ):
         """10 Max features -> plan=max, entitlements synced, resend called."""
         customer_id = "cus_max_123"
@@ -54,6 +55,15 @@ class TestEntitlementsWebhook:
         from app.features.payment.entitlements import PRO_FEATURES, MAX_ONLY_FEATURES
         all_features = sorted(PRO_FEATURES | MAX_ONLY_FEATURES)
         ent_list = [self._make_entitlement(k) for k in all_features]
+
+        # get_subscription (post-upsert read) returns the freshly written sub
+        # so sync_resend_segments receives the full record (not None).
+        mock_get_sub_full.return_value = {
+            "user_id": user_id,
+            "status": "active",
+            "plan": "max",
+            "entitlements": all_features,
+        }
 
         # stripe.entitlements.ActiveEntitlement.list
         mock_ent_response = MagicMock()
@@ -91,11 +101,15 @@ class TestEntitlementsWebhook:
         assert call_kwargs["status"] == "active"
         assert call_kwargs["entitlements"] == all_features
 
-        # Verify sync_resend_segments received correct email and entitlements
+        # Verify sync_resend_segments received correct email and the full sub
+        # record (the new signature is (email, sub) instead of (email, entitlements_set);
+        # the method extracts entitlements from the sub internally).
         mock_sync.assert_called_once()
         sync_args = mock_sync.call_args
         assert sync_args[0][0] == "max@test.com"
-        assert sync_args[0][1] == set(all_features)
+        sub_arg = sync_args[0][1]
+        assert isinstance(sub_arg, dict)
+        assert set(sub_arg.get("entitlements", [])) == set(all_features)
 
     # ------------------------------------------------------------------
     # 2. Pro features only

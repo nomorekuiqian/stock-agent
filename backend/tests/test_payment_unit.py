@@ -363,10 +363,12 @@ class TestWebhookHandler:
         mock_request.headers = {"stripe-signature": "sig"}
 
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
              patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
 
             result = await stripe_webhook(mock_request)
 
+            mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["status"] == "active"
             # Plan is determined by entitlements webhook, not here
