@@ -15,11 +15,59 @@ import httpx
 from app.core.config import TWITTER_API_KEY
 from app.core.logging import get_logger
 from app.features.twitter import db
-from app.shared.twitter_kol_config import KolAccount, enabled_kols
+from app.shared.twitter_kol_config import KolAccount, TWITTER_KOL_ACCOUNTS
 
 logger = get_logger(__name__)
 
 _BASE_URL = "https://api.twitterapi.io/twitter"
+
+# In-memory cache for the kol_accounts catalog so the hourly cron doesn't hit
+# Insforge on every iteration. 5-minute TTL is short enough that admin edits
+# show up quickly in the next cron run.
+_CATALOG_CACHE: dict = {"value": None, "expires_at": 0.0}
+_CATALOG_TTL_SECONDS = 300
+
+
+async def get_enabled_kols() -> list[KolAccount]:
+    """
+    Active KOL catalog from `kol_accounts` DB. Falls back to the hardcoded list
+    only if DB is empty (first boot before seed).
+    """
+    import time
+    now = time.time()
+    cached = _CATALOG_CACHE.get("value")
+    if cached is not None and now < _CATALOG_CACHE.get("expires_at", 0.0):
+        return cached
+
+    rows = await db.list_kol_accounts(enabled_only=True)
+    if rows:
+        catalog: list[KolAccount] = [
+            {
+                "username": r["username"],
+                "display_name": r.get("display_name") or r["username"],
+                # carry source through for downstream dispatch
+                "source": r.get("source", "manual"),  # type: ignore[typeddict-item]
+            }
+            for r in rows
+            if r.get("username")
+        ]
+    else:
+        # Fallback: hardcoded seed (used only once, before kol_accounts is populated).
+        logger.warning("kol_accounts is empty — falling back to hardcoded TWITTER_KOL_ACCOUNTS")
+        catalog = [
+            {**a, "source": "manual"}  # type: ignore[typeddict-item]
+            for a in TWITTER_KOL_ACCOUNTS
+        ]
+
+    _CATALOG_CACHE["value"] = catalog
+    _CATALOG_CACHE["expires_at"] = now + _CATALOG_TTL_SECONDS
+    return catalog
+
+
+def invalidate_catalog_cache() -> None:
+    """Force the next get_enabled_kols() call to re-read DB."""
+    _CATALOG_CACHE["value"] = None
+    _CATALOG_CACHE["expires_at"] = 0.0
 
 
 def _api_headers() -> dict:
@@ -666,24 +714,256 @@ async def _fetch_one_kol(
         return {"username": username, "status": "failed", "error": str(exc)}
 
 
+_LIST_SOURCE_PREFIX = "list:"
+
+
+def _split_catalog_by_source(
+    catalog: list[KolAccount],
+) -> tuple[dict[str, list[KolAccount]], list[KolAccount]]:
+    """
+    Group catalog by ingestion source.
+
+    Returns (list_groups, manual) where list_groups maps each list_id to the
+    KOLs belonging to that list, and manual is the per-KOL fetch group.
+    """
+    list_groups: dict[str, list[KolAccount]] = {}
+    manual: list[KolAccount] = []
+    for kol in catalog:
+        src = kol.get("source", "manual")  # type: ignore[typeddict-item]
+        if isinstance(src, str) and src.startswith(_LIST_SOURCE_PREFIX):
+            list_id = src[len(_LIST_SOURCE_PREFIX):]
+            list_groups.setdefault(list_id, []).append(kol)
+        else:
+            manual.append(kol)
+    return list_groups, manual
+
+
+async def fetch_list_timeline(
+    list_id: str,
+    *,
+    lookback_hours: float = 1.5,
+    safety_max_pages: int = 50,
+    enabled_usernames: Optional[set[str]] = None,
+) -> dict:
+    """
+    Pull tweets from a Twitter list timeline, stopping based on a TIME WINDOW.
+
+    The list/tweets endpoint returns reverse-chronological pages of ~20 tweets.
+    We walk pages until either:
+
+      a) the OLDEST tweet on the current page is older than (now - lookback_hours)
+         — primary stop condition; means we've fully covered the requested window.
+      b) `has_next_page=false` — list end reached.
+      c) `safety_max_pages` reached — defensive cap to prevent runaway loops if
+         the upstream API misbehaves (returns same cursor forever, etc.).
+
+    Args:
+        list_id: Twitter list ID
+        lookback_hours: how far back to fetch. Default 1.5h gives the hourly
+            cron a comfortable buffer. Set to 20+ for one-off backfills.
+        safety_max_pages: hard cap on pages walked. Should not normally bite.
+        enabled_usernames: optional case-insensitive whitelist. Tweets from
+            authors not in the set are dropped, honoring soft-deleted accounts
+            that may still show up in the list timeline.
+
+    Returns counts suitable for run records / cron logging. Includes
+    `stopped_reason` ∈ {"time_window", "list_end", "safety_cap", "api_error"}.
+    """
+    if not TWITTER_API_KEY:
+        return {"success": False, "error": "TWITTER_API_KEY not configured"}
+    if not list_id:
+        return {"success": False, "error": "list_id required"}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
+
+    total_fetched = 0
+    total_stored = 0
+    total_skipped = 0
+    total_filtered = 0
+    pages_fetched = 0
+    oldest_seen: Optional[datetime] = None
+    cursor: Optional[str] = None
+    stopped_reason = "list_end"
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        while pages_fetched < safety_max_pages:
+            params: dict = {"listId": list_id}
+            if cursor:
+                params["cursor"] = cursor
+
+            resp_json = await _fetch_page(client, "list/tweets", params)
+            if not resp_json:
+                stopped_reason = "api_error"
+                break
+            if resp_json.get("status") == "error":
+                logger.warning(
+                    "list/tweets API error for list_id=%s: %s",
+                    list_id, resp_json.get("msg"),
+                )
+                stopped_reason = "api_error"
+                break
+
+            raw_tweets = resp_json.get("tweets", [])
+            pages_fetched += 1
+            total_fetched += len(raw_tweets)
+
+            batch = []
+            page_oldest: Optional[datetime] = None
+            for raw in raw_tweets:
+                parsed = _parse_tweet(raw)
+                if not parsed:
+                    total_skipped += 1
+                    continue
+                # Track oldest tweet on this page for the stop check.
+                ca = _parse_tweet_created_at(parsed.get("created_at"))
+                if ca and (page_oldest is None or ca < page_oldest):
+                    page_oldest = ca
+                if enabled_usernames is not None:
+                    author = (parsed.get("author_username") or "").lower()
+                    if author not in enabled_usernames:
+                        total_filtered += 1
+                        continue
+                batch.append(parsed)
+
+            if batch:
+                total_stored += await db.upsert_tweets_batch(batch)
+            if page_oldest and (oldest_seen is None or page_oldest < oldest_seen):
+                oldest_seen = page_oldest
+
+            logger.info(
+                "list/tweets page %d: fetched=%d stored=%d filtered=%d "
+                "page_oldest=%s (list_id=%s)",
+                pages_fetched, len(raw_tweets), len(batch), total_filtered,
+                page_oldest.isoformat() if page_oldest else "?", list_id,
+            )
+
+            # Primary stop: page is older than lookback window.
+            if page_oldest is not None and page_oldest < cutoff:
+                stopped_reason = "time_window"
+                break
+
+            if not resp_json.get("has_next_page"):
+                stopped_reason = "list_end"
+                break
+            cursor = resp_json.get("next_cursor")
+            if not cursor:
+                stopped_reason = "list_end"
+                break
+        else:
+            # Loop exited via while-condition (safety cap reached).
+            stopped_reason = "safety_cap"
+            logger.warning(
+                "list/tweets hit safety_max_pages=%d for list_id=%s — window may be incomplete",
+                safety_max_pages, list_id,
+            )
+
+    return {
+        "success": True,
+        "list_id": list_id,
+        "lookback_hours": lookback_hours,
+        "pages_fetched": pages_fetched,
+        "total_fetched": total_fetched,
+        "total_stored": total_stored,
+        "total_skipped_retweets": total_skipped,
+        "total_filtered_disabled": total_filtered,
+        "oldest_tweet_seen": oldest_seen.isoformat() if oldest_seen else None,
+        "stopped_reason": stopped_reason,
+    }
+
+
+async def fetch_list_members(list_id: str) -> list[dict]:
+    """
+    Pull all members of a Twitter list (paginated). Returns raw user records.
+    """
+    if not TWITTER_API_KEY:
+        return []
+    members: list[dict] = []
+    cursor: Optional[str] = None
+    pages = 0
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        while pages < 30:  # safety cap; a list usually < 600 members
+            params: dict = {"list_id": list_id}
+            if cursor:
+                params["cursor"] = cursor
+            resp_json = await _fetch_page(client, "list/members", params)
+            if not resp_json:
+                break
+            page_members = resp_json.get("members", [])
+            members.extend(page_members)
+            pages += 1
+            if not resp_json.get("has_next_page"):
+                break
+            cursor = resp_json.get("next_cursor")
+            if not cursor:
+                break
+    logger.info("Fetched %d members from list_id=%s in %d pages", len(members), list_id, pages)
+    return members
+
+
+async def sync_kol_list(list_id: str) -> dict:
+    """
+    Sync a Twitter list's membership into kol_accounts.
+
+    - New members → upsert with source="list:<list_id>", enabled=true
+    - Members already in DB → updated (followers / bio / display_name refreshed)
+    - Members no longer in list (with this source) → enabled=false (soft delete)
+    """
+    members = await fetch_list_members(list_id)
+    if not members:
+        return {"success": False, "error": "list returned 0 members", "list_id": list_id}
+
+    source = f"{_LIST_SOURCE_PREFIX}{list_id}"
+    accounts: list[dict] = []
+    current_usernames: list[str] = []
+    for m in members:
+        username = (m.get("userName") or "").strip().lower()
+        if not username:
+            continue
+        current_usernames.append(username)
+        accounts.append({
+            "username": username,
+            "display_name": m.get("name") or username,
+            "source": source,
+            "enabled": True,
+            "followers": m.get("followers"),
+            "bio": (m.get("description") or "")[:500] or None,
+        })
+
+    upserted = await db.upsert_kol_accounts(accounts)
+    disabled = await db.disable_kol_accounts_missing_from(
+        source=source, current_usernames=current_usernames,
+    )
+    invalidate_catalog_cache()
+
+    return {
+        "success": True,
+        "list_id": list_id,
+        "members_fetched": len(members),
+        "upserted": upserted,
+        "disabled_missing": disabled,
+    }
+
+
 async def fetch_configured_kols(
     *,
     max_pages_per_kol: int = 1,
     safety_window_hours: int = 3,
     include_articles: bool = False,
+    list_lookback_hours: float = 1.5,
+    list_safety_max_pages: int = 50,
 ) -> dict:
     """
-    Iterate the enabled KOL catalog and fetch each timeline.
+    Iterate the enabled KOL catalog and fetch tweets via the cheapest strategy
+    per source:
 
-    - Each KOL is wrapped in try/catch — one failure never blocks the rest.
-    - Each KOL gets its own row in `twitter_fetch_runs`, sharing a `run_id`.
-    - `safety_window_hours` is observability only: we record whether the most
-      recent stored tweet falls within (now - window), so we can spot KOLs
-      where a single page is no longer enough to cover the cron interval.
-    - `include_articles` defaults False to keep cron cost bounded; can be
-      promoted later per-KOL.
+    - source="list:<id>"  → ONE list/tweets call covers all members (cheap).
+    - source="manual"     → per-KOL last_tweets call (legacy path).
+
+    Each manual KOL is wrapped in try/catch — one failure never blocks the rest.
+    Each manual KOL gets its own row in `twitter_fetch_runs`, sharing run_id.
+    For list groups, a single aggregated `_list:<id>` row is recorded.
     """
-    catalog = enabled_kols()
+    catalog = await get_enabled_kols()
     run_id = uuid.uuid4().hex
     started_at = datetime.now(timezone.utc).isoformat()
 
@@ -697,8 +977,49 @@ async def fetch_configured_kols(
             "results": [],
         }
 
+    list_groups, manual = _split_catalog_by_source(catalog)
+
     results: list[dict] = []
-    for kol in catalog:
+
+    # --- Group A: list-timeline strategy (one API call per list) ---
+    for list_id, members_in_list in list_groups.items():
+        enabled_set = {m["username"].lower() for m in members_in_list}
+        synthetic_username = f"_list:{list_id}"
+        row_id = await db.start_fetch_run(run_id=run_id, username=synthetic_username)
+        try:
+            r = await fetch_list_timeline(
+                list_id,
+                lookback_hours=list_lookback_hours,
+                safety_max_pages=list_safety_max_pages,
+                enabled_usernames=enabled_set,
+            )
+            if row_id:
+                await db.finish_fetch_run(
+                    row_id,
+                    status="success" if r.get("success") else "failed",
+                    pages_fetched=int(r.get("pages_fetched", 0)),
+                    tweets_fetched=int(r.get("total_fetched", 0)),
+                    tweets_stored=int(r.get("total_stored", 0)),
+                    tweets_skipped=int(r.get("total_skipped_retweets", 0)),
+                    error=r.get("error"),
+                )
+            results.append({
+                "source": f"list:{list_id}",
+                "members_count": len(members_in_list),
+                **r,
+            })
+        except Exception as exc:
+            logger.exception("list-timeline fetch failed for list_id=%s", list_id)
+            if row_id:
+                await db.finish_fetch_run(row_id, status="failed", error=str(exc))
+            results.append({
+                "source": f"list:{list_id}",
+                "status": "failed",
+                "error": str(exc),
+            })
+
+    # --- Group B: per-KOL fetch (manual entries) ---
+    for kol in manual:
         result = await _fetch_one_kol(
             kol,
             run_id=run_id,
@@ -714,12 +1035,15 @@ async def fetch_configured_kols(
         "started_at": started_at,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "kol_count": len(catalog),
-        "succeeded": sum(1 for r in results if r["status"] == "success"),
-        "failed": sum(1 for r in results if r["status"] == "failed"),
+        "list_groups": len(list_groups),
+        "manual_kols": len(manual),
+        "succeeded": sum(1 for r in results if r.get("status") == "success" or r.get("success")),
+        "failed": sum(1 for r in results if r.get("status") == "failed" or r.get("success") is False),
         "results": results,
     }
     logger.info(
-        "fetch_configured_kols complete: run_id=%s kols=%d succeeded=%d failed=%d",
-        run_id, summary["kol_count"], summary["succeeded"], summary["failed"],
+        "fetch_configured_kols complete: run_id=%s lists=%d manual=%d ok=%d fail=%d",
+        run_id, summary["list_groups"], summary["manual_kols"],
+        summary["succeeded"], summary["failed"],
     )
     return summary

@@ -228,3 +228,96 @@ async def list_fetch_runs(
 
     logger.error("Failed to list fetch runs: %s", result.get("text", ""))
     return []
+
+
+# ---------------------------------------------------------------------------
+# KOL accounts catalog (kol_accounts) — single source of truth for who we ingest.
+# ---------------------------------------------------------------------------
+
+async def list_kol_accounts(*, enabled_only: bool = True) -> list[dict]:
+    """All KOL accounts. Each row: {username, display_name, source, enabled, followers, bio, ...}."""
+    db = get_insforge_service()
+    result = await db.call_function(
+        _FUNCTION_NAME,
+        method="GET",
+        params={
+            "action": "list_accounts",
+            "enabled_only": "true" if enabled_only else "false",
+        },
+        timeout=15.0,
+    )
+    if result["status_code"] == 200:
+        data = result.get("data", {})
+        if data.get("success"):
+            return data.get("data", [])
+    logger.error("Failed to list_kol_accounts: %s", result.get("text", ""))
+    return []
+
+
+async def upsert_kol_accounts(accounts: list[dict]) -> int:
+    """
+    Bulk upsert KOL accounts by username.
+    accounts: list of {username, display_name, source, enabled?, followers?, bio?}
+    """
+    if not accounts:
+        return 0
+    db = get_insforge_service()
+    result = await db.call_function(
+        _FUNCTION_NAME,
+        method="POST",
+        params={"action": "upsert_accounts"},
+        json_body={"accounts": accounts},
+        timeout=60.0,
+        extra_headers=_internal_headers(),
+    )
+    if result["status_code"] == 200:
+        data = result.get("data", {})
+        if data.get("success"):
+            return int(data.get("upserted", 0))
+    logger.error("Failed to upsert_kol_accounts: %s", result.get("text", ""))
+    return 0
+
+
+async def update_kol_account(username: str, **patch) -> bool:
+    """Patch a single KOL account. Allowed keys: display_name, source, enabled, followers, bio."""
+    if not username or not patch:
+        return False
+    db = get_insforge_service()
+    body = {"username": username, **patch}
+    result = await db.call_function(
+        _FUNCTION_NAME,
+        method="POST",
+        params={"action": "update_account"},
+        json_body=body,
+        timeout=15.0,
+        extra_headers=_internal_headers(),
+    )
+    if result["status_code"] == 200 and result.get("data", {}).get("success"):
+        return True
+    logger.error("Failed to update_kol_account @%s: %s", username, result.get("text", ""))
+    return False
+
+
+async def disable_kol_accounts_missing_from(
+    *, source: str, current_usernames: list[str]
+) -> int:
+    """
+    Soft-delete: any account with the given `source` whose username is NOT in
+    current_usernames gets enabled=false. Used after syncing a Twitter list.
+    Returns count disabled.
+    """
+    db = get_insforge_service()
+    result = await db.call_function(
+        _FUNCTION_NAME,
+        method="POST",
+        params={"action": "disable_missing"},
+        json_body={"source": source, "current_usernames": current_usernames},
+        timeout=30.0,
+        extra_headers=_internal_headers(),
+    )
+    if result["status_code"] == 200:
+        data = result.get("data", {})
+        if data.get("success"):
+            return int(data.get("disabled", 0))
+    logger.error("Failed to disable_missing for source=%s: %s", source, result.get("text", ""))
+    return 0

@@ -20,7 +20,7 @@ class SearchTweetsRequest(BaseModel):
 class FetchConfiguredKolsRequest(BaseModel):
     max_pages_per_kol: int = Field(
         1, ge=1, le=10,
-        description="Default page count per KOL; per-KOL overrides in kol_config still apply",
+        description="Default page count per KOL (manual source); legacy per-KOL fetch path",
     )
     safety_window_hours: int = Field(
         3, ge=1, le=24,
@@ -31,6 +31,17 @@ class FetchConfiguredKolsRequest(BaseModel):
         False,
         description="If True, also fetch full Twitter Article content for each KOL "
                     "(slower, more API calls)",
+    )
+    list_lookback_hours: float = Field(
+        1.5, gt=0, le=48,
+        description="For list-source ingestion: walk pages until the last tweet on the "
+                    "current page is older than (now - lookback_hours). Default 1.5h gives "
+                    "the hourly cron a 30min buffer for cron drift. Use 20+ for backfills.",
+    )
+    list_safety_max_pages: int = Field(
+        50, ge=1, le=200,
+        description="Belt-and-suspenders cap on list pagination to prevent runaway loops "
+                    "if the upstream API misbehaves. Time window is the primary stop.",
     )
 
 

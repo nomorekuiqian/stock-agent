@@ -20,7 +20,7 @@ from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.twitter import db
-from app.shared.twitter_kol_config import enabled_kols, validate_catalog
+from app.shared.twitter_kol_config import validate_catalog
 from app.features.twitter.models import (
     FetchConfiguredKolsRequest,
     FetchTweetsRequest,
@@ -31,6 +31,7 @@ from app.features.twitter.service import (
     fetch_and_store_articles,
     fetch_configured_kols,
     fetch_tweets_by_search,
+    sync_kol_list,
 )
 
 logger = get_logger(__name__)
@@ -144,13 +145,17 @@ async def fetch_configured_kols_endpoint(
         return {"success": False, "error": "catalog_invalid", "details": catalog_errors}
 
     logger.info(
-        "fetch-configured-kols: max_pages=%d window=%dh include_articles=%s",
+        "fetch-configured-kols: max_pages=%d window=%dh include_articles=%s "
+        "list_lookback=%.1fh list_safety_pages=%d",
         body.max_pages_per_kol, body.safety_window_hours, body.include_articles,
+        body.list_lookback_hours, body.list_safety_max_pages,
     )
     return await fetch_configured_kols(
         max_pages_per_kol=body.max_pages_per_kol,
         safety_window_hours=body.safety_window_hours,
         include_articles=body.include_articles,
+        list_lookback_hours=body.list_lookback_hours,
+        list_safety_max_pages=body.list_safety_max_pages,
     )
 
 
@@ -158,10 +163,28 @@ async def fetch_configured_kols_endpoint(
 @limiter.limit("60/minute")
 async def list_kol_accounts(
     request: Request,
+    enabled_only: bool = Query(True),
     _user_id: str = Depends(verify_user_token),
 ):
-    """Return the enabled KOL catalog (Phase 1: code-defined, read-only)."""
-    return {"success": True, "data": enabled_kols()}
+    """Return the KOL catalog from the kol_accounts DB table."""
+    rows = await db.list_kol_accounts(enabled_only=enabled_only)
+    return {"success": True, "data": rows}
+
+
+@router.post("/sync-kol-list")
+async def sync_kol_list_endpoint(
+    list_id: str = Query(..., description="Twitter list ID"),
+    _secret: str = Depends(verify_cron_secret),
+):
+    """
+    Sync a Twitter list's membership into kol_accounts.
+
+    - New members upserted with source="list:<list_id>", enabled=true
+    - Members removed from the Twitter list get enabled=false (soft delete)
+    - followers/bio/display_name refreshed for existing entries
+    """
+    logger.info("sync-kol-list: list_id=%s", list_id)
+    return await sync_kol_list(list_id)
 
 
 @router.get("/fetch-runs")
