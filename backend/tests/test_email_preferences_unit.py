@@ -41,6 +41,7 @@ def email_svc():
     svc.frontend_url = "https://themarketbrew.com"
     svc.is_production = False
     svc.logo_url = "https://themarketbrew.com/logo-avatar.png"
+    svc.reply_to = "test@example.com"
     return svc
 
 
@@ -75,6 +76,102 @@ def mock_service_resend():
             ]
         }
         yield m
+
+
+# ---------------------------------------------------------------------------
+# send_daily_report cta_variant param
+# ---------------------------------------------------------------------------
+
+
+class TestSendDailyReportCtaVariant:
+    """Single-send accepts cta_variant and threads it into the rendered HTML.
+
+    The variant param replaced the old behavior of looking up the recipient
+    in the paid_cta.py whitelist. With the whitelist gone, callers must
+    explicitly pass the variant they want — defaults to upsell.
+    """
+
+    @pytest.fixture
+    def report_data(self):
+        return {
+            "title": "Test Report",
+            "report_date": "2026-05-09",
+            "report_id": "test-id-123",
+            "macro": {"signals": [], "summary": "ok"},
+            "news": {"headlines": [], "briefs": []},
+        }
+
+    @pytest.mark.asyncio
+    async def test_default_variant_is_upsell(self, prod_email_svc, mock_resend, report_data):
+        """No cta_variant arg -> upsell HTML (free user pricing CTA)."""
+        mock_resend.Emails.send.return_value = {"id": "email-1"}
+        with patch(
+            "app.features.subscription.email_service.get_subscription_service"
+        ) as svc_fn:
+            svc_fn.return_value.get_status.return_value = {"subscribed": False}
+            result = await prod_email_svc.send_daily_report(
+                report_data, to_email="user@test.com", first_name="User"
+            )
+
+        assert result["success"] is True
+        params = mock_resend.Emails.send.call_args[0][0]
+        html = params.get("html", "")
+        # Upsell: pricing CTA visible, no "感谢订阅"
+        assert "/pricing" in html
+        assert "感谢订阅" not in html
+
+    @pytest.mark.asyncio
+    async def test_explicit_paid_variant_renders_thank_you(
+        self, prod_email_svc, mock_resend, report_data
+    ):
+        """cta_variant='paid' -> thank-you HTML pointing to /for-you and /stock."""
+        mock_resend.Emails.send.return_value = {"id": "email-2"}
+        with patch(
+            "app.features.subscription.email_service.get_subscription_service"
+        ) as svc_fn:
+            svc_fn.return_value.get_status.return_value = {"subscribed": False}
+            result = await prod_email_svc.send_daily_report(
+                report_data,
+                to_email="paid@test.com",
+                first_name="Paid",
+                cta_variant="paid",
+            )
+
+        assert result["success"] is True
+        params = mock_resend.Emails.send.call_args[0][0]
+        html = params.get("html", "")
+        # Paid variant: thank-you copy, member feature URLs, no upgrade nudge
+        assert "感谢订阅" in html
+        assert "/for-you" in html
+        assert "/stock" in html
+        assert "/pricing" not in html
+
+    @pytest.mark.asyncio
+    async def test_two_variants_render_distinct_html(
+        self, prod_email_svc, mock_resend, report_data
+    ):
+        """Sanity check: same input + different variant => different HTML.
+
+        Guards against a regression where cta_variant is silently dropped
+        before reaching format_html_report (e.g. parameter shadowing).
+        """
+        mock_resend.Emails.send.return_value = {"id": "email-x"}
+        with patch(
+            "app.features.subscription.email_service.get_subscription_service"
+        ) as svc_fn:
+            svc_fn.return_value.get_status.return_value = {"subscribed": False}
+
+            await prod_email_svc.send_daily_report(
+                report_data, to_email="x@test.com", cta_variant="upsell"
+            )
+            html_upsell = mock_resend.Emails.send.call_args[0][0]["html"]
+
+            await prod_email_svc.send_daily_report(
+                report_data, to_email="x@test.com", cta_variant="paid"
+            )
+            html_paid = mock_resend.Emails.send.call_args[0][0]["html"]
+
+        assert html_upsell != html_paid
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,97 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
+# get_user_email_by_id
+# ---------------------------------------------------------------------------
+
+
+class TestGetUserEmailById:
+    """Reverse-lookup of email from a user_id via Insforge list_user_profiles.
+
+    Used by set_lifetime to push Resend segment changes when a lifetime
+    grant happens — that flow has no other path to the email.
+    """
+
+    @pytest.mark.asyncio
+    async def test_returns_email_when_user_found(self):
+        from app.features.payment.db import get_user_email_by_id
+
+        mock_service = MagicMock()
+        mock_service.call_function = AsyncMock(
+            return_value={
+                "data": {
+                    "success": True,
+                    "data": [
+                        {"user_id": "u-1", "email": "alice@example.com"},
+                        {"user_id": "u-2", "email": "bob@example.com"},
+                    ],
+                }
+            }
+        )
+        with patch(
+            "app.features.payment.db.get_insforge_service",
+            return_value=mock_service,
+        ):
+            email = await get_user_email_by_id("u-2")
+
+        assert email == "bob@example.com"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_user_not_found(self):
+        from app.features.payment.db import get_user_email_by_id
+
+        mock_service = MagicMock()
+        mock_service.call_function = AsyncMock(
+            return_value={
+                "data": {
+                    "success": True,
+                    "data": [{"user_id": "u-1", "email": "alice@example.com"}],
+                }
+            }
+        )
+        with patch(
+            "app.features.payment.db.get_insforge_service",
+            return_value=mock_service,
+        ):
+            email = await get_user_email_by_id("u-missing")
+
+        assert email is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_insforge_call_fails(self):
+        """Edge function unavailable / success=False — return None gracefully."""
+        from app.features.payment.db import get_user_email_by_id
+
+        mock_service = MagicMock()
+        mock_service.call_function = AsyncMock(
+            return_value={"data": {"success": False, "error": "boom"}}
+        )
+        with patch(
+            "app.features.payment.db.get_insforge_service",
+            return_value=mock_service,
+        ):
+            email = await get_user_email_by_id("u-1")
+
+        assert email is None
+
+    @pytest.mark.asyncio
+    async def test_empty_user_id_returns_none_without_query(self):
+        """Cheap guard: empty/None user_id short-circuits before the API call."""
+        from app.features.payment.db import get_user_email_by_id
+
+        mock_service = MagicMock()
+        mock_service.call_function = AsyncMock()
+        with patch(
+            "app.features.payment.db.get_insforge_service",
+            return_value=mock_service,
+        ):
+            assert await get_user_email_by_id("") is None
+            assert await get_user_email_by_id(None) is None
+
+        mock_service.call_function.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # _to_dict helper
 # ---------------------------------------------------------------------------
 

@@ -178,12 +178,14 @@ async def list_entitled_users(feature: str) -> list:
     return []
 
 
-async def get_user_email_by_id(user_id: str) -> Optional[str]:
+async def get_user_email_by_id(user_id: Optional[str]) -> Optional[str]:
     """Look up a user's email by their Insforge user_id.
 
     Reuses the existing ``list_user_profiles`` edge function action and
     filters in Python — acceptable because callers (lifetime grants,
     drift-audit fixups) are rare and the user list is bounded.
+
+    Returns None for empty/None input without making a request.
     """
     if not user_id:
         return None

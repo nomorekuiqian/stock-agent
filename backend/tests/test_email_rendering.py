@@ -499,7 +499,7 @@ class TestDigestCtaSection:
     def test_pro_and_max_tiers_present(self, email_svc):
         """Comparison shows both tiers with pain-point headlines + prices."""
         html = email_svc._get_digest_cta_section()
-        # Pro tier (RECOMMENDED) — pain point headline + feature emphasis
+        # Pro tier — pain point headline + feature emphasis
         assert "订阅 Pro" in html
         assert "$4.99" in html
         assert "推荐" in html  # recommended badge
@@ -516,6 +516,55 @@ class TestDigestCtaSection:
         assert "立即添加" not in html
         # Bonus list framing
         assert "以及" in html
+
+    def test_max_is_the_recommended_tier(self, email_svc):
+        """Regression guard: Max must come first with the 推荐 badge.
+
+        Layout choice (commit f370f38 / b538743 era): Max card is on the
+        left in the recommended slot; Pro card is on the right as the
+        secondary tier. A regression that swaps Pro back to recommended
+        would still satisfy presence-only assertions, so verify position
+        and badge ownership explicitly.
+        """
+        html = email_svc._get_digest_cta_section()
+        # Use the unique HTML comment markers (not the docstring/CSS comment
+        # mentions of "Pro card" / "Max card" elsewhere in the output).
+        max_marker = html.find("<!-- Max card")
+        pro_marker = html.find("<!-- Pro card")
+        badge_pos = html.find("推荐")
+        max_button = html.find("订阅 Max")
+        pro_button = html.find("订阅 Pro")
+
+        # Max card section comes before Pro card section
+        assert max_marker != -1 and pro_marker != -1
+        assert max_marker < pro_marker
+
+        # 推荐 badge lives inside the Max card, not the Pro card
+        assert max_marker < badge_pos < pro_marker
+
+        # And the Max button physically precedes the Pro button
+        assert max_button < pro_button
+
+    def test_max_uses_amber_accent_pro_uses_emerald(self, email_svc):
+        """Brand color identity per tier survives the recommended-tier swap.
+
+        Pro stays emerald (brand color), Max stays amber (premium gold).
+        Only the visual prominence (border width + badge) marks Max as
+        recommended. A regression that flips colors would confuse other
+        product surfaces that rely on the same identity.
+        """
+        html = email_svc._get_digest_cta_section()
+        # Pro button background = emerald-700
+        pro_button_idx = html.find("订阅 Pro")
+        # Walk back to find the surrounding <a>
+        pro_anchor_start = html.rfind("<a", 0, pro_button_idx)
+        pro_anchor = html[pro_anchor_start:pro_button_idx]
+        assert "#047857" in pro_anchor  # emerald-700
+
+        max_button_idx = html.find("订阅 Max")
+        max_anchor_start = html.rfind("<a", 0, max_button_idx)
+        max_anchor = html[max_anchor_start:max_button_idx]
+        assert "#b45309" in max_anchor  # amber-700
 
     def test_included_in_daily_report(self, email_svc, mock_report_data):
         """Digest CTA section is included in daily report HTML."""
