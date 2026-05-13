@@ -4,6 +4,7 @@ import { useMemo, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { ForYouBreadcrumb } from '@/components/for-you/ForYouBreadcrumb';
 import { DigestResponse } from '@/lib/api';
 import { userDigestToResponse } from '@/lib/digest-utils';
 import DigestInlineReport from '@/components/for-you/DigestInlineReport';
@@ -71,15 +72,7 @@ export default function ForYouDetailPage({
       {/* Back Navigation */}
       <div className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-3">
-          <Link
-            href="/for-you"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            返回专属日报
-          </Link>
+          <ForYouBreadcrumb current="日报详情" />
         </div>
       </div>
 

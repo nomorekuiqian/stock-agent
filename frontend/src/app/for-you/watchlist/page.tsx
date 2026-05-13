@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
+import { ForYouBreadcrumb } from '@/components/for-you/ForYouBreadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
 import StockCard from '@/components/StockCard';
 import { Command } from 'cmdk';
@@ -275,15 +276,7 @@ function WatchlistPageContent() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 md:px-6 pt-6">
-        <Link
-          href="/for-you"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
-          </svg>
-          返回专属日报
-        </Link>
+        <ForYouBreadcrumb current="关注列表" />
       </div>
 
       <section className="border-b border-border/50">
@@ -294,7 +287,7 @@ function WatchlistPageContent() {
               <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">FOR YOU</span>
               <span className="text-muted-foreground text-xs font-medium tracking-[0.15em]">/ WATCHLIST</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">管理持仓</h1>
+            <h1 className="text-3xl md:text-4xl font-editorial text-foreground tracking-tight">关注列表</h1>
             <p className="text-muted-foreground text-sm md:text-base">添加或移除你关注的股票</p>
           </div>
         </div>
