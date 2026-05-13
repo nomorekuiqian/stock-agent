@@ -137,5 +137,5 @@ class TestGetUserEntitlements:
         mock_get_sub.return_value = {"entitlements": sorted(MAX_FEATURES)}
         result = await get_user_entitlements(MOCK_UID)
         assert result == MAX_FEATURES
-        # Pro (7) + Max-only (2, after macro_dashboard removal) = 9
-        assert len(result) == 9
+        # Pro (7) + Max-only (3: watchlist_extended, screener_access, portfolio_management) = 10
+        assert len(result) == 10

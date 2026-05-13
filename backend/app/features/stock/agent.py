@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
+from app.shared.profile_context import inject_profile
+
 load_dotenv()
 
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
@@ -588,7 +590,7 @@ class StockAnalysisAgent:
     def __init__(self):
         self.runner = InMemoryRunner(agent=stock_analyst_agent, app_name="stock_analysis")
 
-    async def analyze(self, stock_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze(self, stock_data: Dict[str, Any], profile=None) -> Dict[str, Any]:
         """Generate AI analysis for a stock. Returns dict with analysis and metadata."""
         symbol = stock_data.get("meta", {}).get("symbol", "UNKNOWN")
 
@@ -596,7 +598,9 @@ class StockAnalysisAgent:
             logger.info("Starting analysis for %s", symbol)
             data_for_analyst = _prepare_stock_data_for_analyst(stock_data)
 
+            profile_header = inject_profile("", profile) if profile else ""
             prompt = (
+                f"{profile_header}"
                 "Please analyze the following stock data and provide a comprehensive analysis:\n\n"
                 f"{json.dumps(data_for_analyst, ensure_ascii=False, indent=2, default=str)}"
             )

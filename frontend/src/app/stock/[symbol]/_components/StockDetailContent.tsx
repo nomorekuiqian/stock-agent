@@ -1109,11 +1109,19 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const macroAnalysis = (macroMutation.data as { title: string; macro_impact: string; sector_positioning: string; market_regime: string; outlook_and_risks: string } | null) ?? null;
   const macroLoading = macroMutation.isPending;
 
-  // Show full skeleton only if we have nothing to show yet
-  if (loading && !quickProfile && quickProfileLoading) return <LoadingSkeleton />;
-
   // Use quick profile for immediate display, fall back to full data profile
   const displayProfile = data?.profile || quickProfile;
+
+  // Record stock visit for "recently viewed" list
+  useEffect(() => {
+    const name = displayProfile?.company_name;
+    if (name) {
+      addRecentStock(symbol, name);
+    }
+  }, [symbol, displayProfile?.company_name]);
+
+  // Show full skeleton only if we have nothing to show yet
+  if (loading && !quickProfile && quickProfileLoading) return <LoadingSkeleton />;
 
   if (error || (!loading && !data)) {
     return (
@@ -1142,14 +1150,6 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const quote = data?.quote;
   const fundamentals = data?.fundamentals;
   const financials = data?.financials;
-
-  // Record stock visit for "recently viewed" list
-  useEffect(() => {
-    const name = profile?.company_name;
-    if (name) {
-      addRecentStock(symbol, name);
-    }
-  }, [symbol, profile?.company_name]);
 
   const priceChange = quote?.change_percent ?? 0;
   const isPositive = priceChange >= 0;

@@ -20,6 +20,10 @@ function getDaysUntil(ts: number): number {
   return Math.max(0, Math.ceil((target - now) / (1000 * 60 * 60 * 24)));
 }
 
+function isFutureTimestamp(ts: number): boolean {
+  return ts > Date.now() / 1000;
+}
+
 function CountdownPill({ days }: { days: number }) {
   const urgency = days <= 7 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
                   days <= 30 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
@@ -35,7 +39,7 @@ export function EventCalendarCard({ earningsDate, exDividendDate, nextQuarterEps
   const events = useMemo(() => {
     const items: { label: string; date: string; days: number; accent: string }[] = [];
 
-    if (earningsDate && earningsDate > Date.now() / 1000) {
+    if (earningsDate && isFutureTimestamp(earningsDate)) {
       items.push({
         label: '财报发布',
         date: formatDate(earningsDate),
@@ -44,7 +48,7 @@ export function EventCalendarCard({ earningsDate, exDividendDate, nextQuarterEps
       });
     }
 
-    if (exDividendDate && exDividendDate > Date.now() / 1000) {
+    if (exDividendDate && isFutureTimestamp(exDividendDate)) {
       items.push({
         label: '除息日',
         date: formatDate(exDividendDate),
