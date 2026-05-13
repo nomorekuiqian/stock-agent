@@ -203,6 +203,7 @@ class TestNoCrossFeatureImports:
         ("quota", "payment"),           # quota checks Max subscription status
         ("twitter_digest", "subscription"),  # /preview endpoint reuses email html renderer
         ("twitter_digest", "twitter"),  # KOL list source for digest curation
+        ("twitter_digest", "payment"),  # /latest endpoint gated by entitlement check
         ("brew", "payment"),            # digest model tier gated by entitlement check
         ("brew", "portfolio"),          # brew reads user portfolio/profile for personalization
         ("brew", "portfolio_health"),   # brew reads last health check timestamp for action_context
