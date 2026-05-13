@@ -106,12 +106,16 @@ function PortfolioEditorContent() {
     if (!user?.id) return;
     if (loadFailed) return;
 
-    // User changed — reset everything
+    // User changed — reset everything.
+    // setState-in-effect is the correct pattern here: we're resetting derived
+    // state when the user identity changes, not syncing to an external system.
     if (syncedForUser.current !== null && syncedForUser.current !== user.id) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setHoldings([]);
       setDirty(false);
       setSaveError(null);
       setSaveSuccess(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       syncedForUser.current = user.id;
       return;
     }
@@ -339,7 +343,7 @@ function PortfolioEditorContent() {
         },
       },
     );
-  }, [user?.id, holdings, saveMutation, extraNames]);
+  }, [user, portfolioData?.holdings, holdings, saveMutation, extraNames]);
 
   // --- Render ---
 
