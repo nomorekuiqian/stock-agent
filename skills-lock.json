@@ -79,22 +79,22 @@
     "insforge": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "f8b94c0722ae6eba0b2fa83dbdaf2cef06dd59474c0630061f240c248b4d10c5"
+      "computedHash": "31b47ac20f6d12fd18be5481c1b4d112ed292beb126e9da9ee4edd631f99fb8b"
     },
     "insforge-cli": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "9eefd32f8ed7195969d5fac788baa7ef99b452892e5ea9b00eb65e08a3ebece6"
+      "computedHash": "273344bbc38dab72564cf2130221fcda4b9730cbf936f0c6377bc6cb2ea571c8"
     },
     "insforge-debug": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "f1f20f82cba657771767c563480f07efd3ab633566ccdcfccebce26039bbfce2"
+      "computedHash": "592cba24924abd5aaae28d0be37159cbc89503e7c56d87b21396696d24a36c12"
     },
     "insforge-integrations": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "421b6eb1091930a437c223aae1d6547f3ee4d2e5cfef45e41a3e2b32a2c27f7e"
+      "computedHash": "b3a037a7d92af644136fa13eb3667de0430d39fd4204bce86d74978ad0b04eb7"
     },
     "layout": {
       "source": "pbakaus/impeccable",

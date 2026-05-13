@@ -17,6 +17,7 @@
 
 - [active/](plans/active/) — 进行中或规划中的计划
   - [conversion-funnel-redesign.md](plans/active/conversion-funnel-redesign.md) — 用户价值感知与转化漏斗重建（12 项改造）
+- [for-you/](plans/for-you/) — /for-you 专属页面改进总纲（P0 基础 → P1 智能 → P2 Copilot）
 - [completed/](plans/completed/) — 已完成的计划
 
 ## 架构 (docs/)
