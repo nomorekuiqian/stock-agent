@@ -14,6 +14,21 @@ from typing import Optional
 # =============================================================================
 
 
+class ActionItem(BaseModel):
+    """Structured action item produced by the digest agent.
+
+    Each item represents one in-site action the user can take. Nothing that
+    requires leaving the site (buy/sell/etc.) should ever appear here.
+    """
+    # Soft limit: prompt asks for ≤12 chars, schema tolerates up to 20 because LLMs
+    # count Chinese/mixed characters poorly and occasionally overshoot. A borderline
+    # overshoot is better than dropping a useful action via ValidationError.
+    label: str = Field(..., max_length=20, description="Action label (prompt limit: ≤12 chars)")
+    target: str = Field(..., description="Site-internal target path, e.g., 'thesis:NVDA', 'portfolio', 'health'. Validated at service layer against a whitelist.")
+    reason: str = Field(..., description="Concrete reason citing user state/today's events/attribution")
+    priority: int = Field(..., ge=1, le=3, description="1 = highest")
+
+
 class DigestRequest(BaseModel):
     """Request model for generating personalized digest"""
     model_config = ConfigDict(
@@ -98,8 +113,18 @@ class DigestResponse(BaseModel):
     # Section 4: Summary (replaces macro_impact + bottom_line)
     summary: DigestSummary = Field(default_factory=DigestSummary, description="Comprehensive summary")
 
+    portfolio_summary: Optional[str] = Field(None, description="One-line portfolio attribution summary from portfolio perspective")
+
     # Cache indicator
     from_cache: bool = Field(default=False, description="Whether this digest was returned from cache")
+
+    # Top event (computed by Python rules, not LLM)
+    top_event: Optional["TopEvent"] = Field(None, description="Most urgent event for user's portfolio")
+
+    action_items: list[ActionItem] = Field(
+        default_factory=list,
+        description="0-3 in-site action items co-produced with the digest narrative",
+    )
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if generation failed")
@@ -249,3 +274,29 @@ class PersonalDigestOutput(BaseModel):
     summary: Summary = Field(
         description="Comprehensive summary: watchlist recap, movement drivers, outlook, and key takeaways"
     )
+
+    portfolio_summary: str = Field(
+        default="",
+        description="One sentence summarizing portfolio performance from the owner's perspective. "
+        "Focus on: which stock contributed/dragged most by weight, alignment with investment thesis if known. "
+        "Do NOT repeat market event narratives (that belongs in one_line_summary). "
+        "Example: '科技持仓领涨，NVDA (+3.2%) 贡献最大，组合整体涨 1.4%'"
+    )
+
+    action_items: list[ActionItem] = Field(
+        default_factory=list,
+        max_length=3,
+        description=(
+            "0-3 in-site actions. Only emit when there's something concrete the user can "
+            "do on this website. Never recommend real-world trades. See instruction block."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Resolve forward reference: DigestResponse.top_event -> TopEvent
+# Import here (after class definitions) to avoid circular imports.
+# ---------------------------------------------------------------------------
+from app.features.brew.event_selector import TopEvent  # noqa: E402
+
+DigestResponse.model_rebuild()

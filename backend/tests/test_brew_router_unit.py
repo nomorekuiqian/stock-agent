@@ -322,6 +322,270 @@ class TestGenerateDigestEndpoint:
         assert calls["agent_symbols"] == ["AAPL", "NVDA"]
         assert calls["save_payload"]["user_id"] == "token-user"
 
+    async def test_fresh_digest_response_includes_action_items(self, monkeypatch):
+        """Agent-produced action_items should appear in the DigestResponse body."""
+        async def _mock_get_user_digest(user_id: str, digest_date: str):
+            return None
+
+        class _MockAgent:
+            async def generate(self, *, symbols: list[str], user_id: str):
+                return {
+                    "success": True,
+                    "timestamp": "2026-03-06T12:00:00Z",
+                    "symbols_used": symbols,
+                    "greeting": "g",
+                    "one_line_summary": "s",
+                    "stocks": [],
+                    "news": {},
+                    "events": [],
+                    "summary": {"content": "ok"},
+                    "action_items": [
+                        {"label": "看体检", "target": "health", "reason": "14 天未体检", "priority": 1},
+                    ],
+                }
+
+        async def _mock_save_user_digest(payload: dict):
+            return {"success": True, "digest_id": "d-1"}
+
+        monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
+        monkeypatch.setattr("app.features.brew.router.get_personal_digest", lambda: _MockAgent())
+        monkeypatch.setattr("app.features.brew.router.save_user_digest", _mock_save_user_digest)
+        monkeypatch.setattr("app.features.brew.router.ENVIRONMENT", "production")
+
+        response = await generate_digest(
+            request=self._request(),
+            body=DigestRequest(symbols=["NVDA"]),
+            user_id="token-user",
+        )
+
+        assert response.success is True
+        assert len(response.action_items) == 1
+        assert response.action_items[0].target == "health"
+        assert response.action_items[0].label == "看体检"
+
+    async def test_cache_hit_response_includes_action_items(self, monkeypatch):
+        """Cached digest_data with action_items should be surfaced in the response."""
+        async def _mock_get_user_digest(user_id: str, digest_date: str):
+            return {
+                "user_id": user_id,
+                "created_at": "2026-03-06T08:00:00Z",
+                "symbols": ["NVDA"],
+                "greeting": "cached-greet",
+                "one_line_summary": "cached-summary",
+                "digest_data": {
+                    "stocks": [],
+                    "news": {"headlines": [], "briefs": []},
+                    "events": [],
+                    "summary": {"content": "cached"},
+                    "action_items": [
+                        {"label": "看组合", "target": "portfolio", "reason": "cached reason", "priority": 2},
+                    ],
+                },
+            }
+
+        monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
+
+        response = await generate_digest(
+            request=self._request(),
+            body=DigestRequest(symbols=["NVDA"]),
+            user_id="token-user",
+        )
+
+        assert response.success is True
+        assert response.from_cache is True
+        assert len(response.action_items) == 1
+        assert response.action_items[0].target == "portfolio"
+        assert response.action_items[0].label == "看组合"
+
+    async def test_cache_hit_action_items_as_dict_coerced(self, monkeypatch):
+        """LLM hallucination safety: cached action_items shaped as a dict
+        (instead of a list) must be coerced to a single-item list instead of
+        iterating dict keys and losing every chip."""
+
+        async def _mock_get_user_digest(user_id: str, digest_date: str):
+            return {
+                "user_id": user_id,
+                "created_at": "2026-03-06T08:00:00Z",
+                "symbols": ["NVDA"],
+                "greeting": "cached-greet",
+                "one_line_summary": "cached-summary",
+                "digest_data": {
+                    "stocks": [],
+                    "news": {"headlines": [], "briefs": []},
+                    "events": [],
+                    "summary": {"content": "cached"},
+                    # Dict instead of list — simulating LLM hallucination
+                    "action_items": {
+                        "label": "看组合",
+                        "target": "portfolio",
+                        "reason": "cached reason",
+                        "priority": 2,
+                    },
+                },
+            }
+
+        monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
+
+        response = await generate_digest(
+            request=self._request(),
+            body=DigestRequest(symbols=["NVDA"]),
+            user_id="token-user",
+        )
+
+        assert response.success is True
+        assert response.from_cache is True
+        # One item, coerced from dict
+        assert len(response.action_items) == 1
+        assert response.action_items[0].target == "portfolio"
+
+    async def test_fresh_digest_save_data_includes_portfolio_summary(self, monkeypatch):
+        """Persistence guarantee: router must forward portfolio_summary into
+        save_data so the db.py round-trip (action_items + portfolio_summary)
+        actually works end-to-end. Previously only action_items was forwarded."""
+        captured_save: dict = {}
+
+        async def _mock_save(payload: dict):
+            captured_save.update(payload)
+            return {"success": True, "digest_id": "uuid-new"}
+
+        async def _mock_get_user_digest(user_id: str, digest_date: str):
+            return None  # force fresh generation
+
+        class _MockAgent:
+            async def generate(self, *, symbols: list[str], user_id: str):
+                return {
+                    "success": True,
+                    "timestamp": "2026-04-26T00:00:00Z",
+                    "symbols_used": symbols,
+                    "greeting": "g",
+                    "one_line_summary": "ols",
+                    "stocks": [],
+                    "news": {"headlines": [], "briefs": []},
+                    "events": [],
+                    "summary": {"content": "c"},
+                    "portfolio_summary": "组合涨 2%，NVDA 领涨",
+                    "action_items": [
+                        {"label": "x", "target": "portfolio", "reason": "r", "priority": 1},
+                    ],
+                }
+
+        # Force the production save path
+        monkeypatch.setattr("app.features.brew.router.ENVIRONMENT", "production")
+        monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
+        monkeypatch.setattr("app.features.brew.router.save_user_digest", _mock_save)
+        monkeypatch.setattr("app.features.brew.router.get_personal_digest", lambda: _MockAgent())
+
+        response = await generate_digest(
+            request=self._request(),
+            body=DigestRequest(symbols=["NVDA"]),
+            user_id="token-user",
+        )
+
+        # Confirm save_data had BOTH keys
+        assert "action_items" in captured_save
+        assert "portfolio_summary" in captured_save
+        assert captured_save["portfolio_summary"] == "组合涨 2%，NVDA 领涨"
+
+        # And that the DigestResponse surfaces portfolio_summary too
+        assert response.portfolio_summary == "组合涨 2%，NVDA 领涨"
+
+    async def test_cache_hit_response_includes_portfolio_summary(self, monkeypatch):
+        """Cached digest's portfolio_summary must surface on cache-hit response."""
+        async def _mock_get_user_digest(user_id: str, digest_date: str):
+            return {
+                "user_id": user_id,
+                "created_at": "2026-03-06T08:00:00Z",
+                "symbols": ["NVDA"],
+                "greeting": "g",
+                "one_line_summary": "ols",
+                "digest_data": {
+                    "stocks": [],
+                    "news": {"headlines": [], "briefs": []},
+                    "events": [],
+                    "summary": {"content": "ok"},
+                    "action_items": [],
+                    "portfolio_summary": "缓存的组合总结",
+                },
+            }
+
+        monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
+
+        response = await generate_digest(
+            request=self._request(),
+            body=DigestRequest(symbols=["NVDA"]),
+            user_id="token-user",
+        )
+
+        assert response.success is True
+        assert response.from_cache is True
+        assert response.portfolio_summary == "缓存的组合总结"
+
+    async def test_cache_hit_malformed_action_item_is_dropped_not_500(self, monkeypatch):
+        """A malformed cached action_item must not 500 the whole digest — it should be dropped with a warning."""
+        async def _mock_get_user_digest(user_id: str, digest_date: str):
+            return {
+                "user_id": user_id,
+                "created_at": "2026-03-06T08:00:00Z",
+                "symbols": ["NVDA"],
+                "greeting": "g",
+                "one_line_summary": "s",
+                "digest_data": {
+                    "stocks": [],
+                    "news": {"headlines": [], "briefs": []},
+                    "events": [],
+                    "summary": {"content": "ok"},
+                    "action_items": [
+                        # Valid item
+                        {"label": "看体检", "target": "health", "reason": "14 天未体检", "priority": 1},
+                        # Malformed: missing required 'reason' and 'priority' fields
+                        {"label": "broken", "target": "portfolio"},
+                        # Malformed: priority out of range (>3)
+                        {"label": "bad-pri", "target": "portfolio", "reason": "r", "priority": 99},
+                    ],
+                },
+            }
+
+        monkeypatch.setattr("app.features.brew.router.get_user_digest", _mock_get_user_digest)
+
+        response = await generate_digest(
+            request=self._request(),
+            body=DigestRequest(symbols=["NVDA"]),
+            user_id="token-user",
+        )
+
+        # Must not 500. Must return 200 with the valid item retained and the
+        # malformed ones dropped.
+        assert response.success is True
+        assert response.from_cache is True
+        assert len(response.action_items) == 1
+        assert response.action_items[0].target == "health"
+
+
+def test_action_item_accepts_router_payload_shape():
+    """Schema sanity: ActionItem.model_validate accepts the router's raw dict shape."""
+    from app.features.brew.router import _transform_digest_sections
+    from app.features.brew.models import ActionItem
+
+    # _transform_digest_sections handles stocks/news/events/summary; action_items
+    # is passed through separately in the return path. Verify via a shaped result.
+    result = {
+        "timestamp": "2026-04-25T00:00:00Z",
+        "symbols_used": ["NVDA"],
+        "greeting": "g",
+        "one_line_summary": "o",
+        "stocks": [],
+        "news": {"headlines": [], "briefs": []},
+        "events": [],
+        "summary": {"content": "c"},
+        "action_items": [
+            {"label": "看体检", "target": "health", "reason": "14 天未体检", "priority": 1},
+        ],
+    }
+    # Validate that ActionItem.model_validate accepts router's raw dict shape
+    items = [ActionItem.model_validate(i) for i in result["action_items"]]
+    assert len(items) == 1
+    assert items[0].target == "health"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
