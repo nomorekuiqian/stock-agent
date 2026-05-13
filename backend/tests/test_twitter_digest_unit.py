@@ -549,21 +549,25 @@ class TestGenerateDailyDigest:
 
     @pytest.mark.asyncio
     async def test_empty_v3_buckets_allowed_when_sparse(self):
-        """A sparse day may yield 0 topics/briefs/solos — pipeline must not blow up."""
+        """A sparse day may yield 0 ticker_theses/macro_threads — pipeline must not blow up."""
         from app.features.twitter_digest import service
+        from app.features.twitter_digest.models import CuratedDigestOutputV4
 
         tweets = [_fake_tweet("1", "alice", tickers=["NVDA"])]
-        empty = CuratedDigestOutput(headline="x", intro="x")
+        empty = CuratedDigestOutputV4(headline="x", intro="x")
 
         with patch.object(service, "pull_candidate_tweets",
                           AsyncMock(return_value=(tweets, ["alice"]))), \
-             patch.object(service, "curate_tweets",
+             patch.object(service, "curate_tweets_v4",
                           AsyncMock(return_value=empty)):
             digest = await service.generate_daily_digest(persist=False)
 
+        # V4 generations leave V3 buckets empty by default and produce no V4 entries here.
         assert digest.topics == []
         assert digest.briefs == []
         assert digest.solo_voices == []
+        assert digest.ticker_theses == []
+        assert digest.macro_threads == []
 
 
 # ---------------------------------------------------------------------------
