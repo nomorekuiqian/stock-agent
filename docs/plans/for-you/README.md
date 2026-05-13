@@ -5,6 +5,8 @@
 > Related: `frontend/src/app/for-you/.context.md`, `backend/app/features/brew/.context.md`
 > Vision: roadmap.md > 支柱 1 · 专属系统
 
+> ⚠️ **2026-05 重大决策（Rev 2）**：模拟持仓 (U0-A holdings) 与持仓体检 (U1-B) 即将下线，改为 **watchlist + 投资画像 + 等权关注列表体检**。`portfolio_health/` 模块就地改造（不新建 watchlist_health），`/for-you/health` 页面保留并改文案。**执行计划见 [`2026-05-rollback-portfolio-watchlist-health.md`](./2026-05-rollback-portfolio-watchlist-health.md)。** 在 rollback 执行前，下方各 P0/P1 单元仍标记为 Shipped；rollback 完成后会迁入 `completed/`。
+
 ## 一句话目的
 
 把 `/for-you` 从"信息聚合页"升级为**决策伙伴**：懂你、替你决策、出事叫你、没事不扰你。面向**相对被动的投资者**。
@@ -62,6 +64,8 @@ docs/plans/for-you/
 ├── README.md                    ← 本文件
 ├── v2-round2-summary.md         V2 第二轮：Agent 驱动 Action Bar + 复盘笔记上移（✅ 已交付）
 ├── v2-bugfix-round1.md          V2 灰度首轮 bug 修复（4 bugs + Round 3 follow-up）
+├── 2026-05-rollback-portfolio-watchlist-health.md
+│                                  ⚠️ 模拟持仓 rollback + portfolio_health 改造为 watchlist 等权语义（Rev 2，待执行）
 ├── p2-ai-copilot.md             What-If / 连线 / 情绪 / 月度复盘（未开始）
 ├── nice-to-have.md              非紧急改进项清单（汇率/多币种/$CASH 等）
 └── completed/                   ← 已完成的计划文档归档
