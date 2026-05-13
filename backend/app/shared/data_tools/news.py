@@ -103,14 +103,11 @@ def get_fmp_news(days: int = 1, symbols: list[str] | None = None) -> dict:
         from app.shared.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        # Pass cutoff date to FMP API for server-side filtering
-        # For multi-day requests (e.g. stock news agent with days=7),
-        # use the days parameter directly instead of trading day cutoff
-        if days > 1:
-            from_date = (now_pacific() - timedelta(days=days)).strftime("%Y-%m-%d")
-        else:
-            cutoff = _get_last_trading_day_cutoff()
-            from_date = cutoff.strftime("%Y-%m-%d")
+        # Use a rolling N*24h window for the server-side filter, matching
+        # the post-filter logic in _is_within_time_range. The previous
+        # midnight-of-today cutoff produced a near-zero window when the
+        # job ran in the early Pacific morning (e.g. 1am → ~1h window).
+        from_date = (now_pacific() - timedelta(days=days)).strftime("%Y-%m-%d")
         result = fmp.get_stock_news(symbols=symbols, limit=50, from_date=from_date)
 
         if result.get("status") == "error":
@@ -178,8 +175,7 @@ def _get_general_news(days: int = 1) -> list:
         from app.shared.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        cutoff = _get_last_trading_day_cutoff()
-        from_date = cutoff.strftime("%Y-%m-%d")
+        from_date = (now_pacific() - timedelta(days=days)).strftime("%Y-%m-%d")
         result = fmp.get_general_news(limit=50, from_date=from_date)
 
         if result.get("status") == "error":
@@ -219,8 +215,7 @@ def _get_latest_stock_news(days: int = 1) -> list:
         from app.shared.fmp_service import get_fmp_service
 
         fmp = get_fmp_service()
-        cutoff = _get_last_trading_day_cutoff()
-        from_date = cutoff.strftime("%Y-%m-%d")
+        from_date = (now_pacific() - timedelta(days=days)).strftime("%Y-%m-%d")
         result = fmp.get_latest_news(limit=30, from_date=from_date)
 
         if result.get("status") == "error":
