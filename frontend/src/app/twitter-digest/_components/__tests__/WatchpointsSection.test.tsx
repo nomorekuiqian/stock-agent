@@ -37,7 +37,7 @@ describe('WatchpointsSection', () => {
 
   it('renders section title', () => {
     const { container } = render(<WatchpointsSection watchpoints={[makeWatchpoint()]} />);
-    expect(container.textContent || '').toContain('短期未来的注意点');
+    expect(container.textContent || '').toContain('短期关注事件');
   });
 
   it('renders watchpoint title and why_it_matters', () => {

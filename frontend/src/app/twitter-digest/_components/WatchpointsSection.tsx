@@ -29,13 +29,14 @@ export function WatchpointsSection({ watchpoints }: Props) {
       aria-label="短期未来的注意点"
     >
       <div className="flex items-baseline gap-3 px-2">
-        <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">
-          短期未来的注意点
+        <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight flex items-center gap-2">
+          <span aria-hidden>🗓️</span>
+          <span>短期关注事件</span>
         </h2>
         <span className="text-xs text-muted-foreground tabular-nums">
           <span className="font-data text-foreground/70">{watchpoints.length}</span> 个事件
         </span>
-        <span className="ml-auto text-[11px] text-muted-foreground/65 italic">
+        <span className="ml-auto text-[11px] text-muted-foreground/65 italic hidden md:inline">
           KOL 圈在等什么
         </span>
       </div>

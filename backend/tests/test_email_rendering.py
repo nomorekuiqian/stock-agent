@@ -729,320 +729,288 @@ class TestIsProduction:
 
 
 class TestTwitterDigestRendering:
-    """Pure-function rendering of the Twitter KOL digest email template."""
+    """V4 layout: opening + hot leaderboard + ticker_theses + macro_threads +
+    watchpoints + other_tickers."""
 
     @pytest.fixture
     def sample_digest(self) -> dict:
         return {
-            "generated_at": "2026-05-03T22:00:00+00:00",
+            "generated_at": "2026-05-09T22:00:00+00:00",
             "window_hours": 24,
-            "input_tweet_count": 142,
-            "tracked_kols": ["beth_kindig", "GoldmanSachs"],
-            "takeaway": ["NVDA Sovereign AI 订单填补需求", "美元走弱推动黄金破前高"],
-            "macro_picks": [
+            "input_tweet_count": 312,
+            "tracked_kols": ["alice", "bob", "carol", "dan"],
+            "headline": "AI 内存超级周期与 Robotaxi 并跑",
+            "intro": (
+                "今天 KOL 圈的注意力高度集中在 $NVDA 与 $MU 两条 AI 内存线: "
+                "多数博主围绕 Q1 财报后 HBM 产能瓶颈展开多头叙事, $MU 前瞻 PEG 0.6 "
+                "显著低于 SK Hynix, 但技术派警示 MACD 月线已突破 2000 dotcom 顶部读数。"
+                "宏观层面, Fed 6/24 议息预期与 Clarity Act 立法投票为风险偏好提供两条新主线。"
+                "下面是各 ticker 的多空论据全梳理。"
+            ),
+            "ticker_theses": [
                 {
-                    "tweet_id": "1", "username": "GoldmanSachs",
-                    "display_name": "Goldman", "created_at": "2026-05-03T18:00:00+00:00",
-                    "tweet_type": "thread", "url": "https://x.com/x/status/1",
-                    "category": "macro", "primary_ticker": "", "sector": "",
-                    "depth": "deep",
-                    "interpretation_zh": "美联储 6 月可能降息",
-                    "tldr_zh": "美元走弱、黄金创新高,市场预期 6 月降息概率超过 70%。",
-                    "translation_zh": "", "text_en": "Fed may cut in June",
-                    "text_zh": "美联储 6 月可能降息",
-                    "like_count": 1234, "retweet_count": 350,
-                    "view_count": 80000, "reply_count": 0, "quality_score": 0.9,
-                }
-            ],
-            "industry_picks": [],
-            "stock_picks": [
-                {
-                    "tweet_id": "2", "username": "beth_kindig",
-                    "display_name": "Beth Kindig",
-                    "created_at": "2026-05-03T19:00:00+00:00",
-                    "tweet_type": "original", "url": "https://x.com/x/status/2",
-                    "category": "stock", "primary_ticker": "NVDA", "sector": "",
-                    "depth": "flash", "interpretation_zh": "加仓 NVDA",
-                    "tldr_zh": "", "translation_zh": "",
-                    "text_en": "Adding to my $NVDA position",
-                    "text_zh": "加仓 NVDA",
-                    "like_count": 250, "retweet_count": 50,
-                    "view_count": 12000, "reply_count": 0, "quality_score": 0.7,
-                }
-            ],
-            "model_version": "gemini-3.1-pro-preview",
-        }
-
-    def test_renders_required_sections(self, sample_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(
-            sample_digest, digest_date="2026-05-03", digest_id="abc",
-        )
-
-        assert "推特 KOL 观点日报" in html
-        assert "今日要点" in html
-        assert "大盘走势" in html
-        assert "行业判断" in html  # empty section still renders
-        assert "个股判断" in html
-        assert "今日 KOL 暂无新的行业观点" in html  # empty fallback
-        assert "本日报追踪 2 位博主" in html
-        assert "Goldman" in html and "@GoldmanSachs" in html
-        assert "Beth Kindig" in html and "@beth_kindig" in html
-
-    def test_groups_stock_by_ticker(self, sample_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-03")
-        assert "$NVDA &middot; 1 条" in html
-
-    def test_escapes_unsafe_text(self, sample_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        sample_digest["macro_picks"][0]["text_en"] = "<script>alert('x')</script>"
-        sample_digest["macro_picks"][0]["interpretation_zh"] = "x & y > z"
-
-        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-03")
-        assert "<script>" not in html
-        assert "&lt;script&gt;" in html
-        assert "x &amp; y &gt; z" in html
-
-    def test_links_to_web_when_date_present(self, sample_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-03")
-        assert "https://themarketbrew.com/twitter-digest/2026-05-03" in html
-        assert "在网页查看完整日报" in html
-
-    def test_omits_web_cta_when_no_date(self, sample_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_digest)
-        assert "在网页查看完整日报" not in html
-
-    def test_format_count_thresholds(self):
-        from app.features.subscription.email_templates import _twitter_digest_format_count
-
-        assert _twitter_digest_format_count(999) == "999"
-        assert _twitter_digest_format_count(1234) == "1.2K"
-        assert _twitter_digest_format_count(80000) == "80K"
-
-
-class TestTwitterDigestV3Rendering:
-    """V3 layout: opening + topics + briefs + solo voices + closing."""
-
-    @pytest.fixture
-    def sample_v3_digest(self) -> dict:
-        return {
-            "schema_version": "v3",
-            "generated_at": "2026-05-04T22:00:00+00:00",
-            "window_hours": 24,
-            "input_tweet_count": 220,
-            "tracked_kols": ["alice", "bob", "carol"],
-            "takeaway": ["$CRCL: 多头共识但估值已 price in", "Fed 6月降息概率上行"],
-            "headline": "稳定币立法落地,加密板块抢跑",
-            "intro": "Clarity Act 通过点燃 Circle,博主们围绕估值是否兑现展开分歧。",
-            "topics": [
-                {
-                    "title": "$CRCL · Clarity Act 通过推涨",
-                    "layer": "stock",
-                    "primary_ticker": "CRCL",
-                    "sector": "",
-                    "event": "Clarity Act",
-                    "participating_kols": ["alice", "bob"],
-                    "stance_distribution": "2 位博主 · 2 看多",
-                    "synthesis_zh": "Clarity Act 把稳定币纳入合规框架,博主普遍认为 Circle 是受益方,但短期估值已 price in 利好。",
-                    "key_arguments": [
+                    "ticker": "NVDA",
+                    "side": "disputed",
+                    "primary_kols": ["alice", "bob"],
+                    "tweet_count": 9,
+                    "synthesis_zh": (
+                        "NVDA 围绕 Q1 财报后的 AI 算力订单可见性展开多头叙事。多数博主"
+                        "认为 Hopper 卡 ASP 较前代提升 35%, 数据中心营收 $27.3B 创历史新高。"
+                        "但技术派警示 MACD 月线突破 2000 dotcom 顶部读数, 抛物线后跟随"
+                        "25-40% 回撤概率上行。"
+                    ),
+                    "buy_arguments": [
                         {
-                            "tweet_id": "t1", "username": "alice",
-                            "display_name": "Alice", "stance": "bullish",
-                            "tldr_zh": "USDC 流通量将系统性提升,合规护城河确立",
-                            "tweet_url": "https://x.com/alice/status/t1",
+                            "kol": "alice",
+                            "point_zh": "Q1 营收同比 +18% 至 $39B, 数据中心 $27.3B 创历史新高; 管理层将全年指引上修至 $165B 顶端 vs 共识 $158B 多 4.4%。",
+                            "direction": "buy",
+                            "tweet_url": "https://x.com/alice/status/100001",
                         },
+                    ],
+                    "sell_arguments": [
                         {
-                            "tweet_id": "t2", "username": "bob",
-                            "display_name": "Bob", "stance": "neutral",
-                            "tldr_zh": "估值已 price in,等回调",
-                            "tweet_url": "https://x.com/bob/status/t2",
+                            "kol": "bob",
+                            "point_zh": "MACD 月线读数突破 2000 年互联网顶峰水平 (175 vs 当时 150), 历史类似形态后 6-12 个月回撤幅度中位数 28%, 最大 41%。",
+                            "direction": "sell",
+                            "tweet_url": "https://x.com/bob/status/100002",
+                        },
+                    ],
+                    "observation_arguments": [
+                        {
+                            "kol": "carol",
+                            "point_zh": "AI 训练集群订单可见性已延伸至 2027 年, Hopper 卡 ASP 较前代提升 35%。",
+                            "direction": "observation",
+                            "tweet_url": "https://x.com/carol/status/100003",
                         },
                     ],
                 },
             ],
-            "briefs": [
+            "macro_threads": [
                 {
-                    "layer": "stock",
-                    "label": "$TSLA",
-                    "one_liner_zh": "Q2 deliveries 数据将推动股价",
-                    "username": "carol",
-                    "display_name": "Carol",
-                    "tweet_id": "t3",
-                    "tweet_url": "https://x.com/carol/status/t3",
-                },
-                {
-                    "layer": "industry",
-                    "label": "半导体",
-                    "one_liner_zh": "出口管制再升级风险",
-                    "username": "dan",
-                    "display_name": "Dan",
-                    "tweet_id": "t4",
-                    "tweet_url": "https://x.com/dan/status/t4",
-                },
-            ],
-            "solo_voices": [
-                {
-                    "title": "@beth_kindig 长文:Hopper vs Sovereign AI",
-                    "username": "beth_kindig",
-                    "display_name": "Beth Kindig",
-                    "primary_ticker": "NVDA",
-                    "tweet_type": "thread",
-                    "tldr_zh": "Hopper 出货放缓,但 Sovereign AI 订单将填补缺口。",
-                    "interpretation_zh": "为市场担忧给出了反方论据。",
-                    "tweet_id": "t5",
-                    "tweet_url": "https://x.com/beth_kindig/status/t5",
+                    "title": "美联储 6/24 议息预期",
+                    "layer": "macro",
+                    "primary_kols": ["alice", "carol"],
+                    "synthesis_zh": (
+                        "Fed 6 月议息成为本周宏观主线。OIS 隐含降息概率从上周 42% 升至 71%, "
+                        "对应美元 DXY 下行 1.2%。多数博主认为风险资产将延续 risk-on, "
+                        "但少数指出降息预期已过度计入, 反转空间有限。"
+                    ),
+                    "key_points": [
+                        {
+                            "kol": "alice",
+                            "point_zh": "OIS 隐含降息概率从上周 42% 升至 71%, 对应美元 DXY 下行 1.2%, 金价突破 $2480。",
+                            "direction": "observation",
+                            "tweet_url": "https://x.com/alice/status/100004",
+                        },
+                    ],
                 },
             ],
-            "crosscut": "宏观降息预期与个股加密板块抢跑形成共振,但与半导体出口管制风险形成对冲。",
-            "watch_next": ["Fed 5 月会议纪要", "NVDA Q2 财报"],
-            "model_version": "v3:enrich=flash-lite/digest=pro-preview",
-            "macro_picks": [], "industry_picks": [], "stock_picks": [],
+            "watchpoints": [
+                {
+                    "title": "MU Q3 财报 6/24",
+                    "date_hint": "6/24",
+                    "why_it_matters_zh": (
+                        "若财报上修 2027+ HBM 算力需求, 可触发 HBM 周期股估值再重塑; "
+                        "反之将引发半导体板块短期回撤。KOL 圈分歧: 多头看 $42B 指引上限, "
+                        "空头警示 MACD 已超 2000 顶部, 回撤幅度可达 25-40%。"
+                    ),
+                    "related_tickers": ["MU", "NVDA"],
+                    "kols_watching": ["alice", "bob", "dan"],
+                    "evidence": [
+                        {
+                            "kol": "dan",
+                            "point_zh": "MU 6/24 财报前关注 HBM 产能扩张节奏与 eSSD 渗透率指引。",
+                            "direction": "observation",
+                            "tweet_url": "https://x.com/dan/status/100005",
+                        },
+                    ],
+                },
+            ],
+            "other_tickers": [
+                {"ticker": "TSLA", "mentions": 4, "kols": 3},
+                {"ticker": "META", "mentions": 3, "kols": 2},
+            ],
+            "hot_sectors": [{"label": "AI 算力", "count": 12, "kols": 4}],
+            "hot_tickers": [{"label": "NVDA", "count": 9, "kols": 2}],
+            "hot_events": [],
+            "model_version": "enrich=flash-lite/digest=pro-preview",
         }
 
-    def test_v3_renders_opening(self, sample_v3_digest):
+    def test_renders_opening_no_intro(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        # Title card: Hi + greeting (fixed copy) + headline + meta
+        assert "Hi {{{FIRST_NAME}}}" in html
+        assert "为你梳理过去 24 小时 KOL 圈的核心讨论" in html
+        assert "AI 内存超级周期与 Robotaxi 并跑" in html
+        # intro 已弃用 — 不再渲染"今日要点"白卡
+        assert "今日要点" not in html
+        # Meta line
+        assert "4 位金融博主" in html
+        assert "312 条原始推文" in html
+
+    def test_renders_ticker_theses(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        # Section header: "今天 KOL 圈在押什么 · N 只"
+        assert "今天 KOL 圈在押什么" in html
+        assert "&middot; 1 只" in html
+        # Ticker rendered
+        assert "NVDA" in html
+        # Stance summary fallback (buy=1, sell=1) → "X 位看多 · Y 位看空, 双方都有支撑"
+        assert "1 位看多 · 1 位看空, 双方都有支撑" in html
+        # Synthesis paragraph
+        assert "围绕 Q1 财报后的 AI 算力订单可见性" in html
+        # Per-card CTA points readers to the web detail at the ticker anchor.
+        assert "查看 2 位博主完整观点 &rarr;" in html
+        assert "/twitter-digest/2026-05-09#ticker-NVDA" in html
+        # Inline argument text NO LONGER appears in email — moved to web only.
+        assert "Q1 营收同比 +18% 至 $39B" not in html
+        assert "MACD 月线读数突破 2000" not in html
+
+    def test_renders_macro_threads(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "今天博主们在担心什么" in html
+        assert "&middot; 1 个话题" in html
+        assert "美联储 6/24 议息预期" in html
+        assert "OIS 隐含降息概率从上周 42% 升至 71%" in html
+
+    def test_renders_watchpoints(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "本周博主们在等什么" in html
+        assert "&middot; 1 个事件" in html
+        assert "MU Q3 财报 6/24" in html
+        assert "6/24" in html
+        assert "若财报上修 2027+ HBM 算力需求" in html
+        # Related ticker chips
+        assert "MU" in html and "NVDA" in html
+        # CTA reflects the kols_watching count (3 names in sample)
+        assert "查看 3 位博主原话 &rarr;" in html
+
+    def test_drops_other_tickers_and_tracked_kols_chips(self, sample_digest):
+        """V4.2 — '其他热议' chip block + '追踪博主' chip block removed."""
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "其他热议" not in html
+        assert "本日报追踪" not in html
+        # 值得一看 section was removed entirely
+        assert "值得一看" not in html
+
+    def test_omits_empty_sections(self, sample_digest):
+        """Sparse digests should not render empty sections."""
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        sample_digest["macro_threads"] = []
+        sample_digest["watchpoints"] = []
+        sample_digest["other_tickers"] = []
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "今天博主们在担心什么" not in html
+        assert "本周博主们在等什么" not in html
+        # Ticker section still rendered with stance summary chip
+        assert "1 位看多 · 1 位看空, 双方都有支撑" in html
+
+    def test_card_cta_summarises_argument_counts(self):
+        """Inline lanes are absent — card surfaces stance chip + view-more CTA."""
         from app.features.subscription.email_templates import format_twitter_digest_html
 
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "稳定币立法落地" in html
-        assert "Clarity Act 通过点燃 Circle" in html
-        assert "今日要点" in html
-        assert "$CRCL: 多头共识但估值已 price in" in html
-        assert "3 位金融博主" in html
-        assert "220 条原始推文" in html
-
-    def test_v3_renders_topics_with_args(self, sample_v3_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "热门话题" in html
-        assert "$CRCL · Clarity Act 通过推涨" in html
-        assert "USDC 流通量将系统性提升" in html
-        assert "估值已 price in" in html
-        # V3.2: stance shown via colored left border (#059669 bullish, #d97706 neutral)
-        # plus the meta-line stance_distribution string. The per-arg "看多/谨慎" badge
-        # was removed to cut visual chrome.
-        assert "2 位博主 · 2 看多" in html  # the meta-line stance_distribution
-        assert "border-left: 3px solid #059669" in html  # bullish row marker
-        assert "border-left: 3px solid #d97706" in html  # neutral row marker
-        # V3.2: KOL signed em-dash with display_name (no @handle prefix in the
-        # topic card itself). Whole row is the link, no separate "原推 →" CTA.
-        # Note: @alice / @bob legitimately still appear in the tracked-KOLs
-        # chip block at the bottom — that block is unchanged and out of scope.
-        assert "&mdash; Alice" in html or "— Alice" in html
-        assert "&mdash; Bob" in html or "— Bob" in html
-        # Per-arg footer with `@username · 原推 →` is gone — no separate
-        # tweet-link CTA inside the topic card.
-        assert "原推 &rarr;" not in html
-        assert "原推 →" not in html
-
-    def test_v3_renders_briefs(self, sample_v3_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "快讯" in html
-        assert "$TSLA" in html
-        assert "Q2 deliveries 数据将推动股价" in html
-        assert "半导体" in html
-        assert "出口管制再升级风险" in html
-
-    def test_v3_renders_solo_voices(self, sample_v3_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "独家声音" in html
-        assert "Beth Kindig" in html
-        assert "Hopper 出货放缓" in html
-        assert "查看完整 Thread" in html
-
-    def test_v3_omits_deprecated_closing(self, sample_v3_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        # V3.1: both crosscut AND watch_next are deprecated. Even when the row
-        # still carries them (legacy data), nothing should render — readers
-        # found the closing block too generic to be worth the space.
-        assert "跨话题观察" not in html
-        assert "宏观降息预期与个股加密板块抢跑形成共振" not in html
-        assert "明日观察" not in html
-        assert "Fed 5 月会议纪要" not in html
-
-    def test_v3_omits_empty_sections(self, sample_v3_digest):
-        """Sparse-day digest with empty briefs / solo_voices / closing should render cleanly."""
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        sample_v3_digest["briefs"] = []
-        sample_v3_digest["solo_voices"] = []
-        sample_v3_digest["crosscut"] = ""
-        sample_v3_digest["watch_next"] = []
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        # Topics still rendered
-        assert "$CRCL" in html
-        # Empty sections do not appear at all
-        assert "快讯 &middot;" not in html
-        assert "独家声音 &middot;" not in html
-        assert "跨话题观察" not in html
-        assert "明日观察" not in html
-
-    def test_v3_neutralizes_unsafe_tweet_url(self, sample_v3_digest):
-        """A poisoned tweet_url (e.g. javascript:alert) must not reach href."""
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        sample_v3_digest["topics"][0]["key_arguments"][0]["tweet_url"] = "javascript:alert(1)"
-        sample_v3_digest["briefs"][0]["tweet_url"] = "javascript:alert(2)"
-        sample_v3_digest["solo_voices"][0]["tweet_url"] = "javascript:alert(3)"
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "javascript:alert" not in html
-
-    def test_v3_neutralizes_unsafe_username(self, sample_v3_digest):
-        """A poisoned username can't break out of the user-profile href."""
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        # Username with quote / angle bracket — must be rejected for href use.
-        sample_v3_digest["topics"][0]["key_arguments"][0]["username"] = 'evil"><script>'
-
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "<script>" not in html
-        # The literal href ends up as "#" since it failed the handle regex.
-        assert 'href="#"' in html
-
-    def test_v3_escapes_unsafe_text(self, sample_v3_digest):
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        sample_v3_digest["headline"] = "<script>alert(1)</script>"
-        html = format_twitter_digest_html(sample_v3_digest, digest_date="2026-05-04")
-        assert "<script>alert(1)</script>" not in html
-        assert "&lt;script&gt;" in html
-
-    def test_v2_default_path_unchanged(self):
-        """Digest without schema_version still routes to V2 renderer."""
-        from app.features.subscription.email_templates import format_twitter_digest_html
-
-        v2_digest = {
-            "generated_at": "2026-04-25T00:00:00+00:00",
+        many_args = [
+            {
+                "kol": f"kol{i}",
+                "point_zh": f"论据 {i} 包含具体数字与时间锚。",
+                "direction": "buy",
+                "tweet_url": f"https://x.com/kol{i}/status/{200000 + i}",
+            }
+            for i in range(10)
+        ]
+        digest = {
+            "generated_at": "2026-05-09T22:00:00+00:00",
             "window_hours": 24,
             "input_tweet_count": 50,
             "tracked_kols": ["alice"],
-            "takeaway": ["legacy 要点"],
-            "macro_picks": [], "industry_picks": [], "stock_picks": [],
-            "model_version": "gemini-3.1-pro-preview",
-            # No schema_version
+            "headline": "test",
+            "intro": "测试用导览段落足以触发渲染.",
+            "ticker_theses": [{
+                "ticker": "NVDA",
+                "primary_kols": ["alice"],
+                "tweet_count": 10,
+                "synthesis_zh": "测试用综述。",
+                "buy_arguments": many_args,
+                "sell_arguments": [],
+                "observation_arguments": [],
+            }],
+            "macro_threads": [], "watchpoints": [],
+            "other_tickers": [],
+            "hot_sectors": [], "hot_tickers": [], "hot_events": [],
+            "model_version": "test",
         }
-        html = format_twitter_digest_html(v2_digest, digest_date="2026-04-25")
-        # V2 markers
-        assert "大盘走势" in html
-        assert "今日 KOL 暂无新的大盘观点" in html
-        # V3 markers absent
-        assert "热门话题" not in html
+        html = format_twitter_digest_html(digest, digest_date="2026-05-09")
+        # All-buy stance falls back to "{kols} 位博主一致看多"
+        assert "1 位博主一致看多" in html
+        # CTA jumps to the ticker anchor on the web detail
+        assert "查看 1 位博主完整观点 &rarr;" in html
+        assert "/twitter-digest/2026-05-09#ticker-NVDA" in html
+        # No inline argument body text leaks through
+        assert "论据 0 包含具体数字" not in html
+
+    def test_neutralizes_unsafe_urls(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        sample_digest["ticker_theses"][0]["buy_arguments"][0]["tweet_url"] = "javascript:alert(1)"
+        sample_digest["watchpoints"][0]["evidence"][0]["tweet_url"] = "javascript:alert(2)"
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "javascript:alert" not in html
+
+    def test_escapes_unsafe_text(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+        sample_digest["headline"] = "<script>alert(1)</script>"
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "<script>alert(1)</script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_renders_llm_stance_summary_when_provided(self, sample_digest):
+        """LLM-written `stance_summary` should be shown verbatim (not the
+        counts-based fallback). The chip is the card's lead hook."""
+        from app.features.subscription.email_templates import format_twitter_digest_html
+
+        sample_digest["ticker_theses"][0]["stance_summary"] = (
+            "多空在估值上打架, 长线派坚守 2030 目标"
+        )
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "多空在估值上打架, 长线派坚守 2030 目标" in html
+        # Counts-based fallback must NOT appear when LLM wrote a stance.
+        assert "1 位看多 · 1 位看空, 双方都有支撑" not in html
+
+    def test_watchpoint_criteria_subtitle_rendered(self, sample_digest):
+        """The new section header explains how watchpoints get picked —
+        readers should see the criteria, not just the section title."""
+        from app.features.subscription.email_templates import format_twitter_digest_html
+
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        # Section criteria copy must be present so users understand selection.
+        assert "未来 3 周内有具体发生时间的 catalyst" in html
+        # Catalyst type taxonomy is part of the subtitle.
+        assert "财报 / 数据 / 央行 / 监管 / 产品发布 / 行业事件" in html
+
+    def test_no_hot_tickers_leaderboard_block(self, sample_digest):
+        """The 今日热议 hot-ticker bar chart was removed in the simplification
+        pass — render must not regress it back even when hot_tickers populated."""
+        from app.features.subscription.email_templates import format_twitter_digest_html
+
+        sample_digest["hot_tickers"] = [
+            {"label": "NVDA", "count": 9, "kols": 2},
+            {"label": "MU", "count": 7, "kols": 3},
+        ]
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "今日热议" not in html
+
+    def test_email_contains_unsubscribe_placeholder(self, sample_digest):
+        """Compliance: marketing email must have unsubscribe link. Resend
+        Broadcasts replaces the placeholder server-side at send time."""
+        from app.features.subscription.email_templates import format_twitter_digest_html
+
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
+        assert "{{{RESEND_UNSUBSCRIBE_URL}}}" in html
+        assert "Unsubscribe" in html
 
 
 if __name__ == "__main__":

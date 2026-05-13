@@ -1,13 +1,15 @@
 """
-Twitter KOL Digest - V2 API Router.
+Twitter KOL Digest — API Router.
 
 Endpoints:
   POST /api/twitter-digest/generate   (cron_secret) — trigger pipeline; returns + persists DailyDigest
+  POST /api/twitter-digest/broadcast  (cron_secret) — send today's digest to Pro/Max subscribers
   GET  /api/twitter-digest/latest     (auth)        — most recent persisted digest
   GET  /api/twitter-digest/preview    (open)        — render persisted digest as HTML email (for /email-test)
   GET  /api/twitter-digest/{date}     (auth)        — specific date's digest (YYYY-MM-DD)
 
-V2.5 will layer paywall / Stripe entitlement on the GET endpoints.
+Paywall (Stripe entitlement) will be layered on the GET endpoints in a
+later phase — see the TODOs on `/latest` and `/{date}` handlers.
 """
 
 import re
@@ -15,7 +17,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.core.deps import verify_admin_or_nonprod_or_cron, verify_user_token
+from app.core.deps import (
+    verify_admin_or_nonprod_or_cron,
+    verify_cron_secret,
+    verify_user_token,
+)
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.subscription.email_templates import format_twitter_digest_html
@@ -53,17 +59,76 @@ async def generate_endpoint(
     return digest
 
 
+@router.post("/broadcast")
+async def broadcast_endpoint(
+    date: Optional[str] = Query(None, description="ISO YYYY-MM-DD; default = latest"),
+    _secret: str = Depends(verify_cron_secret),
+):
+    """
+    Send today's persisted digest to Pro/Max subscribers via Resend Batch.
+
+    Cron-driven (北京 08:00 工作日). Pulls the persisted DailyDigest for
+    `date` (defaults to latest), renders the HTML email, and batches sends
+    to all users with the `personal_digest_email` entitlement.
+
+    Fails with 500 if the digest is missing OR has no ticker_theses /
+    macro_threads (don't send empty mail to paying users).
+    """
+    from app.features.subscription.email_service import get_email_service
+    from app.features.twitter_digest.service import _digest_is_empty
+
+    if date and not _ISO_DATE_RE.match(date):
+        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+
+    digest = (
+        await db.get_digest_by_date(date) if date
+        else await db.get_latest_digest()
+    )
+    if not digest:
+        raise HTTPException(status_code=500, detail="No digest available to broadcast")
+
+    if _digest_is_empty(digest):
+        raise HTTPException(
+            status_code=500,
+            detail="Digest has no ticker_theses or macro_threads — refusing to broadcast empty mail",
+        )
+
+    digest_dict = digest.model_dump()
+    # Prefer the explicit query param, then the persisted BJT business date,
+    # and only fall back to slicing the UTC generated_at for legacy rows
+    # (will be off by a day around the 22:00 UTC cron — accept for history).
+    derived_date = (
+        date
+        or digest.date
+        or (digest.generated_at[:10] if digest.generated_at else None)
+    )
+    if derived_date:
+        digest_dict["date"] = derived_date
+
+    email_service = get_email_service()
+    result = await email_service.broadcast_twitter_digest(digest_dict)
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "broadcast failed"))
+
+    logger.info(
+        "twitter-digest broadcast: date=%s total=%d sent=%d failed=%d",
+        derived_date, result.get("total", 0),
+        result.get("sent", 0), result.get("failed", 0),
+    )
+    return result
+
+
 @router.post("/enrich")
 async def enrich_endpoint(
     window_hours: int = Query(24, ge=12, le=72),
     auth_path: str = Depends(verify_admin_or_nonprod_or_cron),
 ):
     """
-    V3 daily enrichment cron entrypoint.
+    Daily enrichment cron entrypoint.
 
     Walks `kol_tweets` rows where `symbols IS NULL` and `created_at >= window_hours`
-    ago, runs flash-lite to populate {quality, summary, tickers, sectors, events},
-    and writes back into `symbols` JSONB. Idempotent: already-enriched rows are
+    ago, runs flash-lite to populate {quality, ticker_stances, sectors}, and
+    writes back into `symbols` JSONB. Idempotent: already-enriched rows are
     skipped at the data-pull layer.
 
     Returns a summary suitable for cron logging.
@@ -79,13 +144,13 @@ async def enrich_endpoint(
 @limiter.limit("30/minute")
 async def get_latest(
     request: Request,
-    _user_id: str = Depends(verify_user_token),
+    user_id: str = Depends(verify_user_token),  # noqa: ARG001 — auth-only
 ):
-    """
-    Latest persisted digest.
+    """Latest persisted digest.
 
-    TODO(V2.5): replace verify_user_token with verify_pro_user (Stripe entitlement).
-    Codex review flagged this as a P1 paywall gap; deferred to V2.5 per product plan.
+    Free-trial phase: open to any signed-in user. When the trial ends, gate
+    behind `has_entitlement(user_id, "twitter_digest_email")` (or the chosen
+    paid feature key) — see commented gating helper in this module's history.
     """
     digest = await db.get_latest_digest()
     if not digest:
@@ -140,16 +205,14 @@ async def get_email_preview(
 async def get_by_date(
     request: Request,
     date: str,
-    _user_id: str = Depends(verify_user_token),
+    user_id: str = Depends(verify_user_token),  # noqa: ARG001 — auth-only
 ):
-    """
-    Specific date's digest, format YYYY-MM-DD.
+    """Specific date's digest (YYYY-MM-DD).
 
+    Free-trial phase: open to any signed-in user (same as `/latest`).
     Validates the date format here so the path param can never reach the edge
     function as anything but a plain ISO date — defensive even though Insforge
     SDK already parameterizes the query.
-
-    TODO(V2.5): replace verify_user_token with verify_pro_user (Stripe entitlement).
     """
     if not _ISO_DATE_RE.match(date):
         raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")

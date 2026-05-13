@@ -1,8 +1,9 @@
 /**
  * URL whitelist helpers for KOL-sourced content.
  *
- * `tweet_url` and `username` arrive on Topic / Brief / SoloVoice / KeyArgument
- * directly from a backend pipeline that ultimately trusts LLM output. Even
+ * `tweet_url` and `username` arrive on Argument / TickerThesis / MacroThread /
+ * WatchpointItem fields directly from a backend pipeline that ultimately
+ * trusts LLM output. Even
  * though backend validation tightens this, we re-validate on the frontend
  * before putting either into an `href` so a poisoned row from the DB cannot
  * become an XSS vector (e.g. `javascript:alert(1)`).

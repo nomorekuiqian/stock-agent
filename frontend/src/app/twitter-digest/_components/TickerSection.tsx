@@ -1,26 +1,43 @@
 /**
- * V4 Ticker Section — replaces V3 stock-level Topic cards.
+ * Ticker Section — one card per ticker, side-tagged (disputed / bull / bear).
  *
- * Renders all KOL discussion of a single ticker, organized by argument
- * direction (买入逻辑 / 卖出逻辑 / 数据观察). The reframing is from
- * "stance" (KOL 立场, 易误判) to "direction" (论据指向, 客观分类).
- *
- * Visual language follows the standard daily report:
- *   - emerald 主色 for ticker + buy lane
- *   - rose 主色 for sell lane
- *   - muted for observation
- *   - serif (font-editorial) for headers + synthesis
- *   - data font for KOL/count metadata
- *   - small uppercase tracking for section labels
+ * Synthesis is a short 30-80 字 plain-language gist of what KOLs are saying;
+ * the full bull/bear/observation argument breakdown is folded by default.
  */
 
 import { safeUserUrl, safeTweetUrl } from './safeUrl';
-import type { Argument, TickerThesis } from './types';
+import type { Argument, TickerSide, TickerThesis } from './types';
 
 interface Props {
   thesis: TickerThesis;
   index: number;
 }
+
+const SIDE_META: Record<TickerSide, {
+  emoji: string;
+  label: string;
+  chipClass: string;
+  borderClass: string;
+}> = {
+  disputed: {
+    emoji: '⚔️',
+    label: '多空打架',
+    chipClass: 'bg-amber-50 text-amber-800 border-amber-200/70 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/40',
+    borderClass: 'border-amber-300/40 dark:border-amber-700/35',
+  },
+  bull: {
+    emoji: '🟢',
+    label: '看多为主',
+    chipClass: 'bg-primary/8 text-primary border-primary/25',
+    borderClass: 'border-primary/25',
+  },
+  bear: {
+    emoji: '🔴',
+    label: '看空为主',
+    chipClass: 'bg-rose-50 text-rose-700 border-rose-200/70 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/40',
+    borderClass: 'border-rose-300/40 dark:border-rose-700/35',
+  },
+};
 
 export function TickerSection({ thesis, index }: Props) {
   const total =
@@ -28,22 +45,25 @@ export function TickerSection({ thesis, index }: Props) {
     thesis.sell_arguments.length +
     thesis.observation_arguments.length;
   if (total === 0) return null;
+  const side = thesis.side ?? 'bull';
+  const meta = SIDE_META[side];
 
   return (
     <section
       id={`ticker-${thesis.ticker}`}
-      className="rounded-xl border border-border/60 bg-card/40 p-5 md:p-7 animate-fade-in-up scroll-mt-24"
+      className={`rounded-xl border bg-card/40 p-5 md:p-7 animate-fade-in-up scroll-mt-24 ${meta.borderClass}`}
       aria-label={`${thesis.ticker} 综合讨论`}
     >
       <Header
         ticker={thesis.ticker}
+        side={side}
         kols={thesis.primary_kols.length}
         tweets={thesis.tweet_count}
         index={index}
       />
 
       {thesis.synthesis_zh && (
-        <p className="mt-4 text-[15px] leading-[1.85] text-foreground/85 font-editorial border-l-2 border-primary/35 pl-4 py-1">
+        <p className="mt-4 text-[15px] leading-[1.85] text-foreground/90 font-editorial">
           {thesis.synthesis_zh}
         </p>
       )}
@@ -132,14 +152,15 @@ function ToneSummary({ buy, sell, obs }: { buy: number; sell: number; obs: numbe
 // ---------------------------------------------------------------------------
 
 function Header({
-  ticker, kols, tweets, index,
-}: { ticker: string; kols: number; tweets: number; index: number }) {
+  ticker, side, kols, tweets, index,
+}: { ticker: string; side: TickerSide; kols: number; tweets: number; index: number }) {
+  const meta = SIDE_META[side];
   return (
-    <header className="flex items-baseline justify-between gap-3 border-b border-border/40 pb-4">
-      <h3 className="flex items-baseline gap-3 min-w-0">
+    <header className="flex items-center justify-between gap-3 border-b border-border/40 pb-4">
+      <div className="flex items-center gap-3 min-w-0">
         <span
           aria-hidden
-          className="font-data text-[10px] tabular-nums text-muted-foreground/60 mt-1"
+          className="font-data text-[10px] tabular-nums text-muted-foreground/60"
         >
           {String(index + 1).padStart(2, '0')}
         </span>
@@ -147,7 +168,14 @@ function Header({
           <span className="text-primary/70">$</span>
           <span className="text-foreground">{ticker}</span>
         </span>
-      </h3>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${meta.chipClass}`}
+          aria-label={meta.label}
+        >
+          <span aria-hidden>{meta.emoji}</span>
+          <span>{meta.label}</span>
+        </span>
+      </div>
       <div className="flex items-baseline gap-3 shrink-0 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/75 font-data">
         <span className="tabular-nums">
           <span className="text-foreground/85">{kols}</span> KOL

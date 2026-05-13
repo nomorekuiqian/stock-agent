@@ -1,19 +1,19 @@
 """
-Twitter KOL Digest - V3 aggregation pipeline.
+Twitter KOL Digest — aggregation pipeline.
 
-    pull_candidate_tweets(24h)              # only quality in {high, medium}
+    pull_candidate_tweets(24h)              # only quality=keep
         -> curate_tweets (single pro LLM call)
-            -> CuratedDigestOutput (V3 schema: topics + briefs + solo_voices + ...)
-    -> generate_daily_digest -> DailyDigest (schema_version="v3")
+            -> CuratedDigestOutput (ticker_theses + macro_threads + watchpoints)
+    -> generate_daily_digest -> DailyDigest
         -> persisted in kol_daily_digests via db.save_digest
 
-Quality judgment was moved to the daily enrichment cron (Step 1) — this
-pipeline trusts `kol_tweets.symbols.quality` and never re-judges.
+Quality judgment is done by the daily enrichment cron (Step 1); this pipeline
+trusts `kol_tweets.symbols.quality` and never re-judges.
 """
 
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Type, TypeVar
+from typing import Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -31,16 +31,11 @@ from app.features.twitter_digest.agents import (
 )
 from app.features.twitter_digest.models import (
     Argument,
-    Brief,
     CuratedDigestOutput,
-    CuratedDigestOutputV4,
     DailyDigest,
     HotItem,
-    NotableTweet,
     OtherTickerMention,
-    SoloVoice,
-    Topic,
-    WatchpointItem,
+    TickerThesis,
 )
 
 logger = get_logger(__name__)
@@ -57,8 +52,8 @@ T = TypeVar("T", bound=BaseModel)
 def _enrichment_of(tweet: dict) -> dict:
     """Extract the enrichment payload from a `kol_tweets` row's `symbols` column.
 
-    Returns {} when symbols is absent or not the V3 dict shape (e.g. legacy
-    array form). Callers treat empty enrichment as "skip" / "low".
+    Returns {} when symbols is absent or not the expected dict shape (e.g. legacy
+    array form). Callers treat empty enrichment as "skip" / unenriched.
     """
     symbols = tweet.get("symbols")
     if isinstance(symbols, dict):
@@ -67,30 +62,88 @@ def _enrichment_of(tweet: dict) -> dict:
 
 
 def _quality_of(tweet: dict) -> str:
+    """Return 'keep' | 'drop' | '' (unenriched).
+
+    Maps legacy {high, medium, low} to {keep, drop} for backwards compatibility
+    with rows enriched before the schema change.
+    """
     enrich = _enrichment_of(tweet)
     q = enrich.get("quality")
-    if q in ("high", "medium", "low"):
+    if q in ("keep", "drop"):
         return q
+    if q in ("high", "medium"):
+        return "keep"
+    if q == "low":
+        return "drop"
     return ""  # unenriched
 
 
-async def pull_candidate_tweets(window_hours: int = 24) -> tuple[list[dict], list[str]]:
+def _ticker_stances_of(tweet: dict) -> list[dict]:
+    """Return per-ticker stance objects, normalized for downstream code.
+
+    New schema rows store `ticker_stances: [{ticker, stance}]`.
+    Legacy rows have a bare `tickers: [str]`; for those, fabricate
+    `stance='neutral'` so the rest of the pipeline still works.
+    """
+    enrich = _enrichment_of(tweet)
+    raw = enrich.get("ticker_stances")
+    if isinstance(raw, list) and raw:
+        out: list[dict] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            ticker = item.get("ticker")
+            if not isinstance(ticker, str):
+                continue
+            tk = ticker.strip().upper().lstrip("$")
+            if not tk:
+                continue
+            stance = item.get("stance") or "neutral"
+            if stance not in ("bull", "bear", "neutral"):
+                stance = "neutral"
+            out.append({"ticker": tk, "stance": stance})
+        return out
+    # Legacy fallback: bare tickers list, default stance = neutral
+    legacy = enrich.get("tickers") or []
+    out_legacy: list[dict] = []
+    for tk in legacy:
+        if not isinstance(tk, str):
+            continue
+        ut = tk.strip().upper().lstrip("$")
+        if ut:
+            out_legacy.append({"ticker": ut, "stance": "neutral"})
+    return out_legacy
+
+
+def _tickers_of(tweet: dict) -> list[str]:
+    """Just the ticker symbols, for code that doesn't care about stance."""
+    return [ts["ticker"] for ts in _ticker_stances_of(tweet)]
+
+
+async def pull_candidate_tweets(
+    window_hours: int = 24,
+) -> tuple[list[dict], list[str], int]:
     """
     Pull tweets from all enabled KOLs in the last `window_hours`.
 
-    Returns (tweets, kol_usernames). Filters:
+    Returns (tweets, kol_usernames, raw_count). `raw_count` is the total
+    tweets in the window before any quality / reply filtering — used as
+    the user-facing "original tweet count" on web + email (the post-filter
+    count is too small to be motivating).
+
+    Filters:
       1. Drop low-engagement replies (likes+rt < threshold).
       2. Drop unenriched tweets (no `symbols.quality`) — defensive, the cron
          normally pre-runs enrichment, but if it lagged we don't feed garbage
          to the pro model.
-      3. Drop `quality="low"` tweets — never reach the digest stage.
+      3. Drop `quality="drop"` tweets — never reach the digest stage.
 
     Logs scanning ratio so ops can monitor enrichment coverage.
     """
     catalog = await get_enabled_kols()
     usernames = [k["username"] for k in catalog]
     if not usernames:
-        return [], []
+        return [], [], 0
 
     # PostgREST .in() with hundreds of values blows past URL length (502 from
     # the proxy). Once the catalog is "big", skip the server-side username
@@ -151,7 +204,6 @@ async def pull_candidate_tweets(window_hours: int = 24) -> tuple[list[dict], lis
     dropped_lowengage = 0
     unenriched = 0
     dropped_low = 0
-    by_quality = {"high": 0, "medium": 0}
 
     for t in raw:
         if t.get("tweet_type") == "reply":
@@ -163,10 +215,9 @@ async def pull_candidate_tweets(window_hours: int = 24) -> tuple[list[dict], lis
         if q == "":
             unenriched += 1
             continue
-        if q == "low":
+        if q == "drop":
             dropped_low += 1
             continue
-        by_quality[q] = by_quality.get(q, 0) + 1
         kept.append(t)
 
     if unenriched and (unenriched / max(len(raw), 1)) > 0.5:
@@ -181,15 +232,15 @@ async def pull_candidate_tweets(window_hours: int = 24) -> tuple[list[dict], lis
 
     logger.info(
         "pull_candidate_tweets: window=%dh kols=%d raw=%d kept=%d "
-        "(low=%d, unenriched=%d, low_engage_replies=%d) by_quality=%s",
+        "(dropped=%d, unenriched=%d, low_engage_replies=%d)",
         window_hours, len(usernames), len(raw), len(kept),
-        dropped_low, unenriched, dropped_lowengage, by_quality,
+        dropped_low, unenriched, dropped_lowengage,
     )
-    return kept, usernames
+    return kept, usernames, len(raw)
 
 
 # ---------------------------------------------------------------------------
-# Single LLM agent runner (shared with V2 path; same agent name)
+# Single LLM agent runner
 # ---------------------------------------------------------------------------
 
 
@@ -251,12 +302,8 @@ def _slim_tweet_for_curate(t: dict) -> dict:
         "retweet_count": t.get("retweet_count", 0),
         "reply_count": t.get("reply_count", 0),
         "enrichment": {
-            "quality": enrich.get("quality"),
-            "quality_features": list(enrich.get("quality_features") or []),
-            "content_summary_zh": enrich.get("content_summary_zh") or "",
-            "tickers": list(enrich.get("tickers") or []),
+            "ticker_stances": _ticker_stances_of(t),
             "sectors": list(enrich.get("sectors") or []),
-            "events": list(enrich.get("events") or []),
         },
     }
 
@@ -265,168 +312,16 @@ def _slim_tweet_for_curate(t: dict) -> dict:
 # Post-processing
 # ---------------------------------------------------------------------------
 
-def _stance_distribution_string(args) -> str:
-    """Render '5 位博主 · 4 看多 / 1 谨慎' from a list of KeyArgument."""
-    n_kol = len({a.username for a in args})
-    counts = {"bullish": 0, "bearish": 0, "neutral": 0}
-    for a in args:
-        if a.stance in counts:
-            counts[a.stance] += 1
-    parts = []
-    if counts["bullish"]:
-        parts.append(f"{counts['bullish']} 看多")
-    if counts["bearish"]:
-        parts.append(f"{counts['bearish']} 看空")
-    if counts["neutral"]:
-        parts.append(f"{counts['neutral']} 谨慎")
-    if not parts:
-        return f"{n_kol} 位博主"
-    return f"{n_kol} 位博主 · " + " / ".join(parts)
 
-
-def _refresh_topic_post_processing(topics: list[Topic]) -> None:
-    """Compute stance_distribution and reconcile participating_kols from key_arguments.
-
-    The LLM is asked to emit `participating_kols`, but we ALWAYS recompute it
-    from the actual `key_arguments` so the count is always honest, even if the
-    LLM emitted a stale or wrong list.
-    """
-    for topic in topics:
-        if not topic.key_arguments:
-            topic.stance_distribution = ""
-            topic.participating_kols = []
-            continue
-        topic.stance_distribution = _stance_distribution_string(topic.key_arguments)
-        kols = []
-        seen: set[str] = set()
-        for a in topic.key_arguments:
-            if a.username not in seen:
-                seen.add(a.username)
-                kols.append(a.username)
-        topic.participating_kols = kols
-
-
-def _fill_brief_one_liners(briefs: list[Brief], raw_by_id: dict[str, dict]) -> None:
-    """Backend-fill `Brief.one_liner_zh` from the source enrichment summary.
-
-    The LLM intentionally leaves `one_liner_zh` empty in V3 — the brief layer
-    reuses `content_summary_zh` to save pro tokens and to keep one-liner
-    quality consistent across the day.
-    """
-    for b in briefs:
-        if b.one_liner_zh:
-            continue
-        src = raw_by_id.get(b.tweet_id)
-        if not src:
-            continue
-        enrich = _enrichment_of(src)
-        summary = (enrich.get("content_summary_zh") or "").strip()
-        if summary:
-            # Hard cap to schema ceiling
-            b.one_liner_zh = summary[:120]
-
-
-def _enforce_source_provenance(
-    output: CuratedDigestOutput, raw_by_id: dict[str, dict],
-) -> None:
-    """Drop LLM-emitted items whose `tweet_id` was not in the input.
-
-    The LLM occasionally hallucinates tweet_ids, mixes them between fields, or
-    references already-filtered low-quality tweets. We require every tweet_id
-    on a Topic.key_argument / Brief / SoloVoice to map back to the raw input.
-
-    Solo voices additionally must satisfy the trigger condition the prompt
-    promises: source `quality="high"` AND `tweet_type in {thread, article}`.
-    Without this guard, a chatty LLM can put any high-engagement original
-    tweet under solo_voices, defeating the "deep read" semantics.
-    """
-    # Topic key_arguments: keep only args whose tweet_id is in input.
-    for topic in output.topics:
-        topic.key_arguments = [
-            a for a in topic.key_arguments if a.tweet_id in raw_by_id
-        ]
-    # Drop topics that ended up with zero valid key_arguments.
-    output.topics = [t for t in output.topics if t.key_arguments]
-
-    # SoloVoice: tweet_id in input AND source thread/article AND quality=high.
-    valid_solos: list[SoloVoice] = []
-    for s in output.solo_voices:
-        src = raw_by_id.get(s.tweet_id)
-        if not src:
-            continue
-        if src.get("tweet_type") not in ("thread", "article"):
-            continue
-        enrich = _enrichment_of(src)
-        if enrich.get("quality") != "high":
-            continue
-        valid_solos.append(s)
-    output.solo_voices = valid_solos
-
-    # Briefs: tweet_id in input. (Quality + label-validity checked elsewhere.)
-    output.briefs = [b for b in output.briefs if b.tweet_id in raw_by_id]
-
-
-def _enforce_no_overlap(output: CuratedDigestOutput) -> None:
-    """Guarantee a tweet appears in at most one of (topic args / briefs / solo voices).
-
-    The prompt asks for this but the LLM occasionally double-counts. Order of
-    precedence: topics > solo_voices > briefs. We strip duplicates from the
-    later category.
-    """
-    tweet_ids_in_topics: set[str] = set()
-    for topic in output.topics:
-        for arg in topic.key_arguments:
-            tweet_ids_in_topics.add(arg.tweet_id)
-
-    output.solo_voices = [
-        s for s in output.solo_voices if s.tweet_id not in tweet_ids_in_topics
-    ]
-    tweet_ids_in_solos = {s.tweet_id for s in output.solo_voices}
-
-    output.briefs = [
-        b for b in output.briefs
-        if b.tweet_id not in tweet_ids_in_topics
-        and b.tweet_id not in tweet_ids_in_solos
-    ]
-
-
-def _enforce_brief_validity(briefs: list[Brief], raw_by_id: dict[str, dict]) -> list[Brief]:
-    """Drop briefs whose source tweet has neither tickers nor sectors.
-
-    Quality is already filtered by pull_candidate_tweets (must be high/medium),
-    so the only post-processing constraint is the "must carry a label dimension"
-    rule from the design doc.
-    """
-    out: list[Brief] = []
-    for b in briefs:
-        src = raw_by_id.get(b.tweet_id)
-        if not src:
-            continue
-        enrich = _enrichment_of(src)
-        if not enrich.get("tickers") and not enrich.get("sectors"):
-            continue
-        out.append(b)
-    return out
-
-
-def _enforce_caps(output: CuratedDigestOutput) -> None:
-    """Apply defensive caps so a chatty pro model can't blow up the page."""
-    output.topics = output.topics[:15]
-    output.briefs = output.briefs[:25]
-    output.solo_voices = output.solo_voices[:5]
-    output.takeaway = output.takeaway[:5]
-    output.watch_next = output.watch_next[:3]
-
-
-def _enforce_v4_provenance(
-    output: CuratedDigestOutputV4,
+def _enforce_provenance(
+    output: CuratedDigestOutput,
     raw_by_id: dict[str, dict],
 ) -> None:
     """Drop arguments whose tweet_url isn't in the input tweets.
 
-    Provenance is the bedrock of V4 — every argument must trace back to a
-    real source tweet. The LLM can hallucinate URLs/usernames; we hard-drop
-    any that don't match.
+    Provenance is the bedrock — every argument must trace back to a real
+    source tweet. The LLM can hallucinate URLs/usernames; we hard-drop any
+    that don't match.
     """
     valid_urls = {t.get("url") for t in raw_by_id.values() if t.get("url")}
     valid_authors = {(t.get("author_username") or "").lower() for t in raw_by_id.values()}
@@ -463,7 +358,7 @@ def _enforce_v4_provenance(
         kols = {(a.kol or "").lower() for a in thread.key_points if a.kol}
         thread.primary_kols = sorted(kols)
 
-    # V4.2: same provenance check on watchpoint evidence + recompute kols_watching
+    # Same provenance check on watchpoint evidence + recompute kols_watching
     for wp in output.watchpoints:
         wp.evidence = _filter_args(wp.evidence)
         derived_kols = {(a.kol or "").lower() for a in wp.evidence if a.kol}
@@ -492,7 +387,7 @@ def _watchpoint_keywords(title: str) -> list[str]:
 
 
 def _backfill_watchpoint_evidence(
-    output: CuratedDigestOutputV4,
+    output: CuratedDigestOutput,
     raw_by_id: dict[str, dict],
 ) -> None:
     """If LLM forgot to fill evidence, synthesize 2-3 evidence Arguments from
@@ -515,10 +410,7 @@ def _backfill_watchpoint_evidence(
             text = (tweet.get("text") or "")
             quoted = (tweet.get("quoted_tweet_text") or "")
             full = (text + " " + quoted).lower()
-            symbols = tweet.get("symbols") or {}
-            tweet_tickers = {
-                str(t).upper() for t in (symbols.get("tickers") or [])
-            }
+            tweet_tickers = {tk for tk in _tickers_of(tweet)}
 
             # Strict: only consider tweets from KOLs the LLM flagged as watching.
             # The watchpoint claims these KOLs care; evidence must be theirs.
@@ -550,15 +442,15 @@ def _backfill_watchpoint_evidence(
             author = (t.get("author_username") or "").lower()
             if author in seen_authors:
                 continue  # diversify by author
-            symbols = t.get("symbols") or {}
-            summary = (symbols.get("content_summary_zh") or "").strip()
-            if not summary or not t.get("url"):
+            text = (t.get("text") or "").replace("\n", " ").strip()
+            if not text or not t.get("url"):
                 continue
+            point = text if len(text) <= 280 else text[:279].rstrip() + "…"
             wp.evidence.append(Argument(
                 kol=author,
-                point_zh=summary,
+                point_zh=point,
                 direction="observation",
-                tweet_url=t.get("url"),
+                tweet_url=t.get("url") or "",
             ))
             seen_authors.add(author)
 
@@ -569,21 +461,99 @@ def _backfill_watchpoint_evidence(
             )
 
 
-def _enforce_caps_v4(output: CuratedDigestOutputV4) -> None:
-    """V4 caps."""
+_SIDE_DISPUTED_MIN = 2  # both sides must have ≥ this many arguments to be disputed
+_SIDE_DOMINANCE_MARGIN = 2  # one side must lead by ≥ this many for clear bull/bear
+
+
+def _compute_thesis_side(thesis) -> str:
+    """Classify a thesis as disputed / bull / bear from surviving arguments.
+
+    - disputed: both buy ≥ N AND sell ≥ N (N = _SIDE_DISPUTED_MIN)
+    - bull:     buy - sell ≥ margin, OR sell == 0 with buy > 0
+    - bear:     sell - buy ≥ margin, OR buy == 0 with sell > 0
+    - else:     fall back to majority direction; tie → bull (rare).
+    """
+    buy = len(thesis.buy_arguments)
+    sell = len(thesis.sell_arguments)
+    if buy >= _SIDE_DISPUTED_MIN and sell >= _SIDE_DISPUTED_MIN:
+        return "disputed"
+    if buy > 0 and sell == 0:
+        return "bull"
+    if sell > 0 and buy == 0:
+        return "bear"
+    if buy - sell >= _SIDE_DOMINANCE_MARGIN:
+        return "bull"
+    if sell - buy >= _SIDE_DOMINANCE_MARGIN:
+        return "bear"
+    # Mixed but not enough volume on the smaller side → take the majority.
+    return "bull" if buy >= sell else "bear"
+
+
+_SIDE_RANK = {"disputed": 0, "bull": 1, "bear": 2}
+
+
+def _fallback_stance_summary(thesis) -> str:
+    """Generate a stance_summary when the LLM leaves it blank.
+
+    Counts-based, deliberately bland — the LLM is supposed to produce
+    nuanced multi-axis descriptions ("多空在估值上打架, 长线派坚守"),
+    but if it doesn't, we don't want the UI showing an empty header.
+    """
+    buy = len(thesis.buy_arguments)
+    sell = len(thesis.sell_arguments)
+    obs = len(thesis.observation_arguments)
+    kols = len(thesis.primary_kols)
+    if buy > 0 and sell > 0:
+        return f"{buy} 位看多 · {sell} 位看空, 双方都有支撑"
+    if buy > 0 and sell == 0:
+        return f"{kols} 位博主一致看多"
+    if sell > 0 and buy == 0:
+        return f"{kols} 位博主一致看空"
+    if obs > 0:
+        return f"{kols} 位博主在跟踪进展, 暂无明确方向"
+    return f"{kols} 位博主在讨论"
+
+
+def _enforce_caps(output: CuratedDigestOutput) -> None:
+    """Apply defensive caps + classify ticker side + sort layout-friendly."""
     # Drop empty theses (all arguments filtered)
     output.ticker_theses = [
         t for t in output.ticker_theses if t.tweet_count > 0
     ]
-    # Sort: most discussed ticker first
-    output.ticker_theses.sort(key=lambda t: (-len(t.primary_kols), -t.tweet_count))
+    # Drop theses that only contain observation arguments — readers cannot
+    # tell what direction the crowd is leaning, so the card has no decision
+    # value. Ticker still surfaces in other_tickers via post-processing.
+    before_directional = len(output.ticker_theses)
+    output.ticker_theses = [
+        t for t in output.ticker_theses
+        if len(t.buy_arguments) + len(t.sell_arguments) >= 1
+    ]
+    dropped_obs_only = before_directional - len(output.ticker_theses)
+    if dropped_obs_only:
+        logger.info(
+            "_enforce_caps: dropped %d ticker_theses with no buy/sell arguments",
+            dropped_obs_only,
+        )
+    # Classify side from surviving arguments
+    for thesis in output.ticker_theses:
+        thesis.side = _compute_thesis_side(thesis)  # type: ignore[assignment]
+        if not thesis.stance_summary.strip():
+            thesis.stance_summary = _fallback_stance_summary(thesis)
+
+    # Sort: disputed first (engagement bait), then bull, then bear.
+    # Within each side, more KOL discussion comes first.
+    output.ticker_theses.sort(
+        key=lambda t: (_SIDE_RANK.get(t.side, 9), -len(t.primary_kols), -t.tweet_count)
+    )
     output.ticker_theses = output.ticker_theses[:_TICKER_THESIS_CAP]
-    output.macro_threads = output.macro_threads[:6]
-    output.takeaway = output.takeaway[:5]
-    output.watch_next = output.watch_next[:3]
-    # V4.2: cap watchpoints, drop bogus ones, sort by KOL count
-    # V4.3: also drop watchpoints without evidence — empty evidence means LLM
-    # didn't actually find supporting tweets, so the watchpoint is unverifiable.
+
+    # Frontend doesn't render intro anymore — clear any LLM bleed.
+    output.intro = ""
+
+    # Macro threads — short list, 0-5
+    output.macro_threads = output.macro_threads[:5]
+
+    # Watchpoints — drop bogus, cap at 5
     raw_count = len(output.watchpoints)
     output.watchpoints = [
         w for w in output.watchpoints
@@ -593,14 +563,14 @@ def _enforce_caps_v4(output: CuratedDigestOutputV4) -> None:
     output.watchpoints = [w for w in output.watchpoints if len(w.evidence) > 0]
     if no_evidence:
         logger.warning(
-            "_enforce_caps_v4: dropped %d watchpoints with empty evidence: %s",
+            "_enforce_caps: dropped %d watchpoints with empty evidence: %s",
             len(no_evidence), no_evidence,
         )
     output.watchpoints.sort(key=lambda w: -len(w.kols_watching))
-    output.watchpoints = output.watchpoints[:7]
+    output.watchpoints = output.watchpoints[:5]
     if raw_count != len(output.watchpoints):
         logger.info(
-            "_enforce_caps_v4: watchpoints %d → %d after filters",
+            "_enforce_caps: watchpoints %d → %d after filters",
             raw_count, len(output.watchpoints),
         )
 
@@ -611,7 +581,7 @@ def _compute_top_tickers_priors(
     """Compute the top tickers by distinct KOL count from enriched tweets.
 
     Returns [(ticker, mentions, kols)] sorted by KOL count desc. The top of
-    this list is fed into the V4 curate prompt as `must_include_tickers` so
+    this list is fed into the curate prompt as `must_include_tickers` so
     the LLM cannot drop the most-discussed ticker (e.g., NVDA) — solving the
     non-determinism issue where NVDA had thesis on one run, none on another.
     """
@@ -620,13 +590,7 @@ def _compute_top_tickers_priors(
     kol_set: dict[str, set[str]] = {}
     for t in tweets:
         author = (t.get("author_username") or "").lower()
-        e = _enrichment_of(t)
-        for tk in (e.get("tickers") or []):
-            if not isinstance(tk, str):
-                continue
-            tk = tk.upper().lstrip("$")
-            if not tk:
-                continue
+        for tk in _tickers_of(t):
             mention_count[tk] += 1
             kol_set.setdefault(tk, set()).add(author)
     rows = [
@@ -647,13 +611,7 @@ def _compute_other_tickers(
     kol_set: dict[str, set[str]] = {}
     for t in tweets:
         author = (t.get("author_username") or "").lower()
-        e = _enrichment_of(t)
-        for tk in (e.get("tickers") or []):
-            if not isinstance(tk, str):
-                continue
-            tk = tk.upper().lstrip("$")
-            if not tk:
-                continue
+        for tk in _tickers_of(t):
             mention_count[tk] += 1
             kol_set.setdefault(tk, set()).add(author)
     rows: list[OtherTickerMention] = []
@@ -667,12 +625,114 @@ def _compute_other_tickers(
     return rows[:12]
 
 
-def _compute_notable_missed_tweets(
+# ---------------------------------------------------------------------------
+# Curation — ticker-as-topic + 论据指向
+# ---------------------------------------------------------------------------
+
+
+# Hard ceiling on tweets fed to the pro model in a single call. Each slim
+# tweet is roughly 200 tokens; 400 gives us ~80k input tokens — enough to
+# cover a busy day after widened keep, well within Gemini Pro's window,
+# and bounded enough that JSON output stays schema-compliant. We trim by
+# (1) covering must_include tickers, (2) engagement + KOL diversity, then
+# (3) recency fallback.
+_CURATE_MAX_TWEETS = 400
+_CURATE_PER_KOL_SOFT_CAP = 25  # diversity nudge in the engagement pass
+
+
+def _budget_curate_tweets(
     tweets: list[dict],
-    cited_urls: set[str],
-    limit: int = 8,
-) -> list[NotableTweet]:
-    """High-engagement quality tweets not cited in any thesis/macro_thread."""
+    must_include: list[str],
+) -> list[dict]:
+    """Cap input to the pro model with priority preservation.
+
+    Goal: never silently drop a must-include ticker's evidence due to volume.
+    Priority order:
+      1. All tweets that mention any must_include ticker (preserves coverage).
+      2. Remaining slots filled by engagement-ranked tweets with a per-KOL
+         soft cap so no single KOL eats the budget.
+      3. Recency tie-break if engagement matches.
+
+    Returns the original tweet dicts (not slimmed) — slimming happens later.
+    """
+    if len(tweets) <= _CURATE_MAX_TWEETS:
+        return tweets
+
+    must_set = {tk.upper() for tk in must_include}
+
+    def _tweet_tickers(t: dict) -> set[str]:
+        return {tk.upper() for tk in _tickers_of(t)}
+
+    def _engagement(t: dict) -> int:
+        return (
+            (t.get("like_count") or 0)
+            + 2 * (t.get("retweet_count") or 0)
+            + 5 * (t.get("reply_count") or 0)
+        )
+
+    must_cover = [t for t in tweets if _tweet_tickers(t) & must_set]
+    rest = [t for t in tweets if not (_tweet_tickers(t) & must_set)]
+
+    # Cap must_cover too — a single hot ticker shouldn't eat 100% of budget.
+    must_cap = min(len(must_cover), int(_CURATE_MAX_TWEETS * 0.6))
+    must_cover.sort(key=lambda t: (-_engagement(t), t.get("created_at") or ""))
+    chosen: list[dict] = must_cover[:must_cap]
+
+    remaining_budget = _CURATE_MAX_TWEETS - len(chosen)
+    if remaining_budget <= 0:
+        return chosen
+
+    # Engagement pass with per-KOL soft cap. Walk tweets in engagement order;
+    # skip once a KOL has already contributed _CURATE_PER_KOL_SOFT_CAP items.
+    rest.sort(key=lambda t: (-_engagement(t), t.get("created_at") or ""))
+    per_kol: dict[str, int] = {}
+    for t in rest:
+        if len(chosen) - must_cap >= remaining_budget:
+            break
+        author = (t.get("author_username") or "").lower()
+        if per_kol.get(author, 0) >= _CURATE_PER_KOL_SOFT_CAP:
+            continue
+        chosen.append(t)
+        per_kol[author] = per_kol.get(author, 0) + 1
+
+    logger.info(
+        "_budget_curate_tweets: trimmed %d → %d (must_cover=%d, rest_picked=%d)",
+        len(tweets), len(chosen), must_cap, len(chosen) - must_cap,
+    )
+    return chosen
+
+
+def _fallback_thesis_for_missing(
+    ticker: str,
+    tweets: list[dict],
+) -> TickerThesis | None:
+    """Build a minimal grounded TickerThesis when the LLM dropped a must_include.
+
+    Returns None when the ticker only has neutral mentions in the source pool —
+    the hard floor in `_enforce_caps` requires at least one bull or bear take,
+    so a fallback with only observation would be discarded again. Falling
+    back to other_tickers tail is the correct behavior in that case.
+    """
+    target = ticker.upper().lstrip("$")
+    bulls: list[dict] = []
+    bears: list[dict] = []
+    neutrals: list[dict] = []
+    for t in tweets:
+        for ts in _ticker_stances_of(t):
+            if ts["ticker"].upper() != target:
+                continue
+            stance = ts["stance"]
+            if stance == "bull":
+                bulls.append(t)
+            elif stance == "bear":
+                bears.append(t)
+            else:
+                neutrals.append(t)
+            break
+
+    if not bulls and not bears:
+        return None
+
     def engagement(t: dict) -> int:
         return (
             (t.get("like_count") or 0)
@@ -680,97 +740,56 @@ def _compute_notable_missed_tweets(
             + 5 * (t.get("reply_count") or 0)
         )
 
-    notable: list[NotableTweet] = []
-    candidates = [t for t in tweets if (t.get("url") or "") not in cited_urls]
-    candidates.sort(key=engagement, reverse=True)
-    for t in candidates:
-        eng = engagement(t)
-        if eng < 100:  # hard floor — really must have moved the room
-            break
-        e = _enrichment_of(t)
-        summary = (e.get("content_summary_zh") or "").strip()
-        if not summary:
-            continue
-        notable.append(NotableTweet(
+    bulls.sort(key=engagement, reverse=True)
+    bears.sort(key=engagement, reverse=True)
+    neutrals.sort(key=engagement, reverse=True)
+
+    def make_arg(t: dict, direction: str) -> Argument:
+        text = (t.get("text") or "").replace("\n", " ").strip()
+        snippet = text if len(text) <= 140 else text[:139].rstrip() + "…"
+        return Argument(
             kol=(t.get("author_username") or "").lower(),
-            summary_zh=summary,
+            point_zh=snippet,
+            direction=direction,  # type: ignore[arg-type]
             tweet_url=t.get("url") or "",
-            engagement=eng,
-            tickers=[
-                tk.upper().lstrip("$")
-                for tk in (e.get("tickers") or [])
-                if isinstance(tk, str) and tk
-            ][:5],
-        ))
-        if len(notable) >= limit:
-            break
-    return notable
+        )
 
+    buy_args = [make_arg(t, "buy") for t in bulls[:2]]
+    sell_args = [make_arg(t, "sell") for t in bears[:2]]
+    obs_args = [make_arg(t, "observation") for t in neutrals[:2]]
 
-# ---------------------------------------------------------------------------
-# Curation (V3 single-stage)
-# ---------------------------------------------------------------------------
+    primary_kols: list[str] = []
+    seen: set[str] = set()
+    for a in buy_args + sell_args + obs_args:
+        if a.kol and a.kol not in seen:
+            seen.add(a.kol)
+            primary_kols.append(a.kol)
 
-
-async def curate_tweets(tweets: list[dict], usernames: list[str]) -> CuratedDigestOutput:
-    """One LLM call → cluster into topics/briefs/solo_voices + write editorial layer."""
-    catalog = await get_enabled_kols()
-    kol_profiles = [
-        {"username": k["username"], "display_name": k["display_name"]}
-        for k in catalog if k["username"] in usernames
-    ]
-    payload = {
-        "kols": kol_profiles,
-        "tweets": [_slim_tweet_for_curate(t) for t in tweets],
-    }
-    output = await _run_agent(curate_agent, payload, CuratedDigestOutput)
-
-    # Build a lookup for post-processing
-    raw_by_id = {t["id"]: t for t in tweets}
-
-    # 1. Drop hallucinated tweet_ids and items not satisfying trigger conditions
-    _enforce_source_provenance(output, raw_by_id)
-
-    # 2. Strip overlap (topics > solo_voices > briefs)
-    _enforce_no_overlap(output)
-
-    # 3. Recompute stance_distribution + participating_kols on topics
-    _refresh_topic_post_processing(output.topics)
-
-    # 4. Backend-fill brief one-liners from enrichment summaries
-    _fill_brief_one_liners(output.briefs, raw_by_id)
-
-    # 5. Drop briefs missing label dimension
-    output.briefs = _enforce_brief_validity(output.briefs, raw_by_id)
-
-    # 6. Defensive caps
-    _enforce_caps(output)
-
-    logger.info(
-        "curate_tweets: topics=%d briefs=%d solo_voices=%d takeaway=%d (input=%d)",
-        len(output.topics), len(output.briefs), len(output.solo_voices),
-        len(output.takeaway), len(tweets),
+    return TickerThesis(
+        ticker=target,
+        primary_kols=primary_kols,
+        tweet_count=len(bulls) + len(bears) + len(neutrals),
+        stance_summary="",  # _enforce_caps fills via _fallback_stance_summary
+        synthesis_zh="",  # left empty — we won't fabricate prose the LLM didn't write
+        buy_arguments=buy_args,
+        sell_arguments=sell_args,
+        observation_arguments=obs_args,
     )
-    return output
 
 
-# ---------------------------------------------------------------------------
-# V4 Curation — ticker-as-topic + 论据指向
-# ---------------------------------------------------------------------------
-
-
-async def curate_tweets_v4(
+async def curate_tweets(
     tweets: list[dict], usernames: list[str],
-) -> CuratedDigestOutputV4:
-    """V4 curate: cluster by ticker, classify by direction (buy/sell/observation).
+) -> CuratedDigestOutput:
+    """Cluster by ticker, classify each argument by direction (buy/sell/observation).
 
     Computes top-N tickers by distinct KOL count BEFORE the LLM call and
     injects them as `must_include_tickers` into the payload — this stops the
     LLM from non-deterministically dropping the most-discussed ticker
-    (e.g., NVDA). The cap (6) is enforced post-curate.
-    """
-    from app.features.twitter_digest.agents import curate_agent_v4
+    (e.g., NVDA). The cap (8) is enforced post-curate.
 
+    Input is budget-capped via `_budget_curate_tweets` so the widened keep
+    standard doesn't blow up pro context or cost.
+    """
     catalog = await get_enabled_kols()
     kol_profiles = [
         {"username": k["username"], "display_name": k["display_name"]}
@@ -782,34 +801,62 @@ async def curate_tweets_v4(
     top_priors = _compute_top_tickers_priors(tweets, top_n=5)
     must_include = [tk for tk, _, _ in top_priors]
 
+    budgeted_tweets = _budget_curate_tweets(tweets, must_include)
+
     payload = {
         "kols": kol_profiles,
         "must_include_tickers": must_include,
-        "tweets": [_slim_tweet_for_curate(t) for t in tweets],
+        "tweets": [_slim_tweet_for_curate(t) for t in budgeted_tweets],
     }
-    output = await _run_agent(curate_agent_v4, payload, CuratedDigestOutputV4)
+    output = await _run_agent(curate_agent, payload, CuratedDigestOutput)
 
     raw_by_id = {t["id"]: t for t in tweets}
-    _enforce_v4_provenance(output, raw_by_id)
-    # V4.3: backfill watchpoint evidence if LLM forgot. Run BEFORE caps so the
+    _enforce_provenance(output, raw_by_id)
+    # Backfill watchpoint evidence if LLM forgot. Run BEFORE caps so the
     # "no evidence -> drop" rule catches only watchpoints we truly can't ground.
     _backfill_watchpoint_evidence(output, raw_by_id)
-    _enforce_caps_v4(output)
+    _enforce_caps(output)
 
-    # Audit: did the LLM honor the must-include constraint?
+    # Audit + rescue: did the LLM honor the must-include constraint? If not,
+    # try to construct a minimal grounded TickerThesis from raw tweets so the
+    # most-discussed ticker doesn't silently disappear from the user-facing
+    # cards. Tickers with only neutral mentions remain dropped — the
+    # buy/sell-required hard floor in _enforce_caps is intentional and a
+    # neutral-only "card" carries no decision signal.
     final_set = {t.ticker.upper() for t in output.ticker_theses}
     missing_required = [tk for tk in must_include if tk not in final_set]
     if missing_required:
         logger.warning(
-            "curate_tweets_v4: LLM dropped required tickers (despite prompt): %s",
+            "curate_tweets: LLM dropped required tickers (despite prompt): %s",
             missing_required,
         )
+        rescued: list[str] = []
+        for tk in missing_required:
+            fallback = _fallback_thesis_for_missing(tk, tweets)
+            if fallback is not None:
+                output.ticker_theses.append(fallback)
+                rescued.append(tk)
+        if rescued:
+            # Re-classify side + apply caps so rescued theses sort correctly
+            # and stance_summary fallbacks fill in.
+            _enforce_caps(output)
+            logger.info(
+                "curate_tweets: rescued missing required tickers from raw tweets: %s",
+                rescued,
+            )
+        still_missing = [tk for tk in missing_required if tk not in rescued]
+        if still_missing:
+            logger.info(
+                "curate_tweets: required tickers with only neutral mentions, "
+                "left to other_tickers tail: %s",
+                still_missing,
+            )
 
     logger.info(
-        "curate_tweets_v4: ticker_theses=%d macro_threads=%d takeaway=%d "
+        "curate_tweets: ticker_theses=%d macro_threads=%d "
         "(input=%d, required=%s)",
         len(output.ticker_theses), len(output.macro_threads),
-        len(output.takeaway), len(tweets), must_include,
+        len(tweets), must_include,
     )
     return output
 
@@ -821,7 +868,6 @@ async def curate_tweets_v4(
 
 _HOT_SECTORS_TOP_N = 6
 _HOT_TICKERS_TOP_N = 8
-_HOT_EVENTS_TOP_N = 6
 _HOT_MIN_COUNT = 2  # an item must be cited by >=2 tweets to make the list
 
 
@@ -834,32 +880,6 @@ def _norm_tag(s: str) -> str:
     return "".join(s.split()).casefold()
 
 
-def _tally(values: list[str]) -> list[tuple[str, int]]:
-    """Count near-duplicate-collapsed labels. Returns [(display, count)]
-    sorted by count desc, with duplicates merged under their first-seen
-    display form (preserves the more-readable spacing if it appeared first).
-    """
-    counts: dict[str, int] = {}
-    displays: dict[str, str] = {}
-    for raw in values:
-        if not isinstance(raw, str):
-            continue
-        s = raw.strip()
-        if not s:
-            continue
-        key = _norm_tag(s)
-        if not key:
-            continue
-        counts[key] = counts.get(key, 0) + 1
-        if key not in displays:
-            displays[key] = s
-    return sorted(
-        ((displays[k], v) for k, v in counts.items()),
-        key=lambda kv: kv[1],
-        reverse=True,
-    )
-
-
 def _tally_with_kols(
     pairs: list[tuple[str, str]],
 ) -> list[tuple[str, int, int]]:
@@ -867,7 +887,7 @@ def _tally_with_kols(
 
     Input: list of (raw_label, author_username) tuples.
     Output: [(display, mention_count, distinct_kol_count)] sorted by mentions desc.
-    Near-duplicate labels are collapsed using the same _norm_tag rule as _tally.
+    Near-duplicate labels are collapsed using the same _norm_tag rule.
     """
     counts: dict[str, int] = {}
     kol_sets: dict[str, set[str]] = {}
@@ -894,83 +914,47 @@ def _tally_with_kols(
     )
 
 
-def _ticker_stance_index(topics: list) -> dict[str, dict]:
-    """Project topic-level key_arguments stance onto tickers.
-
-    Walks each topic with a primary_ticker and tallies its key_arguments
-    stances (bullish / bearish / neutral). Only tickers that appear as a
-    topic's primary_ticker get a stance signal; tickers that show up only in
-    enrichment tags get no stance bar in the UI (signal would be misleading).
-    """
-    out: dict[str, dict] = {}
-    for t in topics or []:
-        ticker = (getattr(t, "primary_ticker", None) or "").upper().lstrip("$")
-        if not ticker:
-            continue
-        bucket = out.setdefault(ticker, {"bullish": 0, "bearish": 0, "neutral": 0})
-        for arg in getattr(t, "key_arguments", None) or []:
-            stance = getattr(arg, "stance", None)
-            if stance in bucket:
-                bucket[stance] += 1
-    return out
-
-
 def _compute_hot_lists(
     tweets: list[dict],
-    topics: Optional[list] = None,
 ) -> tuple[list[HotItem], list[HotItem], list[HotItem]]:
-    """Count tickers/sectors/events across kept (high+medium) candidate tweets.
+    """Count tickers + sectors across kept candidate tweets.
 
     Each HotItem reports:
       - `count`: total mentions in tweets (a KOL tweeting NVDA twice = 2)
       - `kols`: distinct KOL authors (always <= count)
-      - `stance` (tickers only): projected from topics whose primary_ticker
-         matches; None for tickers without a topic-level stance signal
 
     Items below `_HOT_MIN_COUNT` are dropped so single-mention noise does not
     surface. Near-duplicate labels (e.g. 'AI 算力' vs 'AI算力') are merged.
-    """
-    from app.features.twitter_digest.models import StanceCounts
 
+    `hot_events` is preserved in the return signature for schema compatibility
+    but always empty — the events tag was dropped from enrichment.
+    """
     sector_pairs: list[tuple[str, str]] = []
     ticker_pairs: list[tuple[str, str]] = []
-    event_pairs: list[tuple[str, str]] = []
 
     for t in tweets:
         author = (t.get("author_username") or "").lower()
         e = _enrichment_of(t)
         for s in (e.get("sectors") or []):
             sector_pairs.append((s, author))
-        for k in (e.get("tickers") or []):
-            if isinstance(k, str):
-                ticker_pairs.append((k.upper(), author))
-        for ev in (e.get("events") or []):
-            event_pairs.append((ev, author))
-
-    stance_idx = _ticker_stance_index(topics or [])
+        for tk in _tickers_of(t):
+            ticker_pairs.append((tk, author))
 
     def _to_items(
         triples: list[tuple[str, int, int]],
         top_n: int,
-        attach_stance: bool = False,
     ) -> list[HotItem]:
         out: list[HotItem] = []
         for label, count, kols in triples[:top_n]:
             if count < _HOT_MIN_COUNT:
                 continue
-            stance = None
-            if attach_stance:
-                key = label.upper().lstrip("$")
-                raw = stance_idx.get(key)
-                if raw and (raw["bullish"] + raw["bearish"] + raw["neutral"]) > 0:
-                    stance = StanceCounts(**raw)
-            out.append(HotItem(label=label, count=count, kols=kols, stance=stance))
+            out.append(HotItem(label=label, count=count, kols=kols))
         return out
 
     return (
         _to_items(_tally_with_kols(sector_pairs), _HOT_SECTORS_TOP_N),
-        _to_items(_tally_with_kols(ticker_pairs), _HOT_TICKERS_TOP_N, attach_stance=True),
-        _to_items(_tally_with_kols(event_pairs), _HOT_EVENTS_TOP_N),
+        _to_items(_tally_with_kols(ticker_pairs), _HOT_TICKERS_TOP_N),
+        [],
     )
 
 
@@ -980,36 +964,27 @@ def _compute_hot_lists(
 
 
 def _digest_is_empty(d: DailyDigest) -> bool:
-    if d.schema_version == "v4":
-        return (
-            len(d.ticker_theses) == 0
-            and len(d.macro_threads) == 0
-        )
-    if d.schema_version == "v3":
-        return (
-            len(d.topics) == 0
-            and len(d.briefs) == 0
-            and len(d.solo_voices) == 0
-        )
-    return (
-        len(d.macro_picks) == 0
-        and len(d.industry_picks) == 0
-        and len(d.stock_picks) == 0
-    )
+    return len(d.ticker_theses) == 0 and len(d.macro_threads) == 0
+
+
+def _business_date_bjt(dt_utc: datetime) -> str:
+    """Business date for this digest in Beijing timezone (UTC+8).
+
+    The pipeline runs at 06:00 BJT (UTC 22:00 of the previous day). Using the
+    raw UTC date would file the digest under yesterday's calendar date, which
+    breaks broadcast deep-links and `/twitter-digest/{date}` routing. Pin the
+    digest to the BJT calendar day so cron, persistence, and email URLs agree.
+    """
+    return (dt_utc + timedelta(hours=8)).date().isoformat()
 
 
 async def generate_daily_digest(
     window_hours: int = 24,
     persist: bool = True,
 ) -> DailyDigest:
-    """Run the full V4 pipeline end-to-end and return a DailyDigest.
-
-    V4 = ticker-as-topic + 论据指向 (buy/sell/observation). V3 fields are
-    NOT populated on new generations; they remain on historical rows for
-    backward-compatible reads.
-    """
+    """Run the full pipeline end-to-end and return a DailyDigest."""
     started_at = datetime.now(timezone.utc)
-    tweets, usernames = await pull_candidate_tweets(window_hours=window_hours)
+    tweets, usernames, raw_count = await pull_candidate_tweets(window_hours=window_hours)
     if not tweets:
         raise RuntimeError(
             f"No high/medium-quality tweets in last {window_hours}h. "
@@ -1017,51 +992,32 @@ async def generate_daily_digest(
             f"genuinely silent."
         )
 
-    curated_v4 = await curate_tweets_v4(tweets, usernames)
-    # Hot lists: V4 leaderboard only renders tickers; sectors/events kept in
-    # the model for backward compat but UI hides them. No stance projection
-    # (V4 dropped the stance bar).
-    hot_sectors, hot_tickers, hot_events = _compute_hot_lists(tweets, topics=[])
+    curated = await curate_tweets(tweets, usernames)
+    hot_sectors, hot_tickers, hot_events = _compute_hot_lists(tweets)
 
-    # V4.1 — transparency tail: tickers/tweets we noticed but didn't surface.
-    final_thesis_tickers = {
-        t.ticker.upper() for t in curated_v4.ticker_theses
-    }
+    # Transparency tail: tickers we noticed but didn't surface as theses.
+    final_thesis_tickers = {t.ticker.upper() for t in curated.ticker_theses}
     other_tickers = _compute_other_tickers(tweets, final_thesis_tickers)
 
-    cited_urls: set[str] = set()
-    for t in curated_v4.ticker_theses:
-        for arg in (t.buy_arguments + t.sell_arguments + t.observation_arguments):
-            if arg.tweet_url:
-                cited_urls.add(arg.tweet_url)
-    for m in curated_v4.macro_threads:
-        for p in m.key_points:
-            if p.tweet_url:
-                cited_urls.add(p.tweet_url)
-    notable_tweets = _compute_notable_missed_tweets(tweets, cited_urls, limit=8)
+    business_date = _business_date_bjt(started_at)
 
     digest = DailyDigest(
+        date=business_date,
         generated_at=started_at.isoformat(),
         window_hours=window_hours,
-        input_tweet_count=len(tweets),
+        # Show the window-wide raw count (pre-filter) on web/email; this is
+        # what the user-facing "N 条原始推文" string is for. The post-filter
+        # count is too small to convey the breadth of the KOL ingestion.
+        input_tweet_count=raw_count,
         tracked_kols=sorted(set(usernames)),
-        model_version=f"v4:enrich={ENRICH_MODEL}/digest={CURATE_MODEL}",
-        schema_version="v4",
-        # V4 payload
-        headline=curated_v4.headline,
-        intro=curated_v4.intro,
-        takeaway=list(curated_v4.takeaway),
-        ticker_theses=curated_v4.ticker_theses,
-        macro_threads=curated_v4.macro_threads,
-        # crosscut + watch_next deprecated in V4.2 — left empty for backward compat
-        crosscut="",
-        watch_next=[],
-        # V4.1 transparency tail
+        model_version=f"enrich={ENRICH_MODEL}/digest={CURATE_MODEL}",
+        headline=curated.headline,
+        intro=curated.intro,
+        ticker_theses=curated.ticker_theses,
+        macro_threads=curated.macro_threads,
+        watchpoints=curated.watchpoints,
         other_tickers=other_tickers,
-        notable_tweets=notable_tweets,
-        # V4.2 structured forward-looking watchpoints (replaces watch_next)
-        watchpoints=curated_v4.watchpoints,
-        # Hot lists (V4 frontend uses tickers; sectors/events kept for shape)
+        # Hot lists (frontend uses tickers; sectors/events kept for shape)
         hot_sectors=hot_sectors,
         hot_tickers=hot_tickers,
         hot_events=hot_events,
@@ -1072,7 +1028,7 @@ async def generate_daily_digest(
     )
 
     if persist:
-        digest_date = started_at.date().isoformat()
+        digest_date = business_date
         try:
             if _digest_is_empty(digest):
                 existing = await db.get_digest_by_date(digest_date)

@@ -23,6 +23,8 @@ from app.core.config import (
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
     RESEND_SEGMENT_WEEKLY,
+    RESEND_AUDIENCE_TWITTER_DIGEST,
+    RESEND_SEGMENT_TWITTER_DIGEST,
 )
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso, today_str
@@ -45,6 +47,7 @@ from app.features.subscription.email_templates import (
     format_verification_email_html,
     format_newsletter_plaintext,
     format_morning_report_html,
+    format_twitter_digest_html,
     format_timestamp,
     get_time_greeting,
     format_markdown_to_html,
@@ -968,6 +971,140 @@ class EmailService:
 
         except Exception as e:
             logger.error("Error broadcasting morning report: %s", e)
+            return {"success": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
+    # Twitter KOL digest broadcast
+    # ------------------------------------------------------------------
+
+    async def broadcast_twitter_digest(self, digest: dict) -> dict:
+        """Send the Twitter KOL digest via Resend Broadcasts.
+
+        Free-trial phase: broadcast to the dedicated `TWITTER_DIGEST` audience
+        (or segment, when provided) instead of gating on a paid entitlement.
+        Audience membership is managed in Resend — users can self-unsubscribe
+        via the platform-native unsubscribe link in the email footer.
+
+        Targeting precedence:
+          1. `RESEND_SEGMENT_TWITTER_DIGEST` (if set) — allows future per-user
+             preference filtering inside the audience
+          2. `RESEND_AUDIENCE_TWITTER_DIGEST` (or the channel's resolved
+             audience id) — sends to every contact in the audience
+          3. Neither configured → return error (caller should configure first)
+
+        Non-production safety: dev environment refuses to broadcast (no
+        per-recipient guard exists for Resend Broadcasts API). Use the
+        `personal_digest_email` entitlement path during local QA via
+        `_qa_send_twitter_digest_to_email` below.
+        """
+        logger.info("broadcast_twitter_digest called")
+
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        if not self.is_production:
+            logger.warning(
+                "broadcast_twitter_digest blocked in non-production. "
+                "Use _qa_send_twitter_digest_to_email() for local QA instead."
+            )
+            return {
+                "success": False,
+                "error": "broadcast disabled in non-production; use QA helper",
+                "channel": "twitter_digest",
+            }
+
+        try:
+            digest_date = digest.get("date") or (
+                (digest.get("generated_at") or "")[:10] or today_str()
+            )
+            html_content = format_twitter_digest_html(
+                digest, digest_date=digest_date, digest_id=digest.get("id"),
+            )
+
+            headline = digest.get("headline", "")
+            subject = (
+                f"[TheMarketBrew 推特日报] {headline[:50]}"
+                if headline else
+                f"[TheMarketBrew 推特日报] {digest_date}"
+            )
+
+            segment_id = self._resolve_segment(RESEND_SEGMENT_TWITTER_DIGEST)
+            audience_id = (
+                None if segment_id
+                else self._resolve_audience(
+                    RESEND_AUDIENCE_TWITTER_DIGEST or None,
+                    SubscriptionChannel.TWITTER_DIGEST,
+                )
+            )
+            if not segment_id and not audience_id:
+                return {
+                    "success": False,
+                    "error": (
+                        "No RESEND_SEGMENT_TWITTER_DIGEST or "
+                        "RESEND_AUDIENCE_TWITTER_DIGEST configured, and "
+                        "TWITTER_DIGEST audience could not be auto-created"
+                    ),
+                    "channel": "twitter_digest",
+                }
+
+            result = self._create_and_send_broadcast(
+                label="TwitterDigest",
+                audience_id=audience_id,
+                segment_id=segment_id,
+                subject=subject,
+                broadcast_name=f"Twitter Digest {digest_date}",
+                html=html_content,
+                from_email=self.from_email,
+            )
+            result.setdefault("channel", "twitter_digest")
+            return result
+
+        except Exception as e:
+            logger.exception("Error broadcasting twitter digest")
+            return {"success": False, "error": str(e), "channel": "twitter_digest"}
+
+    async def _qa_send_twitter_digest_to_email(
+        self, digest: dict, to_email: str,
+    ) -> dict:
+        """Single-recipient QA send: render the broadcast HTML and email it
+        directly to `to_email` via the regular send API. Bypasses Resend
+        Broadcasts (which targets audiences/segments). Used by ops scripts.
+        """
+        if not self.api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        digest_date = digest.get("date") or (
+            (digest.get("generated_at") or "")[:10] or today_str()
+        )
+        html_content = format_twitter_digest_html(
+            digest, digest_date=digest_date, digest_id=digest.get("id"),
+        )
+        headline = digest.get("headline", "")
+        subject = (
+            f"[TheMarketBrew 推特日报 QA] {headline[:50]}"
+            if headline else
+            f"[TheMarketBrew 推特日报 QA] {digest_date}"
+        )
+
+        try:
+            result = await asyncio.to_thread(
+                resend.Emails.send,
+                self._with_reply_to({
+                    "from": self.from_email,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_content,
+                }),
+            )
+            return {
+                "success": True,
+                "channel": "twitter_digest",
+                "qa": True,
+                "to": to_email,
+                "email_id": result.get("id") if isinstance(result, dict) else None,
+            }
+        except Exception as e:
+            logger.exception("QA twitter digest send failed for %s", to_email)
             return {"success": False, "error": str(e)}
 
     # ------------------------------------------------------------------

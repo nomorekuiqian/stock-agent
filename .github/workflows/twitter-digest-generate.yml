@@ -44,16 +44,16 @@ jobs:
             exit 1
           fi
 
-          # Surface bucket counts so the workflow run shows whether the day
-          # produced enough material. Empty days are allowed by the prompt
-          # (we don't backfill garbage), so this is informational, not a fail.
-          input_tweets=$(echo "$body" | grep -o '"input_tweet_count":[0-9]*' | cut -d':' -f2)
-          macro=$(echo "$body" | grep -o '"macro_picks":\[' | wc -l | tr -d ' ')
-          industry=$(echo "$body" | grep -o '"industry_picks":\[' | wc -l | tr -d ' ')
-          stock=$(echo "$body" | grep -o '"stock_picks":\[' | wc -l | tr -d ' ')
-          echo "Digest summary -> input_tweets=${input_tweets:-0} macro=$macro industry=$industry stock=$stock"
+          # Surface counts so the workflow run shows whether the day produced
+          # enough material. Empty days are allowed (we don't backfill garbage),
+          # so a 0-count is informational, not a fail.
+          input_tweets=$(echo "$body" | python3 -c "import json,sys;print(json.load(sys.stdin).get('input_tweet_count',0))" 2>/dev/null || echo "0")
+          theses=$(echo "$body" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('ticker_theses',[])))" 2>/dev/null || echo "0")
+          macros=$(echo "$body" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('macro_threads',[])))" 2>/dev/null || echo "0")
+          watchpoints=$(echo "$body" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('watchpoints',[])))" 2>/dev/null || echo "0")
+          echo "Digest summary -> input_tweets=$input_tweets ticker_theses=$theses macro_threads=$macros watchpoints=$watchpoints"
 
-          if [ -z "$input_tweets" ] || [ "${input_tweets:-0}" -eq 0 ]; then
+          if [ "$input_tweets" = "0" ]; then
             echo "::warning::generated digest had 0 input tweets — KOL ingestion may be lagging"
           fi
 

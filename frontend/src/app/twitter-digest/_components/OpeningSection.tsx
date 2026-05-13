@@ -1,12 +1,8 @@
 /**
- * V3 Opening — Hook (headline + intro) + Today's Takeaway, fused.
+ * Opening — 一行 headline + 元信息。
  *
- * Replaces V2's separate Header + TakeawayPanel. Each takeaway line anchors
- * to a topic card via `#topic-N` so the reader can jump straight to the
- * matching synthesis.
- *
- * Top-3 radar chips serve M1 mindset (30-sec read): individual ticker /
- * sector / event chip drives the reader straight to the leaderboard.
+ * `intro` 字段已弃用，前端不再渲染（早期版本是 80-150 字编辑导览段，
+ * 实测散户不读，已砍）。
  */
 
 import type { HotItem } from './types';
@@ -14,8 +10,6 @@ import type { HotItem } from './types';
 interface Props {
   date: string;
   headline: string;
-  intro: string;
-  takeaway: string[];
   windowHours: number;
   trackedKolCount: number;
   topTicker?: HotItem;
@@ -36,7 +30,7 @@ function formatHeaderDate(date: string): string {
 }
 
 export function OpeningSection({
-  date, headline, intro, takeaway, windowHours, trackedKolCount,
+  date, headline, windowHours, trackedKolCount,
   topTicker, topSector, topEvent,
 }: Props) {
   const hasRadar = !!(topTicker || topSector || topEvent);
@@ -59,11 +53,10 @@ export function OpeningSection({
         </h1>
       )}
 
-      {intro && (
-        <p className="text-base text-foreground/85 max-w-2xl mx-auto leading-relaxed">
-          {intro}
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground/80 tabular-nums">
+        过去 <span className="font-data text-foreground/70">{windowHours}</span> 小时,
+        <span className="font-data text-foreground/70">{trackedKolCount}</span> 位金融博主的关键观点
+      </p>
 
       {hasRadar && (
         <div
@@ -77,32 +70,6 @@ export function OpeningSection({
           {topSector && <RadarChip kind="sector" item={topSector} />}
           {topEvent && <RadarChip kind="event" item={topEvent} />}
         </div>
-      )}
-
-      <p className="text-xs text-muted-foreground/80 tabular-nums">
-        过去 <span className="font-data text-foreground/70">{windowHours}</span> 小时,
-        <span className="font-data text-foreground/70">{trackedKolCount}</span> 位金融博主的关键观点
-      </p>
-
-      {takeaway.length > 0 && (
-        <ol
-          className="max-w-2xl mx-auto space-y-2 pt-2"
-          aria-label="今日要点"
-        >
-          {takeaway.map((line, i) => (
-            <li key={i}>
-              <a
-                href={`#topic-${i}`}
-                className="block text-sm md:text-base text-foreground/85 hover:text-primary transition-colors px-3 py-1.5 rounded leading-relaxed"
-              >
-                <span className="font-data tabular-nums text-muted-foreground/70 mr-2">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                {line}
-              </a>
-            </li>
-          ))}
-        </ol>
       )}
 
       <div className="editorial-ornament" aria-hidden>

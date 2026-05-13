@@ -544,43 +544,27 @@ module.exports = async function(request) {
     }
 
     // POST ?action=upsert_digest - upsert a daily digest (overwrites by date)
-    // Accepts both V2 (macro/industry/stock_picks) and V3 (topics/briefs/
-    // solo_voices/headline/intro/crosscut/watch_next + schema_version) fields.
-    // Unspecified fields are left at the column default (empty array / "" / null).
     if (request.method === "POST" && action === "upsert_digest") {
       const body = await request.json();
       const {
         date,
-        macro_picks,
-        industry_picks,
-        stock_picks,
         tracked_kols,
-        takeaway,
         window_hours,
         input_tweet_count,
         generated_at,
         model_version,
-        // V3 fields
-        schema_version,
         headline,
         intro,
-        topics,
-        briefs,
-        solo_voices,
-        crosscut,
-        watch_next,
-        // V3.1 hot-list fields (backend-computed frequency tallies)
+        // Hot-list fields (backend-computed frequency tallies)
         hot_sectors,
         hot_tickers,
         hot_events,
-        // V4 — ticker-as-topic + 论据指向
+        // Main content: ticker_theses + macro_threads + watchpoints
         ticker_theses,
         macro_threads,
-        // V4.1 — transparency tail
-        other_tickers,
-        notable_tweets,
-        // V4.2 — structured forward-looking watchpoints
         watchpoints,
+        // Transparency tail
+        other_tickers,
       } = body;
 
       if (!date || window_hours === undefined || input_tweet_count === undefined ||
@@ -596,35 +580,20 @@ module.exports = async function(request) {
 
       const row = {
         date,
-        macro_picks: macro_picks || [],
-        industry_picks: industry_picks || [],
-        stock_picks: stock_picks || [],
         tracked_kols: tracked_kols || [],
-        takeaway: takeaway || [],
         window_hours,
         input_tweet_count,
         generated_at,
         model_version,
-        // V3 — all optional, fall back to empty equivalents
-        schema_version: schema_version || "v2",
         headline: headline || "",
         intro: intro || "",
-        topics: topics || [],
-        briefs: briefs || [],
-        solo_voices: solo_voices || [],
-        crosscut: crosscut || "",
-        watch_next: watch_next || [],
         hot_sectors: hot_sectors || [],
         hot_tickers: hot_tickers || [],
         hot_events: hot_events || [],
-        // V4
         ticker_theses: ticker_theses || [],
         macro_threads: macro_threads || [],
-        // V4.1
-        other_tickers: other_tickers || [],
-        notable_tweets: notable_tweets || [],
-        // V4.2
         watchpoints: watchpoints || [],
+        other_tickers: other_tickers || [],
         updated_at: new Date().toISOString(),
       };
 
@@ -689,7 +658,7 @@ module.exports = async function(request) {
 
       const { data, error } = await client.database
         .from(DIGESTS_TABLE)
-        .select("date, macro_picks, industry_picks, stock_picks, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version, schema_version, headline, intro, topics, briefs, solo_voices, crosscut, watch_next, hot_sectors, hot_tickers, hot_events, ticker_theses, macro_threads, other_tickers, notable_tweets, watchpoints")
+        .select("date, tracked_kols, window_hours, input_tweet_count, generated_at, model_version, headline, intro, hot_sectors, hot_tickers, hot_events, ticker_theses, macro_threads, watchpoints, other_tickers")
         .eq("date", date)
         .maybeSingle();
 
@@ -710,7 +679,7 @@ module.exports = async function(request) {
     if (request.method === "GET" && action === "get_latest_digest") {
       const { data, error } = await client.database
         .from(DIGESTS_TABLE)
-        .select("date, macro_picks, industry_picks, stock_picks, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version, schema_version, headline, intro, topics, briefs, solo_voices, crosscut, watch_next, hot_sectors, hot_tickers, hot_events, ticker_theses, macro_threads, other_tickers, notable_tweets, watchpoints")
+        .select("date, tracked_kols, window_hours, input_tweet_count, generated_at, model_version, headline, intro, hot_sectors, hot_tickers, hot_events, ticker_theses, macro_threads, watchpoints, other_tickers")
         .order("date", { ascending: false })
         .limit(1);
 

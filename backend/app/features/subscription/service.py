@@ -42,6 +42,7 @@ class SubscriptionChannel(str, Enum):
     DAILY_REPORT = "daily_report"
     WEEKLY_REPORT = "weekly_report"
     PERSONAL_DIGEST = "personal_digest"
+    TWITTER_DIGEST = "twitter_digest"
 
 
 # Channel configuration
@@ -60,6 +61,16 @@ SubscriptionChannel.WEEKLY_REPORT: {
         "audience_name": "",  # No Resend Audience; uses entitlements
         "metadata_fields": ["first_name"],
         "requires_auth": True,
+    },
+    SubscriptionChannel.TWITTER_DIGEST: {
+        # Free-trial phase: shares the Daily Report audience for recipients
+        # (see RESEND_AUDIENCE_TWITTER_DIGEST). No own Resend audience.
+        # Tradeoff: unsubscribing from twitter_digest also unsubscribes from
+        # daily_report (Resend unsubscribed flag is audience-scoped). Acceptable
+        # during trial; revisit when carving out a paid offering.
+        "audience_name": "TheMarketBrew Daily",
+        "metadata_fields": ["first_name"],
+        "requires_auth": False,
     },
 }
 

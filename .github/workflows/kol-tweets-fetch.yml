@@ -37,12 +37,22 @@ jobs:
             exit 1
           fi
 
-          # Soft-warn if any individual KOL run flagged a window-overflow.
-          # The endpoint returns per-KOL records under "results"; we surface
-          # counts so a flaky day shows up in the workflow logs.
-          ok_count=$(echo "$body" | grep -o '"status":"ok"' | wc -l | tr -d ' ')
-          err_count=$(echo "$body" | grep -o '"status":"error"' | wc -l | tr -d ' ')
-          echo "KOL fetch summary -> ok=$ok_count error=$err_count"
+          # Hard fail if endpoint reports zero successful KOLs at the top level.
+          # Earlier versions of this check only looked for `"success":false`, so
+          # responses where every per-KOL `status:"failed"` slipped through and
+          # the workflow was marked green while 0 tweets actually stored.
+          succeeded=$(echo "$body" | python3 -c "import json,sys; print(json.load(sys.stdin).get('succeeded', 0))" 2>/dev/null || echo "0")
+          failed=$(echo "$body" | python3 -c "import json,sys; print(json.load(sys.stdin).get('failed', 0))" 2>/dev/null || echo "0")
+          stored=$(echo "$body" | python3 -c "import json,sys;d=json.load(sys.stdin);print(sum((r.get('tweets_stored') or r.get('total_stored') or 0) for r in d.get('results',[])))" 2>/dev/null || echo "0")
+          echo "KOL fetch summary -> succeeded=$succeeded failed=$failed stored=$stored"
+          if [ "$succeeded" = "0" ]; then
+            echo "::error::fetch-configured-kols had zero successful KOLs"
+            exit 1
+          fi
+          if [ "$stored" = "0" ]; then
+            echo "::error::fetch-configured-kols stored 0 tweets across all KOLs (likely DB write hole — check EDGE_FUNCTION_SECRET / INSFORGE_ANON_KEY)"
+            exit 1
+          fi
 
       - name: Notify on failure
         if: failure()
