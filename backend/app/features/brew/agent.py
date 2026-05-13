@@ -138,26 +138,31 @@ DIGEST_INSTRUCTION = """
 不好的示例: "NVDA今天涨了3%"（只是单只股票，不是组合故事）
 不好的示例: "今日关注股票涨跌不一"（没有洞见）
 
-### stocks（关注股票速览）
+### stocks（关注股票速览，简洁）
 **重要：必须为 user_symbols 中的每一只股票生成分析，不能遗漏任何一只。**
 
 按重要性排序（波动最大或最值得关注的在前），但所有股票都必须包含在输出中。
-即使某只股票今天没有相关新闻，也要根据价格走势和市场环境给出观察分析。
+
+这是个"速览"，不是深度区。深度分析放到 news 里讲一次就够了。
 
 每只股票包含:
 - symbol: 股票代码
 - name: 中文公司名（如"英伟达"、"苹果"、"特斯拉"）
 - price: 当前价格（从输入数据获取）
 - daily_change: 日涨跌幅，带+/-号（如"+2.35%"或"-1.20%"）
-- status: 用自然语言描述当前状态，不要用固定分类
-  好的示例: "连涨四天后首次回调，但AI需求逻辑没变"、"跟随板块下跌，关注周五PCE数据能否止跌"、"财报后持续消化中，下周指引日会是关键节点"
-  不好的示例: "强势上涨"、"小幅回调"（太模板化，没有前因后果）
-- quick_take: 3-4句深度分析，包含清晰的逻辑链条:
-  1) 今天发生了什么（股价表现 + 触发原因）
-  2) 为什么会这样（新闻催化剂、宏观环境、板块趋势——把大图景和这只股票连起来）
-  3) 所以呢（对这只股票的中期逻辑有没有影响？是强化了还是削弱了买入/持有的理由？）
-  4) 接下来关注什么（具体的后续条件、日期、数据，什么情况下需要重新评估）
-  注意: 聚焦新闻、情绪、叙事分析，不要做技术面分析（不提支撑位/阻力位）
+- status: 一句话状态（10 字左右）
+  好的示例: "财报后持续消化"、"创三个月新高"、"跟随板块下跌"
+  不好的示例: "强势上涨"、"小幅回调"（太模板化）
+- quick_take: **简洁 60-80 字 / 2-3 句**，依次包含：
+  1) 一句话今天怎么走（涨跌的直接原因）
+  2) 一句话驱动因素（什么催化、什么板块情绪）
+  3) **如果有**未来相关事件，加一句提醒（"接下来盯周二 CPI"、"等下周财报"）。**没有就不写**，不硬凑。
+
+**关键约束**：
+- 不要在 quick_take 里展开宏观逻辑、做连锁分析、引用具体百分比预测——这些归 news 和 summary。
+- 如果一个故事会出现在下方 news 的 headlines 里（同一事件），quick_take 只用一句话带过，**不要重复** news 里的细节。
+- 不要技术面（不提支撑位/阻力位）。
+- 总字数严格控制在 60-80 字（中文），上限 100 字。超过就是没在简洁，重写。
 
 ### news（与我相关的新闻）
 从输入新闻中精选与用户关注股票相关的重要新闻，分为 headlines（深度分析）和 briefs（简短分析）两类。
@@ -187,10 +192,9 @@ DIGEST_INSTRUCTION = """
 3. 公司官方重大公告（财报、并购、产品发布）、行业/宏观政策变动、可能改变投资逻辑的突发事件
 
 每条 headline 包含:
-- title: 中文新闻标题
+- title: 中文新闻标题（吸睛但准确，不要标题党）
 - related_symbols: 影响哪些关注股票（如 ["NVDA", "AMD"]）
-- fact_summary: 一句话事实总结（必须是事件，不是观点）
-- deep_analysis: 6-7句深度分析:
+- deep_analysis: 6-7句深度分析。**这是详细讲事件的主场**，stocks 区域不会重复你这里写的内容：
   1) 背景上下文
   2) 为什么这条新闻重要
   3) 对市场/板块的影响
@@ -240,22 +244,22 @@ DIGEST_INSTRUCTION = """
   好的示例: "你的关注列表重仓高估值成长股，对利率极其敏感。PCE不同于已公布的CPI，它是美联储实际决策依据。如果核心PCE超预期，降息预期推迟将首先冲击你持有的高PE标的（如AMD 79倍PE、NET 200倍PS）。"
   不好的示例: "PCE是重要通胀指标，可能影响市场走势。"（对谁都一样，没有个性化）
 
-### summary（综合总结）
-这是最重要的部分。如果用户只看这一段，也要能知道今天的重点和接下来该关注什么。
+### summary（一段总结）
+**只写一段，100-150 字**。一个判断性 takeaway，不复述其他 section。
 
-包含一个字段 content，写成三段话（用换行分隔），不要加小标题:
+包含一个字段 content，**只有一段**，不要分段、不要小标题、不要编号：
 
-第一段: 深度解读
-不要只描述"发生了什么"，而要提炼出一个判断性命题（一句话核心观点），然后用数据和事件去论证它。读完这段，用户应该记住一个清晰的观点，而不只是一堆事实。
-好的示例: "今天的行情说明一件事：资金正在从'AI信仰'切换到'流动性博弈'。CPI降至2.4%本应利好科技股，但你的关注列表里半导体集体下跌，加密却暴涨——这不是随机波动，而是市场在告诉你，当前的主线已经不是AI叙事，而是谁对降息最敏感。你的组合整体跑赢纳斯达克(-0.22%)，但赢在加密，输在芯片。"
-不好的示例: "今日关注列表呈现二元分化，加密涨了，半导体跌了。"（只是描述现象，没有判断）
+写作铁律：
+1. 提炼一个判断性命题（"今天的行情说明..."），用 1-2 条最关键的证据论证它。
+2. **严禁列举未来事件**——events section 已经做了。
+3. **严禁逐只复述股票**——stocks section 已经做了。
+4. **严禁重述新闻细节**——news section 已经做了。
+5. 给的是用户读完整封信后的 meta 洞见，不是事实复述。
+6. 不要使用"降准"一词（那是中国央行的操作，美联储用"降息"）。
+7. 字数严格 100-150 字，超过就是没在精简，砍掉重写。
 
-第二段: 波动归因
-解释为什么今天这些股票会这样表现，将宏观因素（美联储、利率、情绪、板块轮动）与具体新闻催化剂结合起来，明确因果关系。
-示例: "今日上涨主要受两个因素驱动：1) 美联储会议纪要偏鸽，市场降息预期升温，推动成长股估值修复；2) NVDA财报余温延续，带动整个AI/半导体板块轮动。AAPL的下跌则是因为早盘彭博报道中国市场份额被华为蚕食。"
-关键要求：宏观因素不能悬在空中，必须落地到具体股票。
-不要写: "美联储偏鸽推动成长股反弹"（太笼统）
-应该写: "美联储偏鸽直接利好你关注的高估值标的——AMD（PE 79倍）和META（PE 28倍）对利率预期最敏感，这解释了它们今天领涨；而AAPL估值相对低，反应就小得多"
+好示例（约 130 字）：
+"今天的真正信号是资金正在从 AI 信仰切换到流动性博弈。CPI 降至 2.4% 本应利好整个科技板块，但你的列表里半导体下跌、加密暴涨——这不是随机波动，是市场在告诉你当前主线已经变了。延续了上周三我们提到的估值锚切换判断，下一个关键观察点会决定这个趋势是确立还是反转。"
 
 第三段: 未来展望
 用"未来N个关键场景需要预演"的编号框架，每个场景必须包含：具体日期 + 具体触发条件（带数字阈值）+ 对你关注列表的具体后果。场景之间要有清晰的分隔，不要写成一段连续的文字流。
@@ -394,8 +398,11 @@ def build_action_context(
             return None
 
     missing_thesis = [
-        h["symbol"] for h in portfolio_holdings
-        if h.get("symbol") and h["symbol"] != "$CASH" and not (h.get("thesis") or "").strip()
+        h["symbol"]
+        for h in portfolio_holdings
+        if h.get("symbol")
+        and h["symbol"] != "$CASH"
+        and not (h.get("thesis") or "").strip()
     ]
 
     events_symbols: set[str] = set()
@@ -408,7 +415,9 @@ def build_action_context(
         "days_since_last_health_check": _days_since(health_latest_generated_at),
         "days_since_last_portfolio_update": _days_since(portfolio_confirmed_at),
         "symbols_with_today_events": sorted(events_symbols),
-        "previous_digest_dates": [d.get("date", "")[:10] for d in previous_digests if d.get("date")],
+        "previous_digest_dates": [
+            d.get("date", "")[:10] for d in previous_digests if d.get("date")
+        ],
     }
 
 
@@ -442,12 +451,14 @@ class PersonalDigest:
         if user_id:
             try:
                 from app.features.payment.entitlements import has_entitlement
+
                 if await has_entitlement(user_id, PAID_ENTITLEMENT):
                     return self._runner_paid, "paid", PAID_TIER_MODEL
             except Exception as e:
                 logger.warning(
                     "Entitlement check failed for %s; defaulting to free model: %s",
-                    (user_id or "?")[:8], e,
+                    (user_id or "?")[:8],
+                    e,
                 )
         return self._runner_free, "free", FREE_TIER_MODEL
 
@@ -503,7 +514,9 @@ class PersonalDigest:
             if missing_symbols:
                 logger.warning(
                     "Missing stock data for %d/%d symbols: %s",
-                    len(missing_symbols), len(symbols), missing_symbols,
+                    len(missing_symbols),
+                    len(symbols),
+                    missing_symbols,
                 )
                 for sym in missing_symbols:
                     stock_data["stocks"][sym] = {
@@ -517,7 +530,8 @@ class PersonalDigest:
 
             logger.info(
                 "Stock data: %d fetched, %d missing",
-                len(fetched_symbols), len(missing_symbols),
+                len(fetched_symbols),
+                len(missing_symbols),
             )
 
             # Step 1.5: Enrich each stock with authoritative profile facts
@@ -591,7 +605,9 @@ class PersonalDigest:
             if user_id:
                 try:
                     profile = await portfolio_db.get_profile(user_id)
-                    logger.info("Loaded profile for user %s: style=%s", user_id, profile.style)
+                    logger.info(
+                        "Loaded profile for user %s: style=%s", user_id, profile.style
+                    )
                 except Exception as e:
                     logger.warning("Could not load profile for user %s: %s", user_id, e)
 
@@ -599,7 +615,10 @@ class PersonalDigest:
             health_generated_at = None
             if user_id:
                 try:
-                    from app.features.portfolio_health.service import get_latest as get_latest_health
+                    from app.features.portfolio_health.service import (
+                        get_latest as get_latest_health,
+                    )
+
                     h = await get_latest_health(user_id)
                     if h and getattr(h, "generated_at", None):
                         gen = h.generated_at
@@ -607,7 +626,9 @@ class PersonalDigest:
                             gen.isoformat() if hasattr(gen, "isoformat") else str(gen)
                         )
                 except Exception as e:
-                    logger.warning("Could not load health latest for action_context: %s", e)
+                    logger.warning(
+                        "Could not load health latest for action_context: %s", e
+                    )
 
             # Step 5: Prepare data for agent
             report_date = format_report_date()
@@ -618,15 +639,21 @@ class PersonalDigest:
             try:
                 if user_id:
                     portfolio_rows = await portfolio_db.list_portfolio(user_id)
-                portfolio_symbols_set = {r.symbol for r in portfolio_rows if r.symbol != "$CASH"}
+                portfolio_symbols_set = {
+                    r.symbol for r in portfolio_rows if r.symbol != "$CASH"
+                }
             except Exception:
-                logger.warning("Failed to load portfolio for agent context", exc_info=True)
+                logger.warning(
+                    "Failed to load portfolio for agent context", exc_info=True
+                )
 
             data_for_agent = {
                 "report_date": report_date,
                 "user_symbols": symbols,
                 "portfolio_symbols": [s for s in symbols if s in portfolio_symbols_set],
-                "watchlist_only_symbols": [s for s in symbols if s not in portfolio_symbols_set],
+                "watchlist_only_symbols": [
+                    s for s in symbols if s not in portfolio_symbols_set
+                ],
                 "stocks": stock_data.get("stocks", {}),
                 "news": self._clean_news(
                     news_result.get("news", [])[:50]
@@ -661,25 +688,31 @@ class PersonalDigest:
                     health_latest_generated_at=health_generated_at,
                     portfolio_confirmed_at=(
                         profile.portfolio_confirmed_at.isoformat()
-                        if profile and profile.portfolio_confirmed_at else None
+                        if profile and profile.portfolio_confirmed_at
+                        else None
                     ),
                     upcoming_events=earnings_result.get("earnings", [])
-                        + calendar_result.get("events", []),
+                    + calendar_result.get("events", []),
                     previous_digests=previous_digests,
                     now_iso=datetime.now(timezone.utc).isoformat(),
                 )
             except Exception:
                 logger.warning(
                     "Failed to assemble action_context for user %s",
-                    user_id or "unknown", exc_info=True,
+                    user_id or "unknown",
+                    exc_info=True,
                 )
                 data_for_agent["action_context"] = _EMPTY_ACTION_CONTEXT.copy()
 
             # Step 6: Run agent (model tier picked from user entitlement)
-            runner, tier_label, model_name = await self._resolve_runner_for_user(user_id)
+            runner, tier_label, model_name = await self._resolve_runner_for_user(
+                user_id
+            )
             logger.info(
                 "Running agent (tier=%s, model=%s) for user=%s",
-                tier_label, model_name, (user_id or "?")[:8],
+                tier_label,
+                model_name,
+                (user_id or "?")[:8],
             )
 
             session = await runner.session_service.create_session(

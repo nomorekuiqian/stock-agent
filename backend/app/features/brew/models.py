@@ -49,14 +49,14 @@ class StockAnalysis(BaseModel):
     price: float = Field(..., description="Current stock price")
     daily_change: str = Field(..., description="Daily change with percentage")
     status: str = Field(..., description="Brief status in Chinese")
-    quick_take: str = Field(..., description="1-2 sentence analysis in Chinese")
+    quick_take: str = Field(..., description="60-80 char concise summary: trend + driver + optional event reminder")
 
 
 class DigestHeadlineNews(BaseModel):
     """Important news with deep analysis"""
     title: str = Field(..., description="News title in Chinese")
     related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
-    fact_summary: str = Field(..., description="One sentence factual summary")
+    fact_summary: str = Field(default="", description="Deprecated, kept for cache compatibility. New digests leave empty.")
     deep_analysis: str = Field(..., description="5-6 sentence deep analysis")
     url: str = Field(default="", description="Original article URL")
     published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format")
@@ -87,8 +87,8 @@ class DigestEvent(BaseModel):
 
 
 class DigestSummary(BaseModel):
-    """Comprehensive summary in 3 paragraphs"""
-    content: str = Field(default="", description="Three paragraphs: portfolio recap, movement drivers, outlook")
+    """One-paragraph judgment-style takeaway."""
+    content: str = Field(default="", description="One paragraph, 100-150 Chinese chars, meta-takeaway only (no recap)")
 
 
 class DigestResponse(BaseModel):
@@ -149,17 +149,19 @@ class StockSummary(BaseModel):
         description="Daily change with +/- sign, e.g., '+2.35%' or '-1.20%'"
     )
     status: str = Field(
-        description="Natural language status - describe what's happening, not a fixed category. "
-        "Good: '连涨四天后首次回调', '财报后持续消化中', '跟随板块反弹', '创一个月新高'. "
-        "Bad: '强势上涨', '小幅回调' (too template-like)"
+        description="Short one-line status, ~10 Chinese chars. "
+        "Good: '财报后持续消化', '创三个月新高', '跟随板块下跌'. "
+        "Bad: '强势上涨', '小幅回调' (too template-like)."
     )
     quick_take: str = Field(
-        description="3-4 sentences with clear logic chain: "
-        "1) What happened today (price action), "
-        "2) Why it happened (news catalyst, sentiment shift, sector rotation), "
-        "3) Market's interpretation (institutional behavior, narrative change), "
-        "4) What it means going forward. "
-        "Focus on news, sentiment, narrative - NOT technical analysis (no support/resistance levels)."
+        description="Concise 60-80 Chinese chars (hard cap 100), 2-3 sentences: "
+        "1) one sentence on today's price action and direct cause, "
+        "2) one sentence on the driver (catalyst or sector sentiment), "
+        "3) IF a relevant upcoming event exists, one short reminder line "
+        "('接下来盯周二 CPI', '等下周财报'); skip if none. "
+        "Do NOT expand macro logic or chain-effect analysis — those belong "
+        "in news/summary. If the same story appears in headlines below, "
+        "give only a one-line mention here and let news carry the depth."
     )
 
 
@@ -171,7 +173,8 @@ class HeadlineNews(BaseModel):
         description="Which watchlist stocks this affects, e.g., ['NVDA', 'AMD']"
     )
     fact_summary: str = Field(
-        description="One sentence: factual summary of what happened"
+        default="",
+        description="Deprecated. Leave empty — the title already conveys the fact."
     )
     deep_analysis: str = Field(
         description="5-6 sentences: "
@@ -229,15 +232,15 @@ class UpcomingEvent(BaseModel):
 
 
 class Summary(BaseModel):
-    """Comprehensive summary in 3 paragraphs, no subtitles."""
+    """One-paragraph judgment-style takeaway."""
 
     content: str = Field(
-        description="Three paragraphs of analysis, separated by newlines:\n\n"
-        "Paragraph 1: Watchlist overview today - best/worst performers, how they compare to market (SPY/QQQ).\n\n"
-        "Paragraph 2: Why these stocks moved - connect macro factors (Fed, rates, sentiment, sector rotation) "
-        "with specific news catalysts. Be specific about cause-and-effect.\n\n"
-        "Paragraph 3: Near-term outlook - expectations for 1-2 weeks, key risks to watch, "
-        "potential catalysts, important upcoming events."
+        description="One paragraph, 100-150 Chinese chars. A single judgment-style "
+        "takeaway with 1-2 supporting facts. STRICT: no enumerated future events "
+        "(events section does that), no per-stock recap (stocks section does that), "
+        "no news-detail rehash (news section does that). Give a meta-insight the "
+        "user would not get from reading the three sections separately. "
+        "Hard cap: 150 chars. Over 150 = rewrite shorter."
     )
 
 
