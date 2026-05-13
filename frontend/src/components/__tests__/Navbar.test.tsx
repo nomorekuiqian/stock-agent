@@ -31,6 +31,23 @@ vi.mock('@/contexts/SubscriptionContext', () => ({
   useSubscription: () => ({ isPro: false, plan: 'free', status: 'none' }),
 }));
 
+vi.mock('@/hooks/use-feature-flags', () => ({
+  useFeatureFlags: () => ({
+    flags: new Set<string>(),
+    isLoading: false,
+    has: (_flag: string) => false,
+  }),
+}));
+
+vi.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: () => ({
+    entitlements: new Set<string>(),
+    isLoading: false,
+    has: (_feature: string) => false,
+    refresh: async (_opts?: { fresh?: boolean }) => {},
+  }),
+}));
+
 vi.mock('@/components/Logo', () => ({
   Logo: ({ className }: { className?: string }) => (
     <svg data-testid="logo" className={className} />
