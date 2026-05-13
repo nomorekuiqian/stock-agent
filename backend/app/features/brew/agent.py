@@ -322,11 +322,11 @@ Target 白名单（只能使用这些，其他一律丢弃）：
 
 
 # Two-tier model routing:
-#   free  -> gemini-3-flash-preview     (cheap, fast, template-y)
-#   paid  -> gemini-3.1-pro-preview     (deeper analysis, better differentiation)
+#   free  -> gemini-3-flash-preview
+#   paid  -> gemini-3-flash-preview  (temporarily unified — pro tier disabled)
 # Paid users are identified by the "personal_digest_email" entitlement (Pro+ tier).
 FREE_TIER_MODEL = "gemini-3-flash-preview"
-PAID_TIER_MODEL = "gemini-3.1-pro-preview"
+PAID_TIER_MODEL = "gemini-3-flash-preview"
 PAID_ENTITLEMENT = "personal_digest_email"
 
 personal_digest_agent_free = LlmAgent(
