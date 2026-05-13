@@ -13,7 +13,15 @@ def get_company_profile(symbol: str) -> dict:
     Company profile: name, sector, industry, CEO, employees, etc.
     Replaces openbb.get_company_profile().
     Returns same dict structure as OpenBB output.
+
+    `$CASH` (virtual cash position from U0-A) returns a stable virtual
+    profile without hitting FMP. See `app.shared.data_tools._cash_guard`.
     """
+    from app.shared.data_tools._cash_guard import cash_profile, is_cash
+
+    if is_cash(symbol):
+        return cash_profile()
+
     from app.shared.fmp_service import get_fmp_service
 
     fmp = get_fmp_service()

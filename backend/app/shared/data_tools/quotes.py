@@ -16,6 +16,10 @@ def get_batch_quotes(symbols: list[str], use_cache: bool = True) -> dict:
     - /stable/batch-quote API
     - 10-minute thread-safe cache with request coalescing
 
+    `$CASH` (virtual cash position from U0-A) is filtered out before the
+    FMP call and re-injected as a stable virtual row. See
+    `app.shared.data_tools._cash_guard`.
+
     Returns same format as fmp_service.get_stock_quotes():
     {
         "quotes": [{"symbol": "AAPL", "name": "Apple", "price": 150.0, ...}, ...],
@@ -24,13 +28,73 @@ def get_batch_quotes(symbols: list[str], use_cache: bool = True) -> dict:
         "source": "fmp"
     }
     """
+    from app.shared.data_tools._cash_guard import inject_cash_quote, split_cash
     from app.shared.fmp_service import get_fmp_service
 
     if not symbols:
         return {"quotes": [], "count": 0, "cached": False, "source": "fmp"}
 
+    real_symbols, has_cash = split_cash(symbols)
+
+    if not real_symbols:
+        return {
+            "quotes": inject_cash_quote([], has_cash),
+            "count": 1 if has_cash else 0,
+            "cached": False,
+            "source": "fmp",
+        }
+
     fmp = get_fmp_service()
-    return fmp.get_stock_quotes(symbols, use_cache=use_cache)
+    result = fmp.get_stock_quotes(real_symbols, use_cache=use_cache)
+    inject_cash_quote(result.get("quotes", []), has_cash)
+    if has_cash:
+        result["count"] = result.get("count", 0) + 1
+    return result
+
+
+def get_historical_returns_batch(
+    symbols: list[str], days: int = 7
+) -> dict[str, list[float]]:
+    """Fetch daily simple returns for multiple symbols.
+
+    Returns {symbol: [r_day_newest, r_day_2, ...]} with up to `days` entries.
+    Each return = (close_t / close_{t-1}) - 1.
+    """
+    from app.shared.data_tools._cash_guard import is_cash, cash_returns
+    from app.shared.fmp_service import get_fmp_service
+
+    fmp = get_fmp_service()
+    result = {}
+
+    for sym in symbols:
+        if is_cash(sym):
+            result[sym] = cash_returns(days)
+            continue
+
+        try:
+            data = fmp.get_historical_price(sym, limit=days + 5)
+            prices_raw = data.get("data") or []
+            # FMP returns newest first — reverse to chronological order
+            closes = [
+                p["close"]
+                for p in reversed(prices_raw)
+                if p.get("close") and p["close"] > 0
+            ]
+
+            if len(closes) < 2:
+                result[sym] = []
+                continue
+
+            # Compute simple returns: (close[i+1] / close[i]) - 1
+            returns = [
+                (closes[i + 1] / closes[i]) - 1 for i in range(len(closes) - 1)
+            ]
+            # Return newest first, trimmed to `days`
+            result[sym] = list(reversed(returns[-days:]))
+        except Exception:
+            result[sym] = []
+
+    return result
 
 
 _realtime_cache: dict[str, tuple[dict, float]] = {}
