@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { ForYouBreadcrumb } from '@/components/for-you/ForYouBreadcrumb';
 import { formatDateChinese, formatDateShort } from '@/lib/timezone';
 import { useDigestList } from '@/hooks/queries/use-digest-data';
 
@@ -53,6 +54,10 @@ export default function ForYouArchivePage() {
 
   return (
     <main className="min-h-screen bg-background">
+      {/* Breadcrumb */}
+      <div className="max-w-5xl mx-auto px-4 md:px-6 pt-6">
+        <ForYouBreadcrumb current="历史日报" />
+      </div>
       {/* Header */}
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-14">

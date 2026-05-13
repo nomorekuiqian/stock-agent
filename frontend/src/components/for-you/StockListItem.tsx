@@ -8,6 +8,7 @@ interface StockListItemProps {
   isSelected: boolean;
   isHighlighted: boolean;
   onClick: () => void;
+  weightPct?: number;
 }
 
 export default function StockListItem({
@@ -15,6 +16,7 @@ export default function StockListItem({
   isSelected,
   isHighlighted,
   onClick,
+  weightPct,
 }: StockListItemProps) {
   const changeValue = parseChangePercent(stock.daily_change);
   const isPositive = changeValue >= 0;
@@ -28,6 +30,7 @@ export default function StockListItem({
 
   return (
     <button
+      id={`stock-${stock.symbol}`}
       type="button"
       onClick={onClick}
       className={`
@@ -52,6 +55,11 @@ export default function StockListItem({
         <span className="font-semibold font-data text-sm text-foreground truncate">
           {stock.symbol}
         </span>
+        {weightPct != null && (
+          <span className="text-[11px] text-muted-foreground/70 font-data ml-1">
+            {weightPct.toFixed(1)}%
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2 shrink-0 ml-2">
