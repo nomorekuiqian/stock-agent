@@ -26,6 +26,7 @@ PRO_FEATURES: Set[str] = {
 MAX_ONLY_FEATURES: Set[str] = {
     "stock_research",
     "ai_research_engine",
+    "portfolio_management",
 }
 
 MAX_FEATURES: Set[str] = PRO_FEATURES | MAX_ONLY_FEATURES

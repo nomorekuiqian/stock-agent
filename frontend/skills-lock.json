@@ -14,7 +14,17 @@
     "insforge-cli": {
       "source": "insforge/agent-skills",
       "sourceType": "github",
-      "computedHash": "5e81c4d05916b052559a4d0896fa2cefa799b9ae5b0e61459b7cf3c61236a284"
+      "computedHash": "273344bbc38dab72564cf2130221fcda4b9730cbf936f0c6377bc6cb2ea571c8"
+    },
+    "insforge-debug": {
+      "source": "insforge/agent-skills",
+      "sourceType": "github",
+      "computedHash": "592cba24924abd5aaae28d0be37159cbc89503e7c56d87b21396696d24a36c12"
+    },
+    "insforge-integrations": {
+      "source": "insforge/agent-skills",
+      "sourceType": "github",
+      "computedHash": "b3a037a7d92af644136fa13eb3667de0430d39fd4204bce86d74978ad0b04eb7"
     }
   }
 }

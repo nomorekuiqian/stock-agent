@@ -164,6 +164,13 @@ export interface DigestResponse {
 
   // Error handling
   error?: string;
+
+  action_items?: Array<{
+    label: string;
+    target: string;
+    reason: string;
+    priority: 1 | 2 | 3;
+  }>;
 }
 
 export interface SubscribeResponse {
@@ -652,6 +659,144 @@ export interface MorningReportListItem {
   title?: string;
   market_pulse?: string;
   created_at?: string;
+}
+
+// Portfolio & Investment Profile types
+export interface HoldingInput {
+  symbol: string;
+  weight_pct?: number | null;
+  shares?: number | null;
+  cost_basis?: number | null;
+  entry_price?: number | null;
+  thesis?: string | null;
+  target?: number | null;
+  stop_loss?: number | null;
+  conviction?: number | null;
+}
+
+export interface HoldingView {
+  symbol: string;
+  weight_pct: number | null;
+  shares: number | null;
+  cost_basis: number | null;
+  entry_price: number | null;
+  market_value: number | null;
+  unrealized_pnl: number | null;
+  thesis: string | null;
+  target: number | null;
+  stop_loss: number | null;
+  conviction: number | null;
+  effective_weight_pct: number;
+  weight_source: 'shares_x_price' | 'cost_basis' | 'weight_pct' | 'equal' | 'ghost';
+}
+
+export interface PortfolioListResponse {
+  holdings: HoldingView[];
+  total_weight_pct: number;
+}
+
+export type InvestmentStyle = 'passive' | 'balanced' | 'active';
+export type InvestmentHorizon = 'short' | 'mid' | 'long';
+export type RiskTolerance = 'low' | 'moderate' | 'high';
+export type NotifyMode = 'silent' | 'events_only' | 'daily';
+
+export interface InvestmentProfileInput {
+  style?: InvestmentStyle;
+  horizon?: InvestmentHorizon;
+  risk_tolerance?: RiskTolerance;
+  notify_mode?: NotifyMode;
+}
+
+export interface InvestmentProfileView {
+  user_id: string;
+  style: InvestmentStyle;
+  horizon: InvestmentHorizon;
+  risk_tolerance: RiskTolerance;
+  notify_mode: NotifyMode;
+  version: number;
+  onboarded_at: string | null;
+  portfolio_confirmed_at: string | null;
+  updated_at: string | null;
+}
+
+// Portfolio Health
+export interface HealthScore {
+  dispersion: number;
+  performance: number;
+  macro_fit: number;
+  stability: number;
+  total: number;
+}
+
+export interface NextAction {
+  type: 'rebalance' | 'research' | 'none';
+  text: string;
+  symbols: string[];
+}
+
+export interface DiagnosisOutput {
+  one_line: string;
+  diagnosis_markdown: string;
+  top_risk: string;
+  sector_dna: string;
+  macro_sensitivity_tag: 'low' | 'mid' | 'high';
+  next_action: NextAction;
+}
+
+export interface HealthResponse {
+  report_id?: string;
+  score: HealthScore;
+  diagnosis: DiagnosisOutput | null;
+  generated_at: string;
+  from_cache: boolean;
+  is_first_report: boolean;
+}
+
+export interface HealthLatestResponse {
+  health_score: number | null;
+  top_risk: string | null;
+  next_action: NextAction | null;
+  generated_at: string | null;
+  stale: boolean;
+}
+
+// Action Bar
+export type ActionChipKind =
+  | 'event'
+  | 'health'
+  | 'drawdown'
+  | 'stable'
+  | 'research'
+  | 'guide'
+  | 'thesis'
+  | 'recap'
+  | 'section';
+
+export interface ActionChip {
+  label: string;
+  // `target` is the routing source of truth (e.g., "thesis:NVDA", "section:notes",
+  // "digest:<uuid>"). `link` is a legacy best-effort URL kept for backwards compat.
+  target: string;
+  link: string;
+  kind: ActionChipKind;
+}
+
+export interface ActionBarResponse {
+  severity: 'green' | 'yellow' | 'red';
+  headline: string;
+  chips: ActionChip[];
+  source: 'template' | 'llm' | 'llm_fallback' | 'agent';
+  visibility?: 'visible' | 'hidden';
+  generated_at: string;
+}
+
+// Feedback
+export interface FeedbackInput {
+  target_type: 'digest_quick_take' | 'digest_headline' | 'health_diagnosis' | 'action_bar_headline' | 'action_bar_chip' | 'top_event';
+  target_id: string;
+  sentiment: 1 | -1;
+  reason?: string;
+  snapshot?: { text?: string; [key: string]: unknown };
 }
 
 export interface WatchlistData {
@@ -1935,6 +2080,148 @@ export const api = {
         }
         return response.json();
       },
+    },
+  },
+
+  portfolio: {
+    get: async (): Promise<PortfolioListResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/portfolio`,
+        {},
+        'Failed to fetch portfolio',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch portfolio');
+      }
+      return response.json();
+    },
+
+    bulkSave: async (rows: HoldingInput[]): Promise<PortfolioListResponse> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/bulk`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      }, 'Failed to save portfolio');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to save portfolio');
+      }
+      return response.json();
+    },
+
+    touch: async (): Promise<{ confirmed_at: string }> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/touch`, {
+        method: 'PATCH',
+      }, 'Failed to touch portfolio');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to touch portfolio');
+      }
+      return response.json();
+    },
+
+    patch: async (symbol: string, fields: Record<string, unknown>): Promise<unknown> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/${encodeURIComponent(symbol)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      }, 'Failed to patch holding');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to patch holding');
+      }
+      return response.json();
+    },
+
+    delete: async (symbol: string): Promise<{ deleted: boolean; symbol: string }> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/${encodeURIComponent(symbol)}`, {
+        method: 'DELETE',
+      }, 'Failed to delete holding');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to delete holding');
+      }
+      return response.json();
+    },
+  },
+
+  forYou: {
+    getActionBar: async (): Promise<ActionBarResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/for-you/action-bar`,
+        {},
+        'Failed to fetch action bar',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch action bar');
+      }
+      return response.json();
+    },
+
+    generateHealthCheck: async (force: boolean = false): Promise<HealthResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/portfolio-health${force ? '?force=true' : ''}`,
+        { method: 'POST' },
+        'Failed to generate health check',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to generate health check');
+      }
+      return response.json();
+    },
+
+    getHealthLatest: async (): Promise<HealthLatestResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/portfolio-health/latest`,
+        {},
+        'Failed to fetch health latest',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch health latest');
+      }
+      return response.json();
+    },
+  },
+
+  feedback: {
+    submit: async (data: FeedbackInput): Promise<{ success: boolean; id: string | null }> => {
+      try {
+        const response = await fetchProtected(`${API_BASE_URL}/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        }, 'Failed to submit feedback');
+        if (!response.ok) {
+          // Don't throw on feedback failure — it's non-critical
+          return { success: false, id: null };
+        }
+        return response.json();
+      } catch {
+        // Silently fail — feedback is non-critical
+        return { success: false, id: null };
+      }
+    },
+  },
+
+  investmentProfile: {
+    get: async (): Promise<InvestmentProfileView> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/profile`,
+        {},
+        'Failed to fetch profile',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch profile');
+      }
+      return response.json();
+    },
+
+    save: async (data: InvestmentProfileInput): Promise<InvestmentProfileView> => {
+      const response = await fetchProtected(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }, 'Failed to save profile');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to save profile');
+      }
+      return response.json();
     },
   },
 };

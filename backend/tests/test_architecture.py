@@ -183,6 +183,7 @@ class TestNoCrossFeatureImports:
         "daily_report",      # composes macro data
         "subscription",      # email service orchestrates brew/daily_report/payment
         "admin",             # admin CRM surfaces user state across payment/etc by design
+        "for_you",           # action_bar aggregates digest + portfolio + health
     }
 
     # Specific allowed cross-feature imports (importer_feature, imported_feature)
@@ -203,6 +204,14 @@ class TestNoCrossFeatureImports:
         ("twitter_digest", "subscription"),  # /preview endpoint reuses email html renderer
         ("twitter_digest", "twitter"),  # KOL list source for digest curation
         ("brew", "payment"),            # digest model tier gated by entitlement check
+        ("brew", "portfolio"),          # brew reads user portfolio/profile for personalization
+        ("brew", "portfolio_health"),   # brew reads last health check timestamp for action_context
+        ("portfolio", "payment"),       # portfolio router checks entitlements
+        ("notification", "for_you"),    # notification preferences checks action bar severity
+        ("notification", "portfolio"),  # notification preferences reads user profile
+        ("portfolio_health", "portfolio"),   # health check reads portfolio data
+        ("portfolio_health", "macro"),       # health check reads macro risk data
+        ("memory", "portfolio"),             # memory reads portfolio theses
     }
 
     def test_no_cross_feature_imports(self):

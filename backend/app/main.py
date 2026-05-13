@@ -130,6 +130,11 @@ from app.features.admin.router import router as admin_router
 from app.features.admin.crm_router import router as crm_router
 from app.features.twitter.router import router as twitter_router
 from app.features.twitter_digest.router import router as twitter_digest_router
+from app.features.portfolio.router import router as portfolio_router
+from app.features.for_you.router import router as for_you_router
+from app.features.portfolio_health.router import router as portfolio_health_router
+from app.features.memory.router import router as memory_router
+from app.features.flags.router import router as flags_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -152,6 +157,11 @@ app.include_router(admin_router)
 app.include_router(crm_router)
 app.include_router(twitter_router)
 app.include_router(twitter_digest_router)
+app.include_router(portfolio_router)
+app.include_router(for_you_router)
+app.include_router(portfolio_health_router)
+app.include_router(memory_router)
+app.include_router(flags_router)
 
 
 # ---------------------------------------------------------------------------
