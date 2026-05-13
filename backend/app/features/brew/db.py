@@ -83,12 +83,17 @@ async def save_user_digest(digest_data: Dict[str, Any]) -> Dict[str, Any]:
             "bottom_line": summary_content,
             # Legacy field
             "analysis": summary_content,
-            # Full structured data
+            # Full structured data. Round-2 fields (action_items,
+            # portfolio_summary) must be persisted here so cache-hit reads in
+            # router and service see the same shape as fresh-generation reads.
+            # Without this, the Action Bar appears empty on any cached digest.
             "digest_data": {
                 "stocks": digest_data.get("stocks", []),
                 "news": digest_data.get("news", {}),
                 "events": digest_data.get("events", []),
                 "summary": digest_data.get("summary", {}),
+                "action_items": digest_data.get("action_items", []),
+                "portfolio_summary": digest_data.get("portfolio_summary", ""),
             },
         }
 
@@ -352,3 +357,22 @@ async def list_user_digests(user_id: str, limit: int = 20) -> List[Dict[str, Any
     except Exception as e:
         logger.error("Exception listing user digests: %s", e)
         return []
+
+
+async def resolve_digest_id_by_date(user_id: str, date: str) -> Optional[str]:
+    """Resolve a YYYY-MM-DD date into the user's digest UUID, if one exists.
+
+    Used by action_items validator as the fallback path when an in-memory
+    cache (limit=30) misses. The broader limit lets LLM references up to
+    six months back still resolve.
+    """
+    target = date[:10]
+    # Wider window than the service.py cache (30) so the fallthrough buys real
+    # range. If the user has >180 digests the corner case isn't worth
+    # structured-query investment.
+    digests = await list_user_digests(user_id, limit=180)
+    for d in digests:
+        raw = (d.get("digest_date") or "")[:10]
+        if raw == target:
+            return d.get("digest_id") or d.get("id")
+    return None

@@ -7,6 +7,7 @@ Architecture:
 
 import json
 import os
+from datetime import datetime, timezone
 
 from app.core.logging import get_logger
 from dotenv import load_dotenv
@@ -31,6 +32,8 @@ from app.shared.data_tools.earnings import get_earnings_calendar
 from app.shared.profile_cache import get_profiles_cached, summarize_for_prompt
 from app.features.brew.models import PersonalDigestOutput
 from app.features.brew import db as digest_db
+from app.features.portfolio import db as portfolio_db
+from app.shared.profile_context import inject_profile
 
 
 # =============================================================================
@@ -103,6 +106,13 @@ DIGEST_INSTRUCTION = """
 - 任何数字、排名的 claim 必须能在源数据中找到依据
 - 源数据不明确时，使用保守表述
 - 如果某只股票的数据中 data_unavailable=true 或价格为 null，说明数据暂时无法获取。直接告诉用户"今日数据暂时无法获取，建议直接查看行情软件"，绝对不要猜测或编造价格
+
+## 持仓 vs 关注
+- portfolio_symbols 中的标的是用户实际持有的股票，分析时侧重风险、对用户的影响、与投资画像的匹配
+- watchlist_only_symbols 中的标的是用户仅关注但未持仓的，侧重机会、时机、是否值得建仓
+- 对持仓标的使用"你持有的 X"、"你的 X 仓位"等措辞
+- 对关注标的使用"你关注的 X"、"你观察中的 X"等措辞
+- 如果 portfolio_symbols 为空（用户未设置模拟持仓），对所有标的使用中性的"你的 X"措辞
 
 ## 你的思考过程
 
@@ -253,6 +263,57 @@ DIGEST_INSTRUCTION = """
 好的示例: "未来一周有三个关键场景需要预演：1) 周三FOMC纪要——如果措辞显示美联储对2.4%的CPI感到满意并暗示提前降息，你列表中的高PE标的（NET、META）将迎来估值修复；反之则继续承压。2) 周五核心PCE——环比若超0.3%，降息叙事破裂，加密三剑客（COIN/MSTR/HOOD）的反弹可能夭折。3) 下周三NVDA财报——数据中心营收增速是60%还是50%，将决定你持有的AMD、MU、AVGO是跟涨还是踩踏。另外值得注意的是，NET在本轮调整中逆势走强，如果上述宏观场景偏鸽，它可能是组合中弹性最大的标的。"
 不好的示例: "未来需要关注FOMC和PCE数据，如果偏鸽会利好科技股。"（太笼统，没有编号、没有数字、没有对组合的差异化分析）
 注意: 不要使用"降准"一词（那是中国央行的操作），美联储的操作是"降息"。
+
+### action_items（站内可执行动作，0-3 条，可选）
+
+只输出用户能在本网站上立即完成的动作。如果某个建议用户需要去别处做
+（买入、卖出、看外部新闻），那是信息，应该写进 summary，不要放 action_items。
+
+每条必须包含：
+- label: ≤12 字的中文动作标签
+- target: 必须是下面的白名单之一
+- reason: 1-2 句话，引用具体上下文——action_context 里的字段（missing_thesis_symbols / days_since_* / symbols_with_today_events）、组合归因、或 previous_digest_dates 里具体日期的观点
+- priority: 1-3，1 最重要
+
+Target 白名单（只能使用这些，其他一律丢弃）：
+- thesis:<SYMBOL>  — SYMBOL 必须在 action_context.missing_thesis_symbols 中
+- portfolio / health / watchlist
+- stock:<SYMBOL>   — SYMBOL 必须在用户持仓或 watchlist 中（user_symbols / portfolio_symbols）
+- section:events / section:headlines / section:briefs / section:notes
+- digest:<YYYY-MM-DD> — 日期必须在 action_context.previous_digest_dates 中存在
+
+产出原则：
+1) 确实没必要做就返回空列表，不要凑数
+2) 不重复：多条 action 指向同一 section 或 stock 时合并成一条
+3) reason 必须具体（引用字段/日期/事件），禁止泛泛而谈
+4) Label 必须描述用户在本网站上能完成的实际操作：
+   - "补论点"、"看体检"、"回看 4/21 日报"、"更新持仓信息" ✓
+   - "买入"、"卖出"、"止损"、"调仓"、"减持"、"对冲" ✗（实盘行为，站内无法完成）
+   - "关注"、"留意"、"思考"、"考虑" ✗（不是动作，是情绪）
+
+好示例：
+{"label":"补 NVDA 投资论点","target":"thesis:NVDA",
+ "reason":"你持有 NVDA 但还没写论点，今日 NVDA 财报临近，梳理清楚持有逻辑有助于应对后续波动",
+ "priority":1}
+
+{"label":"回看 4/21 美联储预警","target":"digest:2026-04-21",
+ "reason":"当日 summary 担心美联储鹰派转向，今日核心 PCE 数据坐实这一走向",
+ "priority":2}
+
+坏示例：
+{"label":"关注市场","target":"section:events","reason":"今日有重要事件"}
+（reason 泛泛，没有引用具体字段/日期/事件）
+
+{"label":"考虑买入 NVDA","target":"stock:NVDA","reason":"技术面好"}
+（投资建议；reason 空洞；stock:<SYM> 应该用于"引导看个股详情"，不是"推荐交易"）
+
+{"label":"在券商买入 500 股","target":"stock:NVDA","reason":"逻辑强化"}
+（实盘操作——本站无法下单。任何涉及真实买入/卖出/建仓/止损/调仓的动作都不能
+作为 action，这类建议写进 summary 的叙事里）
+
+{"label":"设置止损价","target":"portfolio","reason":"波动加剧"}
+（模拟持仓不支持止损。产出用户点进去发现做不了的 action 是最严重的误导。
+拿不准某个 target 能否实际完成动作时，别产出）
 """
 
 
@@ -285,6 +346,70 @@ personal_digest_agent_paid = LlmAgent(
 # Backward-compat alias — existing code paths that import `personal_digest_agent`
 # continue to work and resolve to the free-tier agent.
 personal_digest_agent = personal_digest_agent_free
+
+
+# =============================================================================
+# Action Context Helper
+# =============================================================================
+
+
+_EMPTY_ACTION_CONTEXT: dict = {
+    "missing_thesis_symbols": [],
+    "days_since_last_health_check": None,
+    "days_since_last_portfolio_update": None,
+    "symbols_with_today_events": [],
+    "previous_digest_dates": [],
+}
+
+
+def build_action_context(
+    *,
+    portfolio_holdings: list[dict],
+    health_latest_generated_at: str | None,
+    portfolio_confirmed_at: str | None,
+    upcoming_events: list[dict],
+    previous_digests: list[dict],
+    now_iso: str,
+) -> dict:
+    """Assemble the action_context block fed to the digest LLM.
+
+    Exposed as a standalone function for unit testing.
+    """
+
+    def _days_since(iso: str | None) -> int | None:
+        if not iso:
+            return None
+        try:
+            stamp = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+            now = datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
+            # Naive datetimes may arrive from storage columns without tzinfo.
+            # Assume UTC so we can diff against the always-aware `now_iso`.
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=timezone.utc)
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
+            return (now - stamp).days
+        except Exception as e:
+            logger.debug("days_since parse failed for %r: %s", iso, e)
+            return None
+
+    missing_thesis = [
+        h["symbol"] for h in portfolio_holdings
+        if h.get("symbol") and h["symbol"] != "$CASH" and not (h.get("thesis") or "").strip()
+    ]
+
+    events_symbols: set[str] = set()
+    for ev in upcoming_events:
+        for sym in ev.get("related_symbols", []) or []:
+            events_symbols.add(sym)
+
+    return {
+        "missing_thesis_symbols": missing_thesis,
+        "days_since_last_health_check": _days_since(health_latest_generated_at),
+        "days_since_last_portfolio_update": _days_since(portfolio_confirmed_at),
+        "symbols_with_today_events": sorted(events_symbols),
+        "previous_digest_dates": [d.get("date", "")[:10] for d in previous_digests if d.get("date")],
+    }
 
 
 # =============================================================================
@@ -461,12 +586,47 @@ class PersonalDigest:
                 except Exception as e:
                     logger.warning("Could not load previous digests: %s", e)
 
+            # Step 4.6: Fetch user investment profile for personalization
+            profile = None
+            if user_id:
+                try:
+                    profile = await portfolio_db.get_profile(user_id)
+                    logger.info("Loaded profile for user %s: style=%s", user_id, profile.style)
+                except Exception as e:
+                    logger.warning("Could not load profile for user %s: %s", user_id, e)
+
+            # Fetch latest health check timestamp for action_context
+            health_generated_at = None
+            if user_id:
+                try:
+                    from app.features.portfolio_health.service import get_latest as get_latest_health
+                    h = await get_latest_health(user_id)
+                    if h and getattr(h, "generated_at", None):
+                        gen = h.generated_at
+                        health_generated_at = (
+                            gen.isoformat() if hasattr(gen, "isoformat") else str(gen)
+                        )
+                except Exception as e:
+                    logger.warning("Could not load health latest for action_context: %s", e)
+
             # Step 5: Prepare data for agent
             report_date = format_report_date()
+
+            # Load portfolio for differentiation
+            portfolio_rows = []
+            portfolio_symbols_set = set()
+            try:
+                if user_id:
+                    portfolio_rows = await portfolio_db.list_portfolio(user_id)
+                portfolio_symbols_set = {r.symbol for r in portfolio_rows if r.symbol != "$CASH"}
+            except Exception:
+                logger.warning("Failed to load portfolio for agent context", exc_info=True)
 
             data_for_agent = {
                 "report_date": report_date,
                 "user_symbols": symbols,
+                "portfolio_symbols": [s for s in symbols if s in portfolio_symbols_set],
+                "watchlist_only_symbols": [s for s in symbols if s not in portfolio_symbols_set],
                 "stocks": stock_data.get("stocks", {}),
                 "news": self._clean_news(
                     news_result.get("news", [])[:50]
@@ -480,8 +640,40 @@ class PersonalDigest:
                 "macro_summary": macro_summary,
             }
 
+            if profile:
+                data_for_agent["user_profile"] = {
+                    "style": profile.style,
+                    "horizon": profile.horizon,
+                    "risk_tolerance": profile.risk_tolerance,
+                }
+
             if previous_digests:
                 data_for_agent["previous_digests"] = previous_digests
+
+            # Action items context — fed to agent for thesis/health/staleness judgment
+            try:
+                holdings_for_ctx = [
+                    {"symbol": r.symbol, "thesis": getattr(r, "thesis", "")}
+                    for r in portfolio_rows
+                ]
+                data_for_agent["action_context"] = build_action_context(
+                    portfolio_holdings=holdings_for_ctx,
+                    health_latest_generated_at=health_generated_at,
+                    portfolio_confirmed_at=(
+                        profile.portfolio_confirmed_at.isoformat()
+                        if profile and profile.portfolio_confirmed_at else None
+                    ),
+                    upcoming_events=earnings_result.get("earnings", [])
+                        + calendar_result.get("events", []),
+                    previous_digests=previous_digests,
+                    now_iso=datetime.now(timezone.utc).isoformat(),
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to assemble action_context for user %s",
+                    user_id or "unknown", exc_info=True,
+                )
+                data_for_agent["action_context"] = _EMPTY_ACTION_CONTEXT.copy()
 
             # Step 6: Run agent (model tier picked from user entitlement)
             runner, tier_label, model_name = await self._resolve_runner_for_user(user_id)
@@ -494,10 +686,11 @@ class PersonalDigest:
                 app_name="personal_digest", user_id="digest"
             )
 
+            profile_header = inject_profile("", profile) if profile else ""
             message = Content(
                 parts=[
                     Part(
-                        text=f"Generate personalized digest for user watchlist:\n\n{json.dumps(data_for_agent, ensure_ascii=False, indent=2, default=str)}"
+                        text=f"{profile_header}Generate personalized digest for user watchlist:\n\n{json.dumps(data_for_agent, ensure_ascii=False, indent=2, default=str)}"
                     )
                 ],
                 role="user",
