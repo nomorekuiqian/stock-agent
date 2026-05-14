@@ -8,16 +8,24 @@ Endpoints:
   GET  /api/twitter/fetch-runs             (cron, list recent fetch run records)
   GET  /api/twitter/tweets                 (auth, list stored tweets)
   GET  /api/twitter/stats                  (auth, tweet statistics)
+  POST /api/twitter/methodology-chat       (auth, chat with distilled KOL methodology)
 """
 
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, Field
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.twitter import db
+from app.features.twitter.methodology_chat import (
+    MethodologyChatRequest,
+    answer_methodology_chat,
+)
+from app.features.twitter.methodology_extractor import extract_methodology_for_category
+from app.features.twitter.methodology_models import MethodologyCategory
 from app.features.twitter.models import FetchConfiguredKolsRequest
 from app.features.twitter.service import (
     fetch_configured_kols,
@@ -27,6 +35,13 @@ from app.features.twitter.service import (
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/twitter", tags=["twitter"])
+
+
+class ExtractMethodologyRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    category: MethodologyCategory
+    methodology_version: str = Field(default="v1.0", min_length=1)
+    limit: int = Field(default=2000, ge=20, le=5000)
 
 
 @router.get("/tweets")
@@ -61,6 +76,53 @@ async def tweet_stats(
     if stats is None:
         return {"success": False, "error": "Failed to get stats"}
     return {"success": True, "data": stats}
+
+
+@router.post("/extract-methodology")
+async def extract_methodology(
+    body: ExtractMethodologyRequest,
+    _secret: str = Depends(verify_cron_secret),
+):
+    """Extract and persist one methodology YAML + review artifact set."""
+    logger.info(
+        "extract-methodology: @%s category=%s version=%s limit=%d",
+        body.username,
+        body.category,
+        body.methodology_version,
+        body.limit,
+    )
+    output, artifacts = await extract_methodology_for_category(
+        username=body.username,
+        category=body.category,
+        methodology_version=body.methodology_version,
+        limit=body.limit,
+    )
+    return {
+        "success": True,
+        "username": body.username,
+        "category": body.category,
+        "tweet_count": output.source_tweet_count,
+        "data_preferences_count": len(output.data_preferences),
+        "analytical_steps_count": len(output.analytical_process),
+        "decision_criteria_count": len(output.decision_criteria),
+        "communication_patterns_count": len(output.communication_patterns),
+        "veto_rules_count": len(output.veto_rules),
+        "falsifiability_rules_count": len(output.falsifiability_rules),
+        "insufficient_evidence_notes": output.insufficient_evidence_notes,
+        "artifacts": artifacts,
+    }
+
+
+@router.post("/methodology-chat")
+@limiter.limit("12/minute")
+async def methodology_chat(
+    request: Request,
+    body: MethodologyChatRequest,
+    _user_id: str = Depends(verify_user_token),
+):
+    """Answer a user question through a distilled KOL methodology package."""
+    output = await answer_methodology_chat(body)
+    return {"success": True, **output.model_dump()}
 
 
 # ---------------------------------------------------------------------------
