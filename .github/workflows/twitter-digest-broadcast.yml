@@ -2,12 +2,14 @@ name: Twitter KOL Digest Broadcast
 
 on:
   schedule:
-    # 北京 08:00 工作日(周一-周五)= UTC 00:00 Sun-Thu(北京 = UTC+8,周日 16:00 UTC 算
-    # 是北京周一 00:00,以此类推)。
-    # 上游 digest 在 UTC 22:00 Sun-Thu 生成,本任务给它 2 小时缓冲。
-    # GitHub Actions cron 通常延迟 5-30 分钟,加上 enrichment + digest 流水线
-    # 的处理时间(约 5 分钟),08:00 BJT 应该有完整的当日 digest 可发。
-    - cron: '0 0 * * 1-5'
+    # ET 18:00 Mon-Fri = UTC 22:00 Mon-Fri (during EDT; drifts to ET 17:00
+    # during winter EST — accept the seasonal shift).
+    # The generate cron runs at UTC 20:30 (90 min ahead), giving the LLM
+    # pipeline enough buffer plus typical GitHub Actions cron delay (5-30
+    # min, occasionally up to 2h at UTC integer hours like 22:00). The
+    # email lands during the post-close window for US users — well after
+    # the market close at ET 16:00 and ahead of the evening read time.
+    - cron: '0 22 * * 1-5'
   workflow_dispatch:  # 手动触发(QA / 补发)
     inputs:
       date:

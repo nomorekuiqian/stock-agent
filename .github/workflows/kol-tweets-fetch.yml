@@ -4,6 +4,9 @@ on:
   schedule:
     # Every hour, Mon-Sun. KOLs tweet across timezones and on weekends, so we
     # do not gate to weekday. Bandwidth is bounded by per-KOL max_pages_per_kol.
+    # Enrich runs inline at the end of this workflow so the kol_tweets pool
+    # is always analysed within ~1h of ingestion — the previous separate
+    # daily enrich cron was deleted in favour of this hourly cadence.
     - cron: '0 * * * *'
   workflow_dispatch:  # Manual trigger
 
@@ -52,6 +55,41 @@ jobs:
           if [ "$stored" = "0" ]; then
             echo "::error::fetch-configured-kols stored 0 tweets across all KOLs (likely DB write hole — check EDGE_FUNCTION_SECRET / INSFORGE_ANON_KEY)"
             exit 1
+          fi
+
+      - name: Enrich newly fetched tweets
+        # Runs the flash-lite tagging pipeline on `symbols IS NULL` rows from
+        # the last 6h. Idempotent — already-enriched rows are skipped at the
+        # data-pull layer. Empty windows (no new tweets) are fine and return
+        # scanned=0. A failure here does not block the workflow because the
+        # next hour's run will pick up any missed rows; we surface it as a
+        # warning so the CI dashboard still shows the trend.
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            --retry 2 --retry-delay 30 --retry-connrefused --max-time 600 \
+            -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/twitter-digest/enrich?window_hours=6")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Enrich response: $body"
+          echo "Enrich HTTP code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::warning::enrich returned HTTP $http_code — next hour's run will retry"
+            exit 0
+          fi
+
+          scanned=$(echo "$body" | grep -o '"scanned":[0-9]*' | cut -d':' -f2)
+          enriched=$(echo "$body" | grep -o '"enriched":[0-9]*' | cut -d':' -f2)
+          errors=$(echo "$body" | grep -o '"errors":[0-9]*' | cut -d':' -f2)
+          echo "Enrich summary -> scanned=${scanned:-0} enriched=${enriched:-0} errors=${errors:-0}"
+
+          if [ -n "$errors" ] && [ "${errors:-0}" -gt 0 ]; then
+            echo "::warning::enrichment had ${errors} batch error(s) — partial coverage"
           fi
 
       - name: Notify on failure

@@ -2,10 +2,15 @@ name: Twitter KOL Digest Generation
 
 on:
   schedule:
-    # Beijing 06:00 Mon-Fri = UTC 22:00 Sun-Thu (China is UTC+8, no DST).
-    # GitHub Actions cron may delay 5-30 min; downstream email send (08:00 BJT)
-    # has a 2h cushion before the 07:30 retry cutoff defined in the plan.
-    - cron: '0 22 * * 0-4'
+    # ET 16:30 Mon-Fri = UTC 20:30 Mon-Fri (DST-aware: drifts to ET 15:30
+    # during winter; accept the 1h seasonal shift rather than maintaining
+    # two cron entries — the broadcast at UTC 22:00 (ET 18:00/17:00 EDT/EST)
+    # still falls in the post-close window either way).
+    # Triggered 30 min after US market close so the digest captures the
+    # immediate post-close KOL reactions (closing prices, earnings calls,
+    # after-hours moves). Enrich runs hourly via the fetch workflow, so the
+    # data pool is already labelled when this fires.
+    - cron: '30 20 * * 1-5'
   workflow_dispatch:
     inputs:
       window_hours:
