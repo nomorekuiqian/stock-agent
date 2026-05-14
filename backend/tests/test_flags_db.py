@@ -1,5 +1,6 @@
 """Unit tests for the admin write paths in app.features.flags.db."""
 
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,51 +11,15 @@ from app.features.flags import db as flags_db
 @pytest.fixture(autouse=True)
 def _unmock_flags_db_writes():
     """Restore the real ``upsert_assignment`` / ``delete_assignment`` for tests
-    in this module.
-
-    The global ``mock_db_writes`` autouse fixture in ``conftest.py`` patches
-    these symbols with AsyncMock stubs so production DB writes can't leak from
-    arbitrary tests. The tests in this file exercise the real helper bodies
-    against a mocked ``get_insforge_service`` upstream. We re-execute the
-    module source to capture the real function objects, then rebind them
-    onto the cached module so they share its namespace (and therefore see
-    the ``get_insforge_service`` patches the tests apply).
+    in this module. Conftest's autouse ``mock_db_writes`` fixture patches these
+    symbols with AsyncMock stubs; we reload the module to recover the real
+    functions, then reload again on teardown so other tests still see the mock.
     """
-    import importlib
-    import types
-
-    spec = importlib.util.find_spec("app.features.flags.db")
-    source = spec.loader.get_source(spec.name)
-    code = compile(source, spec.origin, "exec")
-
-    patched_upsert = flags_db.upsert_assignment
-    patched_delete = flags_db.delete_assignment
-    patched_list_all = flags_db.list_all_assignments
-
-    # Execute the module source inside a throwaway namespace, then rebind the
-    # resulting function objects so their ``__globals__`` IS the cached
-    # ``flags_db`` module's namespace.
-    tmp_ns: dict = {"__name__": spec.name, "__file__": spec.origin}
-    exec(code, tmp_ns)
-
-    def _rebind(fn):
-        return types.FunctionType(
-            fn.__code__,
-            flags_db.__dict__,
-            fn.__name__,
-            fn.__defaults__,
-            fn.__closure__,
-        )
-
-    flags_db.upsert_assignment = _rebind(tmp_ns["upsert_assignment"])
-    flags_db.delete_assignment = _rebind(tmp_ns["delete_assignment"])
-    flags_db.list_all_assignments = _rebind(tmp_ns["list_all_assignments"])
+    importlib.reload(flags_db)
     try:
         yield
     finally:
-        flags_db.upsert_assignment = patched_upsert
-        flags_db.delete_assignment = patched_delete
-        flags_db.list_all_assignments = patched_list_all
+        importlib.reload(flags_db)
 
 
 @pytest.mark.asyncio
