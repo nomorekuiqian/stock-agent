@@ -135,6 +135,7 @@ from app.features.for_you.router import router as for_you_router
 from app.features.portfolio_health.router import router as portfolio_health_router
 from app.features.memory.router import router as memory_router
 from app.features.flags.router import router as flags_router
+from app.features.flags.admin_router import router as flags_admin_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -162,6 +163,7 @@ app.include_router(for_you_router)
 app.include_router(portfolio_health_router)
 app.include_router(memory_router)
 app.include_router(flags_router)
+app.include_router(flags_admin_router)
 
 
 # ---------------------------------------------------------------------------

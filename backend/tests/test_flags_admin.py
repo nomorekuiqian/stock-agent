@@ -6,13 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.features.flags.admin_router import router as _flags_admin_router
-
-# Ensure the router under test is registered for the duration of this test module.
-# Task 5 will register it in app/main.py; this guard makes the tests pass either way
-# without duplicating routes.
-if not any(getattr(r, "path", "").startswith("/api/admin/flags") for r in app.routes):
-    app.include_router(_flags_admin_router)
 
 
 @pytest.fixture
