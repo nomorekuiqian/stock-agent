@@ -126,3 +126,43 @@ def test_delete_is_idempotent(client_with_admin):
         r = client_with_admin.delete("/api/admin/flags?user_id=u1&flag=for_you_v2")
         assert r.status_code == 200
         dl.assert_awaited_once_with("u1", "for_you_v2")
+
+
+def test_get_filters_disabled_rows(client_with_admin):
+    """A row with enabled=False must not appear in any user's flags list."""
+    assignments = [
+        {"user_id": "u1", "flag": "for_you_v2", "enabled": True, "created_at": "2026-01-01"},
+        {"user_id": "u2", "flag": "for_you_v2", "enabled": False, "created_at": "2026-01-02"},
+    ]
+    with patch(
+        "app.features.flags.admin_router.list_all_assignments",
+        AsyncMock(return_value=assignments),
+    ):
+        r = client_with_admin.get("/api/admin/flags")
+    assert r.status_code == 200
+    rows = {row["user_id"]: row for row in r.json()["assignments"]}
+    assert rows["u1"]["flags"][0]["flag"] == "for_you_v2"
+    assert rows["u2"]["flags"] == [], "enabled=False row leaked into response"
+
+
+def test_post_returns_502_when_ef_fails(client_with_admin):
+    """upsert_assignment raising RuntimeError must surface as 502 (not 500)."""
+    with patch(
+        "app.features.flags.admin_router.upsert_assignment",
+        AsyncMock(side_effect=RuntimeError("ef down")),
+    ):
+        r = client_with_admin.post(
+            "/api/admin/flags",
+            json={"user_id": "u1", "flag": "for_you_v2"},
+        )
+    assert r.status_code == 502
+
+
+def test_delete_returns_502_when_ef_fails(client_with_admin):
+    """delete_assignment raising RuntimeError must surface as 502 (not 500)."""
+    with patch(
+        "app.features.flags.admin_router.delete_assignment",
+        AsyncMock(side_effect=RuntimeError("ef down")),
+    ):
+        r = client_with_admin.delete("/api/admin/flags?user_id=u1&flag=for_you_v2")
+    assert r.status_code == 502

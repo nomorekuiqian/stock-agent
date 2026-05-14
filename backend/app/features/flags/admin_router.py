@@ -30,7 +30,6 @@ router = APIRouter(
 class UpsertBody(BaseModel):
     user_id: str
     flag: str
-    enabled: bool = True
 
 
 async def _load_subscriptions() -> list[dict[str, Any]]:
@@ -94,7 +93,11 @@ async def list_flags(
 async def grant_flag(body: UpsertBody):
     if not is_known_flag(body.flag):
         raise HTTPException(status_code=422, detail=f"Unknown flag '{body.flag}'")
-    record = await upsert_assignment(body.user_id, body.flag, body.enabled)
+    try:
+        record = await upsert_assignment(body.user_id, body.flag, True)
+    except RuntimeError as exc:
+        logger.error("upsert_assignment failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Flag store unavailable") from exc
     return {"ok": True, "record": record}
 
 
@@ -105,5 +108,9 @@ async def revoke_flag(
 ):
     if not is_known_flag(flag):
         raise HTTPException(status_code=422, detail=f"Unknown flag '{flag}'")
-    await delete_assignment(user_id, flag)
+    try:
+        await delete_assignment(user_id, flag)
+    except RuntimeError as exc:
+        logger.error("delete_assignment failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Flag store unavailable") from exc
     return {"ok": True}
