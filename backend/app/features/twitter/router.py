@@ -9,16 +9,18 @@ Endpoints:
   GET  /api/twitter/tweets                 (auth, list stored tweets)
   GET  /api/twitter/stats                  (auth, tweet statistics)
   POST /api/twitter/methodology-chat       (auth, chat with distilled KOL methodology)
+  GET  /api/twitter/methodology-conversations/latest (auth, load latest methodology chat)
 """
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.features.twitter import conversation_db
 from app.features.twitter import db
 from app.features.twitter.methodology_chat import (
     MethodologyChatRequest,
@@ -42,6 +44,13 @@ class ExtractMethodologyRequest(BaseModel):
     category: MethodologyCategory
     methodology_version: str = Field(default="v1.0", min_length=1)
     limit: int = Field(default=2000, ge=20, le=5000)
+
+
+class MethodologyConversationSaveRequest(BaseModel):
+    username: str = Field(default="qinbafrank", min_length=1)
+    title: str = Field(default="", max_length=120)
+    data: dict = Field(default_factory=dict)
+    message_count: int = Field(default=0, ge=0)
 
 
 @router.get("/tweets")
@@ -123,6 +132,65 @@ async def methodology_chat(
     """Answer a user question through a distilled KOL methodology package."""
     output = await answer_methodology_chat(body)
     return {"success": True, **output.model_dump()}
+
+
+@router.get("/methodology-conversations/latest")
+async def methodology_latest_conversation(
+    username: str = Query("qinbafrank", min_length=1),
+    user_id: str = Depends(verify_user_token),
+):
+    """Load the latest persisted KOL methodology conversation for a user."""
+    row = await conversation_db.get_latest_conversation(user_id, username)
+    return {"success": True, "data": row}
+
+
+@router.get("/methodology-conversations/{conversation_id}")
+async def methodology_get_conversation(
+    conversation_id: str,
+    user_id: str = Depends(verify_user_token),
+):
+    """Load one persisted KOL methodology conversation."""
+    row = await conversation_db.get_conversation(conversation_id, user_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"success": True, "data": row}
+
+
+@router.post("/methodology-conversations", status_code=201)
+async def methodology_create_conversation(
+    body: MethodologyConversationSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Create a persisted KOL methodology conversation."""
+    row = await conversation_db.create_conversation(
+        user_id=user_id,
+        username=body.username,
+        title=body.title,
+        data=body.data,
+        message_count=body.message_count,
+    )
+    if not row:
+        raise HTTPException(status_code=500, detail="Failed to create conversation")
+    return row
+
+
+@router.put("/methodology-conversations/{conversation_id}")
+async def methodology_update_conversation(
+    conversation_id: str,
+    body: MethodologyConversationSaveRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Update a persisted KOL methodology conversation."""
+    ok = await conversation_db.update_conversation(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        title=body.title,
+        data=body.data,
+        message_count=body.message_count,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"success": True}
 
 
 # ---------------------------------------------------------------------------

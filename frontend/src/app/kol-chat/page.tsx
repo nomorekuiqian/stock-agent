@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowUp, Bot, Loader2, MessageSquare, Square, UserRound } from 'lucide-react';
 
@@ -48,6 +48,15 @@ const STARTERS = [
   '现在想抄底科技股，他的方法论会怎么拆？',
 ];
 
+const WELCOME_MESSAGE: ChatMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content:
+    '你可以问一个标的、一个宏观事件，或者直接问“按 qinbafrank 的框架会怎么拆”。我会基于已蒸馏的方法论回答，并标出使用到的推文证据。',
+  category: 'methodology',
+  confidence: 'medium',
+};
+
 function confidenceLabel(value?: 'high' | 'medium' | 'low') {
   if (value === 'high') return '高';
   if (value === 'medium') return '中';
@@ -59,21 +68,57 @@ export default function KolChatPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [category, setCategory] = useState<MethodologyCategory | null>(null);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content:
-        '你可以问一个标的、一个宏观事件，或者直接问“按 qinbafrank 的框架会怎么拆”。我会基于已蒸馏的方法论回答，并标出使用到的推文证据。',
-      category: 'methodology',
-      confidence: 'medium',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+
+    let cancelled = false;
+    setIsLoadingConversation(true);
+    api.twitterMethodology.conversations
+      .latest('qinbafrank')
+      .then((conversation) => {
+        if (cancelled) return;
+        if (!conversation) {
+          setMessages([WELCOME_MESSAGE]);
+          conversationIdRef.current = null;
+          return;
+        }
+
+        conversationIdRef.current = conversation.id;
+        if (conversation.data?.category !== undefined) {
+          setCategory(conversation.data.category);
+        }
+
+        const restored = Array.isArray(conversation.data?.messages)
+          ? (conversation.data.messages as ChatMessage[]).filter(
+              (message) =>
+                message &&
+                (message.role === 'user' || message.role === 'assistant') &&
+                typeof message.content === 'string',
+            )
+          : [];
+        setMessages(restored.length ? restored : [WELCOME_MESSAGE]);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : '加载历史对话失败');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingConversation(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
 
   const apiHistory = useMemo<MethodologyChatMessage[]>(() => {
     return messages
@@ -85,6 +130,41 @@ export default function KolChatPage() {
       }));
   }, [messages]);
 
+  const persistConversation = useCallback(
+    async (nextMessages: ChatMessage[], nextCategory: MethodologyCategory | null = category) => {
+      const savedMessages = nextMessages.filter((message) => message.id !== 'welcome');
+      if (!savedMessages.length) return;
+
+      const firstUserMessage = savedMessages.find((message) => message.role === 'user');
+      const title = firstUserMessage?.content.slice(0, 60) || 'qinbafrank 方法论对话';
+      const payload = {
+        username: 'qinbafrank',
+        title,
+        message_count: savedMessages.length,
+        data: {
+          username: 'qinbafrank',
+          category: nextCategory,
+          messages: savedMessages,
+        },
+      };
+
+      try {
+        if (conversationIdRef.current) {
+          await api.twitterMethodology.conversations.update(
+            conversationIdRef.current,
+            payload,
+          );
+          return;
+        }
+        const created = await api.twitterMethodology.conversations.create(payload);
+        conversationIdRef.current = created.id;
+      } catch (err) {
+        console.warn('[KolChat] Failed to persist conversation', err);
+      }
+    },
+    [category],
+  );
+
   async function sendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || isSending) return;
@@ -94,7 +174,8 @@ export default function KolChatPage() {
       role: 'user',
       content: trimmed,
     };
-    setMessages((prev) => [...prev, userMessage]);
+    const messagesWithUser = [...messages, userMessage];
+    setMessages(messagesWithUser);
     setInput('');
     setError(null);
     setStatus(null);
@@ -103,6 +184,7 @@ export default function KolChatPage() {
     abortControllerRef.current = controller;
 
     try {
+      await persistConversation(messagesWithUser);
       const result = await api.twitterMethodology.chat({
         username: 'qinbafrank',
         message: trimmed,
@@ -122,7 +204,9 @@ export default function KolChatPage() {
         limitations: result.limitations,
         suggestedFollowups: result.suggested_followups,
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      const messagesWithAssistant = [...messagesWithUser, assistantMessage];
+      setMessages(messagesWithAssistant);
+      await persistConversation(messagesWithAssistant, result.category);
     } catch (err) {
       if (controller.signal.aborted) {
         setStatus('已停止本次生成，可以修改问题后重新发送。');
@@ -148,7 +232,7 @@ export default function KolChatPage() {
     void sendMessage(input);
   }
 
-  if (authLoading) {
+  if (authLoading || (isAuthenticated && isLoadingConversation)) {
     return (
       <main className="min-h-screen bg-background pt-24">
         <div className="max-w-5xl mx-auto px-4 md:px-6 flex items-center justify-center py-24">

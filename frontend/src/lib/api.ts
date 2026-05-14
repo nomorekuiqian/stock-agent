@@ -1079,6 +1079,30 @@ export interface MethodologyChatResponse {
   suggested_followups: string[];
 }
 
+export interface MethodologyConversationData {
+  username: string;
+  category: MethodologyCategory | null;
+  messages: unknown[];
+}
+
+export interface MethodologyConversation {
+  id: string;
+  user_id: string;
+  username: string;
+  title: string;
+  data: MethodologyConversationData;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MethodologyConversationSaveRequest {
+  username: string;
+  title: string;
+  data: MethodologyConversationData;
+  message_count: number;
+}
+
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
 
 async function _authHeaders(
@@ -1875,6 +1899,52 @@ export const api = {
         clearTimeout(timeout);
         options.signal?.removeEventListener('abort', abortFromCaller);
       }
+    },
+
+    conversations: {
+      latest: async (username = 'qinbafrank'): Promise<MethodologyConversation | null> => {
+        const headers = await _authHeaders({}, { required: true });
+        const response = await fetch(
+          `${API_BASE_URL}/twitter/methodology-conversations/latest?username=${encodeURIComponent(username)}`,
+          { headers },
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch KOL conversation');
+        }
+        const json = await response.json();
+        return json.data || null;
+      },
+
+      create: async (
+        req: MethodologyConversationSaveRequest,
+      ): Promise<MethodologyConversation> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to create KOL conversation');
+        }
+        return response.json();
+      },
+
+      update: async (
+        id: string,
+        req: MethodologyConversationSaveRequest,
+      ): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations/${id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to update KOL conversation');
+        }
+        return response.json();
+      },
     },
   },
 

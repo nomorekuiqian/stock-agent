@@ -94,6 +94,8 @@
 ### `/kol-chat` qinbafrank 方法论对话
 - Client Component,需要登录后读取
 - 调用 `api.twitterMethodology.chat()` -> `POST /api/twitter/methodology-chat`
+- reload 时调用 `api.twitterMethodology.conversations.latest()` 自动恢复当前用户最近一条 qinbafrank 对话
+- 每次发送后持久化到 `kol_methodology_conversations`，先保存用户问题，回答返回后更新完整消息列表
 - 页面内可选择自动路由或手动指定 `stock_analysis` / `macro_analysis` / `sector_analysis` / `trading_strategy` / `methodology`
 - 回答基于 `backend/app/features/twitter/methodologies/qinbafrank/extraction_log/*.json`
 - 明确标注这是基于公开推文蒸馏体的模拟视角，不代表 KOL 本人观点
