@@ -1,11 +1,38 @@
 # KOL 方法论蒸馏计划
 
-> Status: In Progress — 阶段 1 完成，MVP 范围已定，准备进入阶段 2
-> Updated: 2026-05-05
+> Status: In Progress — L1 方法论 YAML 已完成首批 qinbafrank 产物，准备进入回测与 MVP-1/RAG
+> Updated: 2026-05-14
 > Related: `backend/app/features/twitter/`
 > Vision: 从推特博主内容中提取可复用的分析方法��，让 AI Agent 用该方法论分析新数据，产出差异化内容
 
 ## 进度记录
+
+### 2026-05-14 — 阶段 3 L1 方法论包首版落地
+
+**实施完成**：
+- 新增 `backend/app/features/twitter/methodology_models.py`、`methodology_prompts.py`、`methodology_extractor.py`
+- 新增 cron 管理端点 `POST /api/twitter/extract-methodology`
+- 新增 `db.list_tweets_by_category()`，按 category 分页读取已 enrich 的 KOL 推文
+- 提取 prompt 升级到 `v1.1`：要求 evidence quote 使用源推文连续原文、短引用、禁止省略号
+- 保存前增加 evidence quote 自动修复与校验；每次生成同时落地 YAML、JSON、审阅报告、prompt、holdout 样本
+- 对上游 Gemini `502/5xx/429` 类临时错误增加最多 3 次重试
+
+**@qinbafrank L1 产物**：
+- `stock_analysis.yaml` — 296 条源推文，evidence 校验通过
+- `macro_analysis.yaml` — 621 条源推文，evidence 校验通过
+- `sector_analysis.yaml` — 202 条源推文，evidence 校验通过
+- `methodology.yaml` — 53 条源推文，evidence 校验通过
+- `trading_strategy.yaml` — 23 条源推文，evidence 校验通过；样本稀疏，notes 中标注了止损/传统板块证据不足
+- `risk_management` — 6 条源推文，低于 20 条阈值，暂不单独生成强方法论
+
+**产物位置**：
+- YAML: `backend/app/features/twitter/methodologies/qinbafrank/*.yaml`
+- 审阅与追溯: `backend/app/features/twitter/methodologies/qinbafrank/extraction_log/`
+
+**下一步**：
+1. 阶段 4：选 holdout 样本回测方向一致性、关注点一致性、逻辑链一致性
+2. 从 L1 YAML 蒸馏 `data_lens.yaml` 和 `sources.yaml`
+3. 进入 MVP-1：L2 历史观点 RAG（向量化 + ticker/topic/时间衰减召回）
 
 ### 2026-05-05 — 阶段 2 合并到 V3 enrichment + 200 条验证
 

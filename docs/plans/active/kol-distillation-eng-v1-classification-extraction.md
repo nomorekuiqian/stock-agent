@@ -1,8 +1,8 @@
 # KOL 蒸馏工程方案 v1：分类 + 方法论提取
 
-> Status: 阶段 2 已合并到 V3 enrichment 并跑通，阶段 3 待执行
+> Status: 阶段 2 已合并到 V3 enrichment 并跑通，阶段 3 首批 qinbafrank L1 产物已完成
 > Created: 2026-05-05
-> Revised: 2026-05-05（合并到 V3 enrichment）
+> Revised: 2026-05-14（阶段 3 执行记录）
 > Parent: `docs/plans/active/kol-methodology-distillation.md`
 > Scope: 阶段 2（分类）+ 阶段 3（方法论提取）的可执行工程细节
 > 不在本方案范围: MVP-1~5（L2 RAG / L4 / L5 / 对话装配 / 前端），将在 L1 接近完成时另写 v2
@@ -24,6 +24,37 @@
 - ✅ 加一个 `POST /api/twitter-digest/enrich-backfill?username=&limit=` 端点用于历史回填
 
 详见下方修订后的「3. 阶段 2」章节。**section 4（阶段 3 方法论提取）不变**——它读的就是 `category` 列，无论填它的是哪条管道。
+
+## 2026-05-14 阶段 3 执行记录
+
+阶段 3 已工程化为：
+
+- `backend/app/features/twitter/methodology_models.py` — `CategoryMethodology` schema
+- `backend/app/features/twitter/methodology_prompts.py` — extraction prompt `v1.1`
+- `backend/app/features/twitter/methodology_extractor.py` — category 读取、ADK 提取、YAML/审阅产物保存、evidence quote 修复与校验
+- `POST /api/twitter/extract-methodology` — cron-secret protected 管理端点
+- `backend/app/features/twitter/methodologies/qinbafrank/` — 首批 L1 方法论包
+
+当前 qinbafrank 生成结果：
+
+| Category | Source tweets | Output | Evidence validation |
+|---|---:|---|---|
+| `stock_analysis` | 296 | `stock_analysis.yaml` | pass |
+| `macro_analysis` | 621 | `macro_analysis.yaml` | pass |
+| `sector_analysis` | 202 | `sector_analysis.yaml` | pass |
+| `methodology` | 53 | `methodology.yaml` | pass |
+| `trading_strategy` | 23 | `trading_strategy.yaml` | pass, sparse |
+| `risk_management` | 6 | not generated | evidence-insufficient |
+
+每次提取会同时生成：
+
+- `<category>.yaml` — runtime 可读取的结构化 L1 方法论
+- `extraction_log/<date>-<category>-<version>.json` — schema 原始 JSON
+- `extraction_log/<date>-<category>-<version>.md` — 人工审阅报告
+- `extraction_log/<date>-<category>-<version>.prompt.md` — 当次完整 prompt
+- `extraction_log/<date>-<category>-<version>.holdout.md` — 阶段 4 回测候选样本
+
+剩余工程工作转入阶段 4 回测，以及 MVP-1/L2 RAG、L4 data lens、L5 sources 的工程化。
 
 ---
 

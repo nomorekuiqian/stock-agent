@@ -14,6 +14,7 @@
 | `/morning/archive` | 早报存档 | Backend (morningReports API) | 否 |
 | `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest) | 是 |
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate) | 是 |
+| `/kol-chat` | qinbafrank 方法论对话 | Backend (twitterMethodology.chat) | 是 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -89,6 +90,14 @@
 - 调用 `api.twitterDigest.getByDate(date)`
 - 复用 `DigestView`
 - 后端校验日期格式 `YYYY-MM-DD`,不存在返回 404
+
+### `/kol-chat` qinbafrank 方法论对话
+- Client Component,需要登录后读取
+- 调用 `api.twitterMethodology.chat()` -> `POST /api/twitter/methodology-chat`
+- 页面内可选择自动路由或手动指定 `stock_analysis` / `macro_analysis` / `sector_analysis` / `trading_strategy` / `methodology`
+- 回答基于 `backend/app/features/twitter/methodologies/qinbafrank/extraction_log/*.json`
+- 明确标注这是基于公开推文蒸馏体的模拟视角，不代表 KOL 本人观点
+- 每轮返回 answer、category、confidence、citations、limitations、suggested_followups
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口

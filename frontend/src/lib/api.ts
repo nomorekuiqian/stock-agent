@@ -1042,6 +1042,43 @@ export interface ResearchKBResponse {
   chunks_used: RetrievedChunk[];
 }
 
+export type MethodologyCategory =
+  | 'stock_analysis'
+  | 'sector_analysis'
+  | 'macro_analysis'
+  | 'trading_strategy'
+  | 'risk_management'
+  | 'methodology';
+
+export interface MethodologyChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface MethodologyChatRequest {
+  message: string;
+  username?: string;
+  category?: MethodologyCategory | null;
+  history?: MethodologyChatMessage[];
+}
+
+export interface MethodologyCitation {
+  tweet_id: string;
+  quote: string;
+  reason: string;
+}
+
+export interface MethodologyChatResponse {
+  success: boolean;
+  analyst: string;
+  category: MethodologyCategory;
+  answer: string;
+  citations: MethodologyCitation[];
+  confidence: 'high' | 'medium' | 'low';
+  limitations: string[];
+  suggested_followups: string[];
+}
+
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
 
 async function _authHeaders(
@@ -1797,6 +1834,47 @@ export const api = {
         await throwProtectedApiError(response, 'Failed to generate twitter digest');
       }
       return response.json();
+    },
+  },
+
+  // KOL Methodology Chat API
+  twitterMethodology: {
+    chat: async (
+      req: MethodologyChatRequest,
+      options: { signal?: AbortSignal } = {},
+    ): Promise<MethodologyChatResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      let timedOut = false;
+      const abortFromCaller = () => controller.abort();
+      options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 120_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          if (options.signal?.aborted && !timedOut) {
+            throw new Error('已停止生成');
+          }
+          throw new Error('KOL 方法论助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+        options.signal?.removeEventListener('abort', abortFromCaller);
+      }
     },
   },
 
