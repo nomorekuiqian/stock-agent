@@ -8,7 +8,161 @@
 
 **Tech Stack:** FastAPI · Insforge Edge Functions (Deno) · Next.js 16 App Router · React 19 · Tailwind · pytest · Vitest
 
-**Spec:** `docs/plans/active/2026-05-12-admin-feature-flags.md`
+**Spec:** `docs/plans/completed/2026-05-12-admin-feature-flags.md`
+
+---
+
+## Completion Status (2026-05-14)
+
+| Phase | Status | Notes |
+|---|---|---|
+| Branch `feat/admin-feature-flags-console` from `origin/master` | ✅ Done | 12 commits, see `git log origin/master..HEAD` |
+| Backend: registry, EF, db, admin router, main.py wiring, tests | ✅ Done | 19/19 tests pass: 5 registry + 5 db + 9 admin |
+| Frontend: `/admin/flags` page, panel, AdminDashboard link | ✅ Done | tsc clean, eslint 0 errors (1 cosmetic `_initialToken` warning) |
+| `.context.md` + playbook | ✅ Done | `backend/app/features/flags/.context.md`, `docs/guides/feature-flags-playbook.md` |
+| EF deploy to Insforge (`insforge functions deploy feature-flags`) | ⏳ Operator | Required before admin POST/DELETE work in any env |
+| Manual UI walkthrough at `/admin/flags` | ⏳ Operator | Run after EF deploy + uvicorn + `npm run dev` |
+| Push branch + open PR + merge | ⏳ Operator | `gh pr create` template in Task 12 below |
+
+**Deviations from spec (all intentional, documented in commit messages):**
+
+1. `UpsertBody` does NOT expose `enabled` — admin can only "add" (which writes `enabled=true`) or "delete" (which removes the row). Matches spec design decision "只支持添加/删除". Commit `dbf8440`.
+2. EF write failures surface as **HTTP 502** (not 500). Semantically correct (bad gateway to Insforge) and lets the UI render a useful error. Commit `dbf8440`.
+3. Email-search debounce uses `useRef` to cancel prior timers (the plan's inline-cleanup pattern was a no-op). Commit `64212de`.
+4. `test_flags_admin.py` ships 9 tests (not the 7 the plan originally mentioned) — two extra tests pin the 502 mapping and the `enabled=false` filter.
+
+---
+
+## Runbook
+
+### 1. Run locally for end-to-end verification
+
+```bash
+# Terminal A — backend
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload
+
+# Terminal B — frontend
+cd frontend && npm run dev
+
+# Terminal C — backend tests
+cd backend && source venv/bin/activate && \
+  pytest tests/test_flags_registry.py tests/test_flags_db.py tests/test_flags_admin.py -v
+# Expected: 19 passed
+```
+
+### 2. Deploy the Edge Function (REQUIRED before merge)
+
+```bash
+cd /Users/xuxueyang/Documents/GitHub/stock-agent
+insforge functions deploy feature-flags --file backend/app/edge_functions/feature-flags.js
+```
+
+Smoke-test the new actions against Insforge (replace `<INSFORGE_URL>` / `<ANON>` from `backend/.env`):
+
+```bash
+# Existing read actions (must still work):
+curl -s "<INSFORGE_URL>/functions/feature-flags?action=list&user_id=any" -H "apikey: <ANON>"
+# → {"success":true,"data":[]}
+
+# New admin enumeration:
+curl -s "<INSFORGE_URL>/functions/feature-flags?action=list_all&flag=for_you_v2" -H "apikey: <ANON>"
+# → {"success":true,"data":[{"user_id":"...","flag":"for_you_v2","enabled":true,"created_at":"..."}, ...]}
+```
+
+If `list_all` returns `Invalid action`, the deploy didn't pick up the new revision — re-run.
+
+### 3. Backend API smoke (admin token required)
+
+Log in at `http://localhost:3000` as an `ADMIN_EMAILS` member (e.g. `xuxueyang1994@outlook.com`), copy the access token from cookies / DevTools, then:
+
+```bash
+export TOKEN="<paste>"
+
+# GET, no filter
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/admin/flags | jq '.known_flags, (.assignments | length)'
+
+# GET, email substring
+curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/admin/flags?email=voya" | jq '.assignments[].email'
+
+# GET, flag filter (returns users w/ that flag; each user keeps full flags list)
+curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/admin/flags?flag=for_you_v2" | jq '.assignments[].flags'
+
+# POST — grant
+TEST_UID="<NON-self insforge user uuid>"
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"user_id\":\"$TEST_UID\",\"flag\":\"for_you_v2\"}" http://localhost:8000/api/admin/flags
+# → {"ok":true,"record":{...}}
+
+# DELETE — revoke (idempotent)
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/admin/flags?user_id=$TEST_UID&flag=for_you_v2"
+# → {"ok":true}
+
+# Negative — non-admin token
+NON_ADMIN_TOKEN="<token from voya.technologies@gmail.com>"
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $NON_ADMIN_TOKEN" http://localhost:8000/api/admin/flags
+# → 403
+
+# Negative — unknown flag
+curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"user_id":"any","flag":"bogus"}' http://localhost:8000/api/admin/flags
+# → 422
+```
+
+### 4. Manual UI walkthrough
+
+1. Sign in at `http://localhost:3000` as admin → open `/admin`. Confirm the "灰度管理 →" link is in the dashboard header.
+2. Click it → land on `/admin/flags`. Expect header "灰度管理 · 共 N 用户" and a table with one row per user.
+3. **Search**: type `voya` → row list narrows within ~300 ms.
+4. **Filter**: pick `for_you_v2` in the dropdown → only flagged users remain, but each user's "已开通的 Flags" column still shows their full chip list.
+5. **Grant**: on a user without `for_you_v2`, pick it from the row's "添加" select, click `+ 添加`. Chip appears immediately. Refresh page → chip still there.
+6. **Revoke**: click `×` on a chip → `window.confirm` → confirm → chip disappears optimistically; refresh page → still gone.
+7. **Negative**: sign in as non-admin → `/admin/flags` → `notFound()`. Signed-out → same.
+8. **Cross-flow**: a flagged user signs in → `/for-you` renders V2 (read path unchanged).
+
+### 5. Production deploy
+
+After merge to `master`:
+
+1. Watch the deploy pipeline complete.
+2. Repeat steps 3 + 4 against the production URL with a real admin account, but limit writes to one harmless grant/revoke against an internal test user.
+3. Verify another flagged user's `/for-you` still shows V2.
+
+### 6. Rollback
+
+| Failure | Action |
+|---|---|
+| Frontend regression | `git revert` the merge commit; CI redeploys |
+| Backend regression | `git revert` the merge commit; redeploy |
+| EF regression | `git checkout master~1 -- backend/app/edge_functions/feature-flags.js && insforge functions deploy feature-flags` |
+| Accidental mass grant | `DELETE FROM feature_flags WHERE flag = '<key>';` in Insforge Dashboard |
+
+No table schema changes — DB rollback is not needed.
+
+---
+
+## Testing Matrix
+
+| Layer | Test file | What it pins |
+|---|---|---|
+| Registry | `backend/tests/test_flags_registry.py` | `KNOWN_FLAGS` non-empty, `for_you_v2` present, unique keys, `[a-zA-Z0-9_]+` shape, `is_known_flag` true/false/empty |
+| DB helpers | `backend/tests/test_flags_db.py` | EF call shape (method, params, json_body) for `list_all_assignments` (with & without flag filter), `upsert_assignment`, `delete_assignment`; safe-fallback `[]` on EF failure for the read helper |
+| Admin router | `backend/tests/test_flags_admin.py` | (1) Auth: no token → 401/403; (2) GET full output shape; (3) GET email substring filter; (4) GET flag filter preserves full flag list per user; (5) POST 422 on unknown flag — upsert NOT awaited; then 200 on known flag — upsert called once with `(user_id, flag, True)`; (6) DELETE idempotent → 200, delete called once; (7) GET filters `enabled=false` rows out of every user's chips; (8) POST 502 when `upsert_assignment` raises; (9) DELETE 502 when `delete_assignment` raises |
+| Frontend | `npx tsc --noEmit` + `npx eslint src/app/admin/flags` | Type + lint correctness of `page.tsx` and `FlagsAdminPanel.tsx` |
+
+**Quick verify in one command:**
+
+```bash
+cd backend && source venv/bin/activate && \
+  pytest tests/test_flags_registry.py tests/test_flags_db.py tests/test_flags_admin.py -v && \
+cd ../frontend && \
+  npx tsc --noEmit 2>&1 | grep -E "admin/flags" ; \
+  npx eslint src/app/admin/flags
+```
+
+Expected: 19 pytest passed, no tsc output for admin/flags files, eslint 0 errors (1 cosmetic warning).
+
+**Conftest-protected write guards**: `backend/tests/conftest.py` `DB_WRITE_FUNCTIONS` includes `app.features.flags.db.upsert_assignment` and `app.features.flags.db.delete_assignment`. Any unrelated test that triggers these paths will see a mocked no-op response rather than hitting Insforge.
 
 ---
 
