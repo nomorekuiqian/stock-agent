@@ -1219,6 +1219,8 @@ class EmailService:
                         "news": digest_result.get("news", {}),
                         "events": digest_result.get("events", []),
                         "summary": digest_result.get("summary", {}),
+                        "action_items": digest_result.get("action_items", []),
+                        "portfolio_summary": digest_result.get("portfolio_summary", ""),
                     }
                     await save_user_digest(save_data)
                     logger.info("Saved digest to DB for %s", email)
