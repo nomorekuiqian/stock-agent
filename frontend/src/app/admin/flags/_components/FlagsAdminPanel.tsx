@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { getAccessTokenAsync, getAccessTokenSync } from '@/contexts/AuthContext';
 
@@ -57,10 +57,11 @@ export function FlagsAdminPanel({ initialData, accessToken: _initialToken }: Pro
     }
   }, []);
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onEmailChange = useCallback((value: string) => {
     setEmailSearch(value);
-    const handle = setTimeout(() => { void refresh(value, flagFilter); }, 300);
-    return () => clearTimeout(handle);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { void refresh(value, flagFilter); }, 300);
   }, [refresh, flagFilter]);
 
   const onFlagFilterChange = useCallback((value: string) => {
