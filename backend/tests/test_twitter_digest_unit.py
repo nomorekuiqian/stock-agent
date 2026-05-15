@@ -168,9 +168,50 @@ class TestPullCandidateTweets:
         with patch("app.features.twitter_digest.service.get_enabled_kols",
                    new=AsyncMock(return_value=kols)), \
              patch("app.features.twitter_digest.service.get_insforge_service",
-                   return_value=fake_db):
+                   return_value=fake_db), \
+             patch.object(service, "_LIST_BATCH_RETRY_DELAY_SECONDS", 0):
             with pytest.raises(RuntimeError, match="list_batch failed"):
                 await service.pull_candidate_tweets()
+
+    @pytest.mark.asyncio
+    async def test_time_sliced_pull_dedupes_chunks(self):
+        """The digest pull walks the window in hourly slices to avoid the
+        Insforge/PostgREST 1000-row cap, then dedupes by tweet id."""
+        from app.features.twitter_digest import service
+
+        kols = [{"username": "alice", "display_name": "Alice"}]
+        duplicate = _fake_tweet("dup", "alice")
+        chunks = [
+            [_fake_tweet("old", "alice"), duplicate],
+            [duplicate, _fake_tweet("new", "alice")],
+        ]
+        calls: list[dict] = []
+
+        async def fake_call_function(*args, **kwargs):
+            calls.append(kwargs["json_body"])
+            idx = len(calls) - 1
+            return {
+                "status_code": 200,
+                "data": {"success": True, "data": chunks[idx]},
+            }
+
+        fake_db = AsyncMock()
+        fake_db.call_function = fake_call_function
+
+        with patch("app.features.twitter_digest.service.get_enabled_kols",
+                   new=AsyncMock(return_value=kols)), \
+             patch("app.features.twitter_digest.service.get_insforge_service",
+                   return_value=fake_db):
+            tweets, usernames, raw_count = await service.pull_candidate_tweets(
+                window_hours=2,
+            )
+
+        assert usernames == ["alice"]
+        assert {t["id"] for t in tweets} == {"old", "dup", "new"}
+        assert raw_count == 3
+        assert len(calls) == 2
+        assert calls[0]["until"] == calls[1]["since"]
+        assert all("since" in call and "until" in call for call in calls)
 
 
 # ---------------------------------------------------------------------------

@@ -120,7 +120,7 @@ async def broadcast_endpoint(
 
 @router.post("/enrich")
 async def enrich_endpoint(
-    window_hours: int = Query(24, ge=12, le=72),
+    window_hours: int = Query(24, ge=6, le=72),
     auth_path: str = Depends(verify_admin_or_nonprod_or_cron),
 ):
     """

@@ -56,18 +56,19 @@ describe('MacroSection', () => {
   it('key_points are in collapsed details', () => {
     const { container } = render(<MacroSection thread={makeThread()} index={0} />);
     const text = container.textContent || '';
-    expect(text).toContain('展开论据');
+    expect(text).toContain('展开观点');
     expect(text).toContain('关键点 1');
   });
 
   it('omits details toggle when no key_points', () => {
     const { container } = render(<MacroSection thread={makeThread({ key_points: [] })} index={0} />);
-    expect(container.textContent || '').not.toContain('展开论据');
+    expect(container.textContent || '').not.toContain('展开观点');
   });
 
-  it('renders KOL count', () => {
+  it('renders tweet and KOL counts', () => {
     const { container } = render(<MacroSection thread={makeThread()} index={0} />);
     const text = container.textContent || '';
+    expect(text).toContain('推');
     expect(text).toContain('KOL');
   });
 

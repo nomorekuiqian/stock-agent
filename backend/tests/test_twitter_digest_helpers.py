@@ -733,6 +733,23 @@ class TestEnforceCaps:
         _enforce_caps(output)
         assert len(output.macro_threads) == 5
 
+    def test_caps_macro_key_points_at_12_and_recomputes_kols(self):
+        thread = MacroThread(
+            title="Clarity Act",
+            layer="industry",
+            primary_kols=[f"old{i}" for i in range(20)],
+            key_points=[_arg(f"u{i}") for i in range(15)],
+        )
+        output = CuratedDigestOutput(
+            headline="h", intro="i", macro_threads=[thread],
+        )
+
+        _enforce_caps(output)
+
+        kept = output.macro_threads[0]
+        assert len(kept.key_points) == 12
+        assert set(kept.primary_kols) == {f"u{i}" for i in range(12)}
+
     def test_clears_intro(self):
         # intro is deprecated — _enforce_caps must scrub LLM bleed.
         output = CuratedDigestOutput(

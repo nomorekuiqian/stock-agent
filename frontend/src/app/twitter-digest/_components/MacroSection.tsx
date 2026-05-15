@@ -17,6 +17,9 @@ export function MacroSection({ thread, index }: Props) {
     return null;
   }
 
+  const keyPointCount = thread.key_points.length;
+  const kolCount = thread.primary_kols.length;
+
   return (
     <section
       id={`macro-${index}`}
@@ -31,8 +34,16 @@ export function MacroSection({ thread, index }: Props) {
           {thread.title}
         </h3>
         <span className="shrink-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground/65 font-data">
-          {thread.layer === 'macro' ? '宏观' : '行业'} ·{' '}
-          <span className="text-foreground/80 tabular-nums">{thread.primary_kols.length}</span>{' '}
+          {thread.layer === 'macro' ? '宏观' : '行业'}
+          {keyPointCount > 0 && (
+            <>
+              {' '}·{' '}
+              <span className="text-foreground/80 tabular-nums">{keyPointCount}</span>{' '}
+              推
+            </>
+          )}
+          {' '}·{' '}
+          <span className="text-foreground/80 tabular-nums">{kolCount}</span>{' '}
           KOL
         </span>
       </header>
@@ -55,10 +66,10 @@ export function MacroSection({ thread, index }: Props) {
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            <span className="group-open:hidden">展开论据</span>
-            <span className="hidden group-open:inline">收起论据</span>
+            <span className="group-open:hidden">展开观点</span>
+            <span className="hidden group-open:inline">收起观点</span>
             <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
-              ({thread.key_points.length})
+              ({keyPointCount})
             </span>
           </summary>
           <ul className="mt-4 space-y-2.5">

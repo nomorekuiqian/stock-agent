@@ -166,7 +166,8 @@ class MacroThread(BaseModel):
     )
     key_points: list[Argument] = Field(
         default_factory=list,
-        description="0-3 条最有代表性的博主原话引用 (折叠展开).",
+        description="Topic 下被过滤保留下来的推文观点摘要; <=12 条尽量全收, "
+                    ">12 条时保留最多 12 条代表性观点.",
     )
 
 

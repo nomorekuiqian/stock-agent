@@ -11,6 +11,7 @@ Quality judgment is done by the daily enrichment cron (Step 1); this pipeline
 trusts `kol_tweets.symbols.quality` and never re-judges.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone, timedelta
 from typing import Type, TypeVar
@@ -41,6 +42,12 @@ from app.features.twitter_digest.models import (
 logger = get_logger(__name__)
 
 _REPLY_MIN_ENGAGEMENT = 5
+_LIST_BATCH_LIMIT = 5000
+_LIST_BATCH_SLICE_HOURS = 1
+_LIST_BATCH_SPLIT_THRESHOLD = 900
+_MIN_LIST_BATCH_SLICE = timedelta(minutes=15)
+_LIST_BATCH_MAX_ATTEMPTS = 3
+_LIST_BATCH_RETRY_DELAY_SECONDS = 1.0
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -120,6 +127,135 @@ def _tickers_of(tweet: dict) -> list[str]:
     return [ts["ticker"] for ts in _ticker_stances_of(tweet)]
 
 
+def _internal_headers() -> dict | None:
+    if not EDGE_FUNCTION_SECRET:
+        return None
+    return {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
+
+
+async def _list_batch_window(
+    db_client,
+    body_base: dict,
+    since: datetime,
+    until: datetime,
+) -> list[dict]:
+    """Fetch one half-open created_at window via the kol-tweets edge function."""
+    body = {
+        **body_base,
+        "since": since.isoformat(),
+        "until": until.isoformat(),
+    }
+    # Retry only for transient transport errors (timeout, network drop). HTTP
+    # status >= 400 and payload-level errors are upstream's deliberate "no"
+    # and won't recover by retrying — surface them immediately.
+    for attempt in range(1, _LIST_BATCH_MAX_ATTEMPTS + 1):
+        try:
+            result = await db_client.call_function(
+                "kol-tweets",
+                method="POST",
+                params={"action": "list_batch"},
+                json_body=body,
+                timeout=30.0,
+                extra_headers=_internal_headers(),
+            )
+        except (asyncio.TimeoutError, ConnectionError, OSError) as exc:
+            if attempt >= _LIST_BATCH_MAX_ATTEMPTS:
+                raise
+            logger.warning(
+                "list_batch window %s to %s transient failure on attempt %d/%d: %s",
+                since.isoformat(), until.isoformat(), attempt,
+                _LIST_BATCH_MAX_ATTEMPTS, exc,
+            )
+            await asyncio.sleep(_LIST_BATCH_RETRY_DELAY_SECONDS * attempt)
+            continue
+
+        if result["status_code"] != 200:
+            raise RuntimeError(
+                f"list_batch failed: HTTP {result['status_code']} "
+                f"{result.get('text', '')[:200]}"
+            )
+        payload = result.get("data") or {}
+        if not payload.get("success"):
+            raise RuntimeError(
+                f"list_batch returned error: {payload.get('error')}"
+            )
+        return payload.get("data", []) or []
+
+    # Unreachable: the loop either returns, raises an HTTP/payload error,
+    # or re-raises the final transient exception when attempts exhaust.
+    raise RuntimeError("list_batch retry loop exited without result")
+
+
+async def _list_batch_window_split(
+    db_client,
+    body_base: dict,
+    since: datetime,
+    until: datetime,
+) -> list[dict]:
+    """Fetch a window, recursively splitting near the row-limit boundary.
+
+    Insforge/PostgREST can truncate large scans at around 1000 rows even when
+    the edge function asks for a higher range. Splitting by created_at keeps
+    each query below that cap and preserves the full digest window.
+    """
+    rows = await _list_batch_window(db_client, body_base, since, until)
+    duration = until - since
+    if len(rows) < _LIST_BATCH_SPLIT_THRESHOLD:
+        return rows
+    if duration <= _MIN_LIST_BATCH_SLICE:
+        logger.warning(
+            "list_batch window still returned %d rows at min slice %s to %s; "
+            "results may be truncated",
+            len(rows), since.isoformat(), until.isoformat(),
+        )
+        return rows
+
+    midpoint = since + duration / 2
+    logger.info(
+        "list_batch window %s to %s returned %d rows; splitting",
+        since.isoformat(), until.isoformat(), len(rows),
+    )
+    left = await _list_batch_window_split(db_client, body_base, since, midpoint)
+    right = await _list_batch_window_split(db_client, body_base, midpoint, until)
+    return left + right
+
+
+async def _list_batch_time_sliced(
+    db_client,
+    body_base: dict,
+    since: datetime,
+    until: datetime,
+) -> list[dict]:
+    """Fetch a full digest window in hour-sized half-open slices."""
+    by_id: dict[str, dict] = {}
+    slice_count = 0
+    cursor = since
+    slice_delta = timedelta(hours=_LIST_BATCH_SLICE_HOURS)
+
+    while cursor < until:
+        chunk_until = min(cursor + slice_delta, until)
+        slice_count += 1
+        rows = await _list_batch_window_split(
+            db_client, body_base, cursor, chunk_until,
+        )
+        for row in rows:
+            tweet_id = row.get("id")
+            if tweet_id:
+                by_id[str(tweet_id)] = row
+        cursor = chunk_until
+
+    raw = sorted(
+        by_id.values(),
+        key=lambda t: t.get("created_at") or "",
+        reverse=True,
+    )
+    logger.info(
+        "list_batch_time_sliced: window=%s to %s slices=%d rows=%d",
+        since.isoformat(), until.isoformat(), slice_count, len(raw),
+    )
+    return raw
+
+
 async def pull_candidate_tweets(
     window_hours: int = 24,
 ) -> tuple[list[dict], list[str], int]:
@@ -152,38 +288,19 @@ async def pull_candidate_tweets(
     enabled_set = {u.lower() for u in usernames}
     use_server_filter = len(usernames) <= 60
 
-    since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat()
+    until = datetime.now(timezone.utc)
+    since = until - timedelta(hours=window_hours)
     db_ = get_insforge_service()
-    body: dict = {"since": since, "limit": 5000}
+    body_base: dict = {"limit": _LIST_BATCH_LIMIT}
     if use_server_filter:
-        body["usernames"] = usernames
+        body_base["usernames"] = usernames
     else:
         # Edge function requires non-empty usernames; pass a sentinel that
         # matches nothing on its side, OR — simpler — extend the function to
         # treat omission as "no filter". We pick the latter via a flag.
-        body["all_kols"] = True
-    result = await db_.call_function(
-        "kol-tweets",
-        method="POST",
-        params={"action": "list_batch"},
-        json_body=body,
-        timeout=30.0,
-        extra_headers=(
-            {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
-            if EDGE_FUNCTION_SECRET else None
-        ),
-    )
+        body_base["all_kols"] = True
 
-    if result["status_code"] != 200:
-        raise RuntimeError(
-            f"list_batch failed: HTTP {result['status_code']} "
-            f"{result.get('text', '')[:200]}"
-        )
-    payload = result.get("data") or {}
-    if not payload.get("success"):
-        raise RuntimeError(f"list_batch returned error: {payload.get('error')}")
-
-    raw = payload.get("data", []) or []
+    raw = await _list_batch_time_sliced(db_, body_base, since, until)
 
     # When server didn't filter by usernames (large catalog path), apply the
     # enabled-set filter client-side. Tweets from authors who have since been
@@ -370,6 +487,7 @@ def _enforce_provenance(
 
 _TICKER_THESIS_CAP = 8  # hard upper bound on ticker theses shown
 _OTHER_TICKER_MIN_KOLS = 3  # only show "其他热议" tickers with this many distinct KOL
+_MACRO_KEY_POINTS_CAP = 12  # per macro topic, keep broad filtered-tweet coverage
 
 
 def _watchpoint_keywords(title: str) -> list[str]:
@@ -550,7 +668,14 @@ def _enforce_caps(output: CuratedDigestOutput) -> None:
     # Frontend doesn't render intro anymore — clear any LLM bleed.
     output.intro = ""
 
-    # Macro threads — short list, 0-5
+    # Macro threads — short list, 0-5. Each thread can carry many key_points:
+    # those are the filtered tweets/users readers expand on the web, so don't
+    # collapse a multi-KOL topic down to a single representative quote.
+    for thread in output.macro_threads:
+        if len(thread.key_points) > _MACRO_KEY_POINTS_CAP:
+            thread.key_points = thread.key_points[:_MACRO_KEY_POINTS_CAP]
+        kols = {(a.kol or "").lower() for a in thread.key_points if a.kol}
+        thread.primary_kols = sorted(kols)
     output.macro_threads = output.macro_threads[:5]
 
     # Watchpoints — drop bogus, cap at 5
