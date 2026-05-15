@@ -1,9 +1,11 @@
 """
-Unit tests for tier-based model routing in brew/agent.PersonalDigest.
+Unit tests for tier-based routing in brew/agent.PersonalDigest.
 
 Verifies that _resolve_runner_for_user() picks paid runner when the user has
 the personal_digest_email entitlement and falls back to free in all other
-conditions (no user, missing entitlement, exception, lifetime).
+conditions (no user, missing entitlement, exception, lifetime). The paid/free
+runners are intentionally separate even while both tiers temporarily use the
+same Flash model.
 
 No real LLM calls; we just check which runner is returned.
 
@@ -79,8 +81,8 @@ class TestResolveRunnerForUser:
 
 
 class TestModuleConstants:
-    def test_distinct_models(self):
-        assert FREE_TIER_MODEL != PAID_TIER_MODEL
+    def test_paid_and_free_models_temporarily_unified(self):
+        assert FREE_TIER_MODEL == PAID_TIER_MODEL == "gemini-3-flash-preview"
 
     def test_paid_entitlement_is_pro_feature(self):
         from app.features.payment.entitlements import PRO_FEATURES

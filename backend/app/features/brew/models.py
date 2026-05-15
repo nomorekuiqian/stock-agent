@@ -49,7 +49,7 @@ class StockAnalysis(BaseModel):
     price: float = Field(..., description="Current stock price")
     daily_change: str = Field(..., description="Daily change with percentage")
     status: str = Field(..., description="Brief status in Chinese")
-    quick_take: str = Field(..., description="60-80 char concise summary: trend + driver + optional event reminder")
+    quick_take: str = Field(..., description="120-160 char analyst note: trend, driver, judgment, optional event condition")
 
 
 class DigestHeadlineNews(BaseModel):
@@ -87,8 +87,8 @@ class DigestEvent(BaseModel):
 
 
 class DigestSummary(BaseModel):
-    """One-paragraph judgment-style takeaway."""
-    content: str = Field(default="", description="One paragraph, 100-150 Chinese chars, meta-takeaway only (no recap)")
+    """Three-paragraph analyst summary."""
+    content: str = Field(default="", description="Three natural paragraphs, 420-650 Chinese chars: core judgment, movement attribution, future scenarios")
 
 
 class DigestResponse(BaseModel):
@@ -149,19 +149,19 @@ class StockSummary(BaseModel):
         description="Daily change with +/- sign, e.g., '+2.35%' or '-1.20%'"
     )
     status: str = Field(
-        description="Short one-line status, ~10 Chinese chars. "
-        "Good: '财报后持续消化', '创三个月新高', '跟随板块下跌'. "
+        description="Short one-line status, 12-18 Chinese chars. "
+        "Good: '财报后继续消化，逻辑未破', '创三个月新高但追涨风险上升'. "
         "Bad: '强势上涨', '小幅回调' (too template-like)."
     )
     quick_take: str = Field(
-        description="Concise 60-80 Chinese chars (hard cap 100), 2-3 sentences: "
+        description="120-160 Chinese chars (hard cap 180), 3-4 sentences: "
         "1) one sentence on today's price action and direct cause, "
-        "2) one sentence on the driver (catalyst or sector sentiment), "
-        "3) IF a relevant upcoming event exists, one short reminder line "
-        "('接下来盯周二 CPI', '等下周财报'); skip if none. "
-        "Do NOT expand macro logic or chain-effect analysis — those belong "
-        "in news/summary. If the same story appears in headlines below, "
-        "give only a one-line mention here and let news carry the depth."
+        "2) one sentence connecting the driver to this specific stock, "
+        "3) one judgment on whether the medium-term logic is strengthened, "
+        "weakened, or unchanged, "
+        "4) IF a relevant upcoming event exists, include a concrete condition "
+        "to watch; skip if none. If the same story appears in headlines below, "
+        "mention it briefly and let news carry the depth."
     )
 
 
@@ -232,15 +232,16 @@ class UpcomingEvent(BaseModel):
 
 
 class Summary(BaseModel):
-    """One-paragraph judgment-style takeaway."""
+    """Three-paragraph private-analyst summary."""
 
     content: str = Field(
-        description="One paragraph, 100-150 Chinese chars. A single judgment-style "
-        "takeaway with 1-2 supporting facts. STRICT: no enumerated future events "
-        "(events section does that), no per-stock recap (stocks section does that), "
-        "no news-detail rehash (news section does that). Give a meta-insight the "
-        "user would not get from reading the three sections separately. "
-        "Hard cap: 150 chars. Over 150 = rewrite shorter."
+        description="Three natural paragraphs, 420-650 Chinese chars total. "
+        "Paragraph 1: core judgment and narrative continuity. "
+        "Paragraph 2: movement attribution connecting macro/sector/news to "
+        "specific watched or held stocks. "
+        "Paragraph 3: 2-3 future scenarios with dates/events, trigger "
+        "conditions, and concrete consequences for the user's watchlist. "
+        "Do not issue buy/sell instructions."
     )
 
 
