@@ -5,6 +5,8 @@
  * the full bull/bear/observation argument breakdown is folded by default.
  */
 
+import Link from 'next/link';
+
 import { safeUserUrl, safeTweetUrl } from './safeUrl';
 import type { Argument, TickerSide, TickerThesis } from './types';
 
@@ -164,10 +166,15 @@ function Header({
         >
           {String(index + 1).padStart(2, '0')}
         </span>
-        <span className="inline-flex items-baseline gap-0.5 font-data text-2xl md:text-[26px] tracking-tight">
+        <Link
+          href={`/stock/${ticker}`}
+          prefetch={false}
+          className="inline-flex items-baseline gap-0.5 font-data text-2xl md:text-[26px] tracking-tight hover:text-primary transition-colors"
+          aria-label={`查看 ${ticker} 个股详情`}
+        >
           <span className="text-primary/70">$</span>
           <span className="text-foreground">{ticker}</span>
-        </span>
+        </Link>
         <span
           className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${meta.chipClass}`}
           aria-label={meta.label}

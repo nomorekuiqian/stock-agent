@@ -12,6 +12,8 @@
  * a one-liner list, more skimmable than a deep thesis.
  */
 
+import Link from 'next/link';
+
 import { safeUserUrl, safeTweetUrl } from './safeUrl';
 import type { Argument, WatchpointItem } from './types';
 
@@ -87,13 +89,15 @@ function Card({ item, index }: { item: WatchpointItem; index: number }) {
             <ul className="flex flex-wrap gap-1.5">
               {item.related_tickers.slice(0, 6).map((tk) => (
                 <li key={tk}>
-                  <a
-                    href={`#ticker-${tk}`}
+                  <Link
+                    href={`/stock/${tk}`}
+                    prefetch={false}
                     className="inline-flex items-baseline gap-0.5 font-data text-[12px] hover:text-primary transition-colors"
+                    aria-label={`查看 ${tk} 个股详情`}
                   >
                     <span className="text-primary/65">$</span>
                     <span className="text-foreground/90">{tk}</span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

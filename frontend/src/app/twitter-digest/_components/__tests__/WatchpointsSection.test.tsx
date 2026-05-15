@@ -59,9 +59,9 @@ describe('WatchpointsSection', () => {
     expect(container.textContent || '').not.toContain('6/24');
   });
 
-  it('renders related ticker chips with anchor', () => {
+  it('renders related ticker chips linking to stock detail', () => {
     const { container } = render(<WatchpointsSection watchpoints={[makeWatchpoint()]} />);
-    const tickerAnchor = container.querySelector('a[href="#ticker-MU"]');
+    const tickerAnchor = container.querySelector('a[href="/stock/MU"]');
     expect(tickerAnchor).not.toBeNull();
   });
 

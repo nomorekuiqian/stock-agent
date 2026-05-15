@@ -5,6 +5,8 @@
  * 实测散户不读，已砍）。
  */
 
+import Link from 'next/link';
+
 import type { HotItem } from './types';
 
 interface Props {
@@ -97,17 +99,33 @@ function RadarChip({ kind, item }: { kind: 'ticker' | 'sector' | 'event'; item: 
     <span className="font-editorial text-foreground/90">{item.label}</span>
   );
 
-  return (
-    <a
-      href="#hot-leaderboard"
-      className="group inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background/80 px-3 py-1 text-sm transition-all hover:border-primary/55 hover:bg-primary/5"
-    >
+  const sharedClass = "group inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background/80 px-3 py-1 text-sm transition-all hover:border-primary/55 hover:bg-primary/5";
+  const innerContent = (
+    <>
       {labelNode}
       {kols > 0 && (
         <span className="text-[10px] font-data tabular-nums text-muted-foreground/70 group-hover:text-primary/85 transition-colors">
           {kols} KOL
         </span>
       )}
+    </>
+  );
+
+  if (isTicker && symbol) {
+    return (
+      <Link
+        href={`/stock/${symbol}`}
+        prefetch={false}
+        className={sharedClass}
+        aria-label={`查看 ${symbol} 个股详情`}
+      >
+        {innerContent}
+      </Link>
+    );
+  }
+  return (
+    <a href="#hot-leaderboard" className={sharedClass}>
+      {innerContent}
     </a>
   );
 }

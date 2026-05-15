@@ -14,6 +14,7 @@ from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
 
 from app.features.subscription.email_styles import (
     CARD_STYLE,
+    CARD_STYLE_COMPACT,
     CARD_STYLE_WIDE,
     SECTION_HEADER_STYLE,
     SECTION_HEADER_STYLE_GREEN,
@@ -30,6 +31,11 @@ _LOGO_URL: str = "https://themarketbrew.com/logo-avatar.png"
 # regardless of the environment rendering the template. Dev/staging previews
 # should still link to production so recipients never land on localhost.
 _EMAIL_LINK_BASE: str = "https://themarketbrew.com"
+
+
+def _stock_url(ticker: str) -> str:
+    """Absolute URL for the stock detail page used by email ticker links."""
+    return f"{_EMAIL_LINK_BASE}/stock/{ticker.strip().upper()}"
 
 
 # ---------------------------------------------------------------------------
@@ -937,7 +943,7 @@ def format_digest_html(
                     <table style="width: 100%; margin-bottom: 12px;" cellpadding="0" cellspacing="0">
                         <tr>
                             <td style="vertical-align: middle;">
-                                <span style="font-size: 16px; font-weight: 700; color: #0a0a0a;">{stock.get('symbol', '')}</span>
+                                <a href="{_stock_url(stock.get('symbol', ''))}" style="text-decoration: none;"><span style="font-size: 16px; font-weight: 700; color: #0a0a0a;">{stock.get('symbol', '')}</span></a>
                                 <span style="font-size: 13px; color: #71717a; margin-left: 8px;">{stock.get('name', '')}</span>
                             </td>
                             <td style="text-align: right; vertical-align: middle;">
@@ -2044,6 +2050,33 @@ def _twitter_digest_escape(text: str) -> str:
     )
 
 
+def _twitter_digest_header_date(
+    digest_date: Optional[str], generated_at: Optional[str],
+) -> str:
+    """Return the digest business date only, with no time or timezone label."""
+    for value in (digest_date, generated_at):
+        if not value:
+            continue
+        raw = str(value).strip()
+        if len(raw) >= 10:
+            date_part = raw[:10]
+            try:
+                datetime.strptime(date_part, "%Y-%m-%d")
+            except ValueError:
+                pass
+            else:
+                return date_part
+        try:
+            return (
+                datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                .date()
+                .isoformat()
+            )
+        except Exception:
+            continue
+    return today_str()
+
+
 def format_twitter_digest_html(
     digest: dict,
     digest_date: Optional[str] = None,
@@ -2131,8 +2164,8 @@ def _format_twitter_digest_body(
     digest_date: Optional[str],
     digest_id: Optional[str],
 ) -> str:
-    generated_at = digest.get("generated_at") or now_iso()
-    formatted_date = format_timestamp(generated_at)
+    generated_at = digest.get("generated_at")
+    formatted_date = _twitter_digest_header_date(digest_date, generated_at)
 
     headline: str = digest.get("headline") or ""
     ticker_theses: list[dict] = digest.get("ticker_theses") or []
@@ -2220,12 +2253,11 @@ def _twitter_digest_ticker_theses_section(
     if not theses:
         return ""
     cards = "".join(
-        _twitter_digest_ticker_thesis_card(t, idx, digest_date)
-        for idx, t in enumerate(theses)
+        _twitter_digest_ticker_thesis_card(t, digest_date) for t in theses
     )
     return f"""
-        <div style="margin-bottom: 16px;">
-            <div style="{SECTION_HEADER_STYLE_GREEN}">
+        <div style="margin-bottom: 14px;">
+            <div style="{SECTION_HEADER_STYLE}">
                 今日热议个股
             </div>
             <div style="font-size: 12px; color: #71717a; margin: -4px 0 12px 0;
@@ -2245,31 +2277,6 @@ def _twitter_digest_anchor_url(digest_date: Optional[str], anchor: str) -> str:
     if digest_date:
         return f"{_EMAIL_LINK_BASE}/twitter-digest/{digest_date}#{anchor}"
     return f"{_EMAIL_LINK_BASE}/twitter-digest"
-
-
-_STANCE_CHIP_STYLES: dict[str, dict[str, str]] = {
-    "bull": {"bg": "#059669", "fg": "#ffffff", "label": "看多"},
-    "bear": {"bg": "#dc2626", "fg": "#ffffff", "label": "看空"},
-    "disputed": {"bg": "#f59e0b", "fg": "#1c1917", "label": "分歧"},
-    "observation": {"bg": "#e7e5e0", "fg": "#52525b", "label": "观察"},
-}
-
-
-def _twitter_digest_side_chip(side: str) -> str:
-    """Render the colored side chip (bull/bear/disputed/observation).
-
-    Falls back to the neutral observation chip when `side` is unknown. The
-    chip uses solid backgrounds (not low-alpha tints) so it survives Gmail's
-    auto-dark-mode reprocessing without turning into a low-contrast smear.
-    """
-    style = _STANCE_CHIP_STYLES.get(side, _STANCE_CHIP_STYLES["observation"])
-    return (
-        f'<span style="display: inline-block; background: {style["bg"]}; '
-        f'color: {style["fg"]}; font-size: 11px; padding: 3px 10px; '
-        'border-radius: 999px; font-weight: 600; letter-spacing: 0.05em; '
-        'vertical-align: middle; margin-left: 10px; white-space: nowrap;">'
-        f'{style["label"]}</span>'
-    )
 
 
 def _twitter_digest_lead_split(text: str, max_lead: int = 60) -> tuple[str, str]:
@@ -2314,9 +2321,12 @@ def _twitter_digest_card_cta(href: str, label: str) -> str:
 
 
 def _twitter_digest_ticker_thesis_card(
-    thesis: dict, index: int, digest_date: Optional[str] = None,
+    thesis: dict, digest_date: Optional[str] = None,
 ) -> str:
-    ticker = _twitter_digest_escape((thesis.get("ticker") or "").strip())
+    # Keep raw for URL building (`/stock/<TICKER>` shouldn't contain &amp;);
+    # use the escaped form only for HTML text content.
+    ticker_raw = (thesis.get("ticker") or "").strip()
+    ticker = _twitter_digest_escape(ticker_raw)
     primary_kols = thesis.get("primary_kols") or []
     synthesis = _twitter_digest_escape((thesis.get("synthesis_zh") or "").strip())
     buy_args = thesis.get("buy_arguments") or []
@@ -2326,35 +2336,22 @@ def _twitter_digest_ticker_thesis_card(
     if total == 0 and not synthesis:
         return ""
 
-    side = (thesis.get("side") or "").strip().lower()
-    side_chip = _twitter_digest_side_chip(side) if side else ""
-
     raw_stance = (thesis.get("stance_summary") or "").strip()
     if not raw_stance:
         raw_stance = _twitter_digest_stance_summary_fallback(thesis)
     stance_summary = _twitter_digest_escape(raw_stance)
 
-    # Header: index + ticker + side chip. KOL/tweet counts deliberately
-    # removed — the stance_summary line below already carries the "who"
-    # implicitly ("3 位博主一致看多"), so the meta digits were redundant
-    # chrome competing with the ticker for attention.
+    # Header: ticker on top line, stance summary on a separate line below.
+    # Ticker name is emerald — section-themed accent color for the 个股
+    # section, paired with slate-blue on macro and amber on watchpoint
+    # to give each section its own color identity.
     header = f"""
-        <div style="padding-bottom: 12px; border-bottom: 1px solid #e4e4e7;
-                    margin-bottom: 14px;">
-            <span style="font-size: 11px; color: #a1a1aa; margin-right: 10px;
-                         font-variant-numeric: tabular-nums;
-                         letter-spacing: 0.05em; vertical-align: middle;">
-                {str(index + 1).zfill(2)}
-            </span>
-            <span style="font-size: 20px; font-weight: 700; color: #0a0a0a;
-                         letter-spacing: -0.01em; vertical-align: middle;">
-                <span style="color: #059669;">$</span>{ticker}
-            </span>
-            {side_chip}
-            <div style="font-size: 13px; color: #52525b; line-height: 1.55;
-                        margin-top: 8px; font-weight: 500;">
-                {stance_summary}
+        <div style="margin-bottom: 14px;">
+            <div style="font-size: 17px; line-height: 1.3; margin-bottom: 4px;">
+                <a href="{_stock_url(ticker_raw)}" style="color: #059669; text-decoration: none; font-weight: 700; letter-spacing: -0.01em;">{ticker}</a>
             </div>
+            <div style="font-size: 14px; color: #52525b; font-weight: 500;
+                        line-height: 1.55;">{stance_summary}</div>
         </div>
     """
 
@@ -2363,14 +2360,14 @@ def _twitter_digest_ticker_thesis_card(
         lead, rest = _twitter_digest_lead_split(synthesis)
         if rest:
             synthesis_html = f"""
-                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.7;">
                     <strong style="color: #18181b; font-weight: 600;">{lead}</strong>
                     {rest}
                 </div>
             """
         else:
             synthesis_html = f"""
-                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.7;">
                     {lead}
                 </div>
             """
@@ -2379,12 +2376,12 @@ def _twitter_digest_ticker_thesis_card(
     if total > 0 or primary_kols:
         kol_count = len(primary_kols) or total
         cta_html = _twitter_digest_card_cta(
-            href=_twitter_digest_anchor_url(digest_date, f"ticker-{ticker}"),
+            href=_twitter_digest_anchor_url(digest_date, f"ticker-{ticker_raw}"),
             label=f"在网页看 {kol_count} 位博主完整论据",
         )
 
     return f"""
-        <div style="{CARD_STYLE}">
+        <div style="{CARD_STYLE_COMPACT}">
             {header}
             {synthesis_html}
             {cta_html}
@@ -2405,8 +2402,8 @@ def _twitter_digest_macro_threads_section(
         for idx, t in enumerate(threads)
     )
     return f"""
-        <div style="margin-bottom: 16px;">
-            <div style="{SECTION_HEADER_STYLE_GREEN}">
+        <div style="margin-bottom: 14px;">
+            <div style="{SECTION_HEADER_STYLE}">
                 热议话题
             </div>
             <div style="font-size: 12px; color: #71717a; margin: -4px 0 12px 0;
@@ -2431,30 +2428,20 @@ def _twitter_digest_macro_thread_card(
     if not title or (not key_points and not synthesis):
         return ""
 
-    # Header: index + title + small layer label chip (no kol count digits
-    # — same "remove redundant chrome" treatment as the ticker card).
+    # Header: title on the left, layer label on the right. Title is the
+    # primary content; the slate-blue layer label sits as a quiet meta
+    # tag on the rightmost edge — same single line.
     header = f"""
-        <div style="display: table; width: 100%; padding-bottom: 12px;
-                    border-bottom: 1px solid #e4e4e7; margin-bottom: 14px;">
-            <div style="display: table-cell; vertical-align: middle;">
-                <span style="font-size: 11px; color: #a1a1aa; margin-right: 10px;
-                             font-variant-numeric: tabular-nums;
-                             letter-spacing: 0.05em;">
-                    {str(index + 1).zfill(2)}
-                </span>
-                <span style="font-size: 16px; font-weight: 600; color: #18181b;
-                             line-height: 1.4; vertical-align: middle;">
-                    {title}
-                </span>
+        <div style="display: table; width: 100%; margin-bottom: 12px;">
+            <div style="display: table-cell; vertical-align: middle;
+                        line-height: 1.4;">
+                <span style="font-size: 15px; font-weight: 600; color: #18181b;">{title}</span>
             </div>
             <div style="display: table-cell; vertical-align: middle;
-                        text-align: right; padding-left: 10px;">
-                <span style="display: inline-block; background: #f4f4f5;
-                             color: #52525b; font-size: 11px; padding: 3px 10px;
-                             border-radius: 4px; white-space: nowrap;
-                             font-weight: 500; letter-spacing: 0.02em;">
-                    {layer_label}
-                </span>
+                        text-align: right; padding-left: 12px;
+                        white-space: nowrap;">
+                <span style="font-size: 11px; color: #2563eb; font-weight: 600;
+                             letter-spacing: 0.05em;">{layer_label}</span>
             </div>
         </div>
     """
@@ -2464,14 +2451,14 @@ def _twitter_digest_macro_thread_card(
         lead, rest = _twitter_digest_lead_split(synthesis)
         if rest:
             synthesis_html = f"""
-                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.7;">
                     <strong style="color: #18181b; font-weight: 600;">{lead}</strong>
                     {rest}
                 </div>
             """
         else:
             synthesis_html = f"""
-                <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;">
+                <div style="font-size: 14px; color: #3f3f46; line-height: 1.7;">
                     {lead}
                 </div>
             """
@@ -2485,7 +2472,7 @@ def _twitter_digest_macro_thread_card(
         )
 
     return f"""
-        <div style="{CARD_STYLE}">
+        <div style="{CARD_STYLE_COMPACT}">
             {header}
             {synthesis_html}
             {cta_html}
@@ -2502,12 +2489,11 @@ def _twitter_digest_watchpoints_section(
     if not watchpoints:
         return ""
     cards = "".join(
-        _twitter_digest_watchpoint_card(w, idx, digest_date)
-        for idx, w in enumerate(watchpoints)
+        _twitter_digest_watchpoint_card(w, digest_date) for w in watchpoints
     )
     return f"""
-        <div style="margin-bottom: 16px;">
-            <div style="{SECTION_HEADER_STYLE_GREEN}">
+        <div style="margin-bottom: 14px;">
+            <div style="{SECTION_HEADER_STYLE}">
                 未来热议事件
             </div>
             <div style="font-size: 12px; color: #71717a; margin: -4px 0 12px 0;
@@ -2520,7 +2506,7 @@ def _twitter_digest_watchpoints_section(
 
 
 def _twitter_digest_watchpoint_card(
-    item: dict, index: int, digest_date: Optional[str] = None,
+    item: dict, digest_date: Optional[str] = None,
 ) -> str:
     title = _twitter_digest_escape((item.get("title") or "").strip())
     date_hint = _twitter_digest_escape((item.get("date_hint") or "").strip())
@@ -2532,52 +2518,44 @@ def _twitter_digest_watchpoint_card(
     if not title or not why:
         return ""
 
-    date_chip = ""
+    # Header: title on the left, date hint on the right — same layout as
+    # the macro card. Amber date prefix is the 未来事件 section's themed
+    # accent.
+    date_cell = ""
     if date_hint:
-        date_chip = f"""
+        date_cell = f"""
             <div style="display: table-cell; vertical-align: middle;
-                        text-align: right; padding-left: 10px;">
-                <span style="display: inline-block; background: #059669;
-                             color: #ffffff; font-size: 11px; padding: 3px 10px;
-                             border-radius: 999px; font-variant-numeric: tabular-nums;
-                             white-space: nowrap; font-weight: 600;
-                             letter-spacing: 0.03em;">
-                    {date_hint}
-                </span>
+                        text-align: right; padding-left: 12px;
+                        white-space: nowrap;">
+                <span style="font-size: 11px; color: #d97706; font-weight: 600;
+                             letter-spacing: 0.05em;
+                             font-variant-numeric: tabular-nums;">{date_hint}</span>
             </div>
         """
 
     header = f"""
-        <div style="display: table; width: 100%; padding-bottom: 12px;
-                    border-bottom: 1px solid #e4e4e7; margin-bottom: 14px;">
-            <div style="display: table-cell; vertical-align: middle;">
-                <span style="font-size: 11px; color: #a1a1aa; margin-right: 10px;
-                             font-variant-numeric: tabular-nums;
-                             letter-spacing: 0.05em;">
-                    {str(index + 1).zfill(2)}
-                </span>
-                <span style="font-size: 16px; font-weight: 600; color: #18181b;
-                             line-height: 1.4; vertical-align: middle;">
-                    {title}
-                </span>
+        <div style="display: table; width: 100%; margin-bottom: 12px;">
+            <div style="display: table-cell; vertical-align: middle;
+                        line-height: 1.4;">
+                <span style="font-size: 15px; font-weight: 600; color: #18181b;">{title}</span>
             </div>
-            {date_chip}
+            {date_cell}
         </div>
     """
 
     lead, rest = _twitter_digest_lead_split(why)
     if rest:
         why_html = f"""
-            <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;
-                        margin-bottom: 12px;">
+            <div style="font-size: 14px; color: #3f3f46; line-height: 1.7;
+                        margin-bottom: 10px;">
                 <strong style="color: #18181b; font-weight: 600;">{lead}</strong>
                 {rest}
             </div>
         """
     else:
         why_html = f"""
-            <div style="font-size: 14px; color: #3f3f46; line-height: 1.85;
-                        margin-bottom: 12px;">
+            <div style="font-size: 14px; color: #3f3f46; line-height: 1.7;
+                        margin-bottom: 10px;">
                 {lead}
             </div>
         """
@@ -2585,11 +2563,13 @@ def _twitter_digest_watchpoint_card(
     chips_html = ""
     if related_tickers:
         chips = " ".join(
+            f'<a href="{_stock_url(t)}" style="text-decoration: none;">'
             f'<span style="display: inline-block; background: #f4f4f5; color: #18181b; '
             f'font-size: 12px; padding: 3px 9px; border-radius: 4px; '
             f'margin: 0 4px 4px 0; font-variant-numeric: tabular-nums; '
             f'font-weight: 500;">'
-            f'<span style="color: #059669;">$</span>{_twitter_digest_escape(t)}</span>'
+            f'<span style="color: #059669;">$</span>{_twitter_digest_escape(t)}'
+            f'</span></a>'
             for t in related_tickers[:6]
         )
         chips_html = f"""
@@ -2609,17 +2589,11 @@ def _twitter_digest_watchpoint_card(
             label=f"在网页看 {kol_count} 位博主原话",
         )
 
-    # emerald 顶部窄条 — 把 watchpoint 视觉权重和 ticker/macro 卡片拉开,
-    # 强调"前瞻 / 待发生事件"的属性。
     return f"""
-        <div style="{CARD_STYLE} padding-top: 0; overflow: hidden;">
-            <div style="height: 3px; background: #059669;
-                        margin: 0 -20px 18px -20px;"></div>
-            <div style="padding-top: 4px;">
-                {header}
-                {why_html}
-                {chips_html}
-                {cta_html}
-            </div>
+        <div style="{CARD_STYLE_COMPACT}">
+            {header}
+            {why_html}
+            {chips_html}
+            {cta_html}
         </div>
     """

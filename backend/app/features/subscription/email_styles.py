@@ -14,6 +14,14 @@ CARD_STYLE_WIDE = (
     "background: #ffffff; border: 1px solid #e4e4e7; "
     "border-radius: 8px; padding: 24px; margin-bottom: 16px;"
 )
+# Tighter card used by the Twitter Digest sections (ticker / macro / watchpoint).
+# Same border + corner as CARD_STYLE but smaller padding/gap; declared as a
+# standalone string instead of `{CARD_STYLE} padding: 16px;` so Outlook's Word
+# renderer doesn't take the first (overridden) declaration.
+CARD_STYLE_COMPACT = (
+    "background: #ffffff; border: 1px solid #e4e4e7; "
+    "border-radius: 8px; padding: 16px; margin-bottom: 10px;"
+)
 
 # Section headers
 SECTION_HEADER_STYLE = (

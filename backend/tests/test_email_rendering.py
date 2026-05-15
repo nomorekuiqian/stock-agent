@@ -729,8 +729,8 @@ class TestIsProduction:
 
 
 class TestTwitterDigestRendering:
-    """V4 layout: opening + hot leaderboard + ticker_theses + macro_threads +
-    watchpoints + other_tickers."""
+    """Twitter digest email layout: opening + ticker theses + macro threads +
+    watchpoints."""
 
     @pytest.fixture
     def sample_digest(self) -> dict:
@@ -845,16 +845,25 @@ class TestTwitterDigestRendering:
         assert "AI 内存超级周期与 Robotaxi 并跑" in html
         # intro 已弃用 — 不再渲染"今日要点"白卡
         assert "今日要点" not in html
-        # Meta line
-        assert "4 位金融博主" in html
-        assert "312 条原始推文" in html
+        # Meta line — just confirm the count + label show up next to each
+        # other; don't bind the assertion to the specific inline styling.
+        assert ">4</span> KOL" in html
+        assert ">312</span> 推文" in html
+
+    def test_header_uses_digest_date_without_time(self, sample_digest):
+        from app.features.subscription.email_templates import format_twitter_digest_html
+
+        html = format_twitter_digest_html(sample_digest, digest_date="2026-05-10")
+
+        assert "2026-05-10" in html
+        assert "PT" not in html
+        assert "2026-05-09T22:00:00+00:00" not in html
 
     def test_renders_ticker_theses(self, sample_digest):
         from app.features.subscription.email_templates import format_twitter_digest_html
         html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
-        # Section header: "今天 KOL 圈在押什么 · N 只"
-        assert "今天 KOL 圈在押什么" in html
-        assert "&middot; 1 只" in html
+        assert "今日热议个股" in html
+        assert "按博主讨论密度排序" in html
         # Ticker rendered
         assert "NVDA" in html
         # Stance summary fallback (buy=1, sell=1) → "X 位看多 · Y 位看空, 双方都有支撑"
@@ -862,7 +871,7 @@ class TestTwitterDigestRendering:
         # Synthesis paragraph
         assert "围绕 Q1 财报后的 AI 算力订单可见性" in html
         # Per-card CTA points readers to the web detail at the ticker anchor.
-        assert "查看 2 位博主完整观点 &rarr;" in html
+        assert "在网页看 2 位博主完整论据 &rarr;" in html
         assert "/twitter-digest/2026-05-09#ticker-NVDA" in html
         # Inline argument text NO LONGER appears in email — moved to web only.
         assert "Q1 营收同比 +18% 至 $39B" not in html
@@ -871,23 +880,23 @@ class TestTwitterDigestRendering:
     def test_renders_macro_threads(self, sample_digest):
         from app.features.subscription.email_templates import format_twitter_digest_html
         html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
-        assert "今天博主们在担心什么" in html
-        assert "&middot; 1 个话题" in html
+        assert "热议话题" in html
+        assert "宏观 / 行业层面被反复提到的事" in html
         assert "美联储 6/24 议息预期" in html
         assert "OIS 隐含降息概率从上周 42% 升至 71%" in html
 
     def test_renders_watchpoints(self, sample_digest):
         from app.features.subscription.email_templates import format_twitter_digest_html
         html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
-        assert "本周博主们在等什么" in html
-        assert "&middot; 1 个事件" in html
+        assert "未来热议事件" in html
+        assert "未来 3 周内的具体催化剂" in html
         assert "MU Q3 财报 6/24" in html
         assert "6/24" in html
         assert "若财报上修 2027+ HBM 算力需求" in html
         # Related ticker chips
         assert "MU" in html and "NVDA" in html
         # CTA reflects the kols_watching count (3 names in sample)
-        assert "查看 3 位博主原话 &rarr;" in html
+        assert "在网页看 3 位博主原话 &rarr;" in html
 
     def test_drops_other_tickers_and_tracked_kols_chips(self, sample_digest):
         """V4.2 — '其他热议' chip block + '追踪博主' chip block removed."""
@@ -948,7 +957,7 @@ class TestTwitterDigestRendering:
         # All-buy stance falls back to "{kols} 位博主一致看多"
         assert "1 位博主一致看多" in html
         # CTA jumps to the ticker anchor on the web detail
-        assert "查看 1 位博主完整观点 &rarr;" in html
+        assert "在网页看 1 位博主完整论据 &rarr;" in html
         assert "/twitter-digest/2026-05-09#ticker-NVDA" in html
         # No inline argument body text leaks through
         assert "论据 0 包含具体数字" not in html
@@ -987,9 +996,9 @@ class TestTwitterDigestRendering:
 
         html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
         # Section criteria copy must be present so users understand selection.
-        assert "未来 3 周内有具体发生时间的 catalyst" in html
+        assert "未来 3 周内的具体催化剂" in html
         # Catalyst type taxonomy is part of the subtitle.
-        assert "财报 / 数据 / 央行 / 监管 / 产品发布 / 行业事件" in html
+        assert "财报 / 数据 / 央行 / 监管 / 产品发布" in html
 
     def test_no_hot_tickers_leaderboard_block(self, sample_digest):
         """The 今日热议 hot-ticker bar chart was removed in the simplification
@@ -997,11 +1006,12 @@ class TestTwitterDigestRendering:
         from app.features.subscription.email_templates import format_twitter_digest_html
 
         sample_digest["hot_tickers"] = [
-            {"label": "NVDA", "count": 9, "kols": 2},
-            {"label": "MU", "count": 7, "kols": 3},
+            {"label": "ZZZTEST", "count": 9, "kols": 2},
+            {"label": "YYYTEST", "count": 7, "kols": 3},
         ]
         html = format_twitter_digest_html(sample_digest, digest_date="2026-05-09")
-        assert "今日热议" not in html
+        assert "ZZZTEST" not in html
+        assert "YYYTEST" not in html
 
     def test_email_contains_unsubscribe_placeholder(self, sample_digest):
         """Compliance: marketing email must have unsubscribe link. Resend
