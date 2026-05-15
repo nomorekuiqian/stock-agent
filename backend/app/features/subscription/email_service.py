@@ -23,7 +23,6 @@ from app.core.config import (
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
     RESEND_SEGMENT_WEEKLY,
-    RESEND_AUDIENCE_TWITTER_DIGEST,
     RESEND_SEGMENT_TWITTER_DIGEST,
 )
 from app.core.logging import get_logger
@@ -980,17 +979,10 @@ class EmailService:
     async def broadcast_twitter_digest(self, digest: dict) -> dict:
         """Send the Twitter KOL digest via Resend Broadcasts.
 
-        Free-trial phase: broadcast to the dedicated `TWITTER_DIGEST` audience
-        (or segment, when provided) instead of gating on a paid entitlement.
-        Audience membership is managed in Resend — users can self-unsubscribe
-        via the platform-native unsubscribe link in the email footer.
-
-        Targeting precedence:
-          1. `RESEND_SEGMENT_TWITTER_DIGEST` (if set) — allows future per-user
-             preference filtering inside the audience
-          2. `RESEND_AUDIENCE_TWITTER_DIGEST` (or the channel's resolved
-             audience id) — sends to every contact in the audience
-          3. Neither configured → return error (caller should configure first)
+        Sends only to the dedicated `RESEND_SEGMENT_TWITTER_DIGEST` audience —
+        users who have opted in via the email preferences page. Hard-fails
+        if the segment id is unset; no implicit fallback to a broader
+        audience.
 
         Non-production safety: dev environment refuses to broadcast (no
         per-recipient guard exists for Resend Broadcasts API). Use the
@@ -1029,27 +1021,20 @@ class EmailService:
             )
 
             segment_id = self._resolve_segment(RESEND_SEGMENT_TWITTER_DIGEST)
-            audience_id = (
-                None if segment_id
-                else self._resolve_audience(
-                    RESEND_AUDIENCE_TWITTER_DIGEST or None,
-                    SubscriptionChannel.TWITTER_DIGEST,
-                )
-            )
-            if not segment_id and not audience_id:
+            if not segment_id:
                 return {
                     "success": False,
                     "error": (
-                        "No RESEND_SEGMENT_TWITTER_DIGEST or "
-                        "RESEND_AUDIENCE_TWITTER_DIGEST configured, and "
-                        "TWITTER_DIGEST audience could not be auto-created"
+                        "RESEND_SEGMENT_TWITTER_DIGEST not configured. "
+                        "Twitter Digest now requires opt-in via a dedicated "
+                        "segment; refusing to fall back to the daily audience."
                     ),
                     "channel": "twitter_digest",
                 }
 
             result = self._create_and_send_broadcast(
                 label="TwitterDigest",
-                audience_id=audience_id,
+                audience_id=None,
                 segment_id=segment_id,
                 subject=subject,
                 broadcast_name=f"Twitter Digest {digest_date}",

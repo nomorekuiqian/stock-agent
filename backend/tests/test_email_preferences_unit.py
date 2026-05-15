@@ -510,6 +510,7 @@ class TestSubscriptionServicePreferences:
             "morning_report": "seg-morning-id",
             "daily_report": "seg-evening-id",
             "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
         }
 
         with patch("app.features.subscription.service._rate_limit_wait"):
@@ -519,8 +520,11 @@ class TestSubscriptionServicePreferences:
             {"email": "user@test.com", "segment_id": "seg-weekly-id"}
         )
 
-    def test_add_to_default_segments(self, mock_service_resend):
-        """add_to_default_segments adds Daily plus the free CTA sending list."""
+    def test_update_twitter_digest_preference_toggles_segment(
+        self, mock_service_resend,
+    ):
+        """Twitter Digest toggle off → remove; toggle on → add. Regression
+        guard for the dedicated opt-in segment introduced in May 2026."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -529,6 +533,39 @@ class TestSubscriptionServicePreferences:
             "morning_report": "seg-morning-id",
             "daily_report": "seg-evening-id",
             "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
+        }
+
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            svc.update_email_preferences(
+                "user@test.com", {"twitter_digest": False},
+            )
+        mock_service_resend.ContactSegments.remove.assert_called_once_with(
+            {"email": "user@test.com", "segment_id": "seg-twitter-id"}
+        )
+
+        mock_service_resend.ContactSegments.reset_mock()
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            svc.update_email_preferences(
+                "user@test.com", {"twitter_digest": True},
+            )
+        mock_service_resend.ContactSegments.add.assert_called_once_with(
+            {"email": "user@test.com", "segment_id": "seg-twitter-id"}
+        )
+
+    def test_add_to_default_segments(self, mock_service_resend):
+        """add_to_default_segments adds Daily + Twitter Digest plus the free
+        CTA sending list. Twitter Digest is opt-in by default for new
+        signups (matches EmailPreferences.twitter_digest=True)."""
+        from app.features.subscription.service import SubscriptionService
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc.SEGMENT_IDS = {
+            "morning_report": "seg-morning-id",
+            "daily_report": "seg-evening-id",
+            "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
         }
         svc.DAILY_CTA_SEGMENT_IDS = {
             "free": "seg-free-cta",
@@ -540,7 +577,7 @@ class TestSubscriptionServicePreferences:
 
         add_calls = mock_service_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls}
-        assert added == {"seg-evening-id", "seg-free-cta"}
+        assert added == {"seg-evening-id", "seg-twitter-id", "seg-free-cta"}
         mock_service_resend.ContactSegments.remove.assert_called_once_with(
             {"email": "new@test.com", "segment_id": "seg-paid-cta"}
         )

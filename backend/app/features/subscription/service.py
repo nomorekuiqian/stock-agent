@@ -13,6 +13,7 @@ from app.core.config import (
     RESEND_SEGMENT_DAILY_PAID_CTA,
     RESEND_SEGMENT_MORNING,
     RESEND_SEGMENT_EVENING,
+    RESEND_SEGMENT_TWITTER_DIGEST,
     RESEND_SEGMENT_WEEKLY,
 )
 from app.core.logging import get_logger
@@ -63,12 +64,12 @@ SubscriptionChannel.WEEKLY_REPORT: {
         "requires_auth": True,
     },
     SubscriptionChannel.TWITTER_DIGEST: {
-        # Free-trial phase: shares the Daily Report audience for recipients
-        # (see RESEND_AUDIENCE_TWITTER_DIGEST). No own Resend audience.
-        # Tradeoff: unsubscribing from twitter_digest also unsubscribes from
-        # daily_report (Resend unsubscribed flag is audience-scoped). Acceptable
-        # during trial; revisit when carving out a paid offering.
-        "audience_name": "TheMarketBrew Daily",
+        # Dedicated opt-in audience. Membership is controlled by the
+        # `twitter_digest` toggle on /profile (email preferences), which
+        # syncs via `update_email_preferences` against the segment id
+        # `RESEND_SEGMENT_TWITTER_DIGEST`. New signups default to opt-in
+        # (matching the rest of the email channels).
+        "audience_name": "TheMarketBrew Twitter Digest",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
     },
@@ -168,6 +169,7 @@ class SubscriptionService:
         "morning_report": RESEND_SEGMENT_MORNING,
         "daily_report": RESEND_SEGMENT_EVENING,
         "weekly_report": RESEND_SEGMENT_WEEKLY,
+        "twitter_digest": RESEND_SEGMENT_TWITTER_DIGEST,
     }
     DAILY_CTA_SEGMENT_IDS = {
         "free": RESEND_SEGMENT_DAILY_FREE_CTA,
@@ -249,32 +251,39 @@ class SubscriptionService:
     def add_to_default_segments(
         self, email: str, sub: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Add a new contact to daily report delivery lists.
+        """Add a new contact to free-default delivery lists.
 
         Morning and weekly segments are Pro-only and managed by
         sync_resend_segments() via the Stripe entitlements webhook.
+
+        Default opt-in segments:
+          - daily_report (evening) — always
+          - twitter_digest — always (matches the EmailPreferences default
+            of True; new signups expect it on without a profile visit)
 
         ``sub`` is the user's subscription record (from
         ``payment.db.get_subscription``). When omitted the user is treated as
         free — appropriate for anonymous email-only signups that have no
         ``subscriptions`` row yet.
         """
-        seg_id = self.SEGMENT_IDS.get("daily_report")
-        if not seg_id:
-            logger.warning("daily_report segment not configured, skipping default add")
-            return
-        try:
-            _rate_limit_wait()
-            resend.ContactSegments.add(
-                {
-                    "email": email,
-                    "segment_id": seg_id,
-                }
-            )
-            logger.info("Added %s to default (evening) segment", email)
-        except Exception as e:
-            logger.warning("Failed to add %s to default segment: %s", email, e)
-            return
+        for pref_key in ("daily_report", "twitter_digest"):
+            seg_id = self.SEGMENT_IDS.get(pref_key)
+            if not seg_id:
+                logger.warning(
+                    "%s segment not configured, skipping default add", pref_key,
+                )
+                continue
+            try:
+                _rate_limit_wait()
+                resend.ContactSegments.add(
+                    {"email": email, "segment_id": seg_id}
+                )
+                logger.info("Added %s to default %s segment", email, pref_key)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to add %s to default %s segment: %s",
+                    email, pref_key, e,
+                )
 
         self._sync_daily_cta_segments(
             email,

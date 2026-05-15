@@ -238,6 +238,7 @@ export interface EmailPreferences {
   daily_report: boolean;
   weekly_report: boolean;
   personal_digest: boolean;
+  twitter_digest: boolean;
 }
 
 export interface PreferencesResponse {

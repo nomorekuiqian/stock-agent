@@ -67,11 +67,9 @@ RESEND_SEGMENT_DAILY_PAID_CTA = os.getenv(
     "RESEND_SEGMENT_DAILY_PAID_CTA",
     "f119ea94-de81-4a78-bb7a-f7ebf016bdaf",
 )
-# Twitter KOL digest broadcast — free trial phase, sent to all users via the
-# Twitter Digest audience. When segment_id is provided we use segment-based
-# broadcast (allows per-user preference filtering); when only the audience id
-# is provided we fall back to audience-wide send.
-RESEND_AUDIENCE_TWITTER_DIGEST = os.getenv("RESEND_AUDIENCE_TWITTER_DIGEST", "")
+# Twitter KOL digest broadcast — opt-in via /profile email preferences.
+# Membership is the Resend segment id; broadcast hard-fails if unset rather
+# than silently falling back to a broader audience.
 RESEND_SEGMENT_TWITTER_DIGEST = os.getenv("RESEND_SEGMENT_TWITTER_DIGEST", "")
 
 # Invite codes (comma-separated shared codes for public distribution)

@@ -1,16 +1,13 @@
 """
-[DEPRECATED 2026-05-12] Twitter digest now shares the Daily Report audience
-(RESEND_AUDIENCE_TWITTER_DIGEST=<daily_audience_id>), so this backfill is no
-longer needed. Kept on disk in case we later carve out a separate audience
-for paid-tier or finer-grained preferences.
+[DEPRECATED 2026-05-14] Superseded by `migrate_twitter_digest_audience.py`,
+which copies the daily-audience membership into the dedicated Twitter Digest
+audience driven by `RESEND_SEGMENT_TWITTER_DIGEST`. Kept on disk for the
+emergency case where the new audience needs to be re-seeded from the
+Insforge user list (not the daily audience).
 
 Original purpose ----------------------------------------------------------
 
 Backfill the Resend "Twitter Digest" audience with all existing signed-up users.
-
-Free-trial phase: every existing TheMarketBrew user gets added to the
-twitter-digest audience so they receive the daily broadcast. Users can
-self-unsubscribe via the platform-native link in the email footer.
 
 Usage:
     # Dry run (default) — shows planned adds, makes no API calls to Resend
@@ -23,9 +20,9 @@ Requires:
     RESEND_API_KEY            (resend.com API key)
     INSFORGE_BASE_URL         (resolves user list)
     INSFORGE_ANON_KEY         (or service key)
-    RESEND_AUDIENCE_TWITTER_DIGEST  (target audience id; if missing the script
-                                     looks up "TheMarketBrew Twitter Digest"
-                                     and creates it if absent)
+    RESEND_SEGMENT_TWITTER_DIGEST  (target audience id; if missing the script
+                                    looks up "TheMarketBrew Twitter Digest"
+                                    and creates it if absent)
 """
 
 import argparse
@@ -39,7 +36,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import resend  # type: ignore
 
-from app.core.config import RESEND_API_KEY, RESEND_AUDIENCE_TWITTER_DIGEST
+from app.core.config import RESEND_API_KEY, RESEND_SEGMENT_TWITTER_DIGEST
 from app.core.database import get_insforge_service
 
 _AUDIENCE_NAME = "TheMarketBrew Twitter Digest"
@@ -52,9 +49,12 @@ def _rate_wait() -> None:
 
 def _ensure_audience() -> str:
     """Return the twitter-digest audience id; create it if necessary."""
-    if RESEND_AUDIENCE_TWITTER_DIGEST:
-        print(f"[audience] using RESEND_AUDIENCE_TWITTER_DIGEST={RESEND_AUDIENCE_TWITTER_DIGEST}")
-        return RESEND_AUDIENCE_TWITTER_DIGEST
+    if RESEND_SEGMENT_TWITTER_DIGEST:
+        print(
+            f"[audience] using RESEND_SEGMENT_TWITTER_DIGEST="
+            f"{RESEND_SEGMENT_TWITTER_DIGEST}"
+        )
+        return RESEND_SEGMENT_TWITTER_DIGEST
 
     print(f"[audience] env unset, looking up by name {_AUDIENCE_NAME!r}...")
     _rate_wait()

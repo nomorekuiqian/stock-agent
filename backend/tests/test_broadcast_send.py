@@ -632,12 +632,11 @@ def mock_twitter_digest_data():
 
 
 class TestBroadcastTwitterDigest:
-    """broadcast_twitter_digest uses Resend Broadcasts (audience/segment) and
-    refuses to send in non-production to avoid blasting real users from dev.
-
-    Free-trial design: recipients come from the audience pointed to by
-    RESEND_AUDIENCE_TWITTER_DIGEST (typically the Daily Report audience),
-    not from a paid entitlement query.
+    """broadcast_twitter_digest sends only to the dedicated
+    RESEND_SEGMENT_TWITTER_DIGEST audience (opt-in via /profile email
+    preferences). Refuses to broadcast in non-production to avoid blasting
+    real users from dev. No fallback to the daily audience — if the
+    segment env var is missing, broadcast hard-fails.
     """
 
     @pytest.mark.asyncio
@@ -656,26 +655,24 @@ class TestBroadcastTwitterDigest:
         mock_resend.Broadcasts.send.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_prod_with_audience_env_creates_broadcast(
+    async def test_prod_with_segment_env_uses_segment(
         self, email_svc, mock_resend, mock_twitter_digest_data,
     ):
-        """In prod with RESEND_AUDIENCE_TWITTER_DIGEST set, broadcast hits
-        the configured audience id (typically reuses Daily audience)."""
+        """Segment-only delivery: broadcast targets the segment id, never
+        an audience id."""
         email_svc.is_production = True
         email_svc.reply_to = "test@example.com"
         with patch(
-            "app.features.subscription.email_service.RESEND_AUDIENCE_TWITTER_DIGEST",
-            "daily-audience-id-shared",
-        ), patch(
             "app.features.subscription.email_service.RESEND_SEGMENT_TWITTER_DIGEST",
-            "",
+            "twitter-digest-segment-id",
         ):
             result = await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
 
         assert result["success"] is True
         assert result["channel"] == "twitter_digest"
         create_params = mock_resend.Broadcasts.create.call_args[0][0]
-        assert create_params["audience_id"] == "daily-audience-id-shared"
+        assert create_params.get("segment_id") == "twitter-digest-segment-id"
+        assert "audience_id" not in create_params
         # broadcast name encodes the date for ops traceability
         assert "Twitter Digest 2026-05-12" in create_params["name"]
         # subject uses the digest headline
@@ -683,48 +680,21 @@ class TestBroadcastTwitterDigest:
         assert "测试 headline" in create_params["subject"]
 
     @pytest.mark.asyncio
-    async def test_prod_with_segment_env_uses_segment(
+    async def test_prod_without_segment_returns_error(
         self, email_svc, mock_resend, mock_twitter_digest_data,
     ):
-        """Segment takes precedence over audience when both are configured."""
+        """If RESEND_SEGMENT_TWITTER_DIGEST is empty, hard-fail rather than
+        accidentally fall back to a broader audience."""
         email_svc.is_production = True
         email_svc.reply_to = "test@example.com"
         with patch(
-            "app.features.subscription.email_service.RESEND_SEGMENT_TWITTER_DIGEST",
-            "twitter-digest-segment-id",
-        ), patch(
-            "app.features.subscription.email_service.RESEND_AUDIENCE_TWITTER_DIGEST",
-            "fallback-audience-id",
-        ):
-            await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
-
-        create_params = mock_resend.Broadcasts.create.call_args[0][0]
-        # segment-based: segment_id is set, audience_id is NOT.
-        assert create_params.get("segment_id") == "twitter-digest-segment-id"
-        assert "audience_id" not in create_params
-
-    @pytest.mark.asyncio
-    async def test_prod_without_audience_or_segment_returns_error(
-        self, email_svc, mock_resend, mock_twitter_digest_data,
-    ):
-        """If both env vars are empty AND auto-create fails, surface an
-        explicit configuration error rather than silently dropping the send."""
-        email_svc.is_production = True
-        email_svc.reply_to = "test@example.com"
-        with patch(
-            "app.features.subscription.email_service.RESEND_AUDIENCE_TWITTER_DIGEST", "",
-        ), patch(
             "app.features.subscription.email_service.RESEND_SEGMENT_TWITTER_DIGEST", "",
-        ), patch(
-            "app.features.subscription.email_service.get_subscription_service",
-        ) as mock_sub:
-            # Simulate audience-auto-create failure path: ensure_audience raises
-            mock_sub.return_value.ensure_audience.side_effect = RuntimeError("boom")
+        ):
             result = await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
 
-        # broadcast_twitter_digest wraps the failure in its top-level try/except
         assert result["success"] is False
         assert result["channel"] == "twitter_digest"
+        assert "RESEND_SEGMENT_TWITTER_DIGEST" in result["error"]
         mock_resend.Broadcasts.create.assert_not_called()
 
     @pytest.mark.asyncio
