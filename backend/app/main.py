@@ -130,6 +130,7 @@ from app.features.admin.router import router as admin_router
 from app.features.admin.crm_router import router as crm_router
 from app.features.twitter.router import router as twitter_router
 from app.features.twitter_digest.router import router as twitter_digest_router
+from app.features.vector.router import router as vector_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -152,6 +153,7 @@ app.include_router(admin_router)
 app.include_router(crm_router)
 app.include_router(twitter_router)
 app.include_router(twitter_digest_router)
+app.include_router(vector_router)
 
 
 # ---------------------------------------------------------------------------
