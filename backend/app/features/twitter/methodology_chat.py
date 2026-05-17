@@ -9,7 +9,7 @@ question looks through the extracted framework and cites tweet evidence.
 import json
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
@@ -18,6 +18,7 @@ from google.genai.types import Content, Part
 from pydantic import BaseModel, Field, ValidationError
 
 from app.core.logging import get_logger
+from app.features.twitter.live_context import LiveContext, build_live_context
 from app.features.twitter.methodology_models import MethodologyCategory
 
 logger = get_logger(__name__)
@@ -60,6 +61,10 @@ class MethodologyChatOutput(BaseModel):
     confidence: Literal["high", "medium", "low"]
     limitations: list[str] = Field(default_factory=list, max_length=4)
     suggested_followups: list[str] = Field(default_factory=list, max_length=4)
+
+
+class MethodologyChatResponse(MethodologyChatOutput):
+    live_context: dict[str, Any]
 
 
 _CATEGORY_KEYWORDS: list[tuple[MethodologyCategory, tuple[str, ...]]] = [
@@ -201,6 +206,7 @@ def _build_instruction(
     username: str,
     category: MethodologyCategory,
     methodology: dict,
+    live_context: dict,
     message: str,
     history: list[MethodologyChatMessage],
 ) -> str:
@@ -216,6 +222,8 @@ def _build_instruction(
 - 明确区分：蒸馏体里有证据支持的框架、你基于框架做出的推断、当前缺少的数据。
 - 至少引用 1 条 methodology evidence；如果问题和方法论不匹配，说明证据不足。
 - 不要编造实时行情、财报数字、宏观数据。没有输入实时数据时，只能说“需要补充最新数据确认”。
+- 如果可用实时上下文里有 quote/news/calendar，回答时要把这些作为“当前环境”描述；不要使用实时上下文之外的具体新闻或价格数字。
+- 如果实时上下文为空或有 limitations，明确说数据缺口，不要用笼统判断冒充事实。
 - 遇到投资建议问题时，用“观察条件/判断框架”表达，不给确定买卖指令。
 - 回答开头不要说“我是 qinbafrank”。可以说“按 qinbafrank 方法论看”。
 
@@ -238,6 +246,12 @@ category: {category}
 
 ```json
 {json.dumps(_compact_methodology(methodology), ensure_ascii=False)}
+```
+
+# 当前实时上下文
+
+```json
+{json.dumps(live_context, ensure_ascii=False)}
 ```
 """
 
@@ -294,26 +308,47 @@ async def _run_chat_agent(instruction: str) -> MethodologyChatOutput:
         ) from exc
 
 
-async def answer_methodology_chat(
+async def answer_methodology_chat_with_context(
     request: MethodologyChatRequest,
-) -> MethodologyChatOutput:
-    category = request.category or choose_methodology_category(request.message)
-    methodology = load_methodology_payload(request.username, category)
+    category: MethodologyCategory,
+    methodology: dict,
+    live_context: LiveContext,
+) -> MethodologyChatResponse:
     instruction = _build_instruction(
         username=request.username,
         category=category,
         methodology=methodology,
+        live_context=live_context.model_dump(),
         message=request.message,
         history=request.history,
     )
     output = await _run_chat_agent(instruction)
     output.analyst = request.username
     output.category = category
+    response = MethodologyChatResponse(
+        **output.model_dump(),
+        live_context=live_context.model_dump(),
+    )
     logger.info(
-        "methodology chat username=%s category=%s citations=%d confidence=%s",
+        "methodology chat username=%s category=%s citations=%d confidence=%s live_sources=%s",
         request.username,
         category,
-        len(output.citations),
-        output.confidence,
+        len(response.citations),
+        response.confidence,
+        ",".join(live_context.sources),
     )
-    return output
+    return response
+
+
+async def answer_methodology_chat(
+    request: MethodologyChatRequest,
+) -> MethodologyChatResponse:
+    category = request.category or choose_methodology_category(request.message)
+    methodology = load_methodology_payload(request.username, category)
+    live_context = await build_live_context(request.message)
+    return await answer_methodology_chat_with_context(
+        request=request,
+        category=category,
+        methodology=methodology,
+        live_context=live_context,
+    )

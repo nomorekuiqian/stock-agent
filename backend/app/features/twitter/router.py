@@ -12,9 +12,11 @@ Endpoints:
   GET  /api/twitter/methodology-conversations/latest (auth, load latest methodology chat)
 """
 
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.deps import verify_cron_secret, verify_user_token
@@ -25,9 +27,13 @@ from app.features.twitter import db
 from app.features.twitter.methodology_chat import (
     MethodologyChatRequest,
     answer_methodology_chat,
+    answer_methodology_chat_with_context,
+    choose_methodology_category,
+    load_methodology_payload,
 )
 from app.features.twitter.methodology_extractor import extract_methodology_for_category
 from app.features.twitter.methodology_models import MethodologyCategory
+from app.features.twitter.live_context import build_live_context
 from app.features.twitter.models import FetchConfiguredKolsRequest
 from app.features.twitter.service import (
     fetch_configured_kols,
@@ -132,6 +138,94 @@ async def methodology_chat(
     """Answer a user question through a distilled KOL methodology package."""
     output = await answer_methodology_chat(body)
     return {"success": True, **output.model_dump()}
+
+
+def _sse_event(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/methodology-chat/stream")
+@limiter.limit("12/minute")
+async def methodology_chat_stream(
+    request: Request,
+    body: MethodologyChatRequest,
+    _user_id: str = Depends(verify_user_token),
+):
+    """Stream methodology chat progress as SSE events, then emit the final answer."""
+
+    async def event_stream():
+        try:
+            category = body.category or choose_methodology_category(body.message)
+            yield _sse_event(
+                "status",
+                {
+                    "step": "routing",
+                    "message": f"已路由到 {category}",
+                    "category": category,
+                },
+            )
+
+            methodology = load_methodology_payload(body.username, category)
+            yield _sse_event(
+                "status",
+                {
+                    "step": "methodology",
+                    "message": "已载入 qinbafrank 方法论蒸馏体",
+                    "category": category,
+                },
+            )
+
+            yield _sse_event(
+                "status",
+                {
+                    "step": "live_context",
+                    "message": "正在获取 FMP 行情、新闻事件和日报上下文",
+                    "category": category,
+                },
+            )
+            live_context = await build_live_context(body.message)
+            yield _sse_event(
+                "live_context",
+                {
+                    "step": "live_context_ready",
+                    "message": "实时上下文已就绪",
+                    "live_context": live_context.model_dump(),
+                },
+            )
+
+            yield _sse_event(
+                "status",
+                {
+                    "step": "generation",
+                    "message": "正在按方法论生成回答",
+                    "category": category,
+                },
+            )
+            output = await answer_methodology_chat_with_context(
+                request=body,
+                category=category,
+                methodology=methodology,
+                live_context=live_context,
+            )
+            yield _sse_event("final", {"success": True, **output.model_dump()})
+        except Exception as exc:
+            logger.exception("methodology chat stream failed")
+            yield _sse_event(
+                "error",
+                {
+                    "success": False,
+                    "detail": str(exc),
+                },
+            )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/methodology-conversations/latest")

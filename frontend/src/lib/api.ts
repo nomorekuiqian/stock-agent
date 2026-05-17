@@ -1068,15 +1068,39 @@ export interface MethodologyCitation {
   reason: string;
 }
 
+export interface MethodologyLiveContext {
+  topic: string;
+  symbols: string[];
+  quotes: Array<Record<string, unknown>>;
+  news_events: Array<Record<string, unknown>>;
+  calendar_events: Array<Record<string, unknown>>;
+  market_reports: Array<Record<string, unknown>>;
+  sources: string[];
+  data_timestamp: string;
+  limitations: string[];
+}
+
 export interface MethodologyChatResponse {
   success: boolean;
   analyst: string;
   category: MethodologyCategory;
   answer: string;
   citations: MethodologyCitation[];
+  live_context?: MethodologyLiveContext | null;
   confidence: 'high' | 'medium' | 'low';
   limitations: string[];
   suggested_followups: string[];
+}
+
+export interface MethodologyChatStreamEvent {
+  event: 'status' | 'live_context' | 'final' | 'error';
+  data: {
+    step?: string;
+    message?: string;
+    category?: MethodologyCategory;
+    live_context?: MethodologyLiveContext;
+    detail?: string;
+  } & Partial<MethodologyChatResponse>;
 }
 
 export interface MethodologyConversationData {
@@ -1899,6 +1923,72 @@ export const api = {
         clearTimeout(timeout);
         options.signal?.removeEventListener('abort', abortFromCaller);
       }
+    },
+
+    chatStream: async (
+      req: MethodologyChatRequest,
+      onEvent: (event: MethodologyChatStreamEvent) => void,
+      options: { signal?: AbortSignal } = {},
+    ): Promise<MethodologyChatResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat/stream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+        signal: options.signal,
+      });
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
+      }
+      const responseBody = response.body;
+      if (!responseBody) {
+        throw new Error('KOL 方法论助手响应中断，请再试一次');
+      }
+
+      const reader = responseBody.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResponse: MethodologyChatResponse | null = null;
+
+      const flushEvent = (raw: string) => {
+        const lines = raw.split('\n');
+        const eventLine = lines.find((line) => line.startsWith('event:'));
+        const dataLine = lines.find((line) => line.startsWith('data:'));
+        if (!eventLine || !dataLine) return;
+
+        const event = eventLine.slice('event:'.length).trim() as MethodologyChatStreamEvent['event'];
+        const data = JSON.parse(dataLine.slice('data:'.length).trim()) as MethodologyChatStreamEvent['data'];
+        const parsed = { event, data };
+        onEvent(parsed);
+        if (event === 'final') {
+          finalResponse = data as MethodologyChatResponse;
+        }
+        if (event === 'error') {
+          throw new Error(data.detail || data.message || 'KOL 方法论助手暂时无法响应');
+        }
+      };
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const chunks = buffer.split('\n\n');
+          buffer = chunks.pop() || '';
+          chunks.forEach(flushEvent);
+        }
+        if (buffer.trim()) flushEvent(buffer);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('已停止生成');
+        }
+        throw err;
+      }
+
+      if (!finalResponse) {
+        throw new Error('KOL 方法论助手响应中断，请再试一次');
+      }
+      return finalResponse;
     },
 
     conversations: {

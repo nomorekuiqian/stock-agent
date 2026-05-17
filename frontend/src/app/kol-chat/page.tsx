@@ -10,6 +10,7 @@ import {
   type MethodologyCategory,
   type MethodologyChatMessage,
   type MethodologyCitation,
+  type MethodologyLiveContext,
 } from '@/lib/api';
 
 type ChatMessage = {
@@ -21,6 +22,7 @@ type ChatMessage = {
   confidence?: 'high' | 'medium' | 'low';
   limitations?: string[];
   suggestedFollowups?: string[];
+  liveContext?: MethodologyLiveContext | null;
 };
 
 const CATEGORY_LABELS: Record<MethodologyCategory, string> = {
@@ -73,6 +75,7 @@ export default function KolChatPage() {
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [progressItems, setProgressItems] = useState<string[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const conversationIdRef = useRef<string | null>(null);
@@ -179,20 +182,44 @@ export default function KolChatPage() {
     setInput('');
     setError(null);
     setStatus(null);
+    setProgressItems([]);
     setIsSending(true);
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
       await persistConversation(messagesWithUser);
-      const result = await api.twitterMethodology.chat({
-        username: 'qinbafrank',
-        message: trimmed,
-        category,
-        history: apiHistory,
-      }, {
-        signal: controller.signal,
-      });
+      const result = await api.twitterMethodology.chatStream(
+        {
+          username: 'qinbafrank',
+          message: trimmed,
+          category,
+          history: apiHistory,
+        },
+        (event) => {
+          if (controller.signal.aborted) return;
+          const eventMessage = event.data.message;
+          if (eventMessage) {
+            setStatus(eventMessage);
+            setProgressItems((items) => (
+              items.includes(eventMessage) ? items : [...items, eventMessage]
+            ));
+          }
+          if (event.event === 'live_context' && event.data.live_context) {
+            const liveContext = event.data.live_context;
+            const symbols = liveContext.symbols.slice(0, 6).join(', ');
+            const sourceCount = liveContext.sources.length;
+            const summary = `已获取实时上下文：${symbols}${liveContext.symbols.length > 6 ? '...' : ''}，${sourceCount} 个数据源`;
+            setStatus(summary);
+            setProgressItems((items) => (
+              items.includes(summary) ? items : [...items, summary]
+            ));
+          }
+        },
+        {
+          signal: controller.signal,
+        },
+      );
       if (controller.signal.aborted) return;
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
@@ -203,10 +230,13 @@ export default function KolChatPage() {
         confidence: result.confidence,
         limitations: result.limitations,
         suggestedFollowups: result.suggested_followups,
+        liveContext: result.live_context,
       };
       const messagesWithAssistant = [...messagesWithUser, assistantMessage];
       setMessages(messagesWithAssistant);
       await persistConversation(messagesWithAssistant, result.category);
+      setStatus(null);
+      setProgressItems([]);
     } catch (err) {
       if (controller.signal.aborted) {
         setStatus('已停止本次生成，可以修改问题后重新发送。');
@@ -365,7 +395,21 @@ export default function KolChatPage() {
                           <span className="rounded-md bg-muted px-2 py-1">
                             置信度：{confidenceLabel(message.confidence)}
                           </span>
+                          {!!message.liveContext?.sources.length && (
+                            <span className="rounded-md bg-muted px-2 py-1">
+                              数据源：{message.liveContext.sources.join(', ')}
+                            </span>
+                          )}
                         </div>
+
+                        {!!message.liveContext?.symbols.length && (
+                          <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+                            <p className="text-xs font-medium text-muted-foreground">实时上下文</p>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {message.liveContext.symbols.join(', ')}
+                            </p>
+                          </div>
+                        )}
 
                         {!!message.citations?.length && (
                           <div className="space-y-2 border-t border-border pt-3">
@@ -416,9 +460,18 @@ export default function KolChatPage() {
                 </div>
               ))}
               {isSending && (
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  正在按方法论拆解...
+                <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    {status || '正在按方法论拆解...'}
+                  </div>
+                  {!!progressItems.length && (
+                    <div className="mt-3 space-y-1 border-t border-border pt-3 text-xs leading-5">
+                      {progressItems.map((item) => (
+                        <div key={item}>{item}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
