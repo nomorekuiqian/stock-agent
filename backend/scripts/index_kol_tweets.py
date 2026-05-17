@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -76,6 +77,24 @@ def _tweet_passes_filters(
     if isinstance(quality, str) and quality:
         return not qualities or quality.strip().lower() in qualities
     return include_unenriched
+
+
+def _quality_label(tweet: dict[str, Any]) -> str:
+    quality = _enrichment_of(tweet).get("quality")
+    if isinstance(quality, str) and quality.strip():
+        return quality.strip().lower()
+    return "unenriched"
+
+
+def _type_quality_breakdown(tweets: list[dict[str, Any]]) -> dict[str, int]:
+    counts = Counter(
+        "%s/%s" % (
+            str(tweet.get("tweet_type") or "unknown").strip().lower(),
+            _quality_label(tweet),
+        )
+        for tweet in tweets
+    )
+    return dict(sorted(counts.items()))
 
 
 def _metadata_for_tweet(tweet: dict[str, Any]) -> dict[str, Any]:
@@ -241,6 +260,8 @@ async def run(args: argparse.Namespace) -> None:
             "window_hours": args.window_hours,
             "qualities": sorted(qualities) or "any",
             "include_unenriched": args.include_unenriched,
+            "raw_breakdown": _type_quality_breakdown(raw_tweets),
+            "eligible_breakdown": _type_quality_breakdown(eligible),
         },
     )
 

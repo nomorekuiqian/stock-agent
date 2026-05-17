@@ -36,6 +36,7 @@
 - [components.md](reference/components.md) — 前端组件清单
 - [agent-transformation.md](reference/agent-transformation.md) — Agent 架构演进
 - [twitter-kol-source-research.md](reference/twitter-kol-source-research.md) — 推特 KOL 信息源扩展 research
+- [vector-rag-pipeline.md](reference/vector-rag-pipeline.md) — vector embedding / retrieval / RAG pipeline
 
 ## 模块文档 (.context.md)
 
