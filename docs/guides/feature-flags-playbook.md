@@ -286,6 +286,7 @@ grep -rn "new_screener_v2" .  # ← 应该返回 0 行
 | 现象 | 排查 |
 |---|---|
 | `/admin/flags` 进去看见 `notFound()` | 当前账号不在 `ADMIN_EMAILS`，或 access token 过期 → 重新登录 |
+| 某用户「添加」列显示「全部已开通」、没有下拉/按钮 | **预期行为**，不是 bug。「添加」下拉只列出该用户**还没开通**的已知 flag；当他已开通 `KNOWN_FLAGS` 里的全部 flag（目前仅 `for_you_v2` 一个，所以极易触发）→ 可选项为空 → 收起为「全部已开通」。判断是否生效看左侧「已开通的 Flags」列的绿色药丸即可。想让按钮回来：点该药丸的 `×` 撤销，或在 `registry.py` 注册新 flag |
 | 添加 flag 报 `422 Unknown flag` | 没在 `registry.py` 注册；先发一个 commit 加 `FlagDef` |
 | 用户加了 flag 但仍看不到新功能 | TanStack Query 缓存（`staleTime: 5min`）→ 让用户刷新，或在 `/api/flags` 加 `?nocache=1`（仅作排查） |
 | EF 部署后 `list_all` 仍返回 `Invalid action` | `insforge functions deploy` 没拿到最新源；重新 deploy，检查 revision |

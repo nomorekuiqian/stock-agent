@@ -29,6 +29,12 @@
 - [product/roadmap.md](product/roadmap.md) — 产品路线图
 - [brand/narrative.md](brand/narrative.md) — 品牌叙事
 
+## 操作指南 (docs/guides/)
+
+日常操作的长期指南（区别于一次性的 plan/runbook）。
+
+- [feature-flags-playbook.md](guides/feature-flags-playbook.md) — Feature flag 新增 / 退役 / 灰度名单管理 / 故障速查（**flag 日常操作看这里，不是归档的 plan runbook**）
+
 ## 参考资料 (docs/reference/)
 
 查阅用，非指导性。
