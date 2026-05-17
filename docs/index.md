@@ -21,6 +21,9 @@
 
 - [active/](plans/active/) — 进行中或规划中的计划
 - [for-you/](plans/for-you/) — /for-you 专属页面改进总纲（P0 基础 → P1 智能 → P2 Copilot）
+- [proposals/](plans/proposals/) — 用户痛点提案 backlog（已设计、未进入 active 开发）
+  - [holdings-sync-design.md](plans/proposals/holdings-sync-design.md) — 持仓同步（券商只读 SnapTrade + 手动/CSV/粘贴导入）
+  - [event-radar-source-enrichment.md](plans/proposals/event-radar-source-enrichment.md) — 事件雷达数据源增强（catalyst-events-radar.md 的增强补充）
 - [completed/](plans/completed/) — 已完成的计划
 
 ## 架构 (docs/)
