@@ -170,6 +170,23 @@ export function FlagsAdminPanel({ initialData, accessToken: _initialToken }: Pro
           </select>
         </div>
 
+        <details className="mb-4 rounded-xl border border-border/60 bg-card/40">
+          <summary className="cursor-pointer select-none px-3 py-2 text-sm text-foreground">
+            可用 Flags（{knownFlags.length}）
+          </summary>
+          <ul className="px-3 pb-3 pt-1 space-y-1.5">
+            {knownFlags.map((f) => (
+              <li key={f.key} className="flex flex-col gap-0.5 text-sm md:flex-row md:items-baseline md:gap-2">
+                <code className="text-primary text-xs">{f.key}</code>
+                <span className="text-muted-foreground">{f.description}</span>
+              </li>
+            ))}
+            {knownFlags.length === 0 && (
+              <li className="text-muted-foreground text-xs">registry 为空——在 registry.py 注册后才会出现</li>
+            )}
+          </ul>
+        </details>
+
         {error && (
           <div className="mb-4 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-sm text-red-400">
             {error}
