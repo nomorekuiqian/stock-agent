@@ -328,6 +328,12 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
             共 {summary.total} 位用户 · {engagementStats.withConversations} 人有对话 · {engagementStats.totalMessages} 条消息 · {engagementStats.personalDigestSubscribers} 人订阅专属日报
           </p>
         </div>
+        <Link
+          href="/admin/flags"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
+        >
+          灰度管理 →
+        </Link>
       </div>
 
       {/* Status cards */}

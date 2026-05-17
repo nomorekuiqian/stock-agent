@@ -144,6 +144,9 @@ DB_WRITE_FUNCTIONS = [
     ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
     # Quota
     ("app.features.quota.db", "increment_usage"),
+    # Feature flags admin
+    ("app.features.flags.db", "upsert_assignment"),
+    ("app.features.flags.db", "delete_assignment"),
 ]
 
 
