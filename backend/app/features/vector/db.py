@@ -139,4 +139,5 @@ async def delete_source(source_type: str, source_id: str) -> dict[str, int]:
     return {
         "deleted_documents": int(payload.get("deleted_documents") or 0),
         "deleted_chunks": int(payload.get("deleted_chunks") or 0),
+
     }
