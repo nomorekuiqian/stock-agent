@@ -20,6 +20,7 @@ class FlagDef:
 
 KNOWN_FLAGS: list[FlagDef] = [
     FlagDef("for_you_v2", "新版专属页面（onboarding/portfolio/redesigned toolbar）"),
+    FlagDef("holdings_sync_import", "Track M 手动/导入持仓同步(截图/粘贴/CSV/PDF)"),
     FlagDef(
         "kol_chat",
         "KOL 方法论对话入口（qinbafrank 蒸馏体）— 初期仅 admin 灰度",

@@ -12,6 +12,12 @@ def test_for_you_v2_present():
     assert "for_you_v2" in keys
 
 
+def test_holdings_sync_import_present():
+    """Track M flag must be registered (playbook: ADD A LINE HERE)."""
+    keys = {f.key for f in KNOWN_FLAGS}
+    assert "holdings_sync_import" in keys
+
+
 def test_flag_keys_unique():
     keys = [f.key for f in KNOWN_FLAGS]
     assert len(keys) == len(set(keys))

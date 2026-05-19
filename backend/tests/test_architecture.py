@@ -213,6 +213,9 @@ class TestNoCrossFeatureImports:
         ("portfolio_health", "portfolio"),   # health check reads portfolio data
         ("portfolio_health", "macro"),       # health check reads macro risk data
         ("memory", "portfolio"),             # memory reads portfolio theses
+        ("holdings_sync", "portfolio"),      # Track M writes user_portfolios ONLY via portfolio.db (single-owner) + reuses compute_effective_weights
+        ("holdings_sync", "flags"),          # Track M extract/commit gated by holdings_sync_import flag
+        ("holdings_sync", "payment"),        # Track M Pro-and-above entitlement gate (mirrors portfolio)
         # KOL persona research agent — composes screener (conversation persistence,
         # research_agent tool primitives), daily_report (preload recent reports),
         # and flags (admin gating) by design.
