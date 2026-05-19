@@ -119,7 +119,141 @@ CREATE INDEX IF NOT EXISTS idx_user_portfolios_user_source
   ON user_portfolios (user_id, source);
 
 -- ============================================================================
+-- Track M · 原子 reconcile (replace-by-source) — Codex 评审 [high] 修复
+-- ----------------------------------------------------------------------------
+-- 把 portfolio.js action=reconcile 原来的「读 → 逐条 upsert → 源作用域删除 →
+-- touch」多步 PostgREST 序列折叠进单个 Postgres 函数 = 单事务原子提交，并用
+-- (user_id, source) 级 pg_advisory_xact_lock 串行化并发的同源完整集提交，
+-- 杜绝两次并发提交交错互删对方结果的可见数据丢失。任一步报错 → 函数抛异常 →
+-- 整个事务回滚（EF 收到 error，返回 5xx，调用方按既定 fail 语义处理）。
+-- xact 级 advisory lock 随事务提交/回滚自动释放，不会泄漏。
+-- 设计: docs/plans/proposals/holdings-sync-track-m-tech-design.md §3.4 / §7bis
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION reconcile_user_portfolio_source(
+  p_user_id      TEXT,
+  p_source       TEXT,
+  p_rows         JSONB,
+  p_clear_source BOOLEAN DEFAULT FALSE
+) RETURNS SETOF user_portfolios AS $$
+DECLARE
+  v_now  TIMESTAMPTZ := now();
+  v_keep TEXT[];
+  r      JSONB;
+BEGIN
+  IF p_user_id IS NULL OR p_user_id = '' THEN
+    RAISE EXCEPTION 'user_id required';
+  END IF;
+  IF p_source IS NULL OR p_source = '' THEN
+    RAISE EXCEPTION 'source required';
+  END IF;
+  IF p_rows IS NULL OR jsonb_typeof(p_rows) <> 'array' THEN
+    RAISE EXCEPTION 'rows must be a json array';
+  END IF;
+  -- 空集会删光整个 source —— 仅显式 clear_source 允许（防"续修发增量"丢数据）
+  IF jsonb_array_length(p_rows) = 0 AND NOT p_clear_source THEN
+    RAISE EXCEPTION 'empty rows requires clear_source=true';
+  END IF;
+
+  -- 串行化同一 (user_id, source) 的并发完整集提交。两个 int4 key 形式降低碰撞。
+  PERFORM pg_advisory_xact_lock(
+    hashtext('hsync_reconcile'),
+    hashtext(p_user_id || '|' || p_source)
+  );
+
+  -- 1) 逐条 upsert；P1 (thesis/target/stop_loss/conviction) 永远保留既有行的值，
+  --    绝不取自 import payload —— ON CONFLICT 的 SET 列表里**不含** P1 四列，
+  --    既有 P1 原样保留；新行 P1 为 NULL（正是 COALESCE-from-existing 语义）。
+  --    import 本就不携带 P1（NormalizedHolding 结构上无 P1 字段）。
+  FOR r IN SELECT * FROM jsonb_array_elements(p_rows)
+  LOOP
+    IF COALESCE(r->>'symbol', '') = '' THEN
+      CONTINUE;
+    END IF;
+    INSERT INTO user_portfolios (
+      user_id, symbol, weight_pct, shares, cost_basis, entry_price,
+      source, source_synced_at, external_account_id
+    ) VALUES (
+      p_user_id,
+      r->>'symbol',
+      NULLIF(r->>'weight_pct','')::numeric,
+      NULLIF(r->>'shares','')::numeric,
+      NULLIF(r->>'cost_basis','')::numeric,
+      NULLIF(r->>'entry_price','')::numeric,
+      p_source,
+      v_now,
+      NULLIF(r->>'external_account_id','')
+    )
+    ON CONFLICT (user_id, symbol) DO UPDATE SET
+      weight_pct          = EXCLUDED.weight_pct,
+      shares              = EXCLUDED.shares,
+      cost_basis          = EXCLUDED.cost_basis,
+      entry_price         = EXCLUDED.entry_price,
+      source              = EXCLUDED.source,
+      source_synced_at    = EXCLUDED.source_synced_at,
+      external_account_id = COALESCE(EXCLUDED.external_account_id,
+                                     user_portfolios.external_account_id);
+  END LOOP;
+
+  -- 2) 源作用域删除：删掉本次 import 不再包含、且属于本 source 的行；
+  --    $CASH 是 source-agnostic 单例，永不被源作用域删除。
+  SELECT COALESCE(array_agg(elem->>'symbol'), ARRAY[]::TEXT[])
+    INTO v_keep
+    FROM jsonb_array_elements(p_rows) AS elem
+   WHERE COALESCE(elem->>'symbol','') <> '' AND elem->>'symbol' <> '$CASH';
+
+  DELETE FROM user_portfolios
+   WHERE user_id = p_user_id
+     AND source  = p_source
+     AND symbol  <> '$CASH'
+     AND symbol  <> ALL(v_keep);
+
+  -- 3) R-2 touch 折叠进同一事务（原子；错误一并回滚，不再单独往返）
+  INSERT INTO user_investment_profiles (user_id, portfolio_confirmed_at)
+  VALUES (p_user_id, v_now)
+  ON CONFLICT (user_id) DO UPDATE SET portfolio_confirmed_at = v_now;
+
+  -- 4) 返回该用户最新全量持仓（PostgREST 序列化为行对象数组）
+  RETURN QUERY
+    SELECT * FROM user_portfolios WHERE user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 鉴权暴露面（Codex M1 复评 [high] 修复 — 决策：与既有 `bulk` 平价）：这是一个
+-- **租户写**RPC（按入参 p_user_id 改/删持仓，p_clear_source=true 可整源清空）。
+-- Postgres 新建函数默认 PUBLIC 可执行——必须**显式 REVOKE FROM PUBLIC**，绝不
+-- 留 `GRANT … TO PUBLIC`（Codex 明确点名的反模式）。
+--
+-- 信任模型 = 与已上线的 `action=bulk` 租户写**完全相同**（非更弱也非更强）：
+-- 后端 verify JWT → 带 X-Internal-Secret 调 EF → EF 用 anon DB 客户端写
+-- `user_portfolios`。`bulk` 已依赖 anon 角色对该表的 DML 授权 + 平台约定
+-- “PostgREST 不外部直连，只经 EF”（portfolio/.context.md 规则 5；RLS 后续再接）。
+-- 故本函数 EXECUTE 仅绑定到 EF anon 客户端实际所用的标准 PostgREST 角色
+-- （anon / authenticated），与 `bulk` 的表 DML 暴露面**严格平价**——不引入新越权类。
+-- 残留暴露（= bulk 既有、已接受）由部署冒烟验证并记录（见 runbook M1.1）。
+REVOKE ALL ON FUNCTION
+  reconcile_user_portfolio_source(TEXT, TEXT, JSONB, BOOLEAN) FROM PUBLIC;
+DO $$
+DECLARE
+  v_role TEXT;
+BEGIN
+  -- 绑定到 EF anon 客户端实际所用角色（PostgREST 标准 anon/authenticated）。
+  -- 角色不存在则跳过（不同 Insforge 部署角色名可能不同；部署校验见 runbook
+  -- M1.1：anon-key 直连 /rpc 行为须与 bulk 平价并记录）。
+  FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_role) THEN
+      EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION '
+        'reconcile_user_portfolio_source(TEXT, TEXT, JSONB, BOOLEAN) TO %I',
+        v_role);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ============================================================================
 -- 回滚 (仅紧急时使用):
+--   DROP FUNCTION IF EXISTS reconcile_user_portfolio_source(TEXT, TEXT, JSONB, BOOLEAN);
 --   ALTER TABLE user_portfolios DROP COLUMN IF EXISTS external_account_id;
 --   ALTER TABLE user_portfolios DROP COLUMN IF EXISTS source_synced_at;
 --   ALTER TABLE user_portfolios DROP COLUMN IF EXISTS source;

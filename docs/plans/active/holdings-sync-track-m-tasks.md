@@ -52,16 +52,19 @@ T0(预备) → T1.*(M1 地基, 阻塞全部) → T2.*(M2 截图首发) → T3.*(
 
 > 严格顺序：T1.1 迁移 → T1.2 portfolio.js → T1.3 portfolio/db.py → T1.4 portfolio/.context.md（geba 链不可乱序）。T1.5/T1.6 可并行于 T1.1–T1.4 之后。
 
-### T1.1 portfolio geba 迁移（加列+回填+索引）
-- **目标**：`user_portfolios` 加 `source`/`source_synced_at`/`external_account_id` + 回填 + 索引。
+### T1.1 portfolio geba 迁移（加列+回填+索引+原子 reconcile 函数）
+- **目标**：`user_portfolios` 加 `source`/`source_synced_at`/`external_account_id` + 回填 + 索引 + 原子 reconcile Postgres 函数（Codex M1 评审 [high]）。
 - **文件**：`backend/migrations/u0a_portfolio_schema.sql`（末尾追加幂等 DDL）。
 - **依赖**：T0.2。
 - **验收标准**：
   - [ ] 追加的 DDL 全部 `IF NOT EXISTS` / 幂等；`source DEFAULT 'manual'`；回填 `UPDATE ... WHERE source IS NULL`；建 `idx_user_portfolios_user_source(user_id, source)`。
   - [ ] 无 `source` CHECK 约束（枚举应用层守）。
-  - [ ] 经 `insforge db sql` 应用后：三列存在、旧行 `source='manual'`、索引存在（`\d user_portfolios` 或等价查询确认）。
-  - [ ] **幂等重跑**：再次应用整段迁移无错、`source` 回填不二次改写（`UPDATE WHERE source IS NULL` 天然幂等，需实测断言行数不变）。
-- **验证方式**：`insforge db sql` 应用 → 查询列/索引 → 再应用一次断言无错、计数不变。
+  - [ ] **`CREATE OR REPLACE FUNCTION reconcile_user_portfolio_source(TEXT,TEXT,JSONB,BOOLEAN) RETURNS SETOF user_portfolios`**：函数体含 `pg_advisory_xact_lock(hashtext('hsync_reconcile'),hashtext(user_id|'|'|source))`、空集 `clear_source` RAISE 保护、逐行 upsert（ON CONFLICT SET **不含 P1 四列**）、源作用域删除（`symbol<>'$CASH' AND symbol<>ALL(v_keep)`）、`portfolio_confirmed_at` touch 折叠、`RETURN QUERY`；回滚注释含 `DROP FUNCTION ...`。
+  - [ ] **暴露面（Codex M1 复评 [high] 修复，决策：与 bulk 平价）**：**显式 `REVOKE ALL ON FUNCTION ... FROM PUBLIC`**，**不得**留 `GRANT EXECUTE ... TO PUBLIC`；EXECUTE 仅条件性 `GRANT TO anon, authenticated`（角色不存在则 DO 块跳过）。`test_holdings_sync_ef_hardening.py::test_reconcile_rpc_not_granted_to_public` 守卫不可回归。
+  - [ ] 经 `insforge db sql` 应用后：三列存在、旧行 `source='manual'`、索引存在、**函数 `\df reconcile_user_portfolio_source` 可见、`\df+` 显示无 PUBLIC EXECUTE**。
+  - [ ] 部署冒烟（runbook M1.1）：anon-key 直连 `/rest/v1/rpc/reconcile_user_portfolio_source` 行为须与 anon-key 直连 `/rest/v1/user_portfolios` 表 DML 平价（= 与 bulk 同信任模型），记录残留暴露已接受。
+  - [ ] **幂等重跑**：再次应用整段迁移无错、`source` 回填不二次改写、`CREATE OR REPLACE FUNCTION` 可重复执行。
+- **验证方式**：`insforge db sql` 应用 → 查询列/索引/函数 → 再应用一次断言无错、计数不变。
 
 ### T1.2 portfolio.js 加 reconcile + bulk/patch 三列
 - **目标**：新增 `action=reconcile`（replace-by-source + P1 COALESCE + touch 折叠 + clear_source），bulk/patch 写三列。
@@ -69,11 +72,12 @@ T0(预备) → T1.*(M1 地基, 阻塞全部) → T2.*(M2 截图首发) → T3.*(
 - **依赖**：T1.1。
 - **验收标准**：
   - [ ] `action=bulk` 写 `source`(默认 manual)/`source_synced_at`/`external_account_id`；`action=patch` allowed 列含三列。
-  - [ ] 新 `action=reconcile`：一次 `SELECT * WHERE user_id` 成 map；逐行 upsert，量化字段取自入参，**P1（thesis/target/stop_loss/conviction）一律 `existing ?? null`**；`DELETE WHERE user_id AND source AND symbol NOT IN (keep)` 用既有安全 `.filter("symbol","not.in","(…)")`；折叠 `portfolio_confirmed_at=now()`；返回 fresh `SELECT *`。
-  - [ ] **`$CASH` 特例**：`symbol="$CASH"` 不参与 source 分桶 / NOT IN 删除，单条 last-write-wins。
-  - [ ] **空 `keep` 保护**：`rows` 空时仅在 body 显式 `clear_source=true` 才删该 source 全部并明确不波及 manual/其它源；否则拒绝（防误删全删）。
-  - [ ] 失败模式同 bulk：upsert-first-then-delete（部分失败留多余行，永不少行）。
-  - [ ] `insforge functions deploy portfolio` 成功。
+  - [ ] 新 `action=reconcile`（**Codex M1 评审 [high]：原子化**）：EF 块仅 `client.database.rpc("reconcile_user_portfolio_source",{p_user_id,p_source,p_rows,p_clear_source})` 薄调用 + EF 侧 `user_id/source/rows` 形参与「空 rows 须 clear_source」400 快校验；**EF 块内不得再有手搓 `.upsert(` 循环 / `not.in` 删除**（写逻辑全在 T1.1 的 Postgres 函数）。
+  - [ ] 真写逻辑在 Postgres 函数 `reconcile_user_portfolio_source`（T1.1 迁移）：`pg_advisory_xact_lock(user_id,source)` 串行化；逐行 upsert 量化字段取自入参，**P1 四列不在 ON CONFLICT SET ⇒ 既有 P1 原样保留绝不取自入参**；源作用域删除 `symbol<>'$CASH' AND symbol<>ALL(v_keep)`；折叠 `portfolio_confirmed_at=now()`；`RETURN QUERY SELECT *`。
+  - [ ] **`$CASH` 特例**：`symbol="$CASH"` 不参与 keep / 永不被源作用域删除，单条 last-write-wins（SQL 内强制）。
+  - [ ] **空 `keep` 保护**：`rows` 空时仅 `clear_source=true` 才删该 source 全部（不波及 manual/其它源/`$CASH`）；否则 EF 400 + SQL RAISE 双重拒绝（防误删全删）。
+  - [ ] **失败模式：原子**——单事务 commit/rollback，任一步报错全回滚 → EF 5xx（不再有 `bulk` 的 upsert-first-then-delete 部分失败窗；`bulk` 不在本次修复范围）。
+  - [ ] `insforge functions deploy portfolio` 成功（注意 T1.1 函数须先 `insforge db sql` 应用，否则 RPC 调用失败）。
   - [ ] **共享 EF 部署守卫**：部署后先冒烟手敲 `bulk`（确认未被打挂）再测 `reconcile`。
 - **验证方式**：`insforge functions deploy portfolio` → `X-Internal-Secret` 手测 bulk→reconcile→clear_source 各一次，断言行为符合矩阵。
 
@@ -103,10 +107,10 @@ T0(预备) → T1.*(M1 地基, 阻塞全部) → T2.*(M2 截图首发) → T3.*(
 - **验收标准**：
   - [ ] 建表 `symbol_resolution_cache(query_norm PK, resolved_json JSONB, status, hit_count, resolved_at, expires_at)` + `idx_symbol_cache_expires`；独立 migration 文件，不碰 `user_portfolios`。
   - [ ] `symbol-cache.js`：`get(query_norm)` 命中且未过期返回+`hit_count+=1`，否则 null；`put(query_norm,resolved_json,status,ttl_days)` upsert，`expires_at=now()+ttl_days`。
-  - [ ] **key 安全约束**：`query_norm` 仅允许标准 ticker / FMP-confirmed symbol；负缓存仅短良构 ticker-shaped token 或不可逆安全 hash；**拒绝写入账户标签/CUSIP/邮箱样式/CSV·PDF 原文片段**（EF 侧校验或调用侧保证 + 单测覆盖）。
-  - [ ] `X-Internal-Secret` 鉴权，套 `research-quota.js` 模板。
-  - [ ] `insforge db sql` 建表 + `insforge functions deploy symbol-cache` 成功，手测 put→get 通。
-- **验证方式**：CLI 部署 + put/get 手测 + key 安全断言（自由文本被拒）。
+  - [ ] **key 安全约束**：`query_norm` 仅允许 `SAFE_KEY=^([$A-Z0-9.\-]{1,16}|h:[0-9a-f]{16,64})$`（标准 ticker / FMP-confirmed symbol / 安全 hash）；**拒绝账户标签/CUSIP/邮箱样式/CSV·PDF 原文片段**，不合规 400。
+  - [ ] **鉴权 fail-CLOSED（Codex M1 评审 [high]）**：`EDGE_FUNCTION_SECRET` 未配置 → `500` 拒绝全部流量（**不得 fail-open 公开可写**）；已配置必须 `provided===expected` 否则 `403`。旧 `if (expectedSecret) {...}` 包裹式 gate 必须移除。
+  - [ ] `insforge db sql` 建表 + `insforge functions deploy symbol-cache` 成功，手测三路径：无 secret→500、错 secret→403、对 secret put→get 通。
+- **验证方式**：CLI 部署 + 三鉴权路径手测 + key 安全断言（自由文本被拒）+ `test_holdings_sync_ef_hardening.py` 静态守卫绿（fail-closed 不回归）。
 
 ### T1.6 holdings_sync 模块骨架 + models + flag + cap
 - **目标**：模块结构、models（无 P1）、flag 注册、cap 30→60。
@@ -125,10 +129,11 @@ T0(预备) → T1.*(M1 地基, 阻塞全部) → T2.*(M2 截图首发) → T3.*(
 - **验收标准**：
   - [ ] `test_holdings_sync_reconcile.py`（最关键）全绿：§3.4 矩阵 7 行 + `NormalizedHolding` 无 P1 + 源作用域 DELETE + 手敲不被动 + 幂等 + 同名 P1 保留 + 空 keep 无 clear_source 被拒 / 带 clear_source 清空不波及 manual + **完整集契约：commit 48→60(48∪12) 断言 60 全在；反例只发 12 断言反删 48（红线）**。
   - [ ] `test_flags_registry.py` 绿。
-  - [ ] 迁移幂等重跑 / EF reconcile 部分失败不变量（upsert 成功 delete 失败→永不少行、重试收敛）/ DEAD 区导入守卫（grep 断言）三项绿。
-  - [ ] 共享 EF 部署后 `bulk` 冒烟通过 **再** 测 `reconcile`。
+  - [ ] `test_holdings_sync_ef_hardening.py`（**Codex M1 评审 [high] 静态守卫**）全绿：reconcile 走原子 RPC 且块内无手搓 upsert/`not.in`、迁移含函数+`pg_advisory_xact_lock`+SET 无 P1+空集保护、`symbol-cache.js` `if(!expectedSecret)→500` 且旧 fail-open gate 已移除。
+  - [ ] 迁移幂等重跑 / **reconcile 原子性+锁在位（非 EF 多步部分失败窗——已由单事务消除）** / DEAD 区导入守卫（grep 断言）三项绿。
+  - [ ] 共享 EF 部署后 `bulk` 冒烟通过 **再** 测 `reconcile`；并发同 `(user_id,source)` 两次完整集提交终态 = 后到者完整集（advisory lock 串行化，EF 部署冒烟阶段验真并发）。
   - [ ] 全量 `pytest` 无回归（手敲 `PUT /api/portfolio/bulk` 路径行为不变）。
-- **验证方式**：`cd backend && pytest tests/test_holdings_sync_reconcile.py tests/test_flags_registry.py -q` + 全量 `pytest -q` + 部署守卫手测。
+- **验证方式**：`cd backend && pytest tests/test_holdings_sync_reconcile.py tests/test_holdings_sync_ef_hardening.py tests/test_flags_registry.py -q` + 全量 `pytest -q` + 部署守卫/并发手测。
 
 ---
 

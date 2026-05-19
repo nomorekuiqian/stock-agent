@@ -135,15 +135,18 @@ module.exports = async function(request) {
     }
 
     // -------------------------- reconcile (Track M replace-by-source) ------
-    // Replace ONLY the rows that belong to `source`, preserving:
-    //  · P1 fields (thesis/target/stop_loss/conviction) — always COALESCE from
-    //    the EXISTING row, never from the import payload (source carries no P1).
-    //  · hand-typed rows + other sources' rows — never touched.
-    // $CASH is a SOURCE-AGNOSTIC SINGLETON: upserted normally, but excluded
-    // from the source-scoped delete (so a cash-less import never wipes cash,
-    // and clearing a source never nukes cash). Touch is folded in atomically.
-    // Same failure mode as bulk: upsert FIRST then delete (extra rows over
-    // missing rows). Router validates symbols [$A-Z0-9.-]{1,16} => safe interp.
+    // ATOMIC replace-by-source (Codex [high] fix). The whole operation —
+    // per-row upsert (P1 thesis/target/stop_loss/conviction always preserved
+    // from the EXISTING row, never from the import payload), source-scoped
+    // delete ($CASH is a source-agnostic singleton, never source-deleted),
+    // and the R-2 portfolio_confirmed_at touch — runs inside ONE Postgres
+    // function = ONE transaction, serialized by a (user_id, source)
+    // pg_advisory_xact_lock. Concurrent same user/source full-set submits can
+    // no longer interleave and delete each other's rows; any step error rolls
+    // the whole thing back. Hand-typed rows + other sources' rows untouched.
+    // Definition: backend/migrations/u0a_portfolio_schema.sql
+    //             (reconcile_user_portfolio_source). Router already validated
+    //             symbols [$A-Z0-9.-]{1,16}.
     if (request.method === "POST" && action === "reconcile") {
       const body = await request.json();
       const user_id = body.user_id;
@@ -156,73 +159,22 @@ module.exports = async function(request) {
       if (rows.length === 0 && !clearSource) {
         // Empty rows would delete the whole source — only allowed with an
         // explicit clear_source flag (guards "续修发增量" data-loss bug).
+        // The SQL function enforces this too (defense in depth); we keep the
+        // EF-side check so callers get a clean 400 instead of a raised 5xx.
         return fail(400, "empty rows requires clear_source=true");
       }
 
-      // Pre-read the user's full portfolio once -> map by symbol (avoid N selects)
-      const { data: existingRows, error: exErr } = await client.database
-        .from(PORTFOLIOS)
-        .select("*")
-        .eq("user_id", user_id);
-      if (exErr) return fail(500, exErr.message);
-      const existingBySymbol = {};
-      for (const er of (existingRows || [])) existingBySymbol[er.symbol] = er;
-
-      const nowIso = new Date().toISOString();
-
-      // 1) upsert each import row; P1 strictly COALESCE'd from existing
-      for (const r of rows) {
-        if (!r.symbol) continue;
-        const e = existingBySymbol[r.symbol] || null;
-        const upsertRow = {
-          user_id,
-          symbol: r.symbol,
-          weight_pct: r.weight_pct ?? null,
-          shares: r.shares ?? null,
-          cost_basis: r.cost_basis ?? null,
-          entry_price: r.entry_price ?? null,
-          // P1: ALWAYS from existing, NEVER from the import payload
-          thesis: e ? (e.thesis ?? null) : null,
-          target: e ? (e.target ?? null) : null,
-          stop_loss: e ? (e.stop_loss ?? null) : null,
-          conviction: e ? (e.conviction ?? null) : null,
-          source: source,
-          source_synced_at: nowIso,
-          external_account_id: r.external_account_id ?? (e ? (e.external_account_id ?? null) : null),
-        };
-        const { error: upErr } = await client.database
-          .from(PORTFOLIOS)
-          .upsert(upsertRow, { onConflict: "user_id,symbol" });
-        if (upErr) return fail(500, upErr.message);
-      }
-
-      // 2) source-scoped delete of rows no longer present in this import.
-      //    Always append "$CASH" to the keep set so the source-scoped delete
-      //    can never remove the cash singleton (uses only the proven
-      //    .eq + .filter not.in primitives — same as bulk). The not-in set is
-      //    never empty (>= ["$CASH"]), so clear_source / $CASH-only imports
-      //    still wipe the rest of the source in one path.
-      const keepSymbols = rows.map(r => r.symbol).filter(Boolean).filter(s => s !== "$CASH");
-      const notInSet = [...keepSymbols, "$CASH"];
-      const { error: delErr } = await client.database
-        .from(PORTFOLIOS)
-        .delete()
-        .eq("user_id", user_id)
-        .eq("source", source)
-        .filter("symbol", "not.in", `(${notInSet.join(",")})`);
-      if (delErr) return fail(500, delErr.message);
-
-      // 3) fold in the R-2 touch atomically (no separate round-trip)
-      await client.database
-        .from(PROFILES)
-        .upsert({ user_id, portfolio_confirmed_at: nowIso }, { onConflict: "user_id" });
-
-      // 4) return fresh state
-      const { data: fresh } = await client.database
-        .from(PORTFOLIOS)
-        .select("*")
-        .eq("user_id", user_id);
-      return ok(fresh || []);
+      const { data, error } = await client.database.rpc(
+        "reconcile_user_portfolio_source",
+        {
+          p_user_id: user_id,
+          p_source: source,
+          p_rows: rows,
+          p_clear_source: clearSource,
+        }
+      );
+      if (error) return fail(500, error.message);
+      return ok(Array.isArray(data) ? data : (data || []));
     }
 
     // -------------------------- patch single -------------------------------
