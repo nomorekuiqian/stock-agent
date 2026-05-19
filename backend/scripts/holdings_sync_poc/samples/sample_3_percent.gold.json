@@ -1,0 +1,25 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "AMZN",
+      "weight_pct": 18.4
+    },
+    {
+      "symbol": "META",
+      "weight_pct": 15.1
+    },
+    {
+      "symbol": "BABA",
+      "weight_pct": 9.7
+    },
+    {
+      "symbol": "JNJ",
+      "weight_pct": 7.2
+    },
+    {
+      "symbol": "$CASH",
+      "weight_pct": 4.5
+    }
+  ]
+}

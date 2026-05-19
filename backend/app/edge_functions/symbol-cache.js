@@ -29,12 +29,22 @@ module.exports = async function(request) {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  // Fail-CLOSED (Codex [high] fix): this is a CROSS-USER shared WRITE cache —
+  // a missing or wrong internal secret must NEVER leave it publicly writable
+  // (a poisoned ticker-shaped row would propagate a bad resolution to every
+  // user). Unset EDGE_FUNCTION_SECRET => refuse ALL traffic with 500, never
+  // open. (Differs from portfolio.js, whose writes are scoped to a backend-
+  // verified user_id; this table has no per-user scoping.)
   const expectedSecret = Deno.env.get("EDGE_FUNCTION_SECRET");
-  if (expectedSecret) {
-    const provided = request.headers.get("X-Internal-Secret");
-    if (provided !== expectedSecret) {
-      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), { status: 403, headers });
-    }
+  if (!expectedSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Server misconfigured: EDGE_FUNCTION_SECRET unset" }),
+      { status: 500, headers }
+    );
+  }
+  const provided = request.headers.get("X-Internal-Secret");
+  if (provided !== expectedSecret) {
+    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), { status: 403, headers });
   }
 
   const client = createClient({

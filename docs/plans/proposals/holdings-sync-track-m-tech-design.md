@@ -400,13 +400,17 @@ PDF 采纳**扩展枚举 `source="pdf"`**（不 map 到 screenshot/paste），re
 方案分析：
 
 - **B：组合现有 `list` + 逐行 `patch` + scoped `delete`** —— N+1 次 EF 往返（每次 10s 超时），非原子，失败窗比 EF 自带 bulk 更差。40 行导入 ≈ 40+ 次顺序 HTTP。
-- **A：新增 EF `action=reconcile`（推荐）** —— 服务端一次往返 upsert-then-scoped-delete，并服务端读现有 P1 做保护。与 proposal 既定 geba 模式一致。
+- **A：新增 EF `action=reconcile`（采纳）** —— 服务端一次往返，**原子提交**。
 
-**EF 侧伪代码（`portfolio.js` 新 `action=reconcile`）**：
+> **原子性（Codex 对抗评审 [high] 修复）**：`action=reconcile` **不**在 EF 内做「读→逐条 upsert→源作用域删除→touch」多步 PostgREST 序列（Insforge EF 无事务原语，多步非原子：两次并发同 `(user_id, source)` 完整集提交可交错——A upsert AAPL、B upsert MSFT、A `NOT IN(AAPL)` 删掉 MSFT、B `NOT IN(MSFT)` 删掉 AAPL，终态非任一完整集 = 用户可见数据丢失）。改为：`portfolio.js` 的 `reconcile` 块**只是一次 `client.database.rpc("reconcile_user_portfolio_source", …)` 薄调用**（`.rpc()` 是既有范式，见 `subscriptions.js`），真正的 upsert / 源作用域删除 / touch 全在**单个 Postgres 函数 = 单事务**内完成，并以 `pg_advisory_xact_lock(hashtext('hsync_reconcile'), hashtext(user_id|'|'|source))` 串行化并发同源完整集提交。任一步报错 → 函数抛异常 → 整事务（含 touch）回滚 → EF 返回 5xx。空入参保护、P1 永不取自入参、`$CASH` 永不被源作用域删除均在 SQL 函数内强制（防御纵深）。函数定义随 portfolio geba 进 `u0a_portfolio_schema.sql`（geba 第 1 步）。
+
+**Postgres 函数体伪代码（`reconcile_user_portfolio_source`，`u0a_portfolio_schema.sql`；`portfolio.js` 仅 `.rpc()` 调用它）**：
 
 ```text
-reconcile(user_id, source, rows):
-  existing_map = SELECT * FROM user_portfolios WHERE user_id=?    # 一次性读，避免 N 次 select
+reconcile_user_portfolio_source(user_id, source, rows, clear_source):  # 整体 = 单事务
+  if rows==[] and not clear_source: RAISE                          # 空集仅显式 clear_source 允许
+  pg_advisory_xact_lock(hashtext('hsync_reconcile'),
+                        hashtext(user_id|'|'|source))               # 串行化并发同源完整集提交
   for r in rows:
     e = existing_map[r.symbol]
     upsert {
@@ -428,7 +432,7 @@ reconcile(user_id, source, rows):
   return SELECT * FROM user_portfolios WHERE user_id=?             # fresh state
 ```
 
-复用既有 `bulk` 的安全 `.filter("symbol","not.in","(…)")` 插值（symbol 已服务端正则校验），及 upsert-first-then-delete 失败模式（部分失败留多余行、永不少行）。
+源作用域删除在 SQL 函数内用 `symbol <> ALL(v_keep) AND symbol <> '$CASH'`（symbol 仍经服务端 `_SYMBOL_RE` 正则校验）。**失败模式：原子**——整事务 commit 或 rollback，不再有 `bulk` 那种 upsert-first-then-delete 的部分失败窗（`bulk` 不在本次修复范围，沿用旧模式）。
 
 > **commit 契约（Codex 对抗评审 [high]）**：`rows` 永远是该 source 的**完整目标集**而非增量——`keep` 据此推出，`NOT IN (keep)` 才不会反删先前 commit 已落库的同 source 行。**部分提交场景**：第一次 commit 48 行（完整集=48）；用户续修接受 12 行后，第二次必须 commit **60 行（48 已落库 + 12 新）**，绝不能只发 12（否则 48 行被 `NOT IN` 删掉，正是“续修反丢已保存”的 bug）。客户端从 `portfolio` 查询结果按 `source` 过滤重建已落库子集再并入本轮接受行，stateless 服务端无需 draft。`clear_source=true` 是唯一允许空 `rows` 的显式撤销路径（§7bis.11）。
 
@@ -528,7 +532,8 @@ CREATE INDEX IF NOT EXISTS idx_symbol_cache_expires ON symbol_resolution_cache (
 
 - `get(query_norm)` → 命中且 `expires_at > now()` 返回 `resolved_json`+`status`、`hit_count += 1`；否则 null。
 - `put(query_norm, resolved_json, status, ttl_days)` → upsert，`expires_at = now() + ttl_days`（正 60–90 / 负 14–30）。
-- `query_norm` 只能是可跨用户共享的安全 key：成功解析的标准 ticker / FMP-confirmed symbol；不得写入账户标签、CUSIP、邮箱样式字符串、CSV/PDF 原文片段等任意自由文本。`unresolved` 负缓存若实现，仅限短良构 ticker-shaped token 或不可逆安全 hash key。
+- `query_norm` 只能是可跨用户共享的安全 key：成功解析的标准 ticker / FMP-confirmed symbol；不得写入账户标签、CUSIP、邮箱样式字符串、CSV/PDF 原文片段等任意自由文本。`unresolved` 负缓存若实现，仅限短良构 ticker-shaped token 或不可逆安全 hash key。EF 内以 `SAFE_KEY = ^([$A-Z0-9.\-]{1,16}|h:[0-9a-f]{16,64})$` 强制，不合规 400。
+- **鉴权 fail-CLOSED（Codex 对抗评审 [high] 修复）**：该表是**跨用户共享的写缓存**，一行被投毒会把错误解析传播给所有用户。故鉴权**必须 fail-closed**——`EDGE_FUNCTION_SECRET` 未配置 → 直接 `500` 拒绝**全部**流量（绝不放行），已配置则必须 `X-Internal-Secret` 精确匹配否则 `403`。这与 §3.2/§5 的「**caller** 在 L2 EF *宕机* 时 fail-open（缓存未命中→退化本地，功能不降级）」是两件事：caller 对网络不可用容错，EF 对鉴权零容忍。`portfolio.js` 因写入有后端校验过的 `user_id` 作用域、风险面不同，不在本次收紧范围。
 
 过期惰性失效（读时判 `expires_at`）；周期清理量小可后置（§8 followup ③）。
 
@@ -686,6 +691,11 @@ v1 全 Pro 及以上门控，成本集中付费用户。**未来免费用户路�
   1. **commit 完整集契约**：`reconcile` replace-by-source 下，每次 commit 的 `rows` 必为该 source 完整目标集（客户端 = 已落库该 source 行 ∪ 本轮接受行），部分提交/续修绝不发增量，否则反删先存行；删除“仅用户编辑过”表述；测试含 48→60 正例与“只发 12”反例红线。
   2. **LLM 配额 fail-closed**：成本/vision 路径在配额 EF 故障时拒绝并返回 `503` 可恢复错误（异于 `quota/service.py` 全局 fail-open），非成本路径（报价回环 / L2 缓存）仍 fail-open；CSV/手敲不受限。
   3. **模型契约固定**：截图/PDF/粘贴抽取统一 `gemini-3.1-flash-lite-preview`——已联网核实为 Gemini 3 系列最便宜且原生多模态、官方定位数据抽取；**产品决策：用便宜可识图模型、不用 pro**，按 Codex 建议在此显式登记决策与成本依据，eval/成本门槛以 flash-lite 为基线。
+- **Codex M1 实现对抗评审收敛（2026-05-19，branch diff vs master，均已落地代码 + §3.4/§4.0 + 静态守卫测试）**：
+  1. **reconcile 原子化 [high]**：EF 多步「读→逐条 upsert→源作用域删除→touch」非原子、并发同源完整集提交可交错互删 → 改为单 Postgres 函数 `reconcile_user_portfolio_source`（单事务）+ `pg_advisory_xact_lock(user_id,source)` 串行化，`portfolio.js` 退化为一次 `.rpc()` 薄调用；空集保护 / P1 永不取自入参 / `$CASH` 不被源删 在 SQL 内强制。
+  2. **symbol-cache 鉴权 fail-closed [high]**：跨用户共享写缓存，`EDGE_FUNCTION_SECRET` 缺失原先 fail-open（公开可写、可投毒）→ 改为缺失即 `500` 拒绝全部、已配置必须精确匹配否则 `403`；与 caller 对 L2 EF 宕机的 fail-open 是两件事。
+  3. **reconcile RPC 不可 PUBLIC 可执行 [high]（复评新增）—— 决策：与既有 `bulk` 平价**：迁移**显式 `REVOKE ALL … FROM PUBLIC`**（Postgres 默认 PUBLIC 可执行必须主动收回），EXECUTE 仅条件性绑定 EF anon 客户端所用标准 PostgREST 角色（anon/authenticated）——与已上线 `bulk` 表 DML 暴露面**严格平价**，不引入新越权类。信任边界仍是 EF（后端 verify JWT → X-Internal-Secret → EF anon 客户端），平台约定 PostgREST 不外部直连、只经 EF（portfolio/.context.md 规则 5；RLS 后续接）。残留暴露 = bulk 既有、用户已显式接受；部署冒烟须验证 anon-key 直连 `/rpc` 行为与 bulk 表 DML 平价并记录（runbook M1.1）。回归守卫 `test_holdings_sync_ef_hardening.py::test_reconcile_rpc_not_granted_to_public`。
+  4. JS EF / Postgres 函数非 Python-unit-testable → 加静态契约守卫 `test_holdings_sync_ef_hardening.py`（reconcile 走原子 RPC 且 `pg_advisory_xact_lock`、SET 列表无 P1、symbol-cache `if(!expectedSecret)→500`、旧 fail-open gate 不复存在、reconcile RPC `REVOKE FROM PUBLIC` 且永不 `TO PUBLIC`），CI 即拦回归。
 - **PoC 已验证（2026-05-19，`backend/scripts/holdings_sync_poc/`）**：flash-lite 截图抽取 4 合成 Robinhood 样本 precision/recall=1.0、量化 100%（含 `BRK.B` 类别股 / `ARM` 新 IPO / `GOOGL` A 类 / 小写 `amzn` / `BABA` ADR / `Cash`→`$CASH` / 纯百分比视图），注入对抗样本 `looks_like_holdings=false`（未被注入劫持），~\$0.0005/截图、3–6s。**新增硬约束**：`response_schema` 不得带 `maxItems`（与多 nullable 数值字段组合会 400），60 上限改解析后应用层截断（§3.1 PoC 硬约束）；落地 T2.1 必须遵守。真实截图 eval（T2-EVAL）仍需补真图。
 
 **关联 Followup（不在本文实现范围，单独排期）**

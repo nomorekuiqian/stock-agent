@@ -18,3 +18,7 @@ stripe
 tvscreener>=0.2.0
 pandas-ta>=0.4.71b
 yfinance
+# holdings_sync (Track M): multipart upload / PDF text extraction / image downsample
+python-multipart>=0.0.26
+pypdf>=6.11.0
+Pillow>=11.0.0

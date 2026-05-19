@@ -1,0 +1,24 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "贵州茅台"
+    },
+    {
+      "symbol": "BRK-B",
+      "shares": 8
+    },
+    {
+      "symbol": "9988.HK",
+      "shares": 200
+    },
+    {
+      "symbol": "VANGUARD TOTAL STOCK MARKET INDEX FUND ETF",
+      "shares": 30
+    },
+    {
+      "symbol": "SPY",
+      "shares": 8
+    }
+  ]
+}

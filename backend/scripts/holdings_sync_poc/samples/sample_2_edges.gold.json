@@ -1,0 +1,24 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "BRK.B",
+      "shares": 25
+    },
+    {
+      "symbol": "ARM",
+      "shares": 60
+    },
+    {
+      "symbol": "GOOGL",
+      "shares": 40
+    },
+    {
+      "symbol": "VOO",
+      "shares": 12
+    },
+    {
+      "symbol": "$CASH"
+    }
+  ]
+}

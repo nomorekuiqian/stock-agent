@@ -1,0 +1,21 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "AAPL",
+      "shares": 120
+    },
+    {
+      "symbol": "NVDA",
+      "shares": 45
+    },
+    {
+      "symbol": "MSFT",
+      "shares": 18
+    },
+    {
+      "symbol": "TSLA",
+      "shares": 30
+    }
+  ]
+}
