@@ -27,9 +27,16 @@ def _norm(sym: str) -> str:
     return s
 
 
-def _score_one(name: str) -> dict:
-    img = os.path.join(SAMPLES, f"{name}.png")
-    with open(os.path.join(SAMPLES, f"{name}.gold.json")) as f:
+def _score_one(name: str, base: str = SAMPLES) -> dict:
+    img = os.path.join(base, f"{name}.png")
+    if not os.path.exists(img):
+        # Real samples may be .jpg/.jpeg/.webp; pick whichever exists.
+        for ext in (".jpg", ".jpeg", ".webp"):
+            alt = os.path.join(base, f"{name}{ext}")
+            if os.path.exists(alt):
+                img = alt
+                break
+    with open(os.path.join(base, f"{name}.gold.json")) as f:
         gold = json.load(f)
     with open(img, "rb") as fh:
         data = fh.read()
@@ -73,19 +80,40 @@ def _score_one(name: str) -> dict:
     }
 
 
-def main() -> None:
-    names = sorted(
+def _collect(subdir: str | None) -> list[str]:
+    """Return sorted sample stems under SAMPLES[/subdir] (gold.json present)."""
+    base = SAMPLES if not subdir else os.path.join(SAMPLES, subdir)
+    if not os.path.isdir(base):
+        return []
+    return sorted(
         os.path.basename(p)[:-len(".gold.json")]
-        for p in glob.glob(os.path.join(SAMPLES, "*.gold.json"))
+        for p in glob.glob(os.path.join(base, "*.gold.json"))
     )
+
+
+def main() -> None:
+    # CLI: `python evaluate.py [--dir <subdir>]`. Default = the original
+    # synthetic root; `--dir real` scores user-provided real Robinhood/
+    # Fidelity screenshots dropped under samples/real/ (T2 ship gate).
+    subdir: str | None = None
+    if "--dir" in sys.argv:
+        i = sys.argv.index("--dir")
+        if i + 1 >= len(sys.argv):
+            print("--dir requires a subpath, e.g. --dir real")
+            raise SystemExit(2)
+        subdir = sys.argv[i + 1]
+
+    base = SAMPLES if not subdir else os.path.join(SAMPLES, subdir)
+    names = _collect(subdir)
     if not names:
-        print("No samples. Run gen_samples.py first.")
+        print(f"No samples under {base}. Run gen_samples.py "
+              "(synthetic) or drop real <name>.png + <name>.gold.json pairs in.")
         raise SystemExit(1)
 
     results = []
     for n in names:
         try:
-            r = _score_one(n)
+            r = _score_one(n, base=base)
         except Exception as e:  # noqa: BLE001 — PoC: surface any API/parse failure
             r = {"name": n, "error": f"{type(e).__name__}: {e}"}
         results.append(r)

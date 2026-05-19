@@ -114,6 +114,54 @@ module.exports = async function(request) {
       );
     }
 
+    // POST ?action=consume_if_under_limit — ATOMIC consume (Codex M2 [high]
+    // fix). Wraps the SQL function which does pg_advisory_xact_lock +
+    // UPSERT + UPDATE in a single transaction, returning (consumed, count,
+    // lim). Replaces the raceable get_usage → increment two-step.
+    if (request.method === "POST" && action === "consume_if_under_limit") {
+      const body = await request.json();
+      const identifier = body.identifier;
+      const identifierType = body.identifier_type || "user";
+      const usageDate = body.usage_date;
+      const limit = body.limit;
+
+      if (!identifier || !usageDate || !limit) {
+        return new Response(
+          JSON.stringify({ success: false, error: "identifier, usage_date, limit required" }),
+          { status: 400, headers }
+        );
+      }
+      const limitInt = Number.parseInt(limit, 10);
+      if (!Number.isFinite(limitInt) || limitInt <= 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "limit must be a positive integer" }),
+          { status: 400, headers }
+        );
+      }
+
+      const { data, error } = await client.database.rpc(
+        "consume_research_quota_if_under_limit",
+        {
+          p_identifier: identifier,
+          p_identifier_type: identifierType,
+          p_usage_date: usageDate,
+          p_limit: limitInt,
+        }
+      );
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers }
+        );
+      }
+      // PostgREST returns SETOF as an array; first row carries the result.
+      const row = Array.isArray(data) ? data[0] : data;
+      return new Response(
+        JSON.stringify({ success: true, data: row || { consumed: false, count: 0, lim: limitInt } }),
+        { status: 200, headers }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: "Invalid action" }),
       { status: 400, headers }
