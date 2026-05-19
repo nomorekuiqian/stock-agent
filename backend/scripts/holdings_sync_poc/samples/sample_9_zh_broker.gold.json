@@ -1,0 +1,24 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "600519",
+      "shares": 10,
+      "entry_price": 1800.0
+    },
+    {
+      "symbol": "00700",
+      "shares": 100,
+      "entry_price": 380.0
+    },
+    {
+      "symbol": "09988",
+      "shares": 200,
+      "entry_price": 75.0
+    },
+    {
+      "symbol": "$CASH",
+      "cost_basis": 5800.0
+    }
+  ]
+}

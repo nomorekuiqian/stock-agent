@@ -3004,6 +3004,46 @@ export const api = {
       return response.json();
     },
 
+    // Paste-text variant — same /extract endpoint but the body is a text
+    // field rather than a file part. M3 Stage 2.
+    extractPaste: async (text: string): Promise<HoldingsSyncExtractDraft> => {
+      const form = new FormData();
+      form.append('mode', 'paste');
+      form.append('text', text);
+      const response = await fetchProtected(
+        `${API_BASE_URL}/holdings-sync/extract`,
+        { method: 'POST', body: form },
+        'AI 识别失败',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'AI 识别失败');
+      }
+      return response.json();
+    },
+
+    // CSV variant — same /extract endpoint with optional mapping (FE
+    // second-step submit after `needs_mapping` returns). M3 Stage 2.
+    extractCsv: async (
+      file: File,
+      mapping?: Record<string, string>,
+    ): Promise<HoldingsSyncExtractDraft> => {
+      const form = new FormData();
+      form.append('mode', 'csv');
+      form.append('file', file);
+      if (mapping) {
+        form.append('mapping', JSON.stringify(mapping));
+      }
+      const response = await fetchProtected(
+        `${API_BASE_URL}/holdings-sync/extract`,
+        { method: 'POST', body: form },
+        'CSV 解析失败',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'CSV 解析失败');
+      }
+      return response.json();
+    },
+
     commit: async (
       payload: HoldingsSyncCommitRequest,
     ): Promise<HoldingsSyncCommitResponse> => {
