@@ -18,7 +18,8 @@ import { getCurrency } from '@/lib/currency';
 import type { HoldingInput, HoldingView } from '@/lib/api';
 import { QuickThesisInput } from '@/components/memory/QuickThesisInput';
 
-const MAX_HOLDINGS = 30;
+// Track M 决策：持仓上限 30 → 60（与后端 BulkPortfolioRequest.max_length 一致）
+const MAX_HOLDINGS = 60;
 
 interface LocalHolding {
   symbol: string;
