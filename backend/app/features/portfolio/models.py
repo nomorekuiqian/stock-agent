@@ -34,6 +34,11 @@ class HoldingInput(BaseModel):
     stop_loss: Optional[float] = Field(None, ge=0)
     conviction: Optional[int] = Field(None, ge=1, le=5)
 
+    # Track M provenance (optional; manual path defaults to 'manual' in EF)
+    source: Optional[str] = None
+    source_synced_at: Optional[datetime] = None
+    external_account_id: Optional[str] = None
+
     @field_validator("symbol")
     @classmethod
     def normalize_symbol(cls, v: str) -> str:
@@ -61,6 +66,9 @@ class HoldingRow(BaseModel):
     stop_loss: Optional[float] = None
     conviction: Optional[int] = None
     entry_price: Optional[float] = None
+    source: Optional[str] = None
+    source_synced_at: Optional[datetime] = None
+    external_account_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -90,7 +98,8 @@ class HoldingView(BaseModel):
 
 
 class BulkPortfolioRequest(BaseModel):
-    rows: List[HoldingInput] = Field(default_factory=list, max_length=30)
+    # Track M 决策：产品持仓上限 30 → 60（手敲编辑器同步，见 frontend MAX_HOLDINGS）
+    rows: List[HoldingInput] = Field(default_factory=list, max_length=60)
 
 
 class PortfolioListResponse(BaseModel):

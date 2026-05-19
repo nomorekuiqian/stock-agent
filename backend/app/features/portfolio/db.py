@@ -94,12 +94,60 @@ async def bulk_replace_portfolio(user_id: str, rows: List[HoldingInput]) -> List
             "stop_loss": r.stop_loss,
             "conviction": r.conviction,
             "entry_price": r.entry_price,
+            "source": r.source,
+            "source_synced_at": r.source_synced_at.isoformat() if r.source_synced_at else None,
+            "external_account_id": r.external_account_id,
         }
         for r in rows
     ]
     data = await _call("bulk", body={"user_id": user_id, "rows": payload_rows})
     if not data.get("success"):
         raise RuntimeError(data.get("error") or "bulk save failed")
+    return [HoldingRow(**row) for row in (data.get("data") or [])]
+
+
+async def reconcile_portfolio(
+    user_id: str,
+    source: str,
+    rows: List[HoldingInput],
+    *,
+    clear_source: bool = False,
+) -> List[HoldingRow]:
+    """Track M replace-by-source upsert (design §3.4/§3.5).
+
+    Sends ONLY quantitative + provenance fields. P1 (thesis/target/stop_loss/
+    conviction) is INTENTIONALLY never forwarded — the `reconcile` Edge Function
+    COALESCEs P1 from the existing row, which is the single source of truth.
+    This keeps a buggy import structurally unable to carry/zero P1.
+
+    `rows` must be the COMPLETE target set for `source` (not a delta): the EF
+    deletes rows of `source` not present here. Empty `rows` is only honored
+    with `clear_source=True` (explicit "remove all imported rows of this
+    source"); $CASH is a source-agnostic singleton and is never source-deleted.
+    """
+    payload_rows = [
+        {
+            "symbol": r.symbol,
+            "shares": r.shares,
+            "cost_basis": r.cost_basis,
+            "entry_price": r.entry_price,
+            "weight_pct": r.weight_pct,
+            "external_account_id": r.external_account_id,
+            # NOTE: deliberately NO thesis/target/stop_loss/conviction here.
+        }
+        for r in rows
+    ]
+    data = await _call(
+        "reconcile",
+        body={
+            "user_id": user_id,
+            "source": source,
+            "rows": payload_rows,
+            "clear_source": clear_source,
+        },
+    )
+    if not data.get("success"):
+        raise RuntimeError(data.get("error") or "reconcile failed")
     return [HoldingRow(**row) for row in (data.get("data") or [])]
 
 

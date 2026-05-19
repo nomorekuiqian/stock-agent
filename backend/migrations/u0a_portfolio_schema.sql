@@ -100,7 +100,30 @@ BEGIN
 END $$;
 
 -- ============================================================================
+-- Track M · 手动/导入持仓同步 (holdings_sync) — geba 第 1 步
+-- ----------------------------------------------------------------------------
+-- 设计: docs/plans/proposals/holdings-sync-track-m-tech-design.md §4.1
+-- 幂等加列 + 回填 + 源作用域索引. 不加 source CHECK 约束 (枚举由应用层守,
+-- 像 symbol 正则一样, 避免每加一种 source 都要迁移).
+-- ============================================================================
+
+ALTER TABLE user_portfolios ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+ALTER TABLE user_portfolios ADD COLUMN IF NOT EXISTS source_synced_at TIMESTAMPTZ;
+ALTER TABLE user_portfolios ADD COLUMN IF NOT EXISTS external_account_id TEXT;
+
+-- 回填: 旧行视为手敲来源 (幂等 — 仅命中 source IS NULL)
+UPDATE user_portfolios SET source = 'manual' WHERE source IS NULL;
+
+-- 源作用域索引: reconcile 的 replace-by-source 删除按 (user_id, source) 过滤
+CREATE INDEX IF NOT EXISTS idx_user_portfolios_user_source
+  ON user_portfolios (user_id, source);
+
+-- ============================================================================
 -- 回滚 (仅紧急时使用):
+--   ALTER TABLE user_portfolios DROP COLUMN IF EXISTS external_account_id;
+--   ALTER TABLE user_portfolios DROP COLUMN IF EXISTS source_synced_at;
+--   ALTER TABLE user_portfolios DROP COLUMN IF EXISTS source;
+--   DROP INDEX IF EXISTS idx_user_portfolios_user_source;
 --   DROP TRIGGER IF EXISTS trg_user_investment_profiles_updated_at ON user_investment_profiles;
 --   DROP TRIGGER IF EXISTS trg_user_portfolios_updated_at ON user_portfolios;
 --   DROP FUNCTION IF EXISTS u0a_set_updated_at();
