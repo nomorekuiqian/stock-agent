@@ -5,6 +5,7 @@ import { TodayActions } from './_components/TodayActions';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MarketData, ReportListItem } from '@/lib/api';
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 300; // ISR: 5 分钟
 
 interface IndexData {
@@ -14,11 +15,13 @@ interface IndexData {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+const SERVER_FETCH_TIMEOUT_MS = 10000;
 
 async function getReportByDate(date: string): Promise<MarketData | null> {
   try {
     const res = await fetch(`${API_BASE}/market/reports/date/${date}`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -32,6 +35,7 @@ async function getLatestReport(): Promise<MarketData | null> {
   try {
     const res = await fetch(`${API_BASE}/market/reports/latest`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -45,6 +49,7 @@ async function getReportList(): Promise<{ data: ReportListItem[]; total: number 
   try {
     const res = await fetch(`${API_BASE}/market/reports?limit=6&offset=0`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return { data: [], total: 0 };
     const json = await res.json();

@@ -59,11 +59,29 @@ const WELCOME_MESSAGE: ChatMessage = {
   confidence: 'medium',
 };
 
+const RESTORED_HISTORY_ROUNDS = 3;
+
 function confidenceLabel(value?: 'high' | 'medium' | 'low') {
   if (value === 'high') return '高';
   if (value === 'medium') return '中';
   if (value === 'low') return '低';
   return '未标注';
+}
+
+function latestRounds(messages: ChatMessage[], rounds: number): ChatMessage[] {
+  const nonWelcomeMessages = messages.filter((message) => message.id !== 'welcome');
+  let userTurns = 0;
+  let startIndex = nonWelcomeMessages.length;
+
+  for (let index = nonWelcomeMessages.length - 1; index >= 0; index -= 1) {
+    startIndex = index;
+    if (nonWelcomeMessages[index].role === 'user') {
+      userTurns += 1;
+      if (userTurns >= rounds) break;
+    }
+  }
+
+  return nonWelcomeMessages.slice(startIndex);
 }
 
 export default function KolChatPage() {
@@ -79,6 +97,7 @@ export default function KolChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const fullConversationMessagesRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -92,6 +111,7 @@ export default function KolChatPage() {
         if (!conversation) {
           setMessages([WELCOME_MESSAGE]);
           conversationIdRef.current = null;
+          fullConversationMessagesRef.current = [];
           return;
         }
 
@@ -108,7 +128,9 @@ export default function KolChatPage() {
                 typeof message.content === 'string',
             )
           : [];
-        setMessages(restored.length ? restored : [WELCOME_MESSAGE]);
+        fullConversationMessagesRef.current = restored;
+        const displayMessages = latestRounds(restored, RESTORED_HISTORY_ROUNDS);
+        setMessages(displayMessages.length ? displayMessages : [WELCOME_MESSAGE]);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -138,16 +160,25 @@ export default function KolChatPage() {
       const savedMessages = nextMessages.filter((message) => message.id !== 'welcome');
       if (!savedMessages.length) return;
 
-      const firstUserMessage = savedMessages.find((message) => message.role === 'user');
+      const existingMessages = fullConversationMessagesRef.current;
+      const firstSavedId = savedMessages[0]?.id;
+      const firstSavedIndex = firstSavedId
+        ? existingMessages.findIndex((message) => message.id === firstSavedId)
+        : -1;
+      const mergedMessages = firstSavedIndex >= 0
+        ? [...existingMessages.slice(0, firstSavedIndex), ...savedMessages]
+        : savedMessages;
+
+      const firstUserMessage = mergedMessages.find((message) => message.role === 'user');
       const title = firstUserMessage?.content.slice(0, 60) || 'qinbafrank 方法论对话';
       const payload = {
         username: 'qinbafrank',
         title,
-        message_count: savedMessages.length,
+        message_count: mergedMessages.length,
         data: {
           username: 'qinbafrank',
           category: nextCategory,
-          messages: savedMessages,
+          messages: mergedMessages,
         },
       };
 
@@ -157,10 +188,12 @@ export default function KolChatPage() {
             conversationIdRef.current,
             payload,
           );
+          fullConversationMessagesRef.current = mergedMessages;
           return;
         }
         const created = await api.twitterMethodology.conversations.create(payload);
         conversationIdRef.current = created.id;
+        fullConversationMessagesRef.current = mergedMessages;
       } catch (err) {
         console.warn('[KolChat] Failed to persist conversation', err);
       }
