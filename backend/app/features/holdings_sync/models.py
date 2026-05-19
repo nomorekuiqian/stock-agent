@@ -48,6 +48,10 @@ class SymbolCandidate(BaseModel):
 
 
 class ExtractedRow(NormalizedHolding):
+    # Override symbol to Optional: unresolved/budget_exhausted/pending_review
+    # rows legitimately have no symbol yet (user fixes in Review). The strict
+    # `symbol: str` lives on NormalizedHolding/CommitRequest where it matters.
+    symbol: Optional[str] = None  # type: ignore[assignment]
     raw: str
     resolved_name: Optional[str] = None
     exchange: Optional[str] = None

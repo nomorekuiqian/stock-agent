@@ -9,6 +9,7 @@ import { Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import PaywallGuard from '@/components/PaywallGuard';
+import HoldingsSyncDialog from '@/components/holdings-sync/HoldingsSyncDialog';
 import { useStockSearch } from '@/hooks/useStockSearch';
 import { usePortfolio, useSavePortfolio } from '@/hooks/queries/use-portfolio';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
@@ -388,6 +389,20 @@ function PortfolioEditorContent() {
             <p className="text-muted-foreground text-sm md:text-base">
               输入你在每只股票上的模拟投入金额，我们将据此计算持仓权重
             </p>
+            {hasFlag('holdings_sync_import') && !flagsLoading && (
+              <div className="pt-2">
+                <HoldingsSyncDialog
+                  trigger={
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded border border-emerald-300 bg-emerald-50/40 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                    >
+                      ✨ 同步持仓（截图自动识别）
+                    </button>
+                  }
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>

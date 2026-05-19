@@ -164,8 +164,8 @@ resolve_identifier(raw_symbol, raw_name, locale_hint):
  4. 置信 + 状态策略
     top, runner = 前二；gap = top.score - runner.score（仅一条则 = top.score）
     无候选                       → unresolved (symbol=None, low)
-    top≥0.85 且 gap≥0.25         → ok           (high, 自动接受, 绿灯预勾选)
-    top≥0.55（或 gap<0.25）      → needs_review (medium, 候选 chips + 搜索, 行仍接受但标记)
+    top≥0.55 且 gap≥0.25         → ok           (high, 自动接受, 绿灯预勾选)
+    top≥0.30（或 gap<0.25）      → needs_review (medium, 候选 chips + 搜索, 行仍接受但标记)
     top<0.55 但有候选            → needs_review (low, 前 5 候选, 须用户确认)
 
  4a. 报价回环（EC3.d）
@@ -183,8 +183,8 @@ resolve_identifier(raw_symbol, raw_name, locale_hint):
 
 | 条件 | status | UI |
 |---|---|---|
-| top≥0.85 且 gap≥0.25 | `ok` | 自动接受，预勾选，绿灯 |
-| top≥0.55（或 gap<0.25） | `needs_review` | 黄灯，候选 chips + 搜索，行仍接受但标记 |
+| top≥0.55 且 gap≥0.25 | `ok` | 自动接受，预勾选，绿灯 |
+| top≥0.30（或 gap<0.25） | `needs_review` | 黄灯，候选 chips + 搜索，行仍接受但标记 |
 | top<0.55，≥1 候选 | `needs_review` | 黄灯，前 5 候选，须确认 |
 | 0 候选 | `unresolved` | 红灯，默认丢弃，搜索框手动找 |
 | 报价回环失败 | `no_quote` | 红灯，提示核对代码 / 交易所 |

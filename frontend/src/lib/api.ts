@@ -684,6 +684,66 @@ export interface MorningReportListItem {
   created_at?: string;
 }
 
+// Track M — holdings_sync (manual/import) types. See backend
+// `app/features/holdings_sync/models.py`.
+export type HoldingsSyncSource = 'screenshot' | 'paste' | 'csv' | 'pdf';
+export type HoldingsSyncRowStatus =
+  | 'ok'
+  | 'needs_review'
+  | 'unresolved'
+  | 'needs_mapping'
+  | 'pending_review'
+  | 'no_quote'
+  | 'budget_exhausted';
+export interface HoldingsSyncCandidate {
+  symbol: string;
+  name: string;
+  exchange: string;
+}
+export interface HoldingsSyncNormalized {
+  symbol: string;             // commit shape — must be present + uppercased
+  shares?: number | null;
+  cost_basis?: number | null;
+  entry_price?: number | null;
+  weight_pct?: number | null;
+  external_account_id?: string | null;
+}
+export interface HoldingsSyncExtractedRow {
+  symbol: string | null;       // null when status != ok and user hasn't picked
+  shares?: number | null;
+  cost_basis?: number | null;
+  entry_price?: number | null;
+  weight_pct?: number | null;
+  external_account_id?: string | null;
+  raw: string;
+  resolved_name: string | null;
+  exchange: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  status: HoldingsSyncRowStatus;
+  candidates: HoldingsSyncCandidate[];
+  currency_hint?: string | null;
+  dup_of?: string | null;
+  notices: string[];
+}
+export interface HoldingsSyncExtractDraft {
+  draft_id: string;
+  source: HoldingsSyncSource;
+  rows: HoldingsSyncExtractedRow[];
+  dropped_note?: string | null;
+  columns?: string[] | null;
+}
+export interface HoldingsSyncCommitRequest {
+  source: HoldingsSyncSource;
+  draft_id?: string | null;
+  clear_source?: boolean;
+  rows: HoldingsSyncNormalized[];
+}
+export interface HoldingsSyncCommitResponse {
+  written: number;
+  preserved_p1: number;
+  portfolio: PortfolioListResponse;
+}
+
 // Portfolio & Investment Profile types
 export interface HoldingInput {
   symbol: string;
@@ -2918,6 +2978,46 @@ export const api = {
       }, 'Failed to delete holding');
       if (!response.ok) {
         await throwProtectedApiError(response, 'Failed to delete holding');
+      }
+      return response.json();
+    },
+  },
+
+  // Track M (holdings_sync) — manual/import. Backend: app/features/holdings_sync.
+  // Stage 1 = screenshot only; paste/csv/pdf widen in later milestones.
+  holdingsSync: {
+    extract: async (
+      mode: HoldingsSyncSource,
+      file: File,
+    ): Promise<HoldingsSyncExtractDraft> => {
+      const form = new FormData();
+      form.append('mode', mode);
+      form.append('file', file);
+      const response = await fetchProtected(
+        `${API_BASE_URL}/holdings-sync/extract`,
+        { method: 'POST', body: form },  // do NOT set Content-Type; browser adds boundary
+        'AI 识别失败',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'AI 识别失败');
+      }
+      return response.json();
+    },
+
+    commit: async (
+      payload: HoldingsSyncCommitRequest,
+    ): Promise<HoldingsSyncCommitResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/holdings-sync/commit`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        '提交持仓失败',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, '提交持仓失败');
       }
       return response.json();
     },
