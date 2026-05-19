@@ -35,6 +35,64 @@ def _font(size: int):
     return ImageFont.load_default()
 
 
+def _render_table(
+    name: str,
+    *,
+    title: str,
+    headers: list[str],
+    rows: list[list[str]],
+    bg: tuple[int, int, int] = (255, 255, 255),
+    fg: tuple[int, int, int] = (30, 30, 35),
+    sub: tuple[int, int, int] = (110, 110, 120),
+    grid: tuple[int, int, int] = (220, 220, 230),
+) -> str:
+    """Light-bg desktop-broker table layout (Schwab/Fidelity/E*TRADE-like).
+
+    Distinct from `_render` (mobile-card Robinhood-like dark UI). Auto-
+    sizes columns by header length, draws header divider + per-row
+    grid lines. Used by sample_6..9 to give the eval set realistic
+    broker variety without copying any real broker's pixels.
+    """
+    pad = 32
+    header_h = 64
+    row_h = 36
+    cols = max(1, len(headers))
+    # Widen the symbol/desc columns; narrow the numeric ones.
+    weights = [
+        1.2 if i in (0, 1) else 1.0 for i in range(cols)
+    ]
+    total_w = 980
+    inner = total_w - 2 * pad
+    weight_sum = sum(weights)
+    col_w = [int(inner * w / weight_sum) for w in weights]
+    H = header_h + 50 + row_h * (1 + len(rows)) + pad
+    img = Image.new("RGB", (total_w, H), bg)
+    d = ImageDraw.Draw(img)
+    d.text((pad, pad), title, font=_font(28), fill=fg)
+
+    # Column headers
+    y = pad + header_h
+    x = pad
+    for i, h in enumerate(headers):
+        d.text((x + 6, y + 4), h, font=_font(16), fill=sub)
+        x += col_w[i]
+    d.line((pad, y + row_h, total_w - pad, y + row_h), fill=grid, width=1)
+
+    # Body rows
+    for r in rows:
+        y += row_h
+        x = pad
+        for i in range(cols):
+            cell = r[i] if i < len(r) else ""
+            d.text((x + 6, y + 4), cell, font=_font(16), fill=fg)
+            x += col_w[i]
+        d.line((pad, y + row_h, total_w - pad, y + row_h), fill=grid, width=1)
+
+    path = os.path.join(SAMPLES, f"{name}.png")
+    img.save(path, "PNG")
+    return path
+
+
 def _render(name: str, title: str, rows: list[tuple[str, str, str, str]], *, bg=(13, 17, 23)):
     """rows = list of (col1, col2, col3, col4) already-formatted strings."""
     W, H = 900, 180 + 78 * len(rows)
@@ -154,12 +212,103 @@ def main() -> None:
     img.save(os.path.join(SAMPLES, "sample_4_adversarial.png"), "PNG")
     gold_4: list[dict] = []  # expect looks_like_holdings == False, holdings == []
 
+    # ---------------------------------------------------------------------
+    # 6 — Schwab-style desktop table (light bg, multi-column, divider lines)
+    # ---------------------------------------------------------------------
+    _render_table(
+        "sample_6_schwab",
+        title="Positions",
+        headers=["Symbol", "Description", "Qty (Quantity)", "Price", "Cost Basis"],
+        rows=[
+            ["AAPL", "APPLE INC",                "120",  "$187.00",  "$22,440.00"],
+            ["MSFT", "MICROSOFT CORP",           "18",   "$480.00",  "$8,640.00"],
+            ["TSLA", "TESLA INC",                "30",   "$270.74",  "$8,122.30"],
+            ["VTI",  "VANGUARD TOTAL STOCK MKT", "30",   "$266.67",  "$8,000.00"],
+            ["",     "Account Total",             "",    "",          "$47,202.30"],
+        ],
+    )
+    gold_6 = [
+        {"symbol": "AAPL", "shares": 120, "cost_basis": 22440.00},
+        {"symbol": "MSFT", "shares": 18,  "cost_basis": 8640.00},
+        {"symbol": "TSLA", "shares": 30,  "cost_basis": 8122.30},
+        {"symbol": "VTI",  "shares": 30,  "cost_basis": 8000.00},
+        # "Account Total" footer must be dropped, not treated as a holding
+    ]
+
+    # ---------------------------------------------------------------------
+    # 7 — Fidelity-style table with per-share cost basis (the discriminator
+    #     against Schwab in parsers.py broker registry)
+    # ---------------------------------------------------------------------
+    _render_table(
+        "sample_7_fidelity",
+        title="Positions",
+        headers=["Symbol", "Quantity", "Cost Basis", "Cost Basis Per Share", "Last Price"],
+        rows=[
+            ["NVDA", "45",  "$9,011.25", "$200.25",  "$200.25"],
+            ["GOOG", "12",  "$2,400.00", "$200.00",  "$210.50"],
+            ["AMD",  "20",  "$2,400.00", "$120.00",  "$130.00"],
+            ["BRK.B", "1.5","$615.00",   "$410.00",  "$415.20"],   # class-share critical
+        ],
+    )
+    gold_7 = [
+        {"symbol": "NVDA", "shares": 45,  "cost_basis": 9011.25, "entry_price": 200.25},
+        {"symbol": "GOOG", "shares": 12,  "cost_basis": 2400.00, "entry_price": 200.00},
+        {"symbol": "AMD",  "shares": 20,  "cost_basis": 2400.00, "entry_price": 120.00},
+        {"symbol": "BRK.B","shares": 1.5, "cost_basis": 615.00,  "entry_price": 410.00},
+    ]
+
+    # ---------------------------------------------------------------------
+    # 8 — E*TRADE-style table (Purchase Price + Purchase Cost — the E*TRADE
+    #     broker-registry discriminator).
+    # ---------------------------------------------------------------------
+    _render_table(
+        "sample_8_etrade",
+        title="My Positions",
+        headers=["Symbol", "Quantity", "Purchase Price", "Purchase Cost", "Market Value"],
+        rows=[
+            ["AAPL", "10", "$120.00",  "$1,200.00", "$1,870.00"],
+            ["NVDA", "5",  "$180.00",  "$900.00",   "$1,001.25"],
+            ["SPY",  "8",  "$500.00",  "$4,000.00", "$4,200.00"],
+        ],
+    )
+    gold_8 = [
+        {"symbol": "AAPL", "shares": 10, "cost_basis": 1200.00, "entry_price": 120.00},
+        {"symbol": "NVDA", "shares": 5,  "cost_basis": 900.00,  "entry_price": 180.00},
+        {"symbol": "SPY",  "shares": 8,  "cost_basis": 4000.00, "entry_price": 500.00},
+    ]
+
+    # ---------------------------------------------------------------------
+    # 9 — Chinese-locale broker (mimics 雪球 / 同花顺 style — Chinese column
+    #     headers, Chinese names alongside ticker, mixed currency hint).
+    # ---------------------------------------------------------------------
+    _render_table(
+        "sample_9_zh_broker",
+        title="我的持仓",
+        headers=["代码", "证券名称", "持仓数量", "成本价", "市值(¥)"],
+        rows=[
+            ["600519",  "贵州茅台",   "10",  "1,800.00",  "21,000.00"],
+            ["00700",   "腾讯控股",   "100", "380.00",    "42,000.00"],
+            ["09988",   "阿里巴巴-W", "200", "75.00",     "15,200.00"],
+            ["",        "现金 / Cash", "",    "",         "5,800.00"],
+        ],
+    )
+    gold_9 = [
+        {"symbol": "600519", "shares": 10,  "entry_price": 1800.00},
+        {"symbol": "00700",  "shares": 100, "entry_price": 380.00},
+        {"symbol": "09988",  "shares": 200, "entry_price": 75.00},
+        {"symbol": "$CASH",  "cost_basis": 5800.00},
+    ]
+
     golds = {
         "sample_1_clean": {"looks_like_holdings": True, "rows": gold_1},
         "sample_2_edges": {"looks_like_holdings": True, "rows": gold_2},
         "sample_3_percent": {"looks_like_holdings": True, "rows": gold_3},
         "sample_5_hetero": {"looks_like_holdings": True, "rows": gold_5},
         "sample_4_adversarial": {"looks_like_holdings": False, "rows": gold_4},
+        "sample_6_schwab": {"looks_like_holdings": True, "rows": gold_6},
+        "sample_7_fidelity": {"looks_like_holdings": True, "rows": gold_7},
+        "sample_8_etrade": {"looks_like_holdings": True, "rows": gold_8},
+        "sample_9_zh_broker": {"looks_like_holdings": True, "rows": gold_9},
     }
     for name, gold in golds.items():
         with open(os.path.join(SAMPLES, f"{name}.gold.json"), "w") as f:

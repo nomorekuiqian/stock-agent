@@ -1,0 +1,29 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "NVDA",
+      "shares": 45,
+      "cost_basis": 9011.25,
+      "entry_price": 200.25
+    },
+    {
+      "symbol": "GOOG",
+      "shares": 12,
+      "cost_basis": 2400.0,
+      "entry_price": 200.0
+    },
+    {
+      "symbol": "AMD",
+      "shares": 20,
+      "cost_basis": 2400.0,
+      "entry_price": 120.0
+    },
+    {
+      "symbol": "BRK.B",
+      "shares": 1.5,
+      "cost_basis": 615.0,
+      "entry_price": 410.0
+    }
+  ]
+}

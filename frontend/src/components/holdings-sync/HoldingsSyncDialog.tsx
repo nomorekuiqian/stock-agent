@@ -18,7 +18,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import {
+import { api,
   HoldingsSyncCandidate,
   HoldingsSyncExtractDraft,
   HoldingsSyncExtractedRow,
@@ -91,14 +91,26 @@ function StatusChip({ status }: { status: HoldingsSyncRowStatus }) {
 
 // ----- main dialog ----------------------------------------------------------
 
+const MAX_PASTE_CHARS = 8000; // mirror backend hard cap
+
+// Stage 2 = paste + CSV active. Switch to false to leave them as
+// "即将上线" tiles even though the backend code-path exists.
+const PASTE_TILE_LIVE = true;
+const CSV_TILE_LIVE = true;
+
 export default function HoldingsSyncDialog({ trigger }: Props) {
   const { user } = useAuth();
   const userId = user?.id;
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<HoldingsSyncSource | null>(null);
+  // tiles | paste-input | csv-mapping | review (review = `draft && !needs_mapping`)
+  const [view, setView] = useState<'tiles' | 'paste-input' | 'csv-mapping'>('tiles');
   const [draft, setDraft] = useState<HoldingsSyncExtractDraft | null>(null);
   const [edits, setEdits] = useState<RowEdit[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState('');
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
 
   const extractMut = useHoldingsSyncExtract();
   const commitMut = useHoldingsSyncCommit(userId);
@@ -106,9 +118,13 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
   // ---- reset on close so re-opening starts clean -------------------------
   const reset = useCallback(() => {
     setMode(null);
+    setView('tiles');
     setDraft(null);
     setEdits([]);
     setErrorMsg(null);
+    setPasteText('');
+    setCsvFile(null);
+    setMapping({});
   }, []);
 
   const onOpenChange = useCallback((next: boolean) => {
@@ -116,19 +132,81 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
     if (!next) reset();
   }, [reset]);
 
+  // Common: handle an ExtractDraft response — switch into review or mapping.
+  const ingest = useCallback((d: HoldingsSyncExtractDraft) => {
+    setDraft(d);
+    // CSV `needs_mapping` arrives as empty rows + columns set + dropped_note
+    // — keep the mapping step in `csv-mapping` view; everything else goes
+    // straight to the review table.
+    const isMappingStep =
+      d.source === 'csv' && d.rows.length === 0 && (d.columns?.length ?? 0) > 0;
+    setView(isMappingStep ? 'csv-mapping' : 'tiles');
+    if (!isMappingStep) {
+      setEdits(d.rows.map(initialEdit));
+    }
+  }, []);
+
   // ---- screenshot extract ------------------------------------------------
   const onScreenshotPicked = useCallback(async (file: File) => {
     setErrorMsg(null);
     setMode('screenshot');
     try {
-      const d = await extractMut.mutateAsync({ mode: 'screenshot', file });
-      setDraft(d);
-      setEdits(d.rows.map(initialEdit));
+      ingest(await extractMut.mutateAsync({ mode: 'screenshot', file }));
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'AI 识别失败，请稍后重试';
       setErrorMsg(msg);
     }
-  }, [extractMut]);
+  }, [extractMut, ingest]);
+
+  // ---- paste extract -----------------------------------------------------
+  const onPasteSubmit = useCallback(async () => {
+    const text = pasteText.trim();
+    if (!text) {
+      setErrorMsg('请粘贴持仓内容');
+      return;
+    }
+    if (text.length > MAX_PASTE_CHARS) {
+      setErrorMsg(`粘贴文本过长（>${MAX_PASTE_CHARS} 字符）`);
+      return;
+    }
+    setErrorMsg(null);
+    setMode('paste');
+    try {
+      ingest(await api.holdingsSync.extractPaste(text));
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'AI 识别失败，请稍后重试');
+    }
+  }, [pasteText, ingest]);
+
+  // ---- CSV extract -------------------------------------------------------
+  const onCsvPicked = useCallback(async (file: File) => {
+    setErrorMsg(null);
+    setMode('csv');
+    setCsvFile(file);
+    try {
+      ingest(await extractMut.mutateAsync({ mode: 'csv', file }));
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'CSV 解析失败，请稍后重试');
+    }
+  }, [extractMut, ingest]);
+
+  // ---- CSV mapping resubmit ---------------------------------------------
+  const onMappingSubmit = useCallback(async () => {
+    if (!csvFile) {
+      setErrorMsg('请重新选择 CSV 文件');
+      return;
+    }
+    if (!mapping.symbol) {
+      setErrorMsg('至少需要选择「代码」列');
+      return;
+    }
+    setErrorMsg(null);
+    try {
+      ingest(await api.holdingsSync.extractCsv(csvFile, mapping));
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'CSV 解析失败，请稍后重试');
+    }
+  }, [csvFile, mapping, ingest]);
 
   // ---- per-row helpers ---------------------------------------------------
   const setEdit = useCallback((i: number, patch: Partial<RowEdit>) => {
@@ -192,20 +270,76 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* ---- step 1: tiles (no draft yet) -------------------------- */}
-        {!draft && (
+        {/* ---- step 1a: tiles -------------------------------------- */}
+        {view === 'tiles' && !draft && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <ScreenshotTile
               onPick={onScreenshotPicked}
               loading={extractMut.isPending}
             />
-            <DisabledTile title="粘贴持仓" subtitle="即将上线" />
-            <DisabledTile title="CSV / PDF" subtitle="即将上线" />
+            {PASTE_TILE_LIVE ? (
+              <PasteTile onClick={() => { setMode('paste'); setView('paste-input'); }} />
+            ) : (
+              <DisabledTile title="粘贴持仓" subtitle="即将上线" />
+            )}
+            {CSV_TILE_LIVE ? (
+              <CsvTile onPick={onCsvPicked} loading={extractMut.isPending} />
+            ) : (
+              <DisabledTile title="CSV 导入" subtitle="即将上线" />
+            )}
           </div>
         )}
 
+        {/* ---- step 1b: paste input (textarea + counter) -------------- */}
+        {view === 'paste-input' && (
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600">
+              粘贴券商导出的持仓文本（CSV、表格、自然语言均可）。AI 识别可能有误，
+              请核对数量与代码后再提交。
+            </p>
+            <textarea
+              className="h-40 w-full rounded border border-slate-200 p-2 text-sm font-mono"
+              placeholder="AAPL 10\nMSFT 5 cost=300\n现金 1234.56\n…"
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              maxLength={MAX_PASTE_CHARS}
+              autoFocus
+            />
+            <div className="flex items-center justify-between text-xs">
+              <span className={pasteText.length > MAX_PASTE_CHARS * 0.9
+                ? 'text-amber-700' : 'text-slate-400'}>
+                {pasteText.length} / {MAX_PASTE_CHARS}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm"
+                  onClick={() => { setView('tiles'); setPasteText(''); }}>
+                  返回
+                </Button>
+                <Button size="sm"
+                  onClick={onPasteSubmit}
+                  disabled={extractMut.isPending || !pasteText.trim()}>
+                  {extractMut.isPending ? '识别中…' : 'AI 识别'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ---- step 1c: CSV column mapping picker ------------------ */}
+        {view === 'csv-mapping' && draft?.columns && (
+          <CsvMappingPicker
+            columns={draft.columns}
+            note={draft.dropped_note ?? null}
+            mapping={mapping}
+            onChange={setMapping}
+            onSubmit={onMappingSubmit}
+            onBack={() => { setView('tiles'); setDraft(null); setMapping({}); }}
+            loading={extractMut.isPending}
+          />
+        )}
+
         {/* ---- step 2: review ------------------------------------- */}
-        {draft && (
+        {draft && view === 'tiles' && (
           <div className="space-y-3">
             <SummaryBar counts={summary} total={draft.rows.length}
                         accepted={acceptedRows.length} />
@@ -243,8 +377,8 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
           <p className="text-sm text-red-600">{errorMsg}</p>
         )}
 
-        <DialogFooter>
-          {draft && (
+        <DialogFooter className="sticky bottom-0 bg-white">
+          {draft && view === 'tiles' && (
             <>
               <Button variant="outline" onClick={() => reset()}>
                 重新开始
@@ -324,6 +458,114 @@ function DisabledTile({ title, subtitle }: { title: string; subtitle: string }) 
     <div className="flex flex-col items-center justify-center gap-1 rounded border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center opacity-60">
       <span className="text-sm font-medium text-slate-500">{title}</span>
       <span className="text-xs text-slate-400">{subtitle}</span>
+    </div>
+  );
+}
+
+function PasteTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-6 text-center hover:bg-emerald-50"
+    >
+      <span className="text-sm font-medium text-emerald-700">粘贴持仓</span>
+      <span className="text-xs text-slate-500">CSV / 表格 / 自然语言均可</span>
+    </button>
+  );
+}
+
+function CsvTile({
+  onPick,
+  loading,
+}: {
+  onPick: (f: File) => void;
+  loading: boolean;
+}) {
+  return (
+    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-6 text-center hover:bg-emerald-50">
+      <span className="text-sm font-medium text-emerald-700">上传 CSV</span>
+      <span className="text-xs text-slate-500">券商导出 .csv / .txt，≤2MB</span>
+      <input
+        type="file"
+        accept=".csv,.txt,text/csv,text/plain"
+        className="hidden"
+        disabled={loading}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.currentTarget.value = '';
+        }}
+      />
+    </label>
+  );
+}
+
+const _MAPPABLE_FIELDS: Array<{ key: string; label: string; hint?: string }> = [
+  { key: 'symbol', label: '代码 / Symbol', hint: '必选' },
+  { key: 'shares', label: '数量 / Shares' },
+  { key: 'cost_basis', label: '成本 / Cost' },
+  { key: 'entry_price', label: '买入均价 / Avg Price' },
+  { key: 'weight_pct', label: '权重 % / Weight' },
+];
+
+function CsvMappingPicker({
+  columns,
+  note,
+  mapping,
+  onChange,
+  onSubmit,
+  onBack,
+  loading,
+}: {
+  columns: string[];
+  note: string | null;
+  mapping: Record<string, string>;
+  onChange: (m: Record<string, string>) => void;
+  onSubmit: () => void;
+  onBack: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {note && <p className="text-sm text-amber-700">{note}</p>}
+      <p className="text-sm text-slate-600">
+        请为持仓字段指定对应的列：
+      </p>
+      <div className="space-y-2">
+        {_MAPPABLE_FIELDS.map((f) => (
+          <div key={f.key} className="flex items-center gap-3">
+            <label className="w-32 shrink-0 text-sm text-slate-700">
+              {f.label}
+              {f.hint && <span className="ml-1 text-xs text-amber-700">({f.hint})</span>}
+            </label>
+            <select
+              className="flex-1 rounded border border-slate-200 bg-white px-2 py-1 text-sm"
+              value={mapping[f.key] ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                const next = { ...mapping };
+                if (v) next[f.key] = v;
+                else delete next[f.key];
+                onChange(next);
+              }}
+            >
+              <option value="">— 不映射 —</option>
+              {columns.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-end gap-2 text-xs">
+        <Button variant="outline" size="sm" onClick={onBack}>返回</Button>
+        <Button size="sm"
+          onClick={onSubmit}
+          disabled={loading || !mapping.symbol}>
+          {loading ? '解析中…' : '解析'}
+        </Button>
+      </div>
     </div>
   );
 }

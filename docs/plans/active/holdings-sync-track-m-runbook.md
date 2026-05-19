@@ -198,6 +198,11 @@ REVOKE ALL ON FUNCTION reconcile_user_portfolio_source(TEXT,TEXT,JSONB,BOOLEAN) 
 
 ## M3 · Stage 2 粘贴文本 + CSV（Stage 1 稳定 2 周后上线）
 
+> **代码状态（2026-05-19）**：后端 + 前端 Dialog 瓷砖激活已落地（commit `91415b3`
+> + FE 激活批）。`STAGE_ENABLED_SOURCES` 仍为 `{"screenshot"}`（生产保险）；
+> widen 到 Stage 2 = 一行常量改 + 部署 + FE `PASTE_TILE_LIVE`/`CSV_TILE_LIVE`
+> 同步开关。下面的勾选 = 代码完成情况，不代表线上启用。
+
 ### M3 代码改动
 
 - [ ] `agent.py` 加 `PasteSource(uses_llm=True)`：`output_schema=PasteExtractionOutput`，复用 resolver。文本截断 8000 字符（服务端硬镜像）。

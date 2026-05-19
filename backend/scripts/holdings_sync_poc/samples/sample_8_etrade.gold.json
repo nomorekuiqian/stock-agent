@@ -1,0 +1,23 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "AAPL",
+      "shares": 10,
+      "cost_basis": 1200.0,
+      "entry_price": 120.0
+    },
+    {
+      "symbol": "NVDA",
+      "shares": 5,
+      "cost_basis": 900.0,
+      "entry_price": 180.0
+    },
+    {
+      "symbol": "SPY",
+      "shares": 8,
+      "cost_basis": 4000.0,
+      "entry_price": 500.0
+    }
+  ]
+}

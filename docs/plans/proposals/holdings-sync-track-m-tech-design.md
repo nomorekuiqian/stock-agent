@@ -698,6 +698,18 @@ v1 全 Pro 及以上门控，成本集中付费用户。**未来免费用户路�
   4. JS EF / Postgres 函数非 Python-unit-testable → 加静态契约守卫 `test_holdings_sync_ef_hardening.py`（reconcile 走原子 RPC 且 `pg_advisory_xact_lock`、SET 列表无 P1、symbol-cache `if(!expectedSecret)→500`、旧 fail-open gate 不复存在、reconcile RPC `REVOKE FROM PUBLIC` 且永不 `TO PUBLIC`），CI 即拦回归。
 - **PoC 已验证（2026-05-19，`backend/scripts/holdings_sync_poc/`）**：flash-lite 截图抽取 4 合成 Robinhood 样本 precision/recall=1.0、量化 100%（含 `BRK.B` 类别股 / `ARM` 新 IPO / `GOOGL` A 类 / 小写 `amzn` / `BABA` ADR / `Cash`→`$CASH` / 纯百分比视图），注入对抗样本 `looks_like_holdings=false`（未被注入劫持），~\$0.0005/截图、3–6s。**新增硬约束**：`response_schema` 不得带 `maxItems`（与多 nullable 数值字段组合会 400），60 上限改解析后应用层截断（§3.1 PoC 硬约束）；落地 T2.1 必须遵守。真实截图 eval（T2-EVAL）仍需补真图。
 
+**M1 ─ M3 已落地代码（2026-05-19，分支 `claude/strange-cray-b75425`）**
+
+| 模块 | 状态 | commit |
+|---|---|---|
+| M1 地基（reconcile 原子 RPC + symbol-cache fail-closed + RPC 非 PUBLIC） | ✅ + Codex 3 轮评审过 | `44e04e6` `4aeed36` |
+| M2 截图后端 + 前端 Dialog | ✅ + Codex 复评收敛 3 项 [high]（quota 烧 / LLM timeout / 原子 consume） | `1adcd18` `2ea6f47` `7b42656` |
+| M3 粘贴 + CSV 后端 + parsers 注册表 + FE 瓷砖激活 | ✅ | `91415b3` + (后续 FE 激活批) |
+
+`STAGE_ENABLED_SOURCES` 仍为 `{"screenshot"}`（生产保险），widening 到 Stage 2
+= 一行常量改 + 部署 + FE `PASTE_TILE_LIVE` / `CSV_TILE_LIVE` 同步开关。M4（PDF）
+未启动。
+
 **关联 Followup（不在本文实现范围，单独排期）**
 
 1. **既有 `/api/stocks/search` 搜不到 `BRK.A`（产品已确认）**——根因 `fmp_service.py:1414-1422` 按公司名去重静默丢弃类别股 / 跨上市。本文仅在 holdings_sync 解析器侧绕过保证导入正确，该搜索 bug 的根治作为**独立 bug-fix followup**（影响面更广：个股搜索 / 自选 / onboarding 均受益），由独立任务跟踪。

@@ -1,0 +1,25 @@
+{
+  "looks_like_holdings": true,
+  "rows": [
+    {
+      "symbol": "AAPL",
+      "shares": 120,
+      "cost_basis": 22440.0
+    },
+    {
+      "symbol": "MSFT",
+      "shares": 18,
+      "cost_basis": 8640.0
+    },
+    {
+      "symbol": "TSLA",
+      "shares": 30,
+      "cost_basis": 8122.3
+    },
+    {
+      "symbol": "VTI",
+      "shares": 30,
+      "cost_basis": 8000.0
+    }
+  ]
+}

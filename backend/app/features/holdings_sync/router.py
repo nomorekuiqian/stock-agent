@@ -27,7 +27,7 @@ from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.flags.db import get_user_flags
-from app.features.holdings_sync import agent, quota as hs_quota, resolver
+from app.features.holdings_sync import agent, parsers as hs_parsers, quota as hs_quota, resolver
 from app.features.holdings_sync.models import (
     CommitRequest,
     CommitResponse,
@@ -53,6 +53,13 @@ STAGE_ENABLED_SOURCES: set[str] = {"screenshot"}
 _MAX_IMAGE_BYTES = 6 * 1024 * 1024
 _ALLOWED_IMAGE_MIME = {"image/png", "image/jpeg", "image/webp"}
 _MAX_IMAGE_DIM = 1600
+# Paste-text guard (design §5). Mirror the FE client-side 8000-char cap.
+_MAX_PASTE_CHARS = 8000
+# CSV guards (design §5). CSV is no-LLM-cost so quota is NOT consumed, but
+# the bytes still need a hard cap to defend against DoS.
+_MAX_CSV_BYTES = 2 * 1024 * 1024
+_ALLOWED_CSV_MIME = {"text/csv", "application/csv", "text/plain",
+                     "application/vnd.ms-excel", "application/octet-stream"}
 
 # Per-request budgets (design §2bis.A + §7bis.7).
 _TOTAL_DEADLINE_SEC = 14.0    # overall /extract wall-clock cap (image decode +
@@ -137,7 +144,8 @@ async def extract(
     request: Request,
     mode: str = Form(...),
     file: Optional[UploadFile] = File(default=None),
-    text: Optional[str] = Form(default=None),  # paste path lands in M3
+    text: Optional[str] = Form(default=None),
+    mapping: Optional[str] = Form(default=None),  # JSON: csv column mapping
     user_id: str = Depends(verify_user_token),
 ) -> ExtractDraft:
     # Gate order (write/extract symmetric): flag(404) -> stage gate(400) ->
@@ -148,8 +156,11 @@ async def extract(
 
     if mode == "screenshot":
         return await _extract_screenshot(user_id, file)
-    # paste/csv/pdf are stage-gated above; defensive 400 if STAGE widens
-    # without the adapter landing.
+    if mode == "paste":
+        return await _extract_paste(user_id, text)
+    if mode == "csv":
+        return await _extract_csv(user_id, file, mapping)
+    # pdf is stage-gated above; defensive 400 if STAGE widens without an adapter.
     raise HTTPException(status_code=400, detail=f"unsupported mode: {mode}")
 
 
@@ -248,6 +259,183 @@ async def _extract_screenshot(user_id: str, file: Optional[UploadFile]) -> Extra
             notices=res.notices,
         ))
     return ExtractDraft(draft_id=_draft_id(), source="screenshot", rows=rows)
+
+
+async def _extract_paste(user_id: str, text: Optional[str]) -> ExtractDraft:
+    """Paste-text extract — same gate / quota / timeout / resolver shape as
+    screenshot, just calls `agent.extract_from_text` on the text instead.
+    8000-char hard cap (server mirror of FE truncation, design §5)."""
+    request_start = time.time()
+    total_deadline = request_start + _TOTAL_DEADLINE_SEC
+
+    if text is None or not text.strip():
+        raise HTTPException(status_code=400, detail="粘贴内容为空")
+    if len(text) > _MAX_PASTE_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"粘贴文本过长（>{_MAX_PASTE_CHARS} 字符），请缩短后再试",
+        )
+
+    # LLM-cost path → quota fail-CLOSED + atomic (same as screenshot).
+    try:
+        await hs_quota.check_and_consume(user_id, "paste")
+    except hs_quota.QuotaExceeded:
+        raise HTTPException(
+            status_code=429,
+            detail="今日 AI 识别次数已用完，可改用 CSV/手敲（不限次）",
+        )
+    except hs_quota.QuotaUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="AI 识别暂不可用，请稍后重试，或改用 CSV/手敲（不限次）",
+        )
+
+    try:
+        text_out = await asyncio.wait_for(
+            asyncio.to_thread(agent.extract_from_text, text),
+            timeout=_LLM_TIMEOUT_SEC,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("hsync paste LLM timeout user=%s >%ss",
+                       user_id[:8], _LLM_TIMEOUT_SEC)
+        raise HTTPException(
+            status_code=504,
+            detail="AI 识别超时，请稍后重试，或改用 CSV/手敲",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("hsync paste LLM failed user=%s err=%s", user_id[:8], exc)
+        raise HTTPException(status_code=502, detail="AI 识别失败，请稍后重试")
+
+    if not text_out.looks_like_holdings or not text_out.holdings:
+        return ExtractDraft(
+            draft_id=_draft_id(),
+            source="paste",
+            rows=[],
+            dropped_note="未识别到持仓信息——请确认粘贴的是持仓列表（券商导出 / 截图 OCR / 手写都行）",
+        )
+
+    remaining = max(_RESOLVER_MIN_BUDGET, total_deadline - time.time())
+    ctx = resolver.SourceContext(
+        deadline_ts=time.time() + remaining,
+        fallback_budget=_FALLBACK_BUDGET,
+    )
+    raws = [h.symbol_or_name for h in text_out.holdings]
+    resolutions = await resolver.resolve_many(ctx, raws)
+
+    rows: list[ExtractedRow] = []
+    for h, res in zip(text_out.holdings, resolutions):
+        rows.append(ExtractedRow(
+            symbol=res.symbol,
+            shares=h.shares,
+            cost_basis=h.cost_basis,
+            entry_price=h.entry_price,
+            weight_pct=h.weight_pct,
+            raw=h.symbol_or_name,
+            resolved_name=res.name,
+            exchange=res.exchange,
+            confidence=res.confidence,  # type: ignore[arg-type]
+            status=res.status,           # type: ignore[arg-type]
+            candidates=res.candidates,
+            notices=res.notices,
+        ))
+    return ExtractDraft(draft_id=_draft_id(), source="paste", rows=rows)
+
+
+async def _extract_csv(
+    user_id: str,
+    file: Optional[UploadFile],
+    mapping_json: Optional[str],
+) -> ExtractDraft:
+    """CSV extract — deterministic, **NO LLM quota consumed** (design §5).
+    The expensive step is the resolver, which still has the same per-request
+    budgets. The FE drives the two-step `needs_mapping` flow: a first
+    submit may return `columns` + empty rows, the user picks the columns,
+    a second submit carries `mapping` JSON.
+    """
+    request_start = time.time()
+    total_deadline = request_start + _TOTAL_DEADLINE_SEC
+
+    if file is None:
+        raise HTTPException(status_code=400, detail="缺少 CSV 文件")
+    mime = (file.content_type or "").lower()
+    if mime and mime not in _ALLOWED_CSV_MIME:
+        # Allow octet-stream / blank for browsers that don't sniff; reject
+        # obvious non-csv mimes like image/* or application/pdf.
+        if not (mime.startswith("text/") or mime in _ALLOWED_CSV_MIME):
+            raise HTTPException(status_code=400, detail="仅支持 CSV (.csv / .txt)")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="CSV 文件为空")
+    if len(raw) > _MAX_CSV_BYTES:
+        raise HTTPException(
+            status_code=400, detail=f"CSV 过大（>{_MAX_CSV_BYTES // (1024*1024)}MB），请精简后再试")
+
+    # Parse mapping if provided (FE second-step submit)
+    parsed_mapping: Optional[dict] = None
+    if mapping_json:
+        try:
+            import json
+            parsed_mapping = json.loads(mapping_json)
+            if not isinstance(parsed_mapping, dict):
+                raise ValueError("mapping must be a JSON object")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"mapping 解析失败: {exc}")
+
+    result = await asyncio.to_thread(hs_parsers.parse_csv, raw, parsed_mapping)
+
+    # Needs-mapping branch: FE will show column picker + resubmit.
+    if result.needs_mapping:
+        return ExtractDraft(
+            draft_id=_draft_id(),
+            source="csv",
+            rows=[],
+            columns=result.columns,
+            dropped_note="无法自动识别列——请在 Review 选择对应列后重新提交",
+        )
+
+    if not result.holdings:
+        return ExtractDraft(
+            draft_id=_draft_id(),
+            source="csv",
+            rows=[],
+            columns=result.columns,
+            dropped_note="未识别到持仓行——请确认 CSV 内容（持仓代码、数量列）",
+        )
+
+    # Resolve symbols (concurrent, budget+deadline guarded).
+    remaining = max(_RESOLVER_MIN_BUDGET, total_deadline - time.time())
+    ctx = resolver.SourceContext(
+        deadline_ts=time.time() + remaining,
+        fallback_budget=_FALLBACK_BUDGET,
+    )
+    raws = [h.symbol_or_name for h in result.holdings]
+    resolutions = await resolver.resolve_many(ctx, raws)
+
+    # Parser-level notices apply to the whole draft (locale ambiguity, cap
+    # truncation). We attach them via the first row's notices for the FE to
+    # surface in a banner — keeping the contract row-shaped.
+    banner = list(result.notices)
+
+    rows: list[ExtractedRow] = []
+    for i, (h, res) in enumerate(zip(result.holdings, resolutions)):
+        row_notices = list(res.notices)
+        if i == 0 and banner:
+            row_notices = banner + row_notices
+        rows.append(ExtractedRow(
+            symbol=res.symbol,
+            shares=h.shares,
+            cost_basis=h.cost_basis,
+            entry_price=h.entry_price,
+            weight_pct=h.weight_pct,
+            raw=h.symbol_or_name,
+            resolved_name=res.name,
+            exchange=res.exchange,
+            confidence=res.confidence,  # type: ignore[arg-type]
+            status=res.status,           # type: ignore[arg-type]
+            candidates=res.candidates,
+            notices=row_notices,
+        ))
+    return ExtractDraft(draft_id=_draft_id(), source="csv", rows=rows)
 
 
 @router.post("/commit", response_model=CommitResponse)

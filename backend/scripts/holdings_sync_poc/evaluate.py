@@ -91,11 +91,39 @@ def _collect(subdir: str | None) -> list[str]:
     )
 
 
+RECALL_GATE = 0.90   # design §7 ship gate (matches test_real_images.py)
+
+
+def _pretty(r: dict) -> str:
+    """Human-readable one-sample diff. Per-sample line + nested
+    missing/spurious/qty so the user can eyeball failures fast."""
+    if "error" in r:
+        return f"× {r['name']:<28} ERROR  {r['error']}"
+    flag = "✓" if r.get("looks_like_holdings_ok") else "?"
+    line = (
+        f"{flag} {r['name']:<28} "
+        f"P={r['precision']:.2f}  R={r['recall']:.2f}  "
+        f"qty={r['qty_match']}  "
+        f"lat={r['latency_s']:.1f}s"
+    )
+    extras = []
+    if r.get("missing"):
+        extras.append(f"  missing: {r['missing']}")
+    if r.get("spurious"):
+        extras.append(f"  spurious: {r['spurious']}")
+    return "\n".join([line, *extras])
+
+
 def main() -> None:
-    # CLI: `python evaluate.py [--dir <subdir>]`. Default = the original
-    # synthetic root; `--dir real` scores user-provided real Robinhood/
-    # Fidelity screenshots dropped under samples/real/ (T2 ship gate).
+    """CLI: ``python evaluate.py [--dir <subdir>] [--json]``.
+
+    ``--dir real`` scores user-provided real Robinhood/Fidelity screenshots
+    under ``samples/real/`` (T2 ship gate). ``--json`` switches to
+    machine-readable output (one JSON line per sample + a final summary
+    object) — useful for CI eval reports.
+    """
     subdir: str | None = None
+    json_mode = "--json" in sys.argv
     if "--dir" in sys.argv:
         i = sys.argv.index("--dir")
         if i + 1 >= len(sys.argv):
@@ -117,17 +145,40 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001 — PoC: surface any API/parse failure
             r = {"name": n, "error": f"{type(e).__name__}: {e}"}
         results.append(r)
-        print(json.dumps(r, ensure_ascii=False))
+        if json_mode:
+            print(json.dumps(r, ensure_ascii=False))
+        else:
+            print(_pretty(r))
 
-    holdings_rows = [r for r in results if r.get("looks_like_holdings_pred") and "recall" in r]
+    holdings_rows = [r for r in results
+                     if r.get("looks_like_holdings_pred") and "recall" in r]
+    summary: dict = {"count": len(results), "holdings_count": len(holdings_rows)}
     if holdings_rows:
         macro_r = sum(r["recall"] for r in holdings_rows) / len(holdings_rows)
         macro_p = sum(r["precision"] for r in holdings_rows) / len(holdings_rows)
-        print(f"\nMACRO over holdings samples: precision={macro_p:.3f} recall={macro_r:.3f}"
-              f"  (design gate: recall >= 0.90)")
+        summary["macro_precision"] = round(macro_p, 3)
+        summary["macro_recall"] = round(macro_r, 3)
+        summary["recall_gate"] = RECALL_GATE
+        summary["pass"] = macro_r >= RECALL_GATE
     adv = [r for r in results if r["name"].startswith("sample_4")]
     if adv:
-        print(f"Adversarial looks_like_holdings handled correctly: {adv[0].get('looks_like_holdings_ok')}")
+        summary["adversarial_handled"] = bool(adv[0].get("looks_like_holdings_ok"))
+
+    if json_mode:
+        print(json.dumps({"summary": summary}, ensure_ascii=False))
+    else:
+        print()
+        if "macro_recall" in summary:
+            verdict = "PASS" if summary["pass"] else "FAIL"
+            print(f"MACRO  P={summary['macro_precision']:.3f}  "
+                  f"R={summary['macro_recall']:.3f}  "
+                  f"(gate ≥{RECALL_GATE}: {verdict})")
+        if "adversarial_handled" in summary:
+            adv_ok = "✓" if summary["adversarial_handled"] else "✗"
+            print(f"Adversarial looks_like_holdings={adv_ok}")
+
+    if "pass" in summary and not summary["pass"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
