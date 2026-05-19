@@ -3,6 +3,7 @@ FMP (Financial Modeling Prep) API Service
 """
 
 import os
+import re
 import httpx
 import time
 from typing import Optional
@@ -145,6 +146,103 @@ _quote_cache = QuoteCache(ttl_seconds=600)  # 10 minutes for quotes
 # Stock list cache (for search) - longer TTL since it rarely changes
 _stock_list_cache: dict[str, tuple[list, float]] = {}
 _STOCK_LIST_TTL = 86400  # 24 hours
+
+
+# =============================================================================
+# Stock search: symbol-shape classification helpers
+#
+# FMP's /stable/stock-list carries NO exchange field (exchange/exchangeShortName
+# are null for every row), so primary-vs-foreign must be inferred from the
+# symbol shape, which IS reliable in FMP's symbology:
+#   - dotless ticker (BRK-A, RY, AAPL, BAC-PA) -> US-traded (NYSE/NASDAQ/AMEX/OTC)
+#   - dot suffix in _PRIMARY_SUFFIXES (.KS/.T/.HK ...) -> home-market primary
+#   - any other dot suffix (.NE/.SW/.DE/.L/.SA/.TO ...) -> thin foreign cross-listing
+# =============================================================================
+
+# Symbol dot-suffixes that denote a PRIMARY home-market listing (not a thin ADR/GDR).
+_PRIMARY_SUFFIXES = frozenset({".KS", ".KQ", ".T", ".SS", ".SZ", ".HK"})
+
+# US class shares use a HYPHEN with a single-letter class in FMP (BRK-A, BRK-B),
+# confirmed against live /stable/stock-list. Multi-char hyphen suffixes are
+# preferred/warrant/unit series (BAC-PA, XYZ-WT) and fold into the common row.
+_HYPHEN_CLASS_RE = re.compile(r"^[A-Z0-9]+-([A-Z])$")
+
+
+def _symbol_kind(symbol: str) -> str:
+    """Classify a symbol by shape: ``"us"``, ``"primary"``, or ``"foreign"``.
+
+    - ``"us"``       -> no dot suffix (US-traded; the listing we prioritize)
+    - ``"primary"``  -> dot suffix in _PRIMARY_SUFFIXES (legit home market)
+    - ``"foreign"``  -> any other dot suffix (thin cross-listing, suppressible)
+    """
+    s = (symbol or "").upper().strip()
+    dot = s.rfind(".")
+    if dot <= 0:
+        return "us"
+    return "primary" if s[dot:] in _PRIMARY_SUFFIXES else "foreign"
+
+
+def _symbol_root(symbol: str) -> str:
+    """Ticker root with any class/exchange suffix stripped.
+
+    ``BRK-A`` -> ``BRK``  ``BRK.NE`` -> ``BRK``  ``RY`` -> ``RY``  ``BRKC`` -> ``BRKC``
+    Lets a query like ``BRK`` rank the real Berkshire class shares above
+    incidental ``BRK*`` tickers (BRKC, BRKH ...).
+    """
+    s = (symbol or "").upper().strip()
+    if "." in s:
+        s = s[:s.rfind(".")]
+    if "-" in s:
+        s = s[:s.rfind("-")]
+    return s
+
+
+def _dedup_rank(symbol: str) -> int:
+    """Tie-break rank within an equal score tier (lower = preferred).
+
+    0 = plain common or a real single-letter class share (RY, BRK-A)
+    1 = preferred/warrant/unit hyphen series (RY-PT, BAC-PA)
+    2 = dotted listing (foreign / home-market)
+    Keeps class shares prominent while demoting preferred siblings so the
+    clean common ticker wins its dedup key.
+    """
+    if _share_class_token(symbol):
+        return 0
+    if "." in symbol:
+        return 2
+    if "-" in symbol:
+        return 1
+    return 0
+
+
+def _norm_company_name(name: str) -> str:
+    """Normalize a company name for dedup/grouping (lowercase, strip legal suffixes).
+
+    Centralizes the normalization so the primary-listing pre-scan and the dedup
+    pass use an identical key.
+    """
+    norm = (name or "").lower().strip()
+    for suffix in (", ltd.", " ltd.", ", inc.", " inc.", " co., ltd.", " corp.",
+                   " corporation", " plc", " sa", " ag", " se"):
+        norm = norm.removesuffix(suffix)
+    return norm.strip()
+
+
+def _share_class_token(symbol: str) -> str:
+    """Return a single-letter A/B/C-style common-share class token, else "".
+
+    FMP uses a HYPHEN for US class shares (``BRK-A`` -> ``"A"``, confirmed against
+    live data). Multi-char hyphen suffixes (``-PA``, ``-WT``, ``-U``, ``-RT``) are
+    preferred/warrant/unit series and fold into the common row (return ``""``).
+    Dot-suffixed symbols are exchange/country listings, never a share class.
+    """
+    if not symbol:
+        return ""
+    s = symbol.upper().strip()
+    if "." in s:
+        return ""
+    m = _HYPHEN_CLASS_RE.match(s)
+    return m.group(1) if m else ""
 
 
 # Core tickers for FMP news - Tech worker focused
@@ -1299,16 +1397,6 @@ class FMPService:
 
         return []
 
-    # Major exchanges for search ranking boost
-    _MAJOR_EXCHANGES = {
-        "NASDAQ", "NYSE", "AMEX",
-        "KSC", "KSE", "KOSDAQ",
-        "JPX", "TSE",
-        "SSE", "SHH", "SHZ", "SZSE",
-        "HKSE", "HKG",
-        "LSE", "LON",
-    }
-
     def search_stocks(self, query: str, limit: int = 15) -> dict:
         """
         Search for stocks by symbol or company name.
@@ -1337,6 +1425,8 @@ class FMPService:
             score = 0
             if symbol_upper == query_upper:
                 score = 100
+            elif _symbol_root(symbol_upper) == query_upper:
+                score = 90
             elif symbol_upper.startswith(query_upper):
                 score = 80
             elif query_upper in symbol_upper:
@@ -1346,18 +1436,16 @@ class FMPService:
             else:
                 continue
 
-            exchange = stock.get("exchange", stock.get("stockExchange", ""))
+            # /stable/stock-list has no exchange field; keep whatever is present
+            # for the output row but rank by symbol shape (see _symbol_kind).
+            exchange = stock.get("exchangeShortName") or stock.get("exchange") or stock.get("stockExchange") or ""
+            kind = _symbol_kind(symbol)
 
-            # Boost 1: major exchange (from field or inferred from symbol suffix)
-            if exchange in self._MAJOR_EXCHANGES:
+            # Boost 1: US-traded listing (NYSE/NASDAQ/AMEX/OTC -> dotless symbol)
+            if kind == "us":
                 score += 5
-
-            # Boost 2: primary listing (home exchange via symbol suffix)
-            # .KS/.KQ = Korea, .T = Japan, .SS/.SZ = China, .HK = HK
-            # These are primary listings, not cross-listed ADRs/GDRs
-            _primary_suffixes = {".KS", ".KQ", ".T", ".SS", ".SZ", ".HK"}
-            dot_pos = symbol.rfind(".")
-            if dot_pos > 0 and symbol[dot_pos:] in _primary_suffixes:
+            # Boost 2: home-market primary listing (.KS/.T/.HK ... )
+            elif kind == "primary":
                 score += 6
 
             # Boost 3: parent company (query matches start + generic suffix)
@@ -1375,6 +1463,7 @@ class FMPService:
                 "type": "ETF" if "ETF" in name.upper() else "Equity",
                 "exchange": exchange,
                 "_score": score,
+                "_norm": _norm_company_name(name),
             })
 
         # 2. Supplement with FMP search APIs (finds stocks not in stock list)
@@ -1389,46 +1478,60 @@ class FMPService:
                     if not sym or sym in seen_symbols:
                         continue
                     seen_symbols.add(sym)
-                    exchange = item.get("exchange", item.get("exchangeShortName", ""))
+                    exchange = item.get("exchangeShortName") or item.get("exchange", "")
+                    name = item.get("name", "")
                     score = 35
-                    if exchange in self._MAJOR_EXCHANGES:
+                    kind = _symbol_kind(sym)
+                    if kind == "us":
                         score += 5
+                    elif kind == "primary":
+                        score += 6
                     raw_results.append({
                         "symbol": sym,
-                        "name": item.get("name", ""),
+                        "name": name,
                         "type": "Equity",
                         "exchange": exchange,
                         "_score": score,
+                        "_norm": _norm_company_name(name),
                     })
             except Exception:
                 logger.debug("FMP search API %s failed for query=%s", endpoint, query)
 
-        # 3. Sort by score
-        raw_results.sort(key=lambda x: -x["_score"])
+        # 3. Sort by score, then a minimal tie-break that prefers the common US
+        #    ticker over preferred/dotted siblings WITHOUT demoting class shares
+        #    (BRK-A/BRK-B). Stable sort preserves stock-list order otherwise.
+        raw_results.sort(key=lambda x: (-x["_score"], _dedup_rank(x["symbol"])))
 
-        # 4. Dedup cross-listings: same company name on different exchanges -> keep best
+        # 4. Dedup. Distinct share classes (BRK-A vs BRK-B) stay separate rows;
+        #    same-name + same-class listings collapse to the highest score
+        #    (first due to the sort). When a company has a US/home-market
+        #    listing, its thin foreign cross-listings are dropped entirely.
+        primary_names = {r["_norm"] for r in raw_results
+                         if _symbol_kind(r["symbol"]) in ("us", "primary")}
+
         deduped = []
-        seen_names: dict[str, int] = {}  # normalized name -> index in deduped
+        seen_keys: set[tuple[str, str]] = set()
         for r in raw_results:
-            # Normalize: lowercase, strip common suffixes
-            norm = r["name"].lower().strip()
-            for suffix in [", ltd.", " ltd.", ", inc.", " inc.", " co., ltd.", " corp.",
-                           " corporation", " plc", " sa", " ag", " se"]:
-                norm = norm.removesuffix(suffix)
-            norm = norm.strip()
+            norm = r["_norm"]
 
-            if norm in seen_names:
-                # Already have this company - skip (the first one has higher score)
+            # Suppress thin foreign cross-listings when a primary listing exists.
+            if _symbol_kind(r["symbol"]) == "foreign" and norm in primary_names:
                 continue
-            seen_names[norm] = len(deduped)
+
+            key = (norm, _share_class_token(r["symbol"]))
+            if key in seen_keys:
+                # Already have this company+class - skip (first one scored higher)
+                continue
+            seen_keys.add(key)
             deduped.append(r)
 
             if len(deduped) >= limit:
                 break
 
-        # Remove internal score field
+        # Remove internal fields
         for r in deduped:
             r.pop("_score", None)
+            r.pop("_norm", None)
 
         return {
             "status": "success",
