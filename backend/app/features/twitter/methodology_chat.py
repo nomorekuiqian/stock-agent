@@ -27,7 +27,7 @@ load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-MODEL = "gemini-3.1-pro-preview"
+MODEL = "gemini-3.5-flash"
 APP_NAME = "twitter_methodology_chat"
 _BASE_DIR = Path(__file__).resolve().parent / "methodologies"
 _DEFAULT_ANALYST = "qinbafrank"
