@@ -155,10 +155,12 @@ export function MobileMenu() {
       label: '投研助手',
       href: '/research',
     },
-    {
-      label: 'KOL 对话',
-      href: '/kol-chat',
-    },
+    ...(hasFlag('kol_chat')
+      ? [{
+          label: 'KOL 对话',
+          href: '/kol-chat',
+        } as NavSection]
+      : []),
     {
       label: '个股',
       href: '/stock',

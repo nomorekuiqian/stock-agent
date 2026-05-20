@@ -66,7 +66,7 @@ export function Navbar() {
               ]}
             />
             <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
-            <NavLink href="/kol-chat">KOL 对话</NavLink>
+            {hasFlag('kol_chat') && <NavLink href="/kol-chat">KOL 对话</NavLink>}
             {hasFlag('for_you_v2') ? (
               <NavDropdown
                 label="专属"

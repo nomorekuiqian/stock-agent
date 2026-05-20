@@ -2,16 +2,18 @@
 
 from typing import Set
 
+from app.core.config import ADMIN_EMAILS
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
+from app.features.flags.registry import admin_default_flags
 
 logger = get_logger(__name__)
 
 _FUNCTION = "feature-flags"
 
 
-async def get_user_flags(user_id: str) -> Set[str]:
-    """Fetch all enabled flags for a user."""
+async def get_user_flags(user_id: str, email: str | None = None) -> Set[str]:
+    """Fetch all enabled flags for a user. ADMIN_EMAILS users get admin_default flags merged in."""
     service = get_insforge_service()
     result = await service.call_function(
         _FUNCTION,
@@ -20,9 +22,13 @@ async def get_user_flags(user_id: str) -> Set[str]:
     )
     data = result.get("data", {})
     if data.get("success"):
-        return set(data.get("data") or [])
-    logger.warning("feature-flags EF failed for user %s: %s", user_id, result)
-    return set()
+        flags = set(data.get("data") or [])
+    else:
+        logger.warning("feature-flags EF failed for user %s: %s", user_id, result)
+        flags = set()
+    if email and email.lower() in ADMIN_EMAILS:
+        flags |= admin_default_flags()
+    return flags
 
 
 # ─── Admin write helpers ────────────────────────────────────────────────────
