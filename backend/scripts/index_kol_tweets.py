@@ -173,6 +173,7 @@ async def _pull_kol_tweets(
     author_usernames: list[str],
     window_hours: int,
     limit: int,
+    page_size: int,
 ) -> list[dict[str, Any]]:
     from app.core.config import EDGE_FUNCTION_SECRET
     from app.core.database import get_insforge_service
@@ -182,24 +183,61 @@ async def _pull_kol_tweets(
         return []
 
     since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat()
-    result = await get_insforge_service().call_function(
-        "kol-tweets",
-        method="POST",
-        params={"action": "list_batch"},
-        json_body={"usernames": usernames, "since": since, "limit": limit},
-        timeout=60.0,
-        extra_headers=(
-            {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
-            if EDGE_FUNCTION_SECRET else None
-        ),
-    )
-    payload = result.get("data") or {}
-    if result["status_code"] != 200 or not payload.get("success"):
-        raise RuntimeError(
-            "list_batch failed: HTTP %s %s"
-            % (result["status_code"], result.get("text", "")[:500])
+    until: str | None = None
+    rows: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    db = get_insforge_service()
+    headers = {"X-Internal-Secret": EDGE_FUNCTION_SECRET} if EDGE_FUNCTION_SECRET else None
+    max_page_size = max(1, min(page_size, 1000))
+
+    while len(rows) < limit:
+        request_limit = min(max_page_size, limit - len(rows))
+        result = await db.call_function(
+            "kol-tweets",
+            method="POST",
+            params={"action": "list_batch"},
+            json_body={
+                "usernames": usernames,
+                "since": since,
+                "until": until,
+                "limit": request_limit,
+            },
+            timeout=60.0,
+            extra_headers=headers,
         )
-    return list(payload.get("data") or [])
+        payload = result.get("data") or {}
+        if result["status_code"] != 200 or not payload.get("success"):
+            raise RuntimeError(
+                "list_batch failed: HTTP %s %s"
+                % (result["status_code"], result.get("text", "")[:500])
+            )
+
+        page = list(payload.get("data") or [])
+        if not page:
+            break
+
+        for tweet in page:
+            tweet_id = str(tweet.get("id") or "")
+            if tweet_id and tweet_id not in seen_ids:
+                seen_ids.add(tweet_id)
+                rows.append(tweet)
+                if len(rows) >= limit:
+                    break
+
+        # `list_batch` sorts newest first. Move the next request's upper bound
+        # to the oldest row we saw. This works around the platform's 1000-row
+        # single-response cap without requiring offset support in the function.
+        created_values = [
+            str(tweet.get("created_at"))
+            for tweet in page
+            if tweet.get("created_at")
+        ]
+        next_until = min(created_values) if created_values else None
+        if not next_until or next_until == until or len(page) < request_limit:
+            break
+        until = next_until
+
+    return rows[:limit]
 
 
 async def _index_one(tweet: dict[str, Any], *, force: bool):
@@ -238,6 +276,7 @@ async def run(args: argparse.Namespace) -> None:
         author_usernames=author_usernames,
         window_hours=args.window_hours,
         limit=args.limit,
+        page_size=args.page_size,
     )
     eligible = [
         tweet
@@ -258,6 +297,8 @@ async def run(args: argparse.Namespace) -> None:
             "author_usernames": author_usernames or "all_enabled_kols",
             "tweet_types": sorted(tweet_types) or "any",
             "window_hours": args.window_hours,
+            "limit": args.limit,
+            "page_size": args.page_size,
             "qualities": sorted(qualities) or "any",
             "include_unenriched": args.include_unenriched,
             "raw_breakdown": _type_quality_breakdown(raw_tweets),
@@ -317,6 +358,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Index KOL tweets into vector storage.")
     parser.add_argument("--window-hours", type=int, default=72)
     parser.add_argument("--limit", type=int, default=200)
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=1000,
+        help="Rows to request per list_batch call. Kept at 1000 by default to avoid platform single-response caps.",
+    )
     parser.add_argument(
         "--author-usernames",
         "--authors",
