@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { StockAnalysis } from '@/lib/api';
+import { useState, useEffect, useMemo } from 'react';
+import { StockAnalysis, HoldingView } from '@/lib/api';
 import { sortByVolatility, isNotableMove, parseChangePercent } from '@/lib/digest-utils';
+import { STOCK_NAMES } from '@/lib/stock-names';
 import StockListItem from './StockListItem';
 import StockDetailPanel from './StockDetailPanel';
 import Link from 'next/link';
@@ -13,7 +14,20 @@ interface StockOverviewPanelProps {
   digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
+  /**
+   * V1 callers (legacy `/for-you` page) omit this — entire `stocks` array is
+   * rendered flat, no portfolio sectioning.
+   *
+   * V2 callers pass either:
+   *   - `portfolioSymbols` (legacy V2 shape): a Set used to split `stocks`
+   *     into portfolio vs watchlist sections. Kept for backward compat with
+   *     V1 → V2 migration; new code should prefer `holdings`.
+   *   - `holdings` (new V2 shape): the full HoldingView list (truth source).
+   *     Renders 我的持仓 from `holdings` directly so it stays correct even
+   *     when the cached digest is stale or the LLM dropped a symbol.
+   */
   portfolioSymbols?: Set<string>;
+  holdings?: HoldingView[];
   portfolioWeightMap?: Record<string, number>;
   portfolioSummary?: string;
   totalMarketValue?: number;
@@ -22,7 +36,124 @@ interface StockOverviewPanelProps {
 }
 
 /* ------------------------------------------------------------------ */
-/* Mobile accordion item                                               */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+/** Filter ghost rows: a holding is "visible" if it has any quantitative data. */
+function isVisibleHolding(h: HoldingView): boolean {
+  return (
+    (h.effective_weight_pct ?? 0) > 0
+    || h.shares != null
+    || h.cost_basis != null
+    || h.weight_pct != null
+  );
+}
+
+function getDisplayName(symbol: string, fallbackName?: string): string {
+  if (symbol === '$CASH') return '现金';
+  const info = STOCK_NAMES[symbol];
+  return info?.zh || info?.en || fallbackName || symbol;
+}
+
+/* ------------------------------------------------------------------ */
+/* Holding row — sourced from portfolio.holdings (not digest.stocks)   */
+/* ------------------------------------------------------------------ */
+
+interface HoldingRowProps {
+  holding: HoldingView;
+  digestStock?: StockAnalysis;
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+/**
+ * Desktop row for 我的持仓. Shows truth data (shares × price = market_value)
+ * always; the digest's daily_change/status is overlaid if the LLM produced
+ * an entry for this symbol today, otherwise the row stays informative
+ * without that overlay.
+ */
+function HoldingRow({ holding, digestStock, isSelected, onSelect }: HoldingRowProps) {
+  const dailyChangeStr = digestStock?.daily_change;
+  const changeValue = dailyChangeStr ? parseChangePercent(dailyChangeStr) : null;
+  const isPositive = changeValue != null ? changeValue >= 0 : null;
+  const highlight = dailyChangeStr ? isNotableMove(dailyChangeStr) : false;
+
+  let bgClass = '';
+  if (isSelected) {
+    bgClass = 'bg-card/80';
+  } else if (highlight && isPositive != null) {
+    bgClass = isPositive ? 'bg-emerald-500/5' : 'bg-red-500/5';
+  }
+
+  const displayName = getDisplayName(holding.symbol, digestStock?.name);
+  const isCash = holding.symbol === '$CASH';
+
+  return (
+    <button
+      id={`stock-${holding.symbol}`}
+      type="button"
+      onClick={onSelect}
+      className={`relative w-full text-left transition-colors cursor-pointer hover:bg-card/60 px-3 py-2.5 ${bgClass}`}
+    >
+      {isSelected && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-full" />
+      )}
+
+      {/* Row 1: symbol + weight + daily change */}
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          {isPositive != null ? (
+            <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
+          ) : (
+            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+          )}
+          <span className="font-semibold font-data text-sm text-foreground truncate">
+            {holding.symbol}
+          </span>
+          {holding.effective_weight_pct > 0 && (
+            <span className="text-[11px] text-muted-foreground/70 font-data">
+              {holding.effective_weight_pct.toFixed(1)}%
+            </span>
+          )}
+        </div>
+        {dailyChangeStr && isPositive != null && (
+          <span className={`text-xs font-data font-medium shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+            {dailyChangeStr}
+          </span>
+        )}
+      </div>
+
+      {/* Row 2: shares × price = market_value (the new requirement) */}
+      <div className="flex items-center justify-between text-[11px] font-data text-muted-foreground/80 tabular-nums">
+        <span className="truncate">{displayName}</span>
+        <span className="shrink-0 ml-2">
+          {isCash ? (
+            holding.market_value != null ? `$${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'
+          ) : holding.shares != null && holding.price != null ? (
+            <>
+              {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 × $
+              {holding.price.toFixed(2)} ={' '}
+              <span className="text-foreground font-medium">
+                ${(holding.market_value ?? holding.shares * holding.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </>
+          ) : holding.market_value != null ? (
+            <span className="text-foreground font-medium">
+              ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+          ) : holding.cost_basis != null ? (
+            <>成本 ${holding.cost_basis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</>
+          ) : (
+            '—'
+          )}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile accordion item (legacy — used by watchlist section)          */
 /* ------------------------------------------------------------------ */
 
 function MobileStockItem({
@@ -56,85 +187,46 @@ function MobileStockItem({
         className="w-full flex items-center justify-between px-1 py-3 text-left cursor-pointer"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span
-            className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-              isPositive ? 'bg-emerald-400' : 'bg-red-400'
-            }`}
-          />
-          <span className="font-semibold font-data text-sm text-foreground">
-            {stock.symbol}
-          </span>
+          <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
+          <span className="font-semibold font-data text-sm text-foreground">{stock.symbol}</span>
           {weightPct != null && (
-            <span className="text-[11px] text-muted-foreground/70 font-data">
-              {weightPct.toFixed(1)}%
-            </span>
+            <span className="text-[11px] text-muted-foreground/70 font-data">{weightPct.toFixed(1)}%</span>
           )}
-          <span className="text-xs text-muted-foreground truncate">
-            {stock.name}
-          </span>
+          <span className="text-xs text-muted-foreground truncate">{stock.name}</span>
         </div>
 
         <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-xs font-data text-muted-foreground">
-            ${(stock.price ?? 0).toFixed(2)}
-          </span>
-          <span
-            className={`text-xs font-data font-medium ${
-              isPositive ? 'text-emerald-400' : 'text-red-400'
-            }`}
-          >
+          <span className="text-xs font-data text-muted-foreground">${(stock.price ?? 0).toFixed(2)}</span>
+          <span className={`text-xs font-data font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
             {stock.daily_change}
           </span>
           <svg
-            className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${
-              isOpen ? 'rotate-180' : ''
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+            className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
       </button>
 
-      {/* Expandable detail */}
       {isOpen && (
         <div className="pb-4 px-1 animate-fade-in">
           <div className="flex items-center gap-3 mb-2">
-            <span
-              className={`font-data text-xs ${
-                isPositive ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
+            <span className={`font-data text-xs ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
               {stock.daily_change}
             </span>
             {stock.week_change && (
               <>
                 <span className="text-muted-foreground/70 text-xs">|</span>
-                <span
-                  className={`font-data text-xs ${
-                    (stock.week_change ?? '').startsWith('+') ? 'text-emerald-400' : 'text-red-400'
-                  }`}
-                >
+                <span className={`font-data text-xs ${(stock.week_change ?? '').startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>
                   {stock.week_change} (周)
                 </span>
               </>
             )}
           </div>
 
-          <p className="text-base font-medium text-foreground leading-relaxed mb-2">
-            {stock.status}
-          </p>
-
-          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-            {stock.quick_take}
-          </p>
+          <p className="text-base font-medium text-foreground leading-relaxed mb-2">{stock.status}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-3">{stock.quick_take}</p>
 
           <Link
             href={`/stock/${stock.symbol}`}
@@ -152,6 +244,129 @@ function MobileStockItem({
               targetId={`quick_take:${stock.symbol}:${digestDate}`}
               snapshot={{ text: stock.quick_take?.slice(0, 200) }}
             />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile accordion for holding rows (mirrors HoldingRow desktop)      */
+/* ------------------------------------------------------------------ */
+
+function MobileHoldingItem({
+  holding,
+  digestStock,
+  isOpen,
+  onToggle,
+  digestDate,
+}: {
+  holding: HoldingView;
+  digestStock?: StockAnalysis;
+  isOpen: boolean;
+  onToggle: () => void;
+  digestDate?: string;
+}) {
+  const dailyChangeStr = digestStock?.daily_change;
+  const changeValue = dailyChangeStr ? parseChangePercent(dailyChangeStr) : null;
+  const isPositive = changeValue != null ? changeValue >= 0 : null;
+  const highlight = dailyChangeStr ? isNotableMove(dailyChangeStr) : false;
+  const displayName = getDisplayName(holding.symbol, digestStock?.name);
+  const isCash = holding.symbol === '$CASH';
+
+  let bgClass = '';
+  if (highlight && !isOpen && isPositive != null) {
+    bgClass = isPositive ? 'bg-emerald-500/5' : 'bg-red-500/5';
+  }
+
+  return (
+    <div id={`stock-${holding.symbol}`} className={bgClass}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex flex-col items-stretch text-left cursor-pointer px-1 py-3 gap-1"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {isPositive != null ? (
+              <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
+            ) : (
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+            )}
+            <span className="font-semibold font-data text-sm text-foreground">{holding.symbol}</span>
+            {holding.effective_weight_pct > 0 && (
+              <span className="text-[11px] text-muted-foreground/70 font-data">
+                {holding.effective_weight_pct.toFixed(1)}%
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground truncate">{displayName}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            {dailyChangeStr && isPositive != null && (
+              <span className={`text-xs font-data font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                {dailyChangeStr}
+              </span>
+            )}
+            <svg
+              className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="text-[11px] font-data text-muted-foreground/80 tabular-nums pl-4">
+          {isCash ? (
+            holding.market_value != null ? `$${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'
+          ) : holding.shares != null && holding.price != null ? (
+            <>
+              {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 × $
+              {holding.price.toFixed(2)} ={' '}
+              <span className="text-foreground font-medium">
+                ${(holding.market_value ?? holding.shares * holding.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </>
+          ) : holding.market_value != null ? (
+            <span className="text-foreground font-medium">
+              ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+          ) : holding.cost_basis != null ? (
+            <>成本 ${holding.cost_basis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</>
+          ) : (
+            '—'
+          )}
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="pb-4 px-1 animate-fade-in">
+          {digestStock ? (
+            <>
+              <p className="text-base font-medium text-foreground leading-relaxed mb-2">{digestStock.status}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-3">{digestStock.quick_take}</p>
+              <Link
+                href={`/stock/${holding.symbol}`}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                查看 {holding.symbol} 完整分析
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+              {digestDate && (
+                <FeedbackBar
+                  targetType="digest_quick_take"
+                  targetId={`quick_take:${holding.symbol}:${digestDate}`}
+                  snapshot={{ text: digestStock.quick_take?.slice(0, 200) }}
+                />
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
+              {isCash ? '现金持仓不参与日报分析' : '今日日报暂未包含该持仓的分析'}
+            </p>
           )}
         </div>
       )}
@@ -220,7 +435,108 @@ function PortfolioEmptyState() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Stock group — shared desktop + mobile rendering                     */
+/* Holdings group — dual-column on desktop, accordion on mobile        */
+/* ------------------------------------------------------------------ */
+
+function HoldingsGroup({
+  holdings,
+  digestStockMap,
+  selectedSymbol,
+  onSelect,
+  digestDate,
+  thesisMap,
+  onThesisSaved,
+}: {
+  holdings: HoldingView[];
+  digestStockMap: Record<string, StockAnalysis>;
+  selectedSymbol: string;
+  onSelect: (sym: string) => void;
+  digestDate?: string;
+  thesisMap?: Record<string, string>;
+  onThesisSaved?: (symbol: string, thesis: string) => void;
+}) {
+  if (holdings.length === 0) return null;
+
+  const selectedHolding = holdings.find(h => h.symbol === selectedSymbol) ?? holdings[0];
+  const selectedDigestStock = digestStockMap[selectedHolding.symbol];
+
+  return (
+    <>
+      {/* Desktop: dual-column */}
+      <div className="hidden md:grid md:grid-cols-[260px_1fr] gap-4">
+        <div className="divide-y divide-border/30 rounded-lg border border-border/30">
+          {holdings.map((h) => (
+            <HoldingRow
+              key={h.symbol}
+              holding={h}
+              digestStock={digestStockMap[h.symbol]}
+              isSelected={h.symbol === selectedHolding.symbol}
+              onSelect={() => onSelect(h.symbol)}
+            />
+          ))}
+        </div>
+
+        <div className="md:sticky md:top-4 self-start pl-2">
+          {selectedDigestStock ? (
+            <StockDetailPanel
+              stock={selectedDigestStock}
+              digestDate={digestDate}
+              thesis={thesisMap?.[selectedHolding.symbol]}
+              onThesisSaved={onThesisSaved}
+            />
+          ) : (
+            <div className="text-sm text-muted-foreground leading-relaxed">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-lg font-semibold text-foreground">
+                  {getDisplayName(selectedHolding.symbol)}
+                </span>
+                <Link
+                  href={`/stock/${selectedHolding.symbol}`}
+                  className="font-data text-sm text-primary hover:text-primary/80 transition-colors"
+                >
+                  {selectedHolding.symbol}
+                </Link>
+              </div>
+              <p className="text-xs text-muted-foreground/70">
+                {selectedHolding.symbol === '$CASH'
+                  ? '现金持仓不参与日报分析。'
+                  : '今日日报暂未包含该持仓的分析。可点击下方链接查看完整个股页面。'}
+              </p>
+              {selectedHolding.symbol !== '$CASH' && (
+                <Link
+                  href={`/stock/${selectedHolding.symbol}`}
+                  className="inline-flex items-center gap-1 mt-3 text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  查看 {selectedHolding.symbol} 完整分析
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile: accordion */}
+      <div className="md:hidden divide-y divide-border/30">
+        {holdings.map((h) => (
+          <MobileHoldingItem
+            key={h.symbol}
+            holding={h}
+            digestStock={digestStockMap[h.symbol]}
+            isOpen={h.symbol === selectedHolding.symbol}
+            onToggle={() => onSelect(h.symbol === selectedHolding.symbol ? '' : h.symbol)}
+            digestDate={digestDate}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Stock group — used by watchlist section (and legacy V1 flat view)    */
 /* ------------------------------------------------------------------ */
 
 function StockGroup({
@@ -248,7 +564,6 @@ function StockGroup({
     <>
       {/* Desktop: dual-column layout */}
       <div className="hidden md:grid md:grid-cols-[260px_1fr] gap-4">
-        {/* Left column — stock list */}
         <div className="divide-y divide-border/30 rounded-lg border border-border/30">
           {stocks.map((stock) => (
             <StockListItem
@@ -262,7 +577,6 @@ function StockGroup({
           ))}
         </div>
 
-        {/* Right column — detail panel */}
         <div className="md:sticky md:top-4 self-start pl-2">
           {selectedStock && (
             <StockDetailPanel
@@ -283,9 +597,7 @@ function StockGroup({
             stock={stock}
             isOpen={stock.symbol === selectedSymbol}
             isHighlighted={isNotableMove(stock.daily_change)}
-            onToggle={() =>
-              onSelect(stock.symbol === selectedSymbol ? '' : stock.symbol)
-            }
+            onToggle={() => onSelect(stock.symbol === selectedSymbol ? '' : stock.symbol)}
             digestDate={digestDate}
             weightPct={weightMap?.[stock.symbol]}
           />
@@ -305,25 +617,67 @@ export default function StockOverviewPanel({
   thesisMap,
   onThesisSaved,
   portfolioSymbols,
+  holdings,
   portfolioWeightMap,
   portfolioSummary,
   totalMarketValue,
   totalDailyChange,
   totalDailyChangePct,
 }: StockOverviewPanelProps) {
-  const sorted = sortByVolatility(stocks);
-  const [selectedSymbol, setSelectedSymbol] = useState(sorted[0]?.symbol ?? '');
-  const selectedStock = sorted.find((s) => s.symbol === selectedSymbol) || sorted[0];
+  const sorted = useMemo(() => sortByVolatility(stocks), [stocks]);
 
-  // Hash-based deep link: #stock-AAPL scrolls to and highlights that stock
+  // Truth-source portfolio rows (V2 new shape). When `holdings` is provided,
+  // 我的持仓 is sourced from it regardless of whether each symbol appears in
+  // digest.stocks — fixes the stale-cache / LLM-dropped-symbol bug where
+  // 我的持仓 silently became a subset of the portfolio.
+  const visibleHoldings = useMemo(
+    () => (holdings ?? []).filter(isVisibleHolding),
+    [holdings],
+  );
+
+  // Effective portfolio symbol set: prefer the holdings-derived set; fall
+  // back to the legacy `portfolioSymbols` prop for callers that pass it.
+  const effectivePortfolioSymbols = useMemo(() => {
+    if (holdings) return new Set(visibleHoldings.map((h) => h.symbol));
+    return portfolioSymbols;
+  }, [holdings, visibleHoldings, portfolioSymbols]);
+
+  // Map from symbol → digest stock entry, for overlay on holding rows.
+  const digestStockMap = useMemo(() => {
+    const map: Record<string, StockAnalysis> = {};
+    for (const s of stocks) map[s.symbol] = s;
+    return map;
+  }, [stocks]);
+
+  // V1 callers pass neither portfolioSymbols nor holdings → flat list, no
+  // sectioning.
+  const portfolioMode = effectivePortfolioSymbols !== undefined;
+  const hasPortfolio = portfolioMode && effectivePortfolioSymbols!.size > 0;
+
+  // Watchlist = digest.stocks - portfolio symbols. Stays sourced from
+  // digest.stocks (mirrors V1 behavior); the bug only affected the portfolio
+  // half.
+  const watchlistStocks = hasPortfolio
+    ? sorted.filter((s) => !effectivePortfolioSymbols!.has(s.symbol))
+    : sorted;
+
+  // Default-select first holding (when present), else first watchlist stock.
+  const initialSelectedSymbol =
+    visibleHoldings[0]?.symbol ?? sorted[0]?.symbol ?? '';
+  const [selectedSymbol, setSelectedSymbol] = useState(initialSelectedSymbol);
+
+  // Hash-based deep link: #stock-AAPL scrolls to and highlights that stock.
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash;
       if (!hash.startsWith('#stock-')) return;
       const sym = hash.slice(7);
-      const exists = sorted.some((s) => s.symbol === sym);
+      const allSyms = [
+        ...visibleHoldings.map((h) => h.symbol),
+        ...sorted.map((s) => s.symbol),
+      ];
+      const exists = allSyms.includes(sym);
       if (!exists) {
-        // Clear the dead hash so it doesn't linger in the URL bar.
         history.replaceState(null, '', window.location.pathname + window.location.search);
         return;
       }
@@ -341,72 +695,79 @@ export default function StockOverviewPanel({
     window.addEventListener('hashchange', handleHash);
     handleHash();
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [sorted]);
+  }, [sorted, visibleHoldings]);
 
-  // V2 callers always pass `portfolioSymbols` (possibly empty Set) to opt into
-  // the portfolio sectioning UI. V1 callers omit it → flat stock list, no
-  // portfolio header / empty state / "我的持仓·观察列表" headings.
-  const portfolioMode = portfolioSymbols !== undefined;
-  const hasPortfolio = portfolioMode && portfolioSymbols.size > 0;
+  if (sorted.length === 0 && !hasPortfolio && visibleHoldings.length === 0) {
+    return null;
+  }
 
-  // Split stocks into portfolio vs watchlist
-  const portfolioStocks = hasPortfolio
-    ? sorted.filter((s) => portfolioSymbols.has(s.symbol))
-    : [];
-  const watchlistStocks = hasPortfolio
-    ? sorted.filter((s) => !portfolioSymbols.has(s.symbol))
-    : sorted;
-
-  if (sorted.length === 0 && !hasPortfolio) return null;
+  // Branching: when caller passes `holdings`, use the truth-source path.
+  const useHoldingsPath = holdings !== undefined;
 
   return (
     <div className="space-y-6">
-      {/* Portfolio section — only shown in V2 (when portfolioSymbols prop is passed) */}
-      {portfolioMode && !hasPortfolio && (
-        <PortfolioEmptyState />
-      )}
+      {/* Portfolio section */}
+      {portfolioMode && !hasPortfolio && <PortfolioEmptyState />}
 
-      {hasPortfolio && portfolioStocks.length === 0 && (
+      {useHoldingsPath && visibleHoldings.length > 0 && (
         <>
           <PortfolioHeader
-            count={portfolioSymbols.size}
+            count={visibleHoldings.length}
             totalMarketValue={totalMarketValue}
             totalDailyChange={totalDailyChange}
             totalDailyChangePct={totalDailyChangePct}
             portfolioSummary={portfolioSummary}
           />
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            今日日报暂未包含您的持仓分析
-          </div>
-        </>
-      )}
-
-      {hasPortfolio && portfolioStocks.length > 0 && (
-        <>
-          <PortfolioHeader
-            count={portfolioStocks.length}
-            totalMarketValue={totalMarketValue}
-            totalDailyChange={totalDailyChange}
-            totalDailyChangePct={totalDailyChangePct}
-            portfolioSummary={portfolioSummary}
-          />
-          <StockGroup
-            stocks={portfolioStocks}
+          <HoldingsGroup
+            holdings={visibleHoldings}
+            digestStockMap={digestStockMap}
             selectedSymbol={selectedSymbol}
             onSelect={setSelectedSymbol}
             digestDate={digestDate}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
-            selectedStock={portfolioStocks.find((s) => s.symbol === selectedSymbol) || portfolioStocks[0]}
-            weightMap={portfolioWeightMap}
           />
         </>
       )}
 
+      {/* Legacy V2 path: caller passed portfolioSymbols but not holdings.
+          Keep the original digest∩portfolio behavior so we don't break the
+          first wave of V2 callers that haven't migrated. */}
+      {!useHoldingsPath && hasPortfolio && (() => {
+        const portfolioStocks = sorted.filter((s) => effectivePortfolioSymbols!.has(s.symbol));
+        return (
+          <>
+            <PortfolioHeader
+              count={portfolioStocks.length || effectivePortfolioSymbols!.size}
+              totalMarketValue={totalMarketValue}
+              totalDailyChange={totalDailyChange}
+              totalDailyChangePct={totalDailyChangePct}
+              portfolioSummary={portfolioSummary}
+            />
+            {portfolioStocks.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                今日日报暂未包含您的持仓分析
+              </div>
+            ) : (
+              <StockGroup
+                stocks={portfolioStocks}
+                selectedSymbol={selectedSymbol}
+                onSelect={setSelectedSymbol}
+                digestDate={digestDate}
+                thesisMap={thesisMap}
+                onThesisSaved={onThesisSaved}
+                selectedStock={portfolioStocks.find((s) => s.symbol === selectedSymbol) || portfolioStocks[0]}
+                weightMap={portfolioWeightMap}
+              />
+            )}
+          </>
+        );
+      })()}
+
       {/* Watchlist section */}
       {watchlistStocks.length > 0 && (
-        <div className={portfolioMode && hasPortfolio ? 'pt-2' : ''}>
-          {portfolioMode && hasPortfolio && (
+        <div className={portfolioMode && (hasPortfolio || visibleHoldings.length > 0) ? 'pt-2' : ''}>
+          {portfolioMode && (hasPortfolio || visibleHoldings.length > 0) && (
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-semibold text-muted-foreground">观察列表</span>
               <span className="text-[11px] px-2 py-0.5 bg-muted text-muted-foreground rounded-full">{watchlistStocks.length} 只</span>

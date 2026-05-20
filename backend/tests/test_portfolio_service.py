@@ -391,3 +391,58 @@ def test_ghost_preserves_input_order():
     ]
     out = compute_effective_weights(rows)
     assert [h.symbol for h in out] == ["AAPL", "NVDA", "MSFT"]
+
+
+# ---------------------------------------------------------------------------
+# enrich_market_values — exposes live price + market_value to UI
+# ---------------------------------------------------------------------------
+
+
+def test_enrich_populates_price_and_market_value():
+    """Holding with shares + live price → row carries price + market_value."""
+    from app.features.portfolio.service import enrich_market_values
+
+    rows = [H("AAPL", shares=10, cost_basis=1500)]
+    out = compute_effective_weights(rows, prices_map={"AAPL": 200.0})
+    enrich_market_values(out, {"AAPL": 200.0})
+
+    assert out[0].price == 200.0
+    assert out[0].market_value == 2000.0
+    assert out[0].unrealized_pnl == 500.0
+
+
+def test_enrich_populates_price_even_without_shares():
+    """Watchlist-style ghost row (no shares) still gets the live price so the
+    UI can render a current quote next to it."""
+    from app.features.portfolio.service import enrich_market_values
+
+    rows = [H("NVDA", thesis="watching")]  # ghost — no quantitative data
+    out = compute_effective_weights(rows, prices_map={"NVDA": 800.0})
+    enrich_market_values(out, {"NVDA": 800.0})
+
+    assert out[0].price == 800.0
+    assert out[0].market_value is None  # no shares → no market value
+
+
+def test_enrich_skips_cash_price():
+    """$CASH has no quote; its market_value comes from shares/cost_basis."""
+    from app.features.portfolio.service import enrich_market_values
+
+    rows = [H(CASH_SYMBOL, cost_basis=5000)]
+    out = compute_effective_weights(rows, prices_map={CASH_SYMBOL: 1.0})
+    enrich_market_values(out, {})  # no prices needed for cash
+
+    assert out[0].price is None
+    assert out[0].market_value == 5000.0
+
+
+def test_enrich_missing_price_leaves_price_none():
+    """Quote API failure → price stays None, no crash."""
+    from app.features.portfolio.service import enrich_market_values
+
+    rows = [H("AAPL", shares=10)]
+    out = compute_effective_weights(rows, prices_map={"AAPL": 200.0})
+    enrich_market_values(out, {})  # empty — simulates upstream failure
+
+    assert out[0].price is None
+    assert out[0].market_value is None

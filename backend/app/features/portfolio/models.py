@@ -79,6 +79,11 @@ class HoldingView(BaseModel):
     entry_price: Optional[float] = None
     market_value: Optional[float] = None
     unrealized_pnl: Optional[float] = None
+    # Current live price (last batch quote at fetch time). Exposed so the UI
+    # can render "shares × price = value" without divide-by-zero / fractional-
+    # shares precision loss from reconstructing it client-side. $CASH stays
+    # None — cash has no quote.
+    price: Optional[float] = None
 
     effective_weight_pct: float
     weight_source: Literal["shares_x_price", "cost_basis", "weight_pct", "equal", "ghost"]
