@@ -30,7 +30,10 @@ from app.features.screener.agent import (
     get_field_distribution,
     list_available_sectors,
 )
-from app.features.screener.research_tools import research_data_tools
+from app.shared.data_tools.research_tools import research_data_tools
+from app.shared.llm_metering import meter
+
+RESEARCH_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -984,13 +987,14 @@ When you have the user's watchlist/portfolio data (shown in the context above as
 
 _research_agent = LlmAgent(
     name="stock_picker",
-    model="gemini-3.1-flash-lite-preview",
+    model=RESEARCH_MODEL,
     instruction=RESEARCH_AGENT_INSTRUCTION,
     output_schema=ResearchAgentOutput,
     output_key="picker",
     tools=research_tools,
     before_tool_callback=_before_tool_callback,
     after_tool_callback=_after_tool_callback,
+    after_model_callback=meter("screener.research", model=RESEARCH_MODEL),
 )
 
 

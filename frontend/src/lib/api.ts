@@ -1018,6 +1018,30 @@ export interface ConversationSaveRequest {
   message_count: number;
 }
 
+export interface ResearchKBMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ResearchKBRequest {
+  message: string;
+  history?: ResearchKBMessage[];
+}
+
+export interface RetrievedChunk {
+  content: string;
+  title?: string;
+  source_type: string;
+  source_id: string;
+  url?: string;
+  similarity: number;
+}
+
+export interface ResearchKBResponse {
+  answer: string;
+  chunks_used: RetrievedChunk[];
+}
+
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
 
 async function _authHeaders(
@@ -2081,6 +2105,33 @@ export const api = {
         }
         return response.json();
       },
+    },
+  },
+
+  researchKb: {
+    chat: async (req: ResearchKBRequest): Promise<ResearchKBResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/research-kb/chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, '知识库助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('知识库助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   },
 
