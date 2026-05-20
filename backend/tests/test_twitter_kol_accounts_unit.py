@@ -5,7 +5,7 @@ Covers:
 - db.list_kol_accounts / upsert_kol_accounts / update_kol_account /
   disable_kol_accounts_missing_from — happy + failure paths against the
   edge function client (mocked).
-- service.get_enabled_kols — DB-first with hardcoded fallback + 5-min cache
+- service.get_enabled_kols — DB-first (no hardcoded fallback) + 5-min cache
 - service.sync_kol_list — orchestrates fetch_list_members + upsert + disable
 
 No network, no real DB. All edge function calls mocked.
@@ -188,13 +188,12 @@ class TestGetEnabledKols:
         assert catalog[0]["source"] == "list:123"  # type: ignore[typeddict-item]
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_hardcoded_when_db_empty(self):
+    async def test_returns_empty_when_db_empty(self):
+        """No hardcoded fallback anymore — empty DB means empty catalog."""
         twitter_service.invalidate_catalog_cache()
         with patch.object(twitter_db, "list_kol_accounts", AsyncMock(return_value=[])):
             catalog = await twitter_service.get_enabled_kols()
-        # Hardcoded list is non-empty
-        assert len(catalog) > 0
-        assert all(k.get("source") == "manual" for k in catalog)  # type: ignore[typeddict-item]
+        assert catalog == []
 
     @pytest.mark.asyncio
     async def test_caches_result(self):

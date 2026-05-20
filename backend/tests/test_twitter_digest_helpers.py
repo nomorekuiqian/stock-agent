@@ -44,7 +44,7 @@ from app.features.twitter_digest.service import (
     _fallback_thesis_for_missing,
     _watchpoint_keywords,
 )
-from app.features.twitter.service import _split_catalog_by_source
+from app.features.twitter.service import _group_by_list
 
 
 # ---------------------------------------------------------------------------
@@ -112,54 +112,54 @@ def _arg(
 
 
 # ---------------------------------------------------------------------------
-# _split_catalog_by_source (dual-source ingest)
+# _group_by_list (list-only ingest)
 # ---------------------------------------------------------------------------
 
 
-class TestSplitCatalogBySource:
-    """Group catalog entries by source for cron dispatch (list-timeline vs per-KOL)."""
+class TestGroupByList:
+    """Group catalog entries by Twitter list id; non-list rows surface as orphans."""
 
     def test_empty_catalog_returns_empty(self):
-        list_groups, manual = _split_catalog_by_source([])
+        list_groups, orphans = _group_by_list([])
         assert list_groups == {}
-        assert manual == []
-
-    def test_manual_only(self):
-        catalog = [
-            {"username": "alice", "display_name": "A", "source": "manual"},  # type: ignore
-            {"username": "bob", "display_name": "B", "source": "manual"},  # type: ignore
-        ]
-        list_groups, manual = _split_catalog_by_source(catalog)  # type: ignore[arg-type]
-        assert list_groups == {}
-        assert len(manual) == 2
+        assert orphans == []
 
     def test_list_only(self):
         catalog = [
-            {"username": "a", "display_name": "A", "source": "list:1234"},  # type: ignore
-            {"username": "b", "display_name": "B", "source": "list:1234"},  # type: ignore
+            {"username": "a", "display_name": "A", "source": "list:1234"},
+            {"username": "b", "display_name": "B", "source": "list:1234"},
         ]
-        list_groups, manual = _split_catalog_by_source(catalog)  # type: ignore[arg-type]
+        list_groups, orphans = _group_by_list(catalog)  # type: ignore[arg-type]
         assert "1234" in list_groups
         assert len(list_groups["1234"]) == 2
-        assert manual == []
+        assert orphans == []
 
-    def test_mixed_source_routes_separately(self):
+    def test_multiple_lists(self):
         catalog = [
-            {"username": "a", "display_name": "A", "source": "list:1"},  # type: ignore
-            {"username": "b", "display_name": "B", "source": "manual"},  # type: ignore
-            {"username": "c", "display_name": "C", "source": "list:2"},  # type: ignore
+            {"username": "a", "display_name": "A", "source": "list:1"},
+            {"username": "b", "display_name": "B", "source": "list:2"},
         ]
-        list_groups, manual = _split_catalog_by_source(catalog)  # type: ignore[arg-type]
+        list_groups, orphans = _group_by_list(catalog)  # type: ignore[arg-type]
         assert set(list_groups.keys()) == {"1", "2"}
-        assert len(manual) == 1
-        assert manual[0]["username"] == "b"
+        assert orphans == []
 
-    def test_missing_source_treated_as_manual(self):
-        """Backward compat: catalog rows without `source` key fall to manual."""
+    def test_non_list_source_surfaces_as_orphan(self):
+        """Legacy `manual` rows are returned as orphans so callers can warn."""
+        catalog = [
+            {"username": "a", "display_name": "A", "source": "list:1"},
+            {"username": "b", "display_name": "B", "source": "manual"},
+        ]
+        list_groups, orphans = _group_by_list(catalog)  # type: ignore[arg-type]
+        assert list(list_groups.keys()) == ["1"]
+        assert len(orphans) == 1
+        assert orphans[0]["username"] == "b"
+
+    def test_missing_source_treated_as_orphan(self):
+        """Rows without `source` key are not ingested (no list to dispatch to)."""
         catalog = [{"username": "a", "display_name": "A"}]
-        list_groups, manual = _split_catalog_by_source(catalog)  # type: ignore[arg-type]
+        list_groups, orphans = _group_by_list(catalog)  # type: ignore[arg-type]
         assert list_groups == {}
-        assert len(manual) == 1
+        assert len(orphans) == 1
 
 
 # ---------------------------------------------------------------------------

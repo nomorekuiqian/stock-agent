@@ -2,10 +2,8 @@
 Twitter KOL - API Router
 
 Endpoints:
-  POST /api/twitter/fetch-tweets           (cron, fetch & store tweets from TwitterAPI.io)
-  POST /api/twitter/search-tweets          (cron, advanced_search history backfill)
-  POST /api/twitter/fetch-articles         (cron, fetch & store article content)
-  POST /api/twitter/fetch-configured-kols  (cron, batch fetch the configured catalog)
+  POST /api/twitter/fetch-configured-kols  (cron, batch fetch every Twitter list in the catalog)
+  POST /api/twitter/sync-kol-list          (cron, sync one Twitter list's membership into kol_accounts)
   GET  /api/twitter/kol-accounts           (auth, list configured KOL catalog)
   GET  /api/twitter/fetch-runs             (cron, list recent fetch run records)
   GET  /api/twitter/tweets                 (auth, list stored tweets)
@@ -20,76 +18,15 @@ from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.twitter import db
-from app.shared.twitter_kol_config import validate_catalog
-from app.features.twitter.models import (
-    FetchConfiguredKolsRequest,
-    FetchTweetsRequest,
-    SearchTweetsRequest,
-)
+from app.features.twitter.models import FetchConfiguredKolsRequest
 from app.features.twitter.service import (
-    fetch_and_store_tweets,
-    fetch_and_store_articles,
     fetch_configured_kols,
-    fetch_tweets_by_search,
     sync_kol_list,
 )
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/twitter", tags=["twitter"])
-
-
-@router.post("/fetch-tweets")
-async def fetch_tweets(
-    body: FetchTweetsRequest,
-    _secret: str = Depends(verify_cron_secret),
-):
-    """
-    Fetch tweets from a Twitter user and store in database.
-    Protected by cron secret — admin operation only.
-    """
-    logger.info("Starting tweet fetch for @%s (max_pages=%d)", body.username, body.max_pages)
-    result = await fetch_and_store_tweets(
-        username=body.username,
-        max_pages=body.max_pages,
-    )
-    return result
-
-
-@router.post("/search-tweets")
-async def search_tweets(
-    body: SearchTweetsRequest,
-    _secret: str = Depends(verify_cron_secret),
-):
-    """
-    Fetch older tweets using advanced_search with daily time windows.
-    Supplements timeline-based fetching which has depth limits.
-    Protected by cron secret -- admin operation only.
-    """
-    logger.info(
-        "Starting search fetch for @%s (months_back=%d)",
-        body.username,
-        body.months_back,
-    )
-    result = await fetch_tweets_by_search(
-        username=body.username,
-        months_back=body.months_back,
-    )
-    return result
-
-
-@router.post("/fetch-articles")
-async def fetch_articles(
-    body: FetchTweetsRequest,
-    _secret: str = Depends(verify_cron_secret),
-):
-    """
-    Fetch full article content for tweets that are articles.
-    Protected by cron secret — admin operation only.
-    """
-    logger.info("Starting article fetch for @%s", body.username)
-    result = await fetch_and_store_articles(username=body.username)
-    return result
 
 
 @router.get("/tweets")
@@ -136,24 +73,14 @@ async def fetch_configured_kols_endpoint(
     _secret: str = Depends(verify_cron_secret),
 ):
     """
-    Iterate the enabled KOL catalog and fetch each timeline.
-    Each KOL is isolated; one failure does not block the rest.
+    Iterate enabled KOL catalog and fetch every Twitter list. One call per
+    list covers all its members; failures are isolated per list.
     """
-    catalog_errors = validate_catalog()
-    if catalog_errors:
-        logger.error("KOL catalog validation failed: %s", catalog_errors)
-        return {"success": False, "error": "catalog_invalid", "details": catalog_errors}
-
     logger.info(
-        "fetch-configured-kols: max_pages=%d window=%dh include_articles=%s "
-        "list_lookback=%.1fh list_safety_pages=%d",
-        body.max_pages_per_kol, body.safety_window_hours, body.include_articles,
+        "fetch-configured-kols: list_lookback=%.1fh list_safety_pages=%d",
         body.list_lookback_hours, body.list_safety_max_pages,
     )
     return await fetch_configured_kols(
-        max_pages_per_kol=body.max_pages_per_kol,
-        safety_window_hours=body.safety_window_hours,
-        include_articles=body.include_articles,
         list_lookback_hours=body.list_lookback_hours,
         list_safety_max_pages=body.list_safety_max_pages,
     )

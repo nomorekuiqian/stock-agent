@@ -21,7 +21,7 @@ jobs:
             -X POST \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            -d '{"max_pages_per_kol":1,"safety_window_hours":3,"include_articles":false}' \
+            -d '{}' \
             "${{ secrets.BACKEND_URL }}/api/twitter/fetch-configured-kols")
 
           http_code=$(echo "$response" | tail -n1)
