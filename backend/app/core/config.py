@@ -11,6 +11,7 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 FMP_API_KEY = os.getenv("FMP_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY", "")
@@ -96,3 +97,9 @@ EMAIL_PRO_GATE = os.getenv("EMAIL_PRO_GATE", "false").lower() == "true"
 
 # Cache settings
 STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days
+
+# Generic vector settings
+VECTOR_EMBEDDING_MODEL = os.getenv(
+    "VECTOR_EMBEDDING_MODEL",
+    os.getenv("RAG_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
+)
