@@ -36,10 +36,12 @@ def test_fmp_news():
     print(f"Total news fetched: {result.get('news_count', 0)}")
     print()
 
-    # Group news by symbol
+    # Group news by symbol. `or "N/A"` instead of .get default because FMP
+    # returns {"symbol": null} for market-wide articles — .get("symbol", "N/A")
+    # would produce a None bucket that silently merges unrelated articles.
     news_by_symbol = {}
     for news in result.get("news", []):
-        symbol = news.get("symbol", "N/A")
+        symbol = news.get("symbol") or "N/A"
         if symbol not in news_by_symbol:
             news_by_symbol[symbol] = []
         news_by_symbol[symbol].append(news)
@@ -52,9 +54,11 @@ def test_fmp_news():
         articles = news_by_symbol.get(symbol, [])
         print(f"\n[{symbol}] - {len(articles)} articles")
         for i, article in enumerate(articles[:3], 1):  # Show top 3 per ticker
-            title = article.get("title", "")[:60]
-            source = article.get("source", "")[:15]
-            date = article.get("publishedDate", "")[:16]
+            # `or ""` — any of these fields may be null in FMP responses;
+            # .get("k", "")[:N] crashes when the key exists with None value.
+            title = (article.get("title") or "")[:60]
+            source = (article.get("source") or "")[:15]
+            date = (article.get("publishedDate") or "")[:16]
             print(f"  {i}. {title}...")
             print(f"     Source: {source} | Date: {date}")
 
@@ -69,13 +73,17 @@ def test_fmp_news():
     print("-" * 70)
 
     all_news = result.get("news", [])
-    all_news.sort(key=lambda x: x.get("publishedDate", ""), reverse=True)
+    # Sort key uses `or ""` so a null publishedDate doesn't raise
+    # TypeError from comparing str to None under Python 3.
+    all_news.sort(key=lambda x: x.get("publishedDate") or "", reverse=True)
 
     for i, article in enumerate(all_news[:20], 1):
-        symbol = article.get("symbol", "N/A")
-        title = article.get("title", "")[:50]
-        source = article.get("source", "")[:12]
-        date = article.get("publishedDate", "")[:16]
+        # Use `or` fallback instead of .get default — API returns {"symbol": null}
+        # for market-wide articles; .get("symbol", "N/A") would yield None.
+        symbol = article.get("symbol") or "N/A"
+        title = (article.get("title") or "")[:50]
+        source = (article.get("source") or "")[:12]
+        date = (article.get("publishedDate") or "")[:16]
         print(f"{i:2}. [{symbol:5}] {title}...")
         print(f"    Source: {source} | {date}")
 
@@ -105,10 +113,12 @@ def test_market_news():
     print("-" * 70)
 
     for i, article in enumerate(result.get("news", [])[:15], 1):
-        symbol = article.get("symbol", "N/A")
-        title = article.get("title", "")[:50]
-        pub_source = article.get("source", "")[:12]
-        date = article.get("publishedDate", "")[:16]
+        # Use `or` fallback — API returns {"symbol": null} for market-wide
+        # articles (no ticker binding); .get("symbol", "N/A") would yield None.
+        symbol = article.get("symbol") or "N/A"
+        title = (article.get("title") or "")[:50]
+        pub_source = (article.get("source") or "")[:12]
+        date = (article.get("publishedDate") or "")[:16]
         print(f"{i:2}. [{symbol:5}] {title}...")
         print(f"    Source: {pub_source} | {date}")
 

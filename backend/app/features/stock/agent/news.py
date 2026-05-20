@@ -14,8 +14,11 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
+from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
+
+NEWS_CONTEXT_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -104,11 +107,12 @@ Pick the 2-3 most investment-relevant news items. For each:
 
 news_context_agent = LlmAgent(
     name="news_context_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model=NEWS_CONTEXT_MODEL,
     description="Analyzes recent news, analyst activity, and catalysts for individual stocks in Chinese",
     instruction=NEWS_CONTEXT_INSTRUCTION,
     output_schema=NewsContextOutput,
     output_key="news_analysis",
+    after_model_callback=meter("stock.news", model=NEWS_CONTEXT_MODEL),
 )
 
 

@@ -599,3 +599,160 @@ class TestNonProductionSafety:
 
         create_params = mock_resend.Broadcasts.create.call_args[0][0]
         assert create_params["audience_id"] == TEST_AUDIENCE_ID
+
+
+# ---------------------------------------------------------------------------
+# broadcast_twitter_digest — segment/audience based broadcast (trial phase)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_twitter_digest_data():
+    """Minimal digest payload with all required sections populated."""
+    return {
+        "generated_at": "2026-05-12T22:00:00+00:00",
+        "window_hours": 24,
+        "input_tweet_count": 200,
+        "tracked_kols": ["alice", "bob"],
+        "headline": "测试 headline",
+        "intro": "",
+        "ticker_theses": [{
+            "ticker": "NVDA",
+            "primary_kols": ["alice", "bob"],
+            "tweet_count": 5,
+            "synthesis_zh": "测试综述", "stance_summary": "2 位博主一致看多",
+            "buy_arguments": [], "sell_arguments": [], "observation_arguments": [],
+        }],
+        "macro_threads": [], "watchpoints": [], "other_tickers": [],
+        "hot_sectors": [], "hot_tickers": [], "hot_events": [],
+        "notable_tweets": [],
+        "model_version": "test",
+        "date": "2026-05-12",
+    }
+
+
+class TestBroadcastTwitterDigest:
+    """broadcast_twitter_digest sends only to the dedicated
+    RESEND_SEGMENT_TWITTER_DIGEST audience (opt-in via /profile email
+    preferences). Refuses to broadcast in non-production to avoid blasting
+    real users from dev. No fallback to the daily audience — if the
+    segment env var is missing, broadcast hard-fails.
+    """
+
+    @pytest.mark.asyncio
+    async def test_non_production_refuses_to_broadcast(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        """Dev/staging must hard-refuse — no per-recipient guard exists for
+        Resend Broadcasts so a misconfig would email real users."""
+        result = await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
+
+        assert result["success"] is False
+        assert "non-production" in result["error"]
+        assert result["channel"] == "twitter_digest"
+        # No Resend call must happen.
+        mock_resend.Broadcasts.create.assert_not_called()
+        mock_resend.Broadcasts.send.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_prod_with_segment_env_uses_segment(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        """Segment-only delivery: broadcast targets the segment id, never
+        an audience id."""
+        email_svc.is_production = True
+        email_svc.reply_to = "test@example.com"
+        with patch(
+            "app.features.subscription.email_service.RESEND_SEGMENT_TWITTER_DIGEST",
+            "twitter-digest-segment-id",
+        ):
+            result = await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
+
+        assert result["success"] is True
+        assert result["channel"] == "twitter_digest"
+        create_params = mock_resend.Broadcasts.create.call_args[0][0]
+        assert create_params.get("segment_id") == "twitter-digest-segment-id"
+        assert "audience_id" not in create_params
+        # broadcast name encodes the date for ops traceability
+        assert "Twitter Digest 2026-05-12" in create_params["name"]
+        # subject uses the digest headline
+        assert "[TheMarketBrew 推特日报]" in create_params["subject"]
+        assert "测试 headline" in create_params["subject"]
+
+    @pytest.mark.asyncio
+    async def test_prod_without_segment_returns_error(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        """If RESEND_SEGMENT_TWITTER_DIGEST is empty, hard-fail rather than
+        accidentally fall back to a broader audience."""
+        email_svc.is_production = True
+        email_svc.reply_to = "test@example.com"
+        with patch(
+            "app.features.subscription.email_service.RESEND_SEGMENT_TWITTER_DIGEST", "",
+        ):
+            result = await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
+
+        assert result["success"] is False
+        assert result["channel"] == "twitter_digest"
+        assert "RESEND_SEGMENT_TWITTER_DIGEST" in result["error"]
+        mock_resend.Broadcasts.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_api_key_returns_error(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        """Missing RESEND_API_KEY short-circuits before any API call."""
+        email_svc.api_key = None
+        result = await email_svc.broadcast_twitter_digest(mock_twitter_digest_data)
+        assert result["success"] is False
+        mock_resend.Broadcasts.create.assert_not_called()
+
+
+class TestQaSendTwitterDigest:
+    """`_qa_send_twitter_digest_to_email` bypasses Broadcasts and sends one
+    email via Resend Emails.send — used by ops scripts for local QA."""
+
+    @pytest.mark.asyncio
+    async def test_sends_to_specified_recipient(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        email_svc.reply_to = "test@example.com"
+        mock_resend.Emails.send.return_value = {"id": "email-id-xyz"}
+        result = await email_svc._qa_send_twitter_digest_to_email(
+            mock_twitter_digest_data, "qa@example.com",
+        )
+
+        assert result["success"] is True
+        assert result["qa"] is True
+        assert result["to"] == "qa@example.com"
+        assert result["email_id"] == "email-id-xyz"
+        send_params = mock_resend.Emails.send.call_args[0][0]
+        assert send_params["to"] == ["qa@example.com"]
+        # subject is tagged so QA emails don't get confused with the real broadcast
+        assert "[TheMarketBrew 推特日报 QA]" in send_params["subject"]
+
+    @pytest.mark.asyncio
+    async def test_no_api_key_returns_error(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        """Without API key, returns failure result without calling Resend."""
+        email_svc.api_key = None
+        result = await email_svc._qa_send_twitter_digest_to_email(
+            mock_twitter_digest_data, "qa@example.com",
+        )
+        assert result["success"] is False
+        mock_resend.Emails.send.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_resend_failure_returns_error(
+        self, email_svc, mock_resend, mock_twitter_digest_data,
+    ):
+        """If Resend raises, surface as success=False rather than crashing the
+        ops script."""
+        email_svc.reply_to = "test@example.com"
+        mock_resend.Emails.send.side_effect = RuntimeError("resend down")
+        result = await email_svc._qa_send_twitter_digest_to_email(
+            mock_twitter_digest_data, "qa@example.com",
+        )
+        assert result["success"] is False
+        assert "resend down" in result["error"]

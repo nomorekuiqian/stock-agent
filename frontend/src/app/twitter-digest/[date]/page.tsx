@@ -7,6 +7,8 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
+import PaywallGuard from '@/components/PaywallGuard';
+
 import { DigestView } from '../_components/DigestView';
 import type { DailyDigest } from '../_components/types';
 
@@ -104,5 +106,9 @@ export default function TwitterDigestDetailPage() {
     );
   }
 
-  return <DigestView date={date} digest={digest} />;
+  return (
+    <PaywallGuard requiredPlan="pro">
+      <DigestView date={date} digest={digest} />
+    </PaywallGuard>
+  );
 }

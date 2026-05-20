@@ -1,0 +1,87 @@
+name: Twitter KOL Digest Broadcast
+
+on:
+  schedule:
+    # ET 18:00 Mon-Fri = UTC 22:00 Mon-Fri (during EDT; drifts to ET 17:00
+    # during winter EST — accept the seasonal shift).
+    # The generate cron runs at UTC 20:30 (90 min ahead), giving the LLM
+    # pipeline enough buffer plus typical GitHub Actions cron delay (5-30
+    # min, occasionally up to 2h at UTC integer hours like 22:00). The
+    # email lands during the post-close window for US users — well after
+    # the market close at ET 16:00 and ahead of the evening read time.
+    - cron: '0 22 * * 1-5'
+  workflow_dispatch:  # 手动触发(QA / 补发)
+    inputs:
+      date:
+        description: "ISO YYYY-MM-DD; 为空则取 latest"
+        required: false
+        default: ""
+
+jobs:
+  broadcast-twitter-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Broadcast Twitter KOL digest
+        run: |
+          DATE_PARAM=""
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            DATE_PARAM="?date=${{ github.event.inputs.date }}"
+          fi
+
+          response=$(curl -s -w "\n%{http_code}" \
+            --retry 2 --retry-delay 30 --retry-connrefused --max-time 600 \
+            -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BACKEND_URL }}/api/twitter-digest/broadcast${DATE_PARAM}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::twitter-digest broadcast returned HTTP $http_code"
+            exit 1
+          fi
+
+          # The endpoint returns {success, total, sent, failed, errors}. The
+          # earlier morning-report grep '"success":false' approach silently
+          # misses cases where success is true but sent=0; we hard-fail on
+          # both conditions explicitly here.
+          success=$(echo "$body" | python3 -c "import json,sys;print(json.load(sys.stdin).get('success'))" 2>/dev/null || echo "false")
+          total=$(echo "$body" | python3 -c "import json,sys;print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo "0")
+          sent=$(echo "$body" | python3 -c "import json,sys;print(json.load(sys.stdin).get('sent',0))" 2>/dev/null || echo "0")
+          failed=$(echo "$body" | python3 -c "import json,sys;print(json.load(sys.stdin).get('failed',0))" 2>/dev/null || echo "0")
+          echo "Broadcast summary -> success=$success total=$total sent=$sent failed=$failed"
+
+          if [ "$success" != "True" ] && [ "$success" != "true" ]; then
+            echo "::error::broadcast returned success=false"
+            exit 1
+          fi
+
+          if [ "$sent" = "0" ] && [ "$total" != "0" ]; then
+            echo "::error::broadcast had $total recipients but sent 0 — Resend Batch likely failed"
+            exit 1
+          fi
+
+          if [ "$total" = "0" ]; then
+            # 0 entitled users in production is genuinely possible at MVP time.
+            echo "::warning::no entitled subscribers — confirm Pro/Max users exist if this is unexpected"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Twitter KOL Digest Broadcast failed on ${new Date().toISOString().slice(0,10)}`;
+            const body = `**Workflow:** ${context.workflow}\n**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Triggered by:** ${context.actor}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci-failure']
+            });

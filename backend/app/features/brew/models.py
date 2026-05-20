@@ -14,6 +14,21 @@ from typing import Optional
 # =============================================================================
 
 
+class ActionItem(BaseModel):
+    """Structured action item produced by the digest agent.
+
+    Each item represents one in-site action the user can take. Nothing that
+    requires leaving the site (buy/sell/etc.) should ever appear here.
+    """
+    # Soft limit: prompt asks for ≤12 chars, schema tolerates up to 20 because LLMs
+    # count Chinese/mixed characters poorly and occasionally overshoot. A borderline
+    # overshoot is better than dropping a useful action via ValidationError.
+    label: str = Field(..., max_length=20, description="Action label (prompt limit: ≤12 chars)")
+    target: str = Field(..., description="Site-internal target path, e.g., 'thesis:NVDA', 'portfolio', 'health'. Validated at service layer against a whitelist.")
+    reason: str = Field(..., description="Concrete reason citing user state/today's events/attribution")
+    priority: int = Field(..., ge=1, le=3, description="1 = highest")
+
+
 class DigestRequest(BaseModel):
     """Request model for generating personalized digest"""
     model_config = ConfigDict(
@@ -34,14 +49,14 @@ class StockAnalysis(BaseModel):
     price: float = Field(..., description="Current stock price")
     daily_change: str = Field(..., description="Daily change with percentage")
     status: str = Field(..., description="Brief status in Chinese")
-    quick_take: str = Field(..., description="1-2 sentence analysis in Chinese")
+    quick_take: str = Field(..., description="120-160 char analyst note: trend, driver, judgment, optional event condition")
 
 
 class DigestHeadlineNews(BaseModel):
     """Important news with deep analysis"""
     title: str = Field(..., description="News title in Chinese")
     related_symbols: list[str] = Field(default=[], description="Which watchlist stocks this affects")
-    fact_summary: str = Field(..., description="One sentence factual summary")
+    fact_summary: str = Field(default="", description="Deprecated, kept for cache compatibility. New digests leave empty.")
     deep_analysis: str = Field(..., description="5-6 sentence deep analysis")
     url: str = Field(default="", description="Original article URL")
     published_at: str = Field(default="", description="Original article publish timestamp in ISO-8601 format")
@@ -72,8 +87,8 @@ class DigestEvent(BaseModel):
 
 
 class DigestSummary(BaseModel):
-    """Comprehensive summary in 3 paragraphs"""
-    content: str = Field(default="", description="Three paragraphs: portfolio recap, movement drivers, outlook")
+    """Three-paragraph analyst summary."""
+    content: str = Field(default="", description="Three natural paragraphs, 420-650 Chinese chars: core judgment, movement attribution, future scenarios")
 
 
 class DigestResponse(BaseModel):
@@ -98,8 +113,18 @@ class DigestResponse(BaseModel):
     # Section 4: Summary (replaces macro_impact + bottom_line)
     summary: DigestSummary = Field(default_factory=DigestSummary, description="Comprehensive summary")
 
+    portfolio_summary: Optional[str] = Field(None, description="One-line portfolio attribution summary from portfolio perspective")
+
     # Cache indicator
     from_cache: bool = Field(default=False, description="Whether this digest was returned from cache")
+
+    # Top event (computed by Python rules, not LLM)
+    top_event: Optional["TopEvent"] = Field(None, description="Most urgent event for user's portfolio")
+
+    action_items: list[ActionItem] = Field(
+        default_factory=list,
+        description="0-3 in-site action items co-produced with the digest narrative",
+    )
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if generation failed")
@@ -124,17 +149,19 @@ class StockSummary(BaseModel):
         description="Daily change with +/- sign, e.g., '+2.35%' or '-1.20%'"
     )
     status: str = Field(
-        description="Natural language status - describe what's happening, not a fixed category. "
-        "Good: '连涨四天后首次回调', '财报后持续消化中', '跟随板块反弹', '创一个月新高'. "
-        "Bad: '强势上涨', '小幅回调' (too template-like)"
+        description="Short one-line status, 12-18 Chinese chars. "
+        "Good: '财报后继续消化，逻辑未破', '创三个月新高但追涨风险上升'. "
+        "Bad: '强势上涨', '小幅回调' (too template-like)."
     )
     quick_take: str = Field(
-        description="3-4 sentences with clear logic chain: "
-        "1) What happened today (price action), "
-        "2) Why it happened (news catalyst, sentiment shift, sector rotation), "
-        "3) Market's interpretation (institutional behavior, narrative change), "
-        "4) What it means going forward. "
-        "Focus on news, sentiment, narrative - NOT technical analysis (no support/resistance levels)."
+        description="120-160 Chinese chars (hard cap 180), 3-4 sentences: "
+        "1) one sentence on today's price action and direct cause, "
+        "2) one sentence connecting the driver to this specific stock, "
+        "3) one judgment on whether the medium-term logic is strengthened, "
+        "weakened, or unchanged, "
+        "4) IF a relevant upcoming event exists, include a concrete condition "
+        "to watch; skip if none. If the same story appears in headlines below, "
+        "mention it briefly and let news carry the depth."
     )
 
 
@@ -146,7 +173,8 @@ class HeadlineNews(BaseModel):
         description="Which watchlist stocks this affects, e.g., ['NVDA', 'AMD']"
     )
     fact_summary: str = Field(
-        description="One sentence: factual summary of what happened"
+        default="",
+        description="Deprecated. Leave empty — the title already conveys the fact."
     )
     deep_analysis: str = Field(
         description="5-6 sentences: "
@@ -204,15 +232,16 @@ class UpcomingEvent(BaseModel):
 
 
 class Summary(BaseModel):
-    """Comprehensive summary in 3 paragraphs, no subtitles."""
+    """Three-paragraph private-analyst summary."""
 
     content: str = Field(
-        description="Three paragraphs of analysis, separated by newlines:\n\n"
-        "Paragraph 1: Watchlist overview today - best/worst performers, how they compare to market (SPY/QQQ).\n\n"
-        "Paragraph 2: Why these stocks moved - connect macro factors (Fed, rates, sentiment, sector rotation) "
-        "with specific news catalysts. Be specific about cause-and-effect.\n\n"
-        "Paragraph 3: Near-term outlook - expectations for 1-2 weeks, key risks to watch, "
-        "potential catalysts, important upcoming events."
+        description="Three natural paragraphs, 420-650 Chinese chars total. "
+        "Paragraph 1: core judgment and narrative continuity. "
+        "Paragraph 2: movement attribution connecting macro/sector/news to "
+        "specific watched or held stocks. "
+        "Paragraph 3: 2-3 future scenarios with dates/events, trigger "
+        "conditions, and concrete consequences for the user's watchlist. "
+        "Do not issue buy/sell instructions."
     )
 
 
@@ -249,3 +278,29 @@ class PersonalDigestOutput(BaseModel):
     summary: Summary = Field(
         description="Comprehensive summary: watchlist recap, movement drivers, outlook, and key takeaways"
     )
+
+    portfolio_summary: str = Field(
+        default="",
+        description="One sentence summarizing portfolio performance from the owner's perspective. "
+        "Focus on: which stock contributed/dragged most by weight, alignment with investment thesis if known. "
+        "Do NOT repeat market event narratives (that belongs in one_line_summary). "
+        "Example: '科技持仓领涨，NVDA (+3.2%) 贡献最大，组合整体涨 1.4%'"
+    )
+
+    action_items: list[ActionItem] = Field(
+        default_factory=list,
+        max_length=3,
+        description=(
+            "0-3 in-site actions. Only emit when there's something concrete the user can "
+            "do on this website. Never recommend real-world trades. See instruction block."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Resolve forward reference: DigestResponse.top_event -> TopEvent
+# Import here (after class definitions) to avoid circular imports.
+# ---------------------------------------------------------------------------
+from app.features.brew.event_selector import TopEvent  # noqa: E402
+
+DigestResponse.model_rebuild()

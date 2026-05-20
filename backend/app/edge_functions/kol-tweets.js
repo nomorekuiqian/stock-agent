@@ -52,6 +52,7 @@ module.exports = async function(request) {
   const TABLE = "kol_tweets";
   const RUNS_TABLE = "twitter_fetch_runs";
   const DIGESTS_TABLE = "kol_daily_digests";
+  const ACCOUNTS_TABLE = "kol_accounts";
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
   // Gate POST actions behind X-Internal-Secret. Reads (GET) stay open so
@@ -301,14 +302,17 @@ module.exports = async function(request) {
     if (request.method === "POST" && action === "list_batch") {
       const body = await request.json();
       const usernames = Array.isArray(body.usernames) ? body.usernames : [];
+      const allKols = body.all_kols === true;
       const since = body.since || null; // ISO string, inclusive
       const until = body.until || null; // ISO string, exclusive
       const limit = Math.min(parseInt(body.limit || "1000", 10), 5000);
       const onlyOpinionated = body.only_opinionated === true;
 
-      if (usernames.length === 0) {
+      // Either explicit usernames list OR all_kols=true (used when the catalog
+      // exceeds PostgREST's IN-clause URL length budget). At least one required.
+      if (usernames.length === 0 && !allKols) {
         return new Response(
-          JSON.stringify({ success: false, error: "usernames array required" }),
+          JSON.stringify({ success: false, error: "usernames array or all_kols=true required" }),
           { status: 400, headers: jsonHeaders }
         );
       }
@@ -316,9 +320,11 @@ module.exports = async function(request) {
       let query = client.database
         .from(TABLE)
         .select("id, author_username, text, tweet_type, conversation_id, quoted_tweet_text, in_reply_to_username, created_at, url, like_count, retweet_count, reply_count, view_count, category, symbols")
-        .in("author_username", usernames)
         .order("created_at", { ascending: false })
         .range(0, limit - 1);
+      if (!allKols) {
+        query = query.in("author_username", usernames);
+      }
 
       if (since) query = query.gte("created_at", since);
       if (until) query = query.lt("created_at", until);
@@ -538,35 +544,27 @@ module.exports = async function(request) {
     }
 
     // POST ?action=upsert_digest - upsert a daily digest (overwrites by date)
-    // Accepts both V2 (macro/industry/stock_picks) and V3 (topics/briefs/
-    // solo_voices/headline/intro/crosscut/watch_next + schema_version) fields.
-    // Unspecified fields are left at the column default (empty array / "" / null).
     if (request.method === "POST" && action === "upsert_digest") {
       const body = await request.json();
       const {
         date,
-        macro_picks,
-        industry_picks,
-        stock_picks,
         tracked_kols,
-        takeaway,
         window_hours,
         input_tweet_count,
         generated_at,
         model_version,
-        // V3 fields
-        schema_version,
         headline,
         intro,
-        topics,
-        briefs,
-        solo_voices,
-        crosscut,
-        watch_next,
-        // V3.1 hot-list fields (backend-computed frequency tallies)
+        // Hot-list fields (backend-computed frequency tallies)
         hot_sectors,
         hot_tickers,
         hot_events,
+        // Main content: ticker_theses + macro_threads + watchpoints
+        ticker_theses,
+        macro_threads,
+        watchpoints,
+        // Transparency tail
+        other_tickers,
       } = body;
 
       if (!date || window_hours === undefined || input_tweet_count === undefined ||
@@ -582,27 +580,20 @@ module.exports = async function(request) {
 
       const row = {
         date,
-        macro_picks: macro_picks || [],
-        industry_picks: industry_picks || [],
-        stock_picks: stock_picks || [],
         tracked_kols: tracked_kols || [],
-        takeaway: takeaway || [],
         window_hours,
         input_tweet_count,
         generated_at,
         model_version,
-        // V3 — all optional, fall back to empty equivalents
-        schema_version: schema_version || "v2",
         headline: headline || "",
         intro: intro || "",
-        topics: topics || [],
-        briefs: briefs || [],
-        solo_voices: solo_voices || [],
-        crosscut: crosscut || "",
-        watch_next: watch_next || [],
         hot_sectors: hot_sectors || [],
         hot_tickers: hot_tickers || [],
         hot_events: hot_events || [],
+        ticker_theses: ticker_theses || [],
+        macro_threads: macro_threads || [],
+        watchpoints: watchpoints || [],
+        other_tickers: other_tickers || [],
         updated_at: new Date().toISOString(),
       };
 
@@ -667,7 +658,7 @@ module.exports = async function(request) {
 
       const { data, error } = await client.database
         .from(DIGESTS_TABLE)
-        .select("date, macro_picks, industry_picks, stock_picks, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version, schema_version, headline, intro, topics, briefs, solo_voices, crosscut, watch_next, hot_sectors, hot_tickers, hot_events")
+        .select("date, tracked_kols, window_hours, input_tweet_count, generated_at, model_version, headline, intro, hot_sectors, hot_tickers, hot_events, ticker_theses, macro_threads, watchpoints, other_tickers")
         .eq("date", date)
         .maybeSingle();
 
@@ -688,7 +679,7 @@ module.exports = async function(request) {
     if (request.method === "GET" && action === "get_latest_digest") {
       const { data, error } = await client.database
         .from(DIGESTS_TABLE)
-        .select("date, macro_picks, industry_picks, stock_picks, tracked_kols, takeaway, window_hours, input_tweet_count, generated_at, model_version, schema_version, headline, intro, topics, briefs, solo_voices, crosscut, watch_next, hot_sectors, hot_tickers, hot_events")
+        .select("date, tracked_kols, window_hours, input_tweet_count, generated_at, model_version, headline, intro, hot_sectors, hot_tickers, hot_events, ticker_theses, macro_threads, watchpoints, other_tickers")
         .order("date", { ascending: false })
         .limit(1);
 
@@ -706,8 +697,173 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=list_accounts&enabled_only=true|false
+    // Returns all KOL accounts (the source-of-truth catalog).
+    if (request.method === "GET" && action === "list_accounts") {
+      const enabledOnly = url.searchParams.get("enabled_only") !== "false";
+      let query = client.database
+        .from(ACCOUNTS_TABLE)
+        .select("username, display_name, source, enabled, followers, bio, added_at, last_synced_at")
+        .order("added_at", { ascending: false });
+      if (enabledOnly) {
+        query = query.eq("enabled", true);
+      }
+      const { data, error } = await query;
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: true, data: data || [] }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
+    // POST ?action=upsert_accounts
+    // Body: { accounts: [{username, display_name, source, enabled?, followers?, bio?}] }
+    // Bulk upsert by username (case-insensitive normalization done server-side).
+    if (request.method === "POST" && action === "upsert_accounts") {
+      const body = await request.json();
+      if (!Array.isArray(body.accounts) || body.accounts.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "accounts (non-empty array) required" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+      const now = new Date().toISOString();
+      const rows = body.accounts.map(a => ({
+        username: String(a.username || "").toLowerCase(),
+        display_name: a.display_name || a.username,
+        source: a.source || "manual",
+        enabled: a.enabled !== false,
+        followers: a.followers ?? null,
+        bio: a.bio ?? null,
+        last_synced_at: now,
+      })).filter(r => r.username);
+
+      if (rows.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "no valid usernames" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+
+      const { data, error } = await client.database
+        .from(ACCOUNTS_TABLE)
+        .upsert(rows, { onConflict: "username" })
+        .select("username");
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: true, upserted: (data || []).length }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
+    // POST ?action=update_account
+    // Body: { username, ...patch } — patch any of {display_name, source, enabled, followers, bio}
+    if (request.method === "POST" && action === "update_account") {
+      const body = await request.json();
+      const username = String(body.username || "").toLowerCase();
+      if (!username) {
+        return new Response(
+          JSON.stringify({ success: false, error: "username required" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+      const patch = {};
+      if (body.display_name !== undefined) patch.display_name = body.display_name;
+      if (body.source !== undefined) patch.source = body.source;
+      if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+      if (body.followers !== undefined) patch.followers = body.followers;
+      if (body.bio !== undefined) patch.bio = body.bio;
+      if (Object.keys(patch).length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "no fields to update" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+      patch.last_synced_at = new Date().toISOString();
+      const { error } = await client.database
+        .from(ACCOUNTS_TABLE)
+        .update(patch)
+        .eq("username", username);
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
+    // POST ?action=disable_missing
+    // Body: { source, current_usernames: [...] }
+    // For sync from a list: any account with this `source` whose username is NOT in
+    // current_usernames gets enabled=false (soft delete; tweets remain).
+    if (request.method === "POST" && action === "disable_missing") {
+      const body = await request.json();
+      const source = String(body.source || "");
+      const currentUsernames = Array.isArray(body.current_usernames)
+        ? body.current_usernames.map(u => String(u).toLowerCase())
+        : null;
+      if (!source || !currentUsernames) {
+        return new Response(
+          JSON.stringify({ success: false, error: "source and current_usernames required" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+      // Pull all accounts with this source, then disable the ones not in current_usernames.
+      const { data: existing, error: fetchErr } = await client.database
+        .from(ACCOUNTS_TABLE)
+        .select("username, enabled")
+        .eq("source", source);
+      if (fetchErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: fetchErr.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+      const currentSet = new Set(currentUsernames);
+      const toDisable = (existing || [])
+        .filter(r => r.enabled && !currentSet.has(r.username))
+        .map(r => r.username);
+
+      if (toDisable.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, disabled: 0 }),
+          { status: 200, headers: jsonHeaders }
+        );
+      }
+
+      const now = new Date().toISOString();
+      const { error: updErr } = await client.database
+        .from(ACCOUNTS_TABLE)
+        .update({ enabled: false, last_synced_at: now })
+        .in("username", toDisable);
+      if (updErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: updErr.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: true, disabled: toDisable.length, usernames: toDisable }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ success: false, error: "Invalid request. Use action param: list, list_batch, list_unenriched, stats, get, upsert_batch, upsert_enrichment, update_category, update_categories_batch, start_run, finish_run, list_runs, upsert_digest, get_digest, get_latest_digest" }),
+      JSON.stringify({ success: false, error: "Invalid request. Use action param: list, list_batch, list_unenriched, stats, get, upsert_batch, upsert_enrichment, update_category, update_categories_batch, start_run, finish_run, list_runs, upsert_digest, get_digest, get_latest_digest, list_accounts, upsert_accounts, update_account, disable_missing" }),
       { status: 400, headers: jsonHeaders }
     );
   } catch (err) {

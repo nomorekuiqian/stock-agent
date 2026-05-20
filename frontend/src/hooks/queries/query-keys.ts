@@ -50,6 +50,23 @@ export const queryKeys = {
     all: ['watchlist'] as const,
     byUser: (userId: string) => ['watchlist', userId] as const,
   },
+  portfolio: {
+    all: ['portfolio'] as const,
+    byUser: (userId: string) => ['portfolio', userId] as const,
+  },
+  investmentProfile: {
+    all: ['investment-profile'] as const,
+    byUser: (userId: string) => ['investment-profile', userId] as const,
+  },
+  actionBar: {
+    all: ['action-bar'] as const,
+    current: () => ['action-bar', 'current'] as const,
+  },
+  health: {
+    all: ['health'] as const,
+    latest: () => ['health', 'latest'] as const,
+    report: () => ['health', 'report'] as const,
+  },
   morningReports: {
     all: ['morning-reports'] as const,
     list: (limit: number, offset: number) => ['morning-reports', 'list', limit, offset] as const,
@@ -71,5 +88,8 @@ export const queryKeys = {
   subscriptions: {
     all: ['subscriptions'] as const,
     preferences: () => ['subscriptions', 'preferences'] as const,
+  },
+  featureFlags: {
+    all: ['feature-flags'] as const,
   },
 };

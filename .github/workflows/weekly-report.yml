@@ -34,11 +34,23 @@ jobs:
             exit 1
           fi
 
-          # Check if it was from cache (already generated)
-          if echo "$body" | grep -q '"from_cache":true'; then
-            echo "Weekly report already exists for this week (cached)"
+          # Parse broadcast outcome from response body. The /generate endpoint
+          # returns success:true even when the email broadcast itself fails or
+          # is skipped, so the cron must inspect broadcast_result explicitly.
+          from_cache=$(echo "$body" | jq -r '.from_cache // false')
+          br_success=$(echo "$body" | jq -r '.broadcast_result.success // "missing"')
+          br_error=$(echo "$body" | jq -r '.broadcast_result.error // ""')
+
+          if [ "$from_cache" = "true" ]; then
+            echo "Weekly report already exists for this week (cached) - broadcast skipped"
+          elif [ "$br_success" = "missing" ]; then
+            echo "Broadcast was skipped or threw an unhandled exception"
+            exit 1
+          elif [ "$br_success" != "true" ]; then
+            echo "Broadcast failed: $br_error"
+            exit 1
           else
-            echo "Weekly report generated successfully!"
+            echo "Weekly report generated and broadcast sent successfully!"
           fi
 
       - name: Notify on failure

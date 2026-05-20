@@ -16,7 +16,12 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.core.config import ALLOWED_ORIGINS, GOOGLE_API_KEY, FMP_API_KEY
+from app.core.config import (
+    ALLOWED_ORIGINS,
+    CORS_ALLOWED_ORIGIN_REGEX,
+    GOOGLE_API_KEY,
+    FMP_API_KEY,
+)
 from app.core.logging import setup_logging, get_logger
 from app.core.rate_limit import limiter
 
@@ -36,6 +41,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=CORS_ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -125,12 +131,19 @@ from app.features.payment.router import router as payment_router
 from app.features.invites.router import router as invites_router
 from app.features.screener.router import router as screener_router
 from app.features.screener.router import research_router
+from app.features.research_kb.router import router as research_kb_router
 from app.features.wechat.router import router as wechat_router
 from app.features.admin.router import router as admin_router
 from app.features.admin.crm_router import router as crm_router
 from app.features.twitter.router import router as twitter_router
 from app.features.twitter_digest.router import router as twitter_digest_router
 from app.features.vector.router import router as vector_router
+from app.features.portfolio.router import router as portfolio_router
+from app.features.for_you.router import router as for_you_router
+from app.features.portfolio_health.router import router as portfolio_health_router
+from app.features.memory.router import router as memory_router
+from app.features.flags.router import router as flags_router
+from app.features.flags.admin_router import router as flags_admin_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -148,12 +161,19 @@ app.include_router(invites_router)
 app.include_router(morning_report_router)
 app.include_router(screener_router)
 app.include_router(research_router)
+app.include_router(research_kb_router)
 app.include_router(wechat_router)
 app.include_router(admin_router)
 app.include_router(crm_router)
 app.include_router(twitter_router)
 app.include_router(twitter_digest_router)
 app.include_router(vector_router)
+app.include_router(portfolio_router)
+app.include_router(for_you_router)
+app.include_router(portfolio_health_router)
+app.include_router(memory_router)
+app.include_router(flags_router)
+app.include_router(flags_admin_router)
 
 
 # ---------------------------------------------------------------------------

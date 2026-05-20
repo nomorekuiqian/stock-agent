@@ -164,6 +164,13 @@ export interface DigestResponse {
 
   // Error handling
   error?: string;
+
+  action_items?: Array<{
+    label: string;
+    target: string;
+    reason: string;
+    priority: 1 | 2 | 3;
+  }>;
 }
 
 export interface SubscribeResponse {
@@ -231,6 +238,7 @@ export interface EmailPreferences {
   daily_report: boolean;
   weekly_report: boolean;
   personal_digest: boolean;
+  twitter_digest: boolean;
 }
 
 export interface PreferencesResponse {
@@ -654,6 +662,144 @@ export interface MorningReportListItem {
   created_at?: string;
 }
 
+// Portfolio & Investment Profile types
+export interface HoldingInput {
+  symbol: string;
+  weight_pct?: number | null;
+  shares?: number | null;
+  cost_basis?: number | null;
+  entry_price?: number | null;
+  thesis?: string | null;
+  target?: number | null;
+  stop_loss?: number | null;
+  conviction?: number | null;
+}
+
+export interface HoldingView {
+  symbol: string;
+  weight_pct: number | null;
+  shares: number | null;
+  cost_basis: number | null;
+  entry_price: number | null;
+  market_value: number | null;
+  unrealized_pnl: number | null;
+  thesis: string | null;
+  target: number | null;
+  stop_loss: number | null;
+  conviction: number | null;
+  effective_weight_pct: number;
+  weight_source: 'shares_x_price' | 'cost_basis' | 'weight_pct' | 'equal' | 'ghost';
+}
+
+export interface PortfolioListResponse {
+  holdings: HoldingView[];
+  total_weight_pct: number;
+}
+
+export type InvestmentStyle = 'passive' | 'balanced' | 'active';
+export type InvestmentHorizon = 'short' | 'mid' | 'long';
+export type RiskTolerance = 'low' | 'moderate' | 'high';
+export type NotifyMode = 'silent' | 'events_only' | 'daily';
+
+export interface InvestmentProfileInput {
+  style?: InvestmentStyle;
+  horizon?: InvestmentHorizon;
+  risk_tolerance?: RiskTolerance;
+  notify_mode?: NotifyMode;
+}
+
+export interface InvestmentProfileView {
+  user_id: string;
+  style: InvestmentStyle;
+  horizon: InvestmentHorizon;
+  risk_tolerance: RiskTolerance;
+  notify_mode: NotifyMode;
+  version: number;
+  onboarded_at: string | null;
+  portfolio_confirmed_at: string | null;
+  updated_at: string | null;
+}
+
+// Portfolio Health
+export interface HealthScore {
+  dispersion: number;
+  performance: number;
+  macro_fit: number;
+  stability: number;
+  total: number;
+}
+
+export interface NextAction {
+  type: 'rebalance' | 'research' | 'none';
+  text: string;
+  symbols: string[];
+}
+
+export interface DiagnosisOutput {
+  one_line: string;
+  diagnosis_markdown: string;
+  top_risk: string;
+  sector_dna: string;
+  macro_sensitivity_tag: 'low' | 'mid' | 'high';
+  next_action: NextAction;
+}
+
+export interface HealthResponse {
+  report_id?: string;
+  score: HealthScore;
+  diagnosis: DiagnosisOutput | null;
+  generated_at: string;
+  from_cache: boolean;
+  is_first_report: boolean;
+}
+
+export interface HealthLatestResponse {
+  health_score: number | null;
+  top_risk: string | null;
+  next_action: NextAction | null;
+  generated_at: string | null;
+  stale: boolean;
+}
+
+// Action Bar
+export type ActionChipKind =
+  | 'event'
+  | 'health'
+  | 'drawdown'
+  | 'stable'
+  | 'research'
+  | 'guide'
+  | 'thesis'
+  | 'recap'
+  | 'section';
+
+export interface ActionChip {
+  label: string;
+  // `target` is the routing source of truth (e.g., "thesis:NVDA", "section:notes",
+  // "digest:<uuid>"). `link` is a legacy best-effort URL kept for backwards compat.
+  target: string;
+  link: string;
+  kind: ActionChipKind;
+}
+
+export interface ActionBarResponse {
+  severity: 'green' | 'yellow' | 'red';
+  headline: string;
+  chips: ActionChip[];
+  source: 'template' | 'llm' | 'llm_fallback' | 'agent';
+  visibility?: 'visible' | 'hidden';
+  generated_at: string;
+}
+
+// Feedback
+export interface FeedbackInput {
+  target_type: 'digest_quick_take' | 'digest_headline' | 'health_diagnosis' | 'action_bar_headline' | 'action_bar_chip' | 'top_event';
+  target_id: string;
+  sentiment: 1 | -1;
+  reason?: string;
+  snapshot?: { text?: string; [key: string]: unknown };
+}
+
 export interface WatchlistData {
   user_id: string;
   email?: string;
@@ -869,6 +1015,115 @@ export interface ConversationSummary {
 export interface ConversationSaveRequest {
   title: string;
   data: Record<string, unknown>;
+  message_count: number;
+}
+
+export interface ResearchKBMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ResearchKBRequest {
+  message: string;
+  history?: ResearchKBMessage[];
+}
+
+export interface RetrievedChunk {
+  content: string;
+  title?: string;
+  source_type: string;
+  source_id: string;
+  url?: string;
+  similarity: number;
+}
+
+export interface ResearchKBResponse {
+  answer: string;
+  chunks_used: RetrievedChunk[];
+}
+
+export type MethodologyCategory =
+  | 'stock_analysis'
+  | 'sector_analysis'
+  | 'macro_analysis'
+  | 'trading_strategy'
+  | 'risk_management'
+  | 'methodology';
+
+export interface MethodologyChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface MethodologyChatRequest {
+  message: string;
+  username?: string;
+  category?: MethodologyCategory | null;
+  history?: MethodologyChatMessage[];
+}
+
+export interface MethodologyCitation {
+  tweet_id: string;
+  quote: string;
+  reason: string;
+}
+
+export interface MethodologyLiveContext {
+  topic: string;
+  symbols: string[];
+  quotes: Array<Record<string, unknown>>;
+  news_events: Array<Record<string, unknown>>;
+  calendar_events: Array<Record<string, unknown>>;
+  market_reports: Array<Record<string, unknown>>;
+  sources: string[];
+  data_timestamp: string;
+  limitations: string[];
+}
+
+export interface MethodologyChatResponse {
+  success: boolean;
+  analyst: string;
+  category: MethodologyCategory;
+  answer: string;
+  citations: MethodologyCitation[];
+  live_context?: MethodologyLiveContext | null;
+  confidence: 'high' | 'medium' | 'low';
+  limitations: string[];
+  suggested_followups: string[];
+}
+
+export interface MethodologyChatStreamEvent {
+  event: 'status' | 'live_context' | 'final' | 'error';
+  data: {
+    step?: string;
+    message?: string;
+    category?: MethodologyCategory;
+    live_context?: MethodologyLiveContext;
+    detail?: string;
+  } & Partial<MethodologyChatResponse>;
+}
+
+export interface MethodologyConversationData {
+  username: string;
+  category: MethodologyCategory | null;
+  messages: unknown[];
+}
+
+export interface MethodologyConversation {
+  id: string;
+  user_id: string;
+  username: string;
+  title: string;
+  data: MethodologyConversationData;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MethodologyConversationSaveRequest {
+  username: string;
+  title: string;
+  data: MethodologyConversationData;
   message_count: number;
 }
 
@@ -1630,6 +1885,159 @@ export const api = {
     },
   },
 
+  // KOL Methodology Chat API
+  twitterMethodology: {
+    chat: async (
+      req: MethodologyChatRequest,
+      options: { signal?: AbortSignal } = {},
+    ): Promise<MethodologyChatResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      let timedOut = false;
+      const abortFromCaller = () => controller.abort();
+      options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 120_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          if (options.signal?.aborted && !timedOut) {
+            throw new Error('已停止生成');
+          }
+          throw new Error('KOL 方法论助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+        options.signal?.removeEventListener('abort', abortFromCaller);
+      }
+    },
+
+    chatStream: async (
+      req: MethodologyChatRequest,
+      onEvent: (event: MethodologyChatStreamEvent) => void,
+      options: { signal?: AbortSignal } = {},
+    ): Promise<MethodologyChatResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat/stream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+        signal: options.signal,
+      });
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
+      }
+      const responseBody = response.body;
+      if (!responseBody) {
+        throw new Error('KOL 方法论助手响应中断，请再试一次');
+      }
+
+      const reader = responseBody.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResponse: MethodologyChatResponse | null = null;
+
+      const flushEvent = (raw: string) => {
+        const lines = raw.split('\n');
+        const eventLine = lines.find((line) => line.startsWith('event:'));
+        const dataLine = lines.find((line) => line.startsWith('data:'));
+        if (!eventLine || !dataLine) return;
+
+        const event = eventLine.slice('event:'.length).trim() as MethodologyChatStreamEvent['event'];
+        const data = JSON.parse(dataLine.slice('data:'.length).trim()) as MethodologyChatStreamEvent['data'];
+        const parsed = { event, data };
+        onEvent(parsed);
+        if (event === 'final') {
+          finalResponse = data as MethodologyChatResponse;
+        }
+        if (event === 'error') {
+          throw new Error(data.detail || data.message || 'KOL 方法论助手暂时无法响应');
+        }
+      };
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const chunks = buffer.split('\n\n');
+          buffer = chunks.pop() || '';
+          chunks.forEach(flushEvent);
+        }
+        if (buffer.trim()) flushEvent(buffer);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('已停止生成');
+        }
+        throw err;
+      }
+
+      if (!finalResponse) {
+        throw new Error('KOL 方法论助手响应中断，请再试一次');
+      }
+      return finalResponse;
+    },
+
+    conversations: {
+      latest: async (username = 'qinbafrank'): Promise<MethodologyConversation | null> => {
+        const headers = await _authHeaders({}, { required: true });
+        const response = await fetch(
+          `${API_BASE_URL}/twitter/methodology-conversations/latest?username=${encodeURIComponent(username)}`,
+          { headers },
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch KOL conversation');
+        }
+        const json = await response.json();
+        return json.data || null;
+      },
+
+      create: async (
+        req: MethodologyConversationSaveRequest,
+      ): Promise<MethodologyConversation> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to create KOL conversation');
+        }
+        return response.json();
+      },
+
+      update: async (
+        id: string,
+        req: MethodologyConversationSaveRequest,
+      ): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations/${id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to update KOL conversation');
+        }
+        return response.json();
+      },
+    },
+  },
+
   // Screener API
   screener: {
     filter: async (req: ScreenerFilterRequest): Promise<ScreenerFilterResult> => {
@@ -1935,6 +2343,175 @@ export const api = {
         }
         return response.json();
       },
+    },
+  },
+
+  researchKb: {
+    chat: async (req: ResearchKBRequest): Promise<ResearchKBResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/research-kb/chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, '知识库助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('知识库助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  },
+
+  portfolio: {
+    get: async (): Promise<PortfolioListResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/portfolio`,
+        {},
+        'Failed to fetch portfolio',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch portfolio');
+      }
+      return response.json();
+    },
+
+    bulkSave: async (rows: HoldingInput[]): Promise<PortfolioListResponse> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/bulk`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      }, 'Failed to save portfolio');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to save portfolio');
+      }
+      return response.json();
+    },
+
+    touch: async (): Promise<{ confirmed_at: string }> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/touch`, {
+        method: 'PATCH',
+      }, 'Failed to touch portfolio');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to touch portfolio');
+      }
+      return response.json();
+    },
+
+    patch: async (symbol: string, fields: Record<string, unknown>): Promise<unknown> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/${encodeURIComponent(symbol)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      }, 'Failed to patch holding');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to patch holding');
+      }
+      return response.json();
+    },
+
+    delete: async (symbol: string): Promise<{ deleted: boolean; symbol: string }> => {
+      const response = await fetchProtected(`${API_BASE_URL}/portfolio/${encodeURIComponent(symbol)}`, {
+        method: 'DELETE',
+      }, 'Failed to delete holding');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to delete holding');
+      }
+      return response.json();
+    },
+  },
+
+  forYou: {
+    getActionBar: async (): Promise<ActionBarResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/for-you/action-bar`,
+        {},
+        'Failed to fetch action bar',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch action bar');
+      }
+      return response.json();
+    },
+
+    generateHealthCheck: async (force: boolean = false): Promise<HealthResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/portfolio-health${force ? '?force=true' : ''}`,
+        { method: 'POST' },
+        'Failed to generate health check',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to generate health check');
+      }
+      return response.json();
+    },
+
+    getHealthLatest: async (): Promise<HealthLatestResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/portfolio-health/latest`,
+        {},
+        'Failed to fetch health latest',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch health latest');
+      }
+      return response.json();
+    },
+  },
+
+  feedback: {
+    submit: async (data: FeedbackInput): Promise<{ success: boolean; id: string | null }> => {
+      try {
+        const response = await fetchProtected(`${API_BASE_URL}/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        }, 'Failed to submit feedback');
+        if (!response.ok) {
+          // Don't throw on feedback failure — it's non-critical
+          return { success: false, id: null };
+        }
+        return response.json();
+      } catch {
+        // Silently fail — feedback is non-critical
+        return { success: false, id: null };
+      }
+    },
+  },
+
+  investmentProfile: {
+    get: async (): Promise<InvestmentProfileView> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/profile`,
+        {},
+        'Failed to fetch profile',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch profile');
+      }
+      return response.json();
+    },
+
+    save: async (data: InvestmentProfileInput): Promise<InvestmentProfileView> => {
+      const response = await fetchProtected(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }, 'Failed to save profile');
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to save profile');
+      }
+      return response.json();
     },
   },
 };

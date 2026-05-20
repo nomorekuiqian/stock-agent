@@ -328,6 +328,12 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
             共 {summary.total} 位用户 · {engagementStats.withConversations} 人有对话 · {engagementStats.totalMessages} 条消息 · {engagementStats.personalDigestSubscribers} 人订阅专属日报
           </p>
         </div>
+        <Link
+          href="/admin/flags"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
+        >
+          灰度管理 →
+        </Link>
       </div>
 
       {/* Status cards */}
@@ -619,14 +625,8 @@ function NumCell({ value }: { value: number }) {
   return <span className="text-xs font-medium">{value}</span>;
 }
 
-function EmailBadges({ user }: { user: UserRecord }) {
-  const ents = user.entitlements ?? [];
-  const hasMorning = ents.includes('morning_report_email');
-  const hasWeekly = ents.includes('weekly_report_email');
-  const digestSubscribed = !!user.personal_digest_subscribed;
-  const digestCount = user.personal_digest_count_30d ?? 0;
-
-  const Pill = ({ active, char, title }: { active: boolean; char: string; title: string }) => (
+function EmailPill({ active, char, title }: { active: boolean; char: string; title: string }) {
+  return (
     <span
       title={title}
       className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${
@@ -636,6 +636,14 @@ function EmailBadges({ user }: { user: UserRecord }) {
       {char}
     </span>
   );
+}
+
+function EmailBadges({ user }: { user: UserRecord }) {
+  const ents = user.entitlements ?? [];
+  const hasMorning = ents.includes('morning_report_email');
+  const hasWeekly = ents.includes('weekly_report_email');
+  const digestSubscribed = !!user.personal_digest_subscribed;
+  const digestCount = user.personal_digest_count_30d ?? 0;
 
   const digestTitle = digestSubscribed
     ? `已订阅专属日报${digestCount > 0 ? ` · 近 30 天 ${digestCount} 期` : ''}`
@@ -643,9 +651,9 @@ function EmailBadges({ user }: { user: UserRecord }) {
 
   return (
     <div className="flex items-center gap-1">
-      <Pill active={hasMorning} char="早" title={`早报 entitlement · ${hasMorning ? '有' : '无'}`} />
-      <Pill active={hasWeekly}  char="周" title={`周报 entitlement · ${hasWeekly ? '有' : '无'}`} />
-      <Pill active={digestSubscribed} char="专" title={digestTitle} />
+      <EmailPill active={hasMorning} char="早" title={`早报 entitlement · ${hasMorning ? '有' : '无'}`} />
+      <EmailPill active={hasWeekly}  char="周" title={`周报 entitlement · ${hasWeekly ? '有' : '无'}`} />
+      <EmailPill active={digestSubscribed} char="专" title={digestTitle} />
     </div>
   );
 }

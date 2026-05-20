@@ -2,10 +2,15 @@ name: Twitter KOL Digest Generation
 
 on:
   schedule:
-    # Beijing 06:00 Mon-Fri = UTC 22:00 Sun-Thu (China is UTC+8, no DST).
-    # GitHub Actions cron may delay 5-30 min; downstream email send (08:00 BJT)
-    # has a 2h cushion before the 07:30 retry cutoff defined in the plan.
-    - cron: '0 22 * * 0-4'
+    # ET 16:30 Mon-Fri = UTC 20:30 Mon-Fri (DST-aware: drifts to ET 15:30
+    # during winter; accept the 1h seasonal shift rather than maintaining
+    # two cron entries — the broadcast at UTC 22:00 (ET 18:00/17:00 EDT/EST)
+    # still falls in the post-close window either way).
+    # Triggered 30 min after US market close so the digest captures the
+    # immediate post-close KOL reactions (closing prices, earnings calls,
+    # after-hours moves). Enrich runs hourly via the fetch workflow, so the
+    # data pool is already labelled when this fires.
+    - cron: '30 20 * * 1-5'
   workflow_dispatch:
     inputs:
       window_hours:
@@ -44,16 +49,16 @@ jobs:
             exit 1
           fi
 
-          # Surface bucket counts so the workflow run shows whether the day
-          # produced enough material. Empty days are allowed by the prompt
-          # (we don't backfill garbage), so this is informational, not a fail.
-          input_tweets=$(echo "$body" | grep -o '"input_tweet_count":[0-9]*' | cut -d':' -f2)
-          macro=$(echo "$body" | grep -o '"macro_picks":\[' | wc -l | tr -d ' ')
-          industry=$(echo "$body" | grep -o '"industry_picks":\[' | wc -l | tr -d ' ')
-          stock=$(echo "$body" | grep -o '"stock_picks":\[' | wc -l | tr -d ' ')
-          echo "Digest summary -> input_tweets=${input_tweets:-0} macro=$macro industry=$industry stock=$stock"
+          # Surface counts so the workflow run shows whether the day produced
+          # enough material. Empty days are allowed (we don't backfill garbage),
+          # so a 0-count is informational, not a fail.
+          input_tweets=$(echo "$body" | python3 -c "import json,sys;print(json.load(sys.stdin).get('input_tweet_count',0))" 2>/dev/null || echo "0")
+          theses=$(echo "$body" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('ticker_theses',[])))" 2>/dev/null || echo "0")
+          macros=$(echo "$body" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('macro_threads',[])))" 2>/dev/null || echo "0")
+          watchpoints=$(echo "$body" | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('watchpoints',[])))" 2>/dev/null || echo "0")
+          echo "Digest summary -> input_tweets=$input_tweets ticker_theses=$theses macro_threads=$macros watchpoints=$watchpoints"
 
-          if [ -z "$input_tweets" ] || [ "${input_tweets:-0}" -eq 0 ]; then
+          if [ "$input_tweets" = "0" ]; then
             echo "::warning::generated digest had 0 input tweets — KOL ingestion may be lagging"
           fi
 

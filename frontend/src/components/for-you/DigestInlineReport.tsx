@@ -1,11 +1,27 @@
 'use client';
 
+import Link from 'next/link';
 import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent } from '@/lib/api';
 import { formatReportDate, formatCalendarDate, isMarketToday, formatCompactTimestamp } from '@/lib/timezone';
 import StockOverviewPanel from './StockOverviewPanel';
+import { FeedbackBar } from '@/components/memory/FeedbackBar';
 
 interface DigestInlineReportProps {
   digest: DigestResponse;
+  /**
+   * Layout variant. `'v1'` keeps the legacy 总结-at-bottom placement;
+   * `'v2'` renders the renamed 给你的复盘笔记 section at position 3 (below 持仓概览).
+   * Defaults to `'v1'` so any un-migrated caller keeps the legacy UI.
+   */
+  variant?: 'v1' | 'v2';
+  thesisMap?: Record<string, string>;
+  onThesisSaved?: (symbol: string, thesis: string) => void;
+  portfolioSymbols?: Set<string>;
+  portfolioWeightMap?: Record<string, number>;
+  portfolioSummary?: string;
+  totalMarketValue?: number;
+  totalDailyChange?: number;
+  totalDailyChangePct?: number;
 }
 
 function NewsTimestamp({ timestamp }: { timestamp?: string }) {
@@ -23,7 +39,18 @@ function NewsTimestamp({ timestamp }: { timestamp?: string }) {
   );
 }
 
-export default function DigestInlineReport({ digest }: DigestInlineReportProps) {
+export default function DigestInlineReport({
+  digest,
+  variant = 'v1',
+  thesisMap,
+  onThesisSaved,
+  portfolioSymbols,
+  portfolioWeightMap,
+  portfolioSummary,
+  totalMarketValue,
+  totalDailyChange,
+  totalDailyChangePct,
+}: DigestInlineReportProps) {
   return (
     <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
       {/* Report Header */}
@@ -52,11 +79,17 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
         {/* Tracked symbols */}
         <div className="flex flex-wrap gap-1.5 mt-4">
-          {digest.symbols_used.map((sym) => (
-            <span key={sym} className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
-              {sym}
-            </span>
-          ))}
+          {digest.symbols_used.map((sym) =>
+            sym === '$CASH' ? (
+              <span key={sym} className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data">
+                {sym}
+              </span>
+            ) : (
+              <Link key={sym} href={`/stock/${sym}`} className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-data hover:bg-primary/20 transition-colors">
+                {sym}
+              </Link>
+            )
+          )}
         </div>
       </section>
 
@@ -67,13 +100,48 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
             <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">持仓概览</h3>
           </div>
-          <StockOverviewPanel stocks={digest.stocks} />
+          <StockOverviewPanel
+            stocks={digest.stocks}
+            digestDate={digest.timestamp.split('T')[0]}
+            thesisMap={thesisMap}
+            onThesisSaved={onThesisSaved}
+            portfolioSymbols={portfolioSymbols}
+            portfolioWeightMap={portfolioWeightMap}
+            portfolioSummary={portfolioSummary}
+            totalMarketValue={totalMarketValue}
+            totalDailyChange={totalDailyChange}
+            totalDailyChangePct={totalDailyChangePct}
+          />
+        </section>
+      )}
+
+      {/* V2 only: 给你的复盘笔记 — moved from the bottom; section:notes anchor lives here */}
+      {variant === 'v2' && digest.summary?.content && (
+        <section id="section-notes" className="terminal-card p-6 animate-fade-in-up">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-5 bg-primary rounded-full" />
+            <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">
+              给你的复盘笔记
+            </h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            综合你的持仓、关注列表与今日相关新闻
+          </p>
+          <div className="space-y-4">
+            {digest.summary.content.split('\n\n').map((paragraph, index) =>
+              paragraph.trim() && (
+                <p key={index} className="text-sm text-muted-foreground leading-relaxed">
+                  {paragraph.trim()}
+                </p>
+              ),
+            )}
+          </div>
         </section>
       )}
 
       {/* Headlines News */}
       {digest.news.headlines && digest.news.headlines.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section id="section-headlines" className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">头条新闻</h3>
@@ -103,6 +171,11 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
                 <NewsTimestamp timestamp={item.published_at} />
                 <p className="text-sm text-foreground mb-2">{item.fact_summary}</p>
                 <p className="text-sm text-muted-foreground leading-relaxed">{item.deep_analysis}</p>
+                <FeedbackBar
+                  targetType="digest_headline"
+                  targetId={`digest_headline:${digest.timestamp.split('T')[0]}:${index}`}
+                  snapshot={{ text: item.fact_summary?.slice(0, 200) }}
+                />
               </div>
             ))}
           </div>
@@ -111,7 +184,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Brief News */}
       {digest.news.briefs && digest.news.briefs.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section id="section-briefs" className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">更多新闻</h3>
@@ -149,7 +222,7 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
 
       {/* Key Events */}
       {digest.events.length > 0 && (
-        <section className="terminal-card p-6 animate-fade-in-up">
+        <section id="section-events" className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">重要事件</h3>
@@ -196,21 +269,21 @@ export default function DigestInlineReport({ digest }: DigestInlineReportProps) 
         </section>
       )}
 
-      {/* Summary */}
-      {digest.summary?.content && (
+      {/* V1 legacy summary — rendered at the bottom for backward compat */}
+      {variant !== 'v2' && digest.summary?.content && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-primary rounded-full" />
             <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">总结</h3>
           </div>
           <div className="space-y-4">
-            {digest.summary.content.split('\n\n').map((paragraph, index) => (
+            {digest.summary.content.split('\n\n').map((paragraph, index) =>
               paragraph.trim() && (
                 <p key={index} className="text-sm text-muted-foreground leading-relaxed">
                   {paragraph.trim()}
                 </p>
-              )
-            ))}
+              ),
+            )}
           </div>
         </section>
       )}

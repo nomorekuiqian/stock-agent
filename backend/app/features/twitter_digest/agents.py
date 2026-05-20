@@ -1,12 +1,11 @@
 """
-LlmAgent + InMemoryRunner singletons for the V3 twitter digest pipeline.
+LlmAgent + InMemoryRunner singletons for the twitter digest pipeline.
 
 Two agents, two models:
-  - `enrich_agent` — gemini-3.1-flash-lite-preview, structured-extraction task
-    (per-tweet quality + summary + tickers/sectors/events).
-  - `curate_agent` — gemini-3.1-pro-preview, multi-tweet aggregation +
-    editorial synthesis. The pro model is reused from V2 — same agent name
-    and runner, but the prompt and output schema are V3.
+  - `enrich_agent` — gemini-3.1-flash-lite-preview, minimal per-tweet enrichment
+    (quality keep/drop + ticker_stances + sectors).
+  - `curate_agent` — gemini-3.5-flash, ticker-clustered aggregation +
+    editorial synthesis.
 """
 
 import os
@@ -29,19 +28,15 @@ from app.features.twitter_digest.models import (
     EnrichmentOutput,
 )
 from app.features.twitter_digest.prompts import CURATE_INSTRUCTION
+from app.shared.llm_metering import meter
 
-CURATE_MODEL = "gemini-3.1-pro-preview"
+CURATE_MODEL = "gemini-3.5-flash"
 ENRICH_MODEL = "gemini-3.1-flash-lite-preview"
 APP_NAME = "twitter_digest"
 
-# Backward compat: existing service.py imports `MODEL` for `model_version` writeback.
-# After V3 cutover this is the digest-stage (pro) model; tagged in the persisted
-# row as `v3:enrich={ENRICH_MODEL}/digest={CURATE_MODEL}`.
-MODEL = CURATE_MODEL
-
 
 # ---------------------------------------------------------------------------
-# Enrichment agent (V3 Step 1)
+# Enrichment agent (Step 1)
 # ---------------------------------------------------------------------------
 
 class _EnrichmentBatchOutput(BaseModel):
@@ -57,24 +52,26 @@ class _EnrichmentBatchOutput(BaseModel):
 enrich_agent = LlmAgent(
     name="kol_digest_enrich",
     model=ENRICH_MODEL,
-    description="Per-tweet enrichment: quality / summary / tickers / sectors / events",
+    description="Per-tweet enrichment: quality (keep/drop) + ticker_stances + sectors",
     instruction=ENRICH_INSTRUCTION,
     output_schema=_EnrichmentBatchOutput,
     output_key="enriched_batch",
+    after_model_callback=meter("twitter_digest.enrich", model=ENRICH_MODEL),
 )
 
 
 # ---------------------------------------------------------------------------
-# Curate agent (V2 + V3 reuse same agent name; prompt/schema differ by version)
+# Curate agent (Step 2): ticker-clustered + direction-driven
 # ---------------------------------------------------------------------------
 
 curate_agent = LlmAgent(
     name="kol_digest_curate",
     model=CURATE_MODEL,
-    description="V3: cluster + synthesize multi-KOL views into topics + briefs + solo voices",
+    description="Cluster by ticker, output buy/sell/observation arguments + macro threads + watchpoints",
     instruction=CURATE_INSTRUCTION,
     output_schema=CuratedDigestOutput,
     output_key="curated_digest",
+    after_model_callback=meter("twitter_digest.curate", model=CURATE_MODEL),
 )
 
 

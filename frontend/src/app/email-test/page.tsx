@@ -64,6 +64,7 @@ function EmailTestContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'preview' | 'html'>('preview');
+  const [viewWidth, setViewWidth] = useState<'mobile' | 'desktop'>('mobile');
 
   // Send test email state
   const [email, setEmail] = useState('');
@@ -714,39 +715,13 @@ function EmailTestContent() {
               </div>
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">查看模式</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setViewMode('preview')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    viewMode === 'preview'
-                      ? 'bg-primary/10 text-primary border-primary/30'
-                      : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  预览
-                </button>
-                <button
-                  onClick={() => setViewMode('html')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    viewMode === 'html'
-                      ? 'bg-primary/10 text-primary border-primary/30'
-                      : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  HTML 源码
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Right Panel - Email Preview */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Preview Header */}
-              <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-full bg-red-400" />
@@ -757,20 +732,72 @@ function EmailTestContent() {
                     {viewMode === 'preview' ? `${channelLabel} Preview` : 'HTML Source'}
                   </span>
                 </div>
-                {viewMode === 'html' && currentHtml && (
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(currentHtml);
-                      alert('HTML copied to clipboard!');
-                    }}
-                    className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {/* Width toggle (only for preview mode) */}
+                  {viewMode === 'preview' && (
+                    <div className="inline-flex rounded-md border border-gray-200 bg-white overflow-hidden">
+                      <button
+                        onClick={() => setViewWidth('mobile')}
+                        className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                          viewWidth === 'mobile'
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                        title="iPhone 宽度 (390px)"
+                      >
+                        手机
+                      </button>
+                      <button
+                        onClick={() => setViewWidth('desktop')}
+                        className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                          viewWidth === 'desktop'
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                        title="桌面全宽"
+                      >
+                        电脑
+                      </button>
+                    </div>
+                  )}
+                  {/* View mode toggle */}
+                  <div className="inline-flex rounded-md border border-gray-200 bg-white overflow-hidden">
+                    <button
+                      onClick={() => setViewMode('preview')}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        viewMode === 'preview'
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      预览
+                    </button>
+                    <button
+                      onClick={() => setViewMode('html')}
+                      className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                        viewMode === 'html'
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      HTML
+                    </button>
+                  </div>
+                  {viewMode === 'html' && currentHtml && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentHtml);
+                        alert('HTML copied to clipboard!');
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Preview Content */}
@@ -797,7 +824,19 @@ function EmailTestContent() {
                     </p>
                   </div>
                 ) : viewMode === 'preview' ? (
-                  <div dangerouslySetInnerHTML={{ __html: currentHtml }} />
+                  <div className={`flex justify-center ${viewWidth === 'mobile' ? 'bg-gray-100 p-4' : ''}`}>
+                    <iframe
+                      srcDoc={currentHtml}
+                      title={`${channelLabel} preview`}
+                      className={viewWidth === 'mobile' ? 'bg-white border border-gray-200 rounded shadow-sm' : 'bg-white'}
+                      style={{
+                        width: viewWidth === 'mobile' ? '390px' : '100%',
+                        maxWidth: '100%',
+                        height: '680px',
+                        border: viewWidth === 'desktop' ? 'none' : undefined,
+                      }}
+                    />
+                  </div>
                 ) : (
                   <pre className="p-4 text-xs text-gray-700 bg-gray-50 overflow-x-auto whitespace-pre-wrap font-mono">
                     {currentHtml}

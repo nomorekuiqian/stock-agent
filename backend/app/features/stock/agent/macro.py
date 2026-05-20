@@ -14,8 +14,11 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
+from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
+
+MACRO_SECTOR_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -103,11 +106,12 @@ How current macro environment specifically affects this company:
 
 macro_sector_agent = LlmAgent(
     name="macro_sector_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model=MACRO_SECTOR_MODEL,
     description="Analyzes macro environment and sector positioning impact on individual stocks in Chinese",
     instruction=MACRO_SECTOR_INSTRUCTION,
     output_schema=MacroSectorOutput,
     output_key="macro_analysis",
+    after_model_callback=meter("stock.macro", model=MACRO_SECTOR_MODEL),
 )
 
 

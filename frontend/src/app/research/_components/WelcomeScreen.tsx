@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState } from 'react';
 import ChatInput from './ChatInput';
 
 // ---------------------------------------------------------------------------
@@ -92,9 +92,8 @@ export default function WelcomeScreen({
   userName,
   quota,
 }: WelcomeScreenProps) {
-  const greeting = useMemo(
+  const [greeting] = useState(
     () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
-    [],
   );
 
   return (

@@ -21,6 +21,9 @@ from google.genai.types import Content, Part
 
 from app.core.logging import get_logger
 from app.features.subscription.models import NewsletterOutput
+from app.shared.llm_metering import meter
+
+NEWSLETTER_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -53,11 +56,12 @@ NEWSLETTER_INSTRUCTION = """
 
 newsletter_agent = LlmAgent(
     name="newsletter_writer",
-    model="gemini-3.1-flash-lite-preview",
+    model=NEWSLETTER_MODEL,
     description="Generates newsletter content in Chinese with a warm, personal tone",
     instruction=NEWSLETTER_INSTRUCTION,
     output_schema=NewsletterOutput,
     output_key="newsletter",
+    after_model_callback=meter("newsletter", model=NEWSLETTER_MODEL),
 )
 
 

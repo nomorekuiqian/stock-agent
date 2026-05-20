@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { marketTodayStr } from '@/lib/timezone';
 
+import PaywallGuard from '@/components/PaywallGuard';
+
 import { DigestView } from './_components/DigestView';
 import { GenerateButton } from './_components/GenerateButton';
 import type { DailyDigest } from './_components/types';
@@ -33,7 +35,14 @@ export default function TwitterDigestLatestPage() {
         if (cancelled) return;
         setDigest(result);
         setError(null);
-        if (result?.generated_at) {
+        // Prefer the authoritative BJT business date from the backend. Legacy
+        // rows without `date` fall back to slicing the UTC generated_at, which
+        // can be off by a day around the 22:00 UTC cron — accept that for the
+        // small historical window where date is empty.
+        const explicit = result?.date;
+        if (explicit && /^\d{4}-\d{2}-\d{2}$/.test(explicit)) {
+          setDate(explicit);
+        } else if (result?.generated_at) {
           const isoDate = result.generated_at.slice(0, 10);
           if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
             setDate(isoDate);
@@ -117,11 +126,11 @@ export default function TwitterDigestLatestPage() {
   }
 
   return (
-    <>
+    <PaywallGuard requiredPlan="pro">
       <div className="max-w-4xl mx-auto px-4 md:px-6 pt-4">
         <GenerateButton onGenerated={refetchLatest} />
       </div>
       <DigestView date={date} digest={digest} />
-    </>
+    </PaywallGuard>
   );
 }

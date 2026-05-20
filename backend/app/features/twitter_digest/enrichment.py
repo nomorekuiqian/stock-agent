@@ -1,13 +1,13 @@
 """
-V3 Step 1 — daily per-tweet enrichment.
+Step 1 — daily per-tweet enrichment.
 
 Reads `kol_tweets` rows where `symbols IS NULL` and `created_at >= 24h ago`,
-runs flash-lite to extract {quality, quality_features, content_summary_zh,
-tickers, sectors, events}, and writes the result back into
-`kol_tweets.symbols` JSONB.
+runs flash-lite to extract {quality, ticker_stances, sectors}, and writes
+the result back into `kol_tweets.symbols` JSONB.
 
-The downstream digest pipeline (V3) uses this metadata to filter
-`quality != "low"` and to cluster topics by event/ticker/sector.
+The downstream digest pipeline uses this metadata to:
+  - filter `quality == "keep"` tweets
+  - cluster by ticker × stance (bull / bear / neutral) for the daily digest
 """
 
 import json
@@ -24,7 +24,7 @@ from app.features.twitter_digest.agents import (
     enrich_agent,
     get_runner,
 )
-from app.features.twitter_digest.models import EnrichmentOutput
+from app.features.twitter_digest.models import EnrichmentOutput, TickerStance
 
 logger = get_logger(__name__)
 
@@ -181,7 +181,7 @@ async def _run_enrich_batch(tweets: list[dict]) -> list[EnrichmentOutput]:
         )
         enrichments = list(enrichments)
         while len(enrichments) < len(tweets):
-            enrichments.append(EnrichmentOutput(quality="low"))
+            enrichments.append(EnrichmentOutput(quality="drop"))
         enrichments = enrichments[: len(tweets)]
 
     return enrichments
@@ -207,32 +207,29 @@ def _ticker_appears_in(source_upper: str, ticker_upper: str) -> bool:
 def _sanitize_enrichment(e: EnrichmentOutput, source_text: str) -> EnrichmentOutput:
     """Belt-and-braces filtering of the LLM output.
 
-    - Drops tickers that aren't 2-5 alpha or 6-digit, or that are in denylist.
-    - Drops tickers not actually present in the source text as a discrete token
-      (hallucination check, word-boundary aware).
-    - Empty quality_features for low quality.
+    - Drops ticker_stances whose ticker isn't 2-5 alpha / 6-digit / in denylist.
+    - Drops ticker_stances whose ticker doesn't appear as a discrete token in
+      the source text (hallucination check, word-boundary aware).
+    - Forces ticker_stances=[] when quality='drop'.
     """
     src_upper = (source_text or "").upper()
 
-    valid_tickers: list[str] = []
-    for t in e.tickers:
-        ut = t.strip().upper()
+    valid: list[TickerStance] = []
+    seen: set[str] = set()
+    for ts in e.ticker_stances:
+        ut = (ts.ticker or "").strip().upper()
         if not _is_valid_ticker(ut):
             continue
         if not _ticker_appears_in(src_upper, ut):
             continue
-        valid_tickers.append(ut)
-    # Dedup while preserving order
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for t in valid_tickers:
-        if t not in seen:
-            seen.add(t)
-            deduped.append(t)
-    e.tickers = deduped
+        if ut in seen:
+            continue
+        seen.add(ut)
+        valid.append(TickerStance(ticker=ut, stance=ts.stance))
+    e.ticker_stances = valid
 
-    if e.quality == "low":
-        e.quality_features = []
+    if e.quality == "drop":
+        e.ticker_stances = []
 
     return e
 
@@ -242,11 +239,8 @@ def _build_symbols_payload(e: EnrichmentOutput) -> dict:
     on `kol_tweets.symbols`."""
     return {
         "quality": e.quality,
-        "quality_features": list(e.quality_features),
-        "content_summary_zh": e.content_summary_zh,
-        "tickers": list(e.tickers),
+        "ticker_stances": [ts.model_dump() for ts in e.ticker_stances],
         "sectors": list(e.sectors),
-        "events": list(e.events),
         "enriched_at": datetime.now(timezone.utc).isoformat(),
         "enriched_model": ENRICH_MODEL,
     }
@@ -303,10 +297,10 @@ async def enrich_unenriched_tweets(
         logger.info("enrich_unenriched_tweets: no unenriched tweets in last %dh", window_hours)
         return {
             "scanned": 0, "enriched": 0, "batches": 0, "errors": 0,
-            "by_quality": {"high": 0, "medium": 0, "low": 0},
+            "by_quality": {"keep": 0, "drop": 0},
         }
 
-    by_quality = {"high": 0, "medium": 0, "low": 0}
+    by_quality = {"keep": 0, "drop": 0}
     total_enriched = 0
     errors = 0
     batches = 0

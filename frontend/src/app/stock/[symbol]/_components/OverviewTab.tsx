@@ -378,7 +378,7 @@ export function OverviewTab({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
         {/* LEFT: AI Analysis */}
-        <div className="order-2 lg:order-1 lg:sticky lg:top-4">
+        <div className="order-2 lg:order-1">
           <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
             {!hasAIAccess ? (
               <AIPaywall symbol={symbol} label="AI 投研分析" />
@@ -399,7 +399,7 @@ export function OverviewTab({
                   <AnalysisSection label="公司概览" content={getAI('company_profile') || getAI('company_overview')} accentColor="emerald" />
                   <AnalysisSection label="财务健康" content={getAI('financial_health')} accentColor="emerald" />
                   <AnalysisSection label="估值判断" content={getAI('valuation_judgment')} accentColor="emerald" />
-                  <AnalysisSection label="催化剂与风险" content={getAI('catalysts_and_risks')} accentColor="emerald" defaultOpen={false} />
+                  <AnalysisSection label="催化剂与风险" content={getAI('catalysts_and_risks')} accentColor="emerald" />
                   <AnalysisSection label="投资摘要" content={getAI('investment_summary')} accentColor="emerald" />
                 </div>
               </>

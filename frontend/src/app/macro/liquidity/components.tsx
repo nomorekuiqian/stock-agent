@@ -212,10 +212,6 @@ export function useInView(threshold = 0.1, immediate = false) {
   );
 
   useEffect(() => {
-    if (immediate && !isVisible) setIsVisible(true);
-  }, [immediate, isVisible]);
-
-  useEffect(() => {
     if (isVisible) return;
     const el = ref.current;
     if (!el) return;

@@ -17,8 +17,11 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
+from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
+
+EARNINGS_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -205,11 +208,12 @@ Quality grade (Strong/Mixed/Weak) justified across all 3 statements. THE one thi
 
 earnings_analysis_agent = LlmAgent(
     name="earnings_analyst",
-    model="gemini-3.1-pro-preview",
+    model=EARNINGS_MODEL,
     description="Analyzes quarterly earnings using transcript and financial data for individual stocks in Chinese",
     instruction=EARNINGS_ANALYST_INSTRUCTION,
     output_schema=EarningsAnalysisOutput,
     output_key="earnings_analysis",
+    after_model_callback=meter("stock.earnings", model=EARNINGS_MODEL),
 )
 
 
@@ -469,7 +473,7 @@ class EarningsAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "has_transcript": has_transcript,
                     "generated_at": now_iso(),
                 },
@@ -482,7 +486,7 @@ class EarningsAgent:
                 "analysis": _empty_earnings_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-pro-preview",
+                    "model": "gemini-3.1-flash-lite-preview",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

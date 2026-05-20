@@ -27,6 +27,9 @@ from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
 from app.features.macro.weekly.models import WeeklyRawData, WeeklyReportOutput
+from app.shared.llm_metering import meter
+
+WEEKLY_MACRO_MODEL = "gemini-3.5-flash"
 
 logger = get_logger(__name__)
 
@@ -332,11 +335,12 @@ WEEKLY_ANALYST_INSTRUCTION = """
 
 weekly_analyst = LlmAgent(
     name="weekly_macro_analyst",
-    model="gemini-3.1-pro-preview",
+    model=WEEKLY_MACRO_MODEL,
     description="Analyzes macro data and generates structured weekly report in Chinese",
     instruction=WEEKLY_ANALYST_INSTRUCTION,
     output_schema=WeeklyReportOutput,
     output_key="report",
+    after_model_callback=meter("macro.weekly", model=WEEKLY_MACRO_MODEL),
 )
 
 root_agent = weekly_analyst

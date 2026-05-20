@@ -31,6 +31,9 @@ from google.genai.types import Content, Part
 
 from app.features.morning_report.models import MorningReportOutput
 from app.features.morning_report import db as morning_db
+from app.shared.llm_metering import meter
+
+MORNING_REPORT_MODEL = "gemini-3.1-flash-lite-preview"
 
 # Import data fetching tools
 from app.shared.data_tools import get_premarket_data
@@ -144,11 +147,12 @@ Section 2 - title: "today_outlook"
 
 morning_analyst_agent = LlmAgent(
     name="morning_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model=MORNING_REPORT_MODEL,
     description="Analyzes pre-market data and produces a structured morning briefing in Chinese",
     instruction=MORNING_ANALYST_INSTRUCTION,
     output_schema=MorningReportOutput,
     output_key="morning_report",
+    after_model_callback=meter("morning_report", model=MORNING_REPORT_MODEL),
 )
 
 

@@ -177,11 +177,16 @@ export function AnalysisSection({ label, content, accentColor = 'teal', defaultO
         </svg>
       </button>
       {open && (
-        <div className="px-3 pb-4 pt-3 text-[13px] text-muted-foreground leading-[1.8] prose prose-sm prose-invert max-w-none
-          prose-strong:text-foreground/80 prose-strong:font-medium
+        <div className="px-3 pb-4 pt-3 text-[13px] text-muted-foreground leading-[1.8] prose prose-sm max-w-none
+          prose-headings:text-foreground prose-headings:font-semibold
+          prose-strong:text-foreground prose-strong:font-medium
           prose-p:text-muted-foreground prose-p:my-2.5
           prose-li:text-muted-foreground prose-li:my-1
-          prose-ul:my-2 prose-ul:pl-4 prose-ol:my-2">
+          prose-ul:my-2 prose-ul:pl-4 prose-ol:my-2
+          prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+          prose-code:text-amber-500 prose-code:bg-amber-500/10 prose-code:px-1 prose-code:rounded
+          prose-hr:border-border/30
+          prose-blockquote:border-border prose-blockquote:text-muted-foreground">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
       )}

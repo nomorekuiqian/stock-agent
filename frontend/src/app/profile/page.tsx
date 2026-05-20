@@ -16,6 +16,7 @@ const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; descriptio
   { key: 'morning_report', label: '早报', description: '每个交易日早上发送', entitlement: 'morning_report_email' },
   { key: 'daily_report', label: '晚报', description: '每个交易日收盘后发送' },
   { key: 'weekly_report', label: '宏观周报', description: '每周日发送', entitlement: 'weekly_report_email' },
+  { key: 'twitter_digest', label: '推特日报', description: '每个交易日盘后发送 · KOL 圈观点摘要' },
   // personal_digest is auto-managed: has watchlist + entitlement = receives digest.
   // No toggle needed — users clear their watchlist to stop receiving it.
 ];

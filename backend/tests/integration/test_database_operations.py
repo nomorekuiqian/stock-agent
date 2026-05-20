@@ -124,24 +124,6 @@ class TestDatabaseOperations:
         print(f"[Integration] Report ID: {report.get('id')}")
         print(f"[Integration] Report title: {report.get('title', '')[:50]}...")
 
-    @pytest.mark.asyncio
-    async def test_liquidity_analysis_exists(self, insforge_service):
-        """
-        Test that we can fetch liquidity analysis from database.
-        """
-        analysis = await insforge_service.get_latest_liquidity_analysis()
-
-        if analysis is None:
-            pytest.skip("No liquidity analysis found in database")
-
-        # Verify required fields
-        assert "analysis" in analysis, "Missing 'analysis' field"
-        assert "status" in analysis, "Missing 'status' field"
-
-        print(f"\n[Integration] Liquidity analysis status: {analysis.get('status')}")
-        print(f"[Integration] Analysis length: {len(analysis.get('analysis', ''))} chars")
-
-
 @pytest.mark.integration
 class TestReportIdFlow:
     """Tests specifically for the report_id flow (the bug we fixed)."""

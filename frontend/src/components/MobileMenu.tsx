@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 
 interface NavChild {
   href: string;
@@ -115,6 +117,8 @@ export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
   const { isPro, isLoading: subLoading } = useSubscription();
+  const { has: hasFlag } = useFeatureFlags();
+  const { has: hasEntitlement } = useEntitlements();
 
   const navSections: NavSection[] = [
     {
@@ -129,14 +133,34 @@ export function MobileMenu() {
     {
       label: '专属',
       href: '/for-you',
-      children: [
-        { href: '/for-you/watchlist', label: '我的自选股' },
-      ],
+      children: hasFlag('for_you_v2')
+        ? [
+            { href: '/for-you', label: '专属日报' },
+            { href: '/for-you/onboarding', label: '投资画像' },
+            { href: '/for-you/watchlist', label: '关注列表' },
+            {
+              href: hasEntitlement('watchlist_extended') ? '/for-you/portfolio' : '/pricing',
+              label: hasEntitlement('watchlist_extended') ? '模拟持仓' : '模拟持仓 🔒',
+            },
+            {
+              href: hasEntitlement('watchlist_extended') ? '/for-you/health' : '/pricing',
+              label: hasEntitlement('watchlist_extended') ? '持仓体检' : '持仓体检 🔒',
+            },
+          ]
+        : [
+            { href: '/for-you/watchlist', label: '我的自选股' },
+          ],
     },
     {
       label: '投研助手',
       href: '/research',
     },
+    ...(hasFlag('kol_chat')
+      ? [{
+          label: 'KOL 对话',
+          href: '/kol-chat',
+        } as NavSection]
+      : []),
     {
       label: '个股',
       href: '/stock',

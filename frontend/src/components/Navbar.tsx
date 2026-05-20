@@ -7,9 +7,14 @@ import { NavAuth } from '@/components/NavAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileMenu } from '@/components/MobileMenu';
 import { Logo } from '@/components/Logo';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
+
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const { has: hasFlag } = useFeatureFlags();
+  const { has: hasEntitlement } = useEntitlements();
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -61,13 +66,29 @@ export function Navbar() {
               ]}
             />
             <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
-            <NavDropdown
-              label="专属"
-              items={[
-                { href: '/for-you', label: '专属日报' },
-                { href: '/for-you/watchlist', label: '我的自选股' },
-              ]}
-            />
+            {hasFlag('kol_chat') && <NavLink href="/kol-chat">KOL 对话</NavLink>}
+            {hasFlag('for_you_v2') ? (
+              <NavDropdown
+                label="专属"
+                href="/for-you"
+                items={[
+                  { href: '/for-you', label: '专属日报' },
+                  { href: '/for-you/onboarding', label: '投资画像' },
+                  { href: '/for-you/watchlist', label: '关注列表' },
+                  { href: '/for-you/portfolio', label: '模拟持仓', locked: !hasEntitlement('watchlist_extended') },
+                  { href: '/for-you/health', label: '持仓体检', locked: !hasEntitlement('watchlist_extended') },
+                ]}
+              />
+            ) : (
+              <NavDropdown
+                label="专属"
+                href="/for-you"
+                items={[
+                  { href: '/for-you', label: '专属日报' },
+                  { href: '/for-you/watchlist', label: '我的自选股' },
+                ]}
+              />
+            )}
             <NavLink href="/stock">个股</NavLink>
             <NavLink href="/macro">宏观</NavLink>
             <NavLink href="/pricing">高级订阅</NavLink>
@@ -141,9 +162,10 @@ function NavLinkHighlight({ href, children }: { href: string; children: React.Re
 interface DropdownItem {
   href: string;
   label: string;
+  locked?: boolean;
 }
 
-function NavDropdown({ label, items }: { label: string; items: DropdownItem[] }) {
+function NavDropdown({ label, href, items }: { label: string; href?: string; items: DropdownItem[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -188,34 +210,65 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
       onMouseLeave={handleMouseLeave}
       onBlur={handleBlur}
     >
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="true"
-        aria-controls={menuId}
-        onKeyDown={handleKeyDown}
-        className={`group h-full flex items-center gap-1 px-4 transition-colors duration-200 ${
-          isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-        }`}
-      >
-        <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
-          {label}
-          {isActive && (
-            <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
-              <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
-            </span>
-          )}
-        </span>
-        <svg
-          aria-hidden="true"
-          className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      {href ? (
+        <Link
+          href={href}
+          aria-expanded={open}
+          aria-haspopup="true"
+          aria-controls={menuId}
+          onKeyDown={handleKeyDown}
+          className={`group h-full flex items-center gap-1 px-4 transition-colors duration-200 ${
+            isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
+            {label}
+            {isActive && (
+              <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
+                <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
+              </span>
+            )}
+          </span>
+          <svg
+            aria-hidden="true"
+            className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </Link>
+      ) : (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="true"
+          aria-controls={menuId}
+          onKeyDown={handleKeyDown}
+          className={`group h-full flex items-center gap-1 px-4 transition-colors duration-200 ${
+            isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
+            {label}
+            {isActive && (
+              <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
+                <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
+              </span>
+            )}
+          </span>
+          <svg
+            aria-hidden="true"
+            className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      )}
       <div
         id={menuId}
         role="menu"
@@ -228,17 +281,22 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.locked ? '/pricing' : item.href}
               role="menuitem"
               onClick={() => setOpen(false)}
               onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
-              className={`block px-4 py-2 text-sm transition-colors ${
+              className={`flex items-center justify-between px-4 py-2 text-sm transition-colors whitespace-nowrap ${
                 itemActive
                   ? 'text-foreground bg-muted/50'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
               }`}
             >
               {item.label}
+              {item.locked && (
+                <svg className="w-3 h-3 text-amber-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              )}
             </Link>
           );
         })}

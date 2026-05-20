@@ -34,9 +34,69 @@ from app.features.brew.models import (
     DigestNewsSection,
     DigestEvent,
     DigestSummary,
+    ActionItem,
 )
+from app.features.brew.event_selector import select_top_event, TopEvent
+from app.features.portfolio import db as portfolio_db
+from app.features.portfolio.service import compute_effective_weights
 
 router = APIRouter(prefix="/api", tags=["brew"])
+
+
+async def _compute_top_event(
+    events_data: list[dict],
+    user_id: str,
+) -> TopEvent | None:
+    """Compute the top event for the user from digest events and portfolio.
+
+    Splits DigestEvent dicts into earnings-like and macro-like lists,
+    loads the user's portfolio to get effective weights, then calls
+    select_top_event().  Returns None on any failure (non-blocking).
+    """
+    try:
+        # Load portfolio holdings
+        rows = await portfolio_db.list_portfolio(user_id)
+        if not rows:
+            return None
+        holdings_views = compute_effective_weights(rows, prices_map=None)
+        holdings_dict = {h.symbol: h.effective_weight_pct for h in holdings_views}
+
+        # Split events into earnings and macro lists.
+        # DigestEvent has: date, event, related_symbols, why_important.
+        # Earnings events typically mention a symbol and "财报" / "earnings".
+        earnings: list[dict] = []
+        macros: list[dict] = []
+
+        for ev in events_data:
+            event_text = ev.get("event", "")
+            related = ev.get("related_symbols", [])
+
+            # Heuristic: if the event mentions a specific symbol from user
+            # holdings and contains earnings keywords, treat as earnings.
+            is_earnings = False
+            if related:
+                for sym in related:
+                    sym_upper = (sym or "").upper()
+                    if sym_upper in holdings_dict and any(
+                        kw in event_text for kw in ("财报", "earnings", "Earnings", "Q1", "Q2", "Q3", "Q4")
+                    ):
+                        earnings.append({
+                            "symbol": sym_upper,
+                            "date": ev.get("date", ""),
+                            "epsEstimated": None,
+                        })
+                        is_earnings = True
+
+            if not is_earnings:
+                macros.append({
+                    "date": ev.get("date", ""),
+                    "event": event_text,
+                })
+
+        return select_top_event(earnings, macros, holdings_dict)
+    except Exception:
+        logger.warning("Failed to compute top_event for user %s, skipping", user_id[:8], exc_info=True)
+        return None
 
 
 def _transform_digest_sections(data: Dict[str, Any]) -> tuple:
@@ -219,6 +279,16 @@ async def generate_digest(
         if not body.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
+        # Merge portfolio symbols into analysis set
+        try:
+            portfolio_rows = await portfolio_db.list_portfolio(user_id)
+            portfolio_syms = [r.symbol for r in portfolio_rows if r.symbol != "$CASH"]
+            # Union: preserve order, watchlist first, then portfolio-only symbols
+            all_symbols = list(dict.fromkeys(body.symbols + portfolio_syms))[:25]
+        except Exception:
+            logger.warning("digest: portfolio merge failed user=%s, using watchlist only", user_id[:8])
+            all_symbols = body.symbols
+
         today = today_str()
 
         # Check if today's digest already exists
@@ -226,7 +296,7 @@ async def generate_digest(
         if existing_digest:
             # Verify symbols match - regenerate if user changed their watchlist
             cached_symbols = set(s.upper() for s in existing_digest.get("symbols", []))
-            request_symbols = set(s.upper() for s in body.symbols)
+            request_symbols = set(s.upper() for s in all_symbols)
 
             if cached_symbols != request_symbols:
                 logger.info("Symbols changed for user %s..., regenerating...", user_id[:8])
@@ -238,6 +308,40 @@ async def generate_digest(
             digest_data = existing_digest.get("digest_data", {})
             stocks, news, events, summary = _transform_digest_sections(digest_data)
 
+            # Compute top event from cached events + user portfolio
+            cached_events_raw = digest_data.get("events", [])
+            top_event = await _compute_top_event(cached_events_raw, user_id)
+
+            # Cached digests may predate action_items or have malformed entries
+            # from earlier schema revisions. Drop bad items individually rather
+            # than 500ing the whole response.
+            cached_action_items_raw = digest_data.get("action_items") or []
+            # LLM hallucination safety: a dict at this position would iterate
+            # its keys. Coerce single-dict to list; log+skip other non-list
+            # shapes.
+            if isinstance(cached_action_items_raw, dict):
+                cached_action_items_raw = [cached_action_items_raw]
+            elif not isinstance(cached_action_items_raw, list):
+                logger.warning(
+                    "Cached action_items has unexpected type %s for user %s..., ignoring",
+                    type(cached_action_items_raw).__name__,
+                    user_id[:8] if user_id else "unknown",
+                )
+                cached_action_items_raw = []
+
+            cached_action_items: list[ActionItem] = []
+            for item in cached_action_items_raw:
+                if isinstance(item, ActionItem):
+                    cached_action_items.append(item)
+                    continue
+                try:
+                    cached_action_items.append(ActionItem.model_validate(item))
+                except Exception as exc:  # pydantic ValidationError is subclass; keep broad
+                    logger.warning(
+                        "Dropping malformed cached action_item for user %s...: %s",
+                        user_id[:8] if user_id else "unknown", exc,
+                    )
+
             return DigestResponse(
                 success=True,
                 timestamp=existing_digest.get("created_at", now_iso()),
@@ -248,14 +352,17 @@ async def generate_digest(
                 news=news,
                 events=events,
                 summary=summary,
+                action_items=cached_action_items,
+                portfolio_summary=digest_data.get("portfolio_summary", "") or "",
                 from_cache=True,
+                top_event=top_event,
             )
 
         # No cached digest, generate new one
         logger.info("No cached digest found for user %s..., generating new...", user_id[:8])
         digest_agent = get_personal_digest()
         result = await digest_agent.generate(
-            symbols=body.symbols,
+            symbols=all_symbols,
             user_id=user_id,
         )
 
@@ -278,6 +385,8 @@ async def generate_digest(
                 "news": result.get("news", {}),
                 "events": result.get("events", []),
                 "summary": result.get("summary", {}),
+                "action_items": result.get("action_items", []),
+                "portfolio_summary": result.get("portfolio_summary", ""),
             }
             save_result = await save_user_digest(save_data)
             if save_result.get("success"):
@@ -286,6 +395,38 @@ async def generate_digest(
                 logger.error("Failed to save: %s", save_result.get('error'))
         else:
             logger.info("Dev environment: skipping digest DB save")
+
+        # Compute top event from fresh events + user portfolio
+        fresh_events_raw = result.get("events", [])
+        top_event = await _compute_top_event(fresh_events_raw, user_id)
+
+        action_items_raw = result.get("action_items") or []
+        # Dict-coercion guard (matches cache-hit path): ADK/Pydantic should
+        # reject dict-shaped action_items at validation time, but if an older
+        # ADK version or a custom runner bypasses that, we still want to
+        # surface the single action instead of iterating dict keys.
+        if isinstance(action_items_raw, dict):
+            action_items_raw = [action_items_raw]
+        elif not isinstance(action_items_raw, list):
+            logger.warning(
+                "Fresh action_items has unexpected type %s for user %s..., ignoring",
+                type(action_items_raw).__name__,
+                user_id[:8] if user_id else "unknown",
+            )
+            action_items_raw = []
+
+        action_items: list[ActionItem] = []
+        for item in action_items_raw:
+            if isinstance(item, ActionItem):
+                action_items.append(item)
+                continue
+            try:
+                action_items.append(ActionItem.model_validate(item))
+            except Exception as exc:
+                logger.warning(
+                    "Dropping malformed agent action_item for user %s...: %s",
+                    user_id[:8] if user_id else "unknown", exc,
+                )
 
         return DigestResponse(
             success=True,
@@ -297,6 +438,9 @@ async def generate_digest(
             news=news,
             events=events,
             summary=summary,
+            action_items=action_items,
+            portfolio_summary=result.get("portfolio_summary", "") or "",
+            top_event=top_event,
         )
 
     except HTTPException:

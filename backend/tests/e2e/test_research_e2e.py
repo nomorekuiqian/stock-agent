@@ -10,6 +10,8 @@ Usage:
     pytest tests/e2e/test_research_e2e.py -v
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -78,12 +80,26 @@ class TestResearchChatEndpoint:
 
     @pytest.mark.asyncio
     async def test_chat_anonymous_not_401(self, client):
-        """Endpoint accepts anonymous requests (quota-gated, not auth-gated)."""
-        resp = await client.post(
-            "/api/research/chat",
-            json={"message": "hello"},
-            timeout=60,
-        )
+        """Endpoint accepts anonymous requests (quota-gated, not auth-gated).
+
+        We mock pick_stocks because this test is checking the auth/quota
+        contract, not the LLM agent behavior. Without the mock the endpoint
+        kicks off real outbound LLM HTTPS requests that outlive the ASGI
+        client fixture, producing SSLWantReadError + Event loop closed
+        warnings during teardown.
+        """
+        from app.features.screener.models import ResearchResult
+
+        with patch(
+            "app.features.screener.router.pick_stocks",
+            new_callable=AsyncMock,
+            return_value=ResearchResult(success=True),
+        ):
+            resp = await client.post(
+                "/api/research/chat",
+                json={"message": "hello"},
+                timeout=10,
+            )
         # Should get 200 or 429 (quota), never 401
         assert resp.status_code != 401
 
@@ -120,16 +136,27 @@ class TestResearchChatEndpoint:
 
     @pytest.mark.asyncio
     async def test_chat_with_history(self, client):
-        """Endpoint accepts history and accumulated_filters in body."""
-        resp = await client.post(
-            "/api/research/chat",
-            json={
-                "message": "more options",
-                "history": [{"role": "user", "content": "hi"}],
-                "accumulated_filters": [{"field": "roe", "op": "gt", "value": 15}],
-            },
-            timeout=60,
-        )
+        """Endpoint accepts history and accumulated_filters in body.
+
+        Mocks the agent for the same reason as test_chat_anonymous_not_401.
+        We want to check schema acceptance, not the LLM response.
+        """
+        from app.features.screener.models import ResearchResult
+
+        with patch(
+            "app.features.screener.router.pick_stocks",
+            new_callable=AsyncMock,
+            return_value=ResearchResult(success=True),
+        ):
+            resp = await client.post(
+                "/api/research/chat",
+                json={
+                    "message": "more options",
+                    "history": [{"role": "user", "content": "hi"}],
+                    "accumulated_filters": [{"field": "roe", "op": "gt", "value": 15}],
+                },
+                timeout=10,
+            )
         # Should not crash; 200, 429 (quota) both acceptable
         assert resp.status_code in (200, 429)
 

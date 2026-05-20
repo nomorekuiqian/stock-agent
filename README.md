@@ -6,6 +6,8 @@
 >
 > **聪明的散户用这个。** 你也可以有投研团队。
 
+> **想参与代码贡献？** 请先读 [docs/contributing.md](docs/contributing.md)。
+
 ---
 
 ## 我们在做什么
@@ -178,7 +180,7 @@ pytest -v --run-generate          # 包含 AI 生成测试（慢）
 
 ### 开发规范
 
-- **AI Agent**: 使用 Google ADK，默认模型 `gemini-3.1-pro-preview`
+- **AI Agent**: 使用 Google ADK，默认模型 `gemini-3.5-flash`
 - **日志**: `get_logger(__name__)`，禁止 `print()`
 - **认证**: 用户端点 `Depends(verify_user_token)`，定时任务 `Depends(verify_cron_secret)`
 - **Git Hooks**: pre-commit 自动运行 ESLint + tsc（前端）和 AST 检查（后端）

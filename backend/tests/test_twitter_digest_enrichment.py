@@ -1,9 +1,9 @@
 """
-Unit tests for V3 Step 1 — daily per-tweet enrichment.
+Unit tests for Step 1 — daily per-tweet enrichment.
 
 Covers:
 - _is_valid_ticker / ticker denylist + dictionary
-- _sanitize_enrichment: ticker hallucination filter, low-quality features clear
+- _sanitize_enrichment: ticker hallucination filter, drop→empty stances
 - _build_symbols_payload: provenance attachment
 - enrich_unenriched_tweets: orchestration, batching, partial failure
 - fetch_unenriched / upsert_enrichment: edge function call paths
@@ -21,7 +21,15 @@ from app.features.twitter_digest.enrichment import (
     fetch_unenriched,
     upsert_enrichment,
 )
-from app.features.twitter_digest.models import EnrichmentOutput
+from app.features.twitter_digest.models import EnrichmentOutput, TickerStance
+
+
+def _enrich(quality="keep", stances=None, sectors=None):
+    return EnrichmentOutput(
+        quality=quality,
+        ticker_stances=[TickerStance(**s) for s in (stances or [])],
+        sectors=sectors or [],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -50,107 +58,62 @@ def test_is_valid_ticker(symbol, expected):
 
 
 # ---------------------------------------------------------------------------
-# _sanitize_enrichment — hallucination + denylist + low-quality features clear
+# _sanitize_enrichment — hallucination + denylist + drop→empty
 # ---------------------------------------------------------------------------
 
 
 def test_sanitize_drops_hallucinated_tickers():
-    e = EnrichmentOutput(
-        quality="high",
-        quality_features=["data", "reasoning"],
-        content_summary_zh="NVDA 财报前瞻",
-        tickers=["NVDA", "FAKE"],   # FAKE not in source text
-        sectors=[],
-        events=[],
-    )
-    src = "NVDA Q2 earnings preview, expecting beat"
-    out = _sanitize_enrichment(e, src)
-    assert out.tickers == ["NVDA"]
+    e = _enrich(stances=[
+        {"ticker": "NVDA", "stance": "bull"},
+        {"ticker": "FAKE", "stance": "bear"},  # FAKE not in source
+    ])
+    out = _sanitize_enrichment(e, "NVDA Q2 earnings preview, expecting beat")
+    assert [(s.ticker, s.stance) for s in out.ticker_stances] == [("NVDA", "bull")]
 
 
 def test_sanitize_rejects_substring_only_match():
     """Word-boundary check: 'META' must not match 'metaverse'."""
-    e = EnrichmentOutput(
-        quality="high",
-        quality_features=["data", "reasoning"],
-        content_summary_zh="metaverse 长期叙事",
-        tickers=["META"],
-        sectors=[],
-        events=[],
-    )
-    src = "Long-term metaverse adoption is real"
-    out = _sanitize_enrichment(e, src)
-    assert out.tickers == []
+    e = _enrich(stances=[{"ticker": "META", "stance": "bull"}])
+    out = _sanitize_enrichment(e, "Long-term metaverse adoption is real")
+    assert out.ticker_stances == []
 
 
 def test_sanitize_accepts_ticker_at_word_boundary():
-    e = EnrichmentOutput(
-        quality="high",
-        quality_features=["data", "reasoning"],
-        content_summary_zh="META 财报",
-        tickers=["META"],
-        sectors=[],
-        events=[],
-    )
-    src = "META beat on margin"
-    out = _sanitize_enrichment(e, src)
-    assert out.tickers == ["META"]
+    e = _enrich(stances=[{"ticker": "META", "stance": "bull"}])
+    out = _sanitize_enrichment(e, "META beat on margin")
+    assert [(s.ticker, s.stance) for s in out.ticker_stances] == [("META", "bull")]
 
 
 def test_sanitize_accepts_dollar_prefixed_ticker_in_source():
-    e = EnrichmentOutput(
-        quality="high",
-        quality_features=["data"],
-        content_summary_zh="$AMD 看多",
-        tickers=["AMD"],
-        sectors=[],
-        events=[],
-    )
-    src = "Bullish on $AMD given Q2 setup"
-    out = _sanitize_enrichment(e, src)
-    assert out.tickers == ["AMD"]
+    e = _enrich(stances=[{"ticker": "AMD", "stance": "bull"}])
+    out = _sanitize_enrichment(e, "Bullish on $AMD given Q2 setup")
+    assert [(s.ticker, s.stance) for s in out.ticker_stances] == [("AMD", "bull")]
 
 
 def test_sanitize_drops_denylisted_words():
-    e = EnrichmentOutput(
-        quality="medium",
-        quality_features=["catalyst"],
-        content_summary_zh="AI 投资",
-        tickers=["AI", "NVDA"],   # AI is denylisted; NVDA real
-        sectors=[],
-        events=[],
-    )
-    src = "AI capex story for NVDA"
-    out = _sanitize_enrichment(e, src)
-    assert out.tickers == ["NVDA"]
+    e = _enrich(stances=[
+        {"ticker": "AI", "stance": "bull"},  # denylisted
+        {"ticker": "NVDA", "stance": "bull"},
+    ])
+    out = _sanitize_enrichment(e, "AI capex story for NVDA")
+    assert [s.ticker for s in out.ticker_stances] == ["NVDA"]
 
 
 def test_sanitize_dedupes_tickers():
-    e = EnrichmentOutput(
-        quality="high",
-        quality_features=["data", "reasoning"],
-        content_summary_zh="x",
-        tickers=["NVDA", "NVDA", "nvda"],
-        sectors=[],
-        events=[],
-    )
-    src = "NVDA NVDA NVDA"
-    out = _sanitize_enrichment(e, src)
-    assert out.tickers == ["NVDA"]
+    e = _enrich(stances=[
+        {"ticker": "NVDA", "stance": "bull"},
+        {"ticker": "NVDA", "stance": "neutral"},  # dup, dropped
+        {"ticker": "nvda", "stance": "bear"},     # dup after upper
+    ])
+    out = _sanitize_enrichment(e, "NVDA NVDA NVDA")
+    assert [(s.ticker, s.stance) for s in out.ticker_stances] == [("NVDA", "bull")]
 
 
-def test_sanitize_clears_features_for_low_quality():
-    # If LLM accidentally writes features for a low-quality verdict, drop them.
-    e = EnrichmentOutput(
-        quality="low",
-        quality_features=["data"],   # contradiction
-        content_summary_zh="",
-        tickers=[],
-        sectors=[],
-        events=[],
-    )
-    out = _sanitize_enrichment(e, "noise")
-    assert out.quality_features == []
+def test_sanitize_clears_stances_for_drop():
+    # If LLM accidentally writes stances for a drop verdict, clear them.
+    e = _enrich(quality="drop", stances=[{"ticker": "NVDA", "stance": "bull"}])
+    out = _sanitize_enrichment(e, "NVDA noise")
+    assert out.ticker_stances == []
 
 
 # ---------------------------------------------------------------------------
@@ -159,19 +122,14 @@ def test_sanitize_clears_features_for_low_quality():
 
 
 def test_build_symbols_payload_includes_provenance():
-    e = EnrichmentOutput(
-        quality="medium",
-        quality_features=["catalyst"],
-        content_summary_zh="单一催化剂",
-        tickers=["TSLA"],
-        sectors=[],
-        events=["Q2 deliveries"],
+    e = _enrich(
+        stances=[{"ticker": "TSLA", "stance": "bull"}],
+        sectors=["汽车"],
     )
     payload = _build_symbols_payload(e)
-    assert payload["quality"] == "medium"
-    assert payload["quality_features"] == ["catalyst"]
-    assert payload["tickers"] == ["TSLA"]
-    assert payload["events"] == ["Q2 deliveries"]
+    assert payload["quality"] == "keep"
+    assert payload["ticker_stances"] == [{"ticker": "TSLA", "stance": "bull"}]
+    assert payload["sectors"] == ["汽车"]
     assert "enriched_at" in payload
     assert payload["enriched_model"]
 
@@ -221,7 +179,7 @@ async def test_upsert_enrichment_returns_count():
     })
     with patch("app.features.twitter_digest.enrichment.get_insforge_service", return_value=fake_db):
         n = await upsert_enrichment([
-            {"id": "1", "symbols": {"quality": "high"}},
+            {"id": "1", "symbols": {"quality": "keep"}},
         ])
     assert n == 3
 
@@ -256,7 +214,7 @@ async def test_enrich_short_circuits_when_nothing_to_enrich():
 @pytest.mark.asyncio
 async def test_enrich_happy_path():
     raw_tweets = [
-        {"id": "1", "author_username": "alice", "text": "NVDA Q2 beat",
+        {"id": "1", "author_username": "alice", "text": "NVDA Q2 beat with data",
          "tweet_type": "original", "created_at": "2026-05-04T01:00:00Z",
          "url": "https://x.com/alice/status/1"},
         {"id": "2", "author_username": "bob", "text": "just bought puts",
@@ -264,15 +222,12 @@ async def test_enrich_happy_path():
          "url": "https://x.com/bob/status/2"},
     ]
     enrich_outputs = [
-        EnrichmentOutput(
-            quality="high", quality_features=["data", "reasoning"],
-            content_summary_zh="NVDA Q2 财报超预期", tickers=["NVDA"],
-            sectors=[], events=["Q2 财报"],
+        _enrich(
+            quality="keep",
+            stances=[{"ticker": "NVDA", "stance": "bull"}],
+            sectors=["半导体"],
         ),
-        EnrichmentOutput(
-            quality="low", quality_features=[],
-            content_summary_zh="", tickers=[], sectors=[], events=[],
-        ),
+        _enrich(quality="drop"),
     ]
     with patch(
         "app.features.twitter_digest.enrichment.fetch_unenriched",
@@ -290,14 +245,16 @@ async def test_enrich_happy_path():
     assert summary["enriched"] == 2
     assert summary["batches"] == 1
     assert summary["errors"] == 0
-    assert summary["by_quality"] == {"high": 1, "medium": 0, "low": 1}
+    assert summary["by_quality"] == {"keep": 1, "drop": 1}
 
     # Verify the upsert payload is shaped correctly
     upserted = mock_upsert.await_args.args[0]
     assert upserted[0]["id"] == "1"
-    assert upserted[0]["symbols"]["quality"] == "high"
-    assert upserted[0]["symbols"]["tickers"] == ["NVDA"]
-    assert upserted[1]["symbols"]["quality"] == "low"
+    assert upserted[0]["symbols"]["quality"] == "keep"
+    assert upserted[0]["symbols"]["ticker_stances"] == [
+        {"ticker": "NVDA", "stance": "bull"}
+    ]
+    assert upserted[1]["symbols"]["quality"] == "drop"
 
 
 @pytest.mark.asyncio
@@ -313,12 +270,7 @@ async def test_enrich_batch_failure_does_not_abort_run():
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise RuntimeError("LLM hiccup")
-        return [
-            EnrichmentOutput(quality="medium", quality_features=["catalyst"],
-                             content_summary_zh="x", tickers=[], sectors=[],
-                             events=[])
-            for _ in batch
-        ]
+        return [_enrich(quality="keep") for _ in batch]
 
     with patch(
         "app.features.twitter_digest.enrichment.fetch_unenriched",

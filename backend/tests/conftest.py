@@ -144,6 +144,9 @@ DB_WRITE_FUNCTIONS = [
     ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
     # Quota
     ("app.features.quota.db", "increment_usage"),
+    # Feature flags admin
+    ("app.features.flags.db", "upsert_assignment"),
+    ("app.features.flags.db", "delete_assignment"),
 ]
 
 
@@ -201,6 +204,31 @@ def mock_db_writes(request):
             p.stop()
         except Exception:
             pass
+
+
+@pytest.fixture(autouse=True)
+def reset_insforge_http_client():
+    """
+    Drop the cached httpx AsyncClient on the InsforgeService singleton
+    between tests so each test gets a client bound to its own event loop.
+
+    Without this, a client created in test A stays bound to loop A; when
+    pytest-asyncio closes loop A and test B runs on loop B, the next
+    `client.get(...)` raises RuntimeError("Event loop is closed").
+    """
+    try:
+        from app.core import database as _db_mod
+        if _db_mod._insforge_service is not None:
+            _db_mod._insforge_service._client = None
+    except Exception:
+        pass
+    yield
+    try:
+        from app.core import database as _db_mod
+        if _db_mod._insforge_service is not None:
+            _db_mod._insforge_service._client = None
+    except Exception:
+        pass
 
 
 @pytest.fixture(autouse=True)

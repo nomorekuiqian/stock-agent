@@ -507,7 +507,7 @@ async def update_email_preferences(
     try:
         subscription_service = get_subscription_service()
 
-        # Update segment-based preferences (morning, daily, weekly)
+        # Update segment-based preferences (morning, daily, weekly, twitter_digest)
         segment_prefs = {}
         if request.morning_report is not None:
             segment_prefs["morning_report"] = request.morning_report
@@ -515,6 +515,8 @@ async def update_email_preferences(
             segment_prefs["daily_report"] = request.daily_report
         if request.weekly_report is not None:
             segment_prefs["weekly_report"] = request.weekly_report
+        if request.twitter_digest is not None:
+            segment_prefs["twitter_digest"] = request.twitter_digest
 
         if segment_prefs:
             # Best-effort sub lookup for CTA tier classification. If it

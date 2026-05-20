@@ -31,10 +31,11 @@ class TestSubscriptionChannel:
         assert "daily_report" in values
         assert "weekly_report" in values
         assert "personal_digest" in values
+        assert "twitter_digest" in values
 
     def test_channel_count(self):
-        """Total channel count is 3 (daily_report, weekly_report, personal_digest)."""
-        assert len(SubscriptionChannel) == 3
+        """Total channel count is 4 (daily_report, weekly_report, personal_digest, twitter_digest)."""
+        assert len(SubscriptionChannel) == 4
 
     def test_personal_digest_exists(self):
         """PERSONAL_DIGEST enum value exists and matches broadcast URL path."""

@@ -1,3 +1,6 @@
+# Superpowers brainstorm
+.superpowers/
+
 # Python
 venv/
 env/
@@ -47,6 +50,8 @@ htmlcov/
 .opencode/
 skills/
 .github/skills/
+!skills/kol-methodology-distillation/
+!skills/kol-methodology-distillation/**
 
 # Claude Code: track shared config only
 !.claude/

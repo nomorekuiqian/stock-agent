@@ -1,132 +1,101 @@
 // Frontend mirror of backend twitter_digest/models.py.
-// Kept in sync manually; can later be generated from OpenAPI.
 
 // ---------------------------------------------------------------------------
-// V2 (legacy) — single-tweet picks. Kept for backward read compat with rows
-// written before the V3 cutover.
-// ---------------------------------------------------------------------------
-
-export type CuratedCategory = 'macro' | 'industry' | 'stock';
-export type CuratedDepth = 'deep' | 'flash';
-
-export interface CuratedTweet {
-  tweet_id: string;
-  username: string;
-  display_name: string;
-  text_en: string;
-  text_zh: string;
-  created_at: string;
-  tweet_type: string;
-  url: string;
-  category: CuratedCategory;
-  primary_ticker: string;
-  sector: string;
-  depth: CuratedDepth;
-  interpretation_zh: string;
-  tldr_zh?: string;
-  like_count?: number;
-  retweet_count?: number;
-  view_count?: number;
-  reply_count?: number;
-  quality_score?: number;
-}
-
-// ---------------------------------------------------------------------------
-// V3 — aggregated topics + briefs + solo voices
-// ---------------------------------------------------------------------------
-
-export type TopicLayer = 'macro' | 'industry' | 'stock';
-export type ArgStance = 'bullish' | 'bearish' | 'neutral';
-
-export interface KeyArgument {
-  tweet_id: string;
-  username: string;
-  display_name: string;
-  stance: ArgStance;
-  tldr_zh: string;
-  tweet_url: string;
-}
-
-export interface Topic {
-  title: string;
-  layer: TopicLayer;
-  primary_ticker: string;
-  sector: string;
-  event: string;
-  participating_kols: string[];
-  stance_distribution: string;
-  synthesis_zh: string;
-  key_arguments: KeyArgument[];
-}
-
-export interface Brief {
-  layer: TopicLayer;
-  label: string;
-  one_liner_zh: string;
-  why_it_matters_zh?: string;
-  username: string;
-  display_name: string;
-  tweet_id: string;
-  tweet_url: string;
-}
-
-export type SoloTweetType = 'thread' | 'article';
-
-export interface SoloVoice {
-  title: string;
-  username: string;
-  display_name: string;
-  primary_ticker: string;
-  tweet_type: SoloTweetType;
-  tldr_zh: string;
-  interpretation_zh: string;
-  tweet_id: string;
-  tweet_url: string;
-}
-
-// ---------------------------------------------------------------------------
-// V3.1 — backend-computed hot lists (frequency tallies)
+// Hot lists — backend-computed frequency tallies (kept candidate tweets)
 // ---------------------------------------------------------------------------
 
 export interface HotItem {
   label: string;
   count: number;
+  /** Distinct KOL authors mentioning this label. <= count. */
+  kols?: number;
 }
 
 // ---------------------------------------------------------------------------
-// DailyDigest — combined V2 + V3 fields. `schema_version` selects render path.
+// Argument direction — decision-input classification
+//   - 'buy':         论据支持考虑买入/加仓
+//   - 'sell':        论据支持考虑卖出/回避
+//   - 'observation': 客观信息,不直接指向买卖
 // ---------------------------------------------------------------------------
 
-export type SchemaVersion = 'v2' | 'v3';
+export type Direction = 'buy' | 'sell' | 'observation';
+
+export interface Argument {
+  kol: string;
+  point_zh: string;
+  direction: Direction;
+  tweet_url: string;
+}
+
+export type TickerSide = 'disputed' | 'bull' | 'bear';
+
+export interface TickerThesis {
+  ticker: string;          // "NVDA" (no $ prefix)
+  /** Aggregate stance computed by the backend. Legacy rows default to 'bull'. */
+  side?: TickerSide;
+  primary_kols: string[];
+  tweet_count: number;
+  /** 10-25 字 nuanced one-liner ("多空在估值上打架, 长线派坚守 2030 目标"). Empty for legacy rows. */
+  stance_summary?: string;
+  /** 30-80 字 plain-language gist of what people are saying. */
+  synthesis_zh: string;
+  buy_arguments: Argument[];
+  sell_arguments: Argument[];
+  observation_arguments: Argument[];
+}
+
+export interface MacroThread {
+  title: string;
+  layer: 'macro' | 'industry';
+  primary_kols: string[];
+  synthesis_zh: string;
+  key_points: Argument[];
+}
+
+export interface OtherTickerMention {
+  ticker: string;
+  mentions: number;
+  kols: number;
+}
+
+export interface WatchpointItem {
+  title: string;
+  date_hint: string;
+  why_it_matters_zh: string;
+  related_tickers: string[];
+  /** Source tweet citations (2-5 evidence Arguments). */
+  evidence?: Argument[];
+  kols_watching: string[];
+}
+
+// ---------------------------------------------------------------------------
+// DailyDigest — persisted in kol_daily_digests, returned by the API.
+// ---------------------------------------------------------------------------
 
 export interface DailyDigest {
   // Meta
+  /** BJT business date (YYYY-MM-DD). Empty string for legacy rows pre-2026-05. */
+  date: string;
   generated_at: string;
   window_hours: number;
   input_tweet_count: number;
   tracked_kols: string[];
   model_version: string;
-  schema_version: SchemaVersion;
 
-  // Shared
-  takeaway: string[];
-
-  // V2 (legacy)
-  macro_picks: CuratedTweet[];
-  industry_picks: CuratedTweet[];
-  stock_picks: CuratedTweet[];
-
-  // V3
+  // Editorial
   headline: string;
   intro: string;
-  topics: Topic[];
-  briefs: Brief[];
-  solo_voices: SoloVoice[];
-  crosscut: string;
-  watch_next: string[];
 
-  // V3.1
-  hot_sectors?: HotItem[];
-  hot_tickers?: HotItem[];
-  hot_events?: HotItem[];
+  // Hot lists
+  hot_sectors: HotItem[];
+  hot_tickers: HotItem[];
+  hot_events: HotItem[];
+
+  // Main content
+  ticker_theses: TickerThesis[];
+  macro_threads: MacroThread[];
+  watchpoints: WatchpointItem[];
+
+  // Transparency tail
+  other_tickers: OtherTickerMention[];
 }

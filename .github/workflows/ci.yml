@@ -44,6 +44,9 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     defaults:
       run:
         working-directory: backend
@@ -86,7 +89,7 @@ jobs:
           INSFORGE_ANON_KEY: fake-key-for-ci
 
       - name: Notify on failure
-        if: failure()
+        if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/github-script@v7
         with:
           script: |
