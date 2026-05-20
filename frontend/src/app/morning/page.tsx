@@ -7,14 +7,17 @@ import { AiChatLink } from '@/components/AiChatLink';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MorningReport, MorningReportListItem } from '@/lib/api';
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+const SERVER_FETCH_TIMEOUT_MS = 10000;
 
 async function getMorningReportByDate(date: string): Promise<MorningReport | null> {
   try {
     const res = await fetch(`${API_BASE}/morning/reports/date/${date}`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -28,6 +31,7 @@ async function getMorningReportLatest(): Promise<MorningReport | null> {
   try {
     const res = await fetch(`${API_BASE}/morning/reports/latest`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -41,6 +45,7 @@ async function getMorningReportList(): Promise<{ data: MorningReportListItem[]; 
   try {
     const res = await fetch(`${API_BASE}/morning/reports?limit=6&offset=0`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return { data: [], total: 0 };
     const json = await res.json();

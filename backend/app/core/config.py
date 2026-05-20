@@ -46,10 +46,17 @@ INSFORGE_BASE_URL = os.getenv(
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "https://themarketbrew.com",
+    "https://www.themarketbrew.com",
 ]
 _frontend_url = os.getenv("FRONTEND_URL")
 if _frontend_url:
     ALLOWED_ORIGINS.append(_frontend_url)
+ALLOWED_ORIGINS = list(dict.fromkeys(ALLOWED_ORIGINS))
+CORS_ALLOWED_ORIGIN_REGEX = os.getenv(
+    "CORS_ALLOWED_ORIGIN_REGEX",
+    r"https://.*-the-market-brew\.vercel\.app",
+)
 
 # Set GOOGLE_GENAI_API_KEY for google-genai library
 if GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):

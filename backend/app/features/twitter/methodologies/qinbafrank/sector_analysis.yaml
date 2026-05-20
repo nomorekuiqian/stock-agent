@@ -1,0 +1,143 @@
+analyst: "qinbafrank"
+category: "sector_analysis"
+source_tweet_count: 202
+methodology_version: "v1.0"
+prompt_version: "v1.1"
+data_preferences:
+  - name: "Capex and ROI metrics (Revenue/Capex ratio, ARR)"
+    frequency: "high"
+    description: "Used to validate the commercial viability of AI infrastructure investments and determine when the market shifts from narrative-driven to earnings-driven."
+    evidence:
+      - tweet_id: "2049402628480876581"
+        quote: "最值得盯隐藏指标：“营收/Capex比值”衡量折旧拐点的核心指标，FY25约4.0；"
+      - tweet_id: "2051240859266654461"
+        quote: "SemiAnalysis披露Anthropic的年化收入ARR已经突破440亿美元"
+      - tweet_id: "2050395534658290057"
+        quote: "质疑这么大的算力投入能不能算过账，未来的营收利润能不能cover这么大的资本开支"
+  - name: "Order Backlogs / Remaining Performance Obligations (RPO)"
+    frequency: "medium"
+    description: "Monitors RPO QoQ growth and contract duration to verify whether real demand from hyperscalers and enterprises matches capital expenditure claims."
+    evidence:
+      - tweet_id: "2049402628480876581"
+        quote: "本季重点盯RPO环比增长（大概率+20-25%）和加权平均剩余期限（延长至5年以上 = 长合约时代确认）。"
+      - tweet_id: "2051166034124837020"
+        quote: "一季度谷歌云4600亿美金的未履约订单，估计一半以都是预订TPU的算力。"
+  - name: "CTA (Commodity Trading Advisor) Fund Flows"
+    frequency: "medium"
+    description: "Tracks mechanical/passive buy-and-sell momentum signals via Goldman Sachs models to identify short-term market reversals or exhaustion."
+    evidence:
+      - tweet_id: "2049109914728231081"
+        quote: "高盛模型显示CTA“买入燃料已耗尽”转为潜在卖方，尤其在中线下行情景下压力更大。"
+      - tweet_id: "2044283513114137049"
+        quote: "上周CTA已买入约190亿美元美股，当前CTA在标普500上仍持有约300亿美元空仓，本周预计的买入将平掉这些空仓并翻多"
+  - name: "Regulatory & Legal Rulings (SEC / CFTC)"
+    frequency: "high"
+    description: "Tracks legislative developments (e.g., Clarity Act, SEC Safe Harbors) to predict structural shifts in the crypto industry, such as RWA tokenization and stablecoin compliance."
+    evidence:
+      - tweet_id: "2043935213223588072"
+        quote: "SEC交易与市场部发布的一份员工声明"
+      - tweet_id: "1996069164612812912"
+        quote: "SEC创新豁免是证券代币化的“催化剂”，将加速传统金融从上世纪传统架构迁移至区块链账上的链上时代"
+analytical_process:
+  - order: 1
+    description: "Identify physical bottlenecks or structural limits in a high-growth sector."
+    evidence:
+      - tweet_id: "2043653387271712962"
+        quote: "半导体产业链（尤其是AI算力领域）的瓶颈演变，正是从“计算（GPU）→存储（HBM等）→光互连→电力/液冷”这一清晰的顺序递进的。"
+  - order: 2
+    description: "Analyze ecosystem strategy and 'entry point' (入口) control by leading companies."
+    evidence:
+      - tweet_id: "2040342659315671541"
+        quote: "本质上Anthropic应该开始极度重视“入口效应”了"
+      - tweet_id: "2042098322123714855"
+        quote: "我看到的是领先者正在疯狂抢占AI代理的未来入口"
+  - order: 3
+    description: "Deduce the final competitive landscape (end-game) and categorize winners vs. losers."
+    evidence:
+      - tweet_id: "1991505258451968462"
+        quote: "就像所有产业大变革一样，经历过全民大跃进之后、到最终决战阶段只会是赢家通吃、输家丢掉一切。"
+      - tweet_id: "2026100577550442559"
+        quote: "凡是致力于“让机器大军吞噬物理世界”的基础设施（软硬一体），其终局都是封神"
+decision_criteria:
+  - condition: "AI Infrastructure providers holding physical/hard moats (hardware, energy, raw materials)"
+    direction: "bullish"
+    weight: "high"
+    evidence:
+      - tweet_id: "2031706533114085785"
+        quote: "硬件+原材料层 = 耐用、确定性高（不管谁赢它们都赚钱）；"
+      - tweet_id: "2026100577550442559"
+        quote: "凡是致力于“让机器大军吞噬物理世界”的基础设施（软硬一体），其终局都是封神"
+  - condition: "AI disruption causing emotional or panic sell-offs in defensive/security software stocks"
+    direction: "bullish"
+    weight: "medium"
+    evidence:
+      - tweet_id: "2017528068324397416"
+        quote: "这里被误杀的可能是安全类的软件股，安全是硬需求，而且agent越普及安全需求会更高。"
+      - tweet_id: "2022109687987286211"
+        quote: "短期来看，市场正在对“AI颠覆”进行情绪化定价"
+  - condition: "Pure software or workflow-based SaaS companies without hardware moats"
+    direction: "bearish"
+    weight: "high"
+    evidence:
+      - tweet_id: "2022611542706131129"
+        quote: "输家则对准了那些以软件驱动工作流为主的公司，因为人工智能日益能够将其自动化或在企业内部重新构建"
+      - tweet_id: "2026100577550442559"
+        quote: "凡是致力于“让两个人类更好地踢皮球、走流程”的纯软件公司，其终局都不会很好。"
+communication_patterns:
+  - context: "high_conviction"
+    typical_phrases:
+      - "本质上是"
+      - "真正的价值"
+      - "不可逆的趋势"
+      - "必然"
+    evidence:
+      - tweet_id: "2040342659315671541"
+        quote: "本质上Anthropic应该开始极度重视“入口效应”了。"
+      - tweet_id: "2016738565041115353"
+        quote: "当未来绝大部分的证券资产都转移到了链上，全天候交易就成了必然。"
+  - context: "risk_warning"
+    typical_phrases:
+      - "被错杀的可能是"
+      - "情绪化定价"
+      - "先跑为上"
+    evidence:
+      - tweet_id: "2022109687987286211"
+        quote: "短期来看，市场正在对“AI颠覆”进行情绪化定价。如昨天聊到的一旦认为AI对某个行业产生影响，第一反应是先撤退"
+      - tweet_id: "2017528068324397416"
+        quote: "Agent发展很多原来的软件应用场景都会被Agent替代掉，这里被误杀的可能是安全类的软件股"
+  - context: "hedge"
+    typical_phrases:
+      - "当然这只是预期"
+      - "需要时间去验证"
+      - "持续观察后续的影响"
+    evidence:
+      - tweet_id: "1991531238352642308"
+        quote: "关于AI带生产力、还有巨额资本开支的ROI的问题需要时间去验证，只有后面几季财报出来才能进一步确认。"
+      - tweet_id: "2021795397308703084"
+        quote: "持续观察后续的影响，最恶劣的可能是BlockFills如果无法恢复流动性，可能正式申请破产保护"
+veto_rules:
+  - rule: "Avoid holding pure human-workflow software companies during the AI supercycle."
+    rationale: "AI coding and autonomous agents easily replace software built primarily for human-to-human interaction or process management without a hardware or data moat."
+    evidence:
+      - tweet_id: "2026100577550442559"
+        quote: "凡是致力于“让两个人类更好地踢皮球、走流程”的纯软件公司，其终局都不会很好。"
+  - rule: "Do not bet on broad 'altcoin seasons' (鸡犬升天) based on narrative alone."
+    rationale: "The crypto market has matured and polarized into an 'effective market' (New Normal), where liquidity concentrates strictly in assets with fundamental utility, deep liquidity, or RWA backing, bypassing weak narratives."
+    evidence:
+      - tweet_id: "1991873595765911691"
+        quote: "大家以前想象的山寨季是鸡犬升天，实际上未来山寨季可能只限于那些主线叙事逻辑板块的龙头，然后大部分小币可能就是一波流"
+      - tweet_id: "1997561492909298132"
+        quote: "市场越成熟越有效，分化就越严重"
+falsifiability_rules:
+  - thesis: "High growth of AI cloud revenues is sustainable."
+    falsifier: "If Cloud providers' Deferred Revenue + RPO (Remaining Performance Obligations) QoQ growth drops below 8%."
+    evidence:
+      - tweet_id: "2049402628480876581"
+        quote: "可证伪判断：如果谷歌财报给出的\"递延收入 + RPO 季度环比增速\"低于 8%，则GCP58%整体增速的可持续性可能会被证伪"
+  - thesis: "AI Infrastructure capacity build-out is generating positive ROI against depreciation."
+    falsifier: "If the Revenue to Capex ratio of major cloud providers falls below 3.5."
+    evidence:
+      - tweet_id: "2049402628480876581"
+        quote: "最值得盯隐藏指标：“营收/Capex比值”衡量折旧拐点的核心指标"
+insufficient_evidence_notes:
+[]

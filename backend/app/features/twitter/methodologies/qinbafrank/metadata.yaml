@@ -1,0 +1,32 @@
+analyst: "qinbafrank"
+created_at: "2026-05-14T01:31:20.000125+00:00"
+methodology_package: "v1"
+source: "kol_tweets"
+notes:
+  - "Generated methodology files require human review before use."
+  - "Do not claim to be the analyst; cite tweet_id evidence when available."
+categories:
+  stock_analysis:
+    status: "generated"
+    source_tweet_count: 296
+    evidence_validation: "pass"
+  macro_analysis:
+    status: "generated"
+    source_tweet_count: 621
+    evidence_validation: "pass"
+  sector_analysis:
+    status: "generated"
+    source_tweet_count: 202
+    evidence_validation: "pass"
+  methodology:
+    status: "generated"
+    source_tweet_count: 53
+    evidence_validation: "pass"
+  trading_strategy:
+    status: "generated_sparse"
+    source_tweet_count: 23
+    evidence_validation: "pass"
+  risk_management:
+    status: "evidence_insufficient"
+    source_tweet_count: 6
+    min_required_tweets: 20

@@ -1,0 +1,4 @@
+interface:
+  display_name: "KOL Methodology Distillation"
+  short_description: "Distill KOL tweets into methodology chat artifacts"
+  default_prompt: "Use $kol-methodology-distillation to update or debug the qinbafrank methodology distillation and chat pipeline."

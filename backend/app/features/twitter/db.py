@@ -87,6 +87,35 @@ async def get_tweets(
     return []
 
 
+async def list_tweets_by_category(
+    username: str,
+    category: str,
+    limit: int = 2000,
+) -> list[dict]:
+    """List stored tweets for one KOL/category, newest first.
+
+    The edge function caps one `list` call at 100 rows, so this helper pages
+    until it reaches `limit` or the table has no more rows.
+    """
+    rows: list[dict] = []
+    page = 1
+    page_size = 100
+    while len(rows) < limit:
+        batch = await get_tweets(
+            username=username,
+            category=category,
+            page=page,
+            limit=min(page_size, limit - len(rows)),
+        )
+        if not batch:
+            break
+        rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        page += 1
+    return rows[:limit]
+
+
 async def get_tweet_stats(username: str) -> Optional[dict]:
     """Get tweet statistics for a username."""
     db = get_insforge_service()
@@ -228,8 +257,6 @@ async def list_fetch_runs(
 
     logger.error("Failed to list fetch runs: %s", result.get("text", ""))
     return []
-
-
 # ---------------------------------------------------------------------------
 # KOL accounts catalog (kol_accounts) — single source of truth for who we ingest.
 # ---------------------------------------------------------------------------

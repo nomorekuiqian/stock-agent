@@ -1042,6 +1042,91 @@ export interface ResearchKBResponse {
   chunks_used: RetrievedChunk[];
 }
 
+export type MethodologyCategory =
+  | 'stock_analysis'
+  | 'sector_analysis'
+  | 'macro_analysis'
+  | 'trading_strategy'
+  | 'risk_management'
+  | 'methodology';
+
+export interface MethodologyChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface MethodologyChatRequest {
+  message: string;
+  username?: string;
+  category?: MethodologyCategory | null;
+  history?: MethodologyChatMessage[];
+}
+
+export interface MethodologyCitation {
+  tweet_id: string;
+  quote: string;
+  reason: string;
+}
+
+export interface MethodologyLiveContext {
+  topic: string;
+  symbols: string[];
+  quotes: Array<Record<string, unknown>>;
+  news_events: Array<Record<string, unknown>>;
+  calendar_events: Array<Record<string, unknown>>;
+  market_reports: Array<Record<string, unknown>>;
+  sources: string[];
+  data_timestamp: string;
+  limitations: string[];
+}
+
+export interface MethodologyChatResponse {
+  success: boolean;
+  analyst: string;
+  category: MethodologyCategory;
+  answer: string;
+  citations: MethodologyCitation[];
+  live_context?: MethodologyLiveContext | null;
+  confidence: 'high' | 'medium' | 'low';
+  limitations: string[];
+  suggested_followups: string[];
+}
+
+export interface MethodologyChatStreamEvent {
+  event: 'status' | 'live_context' | 'final' | 'error';
+  data: {
+    step?: string;
+    message?: string;
+    category?: MethodologyCategory;
+    live_context?: MethodologyLiveContext;
+    detail?: string;
+  } & Partial<MethodologyChatResponse>;
+}
+
+export interface MethodologyConversationData {
+  username: string;
+  category: MethodologyCategory | null;
+  messages: unknown[];
+}
+
+export interface MethodologyConversation {
+  id: string;
+  user_id: string;
+  username: string;
+  title: string;
+  data: MethodologyConversationData;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MethodologyConversationSaveRequest {
+  username: string;
+  title: string;
+  data: MethodologyConversationData;
+  message_count: number;
+}
+
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
 
 async function _authHeaders(
@@ -1797,6 +1882,159 @@ export const api = {
         await throwProtectedApiError(response, 'Failed to generate twitter digest');
       }
       return response.json();
+    },
+  },
+
+  // KOL Methodology Chat API
+  twitterMethodology: {
+    chat: async (
+      req: MethodologyChatRequest,
+      options: { signal?: AbortSignal } = {},
+    ): Promise<MethodologyChatResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const controller = new AbortController();
+      let timedOut = false;
+      const abortFromCaller = () => controller.abort();
+      options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 120_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          if (options.signal?.aborted && !timedOut) {
+            throw new Error('已停止生成');
+          }
+          throw new Error('KOL 方法论助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+        options.signal?.removeEventListener('abort', abortFromCaller);
+      }
+    },
+
+    chatStream: async (
+      req: MethodologyChatRequest,
+      onEvent: (event: MethodologyChatStreamEvent) => void,
+      options: { signal?: AbortSignal } = {},
+    ): Promise<MethodologyChatResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+      const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat/stream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+        signal: options.signal,
+      });
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
+      }
+      const responseBody = response.body;
+      if (!responseBody) {
+        throw new Error('KOL 方法论助手响应中断，请再试一次');
+      }
+
+      const reader = responseBody.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResponse: MethodologyChatResponse | null = null;
+
+      const flushEvent = (raw: string) => {
+        const lines = raw.split('\n');
+        const eventLine = lines.find((line) => line.startsWith('event:'));
+        const dataLine = lines.find((line) => line.startsWith('data:'));
+        if (!eventLine || !dataLine) return;
+
+        const event = eventLine.slice('event:'.length).trim() as MethodologyChatStreamEvent['event'];
+        const data = JSON.parse(dataLine.slice('data:'.length).trim()) as MethodologyChatStreamEvent['data'];
+        const parsed = { event, data };
+        onEvent(parsed);
+        if (event === 'final') {
+          finalResponse = data as MethodologyChatResponse;
+        }
+        if (event === 'error') {
+          throw new Error(data.detail || data.message || 'KOL 方法论助手暂时无法响应');
+        }
+      };
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const chunks = buffer.split('\n\n');
+          buffer = chunks.pop() || '';
+          chunks.forEach(flushEvent);
+        }
+        if (buffer.trim()) flushEvent(buffer);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('已停止生成');
+        }
+        throw err;
+      }
+
+      if (!finalResponse) {
+        throw new Error('KOL 方法论助手响应中断，请再试一次');
+      }
+      return finalResponse;
+    },
+
+    conversations: {
+      latest: async (username = 'qinbafrank'): Promise<MethodologyConversation | null> => {
+        const headers = await _authHeaders({}, { required: true });
+        const response = await fetch(
+          `${API_BASE_URL}/twitter/methodology-conversations/latest?username=${encodeURIComponent(username)}`,
+          { headers },
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch KOL conversation');
+        }
+        const json = await response.json();
+        return json.data || null;
+      },
+
+      create: async (
+        req: MethodologyConversationSaveRequest,
+      ): Promise<MethodologyConversation> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to create KOL conversation');
+        }
+        return response.json();
+      },
+
+      update: async (
+        id: string,
+        req: MethodologyConversationSaveRequest,
+      ): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations/${id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to update KOL conversation');
+        }
+        return response.json();
+      },
     },
   },
 

@@ -156,6 +156,10 @@ export function MobileMenu() {
       href: '/research',
     },
     {
+      label: 'KOL 对话',
+      href: '/kol-chat',
+    },
+    {
       label: '个股',
       href: '/stock',
     },
