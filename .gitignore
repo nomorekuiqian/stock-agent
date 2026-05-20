@@ -44,16 +44,14 @@ htmlcov/
 # AI Tools & Skills
 .agent/
 .agents/
-.codex/*
-!.codex/skills/
-!.codex/skills/**
+.codex/
 .cursor/
 .gemini/
 .opencode/
 skills/
 .github/skills/
-!.codex/skills/
-!.codex/skills/**
+!skills/kol-methodology-distillation/
+!skills/kol-methodology-distillation/**
 
 # Claude Code: track shared config only
 !.claude/
