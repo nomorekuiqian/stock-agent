@@ -683,6 +683,9 @@ export interface HoldingView {
   entry_price: number | null;
   market_value: number | null;
   unrealized_pnl: number | null;
+  /** Current live price at fetch time. Null for $CASH or when upstream quote
+   *  fetch failed. Use this for "shares × price = market_value" display. */
+  price: number | null;
   thesis: string | null;
   target: number | null;
   stop_loss: number | null;

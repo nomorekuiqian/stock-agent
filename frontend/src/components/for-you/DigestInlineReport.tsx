@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent } from '@/lib/api';
+import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent, HoldingView } from '@/lib/api';
 import { formatReportDate, formatCalendarDate, isMarketToday, formatCompactTimestamp } from '@/lib/timezone';
 import StockOverviewPanel from './StockOverviewPanel';
 import { FeedbackBar } from '@/components/memory/FeedbackBar';
@@ -17,6 +17,11 @@ interface DigestInlineReportProps {
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   portfolioSymbols?: Set<string>;
+  /** Truth-source portfolio holdings — when passed, 我的持仓 is rendered from
+   *  this list directly (with shares/price/market_value), independent of
+   *  whether each symbol appears in `digest.stocks`. Preferred over
+   *  `portfolioSymbols` for new callers. */
+  holdings?: HoldingView[];
   portfolioWeightMap?: Record<string, number>;
   portfolioSummary?: string;
   totalMarketValue?: number;
@@ -45,6 +50,7 @@ export default function DigestInlineReport({
   thesisMap,
   onThesisSaved,
   portfolioSymbols,
+  holdings,
   portfolioWeightMap,
   portfolioSummary,
   totalMarketValue,
@@ -93,8 +99,11 @@ export default function DigestInlineReport({
         </div>
       </section>
 
-      {/* Watchlist Overview */}
-      {digest.stocks.length > 0 && (
+      {/* Holdings + Watchlist Overview.
+          Render whenever we have either (a) digest analyses or (b) real
+          holdings to show — the holdings path doesn't depend on digest.stocks
+          being populated. */}
+      {(digest.stocks.length > 0 || (holdings && holdings.length > 0)) && (
         <section className="terminal-card p-6 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1 h-5 bg-primary rounded-full" />
@@ -106,6 +115,7 @@ export default function DigestInlineReport({
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             portfolioSymbols={portfolioSymbols}
+            holdings={holdings}
             portfolioWeightMap={portfolioWeightMap}
             portfolioSummary={portfolioSummary}
             totalMarketValue={totalMarketValue}

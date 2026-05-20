@@ -63,21 +63,22 @@ export function ForYouPageContentV2() {
     return map;
   }, [portfolioData]);
 
-  const portfolioSymbolSet = useMemo(
-    () => new Set(
-      (portfolioData?.holdings ?? [])
-        // Exclude ghost rows (thesis-only PATCH from watchlist) — they show
-        // as 0% / no shares / no cost / no weight, must stay categorized as
-        // watchlist on the digest page.
-        .filter((h) =>
-          (h.effective_weight_pct ?? 0) > 0
-          || h.shares != null
-          || h.cost_basis != null
-          || h.weight_pct != null
-        )
-        .map((h) => h.symbol)
+  // Visible (non-ghost) holdings — full HoldingView rows. Passed to
+  // DigestInlineReport so 我的持仓 renders from truth (shares × price)
+  // instead of digest.stocks ∩ portfolioSymbols.
+  const visibleHoldings = useMemo(
+    () => (portfolioData?.holdings ?? []).filter((h) =>
+      (h.effective_weight_pct ?? 0) > 0
+      || h.shares != null
+      || h.cost_basis != null
+      || h.weight_pct != null
     ),
     [portfolioData?.holdings]
+  );
+
+  const portfolioSymbolSet = useMemo(
+    () => new Set(visibleHoldings.map((h) => h.symbol)),
+    [visibleHoldings]
   );
 
   const portfolioWeightMap = useMemo(
@@ -301,6 +302,7 @@ export function ForYouPageContentV2() {
               thesisMap={thesisMap}
               onThesisSaved={handleThesisSaved}
               portfolioSymbols={portfolioSymbolSet}
+              holdings={visibleHoldings}
               portfolioWeightMap={portfolioWeightMap}
               totalMarketValue={portfolioTotals.totalMV}
               totalDailyChange={portfolioTotals.dailyChg}

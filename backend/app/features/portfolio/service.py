@@ -270,9 +270,12 @@ def enrich_market_values(
             if val is not None and val > 0:
                 h.market_value = round(float(val), 2)
             continue
-        if h.shares is not None and h.shares > 0:
-            price = prices_map.get(h.symbol)
-            if price and price > 0:
+        price = prices_map.get(h.symbol)
+        if price and price > 0:
+            # Expose the live price even when shares is null so the UI can
+            # render watchlist-only rows with a current quote.
+            h.price = round(float(price), 4)
+            if h.shares is not None and h.shares > 0:
                 h.market_value = round(h.shares * price, 2)
                 if h.cost_basis and h.cost_basis > 0:
                     h.unrealized_pnl = round(h.market_value - h.cost_basis, 2)
