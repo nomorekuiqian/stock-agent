@@ -1303,7 +1303,7 @@ async def generate_earnings_analysis_endpoint(
             analysis_type="earnings",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-pro-preview"),
+            model=meta.get("model", "gemini-3.1-flash-lite-preview"),
             expires_hours=cache_hours,
         )
         logger.info("Earnings analysis save result: %s", save_result)

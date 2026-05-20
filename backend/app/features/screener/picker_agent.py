@@ -28,6 +28,9 @@ from app.features.screener.agent import (
     get_field_distribution,
     list_available_sectors,
 )
+from app.shared.llm_metering import meter
+
+PICKER_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -388,11 +391,12 @@ Set the `navigate` field in your output:
 
 _picker_agent = LlmAgent(
     name="stock_picker",
-    model="gemini-3.1-flash-lite-preview",
+    model=PICKER_MODEL,
     instruction=PICKER_AGENT_INSTRUCTION,
     output_schema=PickerAgentOutput,
     output_key="picker",
     tools=picker_tools,
+    after_model_callback=meter("screener.picker", model=PICKER_MODEL),
 )
 
 

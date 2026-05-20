@@ -4,7 +4,7 @@ LlmAgent + InMemoryRunner singletons for the twitter digest pipeline.
 Two agents, two models:
   - `enrich_agent` — gemini-3.1-flash-lite-preview, minimal per-tweet enrichment
     (quality keep/drop + ticker_stances + sectors).
-  - `curate_agent` — gemini-3.1-pro-preview, ticker-clustered aggregation +
+  - `curate_agent` — gemini-3.5-flash, ticker-clustered aggregation +
     editorial synthesis.
 """
 
@@ -28,8 +28,9 @@ from app.features.twitter_digest.models import (
     EnrichmentOutput,
 )
 from app.features.twitter_digest.prompts import CURATE_INSTRUCTION
+from app.shared.llm_metering import meter
 
-CURATE_MODEL = "gemini-3.1-pro-preview"
+CURATE_MODEL = "gemini-3.5-flash"
 ENRICH_MODEL = "gemini-3.1-flash-lite-preview"
 APP_NAME = "twitter_digest"
 
@@ -55,6 +56,7 @@ enrich_agent = LlmAgent(
     instruction=ENRICH_INSTRUCTION,
     output_schema=_EnrichmentBatchOutput,
     output_key="enriched_batch",
+    after_model_callback=meter("twitter_digest.enrich", model=ENRICH_MODEL),
 )
 
 
@@ -69,6 +71,7 @@ curate_agent = LlmAgent(
     instruction=CURATE_INSTRUCTION,
     output_schema=CuratedDigestOutput,
     output_key="curated_digest",
+    after_model_callback=meter("twitter_digest.curate", model=CURATE_MODEL),
 )
 
 

@@ -32,6 +32,7 @@ from app.shared.data_tools.earnings import get_earnings_calendar
 from app.shared.profile_cache import get_profiles_cached, summarize_for_prompt
 from app.features.brew.models import PersonalDigestOutput
 from app.features.brew import db as digest_db
+from app.shared.llm_metering import meter
 from app.features.portfolio import db as portfolio_db
 from app.shared.profile_context import inject_profile
 
@@ -348,6 +349,7 @@ personal_digest_agent_free = LlmAgent(
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,
     output_key="digest",
+    after_model_callback=meter("brew.digest_free", model=FREE_TIER_MODEL),
 )
 
 personal_digest_agent_paid = LlmAgent(
@@ -357,6 +359,7 @@ personal_digest_agent_paid = LlmAgent(
     instruction=DIGEST_INSTRUCTION,
     output_schema=PersonalDigestOutput,
     output_key="digest",
+    after_model_callback=meter("brew.digest_paid", model=PAID_TIER_MODEL),
 )
 
 # Backward-compat alias — existing code paths that import `personal_digest_agent`

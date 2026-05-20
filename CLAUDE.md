@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 工程可靠性 → `docs/constraints/reliability.md`
 - 工程计划 → `docs/plans/active/` (进行中) / `docs/plans/completed/` (已完成)
 - Feature flag 日常操作 → `docs/guides/feature-flags-playbook.md` (新增/退役/灰度/故障速查；非归档 plan runbook)
+- LLM token 用量埋点 → `docs/guides/llm-usage-metering.md` (查 cost / 给新 agent 加 metering；**新 LlmAgent 必须挂 `meter()` callback**)
 - 产品方向 → Obsidian `产品/产品策略.md`
 - 模块详情 → 各目录下 `.context.md`
 

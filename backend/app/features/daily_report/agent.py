@@ -34,6 +34,9 @@ from google.genai.types import Content, Part
 # Import Pydantic models from the models module
 from app.features.daily_report.models import MarketReportOutput
 from app.features.daily_report import db as market_db
+from app.shared.llm_metering import meter
+
+DAILY_REPORT_MODEL = "gemini-3.5-flash"
 
 # Import data fetching tools
 from app.shared.data_tools import get_all_market_data
@@ -214,11 +217,12 @@ content: 1-2段，150-250字。回答一个问题：接下来最值得关注的2
 
 analyst_agent = LlmAgent(
     name="market_analyst",
-    model="gemini-3.1-pro-preview",
+    model=DAILY_REPORT_MODEL,
     description="Analyzes market data and news, provides structured insights in Chinese",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,
     output_key="report",
+    after_model_callback=meter("daily_report", model=DAILY_REPORT_MODEL),
 )
 
 # =============================================================================

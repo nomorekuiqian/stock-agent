@@ -2,7 +2,7 @@
 Side-by-side digest output across models.
 
 Same watchlist, same prompt, same input data (cached) — only the model differs.
-Compares gemini-3-flash-preview (current) vs gemini-3.1-pro-preview.
+Compares gemini-3-flash-preview (current) vs gemini-3.5-flash.
 
 Usage:
     cd backend
@@ -33,7 +33,7 @@ VOYA_EMAIL = "voya.technologies@gmail.com"
 MODELS_TO_COMPARE = [
     "gemini-3-flash-preview",   # current
     "gemini-3.1-flash-lite",    # cheaper/faster candidate
-    "gemini-3.1-pro-preview",   # high-quality candidate
+    "gemini-3.5-flash",   # high-quality candidate
 ]
 
 

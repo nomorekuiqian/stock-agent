@@ -10,7 +10,7 @@ Project instructions for AI coding agents (Codex, etc.) working with this reposi
 - **Logging**: Use `get_logger(__name__)`, never `print()`. Use `%s` lazy formatting, not f-strings.
 - **Auth patterns**: User endpoints use `Depends(verify_user_token)`, cron jobs use `Depends(verify_cron_secret)`. Full auth flow in `docs/constraints/auth.md`.
 - **Test account** (local debugging): Email `voya.technologies@gmail.com`, password `123456`.
-- **Default AI model**: Always use `gemini-3.1-pro-preview` in Google ADK agents.
+- **Default AI model**: Always use `gemini-3.5-flash` in Google ADK agents.
 - **No emoji in code**: Never write emoji characters in source code files.
 
 ## Language

@@ -312,7 +312,7 @@ pro 模型只看 `quality ∈ {high, medium}` 的推文,context 大幅缩小,综
 
 #### 单次 LLM 流水线(V3)
 
-模型: `gemini-3.1-pro-preview`(综合 + 编辑性输出仍需深度推理)。
+模型: `gemini-3.5-flash`(综合 + 编辑性输出仍需深度推理)。
 
 输入: 全部已标注候选 + KOL profile。
 

@@ -158,7 +158,7 @@
 
 ## 14. `model_version` 字段在 V3 怎么写
 
-**问题**: V2 用 `model_version="gemini-3.1-pro-preview"`。V3 涉及 enrichment(flash-lite) + digest(pro) 两个模型。
+**问题**: V2 用 `model_version="gemini-3.5-flash"`。V3 涉及 enrichment(flash-lite) + digest(pro) 两个模型。
 
 **决定**: `model_version = "v3:enrich=flash-lite/digest=pro-preview"` 或类似格式,把两个模型都记下来。
 

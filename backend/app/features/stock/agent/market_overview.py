@@ -18,8 +18,11 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
+from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
+
+MARKET_OVERVIEW_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -124,7 +127,7 @@ This is the highest-value section. Look at ALL the dimensions and ask: do they a
 
 market_overview_agent = LlmAgent(
     name="market_overview_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model=MARKET_OVERVIEW_MODEL,
     description=(
         "Comprehensive market-facing synthesis for single-stock briefing, "
         "combining news, analyst grades, insider, peers, and macro context"
@@ -132,6 +135,9 @@ market_overview_agent = LlmAgent(
     instruction=MARKET_OVERVIEW_INSTRUCTION,
     output_schema=MarketOverviewOutput,
     output_key="market_overview_analysis",
+    after_model_callback=meter(
+        "stock.market_overview", model=MARKET_OVERVIEW_MODEL
+    ),
 )
 
 

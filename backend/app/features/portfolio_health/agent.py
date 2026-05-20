@@ -5,9 +5,12 @@ import json
 from app.core.logging import get_logger
 from app.features.portfolio.models import ProfileView
 from app.features.portfolio_health.models import DiagnosisOutput, HealthScore
+from app.shared.llm_metering import meter
 from app.shared.profile_context import inject_profile
 
 logger = get_logger(__name__)
+
+PORTFOLIO_HEALTH_MODEL = "gemini-3.1-flash-lite-preview"
 
 DIAGNOSIS_INSTRUCTION = """
 你是用户的投资组合健康分析师。基于量化评分和用户画像，写出一段诊断性分析。
@@ -65,10 +68,13 @@ async def run_diagnosis(
         instruction = inject_profile(DIAGNOSIS_INSTRUCTION, profile)
 
         agent = LlmAgent(
-            model="gemini-3.1-flash-lite-preview",
+            model=PORTFOLIO_HEALTH_MODEL,
             name="portfolio_health_diagnoser",
             instruction=instruction,
             output_schema=DiagnosisOutput,
+            after_model_callback=meter(
+                "portfolio_health", model=PORTFOLIO_HEALTH_MODEL
+            ),
         )
         runner = InMemoryRunner(agent=agent, app_name="health")
         session = await runner.session_service.create_session(

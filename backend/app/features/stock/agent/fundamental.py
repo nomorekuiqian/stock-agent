@@ -15,8 +15,11 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
+from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
+
+FUNDAMENTAL_MODEL = "gemini-3.1-flash-lite-preview"
 
 logger = get_logger(__name__)
 
@@ -203,11 +206,12 @@ A balanced conclusion:
 
 stock_analyst_agent = LlmAgent(
     name="stock_analyst",
-    model="gemini-3.1-flash-lite-preview",
+    model=FUNDAMENTAL_MODEL,
     description="Analyzes individual stock fundamentals, provides investment insights in Chinese",
     instruction=STOCK_ANALYST_INSTRUCTION,
     output_schema=StockAnalysisOutput,
     output_key="analysis",
+    after_model_callback=meter("stock.fundamental", model=FUNDAMENTAL_MODEL),
 )
 
 
