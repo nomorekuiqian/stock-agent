@@ -7,6 +7,27 @@
 
 ## 进度记录
 
+### 2026-05-05 — 阶段 2 合并到 V3 enrichment + 200 条验证
+
+**实施完成**（详见 `kol-distillation-eng-v1-classification-extraction.md` 的修订摘要）：
+- 发现阶段 2 的"独立分类管道"设计与 master 上未提交的 V3 enrichment 高度重叠
+- 决议：**不另建管道**，把 9 类 `category` 字段合并进 `EnrichmentOutput`
+- 一次 LLM 调用同时产出 V3 的 6 字段（quality / quality_features / content_summary_zh / tickers / sectors / events）+ 我们的 `category`
+- 写入 `kol_tweets.symbols` JSONB（V3 富对象）+ `kol_tweets.category` TEXT 列（用既有索引）
+
+**实测**（@qinbafrank 200 条 backfill）：
+- 0 错误，62 秒，质量分布 high=82 / medium=43 / low=75
+- 8/9 类命中：other 75 / macro 52 / stock 42 / sector 28 / methodology 7 / opinion 2 / sentiment 2 / trading 2（risk_management 在 200 抽样里没出现）
+- 抽查 stock_analysis 高质量样本：黑莓转型 / 美光 / Circle CPN — content_summary_zh 准确，tickers 严格只取明文（不强行映射中文公司名，避免误判）
+
+**端点**：
+- `POST /api/twitter-digest/enrich` — 日 cron（最近 24h 全 KOL）
+- `POST /api/twitter-digest/enrich-backfill?username=&limit=` — 一次性历史回填
+
+**下一步**：
+1. @qinbafrank 全量 2513 条 backfill 跑完（运行中）
+2. 进入阶段 3：方法论提取（按 `category` 列切片，每类一份 YAML）
+
 ### 2026-05-05 — MVP 范围决议
 
 讨论了「博主对话」产品形态需要的产出物。从单一 YAML 输出扩展到八层架构（方法论/RAG/预测追踪/数据视角/信息源/实体词典/立场档案/风格语料），最终拍板 MVP 范围。
