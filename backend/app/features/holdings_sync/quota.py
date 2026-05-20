@@ -48,18 +48,23 @@ def _identifier(user_id: str) -> str:
     return f"hsync:{user_id}"
 
 
-async def check_and_consume(user_id: str, mode: str) -> int:
-    """Atomic consume-if-under-limit (Codex M2 [high] fix).
+async def check_and_consume(user_id: str, mode: str, amount: int = 1) -> int:
+    """Atomic consume-if-under-limit (Codex M2 [high] fix; M4 amount param).
 
     Calls the single EF action `consume_if_under_limit` which delegates to
     a Postgres function with `pg_advisory_xact_lock(identifier, date)` —
     concurrent extracts for the same user/day can no longer race past the
-    cap. Returns the post-consume count. Raises:
+    cap. `amount` (default 1) lets the PDF-vision path consume up to 4 in
+    one shot — **whole-or-nothing**: the SQL function refuses if
+    `count + amount > limit` (no partial debits, design §5). Returns the
+    post-consume count. Raises:
 
       · `QuotaUnavailable`  → router maps to 503 (fail-closed: any non-2xx
                               or success=false or transport error)
       · `QuotaExceeded`     → router maps to 429 (atomic refusal at cap)
     """
+    if amount < 1:
+        raise ValueError(f"amount must be ≥ 1, got {amount}")
     svc = get_insforge_service()
     try:
         result = await svc.call_function(
@@ -71,6 +76,7 @@ async def check_and_consume(user_id: str, mode: str) -> int:
                 "identifier_type": "user",
                 "usage_date": today_str(),
                 "limit": DAILY_LIMIT,
+                "amount": amount,
             },
             timeout=10.0,
         )

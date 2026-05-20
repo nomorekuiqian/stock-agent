@@ -3,6 +3,7 @@
 > 状态: 执行计划（设计已定稿，未写代码）
 > 设计源: `docs/plans/proposals/holdings-sync-track-m-tech-design.md`（§ 引用均指该文）
 > 范围: 仅 Track M（手敲保持现状 / 截图 / 粘贴 / CSV / PDF）。Track C（SnapTrade）不在本文。
+> **上线操作（部署 / 灰度 / Codex 再评 / 真图 eval / GA 退 flag）→ 见 `holdings-sync-track-m-go-live.md`**。本文聚焦"代码怎么写"，go-live runbook 聚焦"按钮怎么按"。
 > Worktree: `.claude/worktrees/strange-cray-b75425`，分支 `claude/strange-cray-b75425`，主干 `master`
 > 前置硬约束: 无 `print`（`get_logger`+`%s`）/ 不绕 EF / 不 import `backend/app/services|models`（DEAD）/ 中文 UI / 复用 shadcn·Radix·cmdk / 不自动 git / Insforge 基础设施一律走 `insforge-cli`（`insforge db sql`、`insforge functions deploy`）
 > 三处正确性自检（每个里程碑结束都要回看）: ① P1 字段（thesis/target/stop_loss/conviction）结构上不可被 source 携带；② replace-by-source 的 DELETE 带 `source` 作用域；③ symbol 全程过 `_SYMBOL_RE` 才下传 EF
@@ -226,6 +227,12 @@ REVOKE ALL ON FUNCTION reconcile_user_portfolio_source(TEXT,TEXT,JSONB,BOOLEAN) 
 ---
 
 ## M4 · Stage 3 PDF（最后上线）
+
+> **代码状态（2026-05-19）**：后端 + 前端合并 CSV/PDF 瓷砖已落地（本批 commit）。
+> 路径：digital-PDF (≥200 nonws/页) → `agent.extract_from_text` 扣 1 配额；
+> 扫描 PDF → `pypdfium2` 渲染 ≤4 页 → 并发 vision，整批扣 `amount=pages_rendered`
+> 配额（whole-or-nothing）。`STAGE_ENABLED_SOURCES` 仍为 `{"screenshot"}`；
+> widen 到 Stage 3 = 一行常量改 + FE `PDF_TILE_LIVE` 同步开关 + 部署。
 
 ### M4 代码改动
 

@@ -27,7 +27,13 @@ from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.flags.db import get_user_flags
-from app.features.holdings_sync import agent, parsers as hs_parsers, quota as hs_quota, resolver
+from app.features.holdings_sync import (
+    agent,
+    parsers as hs_parsers,
+    pdf_utils as hs_pdf,
+    quota as hs_quota,
+    resolver,
+)
 from app.features.holdings_sync.models import (
     CommitRequest,
     CommitResponse,
@@ -60,6 +66,9 @@ _MAX_PASTE_CHARS = 8000
 _MAX_CSV_BYTES = 2 * 1024 * 1024
 _ALLOWED_CSV_MIME = {"text/csv", "application/csv", "text/plain",
                      "application/vnd.ms-excel", "application/octet-stream"}
+# PDF guards (design §5). 8MB cap; encrypted rejected by `pdf_utils.probe_pdf`.
+_MAX_PDF_BYTES = 8 * 1024 * 1024
+_ALLOWED_PDF_MIME = {"application/pdf", "application/octet-stream"}
 
 # Per-request budgets (design §2bis.A + §7bis.7).
 _TOTAL_DEADLINE_SEC = 14.0    # overall /extract wall-clock cap (image decode +
@@ -160,8 +169,74 @@ async def extract(
         return await _extract_paste(user_id, text)
     if mode == "csv":
         return await _extract_csv(user_id, file, mapping)
-    # pdf is stage-gated above; defensive 400 if STAGE widens without an adapter.
+    if mode == "pdf":
+        return await _extract_pdf(user_id, file)
+    # defensive 400 if STAGE widens without an adapter landing
     raise HTTPException(status_code=400, detail=f"unsupported mode: {mode}")
+
+
+# --------------------------------------------------------------------------- #
+# shared helpers (DRY between screenshot / paste / pdf paths)
+# --------------------------------------------------------------------------- #
+
+
+async def _consume_quota_or_raise(user_id: str, mode: str, amount: int = 1) -> None:
+    """Atomic consume → HTTP 429 / 503 (design §5 fail-closed)."""
+    try:
+        await hs_quota.check_and_consume(user_id, mode, amount=amount)
+    except hs_quota.QuotaExceeded:
+        raise HTTPException(
+            status_code=429,
+            detail="今日 AI 识别次数已用完，可改用 CSV/手敲（不限次）",
+        )
+    except hs_quota.QuotaUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="AI 识别暂不可用，请稍后重试，或改用 CSV/手敲（不限次）",
+        )
+
+
+async def _assemble_extract_draft(
+    out, source: str, total_deadline: float,
+    *, dropped_note_empty: str,
+) -> ExtractDraft:
+    """Common tail of all LLM-extract paths: looks_like check → resolver
+    (remaining-budget guarded) → ExtractedRow assembly. `out` carries
+    `.looks_like_holdings` + `.holdings` (PasteExtractionOutput /
+    VisionExtractionOutput share the shape)."""
+    if not out.looks_like_holdings or not out.holdings:
+        return ExtractDraft(
+            draft_id=_draft_id(),
+            source=source,  # type: ignore[arg-type]
+            rows=[],
+            dropped_note=dropped_note_empty,
+        )
+
+    remaining = max(_RESOLVER_MIN_BUDGET, total_deadline - time.time())
+    ctx = resolver.SourceContext(
+        deadline_ts=time.time() + remaining,
+        fallback_budget=_FALLBACK_BUDGET,
+    )
+    raws = [h.symbol_or_name for h in out.holdings]
+    resolutions = await resolver.resolve_many(ctx, raws)
+
+    rows: list[ExtractedRow] = []
+    for h, res in zip(out.holdings, resolutions):
+        rows.append(ExtractedRow(
+            symbol=res.symbol,
+            shares=h.shares,
+            cost_basis=h.cost_basis,
+            entry_price=h.entry_price,
+            weight_pct=h.weight_pct,
+            raw=h.symbol_or_name,
+            resolved_name=res.name,
+            exchange=res.exchange,
+            confidence=res.confidence,  # type: ignore[arg-type]
+            status=res.status,           # type: ignore[arg-type]
+            candidates=res.candidates,
+            notices=res.notices,
+        ))
+    return ExtractDraft(draft_id=_draft_id(), source=source, rows=rows)  # type: ignore[arg-type]
 
 
 async def _extract_screenshot(user_id: str, file: Optional[UploadFile]) -> ExtractDraft:
@@ -436,6 +511,141 @@ async def _extract_csv(
             notices=row_notices,
         ))
     return ExtractDraft(draft_id=_draft_id(), source="csv", rows=rows)
+
+
+async def _extract_pdf(user_id: str, file: Optional[UploadFile]) -> ExtractDraft:
+    """PDF extract — cheap-first (design §1.1(e) / §5).
+
+    Probe text via `pypdf` first: digital-PDF (≥200 non-whitespace
+    chars/page avg) → 1 cheap text-LLM call. Sparse text (scanned) →
+    render up to 4 pages with `pypdfium2` and run one vision call per
+    page **concurrently** (so 4 pages ≈ one LLM-timeout's worth of wall
+    clock, not four). Encrypted PDFs are refused — UX is "use a screenshot
+    or unlock first". Quota is consumed **after** the bytes prove
+    decodable / renderable (Codex M2 [high] #1 — never burn quota on
+    corrupt input)."""
+    request_start = time.time()
+    total_deadline = request_start + _TOTAL_DEADLINE_SEC
+
+    if file is None:
+        raise HTTPException(status_code=400, detail="缺少 PDF 文件")
+    mime = (file.content_type or "").lower()
+    if mime and mime not in _ALLOWED_PDF_MIME:
+        raise HTTPException(status_code=400, detail="仅支持 PDF (application/pdf)")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="PDF 文件为空")
+    if len(raw) > _MAX_PDF_BYTES:
+        raise HTTPException(
+            status_code=400, detail=f"PDF 过大（>{_MAX_PDF_BYTES // (1024*1024)}MB），请精简后再试")
+
+    # Cheap probe (text density + encryption) BEFORE consuming quota.
+    outcome = await asyncio.to_thread(hs_pdf.probe_pdf, raw)
+    if outcome.path == "unsupported":
+        raise HTTPException(status_code=400, detail=outcome.error or "PDF 解析失败")
+
+    # ----- digital-PDF text path -----------------------------------------
+    if outcome.path == "text":
+        await _consume_quota_or_raise(user_id, "pdf-text", amount=1)
+        try:
+            out = await asyncio.wait_for(
+                asyncio.to_thread(agent.extract_from_text, outcome.text or ""),
+                timeout=_LLM_TIMEOUT_SEC,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("hsync pdf-text LLM timeout user=%s >%ss",
+                           user_id[:8], _LLM_TIMEOUT_SEC)
+            raise HTTPException(
+                status_code=504,
+                detail="AI 识别超时，请稍后重试，或改用截图",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("hsync pdf-text LLM failed user=%s err=%s",
+                           user_id[:8], exc)
+            raise HTTPException(status_code=502, detail="AI 识别失败，请稍后重试")
+        return await _assemble_extract_draft(
+            out, "pdf", total_deadline,
+            dropped_note_empty="未识别到持仓——请确认 PDF 内容（券商对账单 / 持仓清单）",
+        )
+
+    # ----- scanned-PDF vision fallback ----------------------------------
+    pages_bytes = await asyncio.to_thread(hs_pdf.render_pages_for_vision, raw)
+    if not pages_bytes:
+        raise HTTPException(
+            status_code=400, detail="无法渲染该 PDF（可能损坏或不受支持），请改用截图")
+
+    # Whole-or-nothing quota: refuses if user can't afford all pages
+    # (otherwise we'd burn N then 502 on page N+1 with partial extract).
+    await _consume_quota_or_raise(user_id, "pdf-vision", amount=len(pages_bytes))
+
+    async def _one_page(img: bytes):
+        return await asyncio.wait_for(
+            asyncio.to_thread(agent.extract_from_image, img, "image/png"),
+            timeout=_LLM_TIMEOUT_SEC,
+        )
+
+    # `return_exceptions=True` so a single bad page does NOT discard the
+    # successful pages while their quota is already debited (Codex M4
+    # [high]). Quota stays prepaid: we already gated whole-or-nothing in
+    # `_consume_quota_or_raise` above, so this is purely a salvage policy
+    # for partial-success — we'd rather hand the user N-1 pages with a
+    # warning than 504 + burned quota + nothing.
+    per_page_results = await asyncio.gather(
+        *(_one_page(b) for b in pages_bytes),
+        return_exceptions=True,
+    )
+
+    successes: list = []
+    timeouts = 0
+    errors = 0
+    for idx, r in enumerate(per_page_results):
+        if isinstance(r, asyncio.TimeoutError):
+            timeouts += 1
+            logger.warning("hsync pdf-vision page=%d timeout user=%s",
+                           idx, user_id[:8])
+        elif isinstance(r, BaseException):
+            errors += 1
+            logger.warning("hsync pdf-vision page=%d failed user=%s err=%s",
+                           idx, user_id[:8], r)
+        else:
+            successes.append(r)
+
+    n_pages = len(pages_bytes)
+    # Zero pages succeeded — every page failed, no draft to return. The
+    # quota stays debited (prepaid policy); surface the worst error code.
+    if not successes:
+        if timeouts:
+            raise HTTPException(
+                status_code=504, detail="AI 识别超时，请稍后重试，或改用截图")
+        raise HTTPException(status_code=502, detail="AI 识别失败，请稍后重试")
+
+    # At least one page succeeded — merge and degrade gracefully. Add a
+    # human-readable note when not every page worked so the user knows
+    # the draft is partial.
+    from .models import VisionExtractionOutput  # local import — avoid cycle
+    merged = VisionExtractionOutput(
+        looks_like_holdings=any(p.looks_like_holdings for p in successes),
+        holdings=[h for p in successes for h in p.holdings],
+    )
+    n_failed = timeouts + errors
+    partial_note: Optional[str] = None
+    if n_failed:
+        partial_note = (
+            f"PDF 共 {n_pages} 页，{n_failed} 页识别失败（仅返回 {len(successes)} 页），"
+            "请核对后再提交，或改用截图重试。"
+        )
+    draft = await _assemble_extract_draft(
+        merged, "pdf", total_deadline,
+        dropped_note_empty="未识别到持仓——请确认 PDF 内容（券商对账单 / 持仓清单）",
+    )
+    # `_assemble_extract_draft` may itself set a `dropped_note` (e.g.
+    # "60-row cap"); preserve that and concat the partial-page note.
+    if partial_note:
+        draft.dropped_note = (
+            f"{draft.dropped_note}\n{partial_note}"
+            if draft.dropped_note else partial_note
+        )
+    return draft
 
 
 @router.post("/commit", response_model=CommitResponse)

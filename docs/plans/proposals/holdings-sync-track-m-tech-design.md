@@ -2,7 +2,7 @@
 
 > Status: Tech Design（Track M 深化，配合 `proposals/holdings-sync-design.md`）
 > Scope: 仅 Track M（手动 / 导入）。Track C（SnapTrade / `user_broker_connections` / `holdings-sync.js`）**不在本文**。
-> Related: `proposals/holdings-sync-design.md`、`backend/app/features/portfolio/.context.md`、`docs/guides/feature-flags-playbook.md`
+> Related: `proposals/holdings-sync-design.md`、`backend/app/features/portfolio/.context.md`、`docs/guides/feature-flags-playbook.md`、`active/holdings-sync-track-m-go-live.md`（部署 / 灰度 / GA 操作手册）
 > Vision: 产品策略 > “专属” —— 真实持仓是一切个性化的输入
 > 决策状态: 关键决策已与产品确认（见 §8）；本文为可执行技术设计，落地前再细化签名。
 
@@ -705,10 +705,11 @@ v1 全 Pro 及以上门控，成本集中付费用户。**未来免费用户路�
 | M1 地基（reconcile 原子 RPC + symbol-cache fail-closed + RPC 非 PUBLIC） | ✅ + Codex 3 轮评审过 | `44e04e6` `4aeed36` |
 | M2 截图后端 + 前端 Dialog | ✅ + Codex 复评收敛 3 项 [high]（quota 烧 / LLM timeout / 原子 consume） | `1adcd18` `2ea6f47` `7b42656` |
 | M3 粘贴 + CSV 后端 + parsers 注册表 + FE 瓷砖激活 | ✅ | `91415b3` + (后续 FE 激活批) |
+| M4 PDF：cheap-first 文本路径(pypdf) + vision 回退(pypdfium2 渲染、并发 ≤4 页) + 加密拒 + 整批 amount-quota + FE 合并 CSV·PDF 瓷砖 | ✅ | (本批) |
 
-`STAGE_ENABLED_SOURCES` 仍为 `{"screenshot"}`（生产保险），widening 到 Stage 2
-= 一行常量改 + 部署 + FE `PASTE_TILE_LIVE` / `CSV_TILE_LIVE` 同步开关。M4（PDF）
-未启动。
+`STAGE_ENABLED_SOURCES` 仍为 `{"screenshot"}`（生产保险），widening 到 Stage 2/3
+= 一行常量改 + 部署 + FE `PASTE_TILE_LIVE` / `CSV_TILE_LIVE` / `PDF_TILE_LIVE`
+同步开关。代码侧 M4 完整；上线由灰度节奏控制。
 
 **关联 Followup（不在本文实现范围，单独排期）**
 

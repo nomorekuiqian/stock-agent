@@ -97,6 +97,7 @@ const MAX_PASTE_CHARS = 8000; // mirror backend hard cap
 // "即将上线" tiles even though the backend code-path exists.
 const PASTE_TILE_LIVE = true;
 const CSV_TILE_LIVE = true;
+const PDF_TILE_LIVE = true;
 
 export default function HoldingsSyncDialog({ trigger }: Props) {
   const { user } = useAuth();
@@ -178,15 +179,19 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
     }
   }, [pasteText, ingest]);
 
-  // ---- CSV extract -------------------------------------------------------
-  const onCsvPicked = useCallback(async (file: File) => {
+  // ---- CSV or PDF extract — single picker, dispatches by extension/MIME --
+  const onCsvOrPdfPicked = useCallback(async (file: File) => {
     setErrorMsg(null);
-    setMode('csv');
     setCsvFile(file);
+    const name = (file.name || '').toLowerCase();
+    const isPdf = file.type === 'application/pdf' || name.endsWith('.pdf');
+    const targetMode: HoldingsSyncSource = isPdf ? 'pdf' : 'csv';
+    setMode(targetMode);
     try {
-      ingest(await extractMut.mutateAsync({ mode: 'csv', file }));
+      ingest(await extractMut.mutateAsync({ mode: targetMode, file }));
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'CSV 解析失败，请稍后重试');
+      const what = isPdf ? 'PDF 解析失败' : 'CSV 解析失败';
+      setErrorMsg(e instanceof Error ? e.message : `${what}，请稍后重试`);
     }
   }, [extractMut, ingest]);
 
@@ -282,10 +287,15 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
             ) : (
               <DisabledTile title="粘贴持仓" subtitle="即将上线" />
             )}
-            {CSV_TILE_LIVE ? (
-              <CsvTile onPick={onCsvPicked} loading={extractMut.isPending} />
+            {CSV_TILE_LIVE || PDF_TILE_LIVE ? (
+              <CsvPdfTile
+                onPick={onCsvOrPdfPicked}
+                loading={extractMut.isPending}
+                csvLive={CSV_TILE_LIVE}
+                pdfLive={PDF_TILE_LIVE}
+              />
             ) : (
-              <DisabledTile title="CSV 导入" subtitle="即将上线" />
+              <DisabledTile title="CSV / PDF" subtitle="即将上线" />
             )}
           </div>
         )}
@@ -475,20 +485,39 @@ function PasteTile({ onClick }: { onClick: () => void }) {
   );
 }
 
-function CsvTile({
+function CsvPdfTile({
   onPick,
   loading,
+  csvLive,
+  pdfLive,
 }: {
   onPick: (f: File) => void;
   loading: boolean;
+  csvLive: boolean;
+  pdfLive: boolean;
 }) {
+  // Single tile accepts BOTH CSV and PDF — the parent dispatches the
+  // request to /extract mode=csv or mode=pdf based on file extension /
+  // MIME. Either format can be disabled independently via the LIVE flags;
+  // the accept attribute hides the disabled half from the OS file picker.
+  const acceptParts: string[] = [];
+  if (csvLive) acceptParts.push('.csv', '.txt', 'text/csv', 'text/plain');
+  if (pdfLive) acceptParts.push('.pdf', 'application/pdf');
+  const title =
+    csvLive && pdfLive ? '上传 CSV / PDF' :
+    csvLive            ? '上传 CSV' :
+                          '上传 PDF';
+  const hint =
+    csvLive && pdfLive ? '券商 .csv / .txt ≤2MB · .pdf ≤8MB' :
+    csvLive            ? '券商导出 .csv / .txt，≤2MB' :
+                          '券商对账单 .pdf，≤8MB';
   return (
     <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-6 text-center hover:bg-emerald-50">
-      <span className="text-sm font-medium text-emerald-700">上传 CSV</span>
-      <span className="text-xs text-slate-500">券商导出 .csv / .txt，≤2MB</span>
+      <span className="text-sm font-medium text-emerald-700">{title}</span>
+      <span className="text-xs text-slate-500">{hint}</span>
       <input
         type="file"
-        accept=".csv,.txt,text/csv,text/plain"
+        accept={acceptParts.join(',')}
         className="hidden"
         disabled={loading}
         onChange={(e) => {
