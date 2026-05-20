@@ -2,6 +2,10 @@
 
 文档总索引。CLAUDE.md 是入口地图，本文件是完整导航。
 
+## 协作指南
+
+- [contributing.md](contributing.md) — 主理人之外的贡献者必读：onboarding / Git 工作流 / 质量门禁 / Code Review / 密钥管理 / 数据安全 / 项目工具栈
+
 ## 约束系统 (docs/constraints/)
 
 工程不变量和规范，所有代码变更必须遵守。
@@ -34,6 +38,7 @@
 日常操作的长期指南（区别于一次性的 plan/runbook）。
 
 - [feature-flags-playbook.md](guides/feature-flags-playbook.md) — Feature flag 新增 / 退役 / 灰度名单管理 / 故障速查（**flag 日常操作看这里，不是归档的 plan runbook**）
+- [llm-usage-metering.md](guides/llm-usage-metering.md) — LLM token 用量埋点：查 cost / 给新 agent 加 metering / 故障速查（**新 LlmAgent 必须挂 `meter()` callback**）
 
 ## 参考资料 (docs/reference/)
 
