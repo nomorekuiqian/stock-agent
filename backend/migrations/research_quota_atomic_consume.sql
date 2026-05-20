@@ -63,11 +63,23 @@ END $$;
 --   consumed = FALSE + count = current count    → at cap (router 429)
 -- An exception bubbles out (RPC error) for the EF unavailability case
 -- (router 503 via fail-closed).
+--
+-- `p_amount` (M4 PDF — design §5): PDF-vision can consume up to 4 in one
+-- shot (one per rendered page). Whole-or-nothing atomicity — refuses if
+-- (count + amount) would exceed limit; on accept, increments by amount.
+-- Default 1 preserves the M2 screenshot/paste call sites untouched.
+--
+-- The signature changed from M2 (added p_amount). Postgres `CREATE OR
+-- REPLACE FUNCTION` doesn't allow signature changes — drop the old
+-- arity-4 form first so this migration stays idempotent on re-deploy.
+DROP FUNCTION IF EXISTS consume_research_quota_if_under_limit(TEXT, TEXT, DATE, INT);
+
 CREATE OR REPLACE FUNCTION consume_research_quota_if_under_limit(
   p_identifier      TEXT,
   p_identifier_type TEXT,
   p_usage_date      DATE,
-  p_limit           INT
+  p_limit           INT,
+  p_amount          INT DEFAULT 1
 ) RETURNS TABLE(consumed BOOLEAN, count INT, lim INT) AS $$
 DECLARE
   v_count INT;
@@ -80,6 +92,9 @@ BEGIN
   END IF;
   IF p_limit IS NULL OR p_limit <= 0 THEN
     RAISE EXCEPTION 'limit must be positive';
+  END IF;
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'amount must be positive';
   END IF;
 
   PERFORM pg_advisory_xact_lock(
@@ -95,13 +110,14 @@ BEGIN
     FROM research_quota
    WHERE identifier = p_identifier AND usage_date = p_usage_date;
 
-  IF v_count >= p_limit THEN
+  -- Whole-or-nothing: refuse if (current + amount) would exceed limit
+  IF v_count + p_amount > p_limit THEN
     RETURN QUERY SELECT FALSE, v_count, p_limit;
     RETURN;
   END IF;
 
   UPDATE research_quota
-     SET count = COALESCE(count, 0) + 1,
+     SET count = COALESCE(count, 0) + p_amount,
          updated_at = now()
    WHERE identifier = p_identifier AND usage_date = p_usage_date;
 
@@ -115,7 +131,7 @@ $$ LANGUAGE plpgsql;
 -- 鉴权暴露面 = 与 reconcile_user_portfolio_source 平价（Codex M1 复评决策；
 -- 不留 TO PUBLIC，绑定 EF anon/authenticated 角色）。
 REVOKE ALL ON FUNCTION
-  consume_research_quota_if_under_limit(TEXT, TEXT, DATE, INT) FROM PUBLIC;
+  consume_research_quota_if_under_limit(TEXT, TEXT, DATE, INT, INT) FROM PUBLIC;
 DO $$
 DECLARE v_role TEXT;
 BEGIN
@@ -124,7 +140,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_role) THEN
       EXECUTE format(
         'GRANT EXECUTE ON FUNCTION '
-        'consume_research_quota_if_under_limit(TEXT, TEXT, DATE, INT) TO %I',
+        'consume_research_quota_if_under_limit(TEXT, TEXT, DATE, INT, INT) TO %I',
         v_role);
     END IF;
   END LOOP;
@@ -132,6 +148,7 @@ END $$;
 
 -- ============================================================================
 -- 回滚 (仅紧急时使用):
+--   DROP FUNCTION IF EXISTS consume_research_quota_if_under_limit(TEXT,TEXT,DATE,INT,INT);
 --   DROP FUNCTION IF EXISTS consume_research_quota_if_under_limit(TEXT,TEXT,DATE,INT);
 --   ALTER TABLE research_quota DROP CONSTRAINT IF EXISTS research_quota_identifier_date_unique;
 -- ============================================================================

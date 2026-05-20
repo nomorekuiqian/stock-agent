@@ -118,12 +118,17 @@ module.exports = async function(request) {
     // fix). Wraps the SQL function which does pg_advisory_xact_lock +
     // UPSERT + UPDATE in a single transaction, returning (consumed, count,
     // lim). Replaces the raceable get_usage → increment two-step.
+    //
+    // M4 PDF: optional `amount` body field (default 1) — PDF-vision can
+    // atomically consume up to 4 in one call (one per rendered page).
+    // Whole-or-nothing: refuses if count+amount would exceed limit.
     if (request.method === "POST" && action === "consume_if_under_limit") {
       const body = await request.json();
       const identifier = body.identifier;
       const identifierType = body.identifier_type || "user";
       const usageDate = body.usage_date;
       const limit = body.limit;
+      const amount = body.amount;
 
       if (!identifier || !usageDate || !limit) {
         return new Response(
@@ -138,6 +143,15 @@ module.exports = async function(request) {
           { status: 400, headers }
         );
       }
+      const amountInt = amount === undefined || amount === null
+        ? 1
+        : Number.parseInt(amount, 10);
+      if (!Number.isFinite(amountInt) || amountInt <= 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "amount must be a positive integer" }),
+          { status: 400, headers }
+        );
+      }
 
       const { data, error } = await client.database.rpc(
         "consume_research_quota_if_under_limit",
@@ -146,6 +160,7 @@ module.exports = async function(request) {
           p_identifier_type: identifierType,
           p_usage_date: usageDate,
           p_limit: limitInt,
+          p_amount: amountInt,
         }
       );
       if (error) {

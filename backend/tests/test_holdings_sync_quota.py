@@ -82,6 +82,26 @@ async def test_check_and_consume_uses_single_atomic_action():
     assert body["identifier"] == "hsync:u-1"          # namespaced
     assert body["limit"] == hs_quota.DAILY_LIMIT      # passed atomically
     assert body["identifier_type"] == "user"
+    assert body["amount"] == 1                        # default amount
+
+
+@pytest.mark.asyncio
+async def test_check_and_consume_forwards_amount():
+    """M4 PDF-vision can consume up to 4 in one atomic call.
+    Whole-or-nothing semantics are SQL-side; here we just pin that the
+    Python caller forwards the amount as-passed."""
+    svc = _make_service(_ok_consume(True, 4))
+    with patch.object(hs_quota, "get_insforge_service", return_value=svc):
+        new = await hs_quota.check_and_consume("u-1", "pdf-vision", amount=4)
+    assert new == 4
+    body = svc.call_function.await_args_list[0].kwargs["json_body"]
+    assert body["amount"] == 4
+
+
+@pytest.mark.asyncio
+async def test_check_and_consume_rejects_zero_amount():
+    with pytest.raises(ValueError):
+        await hs_quota.check_and_consume("u-1", "pdf-vision", amount=0)
 
 
 # --------------------------------------------------------------------------- #
