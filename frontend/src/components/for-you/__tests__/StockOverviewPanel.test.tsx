@@ -133,6 +133,130 @@ describe('StockOverviewPanel — holdings-sourced 我的持仓', () => {
     expect(screen.getAllByText('+3.21%').length).toBeGreaterThan(0);
   });
 
+  it('fallback panel surfaces thesis, P&L, related news + events for symbols missing from digest.stocks', () => {
+    // Regression for the original bug: when 我的持仓 has a symbol the digest
+    // didn't analyze, the right pane was a dead end. Now it should compose
+    // a meaningful summary from data we already have.
+    const holdings = [
+      makeHolding({
+        symbol: 'NVDA',
+        shares: 10,
+        price: 800,
+        cost_basis: 6000,
+        entry_price: 600,
+        market_value: 8000,
+        unrealized_pnl: 2000,
+        effective_weight_pct: 100,
+        thesis: 'AI 长期主题，数据中心是核心',
+      }),
+    ];
+    // digest.stocks intentionally empty — simulates LLM drop / cache stale
+    const stocks: StockAnalysis[] = [];
+    const headlines = [
+      {
+        title: '英伟达发布 Blackwell GPU',
+        related_symbols: ['NVDA'],
+        fact_summary: '正式发布下一代 AI 芯片',
+        deep_analysis: '',
+        url: 'https://example.com/blackwell',
+        published_at: '',
+      },
+    ];
+    const briefs = [
+      {
+        title: 'TSMC 产能利好 NVDA',
+        related_symbols: ['NVDA', 'TSM'],
+        summary: '',
+        analysis: '',
+        url: 'https://example.com/tsmc',
+        published_at: '',
+      },
+    ];
+    const events = [
+      {
+        date: '2026-05-28',
+        event: 'NVDA Q1 财报',
+        related_symbols: ['NVDA'],
+        why_important: '决定数据中心增速预期',
+      },
+    ];
+
+    render(
+      <StockOverviewPanel
+        stocks={stocks}
+        holdings={holdings}
+        headlines={headlines}
+        briefs={briefs}
+        events={events}
+      />,
+    );
+
+    // P&L surfaces
+    expect(screen.getAllByText(/\+\$2,000/).length).toBeGreaterThan(0);
+    // Thesis surfaces
+    expect(screen.getAllByText(/AI 长期主题/).length).toBeGreaterThan(0);
+    // Related headlines surface
+    expect(screen.getAllByText('英伟达发布 Blackwell GPU').length).toBeGreaterThan(0);
+    // Related briefs surface
+    expect(screen.getAllByText(/TSMC 产能利好 NVDA/).length).toBeGreaterThan(0);
+    // Related events surface
+    expect(screen.getAllByText('NVDA Q1 财报').length).toBeGreaterThan(0);
+  });
+
+  it('fallback panel filters news/events to selected symbol only', () => {
+    const holdings = [
+      makeHolding({ symbol: 'NVDA', shares: 10, price: 800, market_value: 8000, effective_weight_pct: 100 }),
+    ];
+    const headlines = [
+      {
+        title: '苹果发新机',
+        related_symbols: ['AAPL'],  // unrelated to NVDA
+        fact_summary: '',
+        deep_analysis: '',
+        url: '',
+        published_at: '',
+      },
+      {
+        title: '英伟达财报超预期',
+        related_symbols: ['NVDA'],
+        fact_summary: '',
+        deep_analysis: '',
+        url: '',
+        published_at: '',
+      },
+    ];
+
+    render(
+      <StockOverviewPanel
+        stocks={[]}
+        holdings={holdings}
+        headlines={headlines}
+      />,
+    );
+
+    expect(screen.getAllByText('英伟达财报超预期').length).toBeGreaterThan(0);
+    // AAPL-only headline must NOT bleed into the NVDA fallback
+    expect(screen.queryByText('苹果发新机')).not.toBeInTheDocument();
+  });
+
+  it('fallback panel for $CASH shows cash balance, no stock fields', () => {
+    const holdings = [
+      makeHolding({
+        symbol: '$CASH',
+        shares: 5000,
+        market_value: 5000,
+        effective_weight_pct: 100,
+      }),
+    ];
+
+    render(<StockOverviewPanel stocks={[]} holdings={holdings} events={[]} />);
+
+    // Cash balance shown
+    expect(screen.getAllByText(/现金头寸/).length).toBeGreaterThan(0);
+    // No "shares × price" pattern for cash
+    expect(screen.queryByText(/股 ×/)).not.toBeInTheDocument();
+  });
+
   it('renders watchlist section separately from holdings when both present', () => {
     const holdings = [
       makeHolding({ symbol: 'AAPL', shares: 10, price: 180, market_value: 1800, effective_weight_pct: 100 }),

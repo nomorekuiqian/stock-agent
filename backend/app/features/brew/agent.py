@@ -494,6 +494,41 @@ class PersonalDigest:
         """
         try:
             if not symbols:
+                symbols = []
+
+            # Merge user's portfolio symbols into the analysis set so every
+            # holding gets fetched + analyzed even when the caller (typically
+            # the email cron) passed in only the watchlist. Without this the
+            # agent silently classifies portfolio-only stocks as
+            # "watchlist-only" and never produces analysis for them — the bug
+            # behind "我的持仓 看到 AAPL 但 portfolio 有更多股票".
+            #
+            # `symbols` (typically watchlist) stays first to preserve
+            # caller-visible ordering; portfolio symbols are appended.
+            # `pf_rows` is reused later (Step 5 portfolio context) to avoid a
+            # second DB roundtrip; `_pf_load_failed` distinguishes "no holdings"
+            # from "DB call failed" so the later block can decide whether to
+            # retry or fall through.
+            pf_rows: list = []
+            _pf_load_failed = False
+            if user_id:
+                try:
+                    pf_rows = await portfolio_db.list_portfolio(user_id)
+                    portfolio_syms_for_merge = [
+                        r.symbol for r in pf_rows if r.symbol and r.symbol != "$CASH"
+                    ]
+                    if portfolio_syms_for_merge:
+                        symbols = list(symbols) + portfolio_syms_for_merge
+                except Exception:
+                    _pf_load_failed = True
+                    logger.warning(
+                        "Portfolio merge failed for user %s, "
+                        "falling back to caller-provided symbols only",
+                        (user_id or "?")[:8],
+                        exc_info=True,
+                    )
+
+            if not symbols:
                 return {"success": False, "error": "No symbols provided"}
 
             # Deduplicate and limit to 25 stocks max
@@ -649,18 +684,20 @@ class PersonalDigest:
             report_date = format_report_date()
 
             # Load portfolio for differentiation
-            portfolio_rows = []
-            portfolio_symbols_set = set()
-            try:
-                if user_id:
+            # Reuse pf_rows fetched at top for symbol merging. Retry the load
+            # only if the first attempt failed (transient errors) — otherwise
+            # an empty `pf_rows` means the user genuinely has no portfolio.
+            portfolio_rows = pf_rows
+            if user_id and _pf_load_failed:
+                try:
                     portfolio_rows = await portfolio_db.list_portfolio(user_id)
-                portfolio_symbols_set = {
-                    r.symbol for r in portfolio_rows if r.symbol != "$CASH"
-                }
-            except Exception:
-                logger.warning(
-                    "Failed to load portfolio for agent context", exc_info=True
-                )
+                except Exception:
+                    logger.warning(
+                        "Failed to load portfolio for agent context", exc_info=True
+                    )
+            portfolio_symbols_set = {
+                r.symbol for r in portfolio_rows if r.symbol != "$CASH"
+            }
 
             data_for_agent = {
                 "report_date": report_date,

@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
-from app.core.deps import verify_user_token, verify_user_token_with_email
+from app.core.deps import verify_cron_secret, verify_user_token, verify_user_token_with_email
 from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
@@ -448,3 +448,97 @@ async def generate_digest(
     except Exception as e:
         logger.exception("Error generating digest")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Admin: force-regenerate one user's digest ---
+
+
+class AdminRegenerateRequest(BaseModel):
+    """Body for POST /api/admin/digest/regenerate."""
+
+    user_id: str = Field(..., min_length=1, max_length=64)
+
+
+@router.post("/admin/digest/regenerate")
+async def admin_regenerate_digest(
+    body: AdminRegenerateRequest,
+    _: bool = Depends(verify_cron_secret),
+):
+    """Force-regenerate today's personal digest for a single user.
+
+    Authenticated via X-Cron-Secret (same gate as broadcasts and other
+    operational tooling). Bypasses the per-user cache check — the new digest
+    replaces whatever was stored for today.
+
+    Use this to test fresh prompt/data changes for a specific account without
+    waiting for the next cron run. Symbols are the union of the user's
+    watchlist and portfolio (mirrors the lazy-POST path), so portfolio-only
+    holdings get analyzed too.
+    """
+    user_id = body.user_id
+
+    # Build symbols = watchlist ∪ portfolio (best-effort; agent itself also
+    # merges defensively, but doing it here too keeps the saved
+    # `symbols_used` honest about what the agent was asked to cover).
+    watchlist_resp = await get_user_watchlist(user_id)
+    wl_syms: list[str] = []
+    if watchlist_resp:
+        raw = watchlist_resp.get("symbols") or []
+        wl_syms = [s.upper() for s in raw if s]
+
+    try:
+        portfolio_rows = await portfolio_db.list_portfolio(user_id)
+        pf_syms = [r.symbol for r in portfolio_rows if r.symbol and r.symbol != "$CASH"]
+    except Exception:
+        logger.warning(
+            "admin regen: portfolio fetch failed for user %s, using watchlist only",
+            user_id[:8],
+        )
+        pf_syms = []
+
+    merged = list(dict.fromkeys(wl_syms + pf_syms))[:25]
+    if not merged:
+        raise HTTPException(
+            status_code=400,
+            detail="User has no watchlist or portfolio symbols to analyze",
+        )
+
+    logger.info(
+        "admin regen: user=%s symbols=%s",
+        user_id[:8],
+        merged,
+    )
+
+    digest_agent = get_personal_digest()
+    result = await digest_agent.generate(symbols=merged, user_id=user_id)
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Generation failed"),
+        )
+
+    save_data = {
+        "user_id": user_id,
+        "digest_date": today_str(),
+        "timestamp": result.get("timestamp", now_iso()),
+        "symbols": result.get("symbols_used", merged),
+        "greeting": result.get("greeting", ""),
+        "one_line_summary": result.get("one_line_summary", ""),
+        "stocks": result.get("stocks", []),
+        "news": result.get("news", {}),
+        "events": result.get("events", []),
+        "summary": result.get("summary", {}),
+        "action_items": result.get("action_items", []),
+        "portfolio_summary": result.get("portfolio_summary", ""),
+    }
+    save_result = await save_user_digest(save_data)
+
+    return {
+        "success": True,
+        "user_id": user_id,
+        "symbols_used": result.get("symbols_used", merged),
+        "stocks_count": len(result.get("stocks", [])),
+        "saved": bool(save_result.get("success")),
+        "digest_id": save_result.get("digest_id"),
+    }

@@ -1,8 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { StockAnalysis, HoldingView } from '@/lib/api';
+import {
+  StockAnalysis,
+  HoldingView,
+  DigestHeadlineNews,
+  DigestBriefNews,
+  DigestEvent,
+} from '@/lib/api';
 import { sortByVolatility, isNotableMove, parseChangePercent } from '@/lib/digest-utils';
+import { formatCalendarDate, isMarketToday } from '@/lib/timezone';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import StockListItem from './StockListItem';
 import StockDetailPanel from './StockDetailPanel';
@@ -33,6 +40,15 @@ interface StockOverviewPanelProps {
   totalMarketValue?: number;
   totalDailyChange?: number;
   totalDailyChangePct?: number;
+  /**
+   * Optional digest news/events passed through from `DigestInlineReport`. Used
+   * by the per-holding fallback panel (when `digest.stocks` doesn't include
+   * a holding) to filter by symbol — pure data composition, no extra LLM
+   * call. Without these the fallback degrades to thesis/PnL only.
+   */
+  headlines?: DigestHeadlineNews[];
+  briefs?: DigestBriefNews[];
+  events?: DigestEvent[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -53,6 +69,266 @@ function getDisplayName(symbol: string, fallbackName?: string): string {
   if (symbol === '$CASH') return '现金';
   const info = STOCK_NAMES[symbol];
   return info?.zh || info?.en || fallbackName || symbol;
+}
+
+function filterBySymbol<T extends { related_symbols: string[] }>(
+  items: T[] | undefined,
+  symbol: string,
+): T[] {
+  if (!items || items.length === 0) return [];
+  return items.filter((i) => i.related_symbols?.includes(symbol));
+}
+
+/* ------------------------------------------------------------------ */
+/* HoldingFallbackPanel — shown when digest.stocks has no entry for    */
+/* this holding. Composes thesis / P&L / news / events from existing   */
+/* data — zero extra LLM cost.                                          */
+/* ------------------------------------------------------------------ */
+
+function HoldingFallbackPanel({
+  holding,
+  thesis,
+  headlines,
+  briefs,
+  events,
+}: {
+  holding: HoldingView;
+  thesis?: string;
+  headlines?: DigestHeadlineNews[];
+  briefs?: DigestBriefNews[];
+  events?: DigestEvent[];
+}) {
+  const isCash = holding.symbol === '$CASH';
+  const displayName = getDisplayName(holding.symbol);
+  // Prefer caller-provided thesisMap entry, fall back to the thesis stored on
+  // the holding row itself. Either source is fine — both come from
+  // user_portfolios.thesis ultimately.
+  const effectiveThesis = thesis ?? holding.thesis ?? undefined;
+
+  const relatedHeadlines = useMemo(
+    () => filterBySymbol(headlines, holding.symbol),
+    [headlines, holding.symbol],
+  );
+  const relatedBriefs = useMemo(
+    () => filterBySymbol(briefs, holding.symbol),
+    [briefs, holding.symbol],
+  );
+  const relatedEvents = useMemo(
+    () => filterBySymbol(events, holding.symbol),
+    [events, holding.symbol],
+  );
+
+  const hasAnyRelated =
+    relatedHeadlines.length > 0
+    || relatedBriefs.length > 0
+    || relatedEvents.length > 0;
+
+  const pnl = holding.unrealized_pnl;
+  const pnlPct =
+    pnl != null && holding.cost_basis && holding.cost_basis > 0
+      ? (pnl / holding.cost_basis) * 100
+      : null;
+
+  return (
+    <div className="text-sm text-muted-foreground leading-relaxed animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-lg font-semibold text-foreground">{displayName}</span>
+        {!isCash && (
+          <Link
+            href={`/stock/${holding.symbol}`}
+            className="font-data text-sm text-primary hover:text-primary/80 transition-colors"
+          >
+            {holding.symbol}
+          </Link>
+        )}
+      </div>
+
+      {/* Position snapshot — always visible */}
+      {!isCash && (holding.shares != null || holding.cost_basis != null) && (
+        <div className="rounded-lg border border-border/30 bg-card/40 p-3 mb-3">
+          <div className="grid grid-cols-2 gap-y-1.5 text-xs font-data tabular-nums">
+            {holding.shares != null && holding.price != null && (
+              <>
+                <span className="text-muted-foreground/70">持仓</span>
+                <span className="text-right text-foreground">
+                  {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 × $
+                  {holding.price.toFixed(2)}
+                </span>
+              </>
+            )}
+            {holding.market_value != null && (
+              <>
+                <span className="text-muted-foreground/70">市值</span>
+                <span className="text-right text-foreground font-semibold">
+                  ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </>
+            )}
+            {holding.cost_basis != null && holding.cost_basis > 0 && (
+              <>
+                <span className="text-muted-foreground/70">成本</span>
+                <span className="text-right text-foreground">
+                  ${holding.cost_basis.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {holding.entry_price && holding.entry_price > 0 && (
+                    <span className="text-muted-foreground/60 ml-1">
+                      (@ ${holding.entry_price.toFixed(2)})
+                    </span>
+                  )}
+                </span>
+              </>
+            )}
+            {pnl != null && (
+              <>
+                <span className="text-muted-foreground/70">浮盈/亏</span>
+                <span
+                  className={`text-right font-semibold ${
+                    pnl >= 0 ? 'text-emerald-500' : 'text-red-500'
+                  }`}
+                >
+                  {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {pnlPct != null && (
+                    <span className="ml-1 font-normal">
+                      ({pnl >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
+                    </span>
+                  )}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isCash && holding.market_value != null && (
+        <div className="rounded-lg border border-border/30 bg-card/40 p-3 mb-3 text-xs">
+          <span className="text-muted-foreground/70">现金头寸</span>
+          <span className="ml-2 text-foreground font-data font-semibold">
+            ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+      )}
+
+      {/* User thesis (if recorded) */}
+      {effectiveThesis && (
+        <div className="rounded-lg border-l-2 border-primary bg-primary/5 px-3 py-2 mb-3">
+          <p className="text-[10px] text-primary/80 font-semibold uppercase tracking-wider mb-1">
+            你的投资观点
+          </p>
+          <p className="text-xs text-foreground italic leading-relaxed">{effectiveThesis}</p>
+        </div>
+      )}
+
+      {/* Related news from today's digest */}
+      {relatedHeadlines.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wider mb-2">
+            今日相关头条
+          </p>
+          <div className="space-y-2">
+            {relatedHeadlines.slice(0, 3).map((n, i) => (
+              <div key={`hl-${i}`} className="border-l-2 border-border/50 pl-2.5">
+                <a
+                  href={n.url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-foreground hover:text-primary transition-colors block leading-snug"
+                >
+                  {n.title}
+                </a>
+                {n.fact_summary && (
+                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                    {n.fact_summary}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {relatedBriefs.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wider mb-2">
+            其他相关新闻
+          </p>
+          <ul className="space-y-1.5 text-[11px]">
+            {relatedBriefs.slice(0, 3).map((n, i) => (
+              <li key={`bf-${i}`}>
+                <a
+                  href={n.url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground/80 hover:text-primary transition-colors leading-snug"
+                >
+                  · {n.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Related upcoming events */}
+      {relatedEvents.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wider mb-2">
+            临近事件
+          </p>
+          <div className="space-y-1.5">
+            {relatedEvents.slice(0, 3).map((e, i) => {
+              const dateStr = e.date?.split('T')[0] ?? '';
+              const cal = dateStr ? formatCalendarDate(dateStr) : null;
+              const today = dateStr ? isMarketToday(dateStr) : false;
+              return (
+                <div key={`ev-${i}`} className="flex items-start gap-2">
+                  {cal && (
+                    <div
+                      className={`shrink-0 w-9 rounded text-center text-[9px] py-0.5 border ${
+                        today
+                          ? 'bg-primary/10 border-primary/30 text-primary'
+                          : 'bg-card border-border/40 text-muted-foreground'
+                      }`}
+                    >
+                      <div className="uppercase font-data">{cal.month}</div>
+                      <div className="text-sm font-semibold font-data">{cal.day}</div>
+                    </div>
+                  )}
+                  <div className="text-xs text-foreground leading-snug">
+                    <span className="font-medium">{e.event}</span>
+                    {e.why_important && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{e.why_important}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Status note + link out */}
+      <div className="mt-4 pt-3 border-t border-border/30">
+        <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+          {isCash
+            ? '现金持仓不参与日报 AI 分析。'
+            : hasAnyRelated
+              ? '今日日报暂未包含该持仓的 AI 分析，以上是已有的相关数据。'
+              : '今日日报暂未包含该持仓的 AI 分析。'}
+        </p>
+        {!isCash && (
+          <Link
+            href={`/stock/${holding.symbol}`}
+            className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:text-primary/80 transition-colors"
+          >
+            查看 {holding.symbol} 完整分析
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -261,12 +537,20 @@ function MobileHoldingItem({
   isOpen,
   onToggle,
   digestDate,
+  thesis,
+  headlines,
+  briefs,
+  events,
 }: {
   holding: HoldingView;
   digestStock?: StockAnalysis;
   isOpen: boolean;
   onToggle: () => void;
   digestDate?: string;
+  thesis?: string;
+  headlines?: DigestHeadlineNews[];
+  briefs?: DigestBriefNews[];
+  events?: DigestEvent[];
 }) {
   const dailyChangeStr = digestStock?.daily_change;
   const changeValue = dailyChangeStr ? parseChangePercent(dailyChangeStr) : null;
@@ -364,9 +648,13 @@ function MobileHoldingItem({
               )}
             </>
           ) : (
-            <p className="text-xs text-muted-foreground/70 leading-relaxed">
-              {isCash ? '现金持仓不参与日报分析' : '今日日报暂未包含该持仓的分析'}
-            </p>
+            <HoldingFallbackPanel
+              holding={holding}
+              thesis={thesis}
+              headlines={headlines}
+              briefs={briefs}
+              events={events}
+            />
           )}
         </div>
       )}
@@ -446,6 +734,9 @@ function HoldingsGroup({
   digestDate,
   thesisMap,
   onThesisSaved,
+  headlines,
+  briefs,
+  events,
 }: {
   holdings: HoldingView[];
   digestStockMap: Record<string, StockAnalysis>;
@@ -454,6 +745,9 @@ function HoldingsGroup({
   digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
+  headlines?: DigestHeadlineNews[];
+  briefs?: DigestBriefNews[];
+  events?: DigestEvent[];
 }) {
   if (holdings.length === 0) return null;
 
@@ -485,35 +779,13 @@ function HoldingsGroup({
               onThesisSaved={onThesisSaved}
             />
           ) : (
-            <div className="text-sm text-muted-foreground leading-relaxed">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-lg font-semibold text-foreground">
-                  {getDisplayName(selectedHolding.symbol)}
-                </span>
-                <Link
-                  href={`/stock/${selectedHolding.symbol}`}
-                  className="font-data text-sm text-primary hover:text-primary/80 transition-colors"
-                >
-                  {selectedHolding.symbol}
-                </Link>
-              </div>
-              <p className="text-xs text-muted-foreground/70">
-                {selectedHolding.symbol === '$CASH'
-                  ? '现金持仓不参与日报分析。'
-                  : '今日日报暂未包含该持仓的分析。可点击下方链接查看完整个股页面。'}
-              </p>
-              {selectedHolding.symbol !== '$CASH' && (
-                <Link
-                  href={`/stock/${selectedHolding.symbol}`}
-                  className="inline-flex items-center gap-1 mt-3 text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  查看 {selectedHolding.symbol} 完整分析
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              )}
-            </div>
+            <HoldingFallbackPanel
+              holding={selectedHolding}
+              thesis={thesisMap?.[selectedHolding.symbol]}
+              headlines={headlines}
+              briefs={briefs}
+              events={events}
+            />
           )}
         </div>
       </div>
@@ -528,6 +800,10 @@ function HoldingsGroup({
             isOpen={h.symbol === selectedHolding.symbol}
             onToggle={() => onSelect(h.symbol === selectedHolding.symbol ? '' : h.symbol)}
             digestDate={digestDate}
+            thesis={thesisMap?.[h.symbol]}
+            headlines={headlines}
+            briefs={briefs}
+            events={events}
           />
         ))}
       </div>
@@ -623,6 +899,9 @@ export default function StockOverviewPanel({
   totalMarketValue,
   totalDailyChange,
   totalDailyChangePct,
+  headlines,
+  briefs,
+  events,
 }: StockOverviewPanelProps) {
   const sorted = useMemo(() => sortByVolatility(stocks), [stocks]);
 
@@ -726,6 +1005,9 @@ export default function StockOverviewPanel({
             digestDate={digestDate}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
+            headlines={headlines}
+            briefs={briefs}
+            events={events}
           />
         </>
       )}

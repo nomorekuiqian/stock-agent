@@ -587,5 +587,107 @@ def test_action_item_accepts_router_payload_shape():
     assert items[0].target == "health"
 
 
+@pytest.mark.asyncio
+class TestAdminRegenerate:
+    """POST /api/admin/digest/regenerate — force regen for a single user."""
+
+    async def test_merges_watchlist_and_portfolio_symbols(self, monkeypatch):
+        """Symbols passed to agent.generate must be watchlist ∪ portfolio,
+        deduped — mirrors lazy POST. Regression for the email-cron bug where
+        portfolio-only symbols were never analyzed."""
+        from app.features.brew.router import (
+            AdminRegenerateRequest,
+            admin_regenerate_digest,
+        )
+
+        calls: dict[str, object] = {}
+
+        async def _mock_get_watchlist(user_id: str):
+            return {"symbols": ["AAPL", "MSFT"]}
+
+        class _MockRow:
+            def __init__(self, symbol):
+                self.symbol = symbol
+
+        async def _mock_list_portfolio(user_id: str):
+            return [_MockRow("NVDA"), _MockRow("AMD"), _MockRow("$CASH"), _MockRow("MSFT")]
+
+        class _MockAgent:
+            async def generate(self, *, symbols: list[str], user_id: str):
+                calls["agent_symbols"] = symbols
+                calls["agent_user_id"] = user_id
+                return {
+                    "success": True,
+                    "timestamp": "2026-05-20T22:00:00Z",
+                    "symbols_used": symbols,
+                    "greeting": "hi",
+                    "one_line_summary": "summary",
+                    "stocks": [{"symbol": s} for s in symbols],
+                    "news": {"headlines": [], "briefs": []},
+                    "events": [],
+                    "summary": {"content": "ok"},
+                    "action_items": [],
+                    "portfolio_summary": "",
+                }
+
+        async def _mock_save(payload: dict):
+            calls["save_payload"] = payload
+            return {"success": True, "digest_id": "d-admin-1"}
+
+        monkeypatch.setattr("app.features.brew.router.get_user_watchlist", _mock_get_watchlist)
+        monkeypatch.setattr(
+            "app.features.brew.router.portfolio_db.list_portfolio", _mock_list_portfolio
+        )
+        monkeypatch.setattr("app.features.brew.router.get_personal_digest", lambda: _MockAgent())
+        monkeypatch.setattr("app.features.brew.router.save_user_digest", _mock_save)
+
+        result = await admin_regenerate_digest(
+            body=AdminRegenerateRequest(user_id="test-user-123"),
+            _=True,
+        )
+
+        # Watchlist first (preserves caller-visible order), portfolio appended,
+        # $CASH excluded, duplicates (MSFT) deduped.
+        assert calls["agent_symbols"] == ["AAPL", "MSFT", "NVDA", "AMD"]
+        assert calls["agent_user_id"] == "test-user-123"
+        assert result["success"] is True
+        assert result["stocks_count"] == 4
+        assert result["digest_id"] == "d-admin-1"
+
+    async def test_rejects_empty_symbols_with_400(self, monkeypatch):
+        """User with no watchlist + no portfolio → 400, no agent call."""
+        from app.features.brew.router import (
+            AdminRegenerateRequest,
+            admin_regenerate_digest,
+        )
+
+        async def _mock_get_watchlist(user_id: str):
+            return {"symbols": []}
+
+        async def _mock_list_portfolio(user_id: str):
+            return []
+
+        called = {"agent": False}
+
+        class _MockAgent:
+            async def generate(self, *, symbols, user_id):
+                called["agent"] = True
+                return {"success": True}
+
+        monkeypatch.setattr("app.features.brew.router.get_user_watchlist", _mock_get_watchlist)
+        monkeypatch.setattr(
+            "app.features.brew.router.portfolio_db.list_portfolio", _mock_list_portfolio
+        )
+        monkeypatch.setattr("app.features.brew.router.get_personal_digest", lambda: _MockAgent())
+
+        with pytest.raises(HTTPException) as exc:
+            await admin_regenerate_digest(
+                body=AdminRegenerateRequest(user_id="empty-user"),
+                _=True,
+            )
+        assert exc.value.status_code == 400
+        assert called["agent"] is False
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

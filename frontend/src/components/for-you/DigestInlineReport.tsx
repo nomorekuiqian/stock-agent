@@ -121,6 +121,9 @@ export default function DigestInlineReport({
             totalMarketValue={totalMarketValue}
             totalDailyChange={totalDailyChange}
             totalDailyChangePct={totalDailyChangePct}
+            headlines={digest.news?.headlines}
+            briefs={digest.news?.briefs}
+            events={digest.events}
           />
         </section>
       )}
