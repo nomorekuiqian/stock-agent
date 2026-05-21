@@ -343,6 +343,7 @@ export function ForYouPageContentV2() {
             thesisMap={thesisMap}
             onThesisSaved={handleThesisSaved}
             portfolioSymbols={portfolioSymbolSet}
+            holdings={visibleHoldings}
             portfolioWeightMap={portfolioWeightMap}
             totalMarketValue={portfolioTotals.totalMV}
             totalDailyChange={portfolioTotals.dailyChg}
