@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 
 interface NavChild {
   href: string;
@@ -119,6 +120,7 @@ export function MobileMenu() {
   const { isPro, isLoading: subLoading } = useSubscription();
   const { has: hasFlag } = useFeatureFlags();
   const { has: hasEntitlement } = useEntitlements();
+  const isAdmin = useIsAdmin();
 
   const navSections: NavSection[] = [
     {
@@ -183,6 +185,19 @@ export function MobileMenu() {
       label: '联系',
       href: '/contact',
     },
+    ...(isAdmin
+      ? [{
+          label: '管理',
+          href: '/admin',
+          children: [
+            { href: '/admin', label: '用户管理' },
+            { href: '/admin/flags', label: '灰度管理' },
+            { href: '/admin/llm-usage', label: 'LLM 用量' },
+            { href: '/email-test', label: '邮件预览' },
+            { href: '/dev/feedback', label: '邮件反馈' },
+          ],
+        } as NavSection]
+      : []),
   ];
 
   return (

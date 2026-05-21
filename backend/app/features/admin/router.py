@@ -6,10 +6,11 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.core.config import ADMIN_EMAILS, EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
-from app.core.deps import verify_admin_user
+from app.core.deps import verify_admin_user, verify_user_token_with_email
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -67,6 +68,15 @@ def _categorize_users(users: list[dict[str, Any]]) -> dict[str, Any]:
         annotated.append({**user, "category": category})
 
     return {"summary": summary, "users": annotated}
+
+
+@router.get("/whoami")
+async def get_admin_status(
+    user_info: dict = Depends(verify_user_token_with_email),
+):
+    """Return whether the current authenticated user is an admin. Used by the frontend to gate admin UI."""
+    email = (user_info.get("email") or "").lower()
+    return {"is_admin": email in ADMIN_EMAILS}
 
 
 @router.get("/dashboard")
@@ -149,3 +159,88 @@ async def get_dashboard(
         )
 
     return _categorize_users(users)
+
+
+def _estimate_usd(model: str | None, prompt_tokens: int, output_tokens: int) -> float:
+    """Rough USD estimate from token counts. Update when Google pricing changes."""
+    m = (model or "").lower()
+    if "flash-lite" in m:
+        in_rate, out_rate = 0.10, 0.40
+    elif "flash" in m:
+        in_rate, out_rate = 0.30, 2.50
+    else:
+        in_rate, out_rate = 1.25, 5.00
+    return prompt_tokens / 1_000_000 * in_rate + output_tokens / 1_000_000 * out_rate
+
+
+@router.get("/llm-usage")
+async def get_llm_usage(
+    days: int = Query(14, ge=1, le=90),
+    _admin: dict = Depends(verify_admin_user),
+):
+    """Return per-day, per-feature LLM usage with USD estimates for the admin dashboard."""
+    if not EDGE_FUNCTION_SECRET:
+        raise HTTPException(500, "EDGE_FUNCTION_SECRET not configured")
+
+    service = get_insforge_service()
+    result = await service.call_function(
+        "llm-usage",
+        method="GET",
+        params={"action": "daily", "days": days},
+        extra_headers={"X-Internal-Secret": EDGE_FUNCTION_SECRET},
+        timeout=30.0,
+    )
+
+    if result.get("status_code") != 200:
+        logger.error("llm-usage edge function failed: status=%s text=%s",
+                     result.get("status_code"), result.get("text"))
+        raise HTTPException(502, "Failed to fetch llm-usage data")
+
+    data = result.get("data", {})
+    if not data.get("success"):
+        raise HTTPException(502, f"Edge function error: {data.get('error', 'unknown')}")
+
+    rows = data.get("summary", []) or []
+    enriched = [
+        {**r, "est_usd": round(_estimate_usd(r.get("model"), r.get("prompt_tokens", 0), r.get("output_tokens", 0)), 4)}
+        for r in rows
+    ]
+
+    days_set: set[str] = set()
+    features_set: set[str] = set()
+    feature_totals: dict[str, dict[str, Any]] = {}
+    day_totals: dict[str, float] = {}
+    total_usd = 0.0
+
+    for r in enriched:
+        d = r.get("day") or ""
+        f = r.get("feature") or "unknown"
+        usd = r["est_usd"]
+        days_set.add(d)
+        features_set.add(f)
+        day_totals[d] = day_totals.get(d, 0.0) + usd
+        total_usd += usd
+        ft = feature_totals.setdefault(f, {
+            "feature": f, "calls": 0, "prompt_tokens": 0, "output_tokens": 0,
+            "total_tokens": 0, "est_usd": 0.0,
+        })
+        ft["calls"] += r.get("calls", 0)
+        ft["prompt_tokens"] += r.get("prompt_tokens", 0)
+        ft["output_tokens"] += r.get("output_tokens", 0)
+        ft["total_tokens"] += r.get("total_tokens", 0)
+        ft["est_usd"] += usd
+
+    feature_breakdown = sorted(
+        ({**v, "est_usd": round(v["est_usd"], 4)} for v in feature_totals.values()),
+        key=lambda x: -x["est_usd"],
+    )
+
+    return {
+        "days": days,
+        "rows": enriched,
+        "feature_breakdown": feature_breakdown,
+        "day_totals": [{"day": d, "est_usd": round(day_totals[d], 4)} for d in sorted(day_totals)],
+        "all_days": sorted(days_set),
+        "all_features": sorted(features_set),
+        "total_usd": round(total_usd, 4),
+    }

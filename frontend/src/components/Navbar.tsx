@@ -9,12 +9,14 @@ import { MobileMenu } from '@/components/MobileMenu';
 import { Logo } from '@/components/Logo';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useIsAdmin } from '@/hooks/use-is-admin';
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const { has: hasFlag } = useFeatureFlags();
   const { has: hasEntitlement } = useEntitlements();
+  const isAdmin = useIsAdmin();
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -93,6 +95,19 @@ export function Navbar() {
             <NavLink href="/macro">宏观</NavLink>
             <NavLink href="/pricing">高级订阅</NavLink>
             <NavLink href="/contact">联系</NavLink>
+            {isAdmin && (
+              <NavDropdown
+                label="管理"
+                href="/admin"
+                items={[
+                  { href: '/admin', label: '用户管理' },
+                  { href: '/admin/flags', label: '灰度管理' },
+                  { href: '/admin/llm-usage', label: 'LLM 用量' },
+                  { href: '/email-test', label: '邮件预览' },
+                  { href: '/dev/feedback', label: '邮件反馈' },
+                ]}
+              />
+            )}
           </div>
 
           {/* Right Side Actions */}

@@ -51,23 +51,26 @@ module.exports = async function(request) {
       return new Response(JSON.stringify({ success: true, inserted: cleaned.length }), { status: 200, headers: jsonHeaders });
     }
 
-    if (request.method === "GET" && action === "summary") {
+    if (request.method === "GET" && (action === "summary" || action === "daily")) {
       const daysRaw = parseInt(url.searchParams.get("days") || "7", 10);
       const days = Math.max(1, Math.min(90, isNaN(daysRaw) ? 7 : daysRaw));
       const since = new Date(Date.now() - days * 86400000).toISOString();
       const { data, error } = await client.database
         .from("llm_usage")
-        .select("feature, model, prompt_tokens, output_tokens, total_tokens")
+        .select("ts, feature, model, prompt_tokens, output_tokens, total_tokens")
         .gte("ts", since);
       if (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers: jsonHeaders });
       }
+      const includeDay = action === "daily";
       const buckets = new Map();
       const rowsData = data || [];
       for (let i = 0; i < rowsData.length; i++) {
         const row = rowsData[i];
-        const key = (row.feature || "") + "|" + (row.model || "");
+        const day = includeDay ? (row.ts || "").slice(0, 10) : "";
+        const key = day + "|" + (row.feature || "") + "|" + (row.model || "");
         const b = buckets.get(key) || {
+          day: day || undefined,
           feature: row.feature,
           model: row.model || null,
           calls: 0,
@@ -82,6 +85,7 @@ module.exports = async function(request) {
         buckets.set(key, b);
       }
       const summary = Array.from(buckets.values()).sort(function (a, b) {
+        if (includeDay && a.day !== b.day) return a.day < b.day ? 1 : -1;
         return b.total_tokens - a.total_tokens;
       });
       return new Response(JSON.stringify({ success: true, days: days, since: since, summary: summary }), { status: 200, headers: jsonHeaders });
