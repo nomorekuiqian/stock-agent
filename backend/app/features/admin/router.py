@@ -70,6 +70,73 @@ def _categorize_users(users: list[dict[str, Any]]) -> dict[str, Any]:
     return {"summary": summary, "users": annotated}
 
 
+def _empty_activity(days: int = 30) -> dict[str, Any]:
+    return {
+        "days": days,
+        "daily": [],
+        "summary": {
+            "today": 0,
+            "yesterday": 0,
+            "avg_7d": 0.0,
+            "avg_30d": 0.0,
+            "max_30d": 0,
+            "events_30d": 0,
+            "api_calls_30d": 0,
+        },
+    }
+
+
+def _shape_activity_dashboard(payload: dict[str, Any], days: int = 30) -> dict[str, Any]:
+    if not payload.get("success"):
+        return _empty_activity(days)
+
+    rows = payload.get("data", []) or []
+    daily = [
+        {
+            "day": str(row.get("day") or ""),
+            "active_users": int(row.get("active_users") or 0),
+            "event_count": int(row.get("event_count") or 0),
+            "api_calls": int(row.get("api_calls") or 0),
+        }
+        for row in rows
+    ]
+
+    active_values = [row["active_users"] for row in daily]
+    today = active_values[-1] if active_values else 0
+    yesterday = active_values[-2] if len(active_values) >= 2 else 0
+    last_7 = active_values[-7:]
+
+    return {
+        "days": int(payload.get("days") or days),
+        "daily": daily,
+        "summary": {
+            "today": today,
+            "yesterday": yesterday,
+            "avg_7d": round(sum(last_7) / len(last_7), 1) if last_7 else 0.0,
+            "avg_30d": round(sum(active_values) / len(active_values), 1) if active_values else 0.0,
+            "max_30d": max(active_values) if active_values else 0,
+            "events_30d": sum(row["event_count"] for row in daily),
+            "api_calls_30d": sum(row["api_calls"] for row in daily),
+        },
+    }
+
+
+async def _fetch_activity(days: int) -> dict[str, Any]:
+    service = get_insforge_service()
+    result = await service.call_function(
+        "admin-activity",
+        method="GET",
+        params={"action": "daily", "days": days},
+        extra_headers=(
+            {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
+            if EDGE_FUNCTION_SECRET else None
+        ),
+        timeout=30.0,
+    )
+    data = result.get("data", {}) if isinstance(result, dict) else {}
+    return _shape_activity_dashboard(data, days=days)
+
+
 @router.get("/whoami")
 async def get_admin_status(
     user_info: dict = Depends(verify_user_token_with_email),
@@ -77,6 +144,15 @@ async def get_admin_status(
     """Return whether the current authenticated user is an admin. Used by the frontend to gate admin UI."""
     email = (user_info.get("email") or "").lower()
     return {"is_admin": email in ADMIN_EMAILS}
+
+
+@router.get("/activity")
+async def get_activity(
+    days: int = Query(60, ge=14, le=90),
+    _admin: dict = Depends(verify_admin_user),
+):
+    """Return daily activity for admin trend comparisons."""
+    return await _fetch_activity(days)
 
 
 @router.get("/dashboard")
@@ -116,9 +192,10 @@ async def get_dashboard(
         params={"action": "aggregate"},
         json_body={},
     )
+    activity_task = _fetch_activity(30)
 
-    crm_result, contact_fb_result, questionnaire_result = await asyncio.gather(
-        crm_task, contact_fb_task, questionnaire_task,
+    crm_result, contact_fb_result, questionnaire_result, activity_result = await asyncio.gather(
+        crm_task, contact_fb_task, questionnaire_task, activity_task,
         return_exceptions=True,
     )
 
@@ -134,6 +211,8 @@ async def get_dashboard(
     # Questionnaire submissions aggregated by email
     q_data = questionnaire_result.get("data", {}) if isinstance(questionnaire_result, dict) else {}
     questionnaire_map = q_data.get("data", {}) if q_data.get("success") else {}
+
+    activity = activity_result if isinstance(activity_result, dict) else _empty_activity(30)
 
     for user in users:
         profile = profile_map.get(user["user_id"])
@@ -158,7 +237,9 @@ async def get_dashboard(
             "personal_digest_email" in (user.get("entitlements") or [])
         )
 
-    return _categorize_users(users)
+    dashboard = _categorize_users(users)
+    dashboard["activity"] = activity
+    return dashboard
 
 
 def _estimate_usd(model: str | None, prompt_tokens: int, output_tokens: int) -> float:

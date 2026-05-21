@@ -139,6 +139,23 @@ function daysUntil(iso: string | null): string {
   return `${diff} 天后`;
 }
 
+function formatCompactDate(isoDate: string): string {
+  if (!isoDate) return '-';
+  try {
+    return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return isoDate.slice(5);
+  }
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value);
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
@@ -330,6 +347,12 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            href="/admin/activity"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
+          >
+            活跃对比 →
+          </Link>
+          <Link
             href="/admin/llm-usage"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
           >
@@ -363,6 +386,8 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           );
         })}
       </div>
+
+      {data.activity && <DauDashboard activity={data.activity} />}
 
       {/* Search + actions */}
       <div className="flex flex-wrap items-center gap-3">
@@ -515,6 +540,79 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DauDashboard({ activity }: { activity: NonNullable<DashboardData['activity']> }) {
+  const daily = activity.daily ?? [];
+  const maxDau = Math.max(1, ...daily.map((row) => row.active_users));
+  const delta = activity.summary.today - activity.summary.yesterday;
+  const deltaLabel = delta === 0 ? '0' : `${delta > 0 ? '+' : ''}${delta}`;
+  const deltaStyle = delta > 0
+    ? 'text-emerald-700 bg-emerald-50'
+    : delta < 0
+      ? 'text-red-700 bg-red-50'
+      : 'text-muted-foreground bg-muted';
+
+  return (
+    <section className="rounded-lg border border-border bg-background p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">DAU</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Daily active users from user_activities, UTC day boundary.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-right">
+          <Metric label="Today" value={formatNumber(activity.summary.today)} />
+          <Metric label="vs yesterday" value={deltaLabel} valueClassName={deltaStyle} />
+          <Metric label="7D avg" value={String(activity.summary.avg_7d)} />
+          <Metric label="30D avg" value={String(activity.summary.avg_30d)} />
+          <Metric label="30D API calls" value={formatNumber(activity.summary.api_calls_30d)} />
+        </div>
+      </div>
+
+      <div className="flex h-32 items-end gap-1.5 border-t border-border pt-4">
+        {daily.map((row) => {
+          const height = Math.max(4, Math.round((row.active_users / maxDau) * 100));
+          return (
+            <div key={row.day} className="group flex min-w-0 flex-1 flex-col items-center gap-1">
+              <div className="relative flex h-24 w-full items-end justify-center">
+                <div
+                  className="w-full max-w-5 rounded-t bg-emerald-500/75 transition-colors group-hover:bg-emerald-600"
+                  style={{ height: `${height}%` }}
+                />
+                <div className="pointer-events-none absolute bottom-full mb-2 hidden rounded-md border border-border bg-popover px-2 py-1 text-[11px] shadow-sm group-hover:block whitespace-nowrap">
+                  {formatCompactDate(row.day)} · {row.active_users} DAU · {row.api_calls} API
+                </div>
+              </div>
+              <span className="hidden text-[10px] text-muted-foreground md:block">
+                {formatCompactDate(row.day)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className={`mt-1 inline-flex rounded px-1.5 py-0.5 text-lg font-semibold tabular-nums ${valueClassName ?? 'text-foreground'}`}>
+        {value}
       </div>
     </div>
   );

@@ -54,6 +54,27 @@ export interface UserRecord {
   personal_digest_subscribed?: boolean;
 }
 
+export interface ActivityDailyRow {
+  day: string;
+  active_users: number;
+  event_count: number;
+  api_calls: number;
+}
+
+export interface DashboardActivity {
+  days: number;
+  daily: ActivityDailyRow[];
+  summary: {
+    today: number;
+    yesterday: number;
+    avg_7d: number;
+    avg_30d: number;
+    max_30d: number;
+    events_30d: number;
+    api_calls_30d: number;
+  };
+}
+
 export interface DashboardData {
   summary: {
     total: number;
@@ -64,6 +85,7 @@ export interface DashboardData {
     never_trialed: number;
   };
   users: UserRecord[];
+  activity?: DashboardActivity;
   error?: string;
 }
 

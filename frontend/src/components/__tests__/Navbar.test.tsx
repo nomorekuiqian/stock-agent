@@ -39,6 +39,10 @@ vi.mock('@/hooks/use-feature-flags', () => ({
   }),
 }));
 
+vi.mock('@/hooks/use-is-admin', () => ({
+  useIsAdmin: () => false,
+}));
+
 vi.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({
     entitlements: new Set<string>(),

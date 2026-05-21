@@ -184,7 +184,10 @@ async def verify_admin_user(
     user_info = await verify_user_token_with_email(authorization)
     email = (user_info.get("email") or "").lower()
     if email not in ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Admin access denied")
+        detail = "Admin access denied"
+        if ENVIRONMENT != "production":
+            detail = f"Admin access denied for {email or '<missing email>'}"
+        raise HTTPException(status_code=403, detail=detail)
     return user_info
 
 
