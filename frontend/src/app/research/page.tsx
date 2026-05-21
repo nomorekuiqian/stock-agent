@@ -26,6 +26,10 @@ import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
 import MobileTabSwitch from './_components/MobileTabSwitch';
+import { type AgentKind } from './_components/PersonaSelector';
+import KolChunksPanel from './_components/KolChunksPanel';
+import type { KolPersonaChunk, KolResearchStreamEvent } from '@/lib/api';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,6 +64,12 @@ function ScreenerContent() {
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [quota, setQuota] = useState<{ allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean } | null>(null);
+  // KOL persona state. Persisted only across the session via reducer reset on switch.
+  const [agentKind, setAgentKind] = useState<AgentKind>('research');
+  const [personaUsername, setPersonaUsername] = useState<string | null>(null);
+  const [latestKolChunks, setLatestKolChunks] = useState<KolPersonaChunk[]>([]);
+  const { has: hasFlag } = useFeatureFlags();
+  const kolPersonaEnabled = hasFlag('kol_research_agent');
   const stockContextRef = useRef<StockContextPayload | null>(null);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
@@ -383,7 +393,95 @@ function ScreenerContent() {
   }, [flushPendingSeed]);
 
   // Send message handler
+  // KOL-mode send. Independent codepath: we don't touch screener candidates / filters.
+  const handleKolSend = useCallback(async (message: string) => {
+    dispatch({ type: 'SEND_MESSAGE', message });
+    setLatestKolChunks([]);
+    try {
+      const history = state.messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role, content: m.content }));
+      history.push({ role: 'user', content: message });
+
+      let finalMessage = '';
+      let finalChunks: KolPersonaChunk[] = [];
+      let finalNavigate: { type: string; params: Record<string, string>; reason?: string } | null = null;
+      let errored = false;
+
+      await api.kolResearch.chatStream(
+        {
+          message,
+          history,
+          persona_username: personaUsername || 'qinbafrank',
+          // KOL agent currently ignores active_context (kept minimal in Phase 4).
+        },
+        (event: KolResearchStreamEvent) => {
+          if (event.type === 'skill_activated') {
+            ReactDOM.flushSync(() => {
+              dispatch({
+                type: 'TOOL_ACTIVITY',
+                tool: 'load_skill',
+                description: event.description,
+                status: 'start',
+              });
+            });
+          } else if (event.type === 'tool_call_start') {
+            ReactDOM.flushSync(() => {
+              dispatch({
+                type: 'TOOL_ACTIVITY',
+                tool: event.tool,
+                description: event.description,
+                status: 'start',
+              });
+            });
+          } else if (event.type === 'tool_call_end') {
+            // no-op — keep description visible until next event
+          } else if (event.type === 'final') {
+            finalMessage = event.data.message;
+            finalChunks = event.data.kol_chunks || [];
+            finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
+          } else if (event.type === 'error') {
+            errored = true;
+            dispatch({ type: 'SET_ERROR', error: event.error || 'AI 助手暂时无法响应' });
+          }
+        },
+      );
+
+      if (errored) return;
+      if (!finalMessage) {
+        dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
+        return;
+      }
+
+      // Reuse RECEIVE_RESPONSE by mapping KOL output onto a minimal ResearchResult shape.
+      const result: ResearchResult = {
+        success: true,
+        message: finalMessage,
+        options: [],
+        candidates: [],
+        candidate_count: 0,
+        universe_size: 0,
+        recommendations: [],
+        accumulated_filters: [],
+        reset_results: false,
+        title: '',
+        navigate: finalNavigate,
+        data_freshness: null,
+        is_stale: false,
+      };
+      dispatch({ type: 'RECEIVE_RESPONSE', result });
+      setLatestKolChunks(finalChunks);
+    } catch (err) {
+      console.warn('[KOL Research] handleKolSend error:', err);
+      dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
+    }
+  }, [state.messages, personaUsername]);
+
   const handleSend = useCallback(async (message: string) => {
+    // Route to KOL agent codepath when a persona is loaded.
+    if (agentKind === 'kol_research') {
+      return handleKolSend(message);
+    }
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Screener] handleSend called, isLoading was:', state.isLoading);
     }
@@ -663,7 +761,7 @@ function ScreenerContent() {
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation, handleStockClick, signOut]);
+  }, [agentKind, handleKolSend, buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation, handleStockClick, signOut]);
 
   // Keep ref in sync so flushPendingSeed can call the latest handleSend
   useEffect(() => {
@@ -892,6 +990,15 @@ function ScreenerContent() {
               universeSize={state.universeSize || undefined}
               userName={user?.name}
               quota={quota}
+              personaSelectorEnabled={kolPersonaEnabled}
+              agentKind={agentKind}
+              personaUsername={personaUsername}
+              onPersonaChange={({ agentKind: nextKind, personaUsername: nextUser }) => {
+                setAgentKind(nextKind);
+                setPersonaUsername(nextUser);
+                setLatestKolChunks([]);
+                // Already at welcome screen, no reducer reset needed.
+              }}
             />
           </div>
         </div>
@@ -953,9 +1060,9 @@ function ScreenerContent() {
           )}
           {/* Chat panel */}
           <div className="flex-1 flex flex-col relative min-w-0">
-            {/* Sidebar toggle when collapsed */}
-            {!historyOpen && (
-              <div className="shrink-0 px-3 py-2 flex items-center">
+            {/* Chat header: sidebar toggle + persona selector */}
+            <div className="shrink-0 px-3 py-2 flex items-center gap-2">
+              {!historyOpen && (
                 <button
                   onClick={() => setHistoryOpen(true)}
                   title="历史对话"
@@ -966,6 +1073,18 @@ function ScreenerContent() {
                     <path d="M9 3v18" />
                   </svg>
                 </button>
+              )}
+              {/* Read-only persona chip — visible during active KOL conversations.
+                  To switch personas, user clicks "新对话" / RESET to return to welcome. */}
+              {kolPersonaEnabled && agentKind === 'kol_research' && personaUsername && (
+                <div className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span>🎙️ @{personaUsername} 视角</span>
+                </div>
+              )}
+            </div>
+            {agentKind === 'kol_research' && latestKolChunks.length > 0 && (
+              <div className="shrink-0">
+                <KolChunksPanel chunks={latestKolChunks} />
               </div>
             )}
             <ChatPanel
@@ -975,6 +1094,11 @@ function ScreenerContent() {
               onCancelLoading={state.isLoading ? handleCancelLoading : undefined}
               toolActivities={state.toolActivities}
               quota={quota}
+              inputPlaceholder={
+                agentKind === 'kol_research'
+                  ? `按 @${personaUsername || 'qinbafrank'} 方法论提问...`
+                  : undefined
+              }
             />
           </div>
         </div>

@@ -1018,6 +1018,73 @@ export interface ConversationSaveRequest {
   message_count: number;
 }
 
+// ===========================================================================
+// KOL Persona Research Agent (qinbafrank-style投研助手)
+// ===========================================================================
+
+export interface KolPersonaSummary {
+  username: string;
+  display_name: string;
+  description: string;
+  lenses_available: string[];
+  last_indexed_at: string | null;
+}
+
+export interface KolPersonaChunk {
+  citation_index: number;
+  source_id: string;
+  title: string | null;
+  url: string | null;
+  content: string;
+  similarity: number;
+  author_username: string | null;
+  created_at: string | null;
+  tickers: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface KolToolCallSummary {
+  name: string;
+  args_summary: string | null;
+  duration_ms: number | null;
+  ok: boolean;
+}
+
+export interface KolResearchMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface KolResearchRequest {
+  message: string;
+  history?: KolResearchMessage[];
+  persona_username?: string;
+  content_context?: Record<string, unknown>;
+}
+
+export interface KolResearchResponse {
+  persona_username: string;
+  message: string;
+  kol_chunks: KolPersonaChunk[];
+  activated_skills: string[];
+  tool_calls: KolToolCallSummary[];
+  navigate: Record<string, unknown> | null;
+}
+
+export interface KolConversationSaveRequest {
+  title: string;
+  data: Record<string, unknown>;
+  message_count: number;
+  persona_username: string;
+}
+
+export type KolResearchStreamEvent =
+  | { type: 'skill_activated'; skill_name: string; description: string }
+  | { type: 'tool_call_start'; tool: string; description: string }
+  | { type: 'tool_call_end'; tool: string; duration_ms: number | null }
+  | { type: 'final'; data: KolResearchResponse }
+  | { type: 'error'; error: string };
+
 export interface ResearchKBMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -2335,6 +2402,156 @@ export const api = {
       delete: async (id: string): Promise<{ success: boolean }> => {
         const headers = await _authHeaders({});
         const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, {
+          method: 'DELETE',
+          headers,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to delete conversation');
+        }
+        return response.json();
+      },
+    },
+  },
+
+  kolResearch: {
+    personas: async (): Promise<{ personas: KolPersonaSummary[] }> => {
+      const headers = await _authHeaders({});
+      const response = await fetch(`${API_BASE_URL}/kol_research/personas`, { headers });
+      if (!response.ok) {
+        if (response.status === 403) return { personas: [] };
+        await throwProtectedApiError(response, 'Failed to load personas');
+      }
+      return response.json();
+    },
+
+    chat: async (req: KolResearchRequest): Promise<KolResearchResponse> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      try {
+        const response = await fetch(`${API_BASE_URL}/kol_research/chat`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'AI 助手暂时无法响应');
+        }
+        return response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('AI 助手响应超时，请再试一次');
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
+    chatStream: async (
+      req: KolResearchRequest,
+      onEvent: (event: KolResearchStreamEvent) => void,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120_000);
+      if (signal) {
+        signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/kol_research/chat/stream`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'AI 助手暂时无法响应');
+        }
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6)) as KolResearchStreamEvent;
+                onEvent(data);
+                if (data.type === 'tool_call_start' || data.type === 'skill_activated') {
+                  await new Promise(r => setTimeout(r, 0));
+                }
+              } catch { /* skip malformed events */ }
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          onEvent({ type: 'error', error: 'AI 助手响应超时，请再试一次' });
+        } else {
+          throw err;
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
+    conversations: {
+      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+        const headers = await _authHeaders({});
+        const response = await fetch(`${API_BASE_URL}/kol_research/conversations`, { headers });
+        if (!response.ok) {
+          if (response.status === 403) return { conversations: [] };
+          await throwProtectedApiError(response, 'Failed to fetch conversations');
+        }
+        return response.json();
+      },
+
+      get: async (id: string): Promise<Record<string, unknown>> => {
+        const headers = await _authHeaders({});
+        const response = await fetch(`${API_BASE_URL}/kol_research/conversations/${id}`, { headers });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch conversation');
+        }
+        return response.json();
+      },
+
+      create: async (req: KolConversationSaveRequest): Promise<{ id: string }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const response = await fetch(`${API_BASE_URL}/kol_research/conversations`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to create conversation');
+        }
+        return response.json();
+      },
+
+      update: async (id: string, req: KolConversationSaveRequest): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const response = await fetch(`${API_BASE_URL}/kol_research/conversations/${id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(req),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to update conversation');
+        }
+        return response.json();
+      },
+
+      delete: async (id: string): Promise<{ success: boolean }> => {
+        const headers = await _authHeaders({});
+        const response = await fetch(`${API_BASE_URL}/kol_research/conversations/${id}`, {
           method: 'DELETE',
           headers,
         });

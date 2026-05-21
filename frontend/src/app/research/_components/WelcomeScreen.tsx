@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ChatInput from './ChatInput';
+import PersonaSelector, { type AgentKind } from './PersonaSelector';
 
 // ---------------------------------------------------------------------------
 // Greeting rotation
@@ -84,6 +85,11 @@ interface WelcomeScreenProps {
   universeSize?: number;
   userName?: string | null;
   quota?: QuotaInfo | null;
+  /** When set, renders the persona selector inside the composer. */
+  personaSelectorEnabled?: boolean;
+  agentKind?: AgentKind;
+  personaUsername?: string | null;
+  onPersonaChange?: (next: { agentKind: AgentKind; personaUsername: string | null }) => void;
 }
 
 export default function WelcomeScreen({
@@ -91,6 +97,10 @@ export default function WelcomeScreen({
   universeSize,
   userName,
   quota,
+  personaSelectorEnabled = false,
+  agentKind = 'research',
+  personaUsername = null,
+  onPersonaChange,
 }: WelcomeScreenProps) {
   const [greeting] = useState(
     () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
@@ -200,9 +210,26 @@ export default function WelcomeScreen({
       <div className="shrink-0 mx-auto w-full max-w-4xl px-4 sm:px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 sm:pt-4">
         <ChatInput
           onSubmit={onSelect}
-          placeholder="随便问点什么..."
+          placeholder={
+            agentKind === 'kol_research'
+              ? `按 @${personaUsername || 'qinbafrank'} 方法论提问...`
+              : '随便问点什么...'
+          }
           autoFocus={false}
           quota={quota}
+          leftSlot={
+            personaSelectorEnabled && onPersonaChange ? (
+              <PersonaSelector
+                agentKind={agentKind}
+                personaUsername={personaUsername}
+                onChange={onPersonaChange}
+                // No unsaved chat at welcome screen, skip confirm dialog.
+                requireConfirmBeforeSwitch={false}
+                // Composer sits at the bottom of the viewport — expand upward.
+                placement="top"
+              />
+            ) : null
+          }
         />
       </div>
     </div>

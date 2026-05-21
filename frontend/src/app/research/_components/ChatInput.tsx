@@ -17,6 +17,8 @@ interface ChatInputProps {
   placeholder?: string;
   autoFocus?: boolean;
   quota?: QuotaInfo | null;
+  /** Optional toolbar rendered at the bottom-left of the input (e.g. persona / mode selector). */
+  leftSlot?: React.ReactNode;
 }
 
 export default function ChatInput({
@@ -26,6 +28,7 @@ export default function ChatInput({
   placeholder = '描述你想找的股票...',
   autoFocus = false,
   quota,
+  leftSlot,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -120,7 +123,10 @@ export default function ChatInput({
           className="max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground outline-none focus-visible:outline-none placeholder:text-muted-foreground/70"
           aria-label="消息输入"
         />
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 min-w-0">
+            {leftSlot}
+          </div>
           {loading && onCancel ? (
             <button
               onClick={onCancel}
