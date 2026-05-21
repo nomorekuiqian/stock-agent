@@ -25,6 +25,11 @@ KNOWN_FLAGS: list[FlagDef] = [
         "KOL 方法论对话入口（qinbafrank 蒸馏体）— 初期仅 admin 灰度",
         admin_default=True,
     ),
+    FlagDef(
+        "kol_research_agent",
+        "博主投研 Agent（/research UI + qinbafrank persona overlay）— 初期仅 admin 灰度",
+        admin_default=True,
+    ),
 ]
 
 

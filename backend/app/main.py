@@ -131,6 +131,7 @@ from app.features.payment.router import router as payment_router
 from app.features.invites.router import router as invites_router
 from app.features.screener.router import router as screener_router
 from app.features.screener.router import research_router
+from app.features.kol_research.router import router as kol_research_router
 from app.features.research_kb.router import router as research_kb_router
 from app.features.wechat.router import router as wechat_router
 from app.features.admin.router import router as admin_router
@@ -161,6 +162,7 @@ app.include_router(invites_router)
 app.include_router(morning_report_router)
 app.include_router(screener_router)
 app.include_router(research_router)
+app.include_router(kol_research_router)
 app.include_router(research_kb_router)
 app.include_router(wechat_router)
 app.include_router(admin_router)

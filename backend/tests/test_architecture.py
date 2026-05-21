@@ -213,6 +213,17 @@ class TestNoCrossFeatureImports:
         ("portfolio_health", "portfolio"),   # health check reads portfolio data
         ("portfolio_health", "macro"),       # health check reads macro risk data
         ("memory", "portfolio"),             # memory reads portfolio theses
+        # KOL persona research agent — composes screener (conversation persistence,
+        # research_agent tool primitives), daily_report (preload recent reports),
+        # and flags (admin gating) by design.
+        ("kol_research", "screener"),
+        ("kol_research", "daily_report"),
+        ("kol_research", "flags"),
+        # Legacy /kol-chat surface — reads daily/morning report cache for chat
+        # context. Slated for removal when /kol-chat is sunset (see plan
+        # docs/plans/active/kol-persona-research-agent.md Phase 6).
+        ("twitter", "daily_report"),
+        ("twitter", "morning_report"),
     }
 
     def test_no_cross_feature_imports(self):
