@@ -1,6 +1,7 @@
 fastapi
 fredapi
 google-adk
+google-cloud-storage
 google-genai
 httpx
 itsdangerous
