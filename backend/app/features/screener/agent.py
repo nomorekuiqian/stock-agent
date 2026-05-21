@@ -66,7 +66,8 @@ def execute_screener(
 
     Call this tool to test filter conditions and see how many stocks match.
     Use the results to decide whether to tighten or relax conditions.
-    Aim for 10-50 results for a useful screening.
+    Aim for 10-50 results for a useful screening. If 0 results, relax the most
+    restrictive condition; if too many (>50), tighten one more dimension.
 
     Args:
         filters_json: JSON array of filter conditions. Each item: {"field": "<field_name>", "op": "gt|gte|lt|lte|eq|neq|in", "value": <number_or_string>}. Example: [{"field": "pe_ttm", "op": "lt", "value": 15}, {"field": "roe", "op": "gt", "value": 10}]
@@ -76,6 +77,39 @@ def execute_screener(
 
     Returns:
         JSON with match_count (total matches), universe_size, and preview of top results.
+
+    Available fields:
+        Identity: name, sector, industry, beta_1y
+        Price/Performance: price, daily_change, weekly_change, monthly_change,
+            change_3m, change_6m, ytd_change, yearly_change, high_52w, low_52w
+        Valuation: market_cap (USD, 1e9=$1B), pe_ttm, pb_mrq, ps_fy, ev_ebitda_ttm, peg_ttm
+        Profitability (% as raw numbers, ROE 15%=15): gross_margin, operating_margin,
+            net_margin, roe, roa, roic
+        Growth: revenue_growth_ttm, revenue_growth_quarterly, eps_growth_ttm,
+            eps_growth_quarterly, ebitda_growth_ttm, fcf_growth_ttm,
+            revenue_growth_5y, eps_growth_5y
+        Dividends: dividend_yield, payout_ratio, dividend_growth_years, dividend_payout_years
+        Balance: debt_to_equity, current_ratio, cash_equivalents
+        Volume: volume, avg_volume_30d, relative_volume
+        Analyst: target_price_avg, analyst_rating (1=Strong Buy, 5=Strong Sell)
+        Technical: rsi, sma50, sma200, above_sma50, above_sma200
+        Derived: position_52w (0=52w low, 1=52w high), analyst_upside (% to target),
+            market_cap_tier ("small" <$2B, "mid" $2-10B, "large" $10-200B, "mega" >$200B)
+
+    Operators: gt (>), gte (>=), lt (<), lte (<=), eq (=), neq (!=), in (value in list)
+
+    Preference → filter cheatsheet (translate user intent to filters):
+        "stable"/"safe"/"steady"  → market_cap_tier in ["large","mega"], beta_1y < 1
+        "dividends"/"income"      → dividend_yield > 2, dividend_payout_years >= 5
+        "growth"/"fast growing"   → revenue_growth_ttm > 20, eps_growth_ttm > 15
+        "cheap"/"undervalued"     → pe_ttm < 15, position_52w < 0.4
+        "trending"/"momentum"     → change_3m > 10, above_sma50 eq true
+        "earnings beat"           → eps_growth_quarterly > 0, revenue_growth_quarterly > 0
+        "white horse"/"白马股"    → roe > 15, pe_ttm < 25, market_cap_tier in ["large","mega"]
+        "tech"                    → sector eq "Technology Services"
+        "healthcare"              → sector in ["Health Technology","Health Services"]
+        "big company"             → market_cap_tier in ["large","mega"]
+        "small company"           → market_cap_tier eq "small"
     """
     try:
         filters = json.loads(filters_json)
