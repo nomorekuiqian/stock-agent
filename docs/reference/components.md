@@ -16,7 +16,6 @@
 | 装饰 | 3 | TrustBadges, LogoMarquee, ProductShowcase |
 | 全局 | 4 | Providers, TradingViewWidget, AuthSubscriptionSync, FeatureSections |
 | Auth 表单 | 2 | PasswordField, InviteCodeModal |
-| AI Chat (assistant-ui) | 5 | thread, attachment, markdown-text, tool-fallback, tooltip-icon-button |
 | 其他 | 1 | AiChatLink |
 
 ---
@@ -191,13 +190,3 @@ AI 个股分析卡片，支持三种状态。
 - 跳转到 AI 对话功能的快捷入口组件
 
 ---
-
-## AI Chat 组件 (assistant-ui/)
-
-| 组件 | 说明 |
-|------|------|
-| thread.tsx | AI 对话主线程组件，消息列表 + 输入框 |
-| attachment.tsx | 附件上传/展示组件 |
-| markdown-text.tsx | Markdown 内容渲染 |
-| tool-fallback.tsx | Tool call 结果的降级展示 |
-| tooltip-icon-button.tsx | 带 tooltip 的图标按钮 |

@@ -41,7 +41,6 @@
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
 | `/research` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
-| `/research-v2` | 投研助手 V2 | Backend (screener/research API) | 是 |
 | `/admin` | 管理后台 | Backend (admin API) | 是 (cron) |
 | `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (cron) |
 | `/(wechat)/wechat-login-callback` | 微信登录回调 | Insforge Auth (WeChat) | 否 |
