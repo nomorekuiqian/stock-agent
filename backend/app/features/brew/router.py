@@ -9,7 +9,11 @@ from typing import Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
-from app.core.deps import verify_cron_secret, verify_user_token, verify_user_token_with_email
+from app.core.deps import (
+    verify_admin_or_nonprod_or_cron,
+    verify_user_token,
+    verify_user_token_with_email,
+)
 from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
@@ -462,18 +466,22 @@ class AdminRegenerateRequest(BaseModel):
 @router.post("/admin/digest/regenerate")
 async def admin_regenerate_digest(
     body: AdminRegenerateRequest,
-    _: bool = Depends(verify_cron_secret),
+    _auth: str = Depends(verify_admin_or_nonprod_or_cron),
 ):
     """Force-regenerate today's personal digest for a single user.
 
-    Authenticated via X-Cron-Secret (same gate as broadcasts and other
-    operational tooling). Bypasses the per-user cache check — the new digest
-    replaces whatever was stored for today.
+    Accepts any of three auth paths (`verify_admin_or_nonprod_or_cron`):
+      - Admin user bearer token (used by the /admin/users/[id] UI button)
+      - X-Cron-Secret (used by ops scripts / curl)
+      - Non-production environment (dev/staging convenience)
 
-    Use this to test fresh prompt/data changes for a specific account without
-    waiting for the next cron run. Symbols are the union of the user's
-    watchlist and portfolio (mirrors the lazy-POST path), so portfolio-only
-    holdings get analyzed too.
+    Bypasses the per-user cache check — the new digest replaces whatever was
+    stored for today. **Does not send any email**; only regenerates and
+    persists the digest row. Email broadcasts stay on their own cron and
+    are not triggered by this endpoint.
+
+    Symbols are the union of the user's watchlist and portfolio (mirrors the
+    lazy-POST path), so portfolio-only holdings get analyzed too.
     """
     user_id = body.user_id
 

@@ -643,7 +643,7 @@ class TestAdminRegenerate:
 
         result = await admin_regenerate_digest(
             body=AdminRegenerateRequest(user_id="test-user-123"),
-            _=True,
+            _auth="admin",
         )
 
         # Watchlist first (preserves caller-visible order), portfolio appended,
@@ -683,7 +683,7 @@ class TestAdminRegenerate:
         with pytest.raises(HTTPException) as exc:
             await admin_regenerate_digest(
                 body=AdminRegenerateRequest(user_id="empty-user"),
-                _=True,
+                _auth="admin",
             )
         assert exc.value.status_code == 400
         assert called["agent"] is False
