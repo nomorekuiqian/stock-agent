@@ -395,9 +395,11 @@ function PortfolioEditorContent() {
                   trigger={
                     <button
                       type="button"
-                      className="inline-flex items-center gap-2 rounded border border-emerald-300 bg-emerald-50/40 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                      className="group inline-flex items-center gap-2 rounded-lg border border-border/40 bg-card/50 px-3.5 py-2 text-sm font-medium text-foreground hover:border-border/60 hover:bg-card/70 transition-colors"
                     >
-                      ✨ 同步持仓（截图自动识别）
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 group-hover:bg-emerald-400 transition-colors" />
+                      <span>同步持仓</span>
+                      <span className="text-muted-foreground text-xs">截图 / 粘贴 / CSV / PDF</span>
                     </button>
                   }
                 />

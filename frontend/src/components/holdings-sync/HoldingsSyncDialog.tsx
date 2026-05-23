@@ -70,20 +70,23 @@ function initialEdit(r: HoldingsSyncExtractedRow): RowEdit {
 
 // ----- status chip ----------------------------------------------------------
 
+// Status chip 色彩规范：双主题。emerald = 已匹配主强调；amber = 次强调（待确认/请手动确认/需要映射）；
+// red = 错误（未识别/无报价）；muted = 中性（识别中）。所有色都走双主题（dark: 400 级 / light: 600-700 级，
+// 见 docs/constraints/design-system.md 强调色 + 语义色表）。
 const STATUS_LABEL: Record<HoldingsSyncRowStatus, { label: string; cls: string }> = {
-  ok:                 { label: '已匹配',     cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-  needs_review:       { label: '待确认',     cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  unresolved:         { label: '未识别',     cls: 'bg-red-50 text-red-700 ring-red-200' },
-  needs_mapping:      { label: '需要映射',   cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
-  pending_review:     { label: '识别中',     cls: 'bg-slate-50 text-slate-700 ring-slate-200' },
-  no_quote:           { label: '无报价',     cls: 'bg-red-50 text-red-700 ring-red-200' },
-  budget_exhausted:   { label: '请手动确认', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  ok:                 { label: '已匹配',     cls: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/30 light:text-emerald-700' },
+  needs_review:       { label: '待确认',     cls: 'bg-amber-500/10 text-amber-400 ring-amber-500/30 light:text-amber-700' },
+  unresolved:         { label: '未识别',     cls: 'bg-red-500/10 text-red-400 ring-red-500/30 light:text-red-600' },
+  needs_mapping:      { label: '需要映射',   cls: 'bg-amber-500/10 text-amber-400 ring-amber-500/30 light:text-amber-700' },
+  pending_review:     { label: '识别中',     cls: 'bg-muted/50 text-muted-foreground ring-border/60' },
+  no_quote:           { label: '无报价',     cls: 'bg-red-500/10 text-red-400 ring-red-500/30 light:text-red-600' },
+  budget_exhausted:   { label: '请手动确认', cls: 'bg-amber-500/10 text-amber-400 ring-amber-500/30 light:text-amber-700' },
 };
 
 function StatusChip({ status }: { status: HoldingsSyncRowStatus }) {
   const meta = STATUS_LABEL[status] ?? STATUS_LABEL.unresolved;
   return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ring-inset ${meta.cls}`}>
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${meta.cls}`}>
       {meta.label}
     </span>
   );
@@ -267,11 +270,17 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>同步持仓</DialogTitle>
-          <DialogDescription>
-            上传券商截图自动识别持仓；AI 识别可能有误，请核对数量与代码后再提交。
+      <DialogContent className="max-w-3xl gap-5">
+        <DialogHeader className="space-y-2">
+          {/* Editorial label — 与 portfolio/page.tsx 头部呼应 */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 max-w-[40px] bg-gradient-to-r from-primary to-transparent" />
+            <span className="text-primary text-xs font-medium tracking-[0.2em] uppercase">SYNC</span>
+            <span className="text-muted-foreground text-xs font-medium tracking-[0.15em]">/ HOLDINGS</span>
+          </div>
+          <DialogTitle className="text-xl font-semibold tracking-tight">同步持仓</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            支持截图 / 粘贴 / CSV / PDF 自动识别。AI 识别可能有误，请核对数量与代码后再提交。
           </DialogDescription>
         </DialogHeader>
 
@@ -302,14 +311,14 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
 
         {/* ---- step 1b: paste input (textarea + counter) -------------- */}
         {view === 'paste-input' && (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-600">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               粘贴券商导出的持仓文本（CSV、表格、自然语言均可）。AI 识别可能有误，
               请核对数量与代码后再提交。
             </p>
             <textarea
-              className="h-40 w-full rounded border border-slate-200 p-2 text-sm font-mono"
-              placeholder="AAPL 10\nMSFT 5 cost=300\n现金 1234.56\n…"
+              className="h-40 w-full rounded-lg border border-border/40 bg-background p-3 text-sm font-data text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+              placeholder={"AAPL 10\nMSFT 5 cost=300\n现金 1234.56\n…"}
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               maxLength={MAX_PASTE_CHARS}
@@ -317,7 +326,7 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
             />
             <div className="flex items-center justify-between text-xs">
               <span className={pasteText.length > MAX_PASTE_CHARS * 0.9
-                ? 'text-amber-700' : 'text-slate-400'}>
+                ? 'text-amber-500 light:text-amber-700 font-medium' : 'text-muted-foreground'}>
                 {pasteText.length} / {MAX_PASTE_CHARS}
               </span>
               <div className="flex gap-2">
@@ -354,18 +363,18 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
             <SummaryBar counts={summary} total={draft.rows.length}
                         accepted={acceptedRows.length} />
             {draft.dropped_note && (
-              <p className="text-sm text-slate-600">{draft.dropped_note}</p>
+              <p className="text-sm text-muted-foreground">{draft.dropped_note}</p>
             )}
-            <div className="max-h-[420px] overflow-y-auto rounded border border-slate-200">
+            <div className="max-h-[420px] overflow-y-auto rounded-lg border border-border/40 bg-card/30">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
-                  <tr>
-                    <th className="w-8 px-2 py-2"></th>
-                    <th className="px-2 py-2">代码 / 名称</th>
-                    <th className="px-2 py-2 text-right">数量</th>
-                    <th className="px-2 py-2 text-right">成本</th>
-                    <th className="px-2 py-2 text-right">权重 %</th>
-                    <th className="px-2 py-2">状态</th>
+                <thead className="sticky top-0 bg-card/80 backdrop-blur text-left text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                  <tr className="border-b border-border/40">
+                    <th className="w-10 px-3 py-2.5"></th>
+                    <th className="px-3 py-2.5">代码 / 名称</th>
+                    <th className="px-3 py-2.5 text-right">数量</th>
+                    <th className="px-3 py-2.5 text-right">成本</th>
+                    <th className="px-3 py-2.5 text-right">权重 %</th>
+                    <th className="px-3 py-2.5">状态</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -384,10 +393,12 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
         )}
 
         {errorMsg && (
-          <p className="text-sm text-red-600">{errorMsg}</p>
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500 light:text-red-700">
+            {errorMsg}
+          </div>
         )}
 
-        <DialogFooter className="sticky bottom-0 bg-white">
+        <DialogFooter className="border-t border-border/40 -mx-6 px-6 pt-4 mt-2 sm:justify-end">
           {draft && view === 'tiles' && (
             <>
               <Button variant="outline" onClick={() => reset()}>
@@ -421,18 +432,44 @@ function SummaryBar({
   accepted: number;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-      <span className="font-medium">识别 {total} 项</span>
-      {counts.ok ? <span>✓ 已匹配 {counts.ok}</span> : null}
-      {counts.needs_review ? <span>? 待确认 {counts.needs_review}</span> : null}
-      {counts.no_quote ? <span>⚠ 无报价 {counts.no_quote}</span> : null}
-      {counts.unresolved ? <span>⚠ 未识别 {counts.unresolved}</span> : null}
-      <span className="ml-auto font-medium text-emerald-700">
-        已接受 {accepted} / {total}
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+      <span className="font-medium text-foreground">识别 {total} 项</span>
+      {counts.ok ? (
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          已匹配 <span className="font-data text-foreground">{counts.ok}</span>
+        </span>
+      ) : null}
+      {counts.needs_review ? (
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          待确认 <span className="font-data text-foreground">{counts.needs_review}</span>
+        </span>
+      ) : null}
+      {counts.no_quote ? (
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+          无报价 <span className="font-data text-foreground">{counts.no_quote}</span>
+        </span>
+      ) : null}
+      {counts.unresolved ? (
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+          未识别 <span className="font-data text-foreground">{counts.unresolved}</span>
+        </span>
+      ) : null}
+      <span className="ml-auto font-medium text-emerald-500 light:text-emerald-700">
+        已接受 <span className="font-data">{accepted} / {total}</span>
       </span>
     </div>
   );
 }
+
+// 瓷砖统一容器样式 — 项目克制卡片风格，emerald 仅作锚点小圆点（design-system 禁忌 2：emerald 仅一级强调）
+const TILE_CLS =
+  'group relative flex cursor-pointer flex-col gap-1.5 rounded-lg border border-border/40 bg-card/50 px-4 py-5 text-left transition-colors hover:border-border/60 hover:bg-card/70';
+const TILE_DOT_CLS =
+  'inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500 group-hover:bg-emerald-400 transition-colors';
 
 function ScreenshotTile({
   onPick,
@@ -442,9 +479,12 @@ function ScreenshotTile({
   loading: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-6 text-center hover:bg-emerald-50">
-      <span className="text-sm font-medium text-emerald-700">上传截图</span>
-      <span className="text-xs text-slate-500">PNG / JPEG / WEBP，≤6MB</span>
+    <label className={TILE_CLS}>
+      <span className="flex items-center gap-2">
+        <span className={TILE_DOT_CLS} />
+        <span className="text-sm font-medium text-foreground">上传截图</span>
+      </span>
+      <span className="text-xs text-muted-foreground">PNG / JPEG / WEBP，≤6MB</span>
       <input
         type="file"
         accept="image/png,image/jpeg,image/webp"
@@ -457,7 +497,7 @@ function ScreenshotTile({
         }}
       />
       {loading && (
-        <span className="text-xs text-slate-500">AI 识别中…</span>
+        <span className="text-xs text-emerald-500 light:text-emerald-600">AI 识别中…</span>
       )}
     </label>
   );
@@ -465,22 +505,24 @@ function ScreenshotTile({
 
 function DisabledTile({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-1 rounded border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center opacity-60">
-      <span className="text-sm font-medium text-slate-500">{title}</span>
-      <span className="text-xs text-slate-400">{subtitle}</span>
+    <div className="flex flex-col gap-1.5 rounded-lg border border-border/30 bg-muted/20 px-4 py-5 opacity-60">
+      <span className="flex items-center gap-2">
+        <span className="inline-flex h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+        <span className="text-sm font-medium text-muted-foreground">{title}</span>
+      </span>
+      <span className="text-xs text-muted-foreground/70">{subtitle}</span>
     </div>
   );
 }
 
 function PasteTile({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-6 text-center hover:bg-emerald-50"
-    >
-      <span className="text-sm font-medium text-emerald-700">粘贴持仓</span>
-      <span className="text-xs text-slate-500">CSV / 表格 / 自然语言均可</span>
+    <button type="button" onClick={onClick} className={TILE_CLS}>
+      <span className="flex items-center gap-2">
+        <span className={TILE_DOT_CLS} />
+        <span className="text-sm font-medium text-foreground">粘贴持仓</span>
+      </span>
+      <span className="text-xs text-muted-foreground">CSV / 表格 / 自然语言均可</span>
     </button>
   );
 }
@@ -512,9 +554,12 @@ function CsvPdfTile({
     csvLive            ? '券商导出 .csv / .txt，≤2MB' :
                           '券商对账单 .pdf，≤8MB';
   return (
-    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-6 text-center hover:bg-emerald-50">
-      <span className="text-sm font-medium text-emerald-700">{title}</span>
-      <span className="text-xs text-slate-500">{hint}</span>
+    <label className={TILE_CLS}>
+      <span className="flex items-center gap-2">
+        <span className={TILE_DOT_CLS} />
+        <span className="text-sm font-medium text-foreground">{title}</span>
+      </span>
+      <span className="text-xs text-muted-foreground">{hint}</span>
       <input
         type="file"
         accept={acceptParts.join(',')}
@@ -557,19 +602,27 @@ function CsvMappingPicker({
 }) {
   return (
     <div className="space-y-3">
-      {note && <p className="text-sm text-amber-700">{note}</p>}
-      <p className="text-sm text-slate-600">
+      {note && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500 light:text-amber-700">
+          {note}
+        </div>
+      )}
+      <p className="text-sm text-muted-foreground">
         请为持仓字段指定对应的列：
       </p>
       <div className="space-y-2">
         {_MAPPABLE_FIELDS.map((f) => (
           <div key={f.key} className="flex items-center gap-3">
-            <label className="w-32 shrink-0 text-sm text-slate-700">
+            <label className="w-36 shrink-0 text-sm text-foreground">
               {f.label}
-              {f.hint && <span className="ml-1 text-xs text-amber-700">({f.hint})</span>}
+              {f.hint && (
+                <span className="ml-1 text-xs font-medium text-amber-500 light:text-amber-700">
+                  ({f.hint})
+                </span>
+              )}
             </label>
             <select
-              className="flex-1 rounded border border-slate-200 bg-white px-2 py-1 text-sm"
+              className="flex-1 rounded-md border border-border/40 bg-background px-2.5 py-1.5 text-sm text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
               value={mapping[f.key] ?? ''}
               onChange={(e) => {
                 const v = e.target.value;
@@ -587,7 +640,7 @@ function CsvMappingPicker({
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-end gap-2 text-xs">
+      <div className="flex items-center justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onBack}>返回</Button>
         <Button size="sm"
           onClick={onSubmit}
@@ -609,31 +662,34 @@ function RowView({
   onChange: (patch: Partial<RowEdit>) => void;
 }) {
   return (
-    <tr className="border-t border-slate-100 align-top">
+    <tr className="border-t border-border/30 align-top hover:bg-muted/20 transition-colors">
       {/* accept toggle */}
-      <td className="px-2 py-2">
+      <td className="px-3 py-3">
         <input
           type="checkbox"
           checked={edit.accepted}
           onChange={(e) => onChange({ accepted: e.target.checked })}
           disabled={!edit.symbol}
           aria-label="接受这一行"
+          className="h-4 w-4 rounded border-border/60 accent-emerald-500 disabled:opacity-40"
         />
       </td>
       {/* symbol column */}
-      <td className="px-2 py-2">
-        <div className="font-mono text-sm">
-          {edit.symbol || <span className="text-slate-400">未识别</span>}
+      <td className="px-3 py-3">
+        <div className="font-data text-sm text-foreground">
+          {edit.symbol || <span className="font-sans text-muted-foreground">未识别</span>}
           {row.resolved_name && (
-            <span className="ml-1 text-xs text-slate-500">
+            <span className="ml-2 font-sans text-xs font-medium text-muted-foreground">
               — {row.resolved_name}
               {row.exchange ? ` (${row.exchange})` : ''}
             </span>
           )}
         </div>
-        <div className="text-xs text-slate-400">原文：{row.raw}</div>
+        <div className="text-xs text-muted-foreground/70 mt-0.5">
+          <span className="font-medium">原文：</span>{row.raw}
+        </div>
         {row.candidates.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
+          <div className="mt-1.5 flex flex-wrap gap-1">
             {row.candidates.map((c: HoldingsSyncCandidate) => (
               <button
                 key={c.symbol}
@@ -641,19 +697,22 @@ function RowView({
                 onClick={() =>
                   onChange({ symbol: c.symbol, accepted: true })
                 }
-                className={`rounded border px-1.5 py-0.5 text-xs ${
+                className={`rounded-md border px-2 py-0.5 text-xs font-medium transition-colors ${
                   edit.symbol === c.symbol
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-500 light:text-emerald-700'
+                    : 'border-border/40 bg-card/40 text-foreground hover:border-border/60 hover:bg-card/60'
                 }`}
               >
-                {c.symbol} <span className="text-slate-400">({c.exchange})</span>
+                <span className="font-data">{c.symbol}</span>
+                <span className="ml-1 text-muted-foreground">({c.exchange})</span>
               </button>
             ))}
           </div>
         )}
         {row.notices.map((n, idx) => (
-          <div key={idx} className="text-xs text-amber-700">ⓘ {n}</div>
+          <div key={idx} className="mt-0.5 text-xs font-medium text-amber-500 light:text-amber-700">
+            ⓘ {n}
+          </div>
         ))}
       </td>
       {/* numeric columns */}
@@ -669,7 +728,7 @@ function RowView({
         value={edit.weight_pct}
         onChange={(v) => onChange({ weight_pct: v })}
       />
-      <td className="px-2 py-2">
+      <td className="px-3 py-3">
         <StatusChip status={row.status} />
       </td>
     </tr>
@@ -684,12 +743,12 @@ function NumericCell({
   onChange: (v: number | null) => void;
 }) {
   return (
-    <td className="px-2 py-2 text-right">
+    <td className="px-3 py-3 text-right">
       <input
         type="number"
         inputMode="decimal"
         step="any"
-        className="w-20 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-right text-sm tabular-nums"
+        className="w-24 rounded-md border border-border/40 bg-background px-2 py-1 text-right font-data text-sm text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
         value={value ?? ''}
         onChange={(e) => {
           const s = e.target.value.trim();
