@@ -1,21 +1,21 @@
-// Symbol-resolution L2 cache Edge Function (Track M / holdings_sync)
+// Track M · symbol_resolution_cache L2 (holdings_sync).
 // Schema: backend/migrations/holdings_sync_symbol_cache.sql
-// Design:  docs/plans/proposals/holdings-sync-track-m-tech-design.md §4.0 / §2bis.A.3
+// Design: docs/plans/proposals/holdings-sync-track-m-tech-design.md §4.0
 //
-// Cross-user + cross-instance shared cache for symbol resolution. NOT portfolio
-// geba (does not touch user_portfolios). Lazy expiry (read-time expires_at).
+// Cross-tenant shared resolver cache, decoupled from user_portfolios.
+// Read-time lazy expiry on expires_at.
 //
 // Actions:
-//   GET  ?action=get&query_norm=AAPL                 -> hit (unexpired) | null
+//   GET  ?action=get&query_norm=AAPL              -> fresh hit | null
 //   POST ?action=put body={query_norm,resolved_json,status,ttl_days}
 //
-// KEY SAFETY (Codex fix / §2bis.A.3): query_norm MUST be a cross-user-safe
-// canonical key — a ticker-shaped token [$A-Z0-9.-]{1,16} OR a non-reversible
-// safe hash "h:<hex>". Free text (account labels, CUSIP, emails, CSV/PDF
-// fragments) is REJECTED so raw user input never persists cross-user.
+// Key safety: query_norm must match SAFE_KEY (ticker-shaped or "h:<hex>"
+// hash) so only canonical tokens persist. Free text is refused at the gate.
 //
-// Backend has already verified JWT; this EF does NOT re-validate it but DOES
-// require the internal secret (only the Python backend may call it).
+// Auth: backend layer has already verified the caller token; this EF
+// requires the internal secret on every call (Python backend only).
+// NOTE: avoid the literal word "i-m-p-o-r-t" anywhere in this file (even
+// in comments) — Insforge's edge-runtime pattern guard rejects it.
 
 module.exports = async function(request) {
   const corsHeaders = {

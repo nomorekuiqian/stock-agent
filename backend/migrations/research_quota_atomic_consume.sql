@@ -106,9 +106,12 @@ BEGIN
        VALUES (p_identifier, p_identifier_type, p_usage_date, 0)
   ON CONFLICT (identifier, usage_date) DO NOTHING;
 
-  SELECT count INTO v_count
-    FROM research_quota
-   WHERE identifier = p_identifier AND usage_date = p_usage_date;
+  -- NOTE: must qualify table column with alias `r.count` — the RETURNS
+  -- TABLE declaration also names an OUT column `count`, so a bare `count`
+  -- in SELECT/UPDATE raises "column reference 'count' is ambiguous".
+  SELECT r.count INTO v_count
+    FROM research_quota r
+   WHERE r.identifier = p_identifier AND r.usage_date = p_usage_date;
 
   -- Whole-or-nothing: refuse if (current + amount) would exceed limit
   IF v_count + p_amount > p_limit THEN
@@ -116,14 +119,14 @@ BEGIN
     RETURN;
   END IF;
 
-  UPDATE research_quota
-     SET count = COALESCE(count, 0) + p_amount,
+  UPDATE research_quota r
+     SET count = COALESCE(r.count, 0) + p_amount,
          updated_at = now()
-   WHERE identifier = p_identifier AND usage_date = p_usage_date;
+   WHERE r.identifier = p_identifier AND r.usage_date = p_usage_date;
 
-  SELECT count INTO v_count
-    FROM research_quota
-   WHERE identifier = p_identifier AND usage_date = p_usage_date;
+  SELECT r.count INTO v_count
+    FROM research_quota r
+   WHERE r.identifier = p_identifier AND r.usage_date = p_usage_date;
   RETURN QUERY SELECT TRUE, v_count, p_limit;
 END;
 $$ LANGUAGE plpgsql;
