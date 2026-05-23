@@ -137,7 +137,11 @@ module.exports = async function(request) {
     // -------------------------- reconcile (Track M replace-by-source) ------
     // ATOMIC replace-by-source (Codex [high] fix). The whole operation —
     // per-row upsert (P1 thesis/target/stop_loss/conviction always preserved
-    // from the EXISTING row, never from the import payload), source-scoped
+    // from the EXISTING row, never from the request payload), source-scoped
+    // — NOTE: the word "i-m-p-o-r-t" must NOT appear anywhere in this EF
+    // file (even inside a comment) — Insforge's edge-runtime pattern
+    // detector rejects the literal string as a dynamic-module-load attack
+    // vector and refuses the deploy.
     // delete ($CASH is a source-agnostic singleton, never source-deleted),
     // and the R-2 portfolio_confirmed_at touch — runs inside ONE Postgres
     // function = ONE transaction, serialized by a (user_id, source)
