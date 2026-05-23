@@ -458,6 +458,7 @@ export function UserDetail({
         <div className="lg:col-span-2 space-y-6">
           {/* Email subscriptions */}
           <EmailSubscriptionsSection
+            userId={data.user_id}
             email={data.email}
             subscriptions={data.email_subscriptions}
             personalDigest={data.personal_digest}
@@ -1040,14 +1041,64 @@ const EMAIL_CHANNELS = [
 ];
 
 function EmailSubscriptionsSection({
+  userId,
   email,
   subscriptions,
   personalDigest,
 }: {
+  userId: string;
   email: string | null;
   subscriptions: EmailSubscriptions | null;
   personalDigest: PersonalDigestSummary;
 }) {
+  // Force-regenerate today's digest for this user. No email is sent — this
+  // only refreshes the cached `user_digests` row that /for-you reads.
+  type RegenStatus =
+    | { kind: 'idle' }
+    | { kind: 'pending' }
+    | { kind: 'success'; stocks_count: number; symbols: string[] }
+    | { kind: 'error'; message: string };
+
+  const [regenStatus, setRegenStatus] = useState<RegenStatus>({ kind: 'idle' });
+
+  const handleRegenerate = useCallback(async () => {
+    const ok = window.confirm(
+      '强制重新生成该用户今日的专属日报？\n\n· 会消耗一次 LLM 调用（≈$0.02）\n· 不会发送邮件\n· 会覆盖今日已有的 digest 缓存',
+    );
+    if (!ok) return;
+
+    setRegenStatus({ kind: 'pending' });
+    try {
+      const token = getAccessTokenSync() ?? (await getAccessTokenAsync());
+      const res = await fetch(`${API_BASE}/admin/digest/regenerate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setRegenStatus({
+          kind: 'error',
+          message: data?.detail || data?.error || `HTTP ${res.status}`,
+        });
+        return;
+      }
+      setRegenStatus({
+        kind: 'success',
+        stocks_count: data.stocks_count ?? 0,
+        symbols: data.symbols_used ?? [],
+      });
+    } catch (e) {
+      setRegenStatus({
+        kind: 'error',
+        message: e instanceof Error ? e.message : '请求失败',
+      });
+    }
+  }, [userId]);
+
   return (
     <div className="border border-border rounded-lg p-4 space-y-3">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -1089,6 +1140,43 @@ function EmailSubscriptionsSection({
         <div className="flex items-center justify-between text-xs mt-1">
           <span className="text-muted-foreground">最近一期</span>
           <span className="font-medium">{personalDigest.last_date ?? '-'}</span>
+        </div>
+
+        {/* Force-regenerate today's digest. No email send. */}
+        <div className="mt-3 pt-3 border-t border-border space-y-2">
+          <button
+            type="button"
+            onClick={handleRegenerate}
+            disabled={regenStatus.kind === 'pending'}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary disabled:opacity-50 transition-colors"
+          >
+            {regenStatus.kind === 'pending' ? '正在重新生成...（最多 30 秒）' : '强制刷新今日 digest'}
+          </button>
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+            重新跑一次 LLM 分析，覆盖今日缓存。<span className="text-amber-600">不会重发邮件</span>。用于测试 prompt/数据变化后的效果，或者用户加完股后立即看到分析。
+          </p>
+
+          {regenStatus.kind === 'success' && (
+            <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-800">
+              <p className="font-medium">✓ 重新生成完成</p>
+              <p className="mt-1 leading-relaxed">
+                LLM 输出 <span className="font-mono font-semibold">{regenStatus.stocks_count}</span> 只股票分析
+                {regenStatus.symbols.length > 0 && (
+                  <span className="text-emerald-700/80">
+                    {' '}（{regenStatus.symbols.join(', ')}）
+                  </span>
+                )}
+              </p>
+              <p className="mt-1 text-emerald-700/70">让用户刷新 /for-you 即可看到新结果。</p>
+            </div>
+          )}
+
+          {regenStatus.kind === 'error' && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-800">
+              <p className="font-medium">✗ 失败</p>
+              <p className="mt-1 leading-relaxed break-all">{regenStatus.message}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
