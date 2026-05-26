@@ -275,7 +275,7 @@ async def save_stock_analysis(
     analysis_type: str,
     content: Any,
     data_snapshot: Optional[dict[str, Any]] = None,
-    model: str = "gemini-3.1-flash-lite-preview",
+    model: str = "gemini-3.1-flash-lite",
     expires_hours: int = STOCK_ANALYSIS_CACHE_HOURS,
 ) -> dict[str, Any]:
     """

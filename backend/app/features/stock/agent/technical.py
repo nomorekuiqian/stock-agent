@@ -18,7 +18,7 @@ from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-TECHNICAL_MODEL = "gemini-3.1-flash-lite-preview"
+TECHNICAL_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 
@@ -389,7 +389,7 @@ class TechnicalAnalysisAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                 },
             }
@@ -401,7 +401,7 @@ class TechnicalAnalysisAgent:
                 "analysis": _empty_technical_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

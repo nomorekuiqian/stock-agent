@@ -18,7 +18,7 @@ from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-MACRO_SECTOR_MODEL = "gemini-3.1-flash-lite-preview"
+MACRO_SECTOR_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 
@@ -375,7 +375,7 @@ class MacroSectorAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                 },
             }
@@ -387,7 +387,7 @@ class MacroSectorAgent:
                 "analysis": _empty_macro_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

@@ -33,7 +33,7 @@ from app.features.screener.agent import (
 from app.shared.data_tools.research_tools import research_data_tools
 from app.shared.llm_metering import meter
 
-RESEARCH_MODEL = "gemini-3.1-flash-lite-preview"
+RESEARCH_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 

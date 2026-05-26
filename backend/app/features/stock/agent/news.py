@@ -18,7 +18,7 @@ from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-NEWS_CONTEXT_MODEL = "gemini-3.1-flash-lite-preview"
+NEWS_CONTEXT_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 
@@ -228,7 +228,7 @@ class NewsContextAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                 },
             }
@@ -240,7 +240,7 @@ class NewsContextAgent:
                 "analysis": _empty_news_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

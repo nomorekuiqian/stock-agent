@@ -23,7 +23,7 @@ from app.core.logging import get_logger
 from app.features.subscription.models import NewsletterOutput
 from app.shared.llm_metering import meter
 
-NEWSLETTER_MODEL = "gemini-3.1-flash-lite-preview"
+NEWSLETTER_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 

@@ -10,7 +10,7 @@ from app.shared.profile_context import inject_profile
 
 logger = get_logger(__name__)
 
-PORTFOLIO_HEALTH_MODEL = "gemini-3.1-flash-lite-preview"
+PORTFOLIO_HEALTH_MODEL = "gemini-3.1-flash-lite"
 
 DIAGNOSIS_INSTRUCTION = """
 你是用户的投资组合健康分析师。基于量化评分和用户画像，写出一段诊断性分析。

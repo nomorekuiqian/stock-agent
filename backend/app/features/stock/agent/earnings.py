@@ -21,7 +21,7 @@ from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-EARNINGS_MODEL = "gemini-3.1-flash-lite-preview"
+EARNINGS_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 
@@ -473,7 +473,7 @@ class EarningsAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "has_transcript": has_transcript,
                     "generated_at": now_iso(),
                 },
@@ -486,7 +486,7 @@ class EarningsAgent:
                 "analysis": _empty_earnings_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

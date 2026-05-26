@@ -33,7 +33,7 @@ from app.features.morning_report.models import MorningReportOutput
 from app.features.morning_report import db as morning_db
 from app.shared.llm_metering import meter
 
-MORNING_REPORT_MODEL = "gemini-3.1-flash-lite-preview"
+MORNING_REPORT_MODEL = "gemini-3.1-flash-lite"
 
 # Import data fetching tools
 from app.shared.data_tools import get_premarket_data

@@ -22,7 +22,7 @@ from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-MARKET_OVERVIEW_MODEL = "gemini-3.1-flash-lite-preview"
+MARKET_OVERVIEW_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 
@@ -277,7 +277,7 @@ class MarketOverviewAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                 },
             }
@@ -288,7 +288,7 @@ class MarketOverviewAgent:
                 "analysis": _empty_market_overview(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite-preview",
+                    "model": "gemini-3.1-flash-lite",
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

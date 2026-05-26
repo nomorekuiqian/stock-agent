@@ -30,7 +30,7 @@ from app.features.screener.agent import (
 )
 from app.shared.llm_metering import meter
 
-PICKER_MODEL = "gemini-3.1-flash-lite-preview"
+PICKER_MODEL = "gemini-3.1-flash-lite"
 
 logger = get_logger(__name__)
 

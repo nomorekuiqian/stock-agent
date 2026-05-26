@@ -2,7 +2,7 @@
 PersonalDigest - Daily Digest for User Watchlist
 
 Architecture:
-    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3.1-flash-lite-preview) -> Structured output
+    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3.1-flash-lite) -> Structured output
 """
 
 import json
