@@ -21,6 +21,9 @@
 | `/for-you/[id]` | 摘要详情 | Insforge (getUserDigestById) | 是 |
 | `/for-you/archive` | 摘要存档 | Backend (digests API) | 是 |
 | `/for-you/watchlist` | 自选股管理 | Backend (watchlist API) + StockQuotes | 是 |
+| `/for-you/portfolio` | 投资组合管理 | Backend (portfolio API) | 是 |
+| `/for-you/health` | 持仓健康度 | Backend (portfolio_health API) | 是 |
+| `/for-you/onboarding` | For-You 引导 | Backend (portfolio API) | 是 |
 | `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 是 |
 | `/macro/liquidity` | 流动性 | Backend (liquidity API) | 是 |
 | `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 是 |
@@ -41,10 +44,13 @@
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
 | `/research` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
-| `/admin` | 管理后台 | Backend (admin API) | 是 (cron) |
-| `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (cron) |
-| `/(wechat)/wechat-login-callback` | 微信登录回调 | Insforge Auth (WeChat) | 否 |
-| `/(wechat)/wechat-verify` | 微信验证 | Backend (wechat API) | 否 |
+| `/research/kb` | 投研知识库 | Backend (research_kb API) | 是 |
+| `/research/gallery` | 投研画廊 | Backend (screener API) | 是 |
+| `/settings` | 用户设置 | Backend (notification API) | 是 |
+| `/admin` | 管理后台 | Backend (admin API) | 是 (admin) |
+| `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (admin) |
+| `/admin/flags` | Feature Flag 管理 | Backend (admin/flags API) | 是 (admin) |
+| `/admin/llm-usage` | LLM 用量与费用面板 | Backend (admin/llm-usage API) | 是 (admin) |
 | `/dev/feedback` | 开发反馈页 | Backend (feedback) | 否 |
 | `/webview-check` | WebView 检测 | 无 API 调用 | 否 |
 

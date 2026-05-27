@@ -58,15 +58,18 @@ pytest -v --run-generate            # 包含 AI 生成测试 (慢)
 
 后端 `backend/.env` (完整定义见 `backend/app/core/config.py`):
 ```
-GOOGLE_API_KEY, OPENAI_API_KEY          # AI
-FMP_API_KEY, FRED_API_KEY               # 数据
+GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY  # AI
+FMP_API_KEY, FRED_API_KEY, TWITTER_API_KEY                            # 数据
+VECTOR_EMBEDDING_MODEL                                                # 向量嵌入模型 (默认 openai/text-embedding-3-small)
 STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_MAX_PRICE_ID  # 支付
 RESEND_API_KEY                          # 邮件
 RESEND_SEGMENT_MORNING, RESEND_SEGMENT_EVENING, RESEND_SEGMENT_WEEKLY  # 邮件分组
+RESEND_SEGMENT_DAILY_FREE_CTA, RESEND_SEGMENT_DAILY_PAID_CTA, RESEND_SEGMENT_TWITTER_DIGEST  # 邮件分组 (CTA / 推特摘要)
 WECHAT_APP_ID, WECHAT_APP_SECRET, WECHAT_JWT_SECRET  # 微信小程序
 CRON_SECRET, INSFORGE_ANON_KEY, INSFORGE_SERVICE_KEY, EDGE_FUNCTION_SECRET  # 安全（SERVICE_KEY 用于微信 OTP 查询 Insforge 用户）
+ADMIN_EMAILS=kedengpan@gmail.com         # 管理员邮箱白名单（逗号分隔，自动获 admin_default flag + /admin 访问权）
 ENVIRONMENT=production                  # 必需 - 影响广播安全路由
-FRONTEND_URL, INSFORGE_BASE_URL         # 基础
+FRONTEND_URL, INSFORGE_BASE_URL, CORS_ALLOWED_ORIGIN_REGEX  # 基础
 INVITE_CODES                            # 邀请码 (逗号分隔)
 EMAIL_PRO_GATE=false                    # Pro 邮件门控开关
 ```

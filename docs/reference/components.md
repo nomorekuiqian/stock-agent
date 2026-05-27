@@ -4,14 +4,14 @@
 
 | 分类 | 数量 | 说明 |
 |------|------|------|
-| UI 基础 | 11 | shadcn/ui 组件 (Avatar, Badge, Button, Card, Collapsible, Dialog, DropdownMenu, Separator, Skeleton, Switch, Tooltip) |
+| UI 基础 | 14 | shadcn/ui 组件 (Avatar, Badge, Button, Card, Collapsible, Dialog, DropdownMenu, Progress, RadioGroup, Separator, Skeleton, Slider, Switch, Tooltip) |
 | 导航布局 | 5 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle |
 | 数据展示 | 5 | ReportContent, ReportTabs, InsightBanner, MacroPageHeader, PageShell |
 | 图表 | 9 | 各类金融图表 (基于 Lightweight Charts) + FredAreaChart, FredBarChart |
 | 风险指标 | 4 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
 | 个股 | 4 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
-| 技术分析 | 6 | SignalCard, TechnicalTooltip, TechnicalAnalysisContent, IndicatorBar, TechnicalSignalDashboard, TechnicalChart |
-| 个性化 (for-you) | 8 | PortfolioSnapshotBar, OnboardingSection, DigestInlineReport, FeatureCards, RecentReports, StockDetailPanel, StockListItem, StockOverviewPanel |
+| 技术分析 | 1 | TechnicalChart |
+| 个性化 (for-you) | 7 | ActionBar, ForYouBreadcrumb, DigestInlineReport, RecentReports, StockDetailPanel, StockListItem, StockOverviewPanel |
 | 订阅 | 2 | SubscribeForm, PaywallGuard |
 | 装饰 | 3 | TrustBadges, LogoMarquee, ProductShowcase |
 | 全局 | 4 | Providers, TradingViewWidget, AuthSubscriptionSync, FeatureSections |
@@ -71,21 +71,15 @@ AI 个股分析卡片，支持三种状态。
 
 | 组件 | 说明 | 使用场景 |
 |------|------|----------|
-| TechnicalSignalDashboard | 技术信号总览面板 | `/stock/[symbol]` |
-| TechnicalAnalysisContent | 技术分析内容区 | `/stock/[symbol]` |
 | TechnicalChart | 技术指标图表 | `/stock/[symbol]` |
-| SignalCard | 单个技术信号卡片 | `/stock/[symbol]` |
-| IndicatorBar | 指标进度条 | `/stock/[symbol]` |
-| TechnicalTooltip | 技术指标说明提示 | `/stock/[symbol]` |
 
 ### 个性化组件 (for-you/)
 
 | 组件 | 说明 | 使用场景 |
 |------|------|----------|
-| PortfolioSnapshotBar | 投资组合快照摘要条 | `/for-you` |
-| OnboardingSection | 新用户引导区域 | `/for-you` |
+| ActionBar | 操作工具栏 | `/for-you` |
+| ForYouBreadcrumb | 面包屑导航 | `/for-you` |
 | DigestInlineReport | 内嵌摘要报告展示 | `/for-you` |
-| FeatureCards | 功能介绍卡片组 | `/for-you` |
 | RecentReports | 近期报告列表 | `/for-you` |
 | StockDetailPanel | 个股详情面板 | `/for-you` |
 | StockListItem | 自选股列表项 | `/for-you` |
