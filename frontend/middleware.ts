@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   '/webview-check',
   '/macro',
   '/research',
+  '/twitter-digest',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';

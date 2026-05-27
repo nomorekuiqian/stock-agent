@@ -1109,6 +1109,104 @@ export type KolResearchStreamEvent =
   | { type: 'final'; data: KolResearchResponse }
   | { type: 'error'; error: string };
 
+// --- KOL Persona Cockpit (public read) ---
+
+export interface KolCockpitPrinciple {
+  title: string;
+  gist: string;
+}
+
+export interface KolCockpitCore {
+  portrait: string;
+  principles: KolCockpitPrinciple[];
+  fingerprint: string;
+  not_doing: string[];
+}
+
+export interface KolCockpitSectorFront {
+  key: string;
+  group: string;
+  label: string;
+  eyebrow: string;
+  stance: string;
+  signature: string;
+  tickers: string[];
+  mention_count: number;
+}
+
+export interface KolCockpitProfile {
+  persona: { username: string; display_name: string; description: string };
+  core: KolCockpitCore;
+  sectors: KolCockpitSectorFront[];
+}
+
+export interface KolCockpitTweet {
+  id: string;
+  text: string;
+  created_at: string | null;
+  url: string | null;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  tweet_type: string | null;
+  tickers: string[];
+}
+
+export interface KolCockpitSectorTicker {
+  ticker: string;
+  count: number;
+  latest: string | null;
+}
+
+export interface KolCockpitSectorDetail {
+  key: string;
+  group: string;
+  label: string;
+  eyebrow: string;
+  stance: string;
+  signature: string;
+  primary_question: string;
+  signals: string[];
+  falsifier: string;
+  tickers: KolCockpitSectorTicker[];
+  rep_tweets: KolCockpitTweet[];
+  lens_body: string;
+}
+
+export interface KolCockpitTickerSummary {
+  ticker: string;
+  aliases: string[];
+  count: number;
+  first: string | null;
+  latest: string | null;
+  priceable: boolean;
+  price: number | null;
+  daily_change: number | null;
+}
+
+export interface KolCockpitPricePoint {
+  date: string;
+  close: number;
+}
+
+export interface KolCockpitTickerDetail {
+  ticker: string;
+  aliases: string[];
+  count: number;
+  first: string | null;
+  latest: string | null;
+  priceable: boolean;
+  tweets: KolCockpitTweet[];
+  price_series: KolCockpitPricePoint[];
+  market: {
+    name: string | null;
+    price: number | null;
+    daily_change: number | null;
+    sector: string | null;
+    pe_ttm: number | null;
+  };
+}
+
 export interface ResearchKBMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -2482,6 +2580,35 @@ export const api = {
         if (response.status === 403) return { personas: [] };
         await throwProtectedApiError(response, 'Failed to load personas');
       }
+      return response.json();
+    },
+
+    // --- Cockpit (public reads; no auth required) ---
+    cockpitProfile: async (username: string): Promise<KolCockpitProfile> => {
+      const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/profile`);
+      if (!response.ok) throw new Error('Failed to load persona profile');
+      return response.json();
+    },
+
+    cockpitSector: async (username: string, sectorKey: string): Promise<KolCockpitSectorDetail> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/sectors/${sectorKey}`,
+      );
+      if (!response.ok) throw new Error('Failed to load sector detail');
+      return response.json();
+    },
+
+    cockpitTickers: async (username: string): Promise<{ tickers: KolCockpitTickerSummary[] }> => {
+      const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/tickers`);
+      if (!response.ok) throw new Error('Failed to load tickers');
+      return response.json();
+    },
+
+    cockpitTickerDetail: async (username: string, ticker: string): Promise<KolCockpitTickerDetail> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/tickers/${ticker}`,
+      );
+      if (!response.ok) throw new Error('Failed to load ticker detail');
       return response.json();
     },
 

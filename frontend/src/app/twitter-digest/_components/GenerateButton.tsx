@@ -15,6 +15,7 @@
 
 import { useState } from 'react';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
 interface Props {
@@ -29,11 +30,13 @@ function isNonprodEnv(): boolean {
 }
 
 export function GenerateButton({ onGenerated }: Props) {
+  const { isAuthenticated, isLoading } = useAuth();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneAt, setDoneAt] = useState<string | null>(null);
 
   if (!isNonprodEnv()) return null;
+  if (isLoading || !isAuthenticated) return null;
 
   async function handleClick() {
     if (running) return;

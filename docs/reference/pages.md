@@ -16,6 +16,7 @@
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
 | `/kol-chat` | qinbafrank 方法论对话 | Backend (twitterMethodology.chat) | 是 |
+| `/kol/qinbafrank` | qinbafrank 投研驾驶舱 | 静态方法论资产 + Backend (kolResearch.chatStream) | 对话需登录 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -110,6 +111,13 @@
 - 回答基于 `backend/app/features/twitter/methodologies/qinbafrank/extraction_log/*.json`，并注入 `live_context` 中的 FMP quotes/news/calendar 与最新日报/早报缓存
 - 明确标注这是基于公开推文蒸馏体的模拟视角，不代表 KOL 本人观点
 - 每轮返回 answer、category、confidence、citations、limitations、suggested_followups、live_context
+
+### `/kol/qinbafrank` qinbafrank 投研驾驶舱
+- Server page + Client Component,页面浏览不要求登录；右侧 Ask the Framework 对话需要登录并开启 `kol_research_agent` flag
+- MVP 模块：身份锚点、当前主题雷达、方法论 Lens Library、MVP 信号台账、证据流、KOL Research Agent 对话入口
+- 静态模块基于 `backend/app/features/twitter/methodologies/qinbafrank/` 已蒸馏资产整理，不在前端声明动态价格表现
+- 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
+- 页面明确标注不是 Frank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口

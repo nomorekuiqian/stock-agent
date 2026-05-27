@@ -18,6 +18,7 @@ KOL-specific metadata is embedded in the JSONB `data` field as `agent_kind`,
 
 from __future__ import annotations
 
+import asyncio
 import json as _json
 from typing import Any
 
@@ -28,6 +29,7 @@ from pydantic import BaseModel, Field
 from app.core.deps import verify_user_token_with_email
 from app.core.logging import get_logger
 from app.features.flags.db import get_user_flags
+from app.features.kol_research import cockpit
 from app.features.kol_research.agent import (
     DEFAULT_PERSONA,
     answer_kol_research,
@@ -44,7 +46,8 @@ from app.features.screener.conversation_db import (
     list_conversations,
     update_conversation,
 )
-from app.shared.kol_persona import list_personas
+from app.shared.fmp_service import get_fmp_service
+from app.shared.kol_persona import get_persona, list_personas
 
 logger = get_logger(__name__)
 
@@ -87,6 +90,130 @@ async def list_kol_personas(
 ):
     """Return list of personas available to load into the agent."""
     return {"personas": [p.model_dump() for p in list_personas()]}
+
+
+# ---------------------------------------------------------------------------
+# Persona Cockpit (PUBLIC read — the /kol/{username} page browses without login).
+# No flag gating here; only the chat endpoints require kol_research_agent.
+# ---------------------------------------------------------------------------
+
+
+async def _fetch_quote(symbol: str) -> dict | None:
+    try:
+        res = await asyncio.to_thread(get_fmp_service().get_stock_quotes, [symbol])
+        quotes = res.get("quotes") or []
+        return quotes[0] if quotes else None
+    except Exception:  # noqa: BLE001 — FMP flakiness must not break the page
+        logger.warning("cockpit quote fetch failed for %s", symbol, exc_info=True)
+        return None
+
+
+async def _fetch_price_series(symbol: str, limit: int = 400) -> list[dict]:
+    try:
+        res = await asyncio.to_thread(get_fmp_service().get_historical_price, symbol, limit)
+        data = res.get("data") or []
+        return [
+            {"date": d["date"], "close": d["close"]}
+            for d in data
+            if d.get("close") is not None and d.get("date")
+        ]
+    except Exception:  # noqa: BLE001
+        logger.warning("cockpit price series failed for %s", symbol, exc_info=True)
+        return []
+
+
+async def _fetch_fundamentals(symbol: str) -> dict:
+    fmp = get_fmp_service()
+
+    async def _profile() -> dict:
+        try:
+            return await asyncio.to_thread(fmp.get_company_profile_detail, symbol)
+        except Exception:  # noqa: BLE001
+            return {}
+
+    async def _metrics() -> dict:
+        try:
+            return await asyncio.to_thread(fmp.get_key_metrics_ttm, symbol)
+        except Exception:  # noqa: BLE001
+            return {}
+
+    profile, metrics = await asyncio.gather(_profile(), _metrics())
+    sector = (profile.get("classification") or {}).get("sector")
+    pe = (metrics.get("metrics") or {}).get("pe_ratio")
+    return {"sector": sector, "pe_ttm": pe}
+
+
+@router.get("/personas/{username}/profile")
+async def cockpit_profile(username: str):
+    """Methodology core + sector card fronts."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    sectors = await cockpit.list_sectors(username)
+    return {
+        "persona": {
+            "username": persona.username,
+            "display_name": persona.display_name,
+            "description": persona.description,
+        },
+        "core": cockpit.get_profile_core(),
+        "sectors": sectors,
+    }
+
+
+@router.get("/personas/{username}/sectors/{sector_key}")
+async def cockpit_sector(username: str, sector_key: str):
+    """Sector detail: curated method + lens body + representative tweet originals."""
+    detail = await cockpit.get_sector_detail(username, sector_key)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Sector not found")
+    return detail
+
+
+@router.get("/personas/{username}/tickers")
+async def cockpit_tickers(username: str):
+    """Ticker list with mention counts + current price."""
+    tickers = await cockpit.list_tickers(username)
+    symbols = [t["ticker"] for t in tickers if t.get("priceable")]
+    quotes_by_symbol: dict[str, dict] = {}
+    if symbols:
+        try:
+            res = await asyncio.to_thread(get_fmp_service().get_stock_quotes, symbols)
+            for q in res.get("quotes") or []:
+                quotes_by_symbol[(q.get("symbol") or "").upper()] = q
+        except Exception:  # noqa: BLE001
+            logger.warning("cockpit tickers quote batch failed", exc_info=True)
+    for t in tickers:
+        q = quotes_by_symbol.get(t["ticker"])
+        t["price"] = q.get("price") if q else None
+        t["daily_change"] = q.get("daily_change") if q else None
+    return {"tickers": tickers}
+
+
+@router.get("/personas/{username}/tickers/{ticker}")
+async def cockpit_ticker_detail(username: str, ticker: str):
+    """Per-ticker: verbatim tweets + price series + fundamentals."""
+    detail = await cockpit.get_ticker_tweets(username, ticker)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Ticker not covered")
+    sym = detail["ticker"]
+    if detail.get("priceable"):
+        price_series, quote, fundamentals = await asyncio.gather(
+            _fetch_price_series(sym),
+            _fetch_quote(sym),
+            _fetch_fundamentals(sym),
+        )
+    else:
+        price_series, quote, fundamentals = [], None, {}
+    detail["price_series"] = price_series
+    detail["market"] = {
+        "name": quote.get("name") if quote else None,
+        "price": quote.get("price") if quote else None,
+        "daily_change": quote.get("daily_change") if quote else None,
+        "sector": fundamentals.get("sector"),
+        "pe_ttm": fundamentals.get("pe_ttm"),
+    }
+    return detail
 
 
 # ---------------------------------------------------------------------------
