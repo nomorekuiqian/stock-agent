@@ -110,6 +110,13 @@
 - 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
 - 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
 
+### `/kol/qinbafrank` qinbafrank 投研驾驶舱
+- Server page + Client Component,页面浏览不要求登录；右侧 Ask the Framework 对话需要登录并开启 `kol_research_agent` flag
+- MVP 模块：身份锚点、当前主题雷达、方法论 Lens Library、MVP 信号台账、证据流、KOL Research Agent 对话入口
+- 静态模块基于 `backend/app/features/twitter/methodologies/qinbafrank/` 已蒸馏资产整理，不在前端声明动态价格表现
+- 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
+- 页面明确标注不是 Frank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
+
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口
 - 本地存储最近查看的股票
