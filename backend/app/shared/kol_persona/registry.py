@@ -1,17 +1,26 @@
 """Persona registry — loads .md files from `methodologies/<username>/` into memory.
 
-Layered loading:
+Layered loading (v1, default):
   - _orchestrator.md     -> always-on (Agent.instruction)
   - overview.md          -> always-on (Agent.instruction)
   - principles-*.md      -> always-on, cross-cutting (Agent.instruction)
   - lens-*.md            -> trigger-based (ADK SkillToolset)
   - *.yaml               -> not loaded here; accessed lazily by audit / eval tools
 
+Layered loading (v3 draft, opt-in via env `KOL_PERSONA_VERSION=v3`):
+  - core/operating-system.md       -> always-on (orchestrator slot)
+  - macro/macro-regime.md          -> always-on (cross-cutting slot)
+  - sector/*.md                    -> trigger-based (SkillToolset)
+  - ticker/*.md                    -> trigger-based (SkillToolset)
+  - evidence/, eval/               -> not loaded
+
 `get_persona()` is cached. Tests can call `clear_persona_cache()` to reset.
 """
 
 from __future__ import annotations
 
+import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -29,6 +38,10 @@ METHODOLOGIES_DIR = (
     / "twitter"
     / "methodologies"
 )
+
+# Opt-in v3 testing mode: set KOL_PERSONA_VERSION=v3 to load the v3 skill draft
+# instead of the v1 methodologies. Defaults to v1.
+PERSONA_VERSION = os.getenv("KOL_PERSONA_VERSION", "v1").lower()
 
 
 def _parse_md(path: Path) -> tuple[Dict[str, Any], str]:
@@ -159,9 +172,134 @@ def _load_persona_uncached(username: str) -> Optional[Persona]:
 def get_persona(username: str) -> Optional[Persona]:
     """Load a persona by username. Cached.
 
-    Returns None if persona dir does not exist.
+    Returns None if persona dir does not exist. Routes to v3 loader when
+    `KOL_PERSONA_VERSION=v3` env var is set.
     """
+    if PERSONA_VERSION == "v3":
+        return _load_persona_v3_uncached(username)
     return _load_persona_uncached(username)
+
+
+# ---------------------------------------------------------------------------
+# v3 draft loader (opt-in via KOL_PERSONA_VERSION=v3)
+# ---------------------------------------------------------------------------
+
+_V3_BASE_DIR = METHODOLOGIES_DIR / "_drafts" / "qinbafrank-skill-v3"
+
+# Frontmatter on v3 files uses different keys (skill, layer, coverage) than v1.
+# The v1 `name`/`when_to_use` fields are absent, so we derive them here.
+
+
+def _v3_extract_applicable_section(body: str) -> str:
+    """Pull the '## 适用问题' section as the skill description."""
+    marker = "## 适用问题"
+    if marker not in body:
+        return ""
+    tail = body.split(marker, 1)[1]
+    next_h2 = re.search(r"\n##\s", tail)
+    if next_h2:
+        tail = tail[: next_h2.start()]
+    return tail.strip()
+
+
+def _v3_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
+    fm, body = _parse_md(path)
+
+    # name: layer-prefixed, lowercase, hyphen-only (ADK Skill spec)
+    raw_stem = path.stem.replace("_", "-").replace(" ", "-")
+    # Ticker files use uppercase stems (NVDA.md); keep them readable but normalize for ADK
+    name = f"{layer}-{raw_stem.lower()}"
+
+    # description: prefer "## 适用问题" section content; fall back to first
+    # non-heading paragraph; clamp to 1000 chars
+    raw_desc = _v3_extract_applicable_section(body)
+    if not raw_desc:
+        for para in body.split("\n\n"):
+            chunk = para.strip()
+            if chunk and not chunk.startswith("#"):
+                raw_desc = chunk
+                break
+    description = " ".join(raw_desc.split())
+    if len(description) > 1000:
+        description = description[:1000].rstrip() + "..."
+    if not description:
+        description = f"v3 {layer} skill: {raw_stem}"
+
+    return SkillDoc(
+        name=name,
+        description=description,
+        type=f"v3-{layer}",
+        body=body.strip(),
+        extra=fm,
+    )
+
+
+def _load_persona_v3_uncached(username: str) -> Optional[Persona]:
+    """Load the v3-draft skill structure. Currently only `qinbafrank` is supported."""
+    if username != "qinbafrank":
+        logger.warning("v3 mode only supports qinbafrank; got %r", username)
+        return None
+
+    v3_dir = _V3_BASE_DIR
+    if not v3_dir.is_dir():
+        logger.warning("v3 draft dir not found: %s", v3_dir)
+        return None
+
+    orchestrator: Optional[SkillDoc] = None
+    cross_cutting: List[SkillDoc] = []
+    lenses: Dict[str, SkillDoc] = {}
+
+    # core/operating-system.md -> always-on (orchestrator slot)
+    core_file = v3_dir / "core" / "operating-system.md"
+    if core_file.exists():
+        orchestrator = _v3_md_to_skill_doc(core_file, "core")
+    else:
+        logger.warning("v3 core/operating-system.md missing")
+
+    # macro/macro-regime.md -> always-on (cross-cutting slot)
+    macro_file = v3_dir / "macro" / "macro-regime.md"
+    if macro_file.exists():
+        cross_cutting.append(_v3_md_to_skill_doc(macro_file, "macro"))
+
+    # framework/*.md + sector/*.md + ticker/*.md -> trigger-based skills
+    # framework files describe HOW to answer a class of question (the answer
+    # skeleton). sector/ticker files describe WHAT qinbafrank thinks about a
+    # given topic/stock. LLM typically loads 1 framework + 0-2 sector/ticker
+    # per turn.
+    for layer in ("framework", "sector", "ticker"):
+        layer_dir = v3_dir / layer
+        if not layer_dir.is_dir():
+            continue
+        for md_path in sorted(layer_dir.glob("*.md")):
+            doc = _v3_md_to_skill_doc(md_path, layer)
+            lenses[doc.name] = doc
+
+    if not orchestrator and not lenses:
+        logger.warning("v3 dir %s yielded no skill docs.", v3_dir)
+        return None
+
+    logger.info(
+        "Loaded v3 persona %r: 1 core + %d macro + %d sector/ticker lenses",
+        username,
+        len(cross_cutting),
+        len(lenses),
+    )
+
+    return Persona(
+        username=username,
+        display_name=username,
+        description=(
+            "qinbafrank v3-draft skill distillation "
+            "(4-layer: core / macro / sector / ticker)"
+        ),
+        lenses_available=sorted(lenses.keys()),
+        persona_dir=str(v3_dir),
+        orchestrator=orchestrator,
+        overview=None,
+        cross_cutting=cross_cutting,
+        lenses=lenses,
+        last_indexed_at=None,
+    )
 
 
 def list_personas() -> List[PersonaSummary]:
