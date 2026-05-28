@@ -1,0 +1,329 @@
+{
+  "generated_at": "2026-05-27T18:10:49.826961+00:00",
+  "username": "qinbafrank",
+  "source": "insforge_db_via_kol-tweets_edge_function",
+  "filter": {
+    "exclude_content_type": [
+      "noise"
+    ],
+    "note": "quality field is not populated by current enrichment; signal is content_type"
+  },
+  "month_ranges": [
+    {
+      "since": "2025-09-01T00:00:00Z",
+      "until": "2025-09-30T23:59:59Z"
+    },
+    {
+      "since": "2025-10-01T00:00:00Z",
+      "until": "2025-10-31T23:59:59Z"
+    },
+    {
+      "since": "2025-11-01T00:00:00Z",
+      "until": "2025-11-30T23:59:59Z"
+    },
+    {
+      "since": "2025-12-01T00:00:00Z",
+      "until": "2025-12-31T23:59:59Z"
+    },
+    {
+      "since": "2026-01-01T00:00:00Z",
+      "until": "2026-01-31T23:59:59Z"
+    },
+    {
+      "since": "2026-02-01T00:00:00Z",
+      "until": "2026-02-28T23:59:59Z"
+    },
+    {
+      "since": "2026-03-01T00:00:00Z",
+      "until": "2026-03-31T23:59:59Z"
+    },
+    {
+      "since": "2026-04-01T00:00:00Z",
+      "until": "2026-04-30T23:59:59Z"
+    },
+    {
+      "since": "2026-05-01T00:00:00Z",
+      "until": "2026-05-31T23:59:59Z"
+    },
+    {
+      "since": "2026-06-01T00:00:00Z",
+      "until": "2026-06-30T23:59:59Z"
+    }
+  ],
+  "stats": {
+    "raw_fetched": 2659,
+    "unique_after_dedupe": 2659,
+    "total_kept": 1048,
+    "rejected": {
+      "content_type='noise'": 1597,
+      "content_type_missing": 6,
+      "symbols_missing": 8
+    },
+    "earliest": "2025-10-28T07:39:39+00:00",
+    "latest": "2026-05-25T17:17:28+00:00",
+    "content_type_distribution": {
+      "sector_framework": 28,
+      "thesis": 303,
+      "macro_view": 280,
+      "catalyst": 276,
+      "risk_flag": 41,
+      "trade_action": 120
+    },
+    "category_distribution": {
+      "stock_analysis": 190,
+      "macro_analysis": 428,
+      "other": 138,
+      "sector_analysis": 135,
+      "methodology": 34,
+      "market_sentiment": 12,
+      "trading_strategy": 11,
+      "opinion": 2,
+      "risk_management": 4,
+      "null": 94
+    },
+    "top_50_tickers": [
+      [
+        "NVDA",
+        83
+      ],
+      [
+        "OPENAI",
+        48
+      ],
+      [
+        "MU",
+        44
+      ],
+      [
+        "SPACEX",
+        37
+      ],
+      [
+        "ANTHROPIC",
+        33
+      ],
+      [
+        "HOOD",
+        32
+      ],
+      [
+        "AMD",
+        24
+      ],
+      [
+        "RKLB",
+        21
+      ],
+      [
+        "META",
+        18
+      ],
+      [
+        "ARM",
+        18
+      ],
+      [
+        "PLTR",
+        17
+      ],
+      [
+        "INTC",
+        15
+      ],
+      [
+        "ON",
+        13
+      ],
+      [
+        "BB",
+        13
+      ],
+      [
+        "FUTU",
+        13
+      ],
+      [
+        "TSM",
+        10
+      ],
+      [
+        "TIGR",
+        9
+      ],
+      [
+        "AVGO",
+        8
+      ],
+      [
+        "COIN",
+        7
+      ],
+      [
+        "XAI",
+        7
+      ],
+      [
+        "ASTS",
+        5
+      ],
+      [
+        "TSLA",
+        4
+      ],
+      [
+        "LUNR",
+        4
+      ],
+      [
+        "BTC",
+        3
+      ],
+      [
+        "IBM",
+        3
+      ],
+      [
+        "NOK",
+        3
+      ],
+      [
+        "NVTS",
+        3
+      ],
+      [
+        "ASML",
+        2
+      ],
+      [
+        "VIX",
+        2
+      ],
+      [
+        "QQQ",
+        2
+      ],
+      [
+        "BA",
+        2
+      ],
+      [
+        "LHX",
+        2
+      ],
+      [
+        "AML",
+        2
+      ],
+      [
+        "KYC",
+        2
+      ],
+      [
+        "CRWD",
+        2
+      ],
+      [
+        "ETH",
+        2
+      ],
+      [
+        "EWY",
+        2
+      ],
+      [
+        "SNDK",
+        2
+      ],
+      [
+        "LITE",
+        2
+      ],
+      [
+        "QCOM",
+        2
+      ],
+      [
+        "AIA",
+        1
+      ],
+      [
+        "USDC",
+        1
+      ],
+      [
+        "USDT",
+        1
+      ],
+      [
+        "LI",
+        1
+      ],
+      [
+        "XAUT",
+        1
+      ],
+      [
+        "KIN",
+        1
+      ],
+      [
+        "SUGAR",
+        1
+      ],
+      [
+        "TPU",
+        1
+      ],
+      [
+        "ZAMA",
+        1
+      ],
+      [
+        "FOLKS",
+        1
+      ]
+    ],
+    "top_30_sectors": [
+      [
+        "macro",
+        721
+      ],
+      [
+        "defense",
+        213
+      ],
+      [
+        "AI_infra",
+        197
+      ],
+      [
+        "space",
+        116
+      ],
+      [
+        "neocloud",
+        91
+      ],
+      [
+        "power_semi",
+        38
+      ],
+      [
+        "optical_transceiver",
+        34
+      ],
+      [
+        "photonics",
+        18
+      ],
+      [
+        "substrates",
+        15
+      ],
+      [
+        "CPO",
+        5
+      ]
+    ]
+  }
+}

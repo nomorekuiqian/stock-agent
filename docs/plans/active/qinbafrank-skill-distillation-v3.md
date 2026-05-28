@@ -235,6 +235,16 @@ direct coverage: low / unclear
 
 优先从数据库读取，而不是只使用 `extraction_log/*.prompt.md`。
 
+**入库过滤条件**（尽量放宽，保留更多语料）：
+
+```text
+symbols.quality ∈ {"high", "medium"}
+AND symbols.content_type NOT IN {"noise"}
+AND tweet 未被显式 drop / 删除
+```
+
+即只排除 `low` / `drop` / `noise`，`high` 和 `medium` 平等进入蒸馏语料库。`corpus-manifest.json` 中分别统计 high / medium 数量，便于事后追溯每条规则的证据池构成。
+
 目标输出：
 
 ```text
@@ -309,10 +319,12 @@ Atomic rule schema：
   "decision_implication": "越靠近物理瓶颈，确定性越高。",
   "applicable_questions": ["AI 算力够不够", "AI 基建看哪些方向"],
   "evidence": [
-    {"tweet_id": "...", "quote": "..."}
+    {"tweet_id": "...", "quote": "...", "evidence_strength": "high"}
   ]
 }
 ```
+
+`evidence_strength` 直接继承 tweet 的 `symbols.quality`（`high` / `medium`）。生成 skill md 时优先选 high 作为代表 quote、medium 作为补充。
 
 规则类型：
 
@@ -338,13 +350,18 @@ specificity: 是否有具体指标/公司/场景
 actionability: 能不能指导 Agent 下一步回答
 ```
 
-进入正式 skill 的最低门槛：
+进入正式 skill 的门槛（放宽到底，避免误伤低频但明确的招牌观点）：
 
-- core 规则：至少 5 条推文支持，或跨多个 category 反复出现。
-- macro 规则：至少 3 条高质量宏观推文支持。
-- sector 规则：至少 3 条同板块推文支持。
-- ticker playbook：至少 3 到 5 条 direct 或 near-direct 推文支持。
-- 低于门槛的 ticker 只能生成 marker。
+- 一条 atomic rule 只要源自语料库中 ≥1 条推文即可收录。语料库已经
+  预先过滤掉 `low` / `drop` / `noise`，`high` 和 `medium` 平等参与。
+- core / macro / sector 文件永远生成，不做证据数量准入；sector 候选
+  4 个（AI 基建、crypto/stablecoin/RWA、software-AI-disruption、
+  semiconductor-memory-HBM）全部独立成文，不再因证据少而合并。
+- ticker：博主在历史推文里以任何方式提到过该 ticker（包括 sector
+  讨论中带名），即生成 playbook，并标 `coverage: high / medium / low`；
+  从未提到的 ticker 才生成 marker；marker 保留 sector fallback 规则。
+- 收录时不做数量淘汰，但生成 skill md 时优先用 `evidence_strength: high`
+  的 tweet 作代表 quote，`medium` 作为补充证据。
 
 ### Step 5: 生成四层 skill 文件
 
@@ -395,66 +412,72 @@ kol_tweets DB
   -> evidence audit + holdout replay + user-question eval
 ```
 
-## API / 工程变更
+## 工程产出
 
-第一阶段可以先做离线脚本，不改线上 API：
+蒸馏过程**由 Claude Code 在对话里直接完成**（读语料 → bucket → 抽 atomic rule → 聚类 → 写 skill md → evidence audit → holdout replay → user-question eval）。**不写额外的 LLM 调用脚本，不调第三方 API**。
+
+唯一需要写的工程脚本是 Step 1 的语料导出：
 
 ```text
 backend/app/features/twitter/methodology_v3/
-  export_corpus.py
-  bucketizer.py
-  atomic_rule_models.py
-  atomic_rule_extractor.py
-  skill_writer.py
-  validators.py
+  export_corpus.py   # 从 Insforge DB 拉 qinbafrank 全量推文
+                     # → all-tweets.jsonl + corpus-manifest.json
 ```
 
-后续如果要产品化，再考虑新增 cron/admin endpoint：
+`export_corpus.py` 职责：
 
-```text
-POST /api/twitter/extract-skill-v3
-```
+- 调 `kol-tweets` edge function 或直接读 `kol_tweets` 表，分页拉全部 `author_username = 'qinbafrank'` 的推文
+- 应用过滤：`symbols.quality ∈ {high, medium}` 且 `symbols.content_type != 'noise'`
+- 写出 `evidence/all-tweets.jsonl` + `evidence/corpus-manifest.json`（带 high/medium 分布、时间范围、过滤前后条数）
+- 幂等可重跑
 
-该 endpoint 不进入 MVP，避免在方案未稳定前增加线上复杂度。
+之后的所有步骤（bucketize、atomic rule 抽取、聚类、skill md 生成、evidence audit、各类 eval）由 Claude Code 在交互会话里直接产出文件，写入 `_drafts/qinbafrank-skill-v3/` 对应子目录。
+
+产品化阶段（把 v3 skill 加载进 runtime agent）再讨论是否新增 admin endpoint，MVP 不做。
 
 ## 实施步骤
 
-1. [ ] 确认 v3 draft 输出目录和文件命名。
-2. [ ] 实现或手动执行全量推文导出，生成 `all-tweets.jsonl` 和 `corpus-manifest.json`。
-3. [ ] 设计 `AtomicRule` Pydantic schema。
-4. [ ] 设计四层 bucket 规则：core / macro / sector / ticker。
-5. [ ] 实现第一版 bucketizer，支持 ticker 别名、公司名、产品名匹配。
-6. [ ] 针对 core/macro/sector/ticker 分桶抽取 atomic rules。
-7. [ ] 聚类、去重、打分，生成 `rule-clusters.json`。
-8. [ ] 从 clusters 生成 `core/operating-system.md`。
-9. [ ] 从 clusters 生成 `macro/macro-regime.md`。
-10. [ ] 从 clusters 生成第一批 sector skills：AI infrastructure、crypto/stablecoin/RWA。
-11. [ ] 生成第一批 ticker playbooks：NVDA、GOOGL、MSFT、META、AMZN、MU、AVGO、ORCL、MSTR、COIN、RKLB、PLTR。
-12. [ ] 生成弱覆盖 ticker marker：MRVL。
-13. [ ] 执行 evidence audit，检查每条规则的 tweet_id 和 quote。
-14. [ ] 执行 holdout replay，记录无法解释的样本。
-15. [ ] 执行 user-question eval，检查回答是否比 v1/v2 更 actionable。
-16. [ ] 执行 v1 diff check，确认 v1 重要规则没有丢失。
-17. [ ] 根据验证结果修订 skill 文件。
-18. [ ] 决定是否替换现有 methodology chat 的路由逻辑，或先以 draft 方式并行测试。
+1. [x] 确认 v3 draft 输出目录和文件命名。
+2. [x] 写 `export_corpus.py` 并执行：1048 条推文入库（过滤 content_type=noise；实际 enrichment 无 quality 字段，注释已说明）。
+3. [x] Bucket 分配：`bucketize.py` + 中文别名字典补全 enrichment 漏掉的 ticker（GOOGL 84 / MSFT 63 / AMZN 48 / ORCL 34 等），输出 `ticker-index.json` / `sector-index.json` / `bucket-summary.json` / `bucket-per-tweet.jsonl`。
+4. [~] Atomic rules 单独 jsonl 跳过 — Evidence Map 直接嵌在每个 skill md 内（每条 rule 带 tweet_id），等效且避免双写。
+5. [~] 聚类去重 跳过 — 在 skill md 内部完成（同义规则合并为单条）。
+6. [x] 生成 `core/operating-system.md`。
+7. [x] 生成 `macro/macro-regime.md`。
+8. [x] 生成 **7 个** sector skills（比 plan 多 3 个）：
+   - 计划内：`ai-infrastructure` / `crypto-stablecoin-rwa` / `software-ai-disruption` / `semiconductor-memory-hbm`
+   - 计划外（v3 corpus 发现的）：`defense-and-space`（224 条）/ `power-and-physical-ai`（200 条）/ `fintech-brokerage`（62 条）
+   - `neocloud`（17 条）作为 ai-infrastructure 子章节
+9. [x] 生成 **22 个** ticker playbooks（比 plan 多 10 个），全部带 `coverage` 标签：
+   - High（9）：NVDA / GOOGL / MSFT / META / MU / AMZN / HOOD / COIN / ORCL
+   - Medium（9）：PLTR / AMD / RKLB / CRCL / TSM / TSLA / ARM / AVGO / INTC
+   - Low（14）：CRWV / QCOM / ASTS / SNDK / FUTU / TIGR / LUNR / MSTR / LHX / BMNR / IBM / BB / ON / BA
+10. [x] MRVL marker（零提及，fallback 示例）。
+11. [x] Evidence audit：`evidence_audit.py` 跑通；143/155 ref 验证通过；12 missing ref（6 unique）已查清根因，详见 `eval/evidence-audit.md`。
+12. [ ] Holdout replay：模板已写入 `eval/holdout-replay.md`，执行 pending（需要 agent runtime）。
+13. [ ] User-question eval：13 题集已写入 `eval/user-question-eval.md`，执行 pending（需要 agent runtime）。
+14. [x] V1 diff check：写入 `eval/v1-diff-check.md`。无规则删除；新增 3 sector + 22 ticker + coverage 标签 + 常见误读 + 输出模板等。
+15. [ ] 根据 eval 结果修订 skill 文件（待 holdout / user-question eval 跑完）。
+16. [ ] admin flag / query param 灰度（待生产部署）。
 
 ## 验收标准
 
 - `core / macro / sector / ticker` 四层结构完整落地。
 - 每个正式 skill 都包含统一模板：适用问题、核心问题、看什么信息、如何理解、决策框架、常见误读、输出模板、Evidence Map。
 - 每条核心规则至少有一个 tweet_id 和连续原文 quote。
-- 高覆盖 ticker 有完整 playbook，低覆盖 ticker 不伪造强观点，只生成 marker。
-- `MRVL` 这类弱覆盖标的能正确 fallback 到 sector skill，而不是被写成直接观点。
+- 博主提到过的 ticker 全部生成 playbook（带 `coverage` 标签），未提到的才用 marker。
+- 低覆盖 ticker 的 playbook 不能伪造强观点 — 规则陈述必须能回到 Evidence Map 中的具体 tweet_id。
+- `MRVL` 这类博主从未直接讨论过的标的，生成 marker 并 fallback 到 sector skill。
 - user-question eval 中，v3 回答必须比 v1/v2 更能说明：
   - 当前调用了哪一层 skill。
   - 需要看哪些具体信息。
   - 如何理解这些信息。
   - 如何做动作姿态或判断升级/降级。
 
-## 待定问题
+## 决议（原待定问题）
 
-1. 全量语料是否直接从 Insforge DB 导出，还是先从 `extraction_log/*.prompt.md` 恢复一版临时语料？
-2. v3 extractor 是否继续使用 Google ADK `LlmAgent + output_schema`，还是先用离线脚本加模型 API 生成 JSONL？
-3. Ticker playbook 的 direct coverage 门槛是 3 条、5 条，还是按质量分加权？
-4. `software-ai-disruption` 和 `semiconductor-memory-hbm` 是否第一批独立成 sector skill，还是先作为 `ai-infrastructure.md` 子章节？
-5. v3 draft 通过验证后，是替换 `methodology_chat` 的现有 category 路由，还是在新 UI/新 endpoint 中灰度？
+1. **语料来源**：直接从 Insforge DB 导出（`kol_tweets` 表 / `kol-tweets` edge function），不使用 `extraction_log/*.prompt.md`。仅在 DB 不可用时回退，且 manifest 必须显式标注来源。
+2. **蒸馏执行方式**：由 Claude Code 在对话里直接蒸馏，**不调 Google ADK、不写额外 LLM 脚本、不调第三方模型 API**。唯一脚本是 `export_corpus.py`（纯 DB 读取）。
+3. **Ticker playbook 门槛**：取消数量门槛。凡博主提到过的 ticker 都生成 playbook + `coverage: high / medium / low` 标签；从未提到的才用 marker。
+4. **Sector 文件粒度**：候选 4 个（AI 基建、crypto/stablecoin/RWA、software-AI-disruption、semiconductor-memory-HBM）全部独立成文件，不合并为子章节。
+5. **上线策略**：v3 draft 并行存放在 `_drafts/qinbafrank-skill-v3/`，**不替换**现有 `methodologies/qinbafrank/` 和 `methodology_chat` 路由。通过 admin flag 或 query param 灰度，跑 v1 / v3 对照 eval 1-2 周后再决定是否替换。
