@@ -161,6 +161,9 @@ export function MobileMenu() {
       ? [{
           label: 'KOL 对话',
           href: '/kol-chat',
+          children: [
+            { href: '/kol/qinbafrank', label: 'qinbafrank · 产业派' },
+          ],
         } as NavSection]
       : []),
     {
