@@ -5,6 +5,7 @@ import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
 import ChatInput from './ChatInput';
 import type { ChatMsg } from '../_lib/researchReducer';
+import type { KolPersonaChunk } from '@/lib/api';
 
 export type { ChatMsg };
 
@@ -30,6 +31,8 @@ interface ChatPanelProps {
   inputPlaceholder?: string;
   toolActivities?: ToolActivity[];
   quota?: QuotaInfo | null;
+  /** Citation chunks for the latest KOL turn — used to make [#N] clickable. */
+  citations?: KolPersonaChunk[];
 }
 
 /**
@@ -42,7 +45,7 @@ interface ChatPanelProps {
  * - Newest AI message gets word-by-word animation
  * - Option chips under AI messages
  */
-export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [], quota }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [], quota, citations }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -86,8 +89,11 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
               <ChatMessage
                 role={msg.role}
                 content={msg.content}
-                animate={msg.role === 'assistant' && i === lastAssistantIdx}
+                animate={msg.role === 'assistant' && i === lastAssistantIdx && !msg.streaming}
                 isError={msg.isError}
+                streaming={msg.streaming}
+                thinking={msg.thinking}
+                citations={i === lastAssistantIdx ? citations : undefined}
               />
               {msg.role === 'assistant' && msg.options && msg.options.length > 0 && (
                 <OptionChips
@@ -102,8 +108,15 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
             </div>
         ))}
 
-        {/* Agent status — shows current activity (swap in place, like ChatGPT) */}
-        {loading && (
+        {/* Agent status — shows current activity (swap in place, like ChatGPT).
+            Hidden once the last assistant message starts streaming (either
+            thinking or token output) — from that point the in-message progress
+            UI (ThinkingLine swap → token stream) is the indicator and a second
+            spinner below would be redundant. */}
+        {loading && !(messages[messages.length - 1]?.role === 'assistant'
+          && messages[messages.length - 1]?.streaming
+          && (!!messages[messages.length - 1]?.thinking?.trim()
+              || !!messages[messages.length - 1]?.content?.trim())) && (
           <div
             onClick={onCancelLoading}
             className={onCancelLoading ? 'cursor-pointer group' : ''}

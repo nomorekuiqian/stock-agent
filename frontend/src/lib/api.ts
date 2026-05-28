@@ -1106,6 +1106,8 @@ export type KolResearchStreamEvent =
   | { type: 'skill_activated'; skill_name: string; description: string }
   | { type: 'tool_call_start'; tool: string; description: string }
   | { type: 'tool_call_end'; tool: string; duration_ms: number | null }
+  | { type: 'thinking'; text: string }
+  | { type: 'message_delta'; text: string }
   | { type: 'final'; data: KolResearchResponse }
   | { type: 'error'; error: string };
 
@@ -1117,6 +1119,8 @@ export interface KolCockpitPrinciple {
 }
 
 export interface KolCockpitCore {
+  /** Twitter bio — what the persona says about themselves publicly. Optional. */
+  bio?: string;
   portrait: string;
   principles: KolCockpitPrinciple[];
   fingerprint: string;
@@ -1150,6 +1154,7 @@ export interface KolCockpitTweet {
   reply_count: number;
   tweet_type: string | null;
   tickers: string[];
+  reply_kind?: 'self' | 'other' | null;
 }
 
 export interface KolCockpitSectorTicker {
@@ -1182,6 +1187,7 @@ export interface KolCockpitTickerSummary {
   priceable: boolean;
   price: number | null;
   daily_change: number | null;
+  summary?: KolTickerSummary | null;
 }
 
 export interface KolCockpitPricePoint {
@@ -1205,6 +1211,156 @@ export interface KolCockpitTickerDetail {
     sector: string | null;
     pe_ttm: number | null;
   };
+  summary?: KolTickerSummary | null;
+}
+
+export interface KolCockpitFeedItem {
+  id: string;
+  text: string;
+  created_at: string | null;
+  url: string | null;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  tweet_type: string | null;
+  tickers: string[];
+  sectors: string[];
+  /** 'self' = thread continuation (kept), 'other' = reply to someone else (filtered out by default), null = not a reply. */
+  reply_kind: 'self' | 'other' | null;
+}
+
+export interface KolCockpitFeedResponse {
+  tweets: KolCockpitFeedItem[];
+  total: number;
+  has_more: boolean;
+  offset: number;
+  limit: number;
+}
+
+export interface KolCockpitFeedOpts {
+  limit?: number;
+  offset?: number;
+  sector?: string | null;
+  ticker?: string | null;
+}
+
+// --- v3 sectors (richer skill-distillation source) ---
+
+export interface KolSectorV3Summary {
+  key: string;
+  label: string;
+  eyebrow: string;
+  layer: 'sector' | 'macro';
+  short: string;
+  tweet_count: number;
+  ticker_count: number;
+}
+
+export interface KolSectorV3Ticker {
+  ticker: string;
+  coverage: string; // 'high' | 'medium' | 'low' | ''
+  v3_count: number;
+  primary_sector: string | null;
+  price: number | null;
+  daily_change: number | null;
+  priceable: boolean;
+  cockpit_count: number;
+}
+
+export interface KolSectorV3RuleItem {
+  text: string;
+  evidence: KolCockpitTweet[];
+}
+
+export type KolStanceKey =
+  | 'bull_strong'
+  | 'bull'
+  | 'bull_cautious'
+  | 'watch'
+  | 'no_bet'
+  | 'unknown';
+
+export interface KolTickerSummary {
+  stance: KolStanceKey;
+  /** Human-friendly Chinese stance label, e.g. 「看多 · 核心仓」. */
+  stance_label: string;
+  /** 1-line bold thesis distilled from 核心问题. */
+  thesis: string;
+  /** 1-line core logic from 博主如何定位. */
+  key_logic: string;
+  /** v3 coverage level — 'high' | 'medium' | 'low' | '' */
+  coverage: string;
+  /** Industry-chain coordinate, e.g. 「AI 算力基建 · L2 算力整合」. */
+  position: string | null;
+  /** Extended structured fields (extracted from v3 ticker md sections). */
+  core_questions: string[];
+  signals_watched: string[];
+  bull_conditions: string[];
+  bear_triggers: string[];
+  veto: string[];
+  falsifiers: string[];
+  misreadings: string[];
+}
+
+export interface KolChainTicker {
+  ticker: string;
+  price: number | null;
+  daily_change: number | null;
+  name: string | null;
+  cockpit_count: number;
+  priceable: boolean;
+  stance: string;
+  /** 'covered' = Frank has v3 playbook for it. 'not_covered' = supplement. */
+  frank_coverage: 'covered' | 'not_covered';
+  summary?: KolTickerSummary | null;
+}
+
+export interface KolChainSubcategory {
+  name: string;
+  tickers: string[];
+}
+
+export interface KolChainLayer {
+  id: string;
+  label: string;
+  stance: string;
+  primary_question: string;
+  tickers: KolChainTicker[];
+  subcategories: KolChainSubcategory[];
+  rep_ticker: string | null;
+  rep_ticker_series: { date: string; close: number }[];
+  total_mentions: number;
+  weekly_mentions: number[];
+}
+
+export interface KolIndustryChain {
+  board: {
+    key: string;
+    label: string;
+    eyebrow: string;
+    intro: string;
+  };
+  layers: KolChainLayer[];
+  weeks: number;
+}
+
+export interface KolSectorV3Detail {
+  key: string;
+  label: string;
+  eyebrow: string;
+  layer: 'sector' | 'macro';
+  short: string;
+  tweet_count: number;
+  core_questions: KolSectorV3RuleItem[];
+  signals: KolSectorV3RuleItem[];
+  bull_conditions: KolSectorV3RuleItem[];
+  bear_triggers: KolSectorV3RuleItem[];
+  veto: KolSectorV3RuleItem[];
+  falsifiers: KolSectorV3RuleItem[];
+  misreadings: KolSectorV3RuleItem[];
+  tickers: KolSectorV3Ticker[];
+  rep_tweets: KolCockpitTweet[];
+  full_body: string;
 }
 
 export interface ResearchKBMessage {
@@ -2609,6 +2765,54 @@ export const api = {
         `${API_BASE_URL}/kol_research/personas/${username}/tickers/${ticker}`,
       );
       if (!response.ok) throw new Error('Failed to load ticker detail');
+      return response.json();
+    },
+
+    cockpitSectorsV3: async (
+      username: string,
+    ): Promise<{ sectors: KolSectorV3Summary[] }> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/sectors_v3`,
+      );
+      if (!response.ok) throw new Error('Failed to load v3 sectors');
+      return response.json();
+    },
+
+    cockpitIndustryChain: async (
+      username: string,
+      boardKey: string,
+    ): Promise<KolIndustryChain> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/industry_chain/${boardKey}`,
+      );
+      if (!response.ok) throw new Error('Failed to load industry chain');
+      return response.json();
+    },
+
+    cockpitSectorV3: async (
+      username: string,
+      sectorKey: string,
+    ): Promise<KolSectorV3Detail> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/sectors_v3/${sectorKey}`,
+      );
+      if (!response.ok) throw new Error('Failed to load v3 sector detail');
+      return response.json();
+    },
+
+    cockpitFeed: async (
+      username: string,
+      opts: KolCockpitFeedOpts = {},
+    ): Promise<KolCockpitFeedResponse> => {
+      const params = new URLSearchParams();
+      if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+      if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+      if (opts.sector) params.set('sector', opts.sector);
+      if (opts.ticker) params.set('ticker', opts.ticker);
+      const qs = params.toString();
+      const url = `${API_BASE_URL}/kol_research/personas/${username}/feed${qs ? `?${qs}` : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load live feed');
       return response.json();
     },
 

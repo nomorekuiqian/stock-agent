@@ -67,7 +67,10 @@ function ScreenerContent() {
   // KOL persona state. Persisted only across the session via reducer reset on switch.
   const [agentKind, setAgentKind] = useState<AgentKind>('research');
   const [personaUsername, setPersonaUsername] = useState<string | null>(null);
-  const [latestKolChunks, setLatestKolChunks] = useState<KolPersonaChunk[]>([]);
+  // KOL citation chunks now live in reducer state (state.kolChunks) so they
+  // survive sessionStorage rehydration and LOAD_CONVERSATION. The cast is
+  // a thin bridge from the loose reducer type to the typed api shape.
+  const latestKolChunks = state.kolChunks as unknown as KolPersonaChunk[];
   const { has: hasFlag } = useFeatureFlags();
   const kolPersonaEnabled = hasFlag('kol_research_agent');
   const stockContextRef = useRef<StockContextPayload | null>(null);
@@ -193,6 +196,38 @@ function ScreenerContent() {
       pendingSeed.current = '帮我看看今天我的持仓情况';
     }
   }, [searchParams, dispatch]);
+
+  // KOL persona URL entry — /research?agent=kol&persona=qinbafrank[&q=...]
+  // Used by `/kol/[username]/chat` landing page to deep-link into the KOL
+  // agent with a specific persona pre-selected (and optionally auto-send a
+  // starter question). Independent of context= handler.
+  const kolUrlInitialized = useRef(false);
+  useEffect(() => {
+    if (kolUrlInitialized.current) return;
+    const agentParam = searchParams.get('agent');
+    const personaParam = searchParams.get('persona');
+    if (agentParam !== 'kol' || !personaParam) return;
+    kolUrlInitialized.current = true;
+
+    setAgentKind('kol_research');
+    setPersonaUsername(personaParam);
+
+    const seedQ = searchParams.get('q');
+    if (seedQ) {
+      pendingSeed.current = seedQ;
+      if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
+      // Slightly longer delay than CONTEXT_ENTRY path because we don't gate on
+      // content panel ready — just wait for the agentKind/persona state updates
+      // to flush through React before triggering handleSend.
+      pendingSeedTimerRef.current = setTimeout(() => {
+        pendingSeedTimerRef.current = null;
+        const msg = pendingSeed.current;
+        if (!msg) return;
+        pendingSeed.current = null;
+        handleSendRef.current?.(msg);
+      }, 250);
+    }
+  }, [searchParams]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
@@ -396,7 +431,7 @@ function ScreenerContent() {
   // KOL-mode send. Independent codepath: we don't touch screener candidates / filters.
   const handleKolSend = useCallback(async (message: string) => {
     dispatch({ type: 'SEND_MESSAGE', message });
-    setLatestKolChunks([]);
+    dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
     try {
       const history = state.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -436,6 +471,16 @@ function ScreenerContent() {
             });
           } else if (event.type === 'tool_call_end') {
             // no-op — keep description visible until next event
+          } else if (event.type === 'message_delta') {
+            // Token-by-token streaming: append to the in-progress assistant msg.
+            ReactDOM.flushSync(() => {
+              dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text });
+            });
+          } else if (event.type === 'thinking') {
+            // Chain-of-thought chunk: accumulate on the same in-progress msg.
+            ReactDOM.flushSync(() => {
+              dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text });
+            });
           } else if (event.type === 'final') {
             finalMessage = event.data.message;
             finalChunks = event.data.kol_chunks || [];
@@ -469,8 +514,73 @@ function ScreenerContent() {
         data_freshness: null,
         is_stale: false,
       };
-      dispatch({ type: 'RECEIVE_RESPONSE', result });
-      setLatestKolChunks(finalChunks);
+      // Build a unified KOL conversation title BEFORE dispatching RECEIVE_RESPONSE.
+      // Format: `@{persona} · {first user question, truncated to 24 chars}`.
+      // This gives all KOL conversations a consistent recognizable name and
+      // identifies the persona at a glance.
+      const persona = personaUsername || 'qinbafrank';
+      // Read latest state through ref to avoid stale-closure deps issue with
+      // useCallback. On first turn conversationId is null and we generate a
+      // title; subsequent turns preserve the existing title.
+      const latestState = latestStateRef.current;
+      const isFirstTurn = !latestState.conversationId;
+      let titleForRespose: string;
+      if (isFirstTurn) {
+        const preview = message.trim().length > 24
+          ? `${message.trim().slice(0, 24)}...`
+          : message.trim();
+        titleForRespose = `@${persona} · ${preview}`;
+      } else {
+        // Preserve existing title (reducer keeps state.conversationTitle when
+        // result.title is empty — see RECEIVE_RESPONSE case).
+        titleForRespose = '';
+      }
+
+      // Route title through RECEIVE_RESPONSE so it lands in state.conversationTitle.
+      const resultWithTitle: ResearchResult = { ...result, title: titleForRespose };
+      dispatch({ type: 'RECEIVE_RESPONSE', result: resultWithTitle });
+      dispatch({
+        type: 'SET_KOL_CHUNKS',
+        chunks: finalChunks as unknown as Record<string, unknown>[],
+      });
+
+      // Persist to KOL conversations table.
+      try {
+        const finalTitle = isFirstTurn
+          ? titleForRespose
+          : latestState.conversationTitle || `@${persona} 对话`;
+        const allMessages = [
+          ...latestState.messages,
+          { id: `u-${Date.now()}`, role: 'user' as const, content: message },
+          { id: `a-${Date.now()}`, role: 'assistant' as const, content: finalMessage },
+        ];
+        const convData: Record<string, unknown> = {
+          messages: allMessages,
+          kol_chunks: finalChunks,
+          persona_username: persona,
+        };
+        if (isFirstTurn) {
+          const created = await api.kolResearch.conversations.create({
+            title: finalTitle,
+            data: convData,
+            message_count: allMessages.length,
+            persona_username: persona,
+          });
+          if (created?.id) {
+            dispatch({ type: 'SET_CONVERSATION_ID', id: created.id });
+          }
+        } else if (latestState.conversationId) {
+          await api.kolResearch.conversations.update(latestState.conversationId, {
+            title: finalTitle,
+            data: convData,
+            message_count: allMessages.length,
+            persona_username: persona,
+          });
+        }
+      } catch (saveErr) {
+        // Save failure shouldn't break the chat experience; just log.
+        console.warn('[KOL Research] conversation save failed:', saveErr);
+      }
     } catch (err) {
       console.warn('[KOL Research] handleKolSend error:', err);
       dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
@@ -820,6 +930,10 @@ function ScreenerContent() {
   const loadConversationData = useCallback((conversationId: string, conv: Record<string, unknown>) => {
     skipPanelSaveRef.current = true;
     const data = (conv.data || {}) as Record<string, unknown>;
+    // KOL conversations save chunks under data.kol_chunks; restore them so
+    // the right panel (citation cards) doesn't show up empty after a reload
+    // or after loading from the sidebar.
+    const savedKolChunks = (data.kol_chunks as Record<string, unknown>[] | undefined) ?? [];
     dispatch({
       type: 'LOAD_CONVERSATION',
       data: {
@@ -834,8 +948,17 @@ function ScreenerContent() {
         funnelSteps: (data.funnel_steps || []) as LoadConversationData['funnelSteps'],
         activeContent: data.active_content as LoadConversationData['activeContent'],
         contentStack: data.content_stack as LoadConversationData['contentStack'],
+        kolChunks: savedKolChunks,
       },
     });
+    // If this is a KOL conversation (persona_username present), also
+    // restore agentKind + personaUsername so the right panel renders the
+    // KOL view rather than ContentPanel.
+    const savedPersona = data.persona_username as string | undefined;
+    if (savedPersona) {
+      setAgentKind('kol_research');
+      setPersonaUsername(savedPersona);
+    }
   }, []);
 
   const handleLoadConversation = useCallback(async (conversationId: string) => {
@@ -996,7 +1119,7 @@ function ScreenerContent() {
               onPersonaChange={({ agentKind: nextKind, personaUsername: nextUser }) => {
                 setAgentKind(nextKind);
                 setPersonaUsername(nextUser);
-                setLatestKolChunks([]);
+                dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
                 // Already at welcome screen, no reducer reset needed.
               }}
             />
@@ -1082,11 +1205,6 @@ function ScreenerContent() {
                 </div>
               )}
             </div>
-            {agentKind === 'kol_research' && latestKolChunks.length > 0 && (
-              <div className="shrink-0">
-                <KolChunksPanel chunks={latestKolChunks} />
-              </div>
-            )}
             <ChatPanel
               messages={state.messages}
               onSend={handleSend}
@@ -1094,6 +1212,7 @@ function ScreenerContent() {
               onCancelLoading={state.isLoading ? handleCancelLoading : undefined}
               toolActivities={state.toolActivities}
               quota={quota}
+              citations={agentKind === 'kol_research' ? latestKolChunks : undefined}
               inputPlaceholder={
                 agentKind === 'kol_research'
                   ? `按 @${personaUsername || 'qinbafrank'} 方法论提问...`
@@ -1103,7 +1222,7 @@ function ScreenerContent() {
           </div>
         </div>
 
-        {/* Right: Content panel */}
+        {/* Right: Content panel (or KOL citation cards when in KOL mode) */}
         <div
           className={`
             w-full lg:w-1/2
@@ -1111,26 +1230,30 @@ function ScreenerContent() {
             flex-col
           `}
         >
-          <ContentPanel
-            activeContent={state.activeContent}
-            canGoBack={state.contentStack.length > 0}
-            onGoBack={() => dispatch({ type: 'POP_CONTENT' })}
-            screenerProps={{
-              steps: state.funnelSteps,
-              appliedFilters: state.accumulatedFilters,
-              candidates: state.candidates,
-              candidateCount: state.candidateCount,
-              universeSize: state.universeSize,
-              recommendations: state.recommendations,
-              loading: state.isLoading,
-              onStockClick: handleStockClick,
-            }}
-            onStockContextReady={handleStockContextReady}
-            onReportContextReady={handleReportContextReady}
-            onMorningContextReady={handleMorningContextReady}
-            onMacroPanelContextReady={handleMacroPanelContextReady}
-            onBrewContextReady={handleBrewContextReady}
-          />
+          {agentKind === 'kol_research' ? (
+            <KolChunksPanel chunks={latestKolChunks} variant="panel" />
+          ) : (
+            <ContentPanel
+              activeContent={state.activeContent}
+              canGoBack={state.contentStack.length > 0}
+              onGoBack={() => dispatch({ type: 'POP_CONTENT' })}
+              screenerProps={{
+                steps: state.funnelSteps,
+                appliedFilters: state.accumulatedFilters,
+                candidates: state.candidates,
+                candidateCount: state.candidateCount,
+                universeSize: state.universeSize,
+                recommendations: state.recommendations,
+                loading: state.isLoading,
+                onStockClick: handleStockClick,
+              }}
+              onStockContextReady={handleStockContextReady}
+              onReportContextReady={handleReportContextReady}
+              onMorningContextReady={handleMorningContextReady}
+              onMacroPanelContextReady={handleMacroPanelContextReady}
+              onBrewContextReady={handleBrewContextReady}
+            />
+          )}
         </div>
       </div>
     </div>
