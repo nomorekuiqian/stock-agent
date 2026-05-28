@@ -95,3 +95,9 @@ yarn-error.log*
 
 # InsForge & AI agent skills
 .claude
+
+# v3 distillation intermediate artifacts (large jsonl corpora + per-slice
+# outputs + eval). Re-generatable from methodology_v3/ scripts; not consumed
+# by cockpit_v3.py at runtime. Production artifacts (skill MDs, small index
+# JSONs) stay under methodologies/_drafts/qinbafrank-skill-v3/.
+backend/app/features/twitter/_distillation_artifacts/
