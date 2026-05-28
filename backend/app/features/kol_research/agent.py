@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.google_search_tool import GoogleSearchTool
 from google.adk.tools.skill_toolset import SkillToolset
@@ -323,6 +324,11 @@ def _safe_args_summary(args: dict | None, *, max_len: int = 120) -> Optional[str
 # `methodologies/qinbafrank/*.md`, 让换 KOL 时框架自动跟着变 (技术派会用形态/
 # 均线/量能/突破/止损; 量化派会用因子/backtest/sharpe). 当前只服务 qinbafrank,
 # 一次性 hardcode 是可接受的简化.
+#
+# TEMPORARY (2026-05-27): 加入 KOL_PERSONA_VERSION=v3 灰度测试模式。当
+# env var 为 v3 时，_build_instruction 使用 _V3_TOOL_USAGE_RULES (更松
+# 散的回答框架，让 v3 skill md 自带的 "输出模板" 段生效)，不走下面这套
+# 5 段式硬约束。
 
 _TOOL_USAGE_RULES = """
 # 工具使用规则
@@ -393,15 +399,101 @@ _TOOL_USAGE_RULES = """
 """
 
 
+# ---------------------------------------------------------------------------
+# v3 灰度测试 — 当 KOL_PERSONA_VERSION=v3 时使用这套更松散的指令
+# ---------------------------------------------------------------------------
+
+_V3_TOOL_USAGE_RULES = """
+# 工具使用规则
+
+每次回答按这个顺序走:
+
+1. **先看用户问什么类型的问题, 加载对应的 framework skill** (拿到答题骨架):
+
+   | 问题类型 | 触发关键词 | 加载 framework |
+   |---|---|---|
+   | 个股观点 | ticker / 公司中文名 + 怎么看 / 估值 / 财报 / 加仓 / 顶 / 底 | `framework-ask-about-stock` |
+   | 产业板块 | AI 算力 / HBM / 稳定币 / 太空 / SaaS / 物理 AI + 板块 / 看好 / 阶段 | `framework-ask-about-sector` |
+   | 宏观判断 | Fed / 降息 / CPI / 流动性 / 大顶 / 地缘 / 关税 / TACO | `framework-ask-about-macro` |
+   | 方法论 / 概念 | 什么是 / 怎么判断 / 如何决策 / 为什么 / 是什么意思 | `framework-ask-about-method` |
+   | Veto 类 | meme / 梭哈 / all in / 做空 / 抄底烂 / 一把梭 / 短炒 / 赌 | `framework-ask-about-veto` |
+   | 比较选择 | 还是 / vs / 对比 / 哪个 / 选谁 / 二选一 | `framework-ask-to-compare` |
+
+   边界 case 你自己判断. 通常 1 个 framework 就够; 跨类问题最多 2 个.
+
+2. **再加载对应的内容 skill** (拿到博主对具体主题的看法):
+   - 个股问题 → `ticker-<TICKER>` (例: `ticker-nvda`, `ticker-mrvl` 是 marker)
+   - 产业问题 → `sector-<name>` (`sector-ai-infrastructure` / `sector-crypto-stablecoin-rwa` / `sector-defense-and-space` / `sector-power-and-physical-ai` / `sector-semiconductor-memory-hbm` / `sector-software-ai-disruption` / `sector-fintech-brokerage`)
+   - 宏观问题 → core 和 macro 已经在 system prompt 里, 通常不需要再 load
+   - 方法论 / Veto / 比较 → 通常 framework + core 就够, 按需加 sector / ticker
+
+3. **调 `search_kol_tweets(query=..., author_username="{username}")`** 找博主历史原话. 引用必须用 [#N] 编号 + 作者 + 日期.
+
+4. **调对应的 brief 拿"当下"数据** (除非是方法论 / Veto / 比较类不需要数据):
+   - 个股: `get_stock_brief(symbol)`
+   - 同行对比: `get_peer_brief(symbol)`
+   - 行业鸟瞰: `get_industry_brief(symbol)`
+   - 宏观 / Fed / 利率 / 流动性: `get_macro_brief()`
+   - 早报: `get_report_by_date` / `list_recent_reports`
+   - 技术面 (罕见): `get_technical_analysis`
+   不要调 fine-grained 工具, brief 内部已并发拉数据.
+
+5. **`google_search` 是 escape hatch**, 仅在同时满足三条时调用一次:
+   a) search_kol_tweets 召回 0 条
+   b) 所有 data tool 返回无数据
+   c) 话题超出 v3 skill 覆盖范围
+   调用后在答案显式标注 "以下信息来自 web 搜索, 非博主历史观点".
+
+# 通用纪律 (跨所有 framework 必须遵守)
+
+- **强信念必带打脸条件** (qinbafrank 真正的指纹). 任何"看多 / 看空"判断都要挂"什么数据出来这个判断就翻车", 具体到 **指标 + 阈值 + 时间窗** 三要素. 表达可换: 打脸条件 / 认错阈值 / 拐点信号 / 撤退条件 / 减仓信号 — 同一回答里混用, 不要堆同一个词.
+- **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为".
+- **没数据时**明确说"需要补充", 不要编造数字.
+- **不预测精确点位 / 不预测 Fed 节奏 / 不喊大顶大底崩盘** — 博主语言指纹.
+- **冲突处理**: skill 框架是判断准则; search_kol_tweets 是具体观点; data tool 是当下事实. 冲突时显式点出"分歧".
+- **禁用词**: all in / 梭哈 / 必涨 / 保底 / 稳赚 / 财富自由 / 猛干 / 绝对崩盘.
+
+# 引用规则 [#N] (硬性约束)
+
+- 只能引用 **search_kol_tweets 工具本轮实际返回过的 [#N] 编号**. 工具结果里会显式告诉你 "Valid citation range: [#X] ~ [#Y]", 严格在这范围内引.
+- **不要瞎编引用号** (例如 [#11]、[#44] 这种你从没在工具返回里见过的编号). 用户看到的中间稿会先于最终 strip 出现, 所以即使后端会 fallback 删掉, 仍要尽量从源头不写错号.
+- **未调 search_kol_tweets 之前不要写 [#N]**. 想引用就先 search, 拿到编号再引.
+- 引用号不连写多个: 用 `[#3]` 而不是 `[#3][#4]`; 多个来源用 `[#3] 和 [#4]` 这种自然句式.
+- 引用必须有具体含义: 不要句尾随手挂 `[#11]` 当装饰, 要么佐证一个具体论点, 要么省略.
+
+# 输出格式
+
+- Markdown 简体中文.
+- **长度和结构由加载的 framework skill 决定**, 不要硬套字数或段数.
+- 关键判断 / 数字 / 打脸条件用 **粗体** 突出.
+- 列表用于指标对照 / 观察清单.
+
+# v3 测试声明
+
+当前使用 KOL_PERSONA_VERSION=v3, 加载 `_drafts/qinbafrank-skill-v3/`:
+- core/operating-system + macro/macro-regime 已注入此 prompt (always-on)
+- 6 个 framework + 7 sector + 32 ticker playbook + 1 marker 通过 load_skill 按需加载
+"""
+
+
 def _build_instruction(persona: Persona) -> str:
     always_on = build_always_on_instruction(persona)
-    tool_rules = _TOOL_USAGE_RULES.format(username=persona.username)
-    return (
-        f"你是 TheMarketBrew 的投研助手 (KOL 视角)，正在用 @{persona.username} 的公开方法论看市场。\n"
-        f"**绝不能声称自己就是 @{persona.username}**。\n\n"
-        f"{always_on}\n\n"
-        f"{tool_rules}"
-    )
+    # 根据 KOL_PERSONA_VERSION 选择 tool usage rules
+    from app.shared.kol_persona.registry import PERSONA_VERSION
+    if PERSONA_VERSION == "v3":
+        tool_rules = _V3_TOOL_USAGE_RULES.format(username=persona.username)
+        header = (
+            f"你是 TheMarketBrew 的投研助手 (KOL 视角, v3 测试模式)，"
+            f"正在用 @{persona.username} 的 v3-draft skill 系统看市场。\n"
+            f"**绝不能声称自己就是 @{persona.username}**。\n\n"
+        )
+    else:
+        tool_rules = _TOOL_USAGE_RULES.format(username=persona.username)
+        header = (
+            f"你是 TheMarketBrew 的投研助手 (KOL 视角)，正在用 @{persona.username} 的公开方法论看市场。\n"
+            f"**绝不能声称自己就是 @{persona.username}**。\n\n"
+        )
+    return f"{header}{always_on}\n\n{tool_rules}"
 
 
 def _build_tools(persona: Persona) -> list:
@@ -439,11 +531,18 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
     if persona is None:
         raise ValueError(f"Unknown persona: {persona_username!r}")
 
+    # Enable Gemini's built-in thinking output so the agent emits `thought=True`
+    # parts during the response stream; the frontend uses them to render a
+    # collapsible "思考过程" section under each KOL answer.
+    gen_config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(include_thoughts=True),
+    )
     agent = LlmAgent(
         name="kol_research_agent",
         model=MODEL,
         instruction=_build_instruction(persona),
         tools=_build_tools(persona),
+        generate_content_config=gen_config,
         before_tool_callback=_before_tool_callback,
         after_tool_callback=_after_tool_callback,
         after_model_callback=meter("kol_research", model=MODEL),
@@ -521,24 +620,59 @@ async def _run_session(
     runner: InMemoryRunner,
     prompt: str,
 ) -> str:
-    """Run one turn, return collected markdown text."""
+    """Run one turn, return collected markdown text.
+
+    Side effect: while running, pushes `message_delta` and `thinking` events
+    onto the SSE queue (if set by the caller via `_sse_queue`). This lets the
+    frontend render token-by-token streaming + chain-of-thought.
+    """
     session = await runner.session_service.create_session(
         app_name=APP_NAME, user_id="kol_research"
     )
     message = types.Content(parts=[types.Part(text=prompt)], role="user")
 
+    queue = _sse_queue.get(None)
     final_text_parts: list[str] = []
+    # ADK requires explicit StreamingMode.SSE to get partial text chunks.
+    # Default is StreamingMode.NONE which only yields final aggregated events
+    # — that's why typewriter streaming wasn't working before.
+    run_config = RunConfig(streaming_mode=StreamingMode.SSE)
     try:
         async for event in runner.run_async(
             user_id="kol_research",
             session_id=session.id,
             new_message=message,
+            run_config=run_config,
         ):
-            if hasattr(event, "content") and event.content and event.content.parts:
-                for part in event.content.parts:
-                    text = getattr(part, "text", None)
-                    if text:
-                        final_text_parts.append(text)
+            if not (hasattr(event, "content") and event.content and event.content.parts):
+                continue
+            is_partial = bool(getattr(event, "partial", False))
+            # Avoid duplicate-text issue (ADK doc Option A): only forward
+            # partial events to the SSE queue; final aggregated events are
+            # used solely to accumulate final_text_parts for the response.
+            for part in event.content.parts:
+                text = getattr(part, "text", None)
+                if not text:
+                    continue
+                # Skip function-call parts (LLM emits these as partial too).
+                has_fc = getattr(part, "function_call", None) is not None
+                if has_fc:
+                    continue
+                is_thought = bool(getattr(part, "thought", False))
+                if is_thought:
+                    if queue is not None and is_partial:
+                        queue.put_nowait({"type": "thinking", "text": text})
+                    continue
+                if is_partial:
+                    if queue is not None:
+                        queue.put_nowait({"type": "message_delta", "text": text})
+                        await asyncio.sleep(0)
+                else:
+                    # Final aggregated text — use as the canonical answer body
+                    # (partial chunks may have lost some structure during stream
+                    # buffering, so we trust the aggregated version for the
+                    # final_text used in KolResearchResponse).
+                    final_text_parts.append(text)
     finally:
         try:
             await runner.session_service.delete_session(
@@ -633,6 +767,8 @@ async def stream_kol_research(
       {"type": "skill_activated", "skill_name": ..., "description": ...}
       {"type": "tool_call_start", "tool": ..., "description": ...}
       {"type": "tool_call_end", "tool": ..., "duration_ms": ...}
+      {"type": "thinking", "text": "..."}            # chain-of-thought chunk
+      {"type": "message_delta", "text": "..."}       # incremental answer text
       {"type": "final", "data": KolResearchResponse-dict}
       {"type": "error", "error": "..."}
 
@@ -688,8 +824,13 @@ async def stream_kol_research(
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.15)
                 yield event
-                if event.get("type") in {"tool_call_start", "skill_activated"}:
-                    # Yield control so SSE flushes before the tool actually runs.
+                if event.get("type") in {
+                    "tool_call_start",
+                    "skill_activated",
+                    "message_delta",
+                    "thinking",
+                }:
+                    # Yield control so SSE flushes the event promptly.
                     await asyncio.sleep(0)
             except asyncio.TimeoutError:
                 pass

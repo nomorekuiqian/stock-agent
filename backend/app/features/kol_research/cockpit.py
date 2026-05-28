@@ -26,6 +26,28 @@ _CACHE_TTL_SECONDS = 3600  # tweets refresh hourly via fetch cron; 1h cache is f
 _PAGE_SIZE = 100  # GET list action caps page size at 100
 _MAX_PAGES = 60  # safety cap (~6000 tweets)
 
+# Reply-quality threshold (Plan D, 2026-05-27):
+# Short replies to others are mostly social chit-chat. Long replies are
+# usually substantive analysis. Length is counted in characters; 80 CJK
+# chars ~= 2-3 sentences. Tune here; nothing else hard-codes the value.
+_LONG_REPLY_MIN_LEN = 80
+
+
+def _is_low_quality_reply(t: dict, username: str) -> bool:
+    """Return True if `t` is a short reply to someone other than the persona.
+
+    Drops the noisy social-replies bucket; keeps substantive long replies
+    (>=_LONG_REPLY_MIN_LEN chars) and self-thread continuations.
+    """
+    if t.get("tweet_type") != "reply":
+        return False
+    reply_to = (t.get("in_reply_to_username") or "").lower()
+    is_self_thread = reply_to == username.lower()
+    if is_self_thread:
+        return False
+    text = t.get("text") or ""
+    return len(text) < _LONG_REPLY_MIN_LEN
+
 # ---------------------------------------------------------------------------
 # Curated ticker dictionary — ticker -> alias strings.
 # CJK aliases match as substrings; ASCII aliases match case-sensitively on word
@@ -33,40 +55,116 @@ _MAX_PAGES = 60  # safety cap (~6000 tweets)
 # tickers named across methodologies/qinbafrank/lens-*.md. Tunable.
 # ---------------------------------------------------------------------------
 TICKER_ALIASES: dict[str, list[str]] = {
-    # AI 算力底座
+    # --- AI 算力底座 / GPU / 半导体设计 ---
     "NVDA": ["英伟达", "Nvidia", "NVDA"],
     "TSM": ["台积电", "台积", "TSMC", "TSM"],
     "ASML": ["阿斯麦", "ASML"],
-    # HBM·存储 / 半导体
-    "MU": ["美光", "Micron", "MU"],
-    "AVGO": ["博通", "Broadcom", "AVGO"],
     "AMD": ["超微", "AMD"],
-    "INTC": ["英特尔", "Intel", "INTC"],
     "ARM": ["ARM"],
-    # 数据中心 / Newcloud / Mag
+    "INTC": ["英特尔", "Intel", "INTC"],
+    "AVGO": ["博通", "Broadcom", "AVGO"],
+    "QCOM": ["高通", "Qualcomm", "QCOM"],
+    "ON": ["安森美", "OnSemi", "ON"],
+    "NVTS": ["Navitas", "NVTS"],
+    "LITE": ["Lumentum", "LITE"],
+    "ADI": ["亚德诺", "Analog Devices", "ADI"],
+    "WOLF": ["Wolfspeed", "WOLF"],
+    "TSEM": ["TowerSemi", "TSEM"],
+    "COHR": ["Coherent", "COHR"],
+    "GLW": ["康宁", "Corning", "GLW"],
+    # --- HBM · 存储 ---
+    "MU": ["美光", "Micron", "MU"],
+    "SNDK": ["闪迪", "SanDisk", "SNDK"],
+    "WDC": ["西部数据", "Western Digital", "WDC"],
+    "STX": ["希捷", "Seagate", "STX"],
+    # --- 数据中心 · Newcloud · Mag ---
     "ORCL": ["甲骨文", "Oracle", "ORCL"],
     "MSFT": ["微软", "Microsoft", "MSFT"],
     "GOOGL": ["谷歌", "Alphabet", "GOOGL", "GOOG"],
     "AMZN": ["亚马逊", "Amazon", "AMZN"],
     "META": ["脸书", "Meta", "META"],
+    "AAPL": ["苹果", "Apple", "AAPL"],
     "CRWV": ["CoreWeave", "CRWV"],
     "NBIS": ["Nebius", "NBIS"],
-    # 加密·稳定币·链上金融
+    "IBM": ["IBM"],
+    # --- AI 应用 / 数据 / 安全 ---
+    "PLTR": ["Palantir", "PLTR"],
+    "CRWD": ["CrowdStrike", "CRWD"],
+    "SNOW": ["Snowflake", "SNOW"],
+    # --- 加密 · 稳定币 · 链上金融 · 券商 ---
     "CRCL": ["Circle", "CRCL"],
     "COIN": ["Coinbase", "COIN"],
     "HOOD": ["罗宾汉", "Robinhood", "HOOD"],
     "MSTR": ["微策略", "MicroStrategy", "MSTR"],
     "BMNR": ["BMNR"],
-    # 其他核心覆盖
-    "PLTR": ["Palantir", "PLTR"],
+    "FUTU": ["富途", "Futu", "FUTU"],
+    "TIGR": ["老虎证券", "TIGR"],
+    # --- 太空 / 卫星 / 国防 ---
     "RKLB": ["火箭实验室", "Rocket Lab", "RocketLab", "RKLB"],
+    "ASTS": ["AST SpaceMobile", "ASTS"],
+    "LUNR": ["Intuitive Machines", "LUNR"],
+    "LHX": ["L3Harris", "LHX"],
+    "BA": ["波音", "Boeing", "BA"],
+    "LMT": ["洛克希德", "Lockheed Martin", "LMT"],
+    "NOC": ["诺斯罗普", "Northrop Grumman", "NOC"],
+    "GD": ["通用动力", "General Dynamics", "GD"],
+    "HII": ["亨廷顿英格尔斯", "Huntington Ingalls", "HII"],
+    "KTOS": ["Kratos", "KTOS"],
+    "BWXT": ["BWX Technologies", "BWXT"],
+    "AVAV": ["AeroVironment", "AVAV"],
+    "TDY": ["Teledyne", "TDY"],
+    "HON": ["霍尼韦尔", "Honeywell", "HON"],
+    "IRDM": ["铱星", "Iridium", "IRDM"],
+    "BKSY": ["BlackSky", "BKSY"],
+    "PL": ["Planet Labs", "PL"],
+    "RDW": ["Redwire", "RDW"],
+    "SATS": ["EchoStar", "SATS"],
+    "VSAT": ["Viasat", "VSAT"],
+    "SPIR": ["Spire Global", "SPIR"],
+    # --- 能源 / 电力 / 材料 ---
+    "VST": ["Vistra", "VST"],
+    "CEG": ["Constellation Energy", "CEG"],
+    "XOM": ["埃克森美孚", "Exxon", "XOM"],
+    "CVX": ["雪佛龙", "Chevron", "CVX"],
+    "COP": ["康菲", "ConocoPhillips", "COP"],
+    "HAL": ["哈里伯顿", "Halliburton", "HAL"],
+    "SCCO": ["南方铜业", "Southern Copper", "SCCO"],
+    # --- 电信 ---
+    "VZ": ["威瑞森", "Verizon", "VZ"],
+    "TMUS": ["T-Mobile", "TMUS"],
+    "NOK": ["诺基亚", "Nokia", "NOK"],
+    "BB": ["黑莓", "BlackBerry", "BB"],
+    # --- 汽车 / 自动驾驶 ---
     "TSLA": ["特斯拉", "Tesla", "TSLA"],
-    "AAPL": ["苹果", "Apple", "AAPL"],
+    "LI": ["理想汽车", "Li Auto", "LI"],
+    "BABA": ["阿里巴巴", "Alibaba", "BABA"],
+    "WRD": ["文远知行", "WeRide", "WRD"],
+    # --- 私募公司 (无报价，但他常提) ---
+    "OPENAI": ["OpenAI"],
+    "ANTHROPIC": ["Anthropic"],
+    "SPACEX": ["SpaceX"],
+    "XAI": ["xAI"],
+    # --- 加密资产 / 稳定币 ---
+    "BTC": ["比特币", "Bitcoin", "BTC"],
+    "ETH": ["以太坊", "Ethereum", "ETH"],
+    "SOL": ["索拉纳", "Solana", "SOL"],
+    "USDC": ["USDC"],
+    "USDT": ["USDT"],
+    # --- 指数 / ETF ---
+    "SPY": ["SPY"],
+    "QQQ": ["QQQ"],
+    "EWY": ["EWY"],
+    "IEF": ["IEF"],
+    "UUP": ["UUP"],
 }
 
-# Tickers with no FMP US-equity price (crypto / unlisted). Timeline shows without
-# a price line. Kept small; FMP failures also degrade gracefully.
-NON_PRICEABLE: set[str] = set()
+# Tickers with no FMP US-equity price (crypto / private / index). Timeline
+# shows without a price line. FMP failures also degrade gracefully.
+NON_PRICEABLE: set[str] = {
+    "OPENAI", "ANTHROPIC", "SPACEX", "XAI",
+    "BTC", "ETH", "SOL", "USDC", "USDT",
+    "SPY", "QQQ", "EWY", "IEF", "UUP",
+}
 
 
 def _is_cjk(s: str) -> bool:
@@ -170,33 +268,40 @@ def _slim_tweet(t: dict, tickers: list[str]) -> dict:
         "reply_count": t.get("reply_count") or 0,
         "tweet_type": t.get("tweet_type"),
         "tickers": tickers,
+        # Raw reply target, kept on the slim so feed-time filters can classify
+        # self-thread continuations vs replies-to-others.
+        "in_reply_to_username": t.get("in_reply_to_username"),
     }
 
 
 def _build_index(tweets: list[dict]) -> dict:
-    """Aggregate tweets into a per-ticker index.
+    """Aggregate tweets into a per-ticker index + a flat chronological feed.
 
     Returns:
       {
         "total_tweets": int,
         "tickers": {TICKER: {"count": int, "first": iso, "latest": iso, "tweets": [slim...]}},
+        "by_id": {id: slim},
+        "all_tweets": [slim, ...]  # all tweets, newest-first; includes those without tickers
       }
     """
     by_ticker: dict[str, list[dict]] = {}
     by_id: dict[str, dict] = {}
+    all_tweets: list[dict] = []
     for t in tweets:
         tickers = match_tickers(t.get("text") or "")
         slim = _slim_tweet(t, tickers)
+        all_tweets.append(slim)
         if t.get("id"):
             by_id[str(t["id"])] = slim
-        if not tickers:
-            continue
         for tk in tickers:
             by_ticker.setdefault(tk, []).append(slim)
 
+    # Edge function returns newest-first already; defensively sort to be safe.
+    all_tweets.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+
     tickers_out: dict[str, dict] = {}
     for tk, items in by_ticker.items():
-        # edge returns newest-first; keep that ordering
         dates = [i["created_at"] for i in items if i.get("created_at")]
         tickers_out[tk] = {
             "count": len(items),
@@ -204,7 +309,12 @@ def _build_index(tweets: list[dict]) -> dict:
             "latest": max(dates) if dates else None,
             "tweets": items,
         }
-    return {"total_tweets": len(tweets), "tickers": tickers_out, "by_id": by_id}
+    return {
+        "total_tweets": len(tweets),
+        "tickers": tickers_out,
+        "by_id": by_id,
+        "all_tweets": all_tweets,
+    }
 
 
 async def get_index(username: str, force: bool = False) -> dict:
@@ -247,20 +357,49 @@ async def list_tickers(username: str) -> list[dict]:
     return out
 
 
-async def get_ticker_tweets(username: str, ticker: str) -> Optional[dict]:
-    """Per-ticker detail payload (tweets only; price added by router via FMP)."""
+async def get_ticker_tweets(
+    username: str,
+    ticker: str,
+    *,
+    include_replies: bool = False,
+) -> Optional[dict]:
+    """Per-ticker detail payload (tweets only; price added by router via FMP).
+
+    By default applies the same reply-to-others filter as `get_feed` so that
+    a ticker drilldown shows the same high-signal set the Live Feed shows.
+    """
     index = await get_index(username)
     info = index["tickers"].get(ticker.upper())
     if info is None:
         return None
+
+    tweets = info["tweets"]
+    if not include_replies:
+        tweets = [t for t in tweets if not _is_low_quality_reply(t, username)]
+
+    # Compute reply_kind + strip the raw in_reply_to_username field from
+    # the public response (same convention as get_feed).
+    clean_tweets: list[dict] = []
+    for t in tweets:
+        reply_kind: Optional[str] = None
+        if t.get("tweet_type") == "reply":
+            target = (t.get("in_reply_to_username") or "").lower()
+            if target == username.lower():
+                reply_kind = "self"
+            elif target:
+                reply_kind = "other"
+        out = {k: v for k, v in t.items() if k != "in_reply_to_username"}
+        out["reply_kind"] = reply_kind
+        clean_tweets.append(out)
+
     return {
         "ticker": ticker.upper(),
         "aliases": TICKER_ALIASES.get(ticker.upper(), []),
-        "count": info["count"],
+        "count": len(clean_tweets),
         "first": info["first"],
         "latest": info["latest"],
         "priceable": ticker.upper() not in NON_PRICEABLE,
-        "tweets": info["tweets"],
+        "tweets": clean_tweets,
     }
 
 
@@ -277,6 +416,13 @@ async def get_tweets_by_ids(username: str, ids: list[str]) -> list[dict]:
 # The full lens markdown remains the single source for the chat agent.
 # ---------------------------------------------------------------------------
 PROFILE_CORE: dict = {
+    # Public Twitter bio — what the KOL says about themselves on their profile.
+    # Distinct from `portrait` (the analytical-lens identity used by the chat agent).
+    # Source: verbatim from @qinbafrank's Twitter bio.
+    "bio": (
+        "Investor in AI、Crypto、TMT，跟踪最前沿科技趋势、野生宏观政经观察、研究全球资本流动性、"
+        "周期趋势投资。记录个人学习和思考，经常出错常态掉坑爬坑。Runner\U0001f3c3"
+    ),
     "portrait": (
         "中文圈最系统的「美股 / AI 算力 / 加密资产」产业派分析师——产业故事 + 政治经济学 + "
         "可证伪句式三件套,强信念配反方观点,长视角配短期 catalyst,不喊崩盘也不喊梭哈。"
@@ -382,6 +528,29 @@ SECTORS: list[dict] = [
 _SECTOR_BY_KEY = {s["key"]: s for s in SECTORS}
 
 
+# Group-level filter map for Live Feed. Group label string -> set of tickers
+# spanning all sub-sectors in that group. The feed sector filter accepts these
+# top-level group labels (UI shows: AI 算力 / 加密 / 宏观). MVP uses the static
+# SECTORS table; enrichment-based filtering is deferred until coverage is full.
+_TICKERS_BY_GROUP: dict[str, set[str]] = {}
+for _s in SECTORS:
+    _TICKERS_BY_GROUP.setdefault(_s["group"], set()).update(_s.get("tickers") or [])
+
+
+# Convenient short aliases the UI uses (kept stable for URLs / filter chips).
+GROUP_ALIASES: dict[str, str] = {
+    "ai": "AI 算力链",
+    "crypto": "加密·稳定币",
+    "macro": "宏观",
+}
+
+
+def _resolve_group(value: str) -> Optional[str]:
+    if value in _TICKERS_BY_GROUP:
+        return value
+    return GROUP_ALIASES.get(value.lower())
+
+
 async def list_sectors(username: str) -> list[dict]:
     """Sector card fronts: curated stance + tickers + a real tweet-mention count."""
     index = await get_index(username)
@@ -437,3 +606,88 @@ async def get_sector_detail(username: str, sector_key: str) -> Optional[dict]:
 def get_profile_core() -> dict:
     """Methodology core (static, curated from overview.md)."""
     return PROFILE_CORE
+
+
+async def get_feed(
+    username: str,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    sector: Optional[str] = None,
+    ticker: Optional[str] = None,
+    include_replies: bool = False,
+) -> dict:
+    """Time-desc tweet feed for the Live Feed module.
+
+    Filters:
+      - ticker: exact match against the per-tweet alias-derived ticker list.
+      - sector: matches a group label (or short alias 'ai'/'crypto'/'macro');
+                kept tweets must mention at least one ticker mapped to that group.
+      - include_replies: if False (default), drops replies to OTHER users
+                (low-signal). Replies to self — thread continuations — are kept
+                and tagged with reply_kind="self" so the UI can label them.
+
+    Returns:
+      {
+        "tweets": [...slim feed items with sectors[] + reply_kind populated...],
+        "total": int,
+        "has_more": bool,
+        "offset": int,
+        "limit": int,
+      }
+    """
+    index = await get_index(username)
+    items: list[dict] = index.get("all_tweets") or []
+
+    # Default: filter low-quality replies (short replies to others).
+    # Long replies-to-others (>= _LONG_REPLY_MIN_LEN) are kept as substantive.
+    if not include_replies:
+        items = [t for t in items if not _is_low_quality_reply(t, username)]
+
+    if ticker:
+        target = ticker.upper()
+        items = [t for t in items if target in (t.get("tickers") or [])]
+
+    if sector:
+        resolved = _resolve_group(sector)
+        if resolved is None:
+            items = []
+        else:
+            allowed = _TICKERS_BY_GROUP.get(resolved, set())
+            items = [
+                t for t in items
+                if any(tk in allowed for tk in (t.get("tickers") or []))
+            ]
+
+    total = len(items)
+    sliced = items[offset : offset + limit]
+
+    # Decorate each tweet with sector chips + reply_kind. Strip raw
+    # in_reply_to_username from the response (internal classification field).
+    enriched: list[dict] = []
+    for t in sliced:
+        groups: list[str] = []
+        for tk in t.get("tickers") or []:
+            for group, tks in _TICKERS_BY_GROUP.items():
+                if tk in tks and group not in groups:
+                    groups.append(group)
+
+        reply_kind: Optional[str] = None
+        if t.get("tweet_type") == "reply":
+            reply_to = (t.get("in_reply_to_username") or "").lower()
+            if reply_to == username.lower():
+                reply_kind = "self"
+            elif reply_to:
+                reply_kind = "other"
+
+        out = {**t, "sectors": groups, "reply_kind": reply_kind}
+        out.pop("in_reply_to_username", None)
+        enriched.append(out)
+
+    return {
+        "tweets": enriched,
+        "total": total,
+        "has_more": (offset + limit) < total,
+        "offset": offset,
+        "limit": limit,
+    }
