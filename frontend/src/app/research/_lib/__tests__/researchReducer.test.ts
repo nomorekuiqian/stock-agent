@@ -734,6 +734,238 @@ describe('CONTEXT_ENTRY', () => {
 });
 
 // ---------------------------------------------------------------------------
+// STREAM_DELTA (KOL agent token / thinking streaming)
+// ---------------------------------------------------------------------------
+
+describe('STREAM_DELTA', () => {
+  it('creates a streaming assistant placeholder on first message delta', () => {
+    const prev = chatState();
+    const state = researchReducer(prev, {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'Hello',
+    });
+    expect(state.messages).toHaveLength(2);
+    const last = state.messages[1];
+    expect(last.role).toBe('assistant');
+    expect(last.streaming).toBe(true);
+    expect(last.content).toBe('Hello');
+    expect(last.thinking).toBeUndefined();
+  });
+
+  it('appends text to existing streaming message', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'Hello',
+    });
+    state = researchReducer(state, {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: ' world',
+    });
+    expect(state.messages[1].content).toBe('Hello world');
+    // Should not create a second placeholder
+    expect(state.messages).toHaveLength(2);
+  });
+
+  it('accumulates thinking on the same streaming message', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'thinking',
+      text: 'Step 1: ',
+    });
+    state = researchReducer(state, {
+      type: 'STREAM_DELTA',
+      kind: 'thinking',
+      text: 'Step 2',
+    });
+    expect(state.messages[1].thinking).toBe('Step 1: Step 2');
+    expect(state.messages[1].content).toBe('');
+    expect(state.messages[1].streaming).toBe(true);
+  });
+
+  it('mixes thinking + message deltas onto the same placeholder', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'thinking',
+      text: 'thinking text',
+    });
+    state = researchReducer(state, {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'answer text',
+    });
+    expect(state.messages).toHaveLength(2);
+    expect(state.messages[1].thinking).toBe('thinking text');
+    expect(state.messages[1].content).toBe('answer text');
+  });
+
+  it('does not append to a non-streaming assistant message', () => {
+    // Last message is assistant but NOT streaming (e.g. an older turn that
+    // already finalized).  STREAM_DELTA should create a fresh placeholder
+    // for the new turn.
+    const prev: ResearchState = {
+      ...initialState,
+      phase: 'chat',
+      messages: [
+        { id: 'a1', role: 'assistant', content: 'old reply', streaming: false },
+      ],
+    };
+    const state = researchReducer(prev, {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'new',
+    });
+    expect(state.messages).toHaveLength(2);
+    expect(state.messages[0].streaming).toBeFalsy();
+    expect(state.messages[1].streaming).toBe(true);
+    expect(state.messages[1].content).toBe('new');
+  });
+
+  it('does not append to a user message (creates new assistant placeholder)', () => {
+    const state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'reply',
+    });
+    expect(state.messages[0].role).toBe('user');
+    expect(state.messages[1].role).toBe('assistant');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RECEIVE_RESPONSE — streaming placeholder upgrade
+// ---------------------------------------------------------------------------
+
+describe('RECEIVE_RESPONSE with streaming placeholder', () => {
+  it('finalizes the streaming placeholder in-place instead of appending', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'partial answer',
+    });
+    expect(state.messages).toHaveLength(2);
+    expect(state.messages[1].streaming).toBe(true);
+
+    state = researchReducer(state, {
+      type: 'RECEIVE_RESPONSE',
+      result: makeResult({ message: 'final canonical answer' }),
+    });
+
+    // Should still be 2 messages — placeholder upgraded, not duplicated.
+    expect(state.messages).toHaveLength(2);
+    expect(state.messages[1].streaming).toBe(false);
+    expect(state.messages[1].content).toBe('final canonical answer');
+  });
+
+  it('preserves placeholder content if result.message is empty', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'partial only',
+    });
+    state = researchReducer(state, {
+      type: 'RECEIVE_RESPONSE',
+      result: makeResult({ message: '' }),
+    });
+    expect(state.messages[1].content).toBe('partial only');
+    expect(state.messages[1].streaming).toBe(false);
+  });
+
+  it('falls back to append when last message is not a streaming placeholder', () => {
+    const prev = chatState();
+    const state = researchReducer(prev, {
+      type: 'RECEIVE_RESPONSE',
+      result: makeResult({ message: 'first reply' }),
+    });
+    // user message + fresh assistant message
+    expect(state.messages).toHaveLength(2);
+    expect(state.messages[1].role).toBe('assistant');
+    expect(state.messages[1].streaming).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SET_KOL_CHUNKS (KOL agent right-panel citation cards)
+// ---------------------------------------------------------------------------
+
+describe('SET_KOL_CHUNKS', () => {
+  it('replaces kolChunks array', () => {
+    const prev: ResearchState = { ...initialState, kolChunks: [{ old: true }] };
+    const state = researchReducer(prev, {
+      type: 'SET_KOL_CHUNKS',
+      chunks: [{ citation_index: 1 }, { citation_index: 2 }],
+    });
+    expect(state.kolChunks).toEqual([
+      { citation_index: 1 },
+      { citation_index: 2 },
+    ]);
+  });
+
+  it('can clear kolChunks with empty array', () => {
+    const prev: ResearchState = { ...initialState, kolChunks: [{ a: 1 }] };
+    const state = researchReducer(prev, { type: 'SET_KOL_CHUNKS', chunks: [] });
+    expect(state.kolChunks).toEqual([]);
+  });
+
+  it('does not affect other state fields', () => {
+    const prev = chatState({ candidates: [{ symbol: 'AAPL' }] });
+    const state = researchReducer(prev, {
+      type: 'SET_KOL_CHUNKS',
+      chunks: [{ a: 1 }],
+    });
+    expect(state.candidates).toEqual([{ symbol: 'AAPL' }]);
+    expect(state.messages).toBe(prev.messages);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LOAD_CONVERSATION with kolChunks
+// ---------------------------------------------------------------------------
+
+describe('LOAD_CONVERSATION kolChunks restore', () => {
+  it('restores kolChunks from saved conversation data', () => {
+    const state = researchReducer(initialState, {
+      type: 'LOAD_CONVERSATION',
+      data: {
+        conversationId: 'c1',
+        title: '@qinbafrank · NVDA',
+        messages: [{ id: 'm1', role: 'user', content: 'NVDA' }],
+        accumulatedFilters: [],
+        candidates: [],
+        candidateCount: 0,
+        universeSize: 0,
+        recommendations: [],
+        funnelSteps: [],
+        kolChunks: [{ citation_index: 1, content: 'historical tweet' }],
+      },
+    });
+    expect(state.kolChunks).toEqual([
+      { citation_index: 1, content: 'historical tweet' },
+    ]);
+  });
+
+  it('defaults to empty kolChunks when not present in saved data', () => {
+    const state = researchReducer(initialState, {
+      type: 'LOAD_CONVERSATION',
+      data: {
+        conversationId: 'c1',
+        title: '',
+        messages: [],
+        accumulatedFilters: [],
+        candidates: [],
+        candidateCount: 0,
+        universeSize: 0,
+        recommendations: [],
+        funnelSteps: [],
+      },
+    });
+    expect(state.kolChunks).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Unknown action
 // ---------------------------------------------------------------------------
 

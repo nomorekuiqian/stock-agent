@@ -44,12 +44,21 @@ def test_get_persona_loads_qinbafrank():
     persona = get_persona("qinbafrank")
     assert persona is not None
     assert persona.username == "qinbafrank"
-    # orchestrator + overview + at least one principle + 4 lenses
+    # v3 schema: orchestrator (core/operating-system.md) + macro (cross-cutting)
+    # + framework/sector/ticker lenses. v1 schema: orchestrator + overview +
+    # principles + per-topic lenses. Either schema must produce a usable
+    # persona with orchestrator + non-empty lenses + at least one cross-cutting
+    # doc.
     assert persona.orchestrator is not None
-    assert persona.overview is not None
     assert len(persona.cross_cutting) >= 1
     assert len(persona.lenses) >= 4
-    assert "qinbafrank-on-stocks" in persona.lenses
+    # Both schemas expose lens names — v1: "qinbafrank-on-stocks"; v3:
+    # "sector-ai-infrastructure", "ticker-nvda", "framework-ask-about-stock", etc.
+    assert any(
+        name == "qinbafrank-on-stocks"
+        or name.startswith(("sector-", "ticker-", "framework-"))
+        for name in persona.lenses
+    )
 
 
 def test_get_persona_unknown_returns_none():
@@ -89,9 +98,11 @@ def test_build_always_on_instruction_contains_signature_phrases():
     persona = get_persona("qinbafrank")
     assert persona is not None
     text = build_always_on_instruction(persona)
-    # Signature phrases from overview.md — proof orchestrator+overview+principles are concatenated
-    assert "电力的视角去看算力" in text
-    # falsifiability principle proof
+    # Signature phrase present in both v1 (principles-falsifiability.md) and
+    # v3 (core/operating-system.md core belief #3). Avoids picking a phrase
+    # that only one schema surfaces.
+    assert "强信念" in text
+    # falsifiability principle proof — both v1 and v3 keep the term 证伪
     assert "证伪" in text
 
 
