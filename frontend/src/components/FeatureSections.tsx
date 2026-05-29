@@ -411,171 +411,215 @@ function StockResearchSection() {
 }
 
 // ---------------------------------------------------------------------------
-// Feature 2: Personalized Daily Report
+// Feature 1: Daily Reports Family — four time-anchored reports
 // ---------------------------------------------------------------------------
 
-function PersonalReportMockup() {
-  const holdings = [
-    { ticker: "AAPL", name: "Apple Inc.", change: "+1.24%", up: true, highlight: "iPhone 16 销量超预期，服务收入创新高" },
-    { ticker: "NVDA", name: "NVIDIA Corp", change: "-3.22%", up: false, highlight: "关税政策冲击半导体板块，短期承压" },
-    { ticker: "MSFT", name: "Microsoft", change: "+0.87%", up: true, highlight: "Azure 云收入增速稳定，AI 业务加速" },
-  ];
+// Accent matches the actual destination page's theme color:
+//   /morning       → amber
+//   /today         → primary (emerald)
+//   /twitter-digest → sky
+//   /for-you       → primary (emerald)
+type ReportAccent = "amber" | "sky" | "primary";
 
+interface ReportCardConfig {
+  /** Internal slug. */
+  key: string;
+  /** Tier badge: 免费 / Max / Pro+. */
+  tier: "免费" | "Pro+" | "Max 专属";
+  /** Big editorial name. */
+  name: string;
+  /** One-liner positioning. */
+  tagline: string;
+  /** Vague cadence anchor (no specific clock times — they shift). */
+  cadence: string;
+  /** 2-3 short bullets — what's actually inside. */
+  bullets: string[];
+  /** Where the CTA links to. */
+  href: string;
+  /** Visual color theme — matches the destination page. */
+  accent: ReportAccent;
+}
+
+const ACCENT_STYLES: Record<
+  ReportAccent,
+  { ring: string; dot: string; text: string; line: string }
+> = {
+  amber: {
+    ring: "border-amber-400/25 hover:border-amber-400/50",
+    dot: "bg-amber-400",
+    text: "text-amber-400",
+    line: "from-amber-400/60",
+  },
+  sky: {
+    ring: "border-sky-400/25 hover:border-sky-400/50",
+    dot: "bg-sky-400",
+    text: "text-sky-400",
+    line: "from-sky-400/60",
+  },
+  primary: {
+    ring: "border-primary/25 hover:border-primary/50",
+    dot: "bg-primary",
+    text: "text-primary",
+    line: "from-primary/60",
+  },
+};
+
+const DAILY_REPORTS: ReportCardConfig[] = [
+  {
+    key: "morning",
+    tier: "Pro+",
+    name: "盘前情报",
+    tagline: "开盘前把隔夜 + 早盘 + 今日议程一次过完",
+    cadence: "工作日 · 开盘前送达",
+    bullets: [
+      "隔夜重要新闻 + futures 走势",
+      "今日财报日历 + 宏观数据",
+      "盘前异动股快览",
+    ],
+    href: "/morning",
+    accent: "amber",
+  },
+  {
+    key: "evening",
+    tier: "免费",
+    name: "盘后总览",
+    tagline: "10 分钟看完今日市场到底发生了什么",
+    cadence: "工作日 · 盘后送达",
+    bullets: [
+      "今日动态 + Top movers",
+      "板块轮动 + 关键新闻深度",
+      "明日观察点",
+    ],
+    href: "/today",
+    accent: "primary",
+  },
+  {
+    key: "kol",
+    tier: "Max 专属",
+    name: "推特简报",
+    tagline: "300+ 美股博主推文里只筛高质量论据和多空观点",
+    cadence: "工作日 · 盘后送达",
+    bullets: [
+      "今日 KOL 圈在押什么票",
+      "每个个股的多空论据 + 原推引用",
+      "下周需要关注的事件",
+    ],
+    href: "/twitter-digest",
+    accent: "sky",
+  },
+  {
+    key: "personal",
+    tier: "Pro+",
+    name: "专属日报",
+    tagline: "基于你的持仓筛选,只看跟你相关的市场动态",
+    cadence: "工作日 · 盘后送达",
+    bullets: [
+      "每条新闻都关联到你的具体持仓",
+      "AI 结合你的持仓给出操作建议",
+      "邮件自动推送,无需打开网站",
+    ],
+    href: "/for-you",
+    accent: "primary",
+  },
+];
+
+function ReportCard({ config }: { config: ReportCardConfig }) {
+  const s = ACCENT_STYLES[config.accent];
   return (
-    <div className="relative bg-[#0c0c0e] rounded-2xl border border-white/[0.08] overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:shadow-lg hover:shadow-violet-400/5">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
-
-      <div className="px-5 py-5 space-y-3">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-px w-6 bg-gradient-to-r from-violet-400 to-transparent" />
-            <span className="text-micro font-semibold tracking-[0.2em] uppercase text-violet-400/80">
-              YOUR DAILY REPORT
-            </span>
-          </div>
-          <span className="text-micro text-white/30 font-data">
-            2026-04-14
+    <Link
+      href={config.href}
+      className={`group relative rounded-2xl border bg-card/40 p-6 md:p-7 transition-all hover:bg-card/70 hover:-translate-y-0.5 ${s.ring}`}
+    >
+      <div
+        className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${s.line} via-transparent to-transparent opacity-70`}
+      />
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} aria-hidden />
+          <span className="text-[11px] text-muted-foreground/85 tracking-wide">
+            {config.cadence}
           </span>
         </div>
-
-        {/* Greeting */}
-        <div className="bg-violet-400/[0.05] border border-violet-400/15 rounded-xl p-3.5">
-          <p className="text-xs text-white/65 leading-relaxed">
-            今日你的持仓整体表现 <span className="text-emerald-400 font-medium font-data">+0.52%</span>，
-            跑赢大盘 <span className="text-white/40 font-data">(SPY -0.31%)</span>。
-            以下是与你持仓相关的重要动态:
-          </p>
-        </div>
-
-        {/* Holdings analysis */}
-        <div className="space-y-2">
-          {holdings.map((h) => (
-            <div
-              key={h.ticker}
-              className="bg-white/[0.03] rounded-xl border border-white/[0.05] p-3.5"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-data text-sm font-bold text-violet-400">
-                    {h.ticker}
-                  </span>
-                  <span className="text-micro text-white/40">
-                    {h.name}
-                  </span>
-                </div>
-                <span
-                  className={`font-data text-xs font-medium ${
-                    h.up ? "text-emerald-400" : "text-red-400"
-                  }`}
-                >
-                  {h.change}
-                </span>
-              </div>
-              <div className="flex items-start gap-1.5">
-                <div className="w-1 h-1 rounded-full bg-violet-400/60 mt-1.5 shrink-0" />
-                <p className="text-micro text-white/50 leading-relaxed">
-                  {h.highlight}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* AI summary */}
-        <div className="border-l-2 border-violet-400/40 pl-3 py-2 bg-violet-400/[0.03] rounded-r-lg">
-          <p className="text-micro text-violet-400/50 font-semibold uppercase tracking-wider mb-1">
-            今日操作建议
-          </p>
-          <p className="text-xs text-white/50 leading-relaxed">
-            NVDA 受关税影响短期回调，但 AI 长期逻辑不变，$105 附近可考虑加仓。AAPL 和 MSFT 维持持有。
-          </p>
-        </div>
+        <span
+          className={`text-[10px] uppercase tracking-[0.18em] font-semibold px-2 py-0.5 rounded-md border ${
+            config.tier === "免费"
+              ? "border-border/50 text-muted-foreground/85"
+              : config.tier === "Max 专属"
+                ? "border-amber-400/40 bg-amber-400/[0.08] text-amber-400"
+                : "border-primary/30 bg-primary/[0.08] text-primary"
+          }`}
+        >
+          {config.tier}
+        </span>
       </div>
 
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c0e] to-transparent pointer-events-none" />
-    </div>
+      <h3 className="font-editorial text-2xl md:text-3xl text-foreground leading-tight mb-2">
+        {config.name}
+      </h3>
+      <p className={`text-sm leading-relaxed text-muted-foreground mb-5`}>
+        {config.tagline}
+      </p>
+
+      <ul className="space-y-2 mb-6">
+        {config.bullets.map((b) => (
+          <li key={b} className="flex items-start gap-2 text-sm text-foreground/85">
+            <span className={`mt-2 w-1 h-1 rounded-full shrink-0 ${s.dot}`} aria-hidden />
+            <span className="leading-relaxed">{b}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className={`inline-flex items-center gap-1.5 text-sm font-medium ${s.text} group-hover:gap-2.5 transition-all`}>
+        查看{config.name}
+        <ArrowIcon className="w-3.5 h-3.5" />
+      </div>
+    </Link>
   );
 }
 
-function PersonalReportSection() {
+function DailyReportsSection() {
   return (
     <section className="relative py-20 md:py-32 overflow-hidden">
-      {/* Background */}
       <div className="absolute inset-0 bg-muted/10" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.015)_1px,transparent_1px)] bg-[size:80px_80px]" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.018)_1px,transparent_1px)] bg-[size:80px_80px]" />
 
       <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-        <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: Mockup (reversed layout) */}
-          <div className="relative order-2 md:order-1">
-            <div className="absolute -inset-12 bg-violet-400/[0.04] blur-[80px] rounded-full pointer-events-none" />
-            <div
-              className="relative md:[transform:perspective(1200px)_rotateY(2deg)_rotateX(1deg)]"
-            >
-              <PersonalReportMockup />
-            </div>
+        {/* Section header — centered */}
+        <div className="max-w-2xl mx-auto text-center mb-12 md:mb-16">
+          <div className="inline-flex items-center gap-3 mb-6">
+            <div className="h-px w-12 bg-gradient-to-r from-primary to-transparent" />
+            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
+              Daily Reports
+            </span>
+            <div className="h-px w-12 bg-gradient-to-l from-primary to-transparent" />
           </div>
+          <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1] mb-4">
+            四份日报,
+            <br className="md:hidden" />
+            <span className="text-gradient-emerald">覆盖你的全天</span>
+          </h2>
+          <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+            从盘前到盘后、从大盘到 KOL 声音、从市场到你的持仓 ——
+            四份不同时间、不同视角的日报,一个邮箱全收齐。
+          </p>
+        </div>
 
-          {/* Right: Content */}
-          <div className="space-y-6 order-1 md:order-2">
-            <SectionLabel label="专属日报" />
+        {/* 2x2 card grid */}
+        <div className="grid sm:grid-cols-2 gap-4 md:gap-5 max-w-4xl mx-auto">
+          {DAILY_REPORTS.map((c) => (
+            <ReportCard key={c.key} config={c} />
+          ))}
+        </div>
 
-            <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
-              你的持仓，
-              <br />
-              <span className="text-gradient-emerald">你的日报</span>
-            </h2>
-
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
-              添加你的持仓清单，每天收到一份只属于你的市场分析。不是泛泛而谈的大盘综述，而是「今天这条新闻对你的 AAPL 意味着什么」。
-            </p>
-
-            {/* Highlights */}
-            <div className="space-y-3 pt-2">
-              {[
-                {
-                  title: "持仓专属分析",
-                  desc: "每条新闻都关联到你的具体持仓",
-                },
-                {
-                  title: "邮件自动推送",
-                  desc: "收盘后直达邮箱，无需打开网站",
-                },
-                {
-                  title: "操作建议",
-                  desc: "AI 结合你的持仓给出具体建议",
-                },
-              ].map((c) => (
-                <div
-                  key={c.title}
-                  className="flex items-start gap-3 py-2"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-2 shrink-0" />
-                  <div>
-                    <span className="text-sm font-medium text-foreground">
-                      {c.title}
-                    </span>
-                    <span className="text-sm text-muted-foreground ml-1.5">
-                      -- {c.desc}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA */}
-            <div className="pt-4">
-              <Link
-                href="/for-you"
-                className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
-              >
-                创建我的专属日报
-                <ArrowIcon className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
+        {/* Tier ladder footer */}
+        <div className="mt-10 text-center">
+          <p className="text-xs text-muted-foreground/75">
+            <span className="text-foreground/85">免费</span> 盘后总览
+            <span className="mx-2 text-muted-foreground/30">·</span>
+            <span className="text-primary">Pro+</span> 解锁盘前情报 + 专属日报
+            <span className="mx-2 text-muted-foreground/30">·</span>
+            <span className="text-amber-400">Max</span> 解锁推特简报
+          </p>
         </div>
       </div>
     </section>
@@ -1143,8 +1187,8 @@ function MacroSection() {
 export default function FeatureSections() {
   return (
     <>
+      <DailyReportsSection />
       <StockResearchSection />
-      <PersonalReportSection />
       <ResearchSection />
       <MacroSection />
     </>

@@ -19,6 +19,7 @@ const PRO_FEATURES = [
 ];
 
 const MAX_ONLY_FEATURES = [
+  { feature: '推特 KOL 日报',          desc: '每日整理金融博主观点，含完整归档和邮件推送' },
   { feature: 'AI 投研引擎 · 无限使用', desc: '对话式投研 + 全市场 AI 选股，不限次数调用' },
   { feature: 'AI 深度个股分析',       desc: '基本面、技术面、估值对比一键生成，无使用上限' },
 ];
@@ -217,7 +218,7 @@ export default function PricingPage() {
                 {/* Max-only teaser */}
                 <div className="pt-2 border-t border-border/20">
                   <p className="text-xs text-muted-foreground/70">
-                    AI 投研引擎（无限使用）、AI 深度个股分析 → 升级 Max
+                    推特 KOL 日报、AI 投研引擎（无限使用）、AI 深度个股分析 → 升级 Max
                   </p>
                 </div>
               </div>
@@ -463,7 +464,7 @@ export default function PricingPage() {
           <div className="space-y-0 divide-y divide-border/30">
             <FaqItem
               q="Pro 和 Max 有什么区别?"
-              a="宏观仪表盘（/macro）和每日市场日报网站免费开放，注册即可使用。Pro 包含全部邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报）和自选股管理。Max 在此基础上解锁 AI 投研引擎（/research）的无限次对话与选股，以及 AI 深度个股分析（/stock）。"
+              a="宏观仪表盘（/macro）和每日市场日报网站免费开放，注册即可使用。Pro 包含基础邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报）和自选股管理。Max 在此基础上解锁推特 KOL 日报、AI 投研引擎（/research）的无限次对话与选股，以及 AI 深度个股分析（/stock）。"
             />
             <FaqItem
               q="抢先体验价会持续多久?"

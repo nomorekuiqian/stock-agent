@@ -19,11 +19,12 @@ describe('ReportTabs', () => {
     cleanup();
   });
 
-  it('renders both tab links', () => {
+  it('renders report tab links', () => {
     mockUsePathname.mockReturnValue('/morning');
     render(<ReportTabs />);
     expect(screen.getByText('早报')).toBeInTheDocument();
     expect(screen.getByText('晚报')).toBeInTheDocument();
+    expect(screen.getByText('推特')).toBeInTheDocument();
   });
 
   it('highlights morning tab when on /morning', () => {
@@ -31,8 +32,10 @@ describe('ReportTabs', () => {
     render(<ReportTabs />);
     const morningLink = screen.getByText('早报').closest('a');
     const todayLink = screen.getByText('晚报').closest('a');
+    const twitterLink = screen.getByText('推特').closest('a');
     expect(morningLink?.className).toContain('bg-background');
     expect(todayLink?.className).not.toContain('bg-background');
+    expect(twitterLink?.className).not.toContain('bg-background');
   });
 
   it('highlights today tab when on /today', () => {
@@ -40,7 +43,20 @@ describe('ReportTabs', () => {
     render(<ReportTabs />);
     const morningLink = screen.getByText('早报').closest('a');
     const todayLink = screen.getByText('晚报').closest('a');
+    const twitterLink = screen.getByText('推特').closest('a');
     expect(todayLink?.className).toContain('bg-background');
+    expect(morningLink?.className).not.toContain('bg-background');
+    expect(twitterLink?.className).not.toContain('bg-background');
+  });
+
+  it('highlights twitter tab when on /twitter-digest', () => {
+    mockUsePathname.mockReturnValue('/twitter-digest/archive');
+    render(<ReportTabs />);
+    const morningLink = screen.getByText('早报').closest('a');
+    const todayLink = screen.getByText('晚报').closest('a');
+    const twitterLink = screen.getByText('推特').closest('a');
+    expect(twitterLink?.className).toContain('bg-background');
+    expect(todayLink?.className).not.toContain('bg-background');
     expect(morningLink?.className).not.toContain('bg-background');
   });
 
@@ -56,5 +72,6 @@ describe('ReportTabs', () => {
     render(<ReportTabs />);
     expect(screen.getByText('早报').closest('a')?.getAttribute('href')).toBe('/morning');
     expect(screen.getByText('晚报').closest('a')?.getAttribute('href')).toBe('/today');
+    expect(screen.getByText('推特').closest('a')?.getAttribute('href')).toBe('/twitter-digest');
   });
 });

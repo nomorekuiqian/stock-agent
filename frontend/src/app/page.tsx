@@ -56,7 +56,7 @@ export default function Home() {
 
               {/* Quick Value Points */}
               <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-6">
-                {["每日日报", "专属持仓分析", "AI 个股研究", "AI 投研助手", "宏观仪表盘"].map((item, i) => (
+                {["四份日报", "AI 个股研究", "AI 投研助手", "宏观仪表盘"].map((item, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground"
@@ -216,10 +216,10 @@ export default function Home() {
               <div className="text-2xl font-data font-bold text-foreground mb-5">$0<span className="text-sm text-muted-foreground font-normal ml-1">/月</span></div>
               <div className="space-y-3 mb-6">
                 {[
-                  { ok: true, text: '每日市场日报（网站阅读）' },
-                  { ok: true, text: '盘前早报（网站阅读）' },
+                  { ok: true, text: '盘后总览（网站阅读）' },
                   { ok: true, text: '宏观仪表盘' },
-                  { ok: false, text: '专属持仓日报' },
+                  { ok: false, text: '盘前情报 + 专属日报（Pro+）' },
+                  { ok: false, text: '推特简报（Max 专属）' },
                   { ok: false, text: 'AI 深度个股分析' },
                 ].map((item) => (
                   <div key={item.text} className="flex items-center gap-2.5">
@@ -253,12 +253,12 @@ export default function Home() {
               </div>
               <div className="space-y-3 mb-6">
                 {[
-                  { ok: true, text: '完整市场日报（网站 + 邮件）' },
-                  { ok: true, text: '盘前早报 + 盘后晚报' },
-                  { ok: true, text: '专属持仓日报（邮件推送）' },
+                  { ok: true, text: '盘前情报 + 盘后总览（邮件推送）' },
+                  { ok: true, text: '专属日报 · 基于你的持仓' },
                   { ok: true, text: '宏观周报（邮件推送）' },
                   { ok: true, text: '宏观仪表盘' },
                   { ok: true, text: '自选股管理' },
+                  { ok: false, text: '推特简报（Max 专属）' },
                   { ok: false, text: 'AI 投研引擎（无限使用）' },
                   { ok: false, text: 'AI 深度个股分析' },
                 ].map((item) => (
@@ -305,6 +305,7 @@ export default function Home() {
                 <div className="space-y-3 mb-6">
                   {[
                     'Pro 的所有功能',
+                    '推特简报 · 300+ 美股博主高质量观点聚合',
                     'AI 投研引擎 · 无限对话与选股',
                     'AI 深度个股分析 · 无限使用',
                     '优先支持与新功能抢先体验',

@@ -16,7 +16,7 @@ const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; descriptio
   { key: 'morning_report', label: '早报', description: '每个交易日早上发送', entitlement: 'morning_report_email' },
   { key: 'daily_report', label: '晚报', description: '每个交易日收盘后发送' },
   { key: 'weekly_report', label: '宏观周报', description: '每周日发送', entitlement: 'weekly_report_email' },
-  { key: 'twitter_digest', label: '推特日报', description: '每个交易日盘后发送 · KOL 圈观点摘要' },
+  { key: 'twitter_digest', label: '推特日报', description: '每个交易日盘后发送 · KOL 圈观点摘要', entitlement: 'twitter_digest' },
   // personal_digest is auto-managed: has watchlist + entitlement = receives digest.
   // No toggle needed — users clear their watchlist to stop receiving it.
 ];
@@ -63,6 +63,10 @@ function normalizeEmailPreferences(
   }
 
   return normalized;
+}
+
+function lockedPreferenceLabel(entitlement?: string): string {
+  return entitlement === 'twitter_digest' ? '升级 Max 解锁' : '升级 Pro 解锁';
 }
 
 export default function ProfilePage(): ReactNode {
@@ -637,7 +641,7 @@ function ProfileContent(): ReactNode {
                         <div className="min-w-0 flex-1 mr-4">
                           <p className="text-sm font-medium text-foreground">{label}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {locked ? '升级 Pro 解锁' : description}
+                            {locked ? lockedPreferenceLabel(entitlement) : description}
                           </p>
                         </div>
                         <button

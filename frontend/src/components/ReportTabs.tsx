@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 export function ReportTabs() {
   const pathname = usePathname();
   const isMorning = pathname.startsWith('/morning');
+  const isTwitterDigest = pathname.startsWith('/twitter-digest');
+  const isToday = pathname.startsWith('/today') || (!isMorning && !isTwitterDigest);
 
   return (
     <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border/50">
@@ -22,12 +24,22 @@ export function ReportTabs() {
       <Link
         href="/today"
         className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-          !isMorning
+          isToday
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
         }`}
       >
         晚报
+      </Link>
+      <Link
+        href="/twitter-digest"
+        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+          isTwitterDigest
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        推特
       </Link>
     </div>
   );
