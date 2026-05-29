@@ -697,6 +697,39 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=list_digests&limit=12&offset=0 - lightweight archive rows
+    if (request.method === "GET" && action === "list_digests") {
+      const limit = Math.min(
+        Math.max(parseInt(url.searchParams.get("limit") || "12", 10), 1),
+        50,
+      );
+      const offset = Math.max(
+        parseInt(url.searchParams.get("offset") || "0", 10),
+        0,
+      );
+
+      const { data, error, count } = await client.database
+        .from(DIGESTS_TABLE)
+        .select(
+          "date, tracked_kols, input_tweet_count, generated_at, headline, intro, hot_sectors, hot_tickers, hot_events",
+          { count: "exact" },
+        )
+        .order("date", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: jsonHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: data || [], total: count || 0 }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
     // GET ?action=list_accounts&enabled_only=true|false
     // Returns all KOL accounts (the source-of-truth catalog).
     if (request.method === "GET" && action === "list_accounts") {
@@ -863,7 +896,7 @@ module.exports = async function(request) {
     }
 
     return new Response(
-      JSON.stringify({ success: false, error: "Invalid request. Use action param: list, list_batch, list_unenriched, stats, get, upsert_batch, upsert_enrichment, update_category, update_categories_batch, start_run, finish_run, list_runs, upsert_digest, get_digest, get_latest_digest, list_accounts, upsert_accounts, update_account, disable_missing" }),
+      JSON.stringify({ success: false, error: "Invalid request. Use action param: list, list_batch, list_unenriched, stats, get, upsert_batch, upsert_enrichment, update_category, update_categories_batch, start_run, finish_run, list_runs, upsert_digest, get_digest, get_latest_digest, list_digests, list_accounts, upsert_accounts, update_account, disable_missing" }),
       { status: 400, headers: jsonHeaders }
     );
   } catch (err) {

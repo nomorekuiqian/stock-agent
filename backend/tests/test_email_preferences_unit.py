@@ -388,12 +388,13 @@ class TestPreferenceModels:
     """Test new Pydantic models for email preferences."""
 
     def test_email_preferences_defaults(self):
-        """All preferences default to True."""
+        """Free/default report preferences default on; Max-only twitter defaults off."""
         prefs = EmailPreferences()
         assert prefs.morning_report is True
         assert prefs.daily_report is True
         assert prefs.weekly_report is True
         assert prefs.personal_digest is True
+        assert prefs.twitter_digest is False
 
     def test_email_preferences_explicit_values(self):
         """Explicit values override defaults."""
@@ -401,6 +402,7 @@ class TestPreferenceModels:
         assert prefs.morning_report is False
         assert prefs.daily_report is True
         assert prefs.weekly_report is False
+        assert prefs.twitter_digest is False
 
     def test_update_request_all_none_by_default(self):
         """UpdatePreferencesRequest fields are None by default (partial update)."""
@@ -445,6 +447,7 @@ class TestSubscriptionServicePreferences:
             "morning_report": "seg-morning-id",
             "daily_report": "seg-evening-id",
             "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
         }
 
         # Mock returns segments that user belongs to
@@ -452,6 +455,7 @@ class TestSubscriptionServicePreferences:
             "data": [
                 {"id": "seg-morning-id"},
                 {"id": "seg-evening-id"},
+                {"id": "seg-twitter-id"},
             ]
         }
 
@@ -460,9 +464,10 @@ class TestSubscriptionServicePreferences:
         assert prefs["morning_report"] is True
         assert prefs["daily_report"] is True
         assert prefs["weekly_report"] is False  # not in returned segments
+        assert prefs["twitter_digest"] is True
 
     def test_get_email_preferences_empty_segment_config(self, mock_service_resend):
-        """If a segment is not configured, defaults to True."""
+        """Missing free segments default on; missing Max segment defaults off."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -471,6 +476,7 @@ class TestSubscriptionServicePreferences:
             "morning_report": "",  # not configured
             "daily_report": "seg-evening-id",
             "weekly_report": "",
+            "twitter_digest": "",
         }
 
         mock_service_resend.ContactSegments.list.return_value = {"data": []}
@@ -480,6 +486,7 @@ class TestSubscriptionServicePreferences:
         assert prefs["morning_report"] is True  # default True (unconfigured)
         assert prefs["daily_report"] is False  # configured but not in segments
         assert prefs["weekly_report"] is True  # default True (unconfigured)
+        assert prefs["twitter_digest"] is False  # Max-only never defaults on
 
     def test_update_email_preferences_add(self, mock_service_resend):
         """Enabling a preference calls ContactSegments.add."""
@@ -523,8 +530,7 @@ class TestSubscriptionServicePreferences:
     def test_update_twitter_digest_preference_toggles_segment(
         self, mock_service_resend,
     ):
-        """Twitter Digest toggle off → remove; toggle on → add. Regression
-        guard for the dedicated opt-in segment introduced in May 2026."""
+        """Twitter Digest toggle off removes; Max toggle on adds."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -547,16 +553,40 @@ class TestSubscriptionServicePreferences:
         mock_service_resend.ContactSegments.reset_mock()
         with patch("app.features.subscription.service._rate_limit_wait"):
             svc.update_email_preferences(
-                "user@test.com", {"twitter_digest": True},
+                "user@test.com",
+                {"twitter_digest": True},
+                sub={"entitlements": ["twitter_digest"]},
             )
         mock_service_resend.ContactSegments.add.assert_called_once_with(
             {"email": "user@test.com", "segment_id": "seg-twitter-id"}
         )
 
+    def test_update_twitter_digest_preference_blocks_non_max(
+        self, mock_service_resend,
+    ):
+        """Non-Max callers cannot add the Twitter Digest segment."""
+        from app.features.subscription.service import SubscriptionService
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc.SEGMENT_IDS = {
+            "twitter_digest": "seg-twitter-id",
+        }
+
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            svc.update_email_preferences(
+                "user@test.com",
+                {"twitter_digest": True},
+                sub={"entitlements": []},
+            )
+
+        mock_service_resend.ContactSegments.add.assert_not_called()
+        mock_service_resend.ContactSegments.remove.assert_called_once_with(
+            {"email": "user@test.com", "segment_id": "seg-twitter-id"}
+        )
+
     def test_add_to_default_segments(self, mock_service_resend):
-        """add_to_default_segments adds Daily + Twitter Digest plus the free
-        CTA sending list. Twitter Digest is opt-in by default for new
-        signups (matches EmailPreferences.twitter_digest=True)."""
+        """add_to_default_segments adds Daily plus the free CTA sending list."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -577,7 +607,7 @@ class TestSubscriptionServicePreferences:
 
         add_calls = mock_service_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls}
-        assert added == {"seg-evening-id", "seg-twitter-id", "seg-free-cta"}
+        assert added == {"seg-evening-id", "seg-free-cta"}
         mock_service_resend.ContactSegments.remove.assert_called_once_with(
             {"email": "new@test.com", "segment_id": "seg-paid-cta"}
         )

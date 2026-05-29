@@ -13,6 +13,21 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
+# Entitlement catalog
+# ---------------------------------------------------------------------------
+
+
+class TestEntitlementCatalog:
+    """Static feature catalog regressions."""
+
+    def test_twitter_digest_is_max_only(self):
+        from app.features.payment.entitlements import MAX_FEATURES, MAX_ONLY_FEATURES
+
+        assert "twitter_digest" in MAX_ONLY_FEATURES
+        assert "twitter_digest" in MAX_FEATURES
+
+
+# ---------------------------------------------------------------------------
 # get_user_email_by_id
 # ---------------------------------------------------------------------------
 

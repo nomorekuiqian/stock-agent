@@ -146,6 +146,12 @@ class TickerThesis(BaseModel):
     sell_arguments: list[Argument] = Field(default_factory=list)
     observation_arguments: list[Argument] = Field(default_factory=list)
 
+    # Counts preserved when the arguments arrays are hidden behind the paywall.
+    # Default to 0; backend populates them from the array lengths before locking.
+    buy_count: int = 0
+    sell_count: int = 0
+    observation_count: int = 0
+
 
 class MacroThread(BaseModel):
     """Non-ticker discussion: Fed, CPI, geopolitics, regulation, sector-wide.
@@ -169,6 +175,8 @@ class MacroThread(BaseModel):
         description="Topic 下被过滤保留下来的推文观点摘要; <=12 条尽量全收, "
                     ">12 条时保留最多 12 条代表性观点.",
     )
+    # Count preserved when `key_points` is stripped for non-Max users.
+    key_points_count: int = 0
 
 
 # ============================================================================
@@ -213,6 +221,8 @@ class WatchpointItem(BaseModel):
         default_factory=list,
         description="1-2 条原推引用作为可信度锚 (折叠展开).",
     )
+    # Count preserved when `evidence` is stripped for non-Max users.
+    evidence_count: int = 0
     kols_watching: list[str] = Field(default_factory=list)
 
 
@@ -303,3 +313,45 @@ class DailyDigest(BaseModel):
 
     # Transparency tail
     other_tickers: list[OtherTickerMention] = Field(default_factory=list)
+
+    # Paywall flag — True when arguments / synthesis / evidence have been
+    # stripped because the caller lacks the `twitter_digest` entitlement.
+    # Frontend uses this (plus the per-section *_count fields preserved on
+    # TickerThesis / MacroThread / WatchpointItem) to render locked skeletons
+    # in place of the actual paid content.
+    is_locked: bool = False
+
+
+class DailyDigestListItem(BaseModel):
+    """Lightweight digest row for archive lists and public teaser surfaces."""
+
+    date: str
+    generated_at: str
+    headline: str = ""
+    input_tweet_count: int = 0
+    tracked_kol_count: int = 0
+    hot_tickers: list[HotItem] = Field(default_factory=list)
+    hot_sectors: list[HotItem] = Field(default_factory=list)
+    hot_events: list[HotItem] = Field(default_factory=list)
+    intro_preview: str = ""
+
+
+class DailyDigestArchiveResponse(BaseModel):
+    """Paginated archive response."""
+
+    data: list[DailyDigestListItem] = Field(default_factory=list)
+    total: int = 0
+
+
+class TwitterDigestTeaser(BaseModel):
+    """Public, non-sensitive preview of a Max-only Twitter digest."""
+
+    date: str
+    generated_at: str
+    headline: str = ""
+    input_tweet_count: int = 0
+    tracked_kol_count: int = 0
+    hot_tickers: list[HotItem] = Field(default_factory=list)
+    hot_sectors: list[HotItem] = Field(default_factory=list)
+    hot_events: list[HotItem] = Field(default_factory=list)
+    intro_preview: str = ""

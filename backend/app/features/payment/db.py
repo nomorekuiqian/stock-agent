@@ -56,6 +56,7 @@ async def upsert_subscription(
     referral_count: Optional[int] = None,
     entitlements: Optional[list] = None,
     is_lifetime: Optional[bool] = None,
+    email_preferences: Optional[Dict[str, bool]] = None,
 ) -> bool:
     """Insert or update a subscription record.
 
@@ -91,6 +92,8 @@ async def upsert_subscription(
         body["entitlements"] = entitlements
     if is_lifetime is not None:
         body["is_lifetime"] = is_lifetime
+    if email_preferences is not None:
+        body["email_preferences"] = email_preferences
 
     service = get_insforge_service()
     result = await service.call_function(
@@ -107,6 +110,31 @@ async def upsert_subscription(
         invalidate_subscription_cache(user_id)
 
     return success
+
+
+async def update_email_preferences(
+    user_id: str,
+    preferences: Dict[str, bool],
+) -> Optional[Dict[str, bool]]:
+    """Merge app-side email preferences into an existing subscription row.
+
+    This intentionally does not create a new row for free users, because the
+    presence of a subscription row is also used as the trial-eligibility signal.
+    """
+    existing = await get_subscription(user_id)
+    if not existing:
+        return None
+
+    merged = dict(existing.get("email_preferences") or {})
+    merged.update(preferences)
+
+    ok = await upsert_subscription(
+        user_id=user_id,
+        email_preferences=merged,
+    )
+    if not ok:
+        return None
+    return merged
 
 
 async def set_lifetime(

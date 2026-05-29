@@ -12,6 +12,7 @@ from app.core.database import get_insforge_service
 from app.core.logging import get_logger
 from app.features.twitter_digest.models import (
     DailyDigest,
+    DailyDigestListItem,
     HotItem,
     MacroThread,
     OtherTickerMention,
@@ -86,6 +87,52 @@ def _row_to_digest(row: dict) -> DailyDigest:
         macro_threads=_macro_thread_list(row.get("macro_threads")),
         other_tickers=_other_tickers_list(row.get("other_tickers")),
         watchpoints=_watchpoints_list(row.get("watchpoints")),
+    )
+
+
+def _row_to_list_item(row: dict) -> DailyDigestListItem:
+    """Convert a kol_daily_digests row into a lightweight archive item."""
+
+    def _hot_list(raw) -> list[HotItem]:
+        items = raw or []
+        if not isinstance(items, list):
+            return []
+        out: list[HotItem] = []
+        for item in items:
+            if isinstance(item, dict) and "label" in item and "count" in item:
+                try:
+                    out.append(HotItem.model_validate(item))
+                except Exception:  # noqa: BLE001
+                    continue
+        return out
+
+    tracked_kols = row.get("tracked_kols") or []
+    intro = str(row.get("intro") or "").strip()
+    return DailyDigestListItem(
+        date=str(row.get("date") or ""),
+        generated_at=str(row.get("generated_at") or ""),
+        headline=str(row.get("headline") or ""),
+        input_tweet_count=int(row.get("input_tweet_count") or 0),
+        tracked_kol_count=len(tracked_kols) if isinstance(tracked_kols, list) else 0,
+        hot_tickers=_hot_list(row.get("hot_tickers")),
+        hot_sectors=_hot_list(row.get("hot_sectors")),
+        hot_events=_hot_list(row.get("hot_events")),
+        intro_preview=intro[:180],
+    )
+
+
+def digest_to_list_item(digest: DailyDigest) -> DailyDigestListItem:
+    """Build a public teaser/list item from a full DailyDigest object."""
+    return DailyDigestListItem(
+        date=digest.date,
+        generated_at=digest.generated_at,
+        headline=digest.headline,
+        input_tweet_count=digest.input_tweet_count,
+        tracked_kol_count=len(digest.tracked_kols),
+        hot_tickers=digest.hot_tickers,
+        hot_sectors=digest.hot_sectors,
+        hot_events=digest.hot_events,
+        intro_preview=(digest.intro or "")[:180],
     )
 
 
@@ -190,3 +237,38 @@ async def get_latest_digest() -> Optional[DailyDigest]:
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to parse latest digest row")
         raise RuntimeError(f"get_latest_digest row parse failed: {exc}") from exc
+
+
+async def list_digests(limit: int = 12, offset: int = 0) -> tuple[list[DailyDigestListItem], int]:
+    """Fetch lightweight digest archive rows."""
+    db = get_insforge_service()
+    result = await db.call_function(
+        _FUNCTION_NAME,
+        method="GET",
+        params={
+            "action": "list_digests",
+            "limit": str(limit),
+            "offset": str(offset),
+        },
+        timeout=15.0,
+    )
+
+    if result["status_code"] != 200:
+        raise RuntimeError(
+            f"list_digests backend error: "
+            f"HTTP {result['status_code']} {result.get('text', '')[:200]}"
+        )
+
+    payload = result.get("data") or {}
+    if not payload.get("success"):
+        raise RuntimeError(f"list_digests returned error: {payload.get('error')}")
+
+    rows = payload.get("data") or []
+    if not isinstance(rows, list):
+        rows = []
+
+    try:
+        return [_row_to_list_item(row) for row in rows], int(payload.get("total") or 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Failed to parse digest archive rows")
+        raise RuntimeError(f"list_digests row parse failed: {exc}") from exc

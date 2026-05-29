@@ -56,12 +56,35 @@ async def _check_account_exists(email: str) -> bool:
         logger.warning("Failed to check account existence for %s", email)
         return False
 
+
+async def _find_user_id_by_email(email: str) -> str | None:
+    """Best-effort lookup for public unsubscribe preference persistence."""
+    try:
+        service = get_insforge_service()
+        result = await service.call_function(
+            "subscriptions",
+            method="GET",
+            params={"action": "list_user_profiles"},
+        )
+        data = result.get("data", {})
+        if not data.get("success"):
+            return None
+        needle = email.strip().lower()
+        for profile in data.get("data", []):
+            if (profile.get("email") or "").strip().lower() == needle:
+                return profile.get("user_id")
+    except Exception:
+        logger.warning("Failed to resolve user_id for unsubscribe email %s", email)
+    return None
+
+
 router = APIRouter(prefix="/api", tags=["subscription"])
 
 EMAIL_ENTITLEMENT_BY_FIELD = {
     "morning_report": "morning_report_email",
     "weekly_report": "weekly_report_email",
     "personal_digest": "personal_digest_email",
+    "twitter_digest": "twitter_digest",
 }
 
 
@@ -77,6 +100,15 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
     1. subscribe_with_welcome - creates contact with welcome_sent pre-set
     2. if is_new: send welcome email
     """
+    if channel == SubscriptionChannel.TWITTER_DIGEST:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Twitter digest subscription is managed from account email "
+                "preferences and requires Max"
+            ),
+        )
+
     try:
         subscription_service = get_subscription_service()
         email_service = get_email_service()
@@ -141,6 +173,22 @@ async def unsubscribe_from_channel(channel: SubscriptionChannel, request: Unsubs
     try:
         subscription_service = get_subscription_service()
         result = subscription_service.unsubscribe(channel=channel, email=request.email)
+        if result.get("success") and channel == SubscriptionChannel.TWITTER_DIGEST:
+            user_id = await _find_user_id_by_email(request.email)
+            if user_id:
+                try:
+                    from app.features.payment.db import update_email_preferences
+
+                    await update_email_preferences(
+                        user_id,
+                        {"twitter_digest": False},
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "twitter unsubscribe: app preference write failed for %s: %s",
+                        user_id[:8],
+                        e,
+                    )
 
         return SubscriptionResponse(
             success=result.get("success", False),
@@ -467,6 +515,8 @@ async def get_email_preferences(
 
         # personal_digest is auto-managed: has entitlement + has watchlist = receives digest
         prefs["personal_digest"] = await has_entitlement(user["user_id"], "personal_digest_email")
+        if not await has_entitlement(user["user_id"], "twitter_digest"):
+            prefs["twitter_digest"] = False
 
         return PreferencesResponse(
             success=True,
@@ -537,12 +587,31 @@ async def update_email_preferences(
                 sub,
             )
 
+            if request.twitter_digest is not None and sub:
+                try:
+                    from app.features.payment.db import (
+                        update_email_preferences as update_app_email_preferences,
+                    )
+
+                    await update_app_email_preferences(
+                        user["user_id"],
+                        {"twitter_digest": bool(request.twitter_digest)},
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "preferences: app preference write failed for %s: %s",
+                        user["user_id"][:8],
+                        e,
+                    )
+
         # Return current preferences
         prefs = await asyncio.to_thread(
             subscription_service.get_email_preferences, email
         )
         # personal_digest is auto-managed: has entitlement + has watchlist = receives digest
         prefs["personal_digest"] = await has_entitlement(user["user_id"], "personal_digest_email")
+        if not await has_entitlement(user["user_id"], "twitter_digest"):
+            prefs["twitter_digest"] = False
 
         return PreferencesResponse(
             success=True,

@@ -165,7 +165,7 @@ class EmailPreferences(BaseModel):
     daily_report: bool = True
     weekly_report: bool = True
     personal_digest: bool = True
-    twitter_digest: bool = True
+    twitter_digest: bool = False
 
 
 class UpdatePreferencesRequest(BaseModel):

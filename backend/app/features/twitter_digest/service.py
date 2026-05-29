@@ -13,6 +13,7 @@ trusts `kol_tweets.symbols.quality` and never re-judges.
 
 import asyncio
 import json
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Type, TypeVar
 
@@ -498,7 +499,6 @@ def _watchpoint_keywords(title: str) -> list[str]:
       'Clarity Act 参议院投票' → ['Clarity', 'Act', '参议院投票']
       'SpaceX IPO 与合并 xAI 动向' → ['SpaceX', 'IPO', '合并', 'xAI', '动向']
     """
-    import re
     # split on whitespace + common punctuation
     tokens = re.split(r"[\s/(),、。·:：;!?]+", title)
     return [t for t in tokens if t and len(t) >= 2]
@@ -632,6 +632,50 @@ def _fallback_stance_summary(thesis) -> str:
     return f"{kols} 位博主在讨论"
 
 
+# Match only explicit "N 位/个/名" counter phrases — those are the LLM
+# claiming a count of people. Bare numbers like target prices ("$270") or
+# years ("2030 目标") must NOT be interpreted as KOL counts.
+_STANCE_PEOPLE_COUNT_RE = re.compile(r"(\d+)\s*[位个名]")
+
+
+def _stance_summary_matches_evidence(thesis) -> bool:
+    """Sanity check: explicit "N 位/个/名" counter phrases in stance_summary
+    must not exceed the actual distinct-KOL evidence count.
+
+    The LLM has a habit of writing "15 位博主一致看多" while only emitting
+    3 buy_arguments — the number reflects raw input volume, not the curated
+    evidence the user actually sees. We catch the lie by extracting only
+    counter-bound integers ("3 位", "15 个", "5 名") and comparing each
+    against the distinct KOLs in the surviving arguments.
+
+    Returns False when any counter-claimed count exceeds actual coverage,
+    triggering a fallback rewrite. Summaries with no people-counter claims
+    — fuzzy language ("多位看多" / "一致看多") or unrelated numbers
+    (target prices, year targets) — always pass.
+    """
+    if not thesis.stance_summary:
+        return True
+    counts = _STANCE_PEOPLE_COUNT_RE.findall(thesis.stance_summary)
+    if not counts:
+        return True
+    actual_kols = len({
+        a.kol.lower()
+        for a in (
+            thesis.buy_arguments
+            + thesis.sell_arguments
+            + thesis.observation_arguments
+        )
+        if a.kol
+    })
+    for n in counts:
+        try:
+            if int(n) > actual_kols:
+                return False
+        except ValueError:
+            continue
+    return True
+
+
 def _enforce_caps(output: CuratedDigestOutput) -> None:
     """Apply defensive caps + classify ticker side + sort layout-friendly."""
     # Drop empty theses (all arguments filtered)
@@ -656,6 +700,19 @@ def _enforce_caps(output: CuratedDigestOutput) -> None:
     for thesis in output.ticker_theses:
         thesis.side = _compute_thesis_side(thesis)  # type: ignore[assignment]
         if not thesis.stance_summary.strip():
+            thesis.stance_summary = _fallback_stance_summary(thesis)
+            continue
+        # LLM frequently writes "15 位博主一致看多" in stance_summary while
+        # only emitting a handful of arguments. The number reflects raw input
+        # volume, not the curated evidence the user actually sees. When the
+        # summary's numbers exceed actual KOL coverage, swap in the
+        # counts-based fallback so the UI can't display a lie.
+        if not _stance_summary_matches_evidence(thesis):
+            logger.info(
+                "_enforce_caps: stance_summary numbers exceed evidence for "
+                "%s — replacing with counts-based fallback. Original: %r",
+                thesis.ticker, thesis.stance_summary,
+            )
             thesis.stance_summary = _fallback_stance_summary(thesis)
 
     # Sort: disputed first (engagement bait), then bull, then bear.

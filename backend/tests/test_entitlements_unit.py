@@ -137,5 +137,6 @@ class TestGetUserEntitlements:
         mock_get_sub.return_value = {"entitlements": sorted(MAX_FEATURES)}
         result = await get_user_entitlements(MOCK_UID)
         assert result == MAX_FEATURES
-        # Pro (7) + Max-only (3: watchlist_extended, screener_access, portfolio_management) = 10
-        assert len(result) == 10
+        # PRO_FEATURES ∪ MAX_ONLY_FEATURES — keyed off the live sets so this
+        # test stays in sync as feature keys are added (e.g. `twitter_digest`).
+        assert len(result) == len(MAX_FEATURES)

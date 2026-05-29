@@ -53,7 +53,7 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
         "metadata_fields": ["first_name"],
         "requires_auth": False,
     },
-SubscriptionChannel.WEEKLY_REPORT: {
+    SubscriptionChannel.WEEKLY_REPORT: {
         "audience_name": "TheMarketBrew Weekly",
         "metadata_fields": ["first_name"],
         "requires_auth": False,
@@ -66,12 +66,13 @@ SubscriptionChannel.WEEKLY_REPORT: {
     SubscriptionChannel.TWITTER_DIGEST: {
         # Dedicated opt-in audience. Membership is controlled by the
         # `twitter_digest` toggle on /profile (email preferences), which
-        # syncs via `update_email_preferences` against the segment id
-        # `RESEND_SEGMENT_TWITTER_DIGEST`. New signups default to opt-in
-        # (matching the rest of the email channels).
+        # syncs against `RESEND_SEGMENT_TWITTER_DIGEST`. Unlike the free
+        # daily report, this is Max-only and is never added by default for
+        # anonymous/free signups. Public subscribe is blocked at the router;
+        # only authenticated Max users can enable it via preferences.
         "audience_name": "TheMarketBrew Twitter Digest",
         "metadata_fields": ["first_name"],
-        "requires_auth": False,
+        "requires_auth": True,
     },
 }
 
@@ -258,15 +259,16 @@ class SubscriptionService:
 
         Default opt-in segments:
           - daily_report (evening) — always
-          - twitter_digest — always (matches the EmailPreferences default
-            of True; new signups expect it on without a profile visit)
+
+        Twitter digest is Max-only and must not be added here. Max users opt in
+        from /profile or via a controlled backfill/audit script.
 
         ``sub`` is the user's subscription record (from
         ``payment.db.get_subscription``). When omitted the user is treated as
         free — appropriate for anonymous email-only signups that have no
         ``subscriptions`` row yet.
         """
-        for pref_key in ("daily_report", "twitter_digest"):
+        for pref_key in ("daily_report",):
             seg_id = self.SEGMENT_IDS.get(pref_key)
             if not seg_id:
                 logger.warning(
@@ -308,10 +310,20 @@ class SubscriptionService:
         """
         self._validate_api_key()
 
-        entitlements = set((sub or {}).get("entitlements") or [])
+        sub_dict = sub or {}
+        entitlements = set(sub_dict.get("entitlements") or [])
+        # Lifetime users bypass the Stripe webhook that fills `entitlements`,
+        # so the cached array may be missing Max features. Expand the set
+        # below for consistency with `has_entitlement()`.
+        if sub_dict.get("is_lifetime"):
+            from app.features.payment.entitlements import MAX_FEATURES
+            entitlements = entitlements | set(MAX_FEATURES)
 
         # Only sync entitlement-controlled segments (morning, weekly).
         # daily_report (evening) is user-preference only — don't override opt-outs.
+        # twitter_digest is Max-only: sync removes non-entitled or explicitly
+        # disabled users, but does not auto-add on every webhook. Profile opt-in
+        # and audit/backfill scripts are responsible for adding Max recipients.
         desired = {
             "morning_report": "morning_report_email" in entitlements,
             "weekly_report": "weekly_report_email" in entitlements,
@@ -341,6 +353,33 @@ class SubscriptionService:
                 except Exception as e:
                     logger.warning("sync_resend: remove %s from %s failed: %s", email, report_type, e)
 
+        twitter_seg_id = self.SEGMENT_IDS.get("twitter_digest")
+        twitter_is_in = current.get("twitter_digest", False)
+        twitter_pref = ((sub or {}).get("email_preferences") or {}).get(
+            "twitter_digest"
+        )
+        twitter_entitled = "twitter_digest" in entitlements
+        twitter_should_remove = (
+            twitter_is_in
+            and (
+                not twitter_entitled
+                or twitter_pref is False
+            )
+        )
+        if twitter_seg_id and twitter_should_remove:
+            try:
+                _rate_limit_wait()
+                resend.ContactSegments.remove(
+                    {"email": email, "segment_id": twitter_seg_id}
+                )
+                actions.append("removed from twitter_digest")
+            except Exception as e:
+                logger.warning(
+                    "sync_resend: remove %s from twitter_digest failed: %s",
+                    email,
+                    e,
+                )
+
         actions.extend(
             self._sync_daily_cta_segments(
                 email,
@@ -369,7 +408,10 @@ class SubscriptionService:
         prefs = {}
         for report_type, seg_id in self.SEGMENT_IDS.items():
             if not seg_id:
-                prefs[report_type] = True  # default on if segment not configured
+                # Free/default channels remain opt-in by historical behavior
+                # when a segment is missing in local config. The Max-only
+                # twitter digest must not appear enabled without its segment.
+                prefs[report_type] = report_type != "twitter_digest"
             else:
                 prefs[report_type] = seg_id in user_segment_ids
         return prefs
@@ -387,10 +429,22 @@ class SubscriptionService:
         contexts without authentication.
         """
         self._validate_api_key()
+        sub_dict = sub or {}
+        entitlements = set(sub_dict.get("entitlements") or [])
+        # Lifetime users bypass the Stripe webhook that fills `entitlements`,
+        # so the cached array can be missing Max features they actually have.
+        # Match has_entitlement()'s semantics: lifetime → has every Max feature.
+        if sub_dict.get("is_lifetime"):
+            from app.features.payment.entitlements import MAX_FEATURES
+            entitlements = entitlements | set(MAX_FEATURES)
         for report_type, enabled in preferences.items():
             seg_id = self.SEGMENT_IDS.get(report_type)
             if not seg_id:
                 continue
+            if report_type == "twitter_digest":
+                # Defense in depth: direct service callers cannot add non-Max
+                # users to the Twitter digest sending segment.
+                enabled = bool(enabled) and "twitter_digest" in entitlements
             try:
                 _rate_limit_wait()
                 if enabled:
@@ -519,6 +573,10 @@ class SubscriptionService:
                 # of paid status, so is_paid is a no-op here.
                 self._sync_daily_cta_segments(
                     email, daily_enabled=False, is_paid=False
+                )
+            elif channel == SubscriptionChannel.TWITTER_DIGEST:
+                self.update_email_preferences(
+                    email, {"twitter_digest": False}, sub=None
                 )
             return {
                 "success": True,

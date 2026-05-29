@@ -449,7 +449,7 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                             想深度研究一只股票?
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                            Max 独享 <strong style="color: #78350f; font-weight: 600;">AI 投研引擎</strong>，一键生成基本面、技术面、估值深度分析。
+                            Max 独享 <strong style="color: #78350f; font-weight: 600;">推特 KOL 日报</strong> 和 AI 投研引擎，把盘后观点和深度研究放在一起。
                         </div>
                         <div style="margin-bottom: 14px; line-height: 1;">
                             <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$9.99</span>
@@ -460,7 +460,7 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                         </a>
                         <div style="border-top: 1px dashed #fcd34d; padding-top: 12px;">
                             <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
-                                <span style="color: #71717a;">以及&nbsp;</span>Pro 全部功能 &middot; AI 深度个股分析 &middot; 宏观仪表盘
+                                <span style="color: #71717a;">以及&nbsp;</span>Pro 全部功能 &middot; AI 深度个股分析 &middot; 往期推特日报归档
                             </div>
                         </div>
                     </div>
@@ -2100,6 +2100,7 @@ def _twitter_digest_read_online_block(digest_date: Optional[str]) -> str:
     if not digest_date:
         return ""
     read_url = f"{_EMAIL_LINK_BASE}/twitter-digest/{digest_date}"
+    unsubscribe_url = f"{_EMAIL_LINK_BASE}/unsubscribe?channel=twitter_digest"
     return f"""
         <div style="padding: 0 16px 16px; text-align: center;">
             <a href="{read_url}" style="display: inline-block; padding: 10px 24px;
@@ -2107,6 +2108,11 @@ def _twitter_digest_read_online_block(digest_date: Optional[str]) -> str:
                       border-radius: 6px; font-size: 13px; font-weight: 600;">
                 在网页查看完整日报
             </a>
+            <div style="margin-top: 10px;">
+                <a href="{unsubscribe_url}" style="color: #71717a; font-size: 11px; text-decoration: underline;">
+                    只退订推特日报
+                </a>
+            </div>
         </div>
         """
 
