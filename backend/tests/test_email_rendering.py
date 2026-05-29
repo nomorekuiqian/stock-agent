@@ -517,8 +517,10 @@ class TestDigestCtaSection:
         # Max tier — pain point headline + feature emphasis
         assert "订阅 Max" in html
         assert "$9.99" in html
-        assert "想深度研究一只股票" in html  # pain point headline
-        assert "AI 投研引擎" in html  # bolded feature
+        assert "想看 KOL 圈在押什么票" in html  # pain point headline (Max-only Twitter digest hook)
+        assert "推特 KOL 日报" in html  # bolded Max-only feature
+        assert "新功能" in html  # NEW badge marks Twitter digest as Max-exclusive
+        assert "AI 投研引擎" in html  # in bonus list
         assert "AI 深度个股分析" in html  # in bonus list
         # No free tier and no old copy
         assert "添加自选股" not in html

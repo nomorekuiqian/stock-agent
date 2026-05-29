@@ -443,13 +443,16 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                 <!-- Max card (RECOMMENDED) -->
                 <div class="tmb-tier-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
                     <div style="background: #fffbeb; border: 2px solid #b45309; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
-                        <div style="display: inline-block; background: #b45309; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;">推荐</div>
+                        <div style="margin-bottom: 12px;">
+                            <span style="display: inline-block; background: #b45309; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; vertical-align: middle;">推荐</span>
+                            <span style="display: inline-block; background: #fde68a; color: #78350f; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 999px; margin-left: 4px; vertical-align: middle;">新功能</span>
+                        </div>
                         <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Max</div>
                         <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
-                            想深度研究一只股票?
+                            想看 KOL 圈在押什么票?
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                            Max 独享 <strong style="color: #78350f; font-weight: 600;">推特 KOL 日报</strong> 和 AI 投研引擎，把盘后观点和深度研究放在一起。
+                            Max 独享 <strong style="color: #78350f; font-weight: 600;">推特 KOL 日报</strong>：每个交易日盘后整理 300+ 美股博主的观点、多空论据和后续观察点。
                         </div>
                         <div style="margin-bottom: 14px; line-height: 1;">
                             <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$9.99</span>
@@ -460,7 +463,7 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                         </a>
                         <div style="border-top: 1px dashed #fcd34d; padding-top: 12px;">
                             <div style="font-size: 11px; color: #52525b; line-height: 1.7;">
-                                <span style="color: #71717a;">以及&nbsp;</span>Pro 全部功能 &middot; AI 深度个股分析 &middot; 往期推特日报归档
+                                <span style="color: #71717a;">以及&nbsp;</span>Pro 全部功能 &middot; AI 投研引擎（无限） &middot; AI 深度个股分析
                             </div>
                         </div>
                     </div>
@@ -557,6 +560,7 @@ def _get_personal_digest_upsell_cta() -> str:
                             完整的 AI 投资分析工作流
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.85; margin-bottom: 16px;">
+                            <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">推特 KOL 日报</strong>（新功能 · Max 独享）：每日盘后 300+ 博主观点 + 多空论据</div>
                             <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">更高级的模型</strong>生成更深度的每日分析</div>
                             <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;持仓监控 &amp; 个股事件提醒</div>
                             <div><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">AI 投研引擎</strong> — 自己研究任意一只股票</div>
@@ -1553,12 +1557,27 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
                             <td style="padding: 14px 0; vertical-align: top;">
                                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669; margin-top: 6px;"></span>
                             </td>
-                            <td style="padding: 14px 0;">
+                            <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
                                 <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">盘前早报</p>
                                 <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
                                     每天开盘前 5 分钟速读，期货、全球市场、今日关键事件。带着准备进场，比什么都不知道就开盘要好。
                                 </p>
                                 <a href="{_EMAIL_LINK_BASE}/morning" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">查看今日早报 &rarr;</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 14px 0; vertical-align: top;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #b45309; margin-top: 6px;"></span>
+                            </td>
+                            <td style="padding: 14px 0;">
+                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">
+                                    推特 KOL 日报
+                                    <span style="display: inline-block; background: #fde68a; color: #78350f; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle;">新功能 · Max 独享</span>
+                                </p>
+                                <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
+                                    每个交易日盘后，AI 从 300+ 美股博主推文里筛出高质量观点、多空论据和后续观察点。Max 独占，14 天体验期间可解锁。
+                                </p>
+                                <a href="{_EMAIL_LINK_BASE}/twitter-digest" style="font-size: 13px; color: #b45309; text-decoration: none; font-weight: 500;">查看今日推特日报 &rarr;</a>
                             </td>
                         </tr>
                     </table>
