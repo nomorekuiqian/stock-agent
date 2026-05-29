@@ -14,6 +14,7 @@ interface Props {
   headline: string;
   windowHours: number;
   trackedKolCount: number;
+  inputTweetCount: number;
   topTicker?: HotItem;
   topSector?: HotItem;
   topEvent?: HotItem;
@@ -32,7 +33,7 @@ function formatHeaderDate(date: string): string {
 }
 
 export function OpeningSection({
-  date, headline, windowHours, trackedKolCount,
+  date, headline, windowHours, trackedKolCount, inputTweetCount,
   topTicker, topSector, topEvent,
 }: Props) {
   const hasRadar = !!(topTicker || topSector || topEvent);
@@ -57,7 +58,8 @@ export function OpeningSection({
 
       <p className="text-xs text-muted-foreground/80 tabular-nums">
         过去 <span className="font-data text-foreground/70">{windowHours}</span> 小时,
-        <span className="font-data text-foreground/70">{trackedKolCount}</span> 位金融博主的关键观点
+        <span className="font-data text-foreground/70">{trackedKolCount}</span> 位金融博主的观点汇总,
+        覆盖 <span className="font-data text-foreground/70">{inputTweetCount}</span> 条推文
       </p>
 
       {hasRadar && (
@@ -74,11 +76,6 @@ export function OpeningSection({
         </div>
       )}
 
-      <div className="editorial-ornament" aria-hidden>
-        <span className="text-xs tracking-[0.25em] uppercase text-muted-foreground/60">
-          30 秒读完
-        </span>
-      </div>
     </section>
   );
 }
@@ -92,19 +89,19 @@ function RadarChip({ kind, item }: { kind: 'ticker' | 'sector' | 'event'; item: 
 
   const labelNode = isTicker && symbol ? (
     <span className="inline-flex items-baseline gap-0.5 font-data">
-      <span className="text-primary/75">$</span>
+      <span className="text-sky-400/75">$</span>
       <span className="text-foreground/95">{symbol}</span>
     </span>
   ) : (
     <span className="font-editorial text-foreground/90">{item.label}</span>
   );
 
-  const sharedClass = "group inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background/80 px-3 py-1 text-sm transition-all hover:border-primary/55 hover:bg-primary/5";
+  const sharedClass = "group inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background/80 px-3 py-1 text-sm transition-all hover:border-sky-400/55 hover:bg-sky-400/5";
   const innerContent = (
     <>
       {labelNode}
       {kols > 0 && (
-        <span className="text-[10px] font-data tabular-nums text-muted-foreground/70 group-hover:text-primary/85 transition-colors">
+        <span className="text-[10px] font-data tabular-nums text-muted-foreground/70 group-hover:text-sky-400/85 transition-colors">
           {kols} KOL
         </span>
       )}

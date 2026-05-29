@@ -3,7 +3,7 @@ import { ReportContent } from '@/components/ReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { TodayActions } from './_components/TodayActions';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
-import type { MarketData, ReportListItem } from '@/lib/api';
+import type { MarketData, ReportListItem, TwitterDigestTeaser } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 300; // ISR: 5 分钟
@@ -59,13 +59,27 @@ async function getReportList(): Promise<{ data: ReportListItem[]; total: number 
   }
 }
 
+async function getTwitterDigestTeaser(): Promise<TwitterDigestTeaser | null> {
+  try {
+    const res = await fetch(`${API_BASE}/twitter-digest/teaser/latest`, {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export default async function TodayPage() {
   const today = marketTodayStr();
 
-  const [todayReport, latestReport, historyResult] = await Promise.all([
+  const [todayReport, latestReport, historyResult, twitterDigestTeaser] = await Promise.all([
     getReportByDate(today),
     getLatestReport(),
     getReportList(),
+    getTwitterDigestTeaser(),
   ]);
 
   const report = todayReport ?? latestReport ?? null;
@@ -160,6 +174,10 @@ export default async function TodayPage() {
         </div>
       )}
 
+      {twitterDigestTeaser && (
+        <TwitterDigestConversion teaser={twitterDigestTeaser} />
+      )}
+
       {/* Historical Reports Section */}
       {historicalReports.length > 0 && (
         <section className="border-t border-border/50 mt-12">
@@ -209,5 +227,74 @@ export default async function TodayPage() {
         </section>
       )}
     </main>
+  );
+}
+
+function TwitterDigestConversion({ teaser }: { teaser: TwitterDigestTeaser }) {
+  const tickerLabels = teaser.hot_tickers
+    .slice(0, 4)
+    .map((item) => item.label)
+    .filter(Boolean);
+
+  return (
+    <section className="border-t border-border/50 mt-12">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
+        <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-5 md:p-6">
+          <div className="grid md:grid-cols-[1fr_240px] gap-6 md:items-center">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 max-w-[48px] bg-gradient-to-r from-amber-400 to-transparent" />
+                <span className="text-amber-400 text-xs font-semibold tracking-[0.22em] uppercase">
+                  Max Intelligence
+                </span>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-data tabular-nums">
+                  {formatDateShort(teaser.date)}
+                </p>
+                <h3 className="text-xl md:text-2xl font-editorial text-foreground leading-tight">
+                  {teaser.headline || '推特 KOL 日报：盘后观点浓缩'}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                  {teaser.intro_preview || '从优质金融博主的公开观点里提炼市场主线、个股分歧和后续观察点。'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {tickerLabels.length > 0 ? tickerLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-md border border-amber-400/20 bg-background/70 px-2.5 py-1 text-xs font-data text-foreground"
+                  >
+                    {label.startsWith('$') ? label : `$${label}`}
+                  </span>
+                )) : (
+                  <span className="text-xs text-muted-foreground">暂无热门 ticker 预览</span>
+                )}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Link
+                href="/twitter-digest"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-600/90"
+              >
+                查看推特日报
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+              <Link
+                href="/twitter-digest/archive"
+                className="inline-flex w-full items-center justify-center rounded-lg border border-border/60 px-4 py-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                浏览往期归档
+              </Link>
+              <p className="text-[11px] text-muted-foreground text-center">
+                全文、邮件推送和历史归档为 Max 专属
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

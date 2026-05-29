@@ -38,7 +38,7 @@ export function HotLeaderboard({ theses }: Props) {
     >
       <header className="mb-5 flex items-baseline justify-between gap-3 border-b border-border/40 pb-3">
         <div className="flex items-center gap-2.5">
-          <span aria-hidden className="block w-1 h-4 bg-primary rounded-full" />
+          <span aria-hidden className="block w-1 h-4 bg-sky-400 rounded-full" />
           <h2 className="text-sm font-semibold text-foreground uppercase tracking-[0.18em]">
             今日 KOL 关注度
           </h2>
@@ -66,7 +66,7 @@ function Row({
     <li>
       <a
         href={`#ticker-${thesis.ticker}`}
-        className="group flex items-center gap-3 py-1 px-1 -mx-1 rounded transition-colors hover:bg-primary/5"
+        className="group flex items-center gap-3 py-1 px-1 -mx-1 rounded transition-colors hover:bg-sky-400/5"
         aria-label={`跳转到 ${thesis.ticker} 综合讨论`}
       >
         <span
@@ -76,15 +76,15 @@ function Row({
           {String(rank).padStart(2, '0')}
         </span>
         <span className="inline-flex items-baseline gap-0.5 font-data shrink-0 w-20">
-          <span className="text-primary/65">$</span>
-          <span className="text-foreground/95 group-hover:text-primary transition-colors">
+          <span className="text-sky-400/65">$</span>
+          <span className="text-foreground/95 group-hover:text-sky-400 transition-colors">
             {thesis.ticker}
           </span>
         </span>
         <div className="flex-1 min-w-0">
           <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
             <div
-              className="h-full bg-primary/45 rounded-full transition-all group-hover:bg-primary/65"
+              className="h-full bg-sky-400/45 rounded-full transition-all group-hover:bg-sky-400/65"
               style={{ width: `${widthPct}%` }}
             />
           </div>

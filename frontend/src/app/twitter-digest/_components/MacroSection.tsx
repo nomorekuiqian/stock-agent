@@ -4,21 +4,31 @@
  * macro is `observation`-direction; the value is in synthesis + evidence.
  */
 
+import { LockedBlur, SectionUnlockCta } from './LockedBlur';
 import { safeUserUrl, safeTweetUrl } from './safeUrl';
 import type { Argument, MacroThread } from './types';
 
 interface Props {
   thread: MacroThread;
   index: number;
+  /** When true, render blurred locked skeletons in place of paid content. */
+  locked?: boolean;
 }
 
-export function MacroSection({ thread, index }: Props) {
-  if (!thread.title || (thread.key_points.length === 0 && !thread.synthesis_zh)) {
+export function MacroSection({ thread, index, locked = false }: Props) {
+  // Array length wins when present (Max mode); count field fills in when the
+  // array has been stripped (locked mode). Avoid `??` here — pydantic default
+  // for `key_points_count` is 0, which would falsely override real array
+  // counts on unlocked digests.
+  const keyPointCount = thread.key_points.length || thread.key_points_count || 0;
+  // Hide a macro thread only when it would render as a true empty card.
+  // Locked mode keeps the section visible to show the title + locked content.
+  if (!thread.title || (!locked && thread.key_points.length === 0 && !thread.synthesis_zh)) {
     return null;
   }
 
-  const keyPointCount = thread.key_points.length;
   const kolCount = thread.primary_kols.length;
+  const kolSample = thread.primary_kols.slice(0, 2);
 
   return (
     <section
@@ -48,37 +58,64 @@ export function MacroSection({ thread, index }: Props) {
         </span>
       </header>
 
-      {thread.synthesis_zh && (
-        <p className="mt-4 text-[15px] leading-[1.85] text-foreground/85 font-editorial">
-          {thread.synthesis_zh}
-        </p>
+      {locked ? (
+        <div className="mt-4">
+          <LockedBlur
+            lines={3}
+            label="多方观点综合"
+            variant="paragraph"
+            kolSample={kolSample}
+          />
+        </div>
+      ) : (
+        thread.synthesis_zh && (
+          <p className="mt-4 text-[15px] leading-[1.85] text-foreground/85 font-editorial">
+            {thread.synthesis_zh}
+          </p>
+        )
       )}
 
-      {thread.key_points.length > 0 && (
-        <details className="mt-5 group">
-          <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-primary transition-colors py-1.5 select-none border-t border-border/40 pt-4">
-            <svg
-              aria-hidden
-              className="w-3 h-3 transition-transform duration-200 group-open:rotate-90"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="group-open:hidden">展开观点</span>
-            <span className="hidden group-open:inline">收起观点</span>
-            <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
-              ({keyPointCount})
-            </span>
-          </summary>
-          <ul className="mt-4 space-y-2.5">
-            {thread.key_points.map((p, i) => (
-              <KeyPointRow key={i} arg={p} />
-            ))}
-          </ul>
-        </details>
-      )}
+      {locked
+        ? (
+            <>
+              {keyPointCount > 0 && (
+                <div className="mt-5">
+                  <LockedBlur
+                    lines={Math.min(keyPointCount, 4)}
+                    label={`KOL 观点 · ${keyPointCount} 条`}
+                    variant="bullets"
+                    kolSample={kolSample}
+                  />
+                </div>
+              )}
+              <SectionUnlockCta />
+            </>
+          )
+        : thread.key_points.length > 0 && (
+            <details className="mt-5 group">
+              <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-sky-400 transition-colors py-1.5 select-none border-t border-border/40 pt-4">
+                <svg
+                  aria-hidden
+                  className="w-3 h-3 transition-transform duration-200 group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="group-open:hidden">展开观点</span>
+                <span className="hidden group-open:inline">收起观点</span>
+                <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
+                  ({thread.key_points.length})
+                </span>
+              </summary>
+              <ul className="mt-4 space-y-2.5">
+                {thread.key_points.map((p, i) => (
+                  <KeyPointRow key={i} arg={p} />
+                ))}
+              </ul>
+            </details>
+          )}
     </section>
   );
 }
@@ -94,7 +131,7 @@ function KeyPointRow({ arg }: { arg: Argument }) {
             href={safeUserUrl(arg.kol)}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-data text-muted-foreground/85 hover:text-primary transition-colors"
+            className="font-data text-muted-foreground/85 hover:text-sky-400 transition-colors"
           >
             @{arg.kol}
           </a>
@@ -103,7 +140,7 @@ function KeyPointRow({ arg }: { arg: Argument }) {
             href={safeTweetUrl(arg.tweet_url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground/65 hover:text-primary transition-colors inline-flex items-center gap-1"
+            className="text-muted-foreground/65 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
           >
             原推
             <svg

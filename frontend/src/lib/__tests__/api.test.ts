@@ -328,7 +328,8 @@ describe('api (post cache removal)', () => {
 
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/morning/reports/latest')
+        expect.stringContaining('/morning/reports/latest'),
+        expect.any(Object)
       );
       expect(result).toEqual(report);
     });
@@ -356,7 +357,8 @@ describe('api (post cache removal)', () => {
       const result = await api.morningReports.getByDate('2026-02-27');
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/morning/reports/date/2026-02-27')
+        expect.stringContaining('/morning/reports/date/2026-02-27'),
+        expect.any(Object)
       );
       expect(result).toEqual(report);
     });
@@ -378,7 +380,8 @@ describe('api (post cache removal)', () => {
       const result = await api.morningReports.getById('mr-abc');
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/morning/reports/mr-abc')
+        expect.stringContaining('/morning/reports/mr-abc'),
+        expect.any(Object)
       );
       expect(result).toEqual(report);
     });

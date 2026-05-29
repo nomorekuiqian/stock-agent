@@ -2,17 +2,22 @@
 
 import Link from 'next/link';
 
+import { ReportTabs } from '@/components/ReportTabs';
+
 import { HotLeaderboard } from './HotLeaderboard';
 import { MacroSection } from './MacroSection';
 import { OpeningSection } from './OpeningSection';
+import { BottomUpgradeCard, UpgradeBanner } from './LockedBlur';
+import { TwitterDigestActions } from './TwitterDigestActions';
 import { WatchpointsSection } from './WatchpointsSection';
 import { TickerSection } from './TickerSection';
-import { TrustBanner } from './TrustBanner';
 import type { DailyDigest, TickerThesis } from './types';
 
 interface Props {
   date: string;
   digest: DailyDigest | null;
+  /** Used to build the login-redirect URL on the locked-mode upgrade banner. */
+  isAuthenticated?: boolean;
 }
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -33,7 +38,7 @@ function isEmpty(d: DailyDigest): boolean {
 
 // ---------------------------------------------------------------------------
 
-export function DigestView({ date, digest }: Props) {
+export function DigestView({ date, digest, isAuthenticated = false }: Props) {
   if (!digest) {
     return (
       <main className="min-h-screen bg-background">
@@ -45,7 +50,7 @@ export function DigestView({ date, digest }: Props) {
           </p>
           <Link
             href="/twitter-digest"
-            className="mt-8 inline-block text-sm text-primary hover:underline underline-offset-4"
+            className="mt-8 inline-block text-sm text-sky-400 hover:underline underline-offset-4"
           >
             查看最新一期
           </Link>
@@ -57,6 +62,8 @@ export function DigestView({ date, digest }: Props) {
   const theses = digest.ticker_theses;
   const macros = digest.macro_threads;
   const empty = isEmpty(digest);
+  const locked = digest.is_locked === true;
+  const targetPath = date ? `/twitter-digest/${date}` : '/twitter-digest';
 
   // Partition by side so the layout reads:
   //   ⚔️ disputed → 🟢 bull → 🔴 bear
@@ -70,8 +77,15 @@ export function DigestView({ date, digest }: Props) {
     else bullSide.push(t);
   }
 
-  // Top-1 ticker chip in OpeningSection — mirrors the leaderboard #1.
-  const topThesis = theses[0];
+  // Top-1 ticker chip in OpeningSection must mirror HotLeaderboard's #1
+  // (KOL count first, then tweet count) — the raw `theses` order is the
+  // LLM's cluster order and may not match the leaderboard.
+  const topThesis = [...theses].sort((a, b) => {
+    if (b.primary_kols.length !== a.primary_kols.length) {
+      return b.primary_kols.length - a.primary_kols.length;
+    }
+    return b.tweet_count - a.tweet_count;
+  })[0];
   const topTickerForChip = topThesis
     ? {
         label: topThesis.ticker,
@@ -82,19 +96,38 @@ export function DigestView({ date, digest }: Props) {
 
   return (
     <main className="min-h-screen bg-background editorial-paper">
-      <BackBar />
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-10 space-y-6">
-        <TrustBanner
-          trackedKolCount={digest.tracked_kols.length}
-          inputTweetCount={digest.input_tweet_count}
-          windowHours={digest.window_hours}
-        />
+      {/* Page Header (matches Daily / Morning report layout) */}
+      <section className="border-b border-border/50">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 animate-fade-in-up">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-sky-400 to-transparent animate-line-expand" />
+                <span className="text-sky-400 text-xs font-semibold tracking-[0.25em] uppercase">Twitter Digest</span>
+              </div>
+              <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
+                推特 KOL 日报
+              </h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
+                每天 5 分钟带你看清美股高质量 KOL 观点
+              </p>
+            </div>
 
+            <div className="flex flex-col items-start md:items-end gap-4 animate-fade-in-up delay-300">
+              <ReportTabs />
+              <TwitterDigestActions showSubscribe={!locked} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-10 space-y-6">
         <OpeningSection
           date={date}
           headline={digest.headline}
           windowHours={digest.window_hours}
           trackedKolCount={digest.tracked_kols.length}
+          inputTweetCount={digest.input_tweet_count}
           topTicker={topTickerForChip}
         />
 
@@ -106,12 +139,17 @@ export function DigestView({ date, digest }: Props) {
           <>
             <HotLeaderboard theses={theses} />
 
+            {locked && (
+              <UpgradeBanner isAuthenticated={isAuthenticated} targetPath={targetPath} />
+            )}
+
             <TickerGroup
               theses={disputed}
               emoji="⚔️"
               title="多空打架"
               hint="散户最爱看的现场 — 双方都有支撑者"
               id="theses-disputed"
+              locked={locked}
             />
             <TickerGroup
               theses={bullSide}
@@ -119,6 +157,7 @@ export function DigestView({ date, digest }: Props) {
               title="被看多的票"
               hint="多数博主在押多 / 无人公开反方"
               id="theses-bull"
+              locked={locked}
             />
             <TickerGroup
               theses={bearSide}
@@ -126,6 +165,7 @@ export function DigestView({ date, digest }: Props) {
               title="被看空的票"
               hint="多数博主在押空 / 无人接多头单"
               id="theses-bear"
+              locked={locked}
             />
 
             {macros.length > 0 && (
@@ -142,13 +182,17 @@ export function DigestView({ date, digest }: Props) {
                 />
                 <div className="space-y-4">
                   {macros.map((m, i) => (
-                    <MacroSection key={`${m.title}-${i}`} thread={m} index={i} />
+                    <MacroSection key={`${m.title}-${i}`} thread={m} index={i} locked={locked} />
                   ))}
                 </div>
               </section>
             )}
 
-            <WatchpointsSection watchpoints={digest.watchpoints ?? []} />
+            <WatchpointsSection watchpoints={digest.watchpoints ?? []} locked={locked} />
+
+            {locked && (
+              <BottomUpgradeCard isAuthenticated={isAuthenticated} targetPath={targetPath} />
+            )}
           </>
         )}
 
@@ -182,36 +226,30 @@ function SectionHeading({
 }
 
 function TickerGroup({
-  theses, emoji, title, hint, id,
-}: { theses: TickerThesis[]; emoji: string; title: string; hint: string; id: string }) {
+  theses, emoji, title, hint, id, locked,
+}: {
+  theses: TickerThesis[];
+  emoji: string;
+  title: string;
+  hint: string;
+  id: string;
+  locked: boolean;
+}) {
   if (theses.length === 0) return null;
   return (
     <section className="space-y-5" id={id} aria-label={title}>
       <SectionHeading emoji={emoji} title={title} hint={hint} count={theses.length} />
       <div className="space-y-5">
         {theses.map((t, i) => (
-          <TickerSection key={t.ticker} thesis={t} index={i} />
+          <TickerSection
+            key={t.ticker}
+            thesis={t}
+            index={i}
+            locked={locked}
+          />
         ))}
       </div>
     </section>
-  );
-}
-
-function BackBar() {
-  return (
-    <div className="border-b border-border/40">
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-3">
-        <Link
-          href="/today"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          返回日报
-        </Link>
-      </div>
-    </div>
   );
 }
 

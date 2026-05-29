@@ -7,12 +7,15 @@
 
 import Link from 'next/link';
 
+import { LockedBlur, SectionUnlockCta } from './LockedBlur';
 import { safeUserUrl, safeTweetUrl } from './safeUrl';
 import type { Argument, TickerSide, TickerThesis } from './types';
 
 interface Props {
   thesis: TickerThesis;
   index: number;
+  /** When true, render blurred locked skeletons in place of paid content. */
+  locked?: boolean;
 }
 
 const SIDE_META: Record<TickerSide, {
@@ -41,14 +44,25 @@ const SIDE_META: Record<TickerSide, {
   },
 };
 
-export function TickerSection({ thesis, index }: Props) {
-  const total =
-    thesis.buy_arguments.length +
-    thesis.sell_arguments.length +
-    thesis.observation_arguments.length;
+export function TickerSection({
+  thesis, index, locked = false,
+}: Props) {
+  // Counts: in unlocked (Max) mode, the arguments arrays carry the truth and
+  // `*_count` fields are not populated (pydantic default 0). In locked mode
+  // the arrays are empty and `*_count` carry the truth. So pick whichever
+  // is non-zero — array length wins when present, count field fills in
+  // when the array has been stripped.
+  const buyCount = thesis.buy_arguments.length || thesis.buy_count || 0;
+  const sellCount = thesis.sell_arguments.length || thesis.sell_count || 0;
+  const obsCount = thesis.observation_arguments.length || thesis.observation_count || 0;
+  const total = buyCount + sellCount + obsCount;
   if (total === 0) return null;
   const side = thesis.side ?? 'bull';
   const meta = SIDE_META[side];
+  // KOL hint surfaced under each locked label. We don't have per-direction
+  // KOL lists at the API boundary so fall back to the thesis-level
+  // `primary_kols` for all three lanes — close enough as a teaser.
+  const kolSample = thesis.primary_kols.slice(0, 2);
 
   return (
     <section
@@ -64,54 +78,99 @@ export function TickerSection({ thesis, index }: Props) {
         index={index}
       />
 
-      {thesis.synthesis_zh && (
-        <p className="mt-4 text-[15px] leading-[1.85] text-foreground/90 font-editorial">
-          {thesis.synthesis_zh}
+      {thesis.stance_summary && (
+        <p className="mt-4 text-[14px] leading-snug text-muted-foreground italic">
+          {thesis.stance_summary}
         </p>
       )}
 
-      {total > 0 && (
-        <details className="mt-5 group">
-          <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-primary transition-colors py-1.5 select-none">
-            <Caret />
-            <span className="group-open:hidden">展开论据</span>
-            <span className="hidden group-open:inline">收起论据</span>
-            <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
-              ({total})
-            </span>
-            <ToneSummary
-              buy={thesis.buy_arguments.length}
-              sell={thesis.sell_arguments.length}
-              obs={thesis.observation_arguments.length}
-            />
-          </summary>
-          <div className="mt-5 space-y-6">
-            {thesis.buy_arguments.length > 0 && (
-              <Lane
-                label="买入逻辑"
-                count={thesis.buy_arguments.length}
-                tone="buy"
-                args={thesis.buy_arguments}
+      {locked ? (
+        <div className="mt-4">
+          <LockedBlur
+            lines={3}
+            label="多空综合分析"
+            variant="paragraph"
+            kolSample={kolSample}
+          />
+        </div>
+      ) : (
+        thesis.synthesis_zh && (
+          <p className="mt-4 text-[15px] leading-[1.85] text-foreground/90 font-editorial">
+            {thesis.synthesis_zh}
+          </p>
+        )
+      )}
+
+      {locked ? (
+        <>
+          <div className="mt-5 space-y-4">
+            {buyCount > 0 && (
+              <LockedBlur
+                lines={Math.min(buyCount, 3)}
+                label={`买入逻辑 · ${buyCount} 条`}
+                variant="bullets"
+                kolSample={kolSample}
               />
             )}
-            {thesis.sell_arguments.length > 0 && (
-              <Lane
-                label="卖出 / 风险逻辑"
-                count={thesis.sell_arguments.length}
-                tone="sell"
-                args={thesis.sell_arguments}
+            {sellCount > 0 && (
+              <LockedBlur
+                lines={Math.min(sellCount, 3)}
+                label={`卖出 / 风险逻辑 · ${sellCount} 条`}
+                variant="bullets"
+                kolSample={kolSample}
               />
             )}
-            {thesis.observation_arguments.length > 0 && (
-              <Lane
-                label="数据 / 客观观察"
-                count={thesis.observation_arguments.length}
-                tone="observation"
-                args={thesis.observation_arguments}
+            {obsCount > 0 && (
+              <LockedBlur
+                lines={Math.min(obsCount, 2)}
+                label={`数据 / 客观观察 · ${obsCount} 条`}
+                variant="bullets"
+                kolSample={kolSample}
               />
             )}
           </div>
-        </details>
+          <SectionUnlockCta />
+        </>
+      ) : (
+        total > 0 && (
+          <details className="mt-5 group">
+            <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-sky-400 transition-colors py-1.5 select-none">
+              <Caret />
+              <span className="group-open:hidden">展开论据</span>
+              <span className="hidden group-open:inline">收起论据</span>
+              <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
+                ({total})
+              </span>
+              <ToneSummary buy={buyCount} sell={sellCount} obs={obsCount} />
+            </summary>
+            <div className="mt-5 space-y-6">
+              {thesis.buy_arguments.length > 0 && (
+                <Lane
+                  label="买入逻辑"
+                  count={thesis.buy_arguments.length}
+                  tone="buy"
+                  args={thesis.buy_arguments}
+                />
+              )}
+              {thesis.sell_arguments.length > 0 && (
+                <Lane
+                  label="卖出 / 风险逻辑"
+                  count={thesis.sell_arguments.length}
+                  tone="sell"
+                  args={thesis.sell_arguments}
+                />
+              )}
+              {thesis.observation_arguments.length > 0 && (
+                <Lane
+                  label="数据 / 客观观察"
+                  count={thesis.observation_arguments.length}
+                  tone="observation"
+                  args={thesis.observation_arguments}
+                />
+              )}
+            </div>
+          </details>
+        )
       )}
     </section>
   );
@@ -169,10 +228,10 @@ function Header({
         <Link
           href={`/stock/${ticker}`}
           prefetch={false}
-          className="inline-flex items-baseline gap-0.5 font-data text-2xl md:text-[26px] tracking-tight hover:text-primary transition-colors"
+          className="inline-flex items-baseline gap-0.5 font-data text-2xl md:text-[26px] tracking-tight hover:text-sky-400 transition-colors"
           aria-label={`查看 ${ticker} 个股详情`}
         >
-          <span className="text-primary/70">$</span>
+          <span className="text-sky-400/70">$</span>
           <span className="text-foreground">{ticker}</span>
         </Link>
         <span
@@ -258,7 +317,7 @@ function ArgumentRow({ arg, bulletClass }: { arg: Argument; bulletClass: string 
             href={safeUserUrl(arg.kol)}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-data text-muted-foreground/85 hover:text-primary transition-colors"
+            className="font-data text-muted-foreground/85 hover:text-sky-400 transition-colors"
           >
             @{arg.kol}
           </a>
@@ -267,7 +326,7 @@ function ArgumentRow({ arg, bulletClass }: { arg: Argument; bulletClass: string 
             href={safeTweetUrl(arg.tweet_url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground/65 hover:text-primary transition-colors inline-flex items-center gap-1"
+            className="text-muted-foreground/65 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
             aria-label="查看原推"
           >
             原推

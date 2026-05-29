@@ -187,7 +187,7 @@ export interface UnsubscribeResponse {
 }
 
 // Subscription Management Types
-export type SubscriptionChannel = 'daily_report' | 'personal_digest' | 'weekly_report';
+export type SubscriptionChannel = 'daily_report' | 'personal_digest' | 'weekly_report' | 'twitter_digest';
 
 export interface SubscriptionResponse {
   success: boolean;
@@ -245,6 +245,25 @@ export interface PreferencesResponse {
   success: boolean;
   preferences: EmailPreferences;
 }
+
+export interface TwitterDigestListItem {
+  date: string;
+  generated_at: string;
+  headline: string;
+  input_tweet_count: number;
+  tracked_kol_count: number;
+  hot_tickers: Array<{ label: string; count: number; kols?: number }>;
+  hot_sectors: Array<{ label: string; count: number; kols?: number }>;
+  hot_events: Array<{ label: string; count: number; kols?: number }>;
+  intro_preview: string;
+}
+
+export interface TwitterDigestArchiveResponse {
+  data: TwitterDigestListItem[];
+  total: number;
+}
+
+export type TwitterDigestTeaser = TwitterDigestListItem;
 
 export interface EmailPreviewResponse {
   success: boolean;
@@ -651,6 +670,8 @@ export interface MorningReport {
   summary: MorningSummarySection[];
   market_data?: unknown;
   from_cache?: boolean;
+  /** True when the server stripped AI narrative fields for a non-entitled viewer. */
+  is_locked?: boolean;
 }
 
 export interface MorningReportListItem {
@@ -1546,7 +1567,10 @@ export const api = {
     if (date) params.append('date', date);
     const qs = params.toString();
     const url = `${API_BASE_URL}/twitter-digest/preview${qs ? `?${qs}` : ''}`;
-    const response = await fetch(url);
+    // Preview endpoint is admin-only in prod (renders full Max content).
+    // Forward the bearer token so admin users can hit it from /email-test.
+    const headers = await _authHeaders();
+    const response = await fetch(url, { headers });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to get twitter digest preview' }));
       throw new Error(error.detail || 'Failed to get twitter digest preview');
@@ -1737,8 +1761,13 @@ export const api = {
   // --- Backend-proxied data reads (replaces direct Insforge SDK queries) ---
 
   morningReports: {
+    // Paywall: backend strips AI narrative fields when the caller lacks the
+    // `morning_website` entitlement. Server-side fetches (SSR) inherently
+    // lack a user token so land on the locked shape; client-side fetches
+    // forward the bearer so Max users get the full payload.
     getLatest: async (): Promise<MorningReport | null> => {
-      const response = await fetch(`${API_BASE_URL}/morning/reports/latest`);
+      const headers = await _authHeaders();
+      const response = await fetch(`${API_BASE_URL}/morning/reports/latest`, { headers });
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch latest morning report');
@@ -1748,7 +1777,8 @@ export const api = {
     },
 
     getByDate: async (date: string): Promise<MorningReport | null> => {
-      const response = await fetch(`${API_BASE_URL}/morning/reports/date/${date}`);
+      const headers = await _authHeaders();
+      const response = await fetch(`${API_BASE_URL}/morning/reports/date/${date}`, { headers });
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch morning report');
@@ -1758,7 +1788,8 @@ export const api = {
     },
 
     getById: async (id: string): Promise<MorningReport | null> => {
-      const response = await fetch(`${API_BASE_URL}/morning/reports/${id}`);
+      const headers = await _authHeaders();
+      const response = await fetch(`${API_BASE_URL}/morning/reports/${id}`, { headers });
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch morning report');
@@ -1909,31 +1940,58 @@ export const api = {
     },
   },
 
-  // Twitter KOL Digest API (V3 read endpoints; auth required for reads.
-  // generate is nonprod / admin / cron only — see backend deps.)
+  // Twitter KOL Digest API.
+  //
+  // `getLatest` / `getByDate` / `listArchive` are open endpoints — the backend
+  // attaches the bearer token if available and returns either a full or locked
+  // DailyDigest based on `twitter_digest` entitlement. Same shape either way.
+  // Frontend renders the locked skeleton from `digest.is_locked` plus the
+  // per-section `*_count` fields that survive the projection.
+  //
+  // `getLatestTeaser` is the lightweight headline/hot-list payload used by
+  // surfaces like `/today`'s CTA strip — smaller than a locked DailyDigest.
+  //
+  // `generate` is nonprod / admin / cron only — see backend deps.
   twitterDigest: {
     getLatest: async (): Promise<DailyDigest | null> => {
-      const response = await fetchProtected(
-        `${API_BASE_URL}/twitter-digest/latest`,
-        {},
-        'Failed to fetch latest twitter digest',
-      );
+      const response = await fetch(`${API_BASE_URL}/twitter-digest/latest`, {
+        headers: await _authHeaders(),
+      });
       if (response.status === 404) return null;
       if (!response.ok) {
-        await throwProtectedApiError(response, 'Failed to fetch latest twitter digest');
+        throw new Error(await readApiError(response, 'Failed to fetch latest twitter digest'));
       }
       return response.json();
     },
 
     getByDate: async (date: string): Promise<DailyDigest | null> => {
-      const response = await fetchProtected(
+      const response = await fetch(
         `${API_BASE_URL}/twitter-digest/${encodeURIComponent(date)}`,
-        {},
-        'Failed to fetch twitter digest',
+        { headers: await _authHeaders() },
       );
       if (response.status === 404) return null;
       if (!response.ok) {
-        await throwProtectedApiError(response, 'Failed to fetch twitter digest');
+        throw new Error(await readApiError(response, 'Failed to fetch twitter digest'));
+      }
+      return response.json();
+    },
+
+    getLatestTeaser: async (): Promise<TwitterDigestTeaser | null> => {
+      const response = await fetch(`${API_BASE_URL}/twitter-digest/teaser/latest`);
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error('Failed to fetch latest twitter digest preview');
+      }
+      return response.json();
+    },
+
+    listArchive: async (limit = 12, offset = 0): Promise<TwitterDigestArchiveResponse> => {
+      const response = await fetch(
+        `${API_BASE_URL}/twitter-digest/archive?limit=${limit}&offset=${offset}`,
+        { headers: await _authHeaders() },
+      );
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'Failed to fetch twitter digest archive'));
       }
       return response.json();
     },

@@ -1,11 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { useSearchParams } from 'next/navigation';
+import { api, type SubscriptionChannel } from '@/lib/api';
 
 export default function UnsubscribePage() {
-  const [email, setEmail] = useState('');
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-primary animate-spin" />
+      </main>
+    }>
+      <UnsubscribeContent />
+    </Suspense>
+  );
+}
+
+type ManagedChannel = Extract<SubscriptionChannel, 'daily_report' | 'weekly_report' | 'twitter_digest'>;
+
+const CHANNEL_COPY: Record<ManagedChannel, {
+  title: string;
+  description: string;
+  successTitle: string;
+  successMessage: string;
+  resubscribeHref: string;
+  resubscribeLabel: string;
+  footer: string;
+}> = {
+  daily_report: {
+    title: '退订每日报告',
+    description: '请输入您的邮箱以退订每日市场报告。',
+    successTitle: '您已成功退订每日报告',
+    successMessage: '我们已将该邮箱从每日市场报告中移除。',
+    resubscribeHref: '/#subscribe',
+    resubscribeLabel: '重新订阅日报',
+    footer: '你可以随时在首页重新订阅。',
+  },
+  weekly_report: {
+    title: '退订宏观周报',
+    description: '请输入您的邮箱以退订宏观周报。',
+    successTitle: '您已成功退订宏观周报',
+    successMessage: '我们已将该邮箱从宏观周报中移除。',
+    resubscribeHref: '/profile?tab=email',
+    resubscribeLabel: '管理邮件偏好',
+    footer: '你可以随时在个人资料页重新开启。',
+  },
+  twitter_digest: {
+    title: '退订推特日报',
+    description: '请输入您的邮箱以退订推特 KOL 日报邮件。',
+    successTitle: '您已成功退订推特日报',
+    successMessage: '我们已将该邮箱从推特 KOL 日报中移除。',
+    resubscribeHref: '/profile?tab=email',
+    resubscribeLabel: '管理邮件偏好',
+    footer: 'Max 用户可随时在个人资料页重新开启。',
+  },
+};
+
+function parseChannel(value: string | null): ManagedChannel {
+  return value === 'weekly_report' || value === 'twitter_digest'
+    ? value
+    : 'daily_report';
+}
+
+function UnsubscribeContent() {
+  const searchParams = useSearchParams();
+  const channel = useMemo(
+    () => parseChannel(searchParams.get('channel')),
+    [searchParams]
+  );
+  const copy = CHANNEL_COPY[channel];
+  const initialEmail = searchParams.get('email') || '';
+
+  const [email, setEmail] = useState(initialEmail);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
@@ -22,9 +89,9 @@ export default function UnsubscribePage() {
     setMessage('');
 
     try {
-      const result = await api.unsubscribe(email);
+      await api.subscriptions.unsubscribe(channel, email);
       setStatus('success');
-      setMessage(result.message);
+      setMessage(copy.successMessage);
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : '退订失败，请重试');
@@ -41,10 +108,10 @@ export default function UnsubscribePage() {
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-            退订
+            {copy.title}
           </h1>
           <p className="text-sm text-gray-500">
-            很遗憾您要离开。请输入您的邮箱以退订每日报告。
+            {copy.description}
           </p>
         </div>
 
@@ -56,7 +123,7 @@ export default function UnsubscribePage() {
               </svg>
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              您已成功退订
+              {copy.successTitle}
             </h2>
             <p className="text-sm text-gray-500 mb-6">
               {message}
@@ -66,10 +133,10 @@ export default function UnsubscribePage() {
                 改变主意了？
               </p>
               <Link
-                href="/#subscribe"
+                href={copy.resubscribeHref}
                 className="inline-block px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm transition-all hover:bg-primary/90"
               >
-                重新订阅
+                {copy.resubscribeLabel}
               </Link>
             </div>
           </div>
@@ -116,7 +183,7 @@ export default function UnsubscribePage() {
             </button>
 
             <p className="text-xs text-gray-400 text-center pt-2">
-              你可以随时在首页重新订阅。
+              {copy.footer}
             </p>
           </form>
         )}

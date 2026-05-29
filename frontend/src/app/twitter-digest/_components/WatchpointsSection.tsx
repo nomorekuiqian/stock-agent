@@ -14,14 +14,17 @@
 
 import Link from 'next/link';
 
+import { LockedBlur, SectionUnlockCta } from './LockedBlur';
 import { safeUserUrl, safeTweetUrl } from './safeUrl';
 import type { Argument, WatchpointItem } from './types';
 
 interface Props {
   watchpoints: WatchpointItem[];
+  /** When true, render blurred locked skeletons in place of paid content. */
+  locked?: boolean;
 }
 
-export function WatchpointsSection({ watchpoints }: Props) {
+export function WatchpointsSection({ watchpoints, locked = false }: Props) {
   if (watchpoints.length === 0) return null;
 
   return (
@@ -45,7 +48,7 @@ export function WatchpointsSection({ watchpoints }: Props) {
 
       <div className="space-y-4">
         {watchpoints.map((w, i) => (
-          <Card key={`${w.title}-${i}`} item={w} index={i} />
+          <Card key={`${w.title}-${i}`} item={w} index={i} locked={locked} />
         ))}
       </div>
     </section>
@@ -54,7 +57,13 @@ export function WatchpointsSection({ watchpoints }: Props) {
 
 // ---------------------------------------------------------------------------
 
-function Card({ item, index }: { item: WatchpointItem; index: number }) {
+function Card({ item, index, locked }: { item: WatchpointItem; index: number; locked: boolean }) {
+  // Array length wins when present (Max mode); count field fills in when the
+  // array has been stripped (locked mode). Avoid `??` here — pydantic default
+  // for `evidence_count` is 0, which would falsely override real array
+  // counts on unlocked digests.
+  const evidenceCount = (item.evidence?.length ?? 0) || item.evidence_count || 0;
+  const kolSample = (item.kols_watching ?? []).slice(0, 2);
   return (
     <article
       className="rounded-xl border border-border/55 bg-card/30 p-5 md:p-6 animate-fade-in-up"
@@ -76,9 +85,20 @@ function Card({ item, index }: { item: WatchpointItem; index: number }) {
         )}
       </header>
 
-      <p className="mt-4 text-[14.5px] leading-[1.85] text-foreground/85 font-editorial">
-        {item.why_it_matters_zh}
-      </p>
+      {locked ? (
+        <div className="mt-4">
+          <LockedBlur
+            lines={3}
+            label="多空怎么押 / 关键观察指标"
+            variant="paragraph"
+            kolSample={kolSample}
+          />
+        </div>
+      ) : (
+        <p className="mt-4 text-[14.5px] leading-[1.85] text-foreground/85 font-editorial">
+          {item.why_it_matters_zh}
+        </p>
+      )}
 
       <footer className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted-foreground/80">
         {item.related_tickers.length > 0 && (
@@ -92,10 +112,10 @@ function Card({ item, index }: { item: WatchpointItem; index: number }) {
                   <Link
                     href={`/stock/${tk}`}
                     prefetch={false}
-                    className="inline-flex items-baseline gap-0.5 font-data text-[12px] hover:text-primary transition-colors"
+                    className="inline-flex items-baseline gap-0.5 font-data text-[12px] hover:text-sky-400 transition-colors"
                     aria-label={`查看 ${tk} 个股详情`}
                   >
-                    <span className="text-primary/65">$</span>
+                    <span className="text-sky-400/65">$</span>
                     <span className="text-foreground/90">{tk}</span>
                   </Link>
                 </li>
@@ -111,31 +131,47 @@ function Card({ item, index }: { item: WatchpointItem; index: number }) {
         )}
       </footer>
 
-      {item.evidence && item.evidence.length > 0 && (
-        <details className="mt-4 group">
-          <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-primary transition-colors py-1.5 select-none border-t border-border/40 pt-4">
-            <svg
-              aria-hidden
-              className="w-3 h-3 transition-transform duration-200 group-open:rotate-90"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="group-open:hidden">展开 KOL 原推</span>
-            <span className="hidden group-open:inline">收起</span>
-            <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
-              ({item.evidence.length})
-            </span>
-          </summary>
-          <ul className="mt-4 space-y-2.5">
-            {item.evidence.map((arg, i) => (
-              <EvidenceRow key={i} arg={arg} />
-            ))}
-          </ul>
-        </details>
-      )}
+      {locked
+        ? (
+            <>
+              {evidenceCount > 0 && (
+                <div className="mt-4 border-t border-border/40 pt-4">
+                  <LockedBlur
+                    lines={Math.min(evidenceCount, 2)}
+                    label={`KOL 原推 · ${evidenceCount} 条`}
+                    variant="bullets"
+                    kolSample={kolSample}
+                  />
+                </div>
+              )}
+              <SectionUnlockCta />
+            </>
+          )
+        : item.evidence && item.evidence.length > 0 && (
+            <details className="mt-4 group">
+              <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-sky-400 transition-colors py-1.5 select-none border-t border-border/40 pt-4">
+                <svg
+                  aria-hidden
+                  className="w-3 h-3 transition-transform duration-200 group-open:rotate-90"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="group-open:hidden">展开 KOL 原推</span>
+                <span className="hidden group-open:inline">收起</span>
+                <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
+                  ({item.evidence.length})
+                </span>
+              </summary>
+              <ul className="mt-4 space-y-2.5">
+                {item.evidence.map((arg, i) => (
+                  <EvidenceRow key={i} arg={arg} />
+                ))}
+              </ul>
+            </details>
+          )}
     </article>
   );
 }
@@ -151,7 +187,7 @@ function EvidenceRow({ arg }: { arg: Argument }) {
             href={safeUserUrl(arg.kol)}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-data text-muted-foreground/85 hover:text-primary transition-colors"
+            className="font-data text-muted-foreground/85 hover:text-sky-400 transition-colors"
           >
             @{arg.kol}
           </a>
@@ -160,7 +196,7 @@ function EvidenceRow({ arg }: { arg: Argument }) {
             href={safeTweetUrl(arg.tweet_url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground/65 hover:text-primary transition-colors inline-flex items-center gap-1"
+            className="text-muted-foreground/65 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
           >
             原推
             <svg
@@ -186,10 +222,10 @@ function EvidenceRow({ arg }: { arg: Argument }) {
 
 function DateChip({ text }: { text: string }) {
   return (
-    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-[11px] font-data tabular-nums">
+    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-400/8 px-2.5 py-0.5 text-[11px] font-data tabular-nums">
       <svg
         aria-hidden
-        className="w-3 h-3 text-primary/75"
+        className="w-3 h-3 text-sky-400/75"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -201,7 +237,7 @@ function DateChip({ text }: { text: string }) {
           d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
         />
       </svg>
-      <span className="text-primary/95">{text}</span>
+      <span className="text-sky-400/95">{text}</span>
     </span>
   );
 }

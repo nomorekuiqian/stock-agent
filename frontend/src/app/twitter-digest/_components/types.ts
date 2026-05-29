@@ -42,6 +42,10 @@ export interface TickerThesis {
   buy_arguments: Argument[];
   sell_arguments: Argument[];
   observation_arguments: Argument[];
+  /** Argument counts preserved when the lists are stripped for non-Max users. */
+  buy_count?: number;
+  sell_count?: number;
+  observation_count?: number;
 }
 
 export interface MacroThread {
@@ -50,6 +54,8 @@ export interface MacroThread {
   primary_kols: string[];
   synthesis_zh: string;
   key_points: Argument[];
+  /** Count preserved when `key_points` is stripped for non-Max users. */
+  key_points_count?: number;
 }
 
 export interface OtherTickerMention {
@@ -65,6 +71,8 @@ export interface WatchpointItem {
   related_tickers: string[];
   /** Source tweet citations (2-5 evidence Arguments). */
   evidence?: Argument[];
+  /** Count preserved when `evidence` is stripped for non-Max users. */
+  evidence_count?: number;
   kols_watching: string[];
 }
 
@@ -98,4 +106,14 @@ export interface DailyDigest {
 
   // Transparency tail
   other_tickers: OtherTickerMention[];
+
+  /**
+   * Paywall flag. True when the heavy paid content (synthesis paragraphs,
+   * KOL arguments, evidence, why-it-matters write-ups) has been stripped
+   * by the backend because the caller lacks the `twitter_digest`
+   * entitlement. The structural skeleton (headline / hot lists / per-section
+   * titles + KOL lists + counts) is still populated, so the same DigestView
+   * component can render a locked skeleton in place of paid content.
+   */
+  is_locked?: boolean;
 }
