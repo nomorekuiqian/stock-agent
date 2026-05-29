@@ -899,9 +899,27 @@ class ResearchAgent:
                 "type": "done",
                 "parsed": parsed,
             }
+        except asyncio.TimeoutError:
+            logger.exception("Research stream timed out")
+            yield {
+                "type": "error",
+                "code": "agent_timeout",
+                "message": "AI 助手思考时间太长了，请再试一次",
+            }
         except Exception as e:
-            logger.error("Stream error: %s", e)
-            yield {"type": "error", "message": "AI 助手出了点问题，请再试一次"}
+            err_text = str(e).lower()
+            if "token" in err_text or "context" in err_text or "too long" in err_text:
+                code = "context_too_long"
+            elif "schema" in err_text or "validation" in err_text or "json" in err_text:
+                code = "model_schema_error"
+            else:
+                code = "agent_error"
+            logger.exception("Research stream error: %s", e)
+            yield {
+                "type": "error",
+                "code": code,
+                "message": "AI 助手出了点问题，请再试一次",
+            }
         finally:
             _sse_queue.set(None)
             _navigate_buffer.set(None)
