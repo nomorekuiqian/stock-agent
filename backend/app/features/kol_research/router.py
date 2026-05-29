@@ -587,13 +587,19 @@ def _stamp_kol_metadata(
 @router.get("/conversations")
 async def kol_research_list_conversations(
     user_info: dict = Depends(require_kol_research_flag),
+    limit: int = 20,
+    offset: int = 0,
 ):
     """List user conversations.
 
     Returns the raw list (mix of `research` and `kol_research` kinds);
     the frontend filters by `data.agent_kind`.
     """
-    return await list_conversations(user_info["user_id"])
+    result = await list_conversations(user_info["user_id"], limit=limit, offset=offset)
+    return {
+        "conversations": result["items"],
+        "has_more": result["has_more"],
+    }
 
 
 @router.get("/conversations/{conversation_id}")
