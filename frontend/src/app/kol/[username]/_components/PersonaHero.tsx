@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
 
 interface Props {
   username: string;
@@ -27,7 +25,6 @@ export default function PersonaHero({
   avatarUrl,
 }: Props) {
   const monogram = (displayName || username || '?').trim().slice(0, 1).toUpperCase();
-  const chatHref = `/research?agent=kol&persona=${encodeURIComponent(username)}`;
   const xProfileUrl = `https://x.com/${encodeURIComponent(username)}`;
   const [imgFailed, setImgFailed] = useState(false);
   const showImage = !!avatarUrl && !imgFailed;
@@ -110,14 +107,6 @@ export default function PersonaHero({
           </div>
         )}
 
-        {/* CTA */}
-        <Link
-          href={chatHref}
-          className="hidden shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary/15 md:inline-flex"
-        >
-          用他的视角追问
-          <ArrowUpRight className="h-3.5 w-3.5" />
-        </Link>
       </div>
     </header>
   );

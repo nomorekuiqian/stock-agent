@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { api, type KolCockpitFeedItem, type KolCockpitTickerSummary } from '@/lib/api';
+import {
+  api,
+  type KolCockpitFeedItem,
+  type KolCockpitTickerSummary,
+} from '@/lib/api';
+import { useKolCockpitSectorsV3 } from '@/hooks/queries/use-kol-data';
 import FeedFilterBar, { type FeedFilterValue } from './FeedFilterBar';
 import HotTickersRail from './HotTickersRail';
 import TweetFeedCard from './TweetFeedCard';
+import { FeedListSkeleton } from './Skeletons';
 
 interface Props {
   username: string;
@@ -24,6 +30,10 @@ export default function LiveFeed({ username, tickers }: Props) {
   const [error, setError] = useState<string | null>(null);
   const loadKey = useRef(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Shared with sector page & overview via TanStack Query cache.
+  const sectorsQ = useKolCockpitSectorsV3(username);
+  const sectors = sectorsQ.data?.sectors ?? [];
 
   // Initial + filter-change fetch.
   useEffect(() => {
@@ -88,14 +98,12 @@ export default function LiveFeed({ username, tickers }: Props) {
     return () => observer.disconnect();
   }, [loadMore]);
 
-  const hotTickerSymbols = tickers.slice(0, 6).map((t) => t.ticker);
-
   return (
     <div className="pb-12">
       <FeedFilterBar
         value={filter}
         onChange={setFilter}
-        hotTickers={hotTickerSymbols}
+        sectors={sectors}
         resultCount={total}
       />
 
@@ -103,7 +111,7 @@ export default function LiveFeed({ username, tickers }: Props) {
         {/* Feed column */}
         <div className="min-w-0 flex-1">
           {loading ? (
-            <FeedSkeleton />
+            <FeedListSkeleton rows={5} />
           ) : error ? (
             <FeedError onRetry={() => setFilter({ ...filter })} />
           ) : items.length === 0 ? (
@@ -115,7 +123,6 @@ export default function LiveFeed({ username, tickers }: Props) {
                   <TweetFeedCard
                     key={item.id}
                     item={item}
-                    username={username}
                     staggerMs={idx < 6 ? idx * 60 : undefined}
                   />
                 ))}
@@ -150,31 +157,6 @@ export default function LiveFeed({ username, tickers }: Props) {
           }
         />
       </div>
-    </div>
-  );
-}
-
-function FeedSkeleton() {
-  return (
-    <div className="divide-y divide-border/40">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="editorial-item animate-fade-in py-6" style={{ animationDelay: `${i * 60}ms` }}>
-          <div className="flex gap-2">
-            <div className="h-3 w-16 rounded bg-muted/60" />
-            <div className="h-3 w-12 rounded bg-muted/40" />
-          </div>
-          <div className="mt-3 space-y-2">
-            <div className="h-4 w-[92%] rounded bg-muted/50" />
-            <div className="h-4 w-[78%] rounded bg-muted/50" />
-            <div className="h-4 w-[58%] rounded bg-muted/40" />
-          </div>
-          <div className="mt-4 flex gap-4">
-            <div className="h-3 w-10 rounded bg-muted/40" />
-            <div className="h-3 w-10 rounded bg-muted/40" />
-            <div className="h-3 w-10 rounded bg-muted/40" />
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

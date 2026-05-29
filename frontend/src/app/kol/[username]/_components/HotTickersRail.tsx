@@ -11,15 +11,14 @@ interface Props {
 }
 
 /**
- * Right rail — top 5 most-mentioned tickers. Shows price + daily change + a
- * tiny mention-count bar. Clicking a row sets the feed filter.
- *
- * Note: MVP shows top 5 all-time (not last-7-days; the cockpit index doesn't
- * cheaply expose a 7d-rolling count yet — flagged TODO in the page comment).
+ * Right rail — top mentioned tickers. Shows price + daily change + a tiny
+ * mention-count bar. Clicking a row sets the feed filter.
  */
+const RAIL_LIMIT = 15;
+
 export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }: Props) {
   if (!tickers.length) return null;
-  const top = tickers.slice(0, 5);
+  const top = tickers.slice(0, RAIL_LIMIT);
   const maxCount = Math.max(...top.map((t) => t.count));
 
   return (
@@ -30,10 +29,10 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
             高频标的
           </h2>
           <span className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-            ALL-TIME
+            TOP {top.length}
           </span>
         </div>
-        <ul className="mt-3.5 space-y-3">
+        <ul className="mt-3.5 max-h-[calc(100vh-12rem)] space-y-3 overflow-y-auto pr-1">
           {top.map((t) => {
             const active = activeTicker === t.ticker;
             const widthPct = Math.max(8, Math.round((t.count / maxCount) * 100));

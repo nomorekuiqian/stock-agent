@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 
+import type { KolSectorV3Summary } from '@/lib/api';
+
 export interface FeedFilterValue {
   sector: string | null;
   ticker: string | null;
@@ -11,22 +13,16 @@ export interface FeedFilterValue {
 interface Props {
   value: FeedFilterValue;
   onChange: (v: FeedFilterValue) => void;
-  hotTickers?: string[];
+  /** v3 sectors driving the chip list (4 sector + 1 macro). */
+  sectors?: KolSectorV3Summary[];
   resultCount?: number | null;
 }
 
-const SECTOR_CHIPS: Array<{ label: string; value: string | null }> = [
-  { label: '全部', value: null },
-  { label: 'AI 算力', value: 'ai' },
-  { label: '加密', value: 'crypto' },
-  { label: '宏观', value: 'macro' },
-];
-
 /**
- * Horizontal filter bar — sector chips on left, ticker search on right,
- * optional hot-ticker chips below. Sticky-aware via parent.
+ * Horizontal filter bar — "全部" + one chip per v3 sector on the left,
+ * ticker search on the right.
  */
-export default function FeedFilterBar({ value, onChange, hotTickers, resultCount }: Props) {
+export default function FeedFilterBar({ value, onChange, sectors, resultCount }: Props) {
   const [tickerInput, setTickerInput] = useState(value.ticker ?? '');
 
   function applyTicker(raw: string) {
@@ -50,53 +46,20 @@ export default function FeedFilterBar({ value, onChange, hotTickers, resultCount
           aria-label="板块筛选"
           className="-mx-1 flex shrink-0 items-center gap-1 overflow-x-auto px-1 md:overflow-visible"
         >
-          {SECTOR_CHIPS.map((c) => {
-            const active = value.sector === c.value;
-            return (
-              <button
-                key={c.label}
-                role="tab"
-                aria-selected={active}
-                onClick={() => onChange({ ...value, sector: c.value })}
-                className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium tracking-tight transition ${
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-                }`}
-              >
-                {c.label}
-              </button>
-            );
-          })}
+          <SectorChip
+            label="全部"
+            active={value.sector === null}
+            onClick={() => onChange({ ...value, sector: null })}
+          />
+          {(sectors ?? []).map((s) => (
+            <SectorChip
+              key={s.key}
+              label={s.label}
+              active={value.sector === s.key}
+              onClick={() => onChange({ ...value, sector: s.key })}
+            />
+          ))}
         </div>
-
-        {/* Hot ticker chips */}
-        {hotTickers && hotTickers.length > 0 ? (
-          <div className="hidden items-center gap-1 lg:flex">
-            <span className="font-data text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">
-              热门
-            </span>
-            {hotTickers.slice(0, 6).map((tk) => {
-              const active = value.ticker === tk;
-              return (
-                <button
-                  key={tk}
-                  onClick={() => {
-                    setTickerInput(tk);
-                    onChange({ sector: null, ticker: tk });
-                  }}
-                  className={`rounded-sm px-2 py-1 font-data text-[11px] font-medium tracking-wider transition ${
-                    active
-                      ? 'bg-primary/15 text-primary'
-                      : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
-                  }`}
-                >
-                  ${tk}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
 
         {/* Spacer + search */}
         <div className="ml-auto flex w-full items-center gap-2 md:w-auto">
@@ -138,5 +101,30 @@ export default function FeedFilterBar({ value, onChange, hotTickers, resultCount
         ) : null}
       </div>
     </div>
+  );
+}
+
+function SectorChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium tracking-tight transition ${
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'border border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+      }`}
+    >
+      {label}
+    </button>
   );
 }

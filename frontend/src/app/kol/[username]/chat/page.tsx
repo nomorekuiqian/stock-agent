@@ -1,10 +1,10 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use } from 'react';
 import Link from 'next/link';
 import { MessageCircle, ArrowUpRight } from 'lucide-react';
 
-import { api, type KolCockpitProfile } from '@/lib/api';
+import { useKolCockpitProfile } from '@/hooks/queries/use-kol-data';
 
 const STARTER_QUESTIONS = [
   '他怎么看 NVDA 现在的位置？',
@@ -20,16 +20,7 @@ export default function ChatLaunchpad({
   params: Promise<{ username: string }>;
 }) {
   const { username } = use(params);
-  const [profile, setProfile] = useState<KolCockpitProfile | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api.kolResearch.cockpitProfile(username).then((p) => {
-      if (!cancelled) setProfile(p);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [username]);
-
+  const { data: profile } = useKolCockpitProfile(username);
   const displayName = profile?.persona.display_name ?? username;
   // /research 会读 agent=kol + persona=... 自动激活 KOL 视角, 读 q= 自动发送 starter
   const chatHref = `/research?agent=kol&persona=${encodeURIComponent(username)}`;

@@ -1,0 +1,73 @@
+import { useQuery } from '@tanstack/react-query';
+
+import { api, type KolCockpitFeedOpts } from '@/lib/api';
+import { queryKeys } from './query-keys';
+
+/**
+ * Shared TanStack Query hooks for KOL persona pages. Same query keys across
+ * layout + sub-pages let TanStack Query serve cached data instantly on
+ * navigation. Default cache windows (5 min stale / 30 min gc) come from
+ * `query-client.ts` and fit how often Frank's data actually changes.
+ */
+
+const ENABLED = (username: string | null | undefined) => Boolean(username);
+
+export function useKolCockpitProfile(username: string) {
+  return useQuery({
+    queryKey: queryKeys.kol.profile(username),
+    queryFn: () => api.kolResearch.cockpitProfile(username),
+    enabled: ENABLED(username),
+  });
+}
+
+export function useKolCockpitTickers(username: string) {
+  return useQuery({
+    queryKey: queryKeys.kol.tickers(username),
+    queryFn: () => api.kolResearch.cockpitTickers(username),
+    enabled: ENABLED(username),
+  });
+}
+
+export function useKolCockpitFeed(username: string, opts: KolCockpitFeedOpts = {}) {
+  const sector = opts.sector ?? null;
+  const ticker = opts.ticker ?? null;
+  const limit = opts.limit ?? 20;
+  const offset = opts.offset ?? 0;
+  return useQuery({
+    queryKey: queryKeys.kol.feed(username, sector, ticker, limit, offset),
+    queryFn: () => api.kolResearch.cockpitFeed(username, opts),
+    enabled: ENABLED(username),
+  });
+}
+
+export function useKolCockpitSectorsV3(username: string) {
+  return useQuery({
+    queryKey: queryKeys.kol.sectorsV3(username),
+    queryFn: () => api.kolResearch.cockpitSectorsV3(username),
+    enabled: ENABLED(username),
+  });
+}
+
+export function useKolCockpitSectorV3(username: string, sectorKey: string | null) {
+  return useQuery({
+    queryKey: queryKeys.kol.sectorDetailV3(username, sectorKey ?? ''),
+    queryFn: () => api.kolResearch.cockpitSectorV3(username, sectorKey!),
+    enabled: ENABLED(username) && Boolean(sectorKey),
+  });
+}
+
+export function useKolIndustryChain(username: string, boardKey: string) {
+  return useQuery({
+    queryKey: queryKeys.kol.industryChain(username, boardKey),
+    queryFn: () => api.kolResearch.cockpitIndustryChain(username, boardKey),
+    enabled: ENABLED(username) && Boolean(boardKey),
+  });
+}
+
+export function useKolTickerDetail(username: string, ticker: string | null) {
+  return useQuery({
+    queryKey: queryKeys.kol.tickerDetail(username, ticker ?? ''),
+    queryFn: () => api.kolResearch.cockpitTickerDetail(username, ticker!),
+    enabled: ENABLED(username) && Boolean(ticker),
+  });
+}

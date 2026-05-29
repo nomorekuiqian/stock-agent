@@ -2,7 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Sparkles, LayoutGrid, BarChart3, MessageCircle, type LucideIcon } from 'lucide-react';
+import {
+  CandlestickChart,
+  Layers,
+  LayoutDashboard,
+  MessageCircle,
+  Radar,
+  Rss,
+  type LucideIcon,
+} from 'lucide-react';
 
 import {
   Tooltip,
@@ -24,7 +32,7 @@ interface Props {
 }
 
 interface NavItem {
-  key: 'overview' | 'latest' | 'sectors' | 'stocks' | 'chat';
+  key: 'overview' | 'latest' | 'sectors' | 'macro' | 'stocks' | 'chat';
   label: string;
   icon: LucideIcon;
   kpi: (k: KpiSet, displayName: string) => string;
@@ -42,21 +50,28 @@ const ITEMS: NavItem[] = [
   {
     key: 'latest',
     label: '最新观点',
-    icon: Sparkles,
+    icon: Rss,
     kpi: (k) => (k.latestCount != null ? `${k.latestCount} 条实时更新` : '滚动看他在说什么'),
     href: (u) => `/kol/${u}/latest`,
   },
   {
     key: 'sectors',
     label: '板块机会',
-    icon: LayoutGrid,
+    icon: Layers,
     kpi: (k) => (k.sectorCount != null ? `${k.sectorCount} 板块跟踪` : '产业链分层视角'),
     href: (u) => `/kol/${u}/sectors`,
   },
   {
+    key: 'macro',
+    label: '宏观视角',
+    icon: Radar,
+    kpi: () => '宏观框架与关键指标',
+    href: (u) => `/kol/${u}/macro`,
+  },
+  {
     key: 'stocks',
     label: '个股观点',
-    icon: BarChart3,
+    icon: CandlestickChart,
     kpi: (k) => (k.tickerCount != null ? `${k.tickerCount} 票覆盖` : '历史观点 + 价格联动'),
     href: (u) => `/kol/${u}/stocks`,
   },
@@ -71,8 +86,7 @@ const ITEMS: NavItem[] = [
 
 /**
  * Sub-nav that adapts shape to screen size:
- *   - Mobile (< lg): horizontal sticky strip, 5-col grid, icon + label
- *     + KPI sub-line (md+).
+ *   - Mobile (< lg): horizontal sticky strip, icon + label + KPI sub-line (md+).
  *   - Desktop (lg+): slim ~60px icon-only sticky rail on the left, with a
  *     Tooltip on hover showing the label + KPI. Radix Tooltip is touch-aware
  *     and does not trigger on tap, so wrapping every item is safe.
@@ -94,8 +108,9 @@ export default function SubNav({ username, displayName, kpis = {} }: Props) {
       >
         <ul
           className="
-            grid grid-cols-5 divide-x divide-border/40
-            lg:flex lg:flex-col lg:divide-x-0 lg:divide-y lg:py-2
+            grid auto-cols-[minmax(5.75rem,1fr)] grid-flow-col overflow-x-auto divide-x divide-border/40
+            md:auto-cols-auto md:grid-flow-row md:grid-cols-6
+            lg:flex lg:overflow-visible lg:flex-col lg:divide-x-0 lg:divide-y lg:py-2
           "
         >
           {ITEMS.map((item) => {

@@ -92,4 +92,18 @@ export const queryKeys = {
   featureFlags: {
     all: ['feature-flags'] as const,
   },
+  kol: {
+    all: ['kol'] as const,
+    profile: (username: string) => ['kol', username, 'profile'] as const,
+    tickers: (username: string) => ['kol', username, 'tickers'] as const,
+    feed: (username: string, sector: string | null, ticker: string | null, limit: number, offset: number) =>
+      ['kol', username, 'feed', { sector, ticker, limit, offset }] as const,
+    sectorsV3: (username: string) => ['kol', username, 'sectors-v3'] as const,
+    sectorDetailV3: (username: string, sectorKey: string) =>
+      ['kol', username, 'sector-v3', sectorKey] as const,
+    industryChain: (username: string, boardKey: string) =>
+      ['kol', username, 'industry-chain', boardKey] as const,
+    tickerDetail: (username: string, ticker: string) =>
+      ['kol', username, 'ticker', ticker] as const,
+  },
 };

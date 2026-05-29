@@ -2,6 +2,7 @@ import { getAccessTokenAsync as getAccessToken, refreshSession } from '@/context
 import type { DailyDigest } from '@/app/twitter-digest/_components/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const STREAM_TIMEOUT_MS = 135_000;
 
 export class ApiError extends Error {
   status: number;
@@ -1109,7 +1110,7 @@ export type KolResearchStreamEvent =
   | { type: 'thinking'; text: string }
   | { type: 'message_delta'; text: string }
   | { type: 'final'; data: KolResearchResponse }
-  | { type: 'error'; error: string };
+  | { type: 'error'; error: string; code?: string };
 
 // --- KOL Persona Cockpit (public read) ---
 
@@ -1490,7 +1491,21 @@ async function _authHeaders(
 
 async function readApiError(response: Response, fallback: string): Promise<string> {
   const error = await response.json().catch(() => ({ detail: fallback }));
-  return error.detail || error.error || fallback;
+  const detail = error.detail;
+  if (Array.isArray(detail)) {
+    const first = detail[0] as { loc?: unknown[]; msg?: string } | undefined;
+    const loc = first?.loc?.map(String).join('.') || '';
+    if (loc.includes('history')) {
+      return '对话上下文太长了，请重新发送一次';
+    }
+    if (loc.includes('message')) {
+      return '问题太长了，请压缩后再发送';
+    }
+    return fallback;
+  }
+  if (typeof detail === 'string' && detail) return detail;
+  if (typeof error.error === 'string' && error.error) return error.error;
+  return fallback;
 }
 
 async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
@@ -2606,11 +2621,11 @@ export const api = {
 
     chatStream: async (
       req: ResearchRequest,
-      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; quota_exceeded?: boolean }) => void,
+      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; code?: string; quota_exceeded?: boolean }) => void,
     ): Promise<void> => {
       const headers = await _authHeaders({ 'Content-Type': 'application/json' });
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120_000);
+      const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
       try {
         const response = await fetch(`${API_BASE_URL}/research/chat/stream`, {
           method: 'POST',
@@ -2664,12 +2679,17 @@ export const api = {
     },
 
     conversations: {
-      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+      list: async (opts: { limit?: number; offset?: number } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
         const headers = await _authHeaders({});
         const hasAuth = !!headers['Authorization'];
-        const response = await fetch(`${API_BASE_URL}/research/conversations`, { headers });
+        const params = new URLSearchParams();
+        if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+        if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+        const qs = params.toString();
+        const url = `${API_BASE_URL}/research/conversations${qs ? `?${qs}` : ''}`;
+        const response = await fetch(url, { headers });
         if (!response.ok) {
-          if (!hasAuth) return { conversations: [] };
+          if (!hasAuth) return { conversations: [], has_more: false };
           await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();
@@ -2848,7 +2868,7 @@ export const api = {
     ): Promise<void> => {
       const headers = await _authHeaders({ 'Content-Type': 'application/json' });
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120_000);
+      const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
       if (signal) {
         signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
@@ -2896,11 +2916,16 @@ export const api = {
     },
 
     conversations: {
-      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+      list: async (opts: { limit?: number; offset?: number } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
         const headers = await _authHeaders({});
-        const response = await fetch(`${API_BASE_URL}/kol_research/conversations`, { headers });
+        const params = new URLSearchParams();
+        if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+        if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+        const qs = params.toString();
+        const url = `${API_BASE_URL}/kol_research/conversations${qs ? `?${qs}` : ''}`;
+        const response = await fetch(url, { headers });
         if (!response.ok) {
-          if (response.status === 403) return { conversations: [] };
+          if (response.status === 403) return { conversations: [], has_more: false };
           await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();

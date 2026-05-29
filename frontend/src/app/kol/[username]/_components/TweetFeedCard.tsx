@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Heart, Repeat2, MessageSquare, ArrowUpRight, GitBranch } from 'lucide-react';
 
 import type { KolCockpitFeedItem } from '@/lib/api';
@@ -9,9 +8,22 @@ import { relativeTimeCN, absoluteTimeCN } from './relativeTime';
 
 interface Props {
   item: KolCockpitFeedItem;
-  username: string;
   /** Optional sequential delay for stagger animation on initial render. */
   staggerMs?: number;
+}
+
+/** X (formerly Twitter) brand glyph. Lucide has no official X logo. */
+function XLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M18.244 2H21.5l-7.5 8.572L23 22h-6.828l-5.348-6.99L4.7 22H1.44l8.02-9.17L1 2h6.984l4.836 6.4L18.244 2zm-1.196 18h1.886L7.04 4h-2.02l12.028 16z" />
+    </svg>
+  );
 }
 
 const LONG_TEXT_THRESHOLD = 280;
@@ -21,7 +33,7 @@ const LONG_TEXT_THRESHOLD = 280;
  * raw tweet text preserved with linkified @mentions / URLs / cashtags.
  * No card chrome — feels like a feed, not a card grid.
  */
-export default function TweetFeedCard({ item, username, staggerMs }: Props) {
+export default function TweetFeedCard({ item, staggerMs }: Props) {
   const [expanded, setExpanded] = useState(false);
   const long = item.text.length > LONG_TEXT_THRESHOLD;
   const visibleText = expanded || !long ? item.text : item.text.slice(0, LONG_TEXT_THRESHOLD).trimEnd();
@@ -31,10 +43,6 @@ export default function TweetFeedCard({ item, username, staggerMs }: Props) {
   // are self-thread continuations (reply_kind === 'self'). Label them as 「线程」.
   const isThread = item.reply_kind === 'self';
   const isQuote = item.tweet_type === 'quote';
-  const primaryTicker = item.tickers[0] ?? null;
-  const chatHref = primaryTicker
-    ? `/research?agent=kol&persona=${encodeURIComponent(username)}&symbol=${encodeURIComponent(primaryTicker)}`
-    : `/research?agent=kol&persona=${encodeURIComponent(username)}`;
 
   const style = staggerMs != null ? { animationDelay: `${staggerMs}ms` } : undefined;
 
@@ -116,20 +124,12 @@ export default function TweetFeedCard({ item, username, staggerMs }: Props) {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
             >
+              <XLogo className="h-3 w-3" />
               原文
               <ArrowUpRight className="h-3 w-3" />
             </a>
-          ) : null}
-          {item.tickers.length > 0 ? (
-            <Link
-              href={chatHref}
-              className="inline-flex items-center gap-1 text-primary/80 hover:text-primary"
-            >
-              问问他怎么看
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
           ) : null}
         </span>
       </div>

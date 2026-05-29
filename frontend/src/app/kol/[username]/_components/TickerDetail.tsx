@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react';
 
-import { api, type KolCockpitTickerDetail, type KolCockpitTweet } from '@/lib/api';
+import { useKolTickerDetail } from '@/hooks/queries/use-kol-data';
+import type { KolCockpitTweet } from '@/lib/api';
 import PriceTimelineChart from './PriceTimelineChart';
 import TweetFeedCard from './TweetFeedCard';
 import TickerNarrative from './TickerNarrative';
+import { IndustryChainSkeleton } from './Skeletons';
 
 interface Props {
   username: string;
@@ -17,58 +19,22 @@ interface Props {
 type ExcerptTab = 'latest' | 'top';
 
 export default function TickerDetail({ username, ticker }: Props) {
-  const [detail, setDetail] = useState<KolCockpitTickerDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [errored, setErrored] = useState(false);
+  const { data: detail, isLoading, isError } = useKolTickerDetail(username, ticker);
   const [tab, setTab] = useState<ExcerptTab>('latest');
-
-  useEffect(() => {
-    if (!ticker) {
-      setDetail(null);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setErrored(false);
-    setDetail(null);
-    api.kolResearch
-      .cockpitTickerDetail(username, ticker)
-      .then((d) => {
-        if (cancelled) return;
-        setDetail(d);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setErrored(true);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [username, ticker]);
 
   if (!ticker) {
     return <EmptyState />;
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        <span className="font-data text-xs uppercase tracking-[0.18em]">载入 ${ticker}</span>
-      </div>
-    );
-  }
-
-  if (errored || !detail) {
-    return (
-      <div className="py-20 text-center">
-        <p className="text-sm text-destructive">无法获取该标的的详情 · 请检查网络或稍后重试</p>
-      </div>
-    );
+  if (isLoading || !detail) {
+    if (isError) {
+      return (
+        <div className="py-20 text-center">
+          <p className="text-sm text-destructive">无法获取个股详情 · 请检查网络或稍后重试</p>
+        </div>
+      );
+    }
+    return <IndustryChainSkeleton />;
   }
 
   const tweetsByLikes = [...detail.tweets].sort(
@@ -174,7 +140,6 @@ export default function TickerDetail({ username, ticker }: Props) {
               <TweetFeedCard
                 key={tweet.id}
                 item={toFeedItem(tweet)}
-                username={username}
                 staggerMs={idx < 4 ? idx * 60 : undefined}
               />
             ))}
