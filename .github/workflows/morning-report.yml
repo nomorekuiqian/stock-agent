@@ -1,19 +1,48 @@
 name: Morning Market Report
 
+permissions:
+  contents: read
+  issues: write
+
 on:
   schedule:
-    # Run at 8:00 AM US Eastern Time (before market open)
-    # UTC 12:00 = 8:00 AM EDT (summer) / 7:00 AM EST (winter)
-    # GitHub Actions cron may delay 30-60 min, so we schedule 1h early
-    - cron: '0 12 * * 1-5'  # Monday to Friday only (market days)
+    # Target ~7:17 AM US Eastern on market weekdays.
+    # Use non-top-of-hour minutes to avoid GitHub Actions schedule congestion.
+    - cron: '17 11 * * 1-5'  # EDT only (7:17 AM ET)
+    - cron: '17 12 * * 1-5'  # EST only (7:17 AM ET)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
   send-morning-report:
     runs-on: ubuntu-latest
     steps:
+      - name: Skip inactive DST schedule
+        if: github.event_name == 'schedule'
+        env:
+          TRIGGER_SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          tz_abbr=$(TZ=America/New_York date +%Z)
+          echo "New York timezone: $tz_abbr; schedule: $TRIGGER_SCHEDULE"
+
+          if [ "$tz_abbr" = "EDT" ] && [ "$TRIGGER_SCHEDULE" != "17 11 * * 1-5" ]; then
+            echo "Skipping EST cron during EDT"
+            echo "SHOULD_SEND_MORNING_REPORT=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [ "$tz_abbr" = "EST" ] && [ "$TRIGGER_SCHEDULE" != "17 12 * * 1-5" ]; then
+            echo "Skipping EDT cron during EST"
+            echo "SHOULD_SEND_MORNING_REPORT=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
       - name: Send Morning Market Report
         run: |
+          if [ "${SHOULD_SEND_MORNING_REPORT:-true}" = "false" ]; then
+            echo "Inactive seasonal cron; no send needed."
+            exit 0
+          fi
+
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
@@ -36,12 +65,23 @@ jobs:
             exit 1
           fi
 
-          # Parse and validate sent count
-          sent=$(echo "$body" | grep -o '"sent":[0-9]*' | cut -d':' -f2)
-          total=$(echo "$body" | grep -o '"total":[0-9]*' | cut -d':' -f2)
+          broadcast_id=$(echo "$body" | jq -r '.broadcast_id // ""')
+          segment_id=$(echo "$body" | jq -r '.segment_id // ""')
+          audience_id=$(echo "$body" | jq -r '.audience_id // ""')
+          sent=$(echo "$body" | jq -r '.sent // 0')
+          total=$(echo "$body" | jq -r '.total // 0')
+
+          echo "Broadcast: $broadcast_id"
+          echo "Segment: $segment_id"
+          echo "Audience: $audience_id"
           echo "Total: $total, Sent: $sent"
 
-          if [ -n "$sent" ] && [ "$sent" -eq 0 ]; then
+          if [ -z "$broadcast_id" ]; then
+            echo "::error::Broadcast returned no broadcast_id"
+            exit 1
+          fi
+
+          if [ -z "$segment_id" ] && [ -n "$sent" ] && [ "$sent" -eq 0 ]; then
             echo "::error::Broadcast sent to 0 recipients - check audience configuration"
             exit 1
           fi

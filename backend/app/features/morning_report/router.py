@@ -310,6 +310,9 @@ async def broadcast_morning_report(
         return BroadcastResponse(
             success=True,
             channel="daily_report",
+            broadcast_id=broadcast_result.get("broadcast_id"),
+            audience_id=broadcast_result.get("audience_id"),
+            segment_id=broadcast_result.get("segment_id"),
             total=broadcast_result.get("total", 0),
             sent=broadcast_result.get("sent", 0),
             failed=broadcast_result.get("failed", 0),
