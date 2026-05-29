@@ -4,6 +4,7 @@ import { useReducer, useCallback, useEffect, useState, useRef, Suspense } from '
 import ReactDOM from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
@@ -15,7 +16,7 @@ import {
   saveState,
   STORAGE_KEY,
 } from './_lib/researchReducer';
-import type { LoadConversationData } from './_lib/researchReducer';
+import type { ChatMsg, LoadConversationData } from './_lib/researchReducer';
 import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
 import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
@@ -35,10 +36,64 @@ import { useFeatureFlags } from '@/hooks/use-feature-flags';
 // Helpers
 // ---------------------------------------------------------------------------
 
+const RESEARCH_HISTORY_LIMIT = 24;
+const KOL_HISTORY_LIMIT = 20;
+const HISTORY_MESSAGE_CHAR_LIMIT = 2000;
+const RESEARCH_MESSAGE_CHAR_LIMIT = 500;
+const KOL_MESSAGE_CHAR_LIMIT = 4000;
+const AGENT_STUCK_TIMEOUT_MS = 140_000;
+
+type ApiHistoryMessage = { role: 'user' | 'assistant'; content: string };
+
 function formatConversationTitle(agentTitle: string): string {
   const now = new Date();
   const dateStr = `${now.getMonth() + 1}月${now.getDate()}日`;
   return agentTitle ? `${dateStr} · ${agentTitle}` : dateStr;
+}
+
+function truncateHistoryContent(content: string): string {
+  const normalized = content.trim();
+  if (normalized.length <= HISTORY_MESSAGE_CHAR_LIMIT) return normalized;
+  return `${normalized.slice(0, HISTORY_MESSAGE_CHAR_LIMIT)}\n[历史消息已截断]`;
+}
+
+function buildCompactHistory(
+  messages: ChatMsg[],
+  limit: number,
+): ApiHistoryMessage[] {
+  return messages
+    .filter((m) => (
+      (m.role === 'user' || m.role === 'assistant') &&
+      !m.isError &&
+      !m.streaming &&
+      m.content.trim().length > 0
+    ))
+    .slice(-limit)
+    .map((m) => ({
+      role: m.role,
+      content: truncateHistoryContent(m.content),
+    }));
+}
+
+function getAgentErrorMessage(event: {
+  message?: string;
+  error?: string;
+  code?: string;
+  quota_exceeded?: unknown;
+}): string {
+  if (event.quota_exceeded) {
+    return '今日免费提问次数已用完。点击输入框下方的「升级 Max」即可解锁无限使用。';
+  }
+  if (event.code === 'context_too_long') {
+    return '对话上下文太长了。系统会保留最近重点，请重新发送一次。';
+  }
+  if (event.code === 'agent_timeout') {
+    return 'AI 助手思考时间太长了，请简化问题后再试一次。';
+  }
+  if (event.code === 'model_schema_error') {
+    return 'AI 助手输出格式异常，请重新发送一次。';
+  }
+  return event.message || event.error || 'AI 助手暂时无法响应';
 }
 
 function getContextKey(contextType: string, params: URLSearchParams): string {
@@ -55,18 +110,36 @@ function getContextKey(contextType: string, params: URLSearchParams): string {
 
 function ScreenerContent() {
   const router = useRouter();
-  const { isLoading: authLoading, isAuthenticated, signOut, user } = useAuth();
+  const { isLoading: authLoading, signOut, user } = useAuth();
+  const { isPro, isMax } = useSubscription();
+  const userTier: 'max' | 'pro' | null = isMax ? 'max' : isPro ? 'pro' : null;
   const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
   const [historyOpen, setHistoryOpen] = useState(true);
   const prevPhaseRef = useRef(state.phase);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
+  const [hasMoreConversations, setHasMoreConversations] = useState(false);
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
+  const CONVERSATIONS_PAGE_SIZE = 20;
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [quota, setQuota] = useState<{ allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean } | null>(null);
-  // KOL persona state. Persisted only across the session via reducer reset on switch.
-  const [agentKind, setAgentKind] = useState<AgentKind>('research');
-  const [personaUsername, setPersonaUsername] = useState<string | null>(null);
+  // KOL persona / agent kind are *derived* from reducer state so that they
+  // survive sessionStorage rehydration. Without this, a page reload would
+  // drop personaUsername back to null, and the next message on a KOL
+  // conversation would be routed through the research save path — quietly
+  // overwriting the conversation's kol_chunks / persona_username on backend.
+  const personaUsername = state.personaUsername;
+  const agentKind: AgentKind = personaUsername ? 'kol_research' : 'research';
+  const setPersonaUsername = useCallback((u: string | null) => {
+    dispatch({ type: 'SET_PERSONA', personaUsername: u });
+  }, []);
+  // setAgentKind is preserved as a no-op shim for call sites that used to set
+  // it directly; the actual source of truth is personaUsername.
+  const setAgentKind = useCallback((_kind: AgentKind) => {
+    // Intentional no-op. agentKind is derived from personaUsername; callers
+    // should setPersonaUsername(null) to switch off KOL mode.
+  }, []);
   // KOL citation chunks now live in reducer state (state.kolChunks) so they
   // survive sessionStorage rehydration and LOAD_CONVERSATION. The cast is
   // a thin bridge from the loose reducer type to the typed api shape.
@@ -198,35 +271,50 @@ function ScreenerContent() {
   }, [searchParams, dispatch]);
 
   // KOL persona URL entry — /research?agent=kol&persona=qinbafrank[&q=...]
-  // Used by `/kol/[username]/chat` landing page to deep-link into the KOL
-  // agent with a specific persona pre-selected (and optionally auto-send a
-  // starter question). Independent of context= handler.
-  const kolUrlInitialized = useRef(false);
+  // Used by `/kol/[username]` overview, sector detail pages, etc to deep-link
+  // into a KOL chat with a starter question. Re-processes on every URL change
+  // (so clicking a second starter from a different page picks up the new q),
+  // and dispatches RESET when q is present so each starter opens a fresh chat
+  // — prior in-flight conversation, if any, is auto-saved via handleSend and
+  // accessible from the history sidebar.
+  const lastProcessedKolSeed = useRef('');
   useEffect(() => {
-    if (kolUrlInitialized.current) return;
     const agentParam = searchParams.get('agent');
     const personaParam = searchParams.get('persona');
     if (agentParam !== 'kol' || !personaParam) return;
-    kolUrlInitialized.current = true;
 
+    // Always re-assert agent kind + persona on every KOL URL visit. If the
+    // user toggled away via PersonaSelector and then came back through a
+    // same-URL link, gating these by signature would leave agentKind stuck
+    // on 'research'. React's setState bails out on unchanged values, so this
+    // is free when nothing changed.
     setAgentKind('kol_research');
     setPersonaUsername(personaParam);
 
-    const seedQ = searchParams.get('q');
-    if (seedQ) {
-      pendingSeed.current = seedQ;
-      if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
-      // Slightly longer delay than CONTEXT_ENTRY path because we don't gate on
-      // content panel ready — just wait for the agentKind/persona state updates
-      // to flush through React before triggering handleSend.
-      pendingSeedTimerRef.current = setTimeout(() => {
-        pendingSeedTimerRef.current = null;
-        const msg = pendingSeed.current;
-        if (!msg) return;
-        pendingSeed.current = null;
-        handleSendRef.current?.(msg);
-      }, 250);
-    }
+    // Seed gate fires once per (persona, q) tuple — prevents the same
+    // starter URL from RESET-ing the conversation again if the user
+    // navigates away and back without changing q. Empty q is never seeded.
+    const seedQ = searchParams.get('q') ?? '';
+    if (!seedQ) return;
+    const signature = `${personaParam}|${seedQ}`;
+    if (lastProcessedKolSeed.current === signature) return;
+    lastProcessedKolSeed.current = signature;
+
+    // Seeded entries always start a fresh conversation — drop current state
+    // (saved server-side already) so the seed becomes turn 1.
+    dispatch({ type: 'RESET' });
+    pendingSeed.current = seedQ;
+    if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
+    // Slightly longer delay than CONTEXT_ENTRY path because we don't gate on
+    // content panel ready — just wait for the RESET / agentKind / persona
+    // state updates to flush through React before triggering handleSend.
+    pendingSeedTimerRef.current = setTimeout(() => {
+      pendingSeedTimerRef.current = null;
+      const msg = pendingSeed.current;
+      if (!msg) return;
+      pendingSeed.current = null;
+      handleSendRef.current?.(msg);
+    }, 250);
   }, [searchParams]);
 
   // Persist state to sessionStorage on change
@@ -239,10 +327,11 @@ function ScreenerContent() {
     if (authLoading) return;
     if (state.phase !== 'welcome' && !historyOpen) return;
     let cancelled = false;
-    api.research.conversations.list()
+    api.research.conversations.list({ limit: CONVERSATIONS_PAGE_SIZE, offset: 0 })
       .then(res => {
         if (!cancelled) {
           setConversations(res.conversations || []);
+          setHasMoreConversations(!!res.has_more);
           setConversationsLoaded(true);
         }
       })
@@ -251,6 +340,30 @@ function ScreenerContent() {
       });
     return () => { cancelled = true; };
   }, [state.phase, authLoading, historyOpen, state.conversationId]);
+
+  // Load the next page of conversations on "加载更多".
+  // Appends to existing list and dedupes on id — protects against the rare
+  // case where a refresh races with load-more and the same row appears twice.
+  const handleLoadMoreConversations = useCallback(async () => {
+    if (loadingMoreConversations || !hasMoreConversations) return;
+    setLoadingMoreConversations(true);
+    try {
+      const res = await api.research.conversations.list({
+        limit: CONVERSATIONS_PAGE_SIZE,
+        offset: conversations.length,
+      });
+      const next = res.conversations || [];
+      setConversations(prev => {
+        const seen = new Set(prev.map(c => c.id));
+        return [...prev, ...next.filter(c => !seen.has(c.id))];
+      });
+      setHasMoreConversations(!!res.has_more);
+    } catch {
+      // Silently ignore — user can retry by clicking again
+    } finally {
+      setLoadingMoreConversations(false);
+    }
+  }, [conversations.length, hasMoreConversations, loadingMoreConversations]);
 
   // Fetch quota on mount and when messages change
   useEffect(() => {
@@ -267,41 +380,56 @@ function ScreenerContent() {
     prevPhaseRef.current = state.phase;
   }, [state.phase]);
 
-  // Safety: auto-recover from stuck isLoading after 95 seconds
+  // Safety: auto-recover only if the fetch-level timeout did not fire.
   useEffect(() => {
     if (!state.isLoading) return;
     const timer = setTimeout(() => {
       dispatch({ type: 'SET_ERROR', error: 'AI 助手响应超时了，请再试一次' });
-    }, 95_000);
+    }, AGENT_STUCK_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [state.isLoading]);
 
   // Build conversation history for API
   const buildHistory = useCallback(() => {
-    return state.messages.map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
+    return buildCompactHistory(state.messages, RESEARCH_HISTORY_LIMIT);
   }, [state.messages]);
 
   // Build conversation data for saving
+  //
+  // Defensive: if the current state still carries KOL extras (kol_chunks /
+  // persona_username), preserve them alongside the research fields. Without
+  // this, any code path that accidentally routes a KOL conversation through
+  // this builder (e.g. a future regression of the historical saveCurrent bug
+  // or panel-state save race) would silently wipe the citation panel data on
+  // the next load.
   const buildConversationData = useCallback((
     messages: typeof state.messages,
     result: { accumulated_filters: typeof state.accumulatedFilters; candidates: typeof state.candidates; candidate_count: number; universe_size: number; recommendations: typeof state.recommendations },
     funnelSteps: typeof state.funnelSteps,
     activeContent: typeof state.activeContent,
     contentStack: typeof state.contentStack,
-  ) => ({
-    messages,
-    accumulated_filters: result.accumulated_filters,
-    candidates: result.candidates,
-    candidate_count: result.candidate_count,
-    universe_size: result.universe_size,
-    recommendations: result.recommendations,
-    funnel_steps: funnelSteps,
-    active_content: activeContent,
-    content_stack: contentStack,
-  }), []);
+    kolExtras?: { kolChunks?: Record<string, unknown>[]; personaUsername?: string | null },
+  ) => {
+    const base: Record<string, unknown> = {
+      messages,
+      accumulated_filters: result.accumulated_filters,
+      candidates: result.candidates,
+      candidate_count: result.candidate_count,
+      universe_size: result.universe_size,
+      recommendations: result.recommendations,
+      funnel_steps: funnelSteps,
+      active_content: activeContent,
+      content_stack: contentStack,
+    };
+    if (kolExtras?.personaUsername) {
+      base.persona_username = kolExtras.personaUsername;
+      base.agent_kind = 'kol_research';
+    }
+    if (kolExtras?.kolChunks && kolExtras.kolChunks.length > 0) {
+      base.kol_chunks = kolExtras.kolChunks;
+    }
+    return base;
+  }, []);
 
   // Auto-save conversation after each turn
   const saveConversation = useCallback(async (
@@ -344,6 +472,13 @@ function ScreenerContent() {
       skipPanelSaveRef.current = false;
       return;
     }
+    // KOL conversations are persisted by handleKolSend through the
+    // /api/kol_research/conversations endpoint with kol_chunks + persona_username
+    // in the data payload. Running this research-style save against a KOL
+    // conversation would overwrite data with a payload that has neither field,
+    // and the right-side citation panel would come back empty next time the
+    // conversation is loaded.
+    if (agentKind === 'kol_research') return;
     const s = latestStateRef.current;
     if (!s.conversationId || s.messages.length === 0) return;
 
@@ -366,7 +501,7 @@ function ScreenerContent() {
       convData as Record<string, unknown>,
       s.messages.length,
     );
-  }, [state.activeContent, state.contentStack, state.conversationId, buildConversationData, saveConversation]);
+  }, [state.activeContent, state.contentStack, state.conversationId, agentKind, buildConversationData, saveConversation]);
 
   // Navigate right panel to a stock's research view
   const handleStockClick = useCallback((symbol: string, tab?: string) => {
@@ -430,13 +565,14 @@ function ScreenerContent() {
   // Send message handler
   // KOL-mode send. Independent codepath: we don't touch screener candidates / filters.
   const handleKolSend = useCallback(async (message: string) => {
+    if (message.trim().length > KOL_MESSAGE_CHAR_LIMIT) {
+      dispatch({ type: 'SET_ERROR', error: `问题太长了，请压缩到 ${KOL_MESSAGE_CHAR_LIMIT} 字以内再发送` });
+      return;
+    }
     dispatch({ type: 'SEND_MESSAGE', message });
     dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
     try {
-      const history = state.messages
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m) => ({ role: m.role, content: m.content }));
-      history.push({ role: 'user', content: message });
+      const history = buildCompactHistory(state.messages, KOL_HISTORY_LIMIT);
 
       let finalMessage = '';
       let finalChunks: KolPersonaChunk[] = [];
@@ -487,13 +623,25 @@ function ScreenerContent() {
             finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
           } else if (event.type === 'error') {
             errored = true;
-            dispatch({ type: 'SET_ERROR', error: event.error || 'AI 助手暂时无法响应' });
+            // Log the full backend error payload so the console shows code +
+            // raw message even after we map it to a user-facing string. Grep
+            // "[KOL Research] backend error" to find these in DevTools.
+            console.warn('[KOL Research] backend error event:', event);
+            dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
           }
         },
       );
 
       if (errored) return;
       if (!finalMessage) {
+        // Stream closed without emitting `final` or `error`. Common causes:
+        // backend reload mid-request (StatReload), proxy dropped SSE, auth
+        // middleware rejected after stream open. Grep "[KOL Research] no
+        // final event" in DevTools to find these.
+        console.warn('[KOL Research] no final event — stream closed cleanly without answer', {
+          chunksReceived: finalChunks.length,
+          navigateBuffered: !!finalNavigate,
+        });
         dispatch({ type: 'SET_ERROR', error: 'AI 助手暂时无法响应' });
         return;
       }
@@ -549,8 +697,16 @@ function ScreenerContent() {
         const finalTitle = isFirstTurn
           ? titleForRespose
           : latestState.conversationTitle || `@${persona} 对话`;
+        // IMPORTANT: latestStateRef.current.messages already contains the
+        // user message (added by SEND_MESSAGE earlier in this function) and
+        // the finalized assistant message (added by STREAM_DELTA + upgraded
+        // in-place by RECEIVE_RESPONSE). The closure-captured state.messages
+        // is what existed *before* this turn began. Use that as the base,
+        // then append the current user + assistant manually — otherwise we
+        // double-record the turn (which is exactly the bug that caused every
+        // saved KOL conversation to grow at 2× the visible rate).
         const allMessages = [
-          ...latestState.messages,
+          ...state.messages,
           { id: `u-${Date.now()}`, role: 'user' as const, content: message },
           { id: `a-${Date.now()}`, role: 'assistant' as const, content: finalMessage },
         ];
@@ -591,6 +747,10 @@ function ScreenerContent() {
     // Route to KOL agent codepath when a persona is loaded.
     if (agentKind === 'kol_research') {
       return handleKolSend(message);
+    }
+    if (message.trim().length > RESEARCH_MESSAGE_CHAR_LIMIT) {
+      dispatch({ type: 'SET_ERROR', error: `问题太长了，请压缩到 ${RESEARCH_MESSAGE_CHAR_LIMIT} 字以内再发送` });
+      return;
     }
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Screener] handleSend called, isLoading was:', state.isLoading);
@@ -679,7 +839,7 @@ function ScreenerContent() {
       await api.research.chatStream(
         {
           message,
-          history: [...buildHistory(), { role: 'user', content: message }],
+          history: buildHistory(),
           accumulated_filters: state.accumulatedFilters.length > 0
             ? state.accumulatedFilters
             : undefined,
@@ -697,10 +857,7 @@ function ScreenerContent() {
             streamResult = event.result as ResearchResult;
           } else if (event.type === 'error') {
             streamErrorHandled = true;
-            const msg = (event as Record<string, unknown>).quota_exceeded
-              ? '今日免费提问次数已用完。点击输入框下方的「升级 Max」即可解锁无限使用。'
-              : event.message || 'AI 助手暂时无法响应';
-            dispatch({ type: 'SET_ERROR', error: msg });
+            dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
           }
         },
       );
@@ -847,7 +1004,14 @@ function ScreenerContent() {
           saveFunnelSteps = [...saveFunnelSteps, { count: result.candidate_count }];
         }
       }
-      const convData = buildConversationData(allMessages, result, saveFunnelSteps, state.activeContent, state.contentStack);
+      const convData = buildConversationData(
+        allMessages,
+        result,
+        saveFunnelSteps,
+        state.activeContent,
+        state.contentStack,
+        { kolChunks: state.kolChunks, personaUsername },
+      );
       // Title is only set on first turn (create); subsequent updates keep existing title
       const isFirstTurn = !state.conversationId;
       const title = isFirstTurn
@@ -871,7 +1035,7 @@ function ScreenerContent() {
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [agentKind, handleKolSend, buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, router, buildConversationData, saveConversation, handleStockClick, signOut]);
+  }, [agentKind, personaUsername, handleKolSend, buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, router, buildConversationData, saveConversation, handleStockClick, signOut]);
 
   // Keep ref in sync so flushPendingSeed can call the latest handleSend
   useEffect(() => {
@@ -934,6 +1098,9 @@ function ScreenerContent() {
     // the right panel (citation cards) doesn't show up empty after a reload
     // or after loading from the sidebar.
     const savedKolChunks = (data.kol_chunks as Record<string, unknown>[] | undefined) ?? [];
+    // Restore persona via the LOAD_CONVERSATION dispatch (single source of
+    // truth, persisted via sessionStorage). agentKind is derived from this.
+    const savedPersona = (data.persona_username as string | undefined) ?? null;
     dispatch({
       type: 'LOAD_CONVERSATION',
       data: {
@@ -949,15 +1116,17 @@ function ScreenerContent() {
         activeContent: data.active_content as LoadConversationData['activeContent'],
         contentStack: data.content_stack as LoadConversationData['contentStack'],
         kolChunks: savedKolChunks,
+        personaUsername: savedPersona,
       },
     });
-    // If this is a KOL conversation (persona_username present), also
-    // restore agentKind + personaUsername so the right panel renders the
-    // KOL view rather than ContentPanel.
-    const savedPersona = data.persona_username as string | undefined;
-    if (savedPersona) {
-      setAgentKind('kol_research');
-      setPersonaUsername(savedPersona);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[research] loadConversationData', {
+        conversationId,
+        savedPersona,
+        kolChunksCount: savedKolChunks.length,
+        hasDataField: !!conv.data,
+        dataKeys: conv.data ? Object.keys(conv.data) : [],
+      });
     }
   }, []);
 
@@ -965,24 +1134,14 @@ function ScreenerContent() {
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
     pendingSeed.current = null;
 
-    // Save current conversation's panel state before switching
-    const cur = latestStateRef.current;
-    if (cur.conversationId && cur.conversationId !== conversationId && cur.messages.length > 0) {
-      const convData = buildConversationData(
-        cur.messages,
-        {
-          accumulated_filters: cur.accumulatedFilters,
-          candidates: cur.candidates,
-          candidate_count: cur.candidateCount,
-          universe_size: cur.universeSize,
-          recommendations: cur.recommendations,
-        },
-        cur.funnelSteps,
-        cur.activeContent,
-        cur.contentStack,
-      );
-      saveConversation(cur.conversationId, cur.conversationTitle, convData as Record<string, unknown>, cur.messages.length);
-    }
+    // NOTE: 不在这里 save current conversation. 之前的逻辑有两个 bug:
+    // 1) 它一律走 api.research.conversations.update + 不带 kol_chunks/persona_username
+    //    的 payload, 会把 KOL 对话 backend 数据覆盖掉, 导致再次加载时右边 panel
+    //    丢推特原文、agentKind 切不回 kol_research (即用户报的"右边 panel 全坏")
+    // 2) 每次切换都触发 update, backend updated_at 被刷新, 下次 list 时
+    //    刚切走的旧对话会错误地排到第一位
+    // 实际无需多保存: 上一轮 chat send 末尾已 save 全量, 之后 panel 改动也由
+    // 下面的 useEffect (state.activeContent/contentStack 变化) 自动保存.
 
     // Cache hit — instant switch, no network request
     const cached = convCache.current.get(conversationId);
@@ -1019,7 +1178,7 @@ function ScreenerContent() {
     } catch {
       if (summary) dispatch({ type: 'RESET' });
     }
-  }, [conversations, loadConversationData, buildConversationData, saveConversation]);
+  }, [conversations, loadConversationData]);
 
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
@@ -1088,6 +1247,10 @@ function ScreenerContent() {
             onToggle={() => setHistoryOpen(false)}
             userName={user?.name}
             userEmail={user?.email}
+            userTier={userTier}
+            hasMore={hasMoreConversations}
+            loadingMore={loadingMoreConversations}
+            onLoadMore={handleLoadMoreConversations}
           />
         </div>
 
@@ -1197,13 +1360,6 @@ function ScreenerContent() {
                   </svg>
                 </button>
               )}
-              {/* Read-only persona chip — visible during active KOL conversations.
-                  To switch personas, user clicks "新对话" / RESET to return to welcome. */}
-              {kolPersonaEnabled && agentKind === 'kol_research' && personaUsername && (
-                <div className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span>🎙️ @{personaUsername} 视角</span>
-                </div>
-              )}
             </div>
             <ChatPanel
               messages={state.messages}
@@ -1213,6 +1369,9 @@ function ScreenerContent() {
               toolActivities={state.toolActivities}
               quota={quota}
               citations={agentKind === 'kol_research' ? latestKolChunks : undefined}
+              personaUsername={
+                kolPersonaEnabled && agentKind === 'kol_research' ? personaUsername : null
+              }
               inputPlaceholder={
                 agentKind === 'kol_research'
                   ? `按 @${personaUsername || 'qinbafrank'} 方法论提问...`
