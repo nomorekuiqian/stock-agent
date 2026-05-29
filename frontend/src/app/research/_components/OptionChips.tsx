@@ -16,7 +16,7 @@ export default function OptionChips({
   if (!options.length) return null;
 
   return (
-    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 ml-10">
+    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 ml-8 sm:ml-10">
       {options.map((opt, i) => {
         const isSelected = selectedValue === opt;
         const isUnselected = selectedValue !== null && !isSelected;
@@ -27,7 +27,7 @@ export default function OptionChips({
             onClick={() => !disabled && onSelect(opt)}
             disabled={disabled}
             className={`
-              px-3.5 py-1.5 rounded-full text-sm
+              px-3.5 py-2 sm:py-1.5 rounded-full text-sm
               border transition-all duration-200
               ${selectedValue === null ? 'animate-chip-enter' : ''}
               ${isSelected

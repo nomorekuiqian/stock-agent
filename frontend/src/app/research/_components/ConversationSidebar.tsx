@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { ConversationSummary } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,14 @@ interface ConversationSidebarProps {
   onToggle?: () => void;
   userName?: string | null;
   userEmail?: string | null;
+  /** Subscription tier label shown next to the user avatar. 'max'/'pro'/null. */
+  userTier?: 'max' | 'pro' | null;
+  /** Pagination: more pages exist on the server. */
+  hasMore?: boolean;
+  /** Pagination: a load-more request is in flight. */
+  loadingMore?: boolean;
+  /** Pagination: handler invoked when the user clicks "加载更多". */
+  onLoadMore?: () => void;
 }
 
 export default function ConversationSidebar({
@@ -48,7 +57,35 @@ export default function ConversationSidebar({
   onToggle,
   userName,
   userEmail,
+  userTier,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: ConversationSidebarProps) {
+  // Auto-load the next page when the sentinel at the list bottom scrolls into
+  // view. rootMargin=120px primes the next page slightly before it's visible
+  // so the user doesn't see a stutter. Button below still works as a manual
+  // fallback (e.g. when IntersectionObserver isn't available).
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!hasMore || !onLoadMore || loadingMore) return;
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            onLoadMore();
+            break;
+          }
+        }
+      },
+      { root: null, rootMargin: '120px', threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore, conversations.length]);
+
   return (
     <div className="h-full w-full flex flex-col">
       {/* ── Logo header ── */}
@@ -114,43 +151,57 @@ export default function ConversationSidebar({
             <p className="text-xs text-muted-foreground/70">开始对话后会保存在这里</p>
           </div>
         ) : (
-          conversations.map((conv) => (
-            <div
-              key={conv.id}
-              className={`group relative mx-0.5 rounded-lg transition-all duration-150 border mb-0.5 ${
-                conv.id === currentId
-                  ? 'bg-primary/[0.08] border-primary/20'
-                  : 'border-transparent hover:bg-muted/60 hover:border-border/60'
-              }`}
-            >
-              <button
-                onClick={() => !requestInFlight && onLoad(conv.id)}
-                disabled={requestInFlight}
-                className={`w-full text-left px-2.5 py-2 pr-6 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+          <>
+            {conversations.map((conv) => (
+              <div
+                key={conv.id}
+                className={`group relative mx-0.5 rounded-lg transition-all duration-150 border mb-0.5 ${
+                  conv.id === currentId
+                    ? 'bg-primary/[0.08] border-primary/20'
+                    : 'border-transparent hover:bg-muted/60 hover:border-border/60'
+                }`}
               >
-                <p className="text-xs leading-snug line-clamp-2 text-foreground">
-                  {conv.title || '未命名对话'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {formatRelativeTime(conv.updated_at)}
-                </p>
-              </button>
-              <button
-                onClick={() => onDelete(conv.id)}
-                aria-label={`删除对话: ${conv.title || '未命名对话'}`}
-                className="absolute top-2 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-red-500 transition-all duration-150 cursor-pointer"
-              >
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))
+                <button
+                  onClick={() => !requestInFlight && onLoad(conv.id)}
+                  disabled={requestInFlight}
+                  className={`w-full text-left px-2.5 py-2 pr-6 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                >
+                  <p className="text-xs leading-snug line-clamp-2 text-foreground">
+                    {conv.title || '未命名对话'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatRelativeTime(conv.updated_at)}
+                  </p>
+                </button>
+                <button
+                  onClick={() => onDelete(conv.id)}
+                  aria-label={`删除对话: ${conv.title || '未命名对话'}`}
+                  className="absolute top-2 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-red-500 transition-all duration-150 cursor-pointer"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            {hasMore && onLoadMore && (
+              <div ref={sentinelRef} className="px-1 py-2">
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  disabled={loadingMore}
+                  className={`w-full text-center text-xs py-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors ${loadingMore ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+                >
+                  {loadingMore ? '加载中…' : '继续加载'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* ── Bottom: settings + account ── */}
-      <div className="shrink-0 border-t border-border/50 px-2 py-2 space-y-0.5">
+      <div className="shrink-0 border-t border-border/50 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-0.5">
         <a
           href="/profile"
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
@@ -165,9 +216,18 @@ export default function ConversationSidebar({
             <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-micro text-primary font-medium shrink-0">
               {(userName || userEmail || '?')[0].toUpperCase()}
             </div>
-            <span className="text-xs text-muted-foreground truncate">
+            <span className="text-xs text-muted-foreground truncate min-w-0 flex-1">
               {userName || userEmail}
             </span>
+            {userTier === 'max' ? (
+              <span className="shrink-0 text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+                MAX
+              </span>
+            ) : userTier === 'pro' ? (
+              <span className="shrink-0 text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+                PRO
+              </span>
+            ) : null}
           </div>
         )}
       </div>

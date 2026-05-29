@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownBody from '@/components/MarkdownBody';
 import type { SignalLights, SectionAnalysis } from '@/lib/api';
 import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
 
@@ -106,9 +106,9 @@ const MACRO_MD_COMPONENTS = {
 
 function MacroMarkdown({ content }: { content: string }) {
   return (
-    <ReactMarkdown components={MACRO_MD_COMPONENTS}>
+    <MarkdownBody components={MACRO_MD_COMPONENTS}>
       {content}
-    </ReactMarkdown>
+    </MarkdownBody>
   );
 }
 

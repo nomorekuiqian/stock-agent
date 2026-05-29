@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
+import MarkdownBody from '@/components/MarkdownBody';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWatchlist, useSaveWatchlist } from '@/hooks/queries/use-watchlist';
 import {
@@ -553,7 +553,7 @@ function AnalysisSection({
               </h4>
             </div>
             <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-sm leading-relaxed [&_strong]:text-foreground">
-              <ReactMarkdown>{section.content}</ReactMarkdown>
+              <MarkdownBody>{section.content}</MarkdownBody>
             </div>
           </div>
         );

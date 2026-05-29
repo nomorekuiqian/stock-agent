@@ -56,6 +56,12 @@ export interface ResearchState {
   // LOAD_CONVERSATION. Type kept as a loose record to avoid pulling api.ts
   // types into the reducer.
   kolChunks: Record<string, unknown>[];
+  // KOL agent: which persona the active conversation belongs to. Lives in
+  // reducer state (not local useState) so it persists across page reloads
+  // via sessionStorage. Without this, a reload while on a KOL conversation
+  // resets persona to null and the next message would route through the
+  // research save path, wiping the conversation's kol_chunks on backend.
+  personaUsername: string | null;
 }
 
 export type ResearchAction =
@@ -80,7 +86,9 @@ export type ResearchAction =
   // assistant placeholder on first delta).
   | { type: 'STREAM_DELTA'; kind: 'message' | 'thinking'; text: string }
   // KOL agent: replace the latest-turn citation chunks (right-panel data).
-  | { type: 'SET_KOL_CHUNKS'; chunks: Record<string, unknown>[] };
+  | { type: 'SET_KOL_CHUNKS'; chunks: Record<string, unknown>[] }
+  // KOL agent: set or clear the active persona. null clears KOL mode.
+  | { type: 'SET_PERSONA'; personaUsername: string | null };
 
 export interface LoadConversationData {
   conversationId: string;
@@ -97,6 +105,8 @@ export interface LoadConversationData {
   contentStack?: ContentContext[];
   // KOL agent: optional citation chunks from saved conversation
   kolChunks?: Record<string, unknown>[];
+  // KOL agent: persona username (drives agentKind derivation in callers)
+  personaUsername?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +130,7 @@ export const initialState: ResearchState = {
   hasNewResults: false,
   conversationId: null,
   conversationTitle: '',
+  personaUsername: null,
   activeContent: SCREENER_CONTENT,
   contentStack: [],
   kolChunks: [],
@@ -395,10 +406,16 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         contentStack: action.data.contentStack ?? [],
         // KOL agent: restore citation chunks from saved conversation
         kolChunks: action.data.kolChunks ?? [],
+        // KOL agent: restore persona so a reload-then-send doesn't accidentally
+        // route a KOL conversation through the research save path.
+        personaUsername: action.data.personaUsername ?? null,
       };
 
     case 'SET_KOL_CHUNKS':
       return { ...state, kolChunks: action.chunks };
+
+    case 'SET_PERSONA':
+      return { ...state, personaUsername: action.personaUsername };
 
     // Research Desk: content panel navigation
     case 'PUSH_CONTENT':
