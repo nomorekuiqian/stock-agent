@@ -62,13 +62,6 @@ SECTOR_DISPLAY: dict[str, dict] = {
         "layer": "sector",
         "short": "太空发射 → 卫星 → 子系统 → 大型承包商 → 政府软件",
     },
-    "software-ai-disruption": {
-        "label": "软件 · 被 AI 颠覆的赛道",
-        "eyebrow": "SOFTWARE",
-        "path": "sector/software-ai-disruption.md",
-        "layer": "sector",
-        "short": "他着墨较少 · 传统 SaaS 与 AI 原生的替代逻辑",
-    },
     "macro-regime": {
         "label": "宏观环境与流动性",
         "eyebrow": "MACRO REGIME",
@@ -386,26 +379,15 @@ def list_sectors_v3() -> list[dict]:
 # taxonomy). Tickers chosen to overlap with cockpit's TICKER_ALIASES.
 # ----------------------------------------------------------------
 
-# Reordered as physical supply chain (upstream → downstream).
+# Supply chain ordered upstream → downstream. The "物理底层 · 电力 / 能源股"
+# layer was dropped after audit (Frank hasn't discussed VST / CEG / NEE etc.
+# in this persona — chain now starts at 上游半导体).
 # `covered`     : tickers Frank has v3 distillation playbooks for (full stance)
 # `supplements` : same-industry tickers Frank has NOT deeply discussed
-#                 (UI marks as 「未详谈」, click opens chat-deeplink for Apply)
+#                 (UI no longer renders these — kept for future Apply-chat flow)
 AI_INFRA_CHAIN: list[dict] = [
     {
         "id": "L0",
-        "label": "物理底层",
-        "stance": "AI 算力的能源 + 物理瓶颈",
-        "primary_question": "电力 / 物理基建供得上吗？",
-        "covered": ["VST", "CEG"],
-        "supplements": ["GEV", "BE", "NEE"],
-        "subcategories": [
-            {"name": "电力 / 核电", "tickers": ["VST", "CEG", "NEE"]},
-            {"name": "电力设备", "tickers": ["GEV", "BE"]},
-        ],
-        "rep_ticker": "VST",
-    },
-    {
-        "id": "L1",
         "label": "上游半导体",
         "stance": "设备 + 关键组件 · 卡脖子在迁移",
         "primary_question": "下一个瓶颈在哪个环节？",
@@ -426,7 +408,7 @@ AI_INFRA_CHAIN: list[dict] = [
         "rep_ticker": "MU",
     },
     {
-        "id": "L2",
+        "id": "L1",
         "label": "算力整合",
         "stance": "产业链中间收租 · 赢家通吃",
         "primary_question": "他是不是不可替代的整合者？",
@@ -436,21 +418,21 @@ AI_INFRA_CHAIN: list[dict] = [
         "rep_ticker": "NVDA",
     },
     {
-        "id": "L3",
+        "id": "L2",
         "label": "数据中心 · 云",
         "stance": "重资产 capex 周期 · 看商业兑现",
         "primary_question": "营收 / Capex 比能撑住吗？",
-        "covered": ["MSFT", "GOOGL", "AMZN", "META", "ORCL", "CRWV", "NBIS", "IBM"],
+        "covered": ["MSFT", "GOOGL", "AMZN", "META", "AAPL", "ORCL", "CRWV", "IBM"],
         "supplements": ["SNOW"],
         "subcategories": [
-            {"name": "Mag4 自营云", "tickers": ["MSFT", "GOOGL", "AMZN", "META"]},
-            {"name": "甲骨文 · 新云", "tickers": ["ORCL", "CRWV", "NBIS"]},
+            {"name": "Mag4 + 苹果", "tickers": ["MSFT", "GOOGL", "AMZN", "META", "AAPL"]},
+            {"name": "甲骨文 · 新云", "tickers": ["ORCL", "CRWV"]},
             {"name": "数据 · 企业 SaaS", "tickers": ["IBM", "SNOW"]},
         ],
         "rep_ticker": "MSFT",
     },
     {
-        "id": "L4",
+        "id": "L3",
         "label": "应用 · Agent",
         "stance": "短期看不出最终赢家 · 他不下注",
         "primary_question": "有真实 token 消耗证据吗？",
@@ -463,7 +445,7 @@ AI_INFRA_CHAIN: list[dict] = [
         "rep_ticker": "PLTR",
     },
     {
-        "id": "L5",
+        "id": "L4",
         "label": "物理 AI",
         "stance": "下一个万亿赛道 · 但成熟度未到",
         "primary_question": "Robotaxi / 机器人能商业化吗？",
@@ -479,9 +461,6 @@ AI_INFRA_CHAIN: list[dict] = [
 # their company names locally for the UI mini-cards).
 SUPPLEMENT_NAMES: dict[str, str] = {
     # AI 算力基建
-    "GEV": "GE Vernova",
-    "BE": "Bloom Energy",
-    "NEE": "NextEra Energy",
     "MRVL": "Marvell",
     "NXPI": "NXP Semiconductors",
     "MCHP": "Microchip",
@@ -492,16 +471,6 @@ SUPPLEMENT_NAMES: dict[str, str] = {
     # 国防与太空
     "RTX": "RTX (Raytheon)",
     "MRCY": "Mercury Systems",
-    # 软件
-    "DDOG": "Datadog",
-    "ZS": "Zscaler",
-    "PANW": "Palo Alto Networks",
-    "NET": "Cloudflare",
-    "MDB": "MongoDB",
-    "CRM": "Salesforce",
-    "ADBE": "Adobe",
-    "NOW": "ServiceNow",
-    "INTU": "Intuit",
 }
 
 CRYPTO_CHAIN: list[dict] = [
@@ -568,7 +537,8 @@ DEFENSE_CHAIN: list[dict] = [
         "label": "太空发射 · 商业航天",
         "stance": "下一个万亿赛道 · SpaceX IPO 是 catalyst",
         "primary_question": "商业航天能否形成规模化？",
-        "covered": ["RKLB", "ASTS", "LUNR"],
+        # SPACEX 私募,无报价 — UI 处理 priceable=False 时显示 "无报价"
+        "covered": ["SPACEX", "RKLB", "ASTS", "LUNR"],
         "supplements": [],
         "subcategories": [],
         "rep_ticker": "RKLB",
@@ -592,12 +562,12 @@ DEFENSE_CHAIN: list[dict] = [
         "label": "武器 · 无人 · 子系统",
         "stance": "细分链 · 受益于具体冲突",
         "primary_question": "他们受益于哪个地缘事件？",
-        "covered": ["AVAV", "KTOS", "BWXT", "LHX", "TDY", "AME"],
+        "covered": ["AVAV", "KTOS", "BWXT", "LHX", "TDY"],
         "supplements": ["MRCY"],
         "subcategories": [
             {"name": "无人 · 反无人", "tickers": ["AVAV", "KTOS"]},
             {"name": "核 · 能源", "tickers": ["BWXT"]},
-            {"name": "电子战 · 通信", "tickers": ["LHX", "TDY", "AME", "MRCY"]},
+            {"name": "电子战 · 通信", "tickers": ["LHX", "TDY", "MRCY"]},
         ],
         "rep_ticker": "LHX",
     },
@@ -606,7 +576,7 @@ DEFENSE_CHAIN: list[dict] = [
         "label": "大型承包商",
         "stance": "政府订单可见度 · 长期合约护城河",
         "primary_question": "订单簿是否在加速？",
-        "covered": ["LMT", "NOC", "GD", "HII", "BA", "ATI"],
+        "covered": ["LMT", "NOC", "GD", "HII", "BA"],
         "supplements": ["RTX"],
         "subcategories": [],
         "rep_ticker": "LMT",
@@ -624,51 +594,11 @@ DEFENSE_CHAIN: list[dict] = [
 ]
 
 
-# Software chain — Frank's coverage is thin here (CRWD only). The "chain" is
-# more a 「数据底座 → 安全 / Ops → 传统 SaaS → AI 原生」 disruption map than
-# a strict supply chain. Many supplements (Frank未详谈) by design.
-SOFTWARE_CHAIN: list[dict] = [
-    {
-        "id": "L0",
-        "label": "数据 · 安全底座",
-        "stance": "AI 时代的数据平台 + 攻击面扩张",
-        "primary_question": "AI 时代谁吃下基础需求？",
-        "covered": ["CRWD"],
-        "supplements": ["SNOW", "DDOG", "ZS", "PANW", "NET", "MDB"],
-        "subcategories": [
-            {"name": "安全 · 终端", "tickers": ["CRWD", "ZS", "PANW", "NET"]},
-            {"name": "数据库 · 监控", "tickers": ["SNOW", "DDOG", "MDB"]},
-        ],
-        "rep_ticker": "CRWD",
-    },
-    {
-        "id": "L1",
-        "label": "传统 SaaS · 面临颠覆",
-        "stance": "Frank 不押注的赛道 · AI 化转型有不确定性",
-        "primary_question": "他们的 AI 化转型能否成功？",
-        "covered": [],
-        "supplements": ["CRM", "ADBE", "NOW", "INTU"],
-        "subcategories": [],
-        "rep_ticker": "CRM",
-    },
-    {
-        "id": "L2",
-        "label": "AI 原生 · 颠覆者",
-        "stance": "主要是私募 · 应用层短期看不出赢家",
-        "primary_question": "应用层赢家会出现在哪里？",
-        "covered": [],
-        "supplements": [],
-        "subcategories": [],
-        "rep_ticker": None,
-    },
-]
-
-
 INDUSTRY_CHAIN_REGISTRY: dict[str, dict] = {
     "ai-infrastructure": {
         "label": "AI 算力基建产业链",
         "eyebrow": "AI INFRASTRUCTURE",
-        "intro": "Frank 把 AI 算力产业拆成 6 层 · 物理底层 → 上游半导体 → 算力 → 数据中心 → 应用 → 物理 AI",
+        "intro": "Frank 把 AI 算力产业拆成 5 层 · 上游半导体 → 算力整合 → 数据中心 → 应用 → 物理 AI",
         "layers": AI_INFRA_CHAIN,
     },
     "crypto-stablecoin-rwa": {
@@ -682,12 +612,6 @@ INDUSTRY_CHAIN_REGISTRY: dict[str, dict] = {
         "eyebrow": "DEFENSE & SPACE",
         "intro": "强人政治时代的硬资产敞口 · 从太空发射到政府软件",
         "layers": DEFENSE_CHAIN,
-    },
-    "software-ai-disruption": {
-        "label": "软件 · AI 颠覆地图",
-        "eyebrow": "SOFTWARE",
-        "intro": "Frank 着墨较少 · 数据底座 → 传统 SaaS → AI 原生颠覆者",
-        "layers": SOFTWARE_CHAIN,
     },
 }
 
