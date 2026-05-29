@@ -67,6 +67,9 @@ test-results/
 node_modules/
 .next/
 
+# Distillation artifacts
+_distillation_artifacts/
+
 # Logs
 *.log
 npm-debug.log*
