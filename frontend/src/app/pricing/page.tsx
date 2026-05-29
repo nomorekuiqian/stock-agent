@@ -18,8 +18,10 @@ const PRO_FEATURES = [
   { feature: '市场日报网站',        desc: '在 /today 查看完整晚报和历史存档' },
 ];
 
-const MAX_ONLY_FEATURES = [
-  { feature: '推特 KOL 日报',          desc: '每日整理金融博主观点，含完整归档和邮件推送' },
+type MaxFeature = { feature: string; desc: string; badge?: 'NEW' };
+
+const MAX_ONLY_FEATURES: MaxFeature[] = [
+  { feature: '推特 KOL 日报',          desc: '每日整理金融博主观点，含完整归档和邮件推送', badge: 'NEW' },
   { feature: 'AI 投研引擎 · 无限使用', desc: '对话式投研 + 全市场 AI 选股，不限次数调用' },
   { feature: 'AI 深度个股分析',       desc: '基本面、技术面、估值对比一键生成，无使用上限' },
 ];
@@ -218,6 +220,9 @@ export default function PricingPage() {
                 {/* Max-only teaser */}
                 <div className="pt-2 border-t border-border/20">
                   <p className="text-xs text-muted-foreground/70">
+                    <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-400/30 mr-1.5 align-middle">
+                      新
+                    </span>
                     推特 KOL 日报、AI 投研引擎（无限使用）、AI 深度个股分析 → 升级 Max
                   </p>
                 </div>
@@ -289,8 +294,15 @@ export default function PricingPage() {
                 {MAX_ONLY_FEATURES.map((item) => (
                   <div key={item.feature} className="flex items-start gap-3">
                     <Check className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-sm text-foreground">{item.feature}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-foreground">{item.feature}</span>
+                        {item.badge === 'NEW' && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-400/30">
+                            新功能
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-muted-foreground/70 block">{item.desc}</span>
                     </div>
                   </div>
