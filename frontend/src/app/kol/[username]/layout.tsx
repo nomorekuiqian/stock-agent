@@ -1,116 +1,90 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use } from 'react';
 
-import { api, type KolCockpitProfile, type KolCockpitTickerSummary } from '@/lib/api';
+import {
+  useKolCockpitProfile,
+  useKolCockpitTickers,
+  useKolCockpitFeed,
+} from '@/hooks/queries/use-kol-data';
+import type { KolCockpitTickerSummary } from '@/lib/api';
 import PersonaHero from './_components/PersonaHero';
 import SubNav from './_components/SubNav';
 import TransparencyFooter from './_components/TransparencyFooter';
 import { relativeTimeCN } from './_components/relativeTime';
+import { HeroSkeleton, SubNavSkeleton } from './_components/Skeletons';
 
 interface LayoutProps {
   children: React.ReactNode;
   params: Promise<{ username: string }>;
 }
 
-interface ShellData {
-  profile: KolCockpitProfile;
-  tickerCount: number;
-  totalTweets: number | null;
-  latestAt: string | null;
-}
-
 export default function KolPersonaLayout({ children, params }: LayoutProps) {
   const { username } = use(params);
-  const [data, setData] = useState<ShellData | null>(null);
-  const [errored, setErrored] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setErrored(false);
-    Promise.all([
-      api.kolResearch.cockpitProfile(username),
-      api.kolResearch.cockpitTickers(username),
-      api.kolResearch.cockpitFeed(username, { limit: 1 }),
-    ])
-      .then(([profile, tickersResp, feed]) => {
-        if (cancelled) return;
-        const latestAt = feed.tweets[0]?.created_at ?? null;
-        setData({
-          profile,
-          tickerCount: tickersResp.tickers.length,
-          totalTweets: feed.total,
-          latestAt,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setErrored(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [username]);
+  // All three queries are cached + shared with sub-page hooks via TanStack
+  // Query, so revisits and intra-cockpit navigation are instant. Layout uses
+  // limit:3 to match the overview page's feed query — same cache key, one
+  // HTTP request total instead of two (limit:1 + limit:3).
+  const profileQ = useKolCockpitProfile(username);
+  const tickersQ = useKolCockpitTickers(username);
+  const feedQ = useKolCockpitFeed(username, { limit: 3 });
 
-  // Initial render before profile loads — keep the same chrome height so
-  // there's no layout shift when data arrives.
-  if (!data) {
+  const errored = profileQ.isError || tickersQ.isError || feedQ.isError;
+  const ready = profileQ.data && tickersQ.data && feedQ.data;
+
+  if (!ready) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Hero placeholder */}
-        <div className="border-b border-border/60 bg-background">
-          <div className="mx-auto h-[108px] max-w-7xl px-4 md:px-6" />
-        </div>
-        {/* SubNav placeholder — h-16 mobile / h-20 md horizontal / hidden lg
-            (lg uses grid sidebar which has no fixed strip height) */}
-        <div className="border-b border-border/60 bg-background lg:hidden">
-          <div className="mx-auto h-16 max-w-7xl md:h-20" />
-        </div>
+        <HeroSkeleton />
+        <SubNavSkeleton />
         {errored ? (
           <div className="mx-auto max-w-7xl px-4 py-16 text-center text-sm text-muted-foreground md:px-6">
             无法加载该博主的驾驶舱 · 请检查网络或稍后重试。
           </div>
         ) : (
-          <div className="mx-auto max-w-7xl px-4 py-16 text-center font-data text-xs uppercase tracking-[0.18em] text-muted-foreground md:px-6">
-            <span className="thinking-dot" />
-            <span className="thinking-dot ml-1" />
-            <span className="thinking-dot ml-1" />
+          <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+            {children}
           </div>
         )}
       </div>
     );
   }
 
-  const lastUpdated = relativeTimeCN(data.latestAt);
+  const profile = profileQ.data;
+  const tickerCount = tickersQ.data.tickers.length;
+  const totalTweets = feedQ.data.total ?? null;
+  const latestAt = feedQ.data.tweets[0]?.created_at ?? null;
+  const lastUpdated = relativeTimeCN(latestAt);
 
   return (
     <div className="min-h-screen bg-background">
       <PersonaHero
-        username={data.profile.persona.username}
-        displayName={data.profile.persona.display_name}
-        description={data.profile.core.bio || data.profile.persona.description}
+        username={profile.persona.username}
+        displayName={profile.persona.display_name}
+        description={profile.core.bio || profile.persona.description}
         lastUpdatedRelative={lastUpdated}
-        totalCount={data.totalTweets}
-        avatarUrl={`/kol-avatars/${data.profile.persona.username}.png`}
+        totalCount={totalTweets}
+        avatarUrl={`/kol-avatars/${profile.persona.username}.png`}
       />
       {/* Body: mobile stacks (SubNav strip then main).
           lg+ becomes a 2-col grid with a slim 60px icon-only sidebar +
-          main content. Frees ~150px of horizontal room so split-layout pages
-          (stocks, sectors) don't feel crowded. */}
+          main content. */}
       <div className="mx-auto max-w-7xl lg:grid lg:grid-cols-[60px_minmax(0,1fr)]">
         <aside className="lg:border-r lg:border-border/60">
           <SubNav
-            username={data.profile.persona.username}
-            displayName={data.profile.persona.display_name}
+            username={profile.persona.username}
+            displayName={profile.persona.display_name}
             kpis={{
-              latestCount: data.totalTweets,
-              sectorCount: data.profile.sectors.length,
-              tickerCount: data.tickerCount,
+              latestCount: totalTweets,
+              sectorCount: profile.sectors.length,
+              tickerCount,
             }}
           />
         </aside>
         <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">{children}</main>
       </div>
-      <TransparencyFooter username={data.profile.persona.username} />
+      <TransparencyFooter username={profile.persona.username} />
     </div>
   );
 }

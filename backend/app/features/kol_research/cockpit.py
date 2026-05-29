@@ -22,7 +22,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 _FUNCTION_NAME = "kol-tweets"
-_CACHE_TTL_SECONDS = 3600  # tweets refresh hourly via fetch cron; 1h cache is fine
+_CACHE_TTL_SECONDS = 21600  # 6h; tweets refresh daily via fetch cron, so 6h is fresh enough
 _PAGE_SIZE = 100  # GET list action caps page size at 100
 _MAX_PAGES = 60  # safety cap (~6000 tweets)
 
@@ -214,6 +214,7 @@ def match_tickers(text: str) -> list[str]:
 
 _cache: dict[str, dict] = {}  # username -> {"at": ts, "index": {...}}
 _locks: dict[str, asyncio.Lock] = {}
+_refresh_tasks: dict[str, asyncio.Task] = {}  # background SWR refresh handles
 
 
 def _lock_for(username: str) -> asyncio.Lock:
@@ -222,15 +223,19 @@ def _lock_for(username: str) -> asyncio.Lock:
     return _locks[username]
 
 
+_PARALLEL_BATCH = 10  # pages fetched in one concurrent wave
+
+
 async def _fetch_all_tweets(username: str) -> list[dict]:
     """Pull the full tweet history for one author via the public GET `list` action.
 
-    `list` is an open read (no secret); paginate until a short page. Server orders
-    by created_at DESC and caps page size at 100.
+    Fetches pages in parallel batches of _PARALLEL_BATCH. Stops the batch loop
+    as soon as any page in the current wave returns fewer than _PAGE_SIZE rows
+    (indicating we've reached the end). Server orders by created_at DESC.
     """
     db = get_insforge_service()
-    rows: list[dict] = []
-    for page in range(1, _MAX_PAGES + 1):
+
+    async def _fetch_page(page: int) -> list[dict]:
         result = await db.call_function(
             _FUNCTION_NAME,
             method="GET",
@@ -250,10 +255,21 @@ async def _fetch_all_tweets(username: str) -> list[dict]:
         payload = result.get("data") or {}
         if not payload.get("success"):
             raise RuntimeError(f"list returned error (page {page}): {payload.get('error')}")
-        batch = payload.get("data", []) or []
-        rows.extend(batch)
-        if len(batch) < _PAGE_SIZE:
+        return payload.get("data", []) or []
+
+    rows: list[dict] = []
+    next_start = 1
+    while next_start <= _MAX_PAGES:
+        end = min(next_start + _PARALLEL_BATCH - 1, _MAX_PAGES)
+        batch_results = await asyncio.gather(*[_fetch_page(p) for p in range(next_start, end + 1)])
+        reached_end = False
+        for batch in batch_results:
+            rows.extend(batch)
+            if len(batch) < _PAGE_SIZE:
+                reached_end = True
+        if reached_end:
             break
+        next_start = end + 1
     return rows
 
 
@@ -317,26 +333,57 @@ def _build_index(tweets: list[dict]) -> dict:
     }
 
 
-async def get_index(username: str, force: bool = False) -> dict:
-    """Return the cached per-ticker index for a persona, refreshing past TTL."""
-    cached = _cache.get(username)
-    now = time.time()
-    if not force and cached and (now - cached["at"]) < _CACHE_TTL_SECONDS:
-        return cached["index"]
+async def _rebuild_index(username: str) -> dict:
+    """Fetch + aggregate; caller holds the username lock."""
+    tweets = await _fetch_all_tweets(username)
+    index = _build_index(tweets)
+    _cache[username] = {"at": time.time(), "index": index}
+    logger.info(
+        "cockpit index built: user=%s tweets=%d tickers=%d",
+        username, index["total_tweets"], len(index["tickers"]),
+    )
+    return index
 
+
+async def _refresh_index_bg(username: str) -> None:
+    """Background refresh — runs while users continue to receive the stale index."""
+    try:
+        async with _lock_for(username):
+            await _rebuild_index(username)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("background index refresh failed for %s: %s", username, e)
+
+
+async def get_index(username: str, force: bool = False) -> dict:
+    """Return the cached per-ticker index.
+
+    Cache strategy:
+      - Fresh hit (< TTL): return cached.
+      - Stale hit: return cached IMMEDIATELY, kick off a background refresh so
+        the next caller hits a warm cache. Users never wait for a refresh once
+        the cache has been populated.
+      - Cold (no cache): block while building. Per-username lock prevents
+        concurrent first-callers from each triggering their own fetch.
+      - force=True: always block and rebuild.
+    """
+    if not force:
+        cached = _cache.get(username)
+        if cached:
+            age = time.time() - cached["at"]
+            if age < _CACHE_TTL_SECONDS:
+                return cached["index"]
+            # Stale — schedule background refresh, return stale right now.
+            existing = _refresh_tasks.get(username)
+            if existing is None or existing.done():
+                _refresh_tasks[username] = asyncio.create_task(_refresh_index_bg(username))
+            return cached["index"]
+
+    # Cold path (or force=True): block on rebuild.
     async with _lock_for(username):
         cached = _cache.get(username)
-        now = time.time()
-        if not force and cached and (now - cached["at"]) < _CACHE_TTL_SECONDS:
+        if not force and cached and (time.time() - cached["at"]) < _CACHE_TTL_SECONDS:
             return cached["index"]
-        tweets = await _fetch_all_tweets(username)
-        index = _build_index(tweets)
-        _cache[username] = {"at": now, "index": index}
-        logger.info(
-            "cockpit index built: user=%s tweets=%d tickers=%d",
-            username, index["total_tweets"], len(index["tickers"]),
-        )
-        return index
+        return await _rebuild_index(username)
 
 
 async def list_tickers(username: str) -> list[dict]:
@@ -545,10 +592,94 @@ GROUP_ALIASES: dict[str, str] = {
 }
 
 
+# v3 sector key -> ticker set, populated lazily. Kept SEPARATE from
+# _TICKERS_BY_GROUP so the legacy chip-display loop (which iterates that
+# dict) is not polluted with v3 keys.
+_V3_FILTER_TICKERS: dict[str, set[str]] = {}
+_v3_filter_registered = False
+
+
+def _register_v3_filter_if_needed() -> None:
+    global _v3_filter_registered
+    if _v3_filter_registered:
+        return
+    _v3_filter_registered = True
+    try:
+        from app.features.kol_research import cockpit_v3
+        sector_tickers = cockpit_v3._build_sector_tickers()
+        # Only register the 5 canonical v3 sectors (SECTOR_DISPLAY). The walker
+        # also yields internal SubLayer keys (semiconductor-memory-hbm /
+        # neocloud / fintech-brokerage / power-and-physical-ai) used for the
+        # industry-chain map; those should not appear as feed filter chips.
+        for v3_key in cockpit_v3.SECTOR_DISPLAY.keys():
+            entries = sector_tickers.get(v3_key) or []
+            _V3_FILTER_TICKERS[v3_key] = {
+                str(e.get("ticker") or "").upper()
+                for e in entries
+                if e.get("ticker")
+            }
+    except Exception:
+        logger.exception("v3 sector filter registration failed")
+
+
 def _resolve_group(value: str) -> Optional[str]:
+    """Resolve a filter value to either a legacy group label (key of
+    _TICKERS_BY_GROUP) or a canonical v3 sector key (key of
+    _V3_FILTER_TICKERS). Returns None if unrecognized.
+    """
     if value in _TICKERS_BY_GROUP:
         return value
-    return GROUP_ALIASES.get(value.lower())
+    alias = GROUP_ALIASES.get(value.lower())
+    if alias:
+        return alias
+    _register_v3_filter_if_needed()
+    if value in _V3_FILTER_TICKERS:
+        return value
+    return None
+
+
+# Macro-layer groups (legacy label + v3 key). For these the feed filter
+# also matches tweets whose text contains macro keywords, even when no
+# ticker overlap exists — macro tweets often discuss Fed / liquidity / TGA
+# without naming any ticker.
+_MACRO_GROUP_KEYS: frozenset[str] = frozenset({"宏观", "macro-regime"})
+
+
+# Curated macro keyword set. Substring match against raw tweet text
+# (Chinese is case-sensitive, English is matched case-insensitive via the
+# helper). Conservative — high precision, will miss some edge cases.
+_MACRO_KEYWORDS: tuple[str, ...] = (
+    # 央行 / 政策
+    "美联储", "联储", "鲍威尔", "财政部", "财政", "货币政策",
+    "缩表", "扩表", "量化宽松",
+    # 流动性管道
+    "流动性", "美元流动性", "银行准备金", "准备金率", "准备金",
+    "TGA", "RRP", "SOFR",
+    # 利率
+    "利率", "降息", "加息",
+    # 宏观数据
+    "通胀", "通缩", "国债", "收益率",
+    "CPI", "PCE", "PPI", "PMI", "GDP", "NFP",
+    # 地缘 / 政策
+    "地缘", "关税", "贸易战", "国会", "立法",
+    # 英文常见词(命中即可,大小写不敏感)
+    "Fed", "FOMC", "Powell", "Treasury", "Yield",
+    "Liquidity", "Reserves", "Balance Sheet",
+    "Inflation", "Deflation",
+    "Rate Cut", "Rate Hike",
+)
+
+_MACRO_KEYWORDS_LOWER: tuple[str, ...] = tuple(kw.lower() for kw in _MACRO_KEYWORDS)
+
+
+def _matches_macro_text(text: str) -> bool:
+    if not text:
+        return False
+    text_lower = text.lower()
+    for kw_lower in _MACRO_KEYWORDS_LOWER:
+        if kw_lower in text_lower:
+            return True
+    return False
 
 
 async def list_sectors(username: str) -> list[dict]:
@@ -653,11 +784,19 @@ async def get_feed(
         if resolved is None:
             items = []
         else:
-            allowed = _TICKERS_BY_GROUP.get(resolved, set())
-            items = [
-                t for t in items
-                if any(tk in allowed for tk in (t.get("tickers") or []))
-            ]
+            allowed = _TICKERS_BY_GROUP.get(resolved) or _V3_FILTER_TICKERS.get(resolved, set())
+            if resolved in _MACRO_GROUP_KEYS:
+                # macro tweets often have no ticker — fall back to keyword scan
+                items = [
+                    t for t in items
+                    if any(tk in allowed for tk in (t.get("tickers") or []))
+                    or _matches_macro_text(t.get("text") or "")
+                ]
+            else:
+                items = [
+                    t for t in items
+                    if any(tk in allowed for tk in (t.get("tickers") or []))
+                ]
 
     total = len(items)
     sliced = items[offset : offset + limit]

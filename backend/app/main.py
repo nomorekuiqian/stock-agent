@@ -250,6 +250,18 @@ async def _startup():
 
     asyncio.create_task(_warm())
 
+    # Pre-warm KOL cockpit index so first visit doesn't pay the cold-cache cost
+    # (Insforge edge-function paginated fetch of all tweets, ~1-2s warm).
+    async def _warm_kol():
+        try:
+            from app.features.kol_research import cockpit as kol_cockpit
+            await kol_cockpit.get_index("qinbafrank")
+            logger.info("KOL cockpit cache warmed: qinbafrank")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("KOL cache warm-up failed (non-fatal): %s", e)
+
+    asyncio.create_task(_warm_kol())
+
 
 @app.on_event("shutdown")
 async def _shutdown():
