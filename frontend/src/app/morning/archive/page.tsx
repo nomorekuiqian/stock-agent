@@ -2,13 +2,21 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight, Crown, LockKeyhole } from 'lucide-react';
 import { formatDateShort, formatTimePacific } from '@/lib/timezone';
 import { useMorningReportList } from '@/hooks/queries/use-morning-report-data';
-import PaywallGuard from '@/components/PaywallGuard';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
+
+const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
 
 export default function MorningArchivePage() {
   const [page, setPage] = useState(0);
   const pageSize = 12;
+
+  const { isAuthenticated } = useAuth();
+  const { has } = useEntitlements();
+  const hasAccess = !PAYWALL_ENABLED || has('morning_website');
 
   const { data, isLoading: loading, error: queryError } = useMorningReportList(pageSize, page * pageSize);
 
@@ -18,31 +26,66 @@ export default function MorningArchivePage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <PaywallGuard requiredFeature="morning_website">
     <main className="min-h-screen bg-background">
       {/* Header */}
       <section className="border-b border-border">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-14">
-          <div className="text-center space-y-5">
-            <div className="flex items-center justify-center gap-3">
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-amber-400 to-transparent" />
-              <span className="text-amber-400 text-xs font-semibold tracking-[0.25em] uppercase">ARCHIVE</span>
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-amber-400 to-transparent" />
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-amber-400 to-transparent" />
+                <span className="text-amber-400 text-xs font-semibold tracking-[0.25em] uppercase">
+                  Morning Brief Archive
+                </span>
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl md:text-4xl font-editorial tracking-tight text-foreground">
+                  盘前早报归档
+                </h1>
+                <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                  浏览往期盘前市场分析早报{total > 0 ? ` · 共 ${total} 篇` : ''}
+                </p>
+              </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-editorial tracking-tight text-foreground">
-              盘前早报归档
-            </h1>
-            <p className="text-muted-foreground max-w-lg mx-auto">
-              浏览往期盘前市场分析早报
-            </p>
-            {total > 0 && (
-              <p className="text-xs text-muted-foreground">
-                共 {total} 篇早报
-              </p>
-            )}
+            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2">
+              {hasAccess ? (
+                <Crown className="w-4 h-4 text-amber-400" />
+              ) : (
+                <LockKeyhole className="w-4 h-4 text-muted-foreground" />
+              )}
+              <span className="text-xs text-muted-foreground">
+                {hasAccess ? '完整归档' : '标题预览'}
+              </span>
+            </div>
           </div>
         </div>
       </section>
+
+      {!hasAccess && (
+        <div className="max-w-5xl mx-auto px-4 md:px-6 pt-8">
+          <section className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-5 md:p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 text-amber-500 dark:text-amber-300 text-xs font-semibold uppercase tracking-[0.18em]">
+                  <Crown className="w-4 h-4" />
+                  订阅专属
+                </div>
+                <h2 className="text-xl font-editorial text-foreground">解锁完整盘前早报</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                  免费用户可浏览归档标题；订阅后可阅读每日 AI 撰写的隔夜要闻、今日焦点与开盘策略。
+                </p>
+              </div>
+              <Link
+                href={isAuthenticated ? '/pricing' : `/login?redirect=${encodeURIComponent('/morning/archive')}`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-500/90"
+              >
+                {isAuthenticated ? '订阅解锁' : '登录后开启试用'}
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (
@@ -191,6 +234,5 @@ export default function MorningArchivePage() {
         </div>
       )}
     </main>
-    </PaywallGuard>
   );
 }

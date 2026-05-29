@@ -1,8 +1,7 @@
 import Link from 'next/link';
-import { MorningReportContent } from '@/components/MorningReportContent';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
-import MorningPaywallGuard from './_components/MorningPaywallGuard';
+import { MorningReportBody } from './_components/MorningReportBody';
 import { AiChatLink } from '@/components/AiChatLink';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MorningReport, MorningReportListItem } from '@/lib/api';
@@ -72,7 +71,6 @@ export default async function MorningPage() {
   const totalReports = historyResult.total;
 
   return (
-    <MorningPaywallGuard>
     <main className="min-h-screen bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">
@@ -110,40 +108,7 @@ export default async function MorningPage() {
       {/* Report Content */}
       {report ? (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          <section className="animate-fade-in-up delay-150">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span className="text-sm font-data text-foreground tabular-nums">{formatReportDate(report.report_date)}</span>
-              </div>
-            </div>
-
-            {report.title && (
-              <h2 className="text-2xl md:text-3xl font-editorial text-foreground leading-[1.15]">
-                {report.title}
-              </h2>
-            )}
-
-            {report.market_pulse && (
-              <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
-                <p className="text-muted-foreground leading-relaxed text-sm">
-                  {report.market_pulse}
-                </p>
-              </div>
-            )}
-          </section>
-
-          <MorningReportContent
-            futures={report.futures || []}
-            futures_analysis={report.futures_analysis}
-            global_markets={report.global_markets || { asia: [], europe: [], other: [] }}
-            global_markets_analysis={report.global_markets_analysis}
-            overnight_news={report.overnight_news || []}
-            today_focus={report.today_focus || []}
-            summary={report.summary || []}
-          />
+          <MorningReportBody report={report} targetPath="/morning" />
         </div>
       ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
@@ -212,6 +177,5 @@ export default async function MorningPage() {
         </section>
       )}
     </main>
-    </MorningPaywallGuard>
   );
 }

@@ -205,6 +205,91 @@ describe('MorningReportContent', () => {
     expect(screen.getByText('Global risk appetite improved after strong Asian session.')).toBeTruthy();
   });
 
+  describe('locked mode', () => {
+    it('keeps futures cards visible but hides futures_analysis behind LockedBlur', () => {
+      render(
+        <MorningReportContent
+          {...defaultProps()}
+          futures_analysis="Real futures analysis text that should be hidden."
+          locked
+        />
+      );
+
+      // Futures cards still show real values
+      expect(screen.getByText('S&P')).toBeTruthy();
+      expect(screen.getByText('5,432')).toBeTruthy();
+      expect(screen.getByText('+0.85%')).toBeTruthy();
+
+      // The real analysis text must not be visible
+      expect(screen.queryByText(/Real futures analysis text/)).toBeNull();
+      // The LockedBlur label appears in its place
+      expect(screen.getByText('期货走势解读')).toBeTruthy();
+    });
+
+    it('keeps global markets table visible but hides global_markets_analysis', () => {
+      render(
+        <MorningReportContent
+          {...defaultProps()}
+          global_markets_analysis="Real global markets analysis."
+          locked
+        />
+      );
+
+      // Region labels and quotes remain
+      expect(screen.getByText('亚太')).toBeTruthy();
+      expect(screen.getByText('日经225')).toBeTruthy();
+
+      // Analysis is gated
+      expect(screen.queryByText(/Real global markets analysis/)).toBeNull();
+      expect(screen.getByText('全球市场解读')).toBeTruthy();
+    });
+
+    it('replaces overnight news bodies with LockedBlur placeholders and shows count', () => {
+      render(<MorningReportContent {...defaultProps()} locked />);
+
+      // Section header still present, with count of fixtures (2 items)
+      expect(screen.getByText('隔夜要闻')).toBeTruthy();
+      // Both 隔夜要闻 and 今日焦点 have 2 items in fixtures
+      expect(screen.getAllByText('2 条').length).toBeGreaterThanOrEqual(1);
+
+      // Real news titles and analyses must not be visible
+      expect(screen.queryByText('Fed Minutes Signal Patience')).toBeNull();
+      expect(screen.queryByText(/Manufacturing PMI came in at 51.2/)).toBeNull();
+
+      // Locked rows render labelled placeholders
+      expect(screen.getByText('要闻 01')).toBeTruthy();
+      expect(screen.getByText('要闻 02')).toBeTruthy();
+    });
+
+    it('replaces today focus bodies with LockedBlur but keeps time badges', () => {
+      render(<MorningReportContent {...defaultProps()} locked />);
+
+      // Section header still present
+      expect(screen.getByText('今日焦点')).toBeTruthy();
+      // Time badge for the first focus item still renders
+      expect(screen.getByText('8:30 AM ET')).toBeTruthy();
+      // Real titles and analyses must be hidden
+      expect(screen.queryByText('CPI Data Release')).toBeNull();
+      expect(screen.queryByText(/Core CPI expected/)).toBeNull();
+      expect(screen.queryByText('AAPL Earnings After Close')).toBeNull();
+      // Locked rows render placeholders
+      expect(screen.getByText('焦点 01')).toBeTruthy();
+      expect(screen.getByText('焦点 02')).toBeTruthy();
+    });
+
+    it('keeps summary subsection titles visible but blurs the prose', () => {
+      render(<MorningReportContent {...defaultProps()} locked />);
+
+      // SUMMARY_TITLES mapping still applies
+      expect(screen.getByText('隔夜回顾')).toBeTruthy();
+      expect(screen.getByText('今日展望')).toBeTruthy();
+
+      // Real paragraphs are hidden
+      expect(screen.queryByText('Asian markets rallied overnight.')).toBeNull();
+      expect(screen.queryByText('Focus on CPI data and tech earnings.')).toBeNull();
+    });
+  });
+
   it('handles empty/minimal data gracefully', () => {
     const emptyGlobalMarkets: MorningGlobalSnapshot = { asia: [], europe: [], other: [] };
 

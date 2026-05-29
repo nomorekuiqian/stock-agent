@@ -15,7 +15,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from app.core.deps import verify_cron_secret, verify_user_token
+from app.core.deps import optional_user_token, verify_cron_secret, verify_user_token
+from app.features.payment.entitlements import has_entitlement
 from app.features.subscription.models import BroadcastResponse
 from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
@@ -81,6 +82,55 @@ def _normalize_report_data(data: dict) -> dict:
     return data
 
 
+_MORNING_FEATURE = "morning_website"
+
+# Paid AI narrative fields stripped from the response when the viewer lacks
+# the `morning_website` entitlement. Structured numeric fields (`futures`,
+# `global_markets`, `market_data`) plus the short `title` headline stay
+# visible — they act as a free-tier teaser that powers SEO / OG metadata
+# without leaking the paid commentary.
+_LOCKED_STRING_FIELDS = (
+    "market_pulse",
+    "futures_analysis",
+    "global_markets_analysis",
+)
+_LOCKED_LIST_FIELDS = (
+    "overnight_news",
+    "today_focus",
+    "summary",
+)
+
+
+async def _viewer_has_morning_access(user_id: Optional[str]) -> bool:
+    """True iff the optional bearer user has the morning_website entitlement."""
+    if not user_id:
+        return False
+    return await has_entitlement(user_id, _MORNING_FEATURE)
+
+
+def _maybe_lock_report(data: dict, *, viewer_has_access: bool) -> dict:
+    """Project a normalized report into the paywalled shape when unauthorized.
+
+    Critical: this is the only trust boundary. The detail endpoints are
+    server-rendered (no auth context on the SSR fetch by default), so any
+    full-content data returned here gets serialized into the HTML / RSC
+    payload and is readable via View Source even when the client UI claims
+    to be locked. Strip AI text fields server-side before they ever leave
+    the API.
+    """
+    if viewer_has_access:
+        normalized = dict(data)
+        normalized["is_locked"] = False
+        return normalized
+    locked = dict(data)
+    for field in _LOCKED_STRING_FIELDS:
+        locked[field] = ""
+    for field in _LOCKED_LIST_FIELDS:
+        locked[field] = []
+    locked["is_locked"] = True
+    return locked
+
+
 def _report_to_response(report: dict) -> dict:
     """Build a normalized API response dict from a DB report row."""
     return _normalize_report_data({
@@ -120,42 +170,76 @@ async def list_morning_reports(
 
 
 @router.get("/morning/reports/latest")
-async def get_latest_report_data():
-    """Get the most recent morning report regardless of date."""
+async def get_latest_report_data(
+    user_id: Optional[str] = Depends(optional_user_token),
+):
+    """Get the most recent morning report regardless of date.
+
+    Paywall: AI narrative fields stripped unless the caller carries the
+    `morning_website` entitlement. See `_maybe_lock_report`.
+    """
     report = await morning_db.get_latest_morning_report()
     if not report:
         raise HTTPException(status_code=404, detail="No morning reports found")
-    return {"success": True, "data": _report_to_response(report)}
+    viewer_has_access = await _viewer_has_morning_access(user_id)
+    payload = _maybe_lock_report(_report_to_response(report), viewer_has_access=viewer_has_access)
+    return {"success": True, "data": payload}
 
 
 @router.get("/morning/reports/date/{date}")
-async def get_morning_report_by_date(date: str):
-    """Get a morning report by date (YYYY-MM-DD)."""
+async def get_morning_report_by_date(
+    date: str,
+    user_id: Optional[str] = Depends(optional_user_token),
+):
+    """Get a morning report by date (YYYY-MM-DD).
+
+    Paywall: same shape for everyone; AI text stripped without entitlement.
+    """
     report = await morning_db.get_morning_report_by_date(date)
     if not report:
         raise HTTPException(status_code=404, detail=f"No morning report for date {date}")
-    return {"success": True, "data": _report_to_response(report)}
+    viewer_has_access = await _viewer_has_morning_access(user_id)
+    payload = _maybe_lock_report(_report_to_response(report), viewer_has_access=viewer_has_access)
+    return {"success": True, "data": payload}
 
 
 @router.get("/morning/reports/{report_id}")
-async def get_morning_report_by_id(report_id: str):
-    """Get a morning report by its UUID."""
+async def get_morning_report_by_id(
+    report_id: str,
+    user_id: Optional[str] = Depends(optional_user_token),
+):
+    """Get a morning report by its UUID.
+
+    Paywall: same shape for everyone; AI text stripped without entitlement.
+    The /morning/[id] page is server-rendered without auth context, so SSR
+    always lands on the locked shape — the client then re-fetches with the
+    user's token to upgrade subscribers to the full payload.
+    """
     report = await morning_db.get_morning_report_by_id(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Morning report not found")
-    return {"success": True, "data": _report_to_response(report)}
+    viewer_has_access = await _viewer_has_morning_access(user_id)
+    payload = _maybe_lock_report(_report_to_response(report), viewer_has_access=viewer_has_access)
+    return {"success": True, "data": payload}
 
 
 @router.get("/morning/latest")
-async def get_todays_morning_report():
-    """Read-only endpoint: return today's cached morning report or 404."""
+async def get_todays_morning_report(
+    user_id: Optional[str] = Depends(optional_user_token),
+):
+    """Read-only endpoint: return today's cached morning report or 404.
+
+    Paywall: AI narrative fields stripped unless the caller carries the
+    `morning_website` entitlement.
+    """
     today = today_str()
     report = await morning_db.get_morning_report_by_date(today)
 
     if not report:
         raise HTTPException(status_code=404, detail="No morning report available for today")
 
-    return _report_to_response(report)
+    viewer_has_access = await _viewer_has_morning_access(user_id)
+    return _maybe_lock_report(_report_to_response(report), viewer_has_access=viewer_has_access)
 
 
 @router.post("/morning")

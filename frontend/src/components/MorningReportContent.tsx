@@ -8,6 +8,7 @@ import type {
   MorningSummarySection,
 } from '@/lib/api';
 import { formatCompactTimestamp } from '@/lib/timezone';
+import { LockedBlur, SectionUnlockCta } from '@/app/morning/_components/LockedBlur';
 
 interface MorningReportContentProps {
   futures: MorningFuturesQuote[];
@@ -17,6 +18,12 @@ interface MorningReportContentProps {
   overnight_news: MorningOvernightItem[];
   today_focus: MorningTodayFocusItem[];
   summary: MorningSummarySection[];
+  /**
+   * When true, render the page structure (futures cards, global markets table,
+   * section headers and counts) but replace AI-generated narrative with
+   * `LockedBlur` placeholders. Free / unauthenticated users land here.
+   */
+  locked?: boolean;
 }
 
 function formatChange(change: number): string {
@@ -35,12 +42,23 @@ function formatValue(value: number): string {
   return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-const SectionHeader = ({ children }: { children: React.ReactNode }) => (
+const SectionHeader = ({
+  children,
+  count,
+}: {
+  children: React.ReactNode;
+  count?: number;
+}) => (
   <div className="flex items-center gap-3 mb-5">
     <div className="w-1 h-5 bg-primary rounded-full" />
     <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
       {children}
     </h2>
+    {typeof count === 'number' && count > 0 && (
+      <span className="text-xs text-muted-foreground tabular-nums font-data">
+        {count} 条
+      </span>
+    )}
   </div>
 );
 
@@ -97,6 +115,7 @@ export function MorningReportContent({
   overnight_news,
   today_focus,
   summary,
+  locked = false,
 }: MorningReportContentProps) {
   return (
     <div className="space-y-5">
@@ -119,12 +138,21 @@ export function MorningReportContent({
               </div>
             ))}
           </div>
-          {futures_analysis && (
-            <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
-              <p className="text-sm text-foreground leading-relaxed">
-                {futures_analysis}
-              </p>
-            </div>
+          {locked ? (
+            <>
+              <div className="mt-4">
+                <LockedBlur lines={2} label="期货走势解读" variant="paragraph" />
+              </div>
+              <SectionUnlockCta />
+            </>
+          ) : (
+            futures_analysis && (
+              <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
+                <p className="text-sm text-foreground leading-relaxed">
+                  {futures_analysis}
+                </p>
+              </div>
+            )
           )}
         </section>
       )}
@@ -159,12 +187,21 @@ export function MorningReportContent({
                 </div>
               ))}
           </div>
-          {global_markets_analysis && (
-            <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
-              <p className="text-sm text-foreground leading-relaxed">
-                {global_markets_analysis}
-              </p>
-            </div>
+          {locked ? (
+            <>
+              <div className="mt-4">
+                <LockedBlur lines={2} label="全球市场解读" variant="paragraph" />
+              </div>
+              <SectionUnlockCta />
+            </>
+          ) : (
+            global_markets_analysis && (
+              <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
+                <p className="text-sm text-foreground leading-relaxed">
+                  {global_markets_analysis}
+                </p>
+              </div>
+            )
           )}
         </section>
       )}
@@ -172,61 +209,101 @@ export function MorningReportContent({
       {/* Overnight News */}
       {overnight_news.length > 0 && (
         <section className="bg-card rounded-xl border border-border p-5">
-          <SectionHeader>隔夜要闻</SectionHeader>
-          <div className="space-y-4">
-            {overnight_news.map((item, i) => (
-              <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
-                {item.url ? (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-base font-semibold text-foreground hover:text-primary transition-colors block mb-2"
-                  >
-                    {item.title}
-                  </a>
-                ) : (
-                  <h4 className="text-base font-semibold text-foreground mb-2">
-                    {item.title}
-                  </h4>
-                )}
-                <NewsTimestamp timestamp={item.published_at} />
-                <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {item.analysis}
-                  </p>
-                </div>
+          <SectionHeader count={overnight_news.length}>隔夜要闻</SectionHeader>
+          {locked ? (
+            <>
+              <div className="space-y-3">
+                {overnight_news.map((_, i) => (
+                  <LockedBlur
+                    key={i}
+                    lines={3}
+                    label={`要闻 ${String(i + 1).padStart(2, '0')}`}
+                    variant="paragraph"
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+              <SectionUnlockCta />
+            </>
+          ) : (
+            <div className="space-y-4">
+              {overnight_news.map((item, i) => (
+                <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-base font-semibold text-foreground hover:text-primary transition-colors block mb-2"
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    <h4 className="text-base font-semibold text-foreground mb-2">
+                      {item.title}
+                    </h4>
+                  )}
+                  <NewsTimestamp timestamp={item.published_at} />
+                  <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {item.analysis}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
       {/* Today Focus */}
       {today_focus.length > 0 && (
         <section className="bg-card rounded-xl border border-border p-5">
-          <SectionHeader>今日焦点</SectionHeader>
-          <div className="space-y-4">
-            {today_focus.map((item, i) => (
-              <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
-                <div className="flex items-start gap-3">
-                  {item.time && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-micro font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-wide uppercase shrink-0 mt-0.5">
-                      {item.time}
-                    </span>
-                  )}
-                  <div className="flex-1">
-                    <h4 className="text-base font-semibold text-foreground mb-2">
-                      {item.title}
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {item.analysis}
-                    </p>
+          <SectionHeader count={today_focus.length}>今日焦点</SectionHeader>
+          {locked ? (
+            <>
+              <div className="space-y-3">
+                {today_focus.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    {item.time && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-micro font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-wide uppercase shrink-0 mt-0.5">
+                        {item.time}
+                      </span>
+                    )}
+                    <div className="flex-1">
+                      <LockedBlur
+                        lines={2}
+                        label={`焦点 ${String(i + 1).padStart(2, '0')}`}
+                        variant="paragraph"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <SectionUnlockCta />
+            </>
+          ) : (
+            <div className="space-y-4">
+              {today_focus.map((item, i) => (
+                <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
+                  <div className="flex items-start gap-3">
+                    {item.time && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-micro font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-wide uppercase shrink-0 mt-0.5">
+                        {item.time}
+                      </span>
+                    )}
+                    <div className="flex-1">
+                      <h4 className="text-base font-semibold text-foreground mb-2">
+                        {item.title}
+                      </h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {item.analysis}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -238,14 +315,19 @@ export function MorningReportContent({
             {summary.map((section, i) => (
               <div key={i}>
                 <SubsectionHeader>{SUMMARY_TITLES[section.title] || section.title}</SubsectionHeader>
-                {section.content.split('\n\n').map((paragraph, j) => (
-                  <p key={j} className="text-sm text-foreground leading-relaxed mb-3 last:mb-0">
-                    {paragraph}
-                  </p>
-                ))}
+                {locked ? (
+                  <LockedBlur lines={4} variant="paragraph" />
+                ) : (
+                  section.content.split('\n\n').map((paragraph, j) => (
+                    <p key={j} className="text-sm text-foreground leading-relaxed mb-3 last:mb-0">
+                      {paragraph}
+                    </p>
+                  ))
+                )}
               </div>
             ))}
           </div>
+          {locked && <SectionUnlockCta />}
         </section>
       )}
 

@@ -3,8 +3,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { MorningReportContent } from '@/components/MorningReportContent';
-import { formatReportDate } from '@/lib/timezone';
+import { MorningReportBody } from '../_components/MorningReportBody';
 
 // ISR: revalidate every hour (reports don't change after generation)
 export const revalidate = 3600;
@@ -120,40 +119,7 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
         </div>
 
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          <section className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span className="text-sm font-data text-foreground">{formatReportDate(report.report_date || '')}</span>
-              </div>
-            </div>
-
-            {report.title && (
-              <h1 className="text-2xl md:text-3xl font-editorial text-foreground leading-tight">
-                {report.title}
-              </h1>
-            )}
-
-            {report.market_pulse && (
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
-                <p className="text-muted-foreground leading-relaxed text-sm">
-                  {report.market_pulse}
-                </p>
-              </div>
-            )}
-          </section>
-
-          <MorningReportContent
-            futures={report.futures || []}
-            futures_analysis={report.futures_analysis}
-            global_markets={report.global_markets || { asia: [], europe: [], other: [] }}
-            global_markets_analysis={report.global_markets_analysis}
-            overnight_news={report.overnight_news || []}
-            today_focus={report.today_focus || []}
-            summary={report.summary || []}
-          />
+          <MorningReportBody report={report} targetPath={`/morning/${id}`} />
         </div>
       </main>
     </>
