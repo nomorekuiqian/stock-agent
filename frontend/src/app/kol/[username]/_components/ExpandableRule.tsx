@@ -62,10 +62,10 @@ export default function ExpandableRule({
             className="flex flex-1 items-start gap-2 text-left"
             aria-expanded={open}
           >
-            <span className="flex-1 text-[13px] leading-relaxed text-foreground/90">
+            <span className="flex-1 text-sm leading-relaxed text-foreground/90">
               {text}
             </span>
-            <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/60 px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wider text-muted-foreground transition group-hover/rule:border-primary/40 group-hover/rule:text-primary">
+            <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/60 px-1.5 py-0.5 font-data text-xs uppercase tracking-wider text-muted-foreground transition group-hover/rule:border-primary/40 group-hover/rule:text-primary">
               <FileText className="h-3 w-3" />
               {evidence.length} 条证据
               <ChevronDown
@@ -74,7 +74,7 @@ export default function ExpandableRule({
             </span>
           </button>
         ) : (
-          <span className="flex-1 text-[13px] leading-relaxed text-foreground/90">
+          <span className="flex-1 text-sm leading-relaxed text-foreground/90">
             {text}
           </span>
         )}
@@ -83,7 +83,7 @@ export default function ExpandableRule({
         <Link
           href={chatHref}
           title="跟他追问这一条"
-          className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/60 px-1.5 py-0.5 font-data text-[10px] uppercase tracking-wider text-muted-foreground opacity-0 transition group-hover/rule:opacity-100 hover:border-primary/40 hover:text-primary"
+          className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/60 px-1.5 py-0.5 font-data text-xs uppercase tracking-wider text-muted-foreground transition hover:border-primary/40 hover:text-primary md:opacity-0 md:group-hover/rule:opacity-100"
         >
           <MessageCircle className="h-3 w-3" />
           问问他
@@ -108,7 +108,7 @@ function EvidenceTweet({ tweet }: { tweet: KolCockpitTweet }) {
   const visible = more || !long ? tweet.text : tweet.text.slice(0, 180).trimEnd();
   return (
     <article className="rounded-md bg-card/40 px-3 py-2.5">
-      <div className="flex items-center gap-2 font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="flex items-center gap-2 font-data text-xs uppercase tracking-[0.14em] text-muted-foreground">
         <time dateTime={tweet.created_at ?? undefined}>
           {relativeTimeCN(tweet.created_at)}
         </time>
@@ -124,7 +124,7 @@ function EvidenceTweet({ tweet }: { tweet: KolCockpitTweet }) {
           </a>
         ) : null}
       </div>
-      <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-foreground/85">
+      <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
         {visible}
         {long && !more ? (
           <>
@@ -132,7 +132,7 @@ function EvidenceTweet({ tweet }: { tweet: KolCockpitTweet }) {
             <button
               type="button"
               onClick={() => setMore(true)}
-              className="font-data text-[11px] uppercase tracking-wider text-primary hover:underline"
+              className="font-data text-xs uppercase tracking-wider text-primary hover:underline"
             >
               展开
             </button>

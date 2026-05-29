@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowUpRight,
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Loader2,
   TrendingUp,
   TrendingDown,
   Search,
@@ -15,14 +14,12 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-import {
-  api,
-  type KolSectorV3Detail,
-  type KolSectorV3RuleItem,
-  type KolSectorV3Ticker,
-} from '@/lib/api';
+import { useKolCockpitSectorV3 } from '@/hooks/queries/use-kol-data';
+import type { KolSectorV3RuleItem, KolSectorV3Ticker } from '@/lib/api';
 import ExpandableRule from './ExpandableRule';
 import TweetFeedCard from './TweetFeedCard';
+import MacroRegimeFramework from './MacroRegimeFramework';
+import { IndustryChainSkeleton } from './Skeletons';
 
 interface Props {
   username: string;
@@ -30,89 +27,57 @@ interface Props {
 }
 
 export default function SectorDetailV3({ username, sectorKey }: Props) {
-  const [detail, setDetail] = useState<KolSectorV3Detail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [errored, setErrored] = useState(false);
+  const { data: detail, isLoading, isError } = useKolCockpitSectorV3(username, sectorKey);
   const [showFullBody, setShowFullBody] = useState(false);
-
-  useEffect(() => {
-    if (!sectorKey) {
-      setDetail(null);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setErrored(false);
-    setDetail(null);
-    setShowFullBody(false);
-    api.kolResearch
-      .cockpitSectorV3(username, sectorKey)
-      .then((d) => {
-        if (!cancelled) setDetail(d);
-      })
-      .catch(() => {
-        if (!cancelled) setErrored(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [username, sectorKey]);
 
   if (!sectorKey) {
     return (
       <div className="flex h-96 items-center justify-center text-center">
-        <p className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
           左侧选择板块查看他的框架
         </p>
       </div>
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        <span className="font-data text-xs uppercase tracking-[0.18em]">载入板块</span>
-      </div>
-    );
-  }
-
-  if (errored || !detail) {
-    return (
-      <div className="py-20 text-center">
-        <p className="text-sm text-destructive">无法获取板块详情 · 请检查网络或稍后重试</p>
-      </div>
-    );
+  if (isLoading || !detail) {
+    if (isError) {
+      return (
+        <div className="py-20 text-center">
+          <p className="text-sm text-destructive">无法获取板块详情 · 请检查网络或稍后重试</p>
+        </div>
+      );
+    }
+    return <IndustryChainSkeleton />;
   }
 
   const chatHref =
     `/research?agent=kol&persona=${encodeURIComponent(username)}` +
     `&q=${encodeURIComponent(`按你的框架，现在怎么看${detail.label}？`)}`;
 
+  if (detail.layer === 'macro') {
+    return <MacroRegimeFramework detail={detail} username={username} />;
+  }
+
   return (
     <div className="flex flex-col gap-7 pb-10">
       {/* Header */}
       <header className="border-b border-border/40 pb-5">
-        <p className="font-data text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+        <p className="font-data text-xs uppercase tracking-[0.22em] text-muted-foreground">
           {detail.eyebrow}
         </p>
         <div className="mt-1.5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-editorial text-3xl tracking-tight text-foreground md:text-[34px]">
+            <h2 className="font-editorial text-3xl tracking-tight text-foreground md:text-4xl">
               {detail.label}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">{detail.short}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-data text-[11px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-data text-xs uppercase tracking-[0.14em] text-muted-foreground/80">
               {detail.tweet_count > 0 ? (
                 <span className="tabular-nums">{detail.tweet_count} 条推文</span>
               ) : null}
               <span className="tabular-nums">{detail.tickers.length} 个标的</span>
-              <span>
-                {detail.layer === 'macro' ? '单独一层 · 框架性' : '板块 · 产业链'}
-              </span>
+              <span>板块 · 产业链</span>
             </div>
           </div>
           <Link
@@ -123,7 +88,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-        <p className="mt-3 font-data text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
+        <p className="mt-3 font-data text-xs uppercase tracking-[0.18em] text-muted-foreground/70">
           点击任何一条规则可以看支撑它的原推 · 鼠标悬浮看「问问他」追问
         </p>
       </header>
@@ -144,7 +109,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
                 askPrefix="详细聊聊他在追问的问题："
                 username={username}
                 leftAdorn={
-                  <span className="grid h-5 w-5 place-items-center rounded-full border border-primary/40 bg-primary/10 font-data text-[10px] tabular-nums text-primary">
+                  <span className="grid h-5 w-5 place-items-center rounded-full border border-primary/40 bg-primary/10 font-data text-xs tabular-nums text-primary">
                     {i + 1}
                   </span>
                 }
@@ -219,7 +184,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
           </div>
           {detail.bear_triggers.length > 0 ? (
             <div className="mt-4 rounded-md border border-border/40 bg-card/30 p-4">
-              <p className="font-data text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 他什么时候会看空
               </p>
               <ul className="mt-2 space-y-1">
@@ -231,7 +196,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
                     askPrefix="他看空的触发条件："
                     username={username}
                     leftAdorn={
-                      <span className="font-data text-[10px] text-muted-foreground/70">·</span>
+                      <span className="font-data text-xs text-muted-foreground/70">·</span>
                     }
                   />
                 ))}
@@ -252,7 +217,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
             {detail.misreadings.map((m, i) => (
               <li
                 key={i}
-                className="rounded-md border-l-2 border-destructive/40 bg-destructive/5 px-3 py-1.5"
+                className="rounded-md bg-destructive/[0.04] px-3 py-1.5"
               >
                 <ExpandableRule
                   text={m.text}
@@ -288,7 +253,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
         <Section
           eyebrow="06"
           title="代表观点"
-          help={`从 Evidence Map 解析 · 共 ${detail.rep_tweets.length} 条原文`}
+          help={`由原文证据整理 · 共 ${detail.rep_tweets.length} 条`}
         >
           <div className="divide-y divide-border/40">
             {detail.rep_tweets.slice(0, 6).map((tweet) => (
@@ -307,7 +272,6 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
                   sectors: [],
                   reply_kind: tweet.reply_kind ?? null,
                 }}
-                username={username}
               />
             ))}
           </div>
@@ -322,11 +286,11 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
           className="flex w-full items-center justify-between border-b border-border/40 py-3 text-left transition hover:text-primary"
         >
           <span>
-            <span className="font-data text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span className="font-data text-xs uppercase tracking-[0.22em] text-muted-foreground">
               07 · 完整框架
             </span>
             <span className="ml-3 text-sm font-medium text-foreground">
-              展开他的完整思考流程（含分析步骤 / 输出模板 / Evidence）
+              展开他的完整思考流程（含分析步骤 / 输出模板 / 证据）
             </span>
           </span>
           {showFullBody ? (
@@ -336,7 +300,7 @@ export default function SectorDetailV3({ username, sectorKey }: Props) {
           )}
         </button>
         {showFullBody ? (
-          <pre className="mt-4 whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground/85">
+          <pre className="mt-4 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/85">
             {detail.full_body}
           </pre>
         ) : null}
@@ -361,7 +325,7 @@ function Section({
   return (
     <section>
       <div className="mb-3">
-        <p className="font-data text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+        <p className="font-data text-xs uppercase tracking-[0.22em] text-muted-foreground">
           {eyebrow}
         </p>
         <h3 className="mt-1 text-lg font-medium tracking-tight text-foreground">{title}</h3>
@@ -398,7 +362,7 @@ function DecisionCard({
         className={`flex items-center gap-2 border-b border-border/40 px-4 py-2.5 ${tones[tone]}`}
       >
         {icon}
-        <span className="text-[13px] font-medium">{title}</span>
+        <span className="text-sm font-medium">{title}</span>
       </div>
       <ul className="space-y-1 p-3">
         {items.map((item, i) => (
@@ -409,11 +373,6 @@ function DecisionCard({
             askPrefix={askPrefix}
             username={username}
             variant={tone === 'bull' ? 'primary' : tone === 'veto' ? 'destructive' : 'default'}
-            leftAdorn={
-              <span className="font-data text-[10px] tabular-nums text-muted-foreground/70">
-                0{i + 1}
-              </span>
-            }
           />
         ))}
       </ul>
@@ -448,10 +407,10 @@ function TickerMiniCard({ ticker, username }: { ticker: KolSectorV3Ticker; usern
           ${ticker.ticker}
         </span>
         {ticker.coverage === 'high' ? (
-          <span className="font-data text-[9px] uppercase tracking-wider text-primary/80">深度</span>
+          <span className="font-data text-xs uppercase tracking-wider text-primary/80">深度</span>
         ) : null}
       </div>
-      <div className="mt-1 flex items-center gap-1.5 font-data text-[11px] tabular-nums text-muted-foreground">
+      <div className="mt-1 flex items-center gap-1.5 font-data text-xs tabular-nums text-muted-foreground">
         {ticker.price != null ? (
           <span className={color}>${ticker.price.toFixed(2)}</span>
         ) : (
@@ -464,7 +423,7 @@ function TickerMiniCard({ ticker, username }: { ticker: KolSectorV3Ticker; usern
           </span>
         ) : null}
       </div>
-      <div className="mt-1.5 flex items-center justify-between font-data text-[10px] uppercase tracking-[0.12em] text-muted-foreground/80">
+      <div className="mt-1.5 flex items-center justify-between font-data text-xs uppercase tracking-[0.12em] text-muted-foreground/80">
         <span>{ticker.v3_count} 次提及</span>
         <span className="opacity-0 transition group-hover/cell:opacity-100">查看 →</span>
       </div>

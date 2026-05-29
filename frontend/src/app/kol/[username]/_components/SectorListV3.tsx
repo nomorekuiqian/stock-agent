@@ -10,21 +10,19 @@ interface Props {
 
 /**
  * Left rail — list of v3 sectors with mention counts + ticker counts.
- * Macro is rendered separately below a divider since it's not a "sector"
- * in the traditional sense (different framework layer in v3).
+ * Macro has its own top-level panel, so this list stays focused on sectors.
  */
 export default function SectorListV3({ sectors, selected, onSelect }: Props) {
   const sectorOnly = sectors.filter((s) => s.layer === 'sector');
-  const macro = sectors.filter((s) => s.layer === 'macro');
   const maxCount = Math.max(1, ...sectorOnly.map((s) => s.tweet_count));
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-baseline justify-between">
-        <span className="font-data text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
           {sectorOnly.length} 个板块
         </span>
-        <span className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+        <span className="font-data text-xs uppercase tracking-[0.14em] text-muted-foreground/70">
           按推文量
         </span>
       </div>
@@ -39,27 +37,6 @@ export default function SectorListV3({ sectors, selected, onSelect }: Props) {
             onSelect={() => onSelect(s.key)}
           />
         ))}
-
-        {macro.length > 0 ? (
-          <>
-            <li aria-hidden className="my-3 px-3">
-              <hr className="editorial-rule" />
-              <p className="mt-2 font-data text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                单独一层 · 不属于板块
-              </p>
-            </li>
-            {macro.map((s) => (
-              <SectorRow
-                key={s.key}
-                sector={s}
-                active={selected === s.key}
-                maxCount={1}
-                onSelect={() => onSelect(s.key)}
-                hideBar
-              />
-            ))}
-          </>
-        ) : null}
       </ul>
     </div>
   );
@@ -70,11 +47,10 @@ interface RowProps {
   active: boolean;
   maxCount: number;
   onSelect: () => void;
-  hideBar?: boolean;
 }
 
-function SectorRow({ sector, active, maxCount, onSelect, hideBar }: RowProps) {
-  const widthPct = hideBar ? 0 : Math.max(4, Math.round((sector.tweet_count / maxCount) * 100));
+function SectorRow({ sector, active, maxCount, onSelect }: RowProps) {
+  const widthPct = Math.max(4, Math.round((sector.tweet_count / maxCount) * 100));
   return (
     <li role="option" aria-selected={active}>
       <button
@@ -98,25 +74,23 @@ function SectorRow({ sector, active, maxCount, onSelect, hideBar }: RowProps) {
           >
             {sector.label}
           </span>
-          <span className="shrink-0 font-data text-[11px] tabular-nums text-muted-foreground">
+          <span className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
             {sector.tweet_count > 0 ? sector.tweet_count : '——'}
           </span>
         </div>
-        {!hideBar ? (
-          <div className="mt-1.5 h-[2px] overflow-hidden rounded-full bg-muted/60">
-            <div
-              className={`h-full transition-all ${
-                active ? 'bg-primary' : 'bg-primary/50 group-hover/row:bg-primary/70'
-              }`}
-              style={{ width: `${widthPct}%` }}
-            />
-          </div>
-        ) : null}
-        <p className="mt-1.5 line-clamp-1 text-[11px] text-muted-foreground">
+        <div className="mt-1.5 h-[2px] overflow-hidden rounded-full bg-muted/60">
+          <div
+            className={`h-full transition-all ${
+              active ? 'bg-primary' : 'bg-primary/50 group-hover/row:bg-primary/70'
+            }`}
+            style={{ width: `${widthPct}%` }}
+          />
+        </div>
+        <p className="mt-1.5 line-clamp-1 text-xs text-muted-foreground">
           {sector.short || ''}
         </p>
         {sector.ticker_count > 0 ? (
-          <p className="mt-0.5 font-data text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+          <p className="mt-0.5 font-data text-xs uppercase tracking-[0.12em] text-muted-foreground/70">
             {sector.ticker_count} 个标的
           </p>
         ) : null}

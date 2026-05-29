@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { api, type KolSectorV3Summary } from '@/lib/api';
+import { useKolCockpitSectorsV3 } from '@/hooks/queries/use-kol-data';
 import SectorListV3 from './SectorListV3';
 import SectorDetailV3 from './SectorDetailV3';
 import IndustryChainView from './IndustryChainView';
+import MacroPerspectivePanel from './MacroPerspectivePanel';
 
 // Boards that have a dedicated industry-chain visualization instead of the
 // text-framework view. Mirror of cockpit_v3.INDUSTRY_CHAIN_REGISTRY keys.
@@ -14,7 +15,6 @@ const CHAIN_BOARDS = new Set([
   'ai-infrastructure',
   'crypto-stablecoin-rwa',
   'defense-and-space',
-  'software-ai-disruption',
 ]);
 
 interface Props {
@@ -25,39 +25,34 @@ export default function SectorExplorerV3({ username }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialKey = searchParams?.get('key') ?? null;
+  const isLegacyMacroRoute = initialKey === 'macro-regime';
 
-  const [sectors, setSectors] = useState<KolSectorV3Summary[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(initialKey);
-  const [listError, setListError] = useState(false);
+  const { data, isError } = useKolCockpitSectorsV3(username);
+  const sectors = data?.sectors ?? null;
+  const [selectedKey, setSelectedKey] = useState<string | null>(initialKey);
+  const selected =
+    sectors && selectedKey && sectors.some((s) => s.key === selectedKey)
+      ? selectedKey
+      : sectors?.find((s) => s.layer === 'sector')?.key ?? null;
 
   useEffect(() => {
-    let cancelled = false;
-    api.kolResearch
-      .cockpitSectorsV3(username)
-      .then((res) => {
-        if (cancelled) return;
-        setSectors(res.sectors);
-        setSelected((cur) => {
-          if (cur && res.sectors.some((s) => s.key === cur)) return cur;
-          return res.sectors[0]?.key ?? null;
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setListError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [username]);
+    if (isLegacyMacroRoute) {
+      router.replace(`/kol/${username}/macro`, { scroll: false });
+    }
+  }, [isLegacyMacroRoute, router, username]);
 
   function pickSector(k: string) {
-    setSelected(k);
+    setSelectedKey(k);
     const params = new URLSearchParams(searchParams?.toString() ?? '');
     params.set('key', k);
     router.replace(`?${params.toString()}`, { scroll: false });
   }
 
-  if (listError) {
+  if (isLegacyMacroRoute) {
+    return <MacroPerspectivePanel username={username} />;
+  }
+
+  if (isError) {
     return (
       <div className="py-16 text-center">
         <p className="text-sm text-destructive">无法获取板块列表 · 请检查网络或稍后重试</p>
@@ -71,18 +66,18 @@ export default function SectorExplorerV3({ username }: Props) {
 
   if (sectors.length === 0) {
     return (
-      <div className="py-16 text-center font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        这个博主还没有 v3 板块蒸馏数据
+      <div className="py-16 text-center font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        这个博主还没整理出板块框架
       </div>
     );
   }
 
   return (
     <div className="grid gap-6 py-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:py-8">
-      <aside className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)]">
+      <aside className="order-2 lg:sticky lg:top-24 lg:order-1 lg:max-h-[calc(100vh-7rem)]">
         <SectorListV3 sectors={sectors} selected={selected} onSelect={pickSector} />
       </aside>
-      <div className="min-w-0">
+      <div className="order-1 min-w-0 lg:order-2">
         {selected && CHAIN_BOARDS.has(selected) ? (
           <IndustryChainView username={username} boardKey={selected} />
         ) : (

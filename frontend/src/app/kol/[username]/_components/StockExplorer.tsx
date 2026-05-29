@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { api, type KolCockpitTickerSummary } from '@/lib/api';
+import { useKolCockpitTickers } from '@/hooks/queries/use-kol-data';
 import TickerList from './TickerList';
 import TickerDetail from './TickerDetail';
 
@@ -14,43 +13,26 @@ interface Props {
 export default function StockExplorer({ username }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTicker = searchParams?.get('ticker')?.toUpperCase() ?? null;
+  const urlTicker = searchParams?.get('ticker')?.toUpperCase() ?? null;
 
-  const [tickers, setTickers] = useState<KolCockpitTickerSummary[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(initialTicker);
-  const [listError, setListError] = useState(false);
+  const { data, isError } = useKolCockpitTickers(username);
+  const tickers = data?.tickers ?? null;
 
-  // Load tickers once
-  useEffect(() => {
-    let cancelled = false;
-    api.kolResearch
-      .cockpitTickers(username)
-      .then((res) => {
-        if (cancelled) return;
-        setTickers(res.tickers);
-        // Auto-select first ticker if URL didn't specify one
-        setSelected((cur) => {
-          if (cur && res.tickers.some((t) => t.ticker === cur)) return cur;
-          return res.tickers[0]?.ticker ?? null;
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setListError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [username]);
+  // Selected derives from URL + data at render time. URL is source of truth;
+  // pickTicker updates URL and React re-derives — no setState-in-effect needed.
+  const selected =
+    tickers && urlTicker && tickers.some((t) => t.ticker === urlTicker)
+      ? urlTicker
+      : tickers?.[0]?.ticker ?? null;
 
-  // Keep URL in sync with selection (shallow — no scroll/refetch)
+  // Keep URL in sync with selection (shallow — no scroll/refetch).
   function pickTicker(t: string) {
-    setSelected(t);
     const params = new URLSearchParams(searchParams?.toString() ?? '');
     params.set('ticker', t);
     router.replace(`?${params.toString()}`, { scroll: false });
   }
 
-  if (listError) {
+  if (isError) {
     return (
       <div className="py-16 text-center">
         <p className="text-sm text-destructive">无法获取标的列表 · 请检查网络或稍后重试</p>
