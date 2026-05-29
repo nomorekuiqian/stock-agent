@@ -22,20 +22,37 @@ def _headers() -> dict:
     return service.headers
 
 
-async def list_conversations(user_id: str) -> list[dict]:
-    """List conversations for a user (lightweight, no data field)."""
+async def list_conversations(
+    user_id: str,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:
+    """List conversations for a user (lightweight, no data field).
+
+    Returns ``{"items": [...], "has_more": bool}``. ``has_more`` is true when
+    the underlying page is exactly ``limit`` rows long — caller uses this to
+    decide whether to render a "load more" affordance.
+    """
     service = get_insforge_service()
     result = await service.call_function(
         _FUNCTION_NAME,
         method="GET",
-        params={"action": "list", "user_id": user_id},
+        params={
+            "action": "list",
+            "user_id": user_id,
+            "limit": str(limit),
+            "offset": str(offset),
+        },
         timeout=10.0,
     )
     data = result.get("data", {})
     if data.get("success"):
-        return data.get("data", [])
+        return {
+            "items": data.get("data", []),
+            "has_more": bool(data.get("has_more", False)),
+        }
     logger.error("list_conversations failed: %s", data.get("error"))
-    return []
+    return {"items": [], "has_more": False}
 
 
 async def get_conversation(conversation_id: str, user_id: str) -> Optional[dict]:

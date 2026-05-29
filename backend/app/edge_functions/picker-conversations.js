@@ -28,14 +28,22 @@ module.exports = async function(request) {
     const userId = url.searchParams.get("user_id");
     const id = url.searchParams.get("id");
 
-    // GET ?action=list&user_id=xxx - list conversations (lightweight, no data)
+    // GET ?action=list&user_id=xxx[&limit=20&offset=0] - list conversations
+    // (lightweight, no data). limit clamped to [1, 100], default 20.
+    // Returns has_more=true when the page is exactly `limit` rows long, which
+    // gives the client a cheap "load more" signal without a separate count().
     if (request.method === "GET" && action === "list" && userId) {
+      const rawLimit = parseInt(url.searchParams.get("limit") || "20", 10);
+      const rawOffset = parseInt(url.searchParams.get("offset") || "0", 10);
+      const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 20 : rawLimit));
+      const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset);
+
       const { data, error } = await client.database
         .from(TABLE)
         .select("id, user_id, title, message_count, created_at, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
-        .limit(20);
+        .range(offset, offset + limit - 1);
 
       if (error) {
         return new Response(
@@ -44,8 +52,11 @@ module.exports = async function(request) {
         );
       }
 
+      const rows = data || [];
+      const has_more = rows.length === limit;
+
       return new Response(
-        JSON.stringify({ success: true, data: data || [] }),
+        JSON.stringify({ success: true, data: rows, has_more, limit, offset }),
         { status: 200, headers: jsonHeaders }
       );
     }
