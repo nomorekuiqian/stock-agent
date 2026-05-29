@@ -12,8 +12,9 @@
 | `/morning` | 盘前早报 | Backend (morningReports API) | 否 |
 | `/morning/[id]` | 早报详情 | Backend (morningReports.getById) | 否 |
 | `/morning/archive` | 早报存档 | Backend (morningReports API) | 否 |
-| `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest) | 是 |
-| `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate) | 是 |
+| `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Max） |
+| `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
+| `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
 | `/kol-chat` | qinbafrank 方法论对话 | Backend (twitterMethodology.chat) | 是 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
@@ -84,17 +85,21 @@
 - 琥珀色主题 (amber accent)
 
 ### `/twitter-digest` 推特 KOL 观点日报
-- Client Component,需要登录后读取
-- 调用 `api.twitterDigest.getLatest()` 获取最近一份 `DailyDigest`
-- 页面结构: 今日要点 + 大盘走势 + 行业判断 + 个股判断 + 追踪 KOL
-- `industry_picks` 按 `sector` 分组,`stock_picks` 按 `primary_ticker` 分组
-- 未登录时跳转登录引导,当前尚未接 Pro / Max 付费墙
+- Client Component,完整内容需要登录且具备 `twitter_digest` Max entitlement
+- Max 用户调用 `api.twitterDigest.getLatest()` 获取完整 `DailyDigest`
+- 未登录 / 非 Max 用户调用 `api.twitterDigest.getLatestTeaser()`，只展示标题、热榜、intro preview 和 Max CTA
+- 页面结构: 信任条 + 开场 + 热榜 + ticker thesis + macro threads + watchpoints
 
 ### `/twitter-digest/[date]` 推特 KOL 观点日报详情
-- Client Component,需要登录后读取
-- 调用 `api.twitterDigest.getByDate(date)`
-- 复用 `DigestView`
+- Client Component,完整内容需要登录且具备 `twitter_digest` Max entitlement
+- Max 用户调用 `api.twitterDigest.getByDate(date)` 并复用 `DigestView`
+- 未登录 / 非 Max 用户调用 `api.twitterDigest.getTeaserByDate(date)`，显示该日期 teaser
 - 后端校验日期格式 `YYYY-MM-DD`,不存在返回 404
+
+### `/twitter-digest/archive` 推特 KOL 日报归档
+- Client Component,分页加载
+- Max 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Max 用户调用 `listArchiveTeaser`
+- 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
 
 ### `/kol-chat` qinbafrank 方法论对话
 - Client Component,需要登录后读取
@@ -153,6 +158,7 @@
   - `daily_report` 始终可编辑
   - `morning_report` 需要 `morning_report_email`
   - `weekly_report` 需要 `weekly_report_email`
+  - `twitter_digest` 需要 Max `twitter_digest`
   - `personal_digest` 需要 `personal_digest_email`
   - 无 entitlement 的项默认显示为关闭且不可开启
 

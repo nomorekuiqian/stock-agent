@@ -168,9 +168,9 @@ AI 个股分析卡片，支持三种状态。
 - 统一的页面布局包装器 (标题 + 内容区)
 - 跨多个页面复用
 
-### ReportTabs.tsx — 报告标签页
-- 日报内容的分 Tab 渲染 (市场 / 新闻 / 摘要等)
-- 使用场景: `/today`, `/today/[id]`
+### ReportTabs.tsx — 报告入口标签页
+- 早报 / 晚报 / 推特三个报告入口，高亮当前 `/morning`、`/today` 或 `/twitter-digest` 路径
+- 使用场景: `/today`, `/morning`
 
 ### ProductShowcase.tsx — 产品展示组件
 - 首页产品功能截图/预览展示
