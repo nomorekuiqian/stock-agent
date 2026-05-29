@@ -107,6 +107,9 @@ class BroadcastResponse(BaseModel):
     """Response model for broadcast operations"""
     success: bool = Field(..., description="Whether the broadcast succeeded")
     channel: str = Field(..., description="Broadcast channel")
+    broadcast_id: Optional[str] = Field(None, description="Resend broadcast ID")
+    audience_id: Optional[str] = Field(None, description="Resend audience ID, when audience send is used")
+    segment_id: Optional[str] = Field(None, description="Resend segment ID, when segment send is used")
     total: int = Field(default=0, description="Total subscribers")
     sent: int = Field(default=0, description="Successfully sent count")
     failed: int = Field(default=0, description="Failed count")

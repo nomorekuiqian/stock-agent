@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Literal, Optional
 
 from app.core.config import FRONTEND_URL
-from app.utils.timezone import now_pacific, now_iso, today_str, to_pacific
+from app.utils.timezone import market_now, now_iso, today_str, to_market_tz
 
 from app.features.subscription.email_styles import (
     CARD_STYLE,
@@ -44,19 +44,19 @@ def _stock_url(ticker: str) -> str:
 
 
 def format_timestamp(timestamp: str, compact: bool = False) -> str:
-    """Format ISO timestamp to Pacific time with an explicit timezone label."""
+    """Format ISO timestamp to US market time with an explicit timezone label."""
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        pacific_dt = to_pacific(dt)
+        market_dt = to_market_tz(dt)
     except Exception:
-        pacific_dt = now_pacific()
+        market_dt = market_now()
 
-    time_label = pacific_dt.strftime("%I:%M %p").lstrip("0")
+    time_label = market_dt.strftime("%I:%M %p").lstrip("0")
     if compact:
-        date_label = pacific_dt.strftime("%b %d").replace(" 0", " ")
-        return f"{date_label} · {time_label} PT"
+        date_label = market_dt.strftime("%b %d").replace(" 0", " ")
+        return f"{date_label} · {time_label} ET"
 
-    return f"{pacific_dt.strftime('%B %d, %Y')} · {time_label} PT"
+    return f"{market_dt.strftime('%B %d, %Y')} · {time_label} ET"
 
 
 def render_timestamp_meta(timestamp: str) -> str:
@@ -71,7 +71,7 @@ def render_timestamp_meta(timestamp: str) -> str:
 
 
 def get_time_greeting() -> str:
-    hour = now_pacific().hour
+    hour = market_now().hour
     if 5 <= hour < 12:
         return "早上好"
     elif 12 <= hour < 18:
@@ -1478,7 +1478,7 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
     from urllib.parse import quote
 
     greeting = "欢迎加入TheMarketBrew！"
-    formatted_date = now_pacific().strftime("%B %d, %Y")
+    formatted_date = market_now().strftime("%B %d, %Y")
     register_url = (
         f"{_EMAIL_LINK_BASE}/login?email={quote(email)}&trial=true"
         if email
@@ -1635,7 +1635,7 @@ def format_verification_email_html(
     recipient_email: str = "",
 ) -> str:
     """Format verification email HTML using the shared TheMarketBrew email style."""
-    formatted_date = now_pacific().strftime("%B %d, %Y")
+    formatted_date = market_now().strftime("%B %d, %Y")
     intro_line = "我们收到了一次 TheMarketBrew 账户注册请求，验证邮箱后即可开始使用。"
     email_line = (
         f"验证对象：<strong>{recipient_email}</strong>"

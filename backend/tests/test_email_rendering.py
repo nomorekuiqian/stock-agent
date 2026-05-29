@@ -8,6 +8,7 @@ no network calls, no database access.
 
 import pytest
 from app.features.subscription.email_service import EmailService
+from app.features.subscription.email_templates import format_timestamp
 
 
 @pytest.fixture
@@ -141,6 +142,14 @@ def mock_digest_data():
     }
 
 
+class TestFormatTimestamp:
+    """Test email timestamp rendering."""
+
+    def test_uses_market_time_et_label(self):
+        """UTC timestamps render in US market time and are labeled ET."""
+        assert format_timestamp("2026-05-20T14:30:00Z") == "May 20, 2026 · 10:30 AM ET"
+
+
 class TestFormatHtmlReport:
     """Test _format_html_report rendering."""
 
@@ -167,7 +176,7 @@ class TestFormatHtmlReport:
         html = email_svc._format_html_report(mock_report_data)
         assert "Fed holds rates steady" in html
         assert "Apple beats estimates" in html
-        assert "PT" in html
+        assert "ET" in html
 
     def test_feedback_links_contain_report_id(self, email_svc, mock_report_data):
         """Feedback section links include report_id."""
@@ -201,7 +210,7 @@ class TestFormatDigestHtml:
         html = email_svc._format_digest_html(mock_digest_data)
         assert "Chip stocks rally" in html
         assert "Apple Q1 Earnings" in html
-        assert "PT" in html
+        assert "ET" in html
 
     def test_minimal_digest_no_crash(self, email_svc):
         """Minimal digest data renders without error."""
