@@ -22,6 +22,7 @@ import asyncio
 import contextvars
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -314,6 +315,27 @@ def _safe_args_summary(args: dict | None, *, max_len: int = 120) -> Optional[str
     return text
 
 
+# Server-side fallback: even with prompt constraints, LLM occasionally emits
+# concatenated citations like [#3, #5] / [#3,#5] / [#3][#4]. Split into the
+# natural "[#3] 和 [#5]" form. Operates on the final aggregated text only;
+# streaming partial chunks can split a citation token across chunks, so we
+# don't run this on deltas.
+_CITATION_CONCAT_RE = re.compile(r"\[#(\d+)((?:[,\s、]+#?\d+)+)\]")
+_CITATION_ADJACENT_RE = re.compile(r"(\[#\d+\])(?=\[#\d+\])")
+
+
+def _fix_concat_citations(text: str) -> str:
+    """Normalize concatenated citations to the natural "[#a] 和 [#b]" form."""
+    def _split_inner(m: re.Match) -> str:
+        first = m.group(1)
+        rest = re.findall(r"\d+", m.group(2))
+        all_nums = [first] + rest
+        return " 和 ".join(f"[#{n}]" for n in all_nums)
+    text = _CITATION_CONCAT_RE.sub(_split_inner, text)
+    text = _CITATION_ADJACENT_RE.sub(r"\1 和 ", text)
+    return text
+
+
 # ---------------------------------------------------------------------------
 # Agent construction (singleton per persona)
 # ---------------------------------------------------------------------------
@@ -391,11 +413,19 @@ _TOOL_USAGE_RULES = """
 
 # 输出格式
 
-- Markdown 简体中文, **目标 800-1500 字** (投研问题, 短了就是糊弄)
-- 5 段必须用 `### 1. 产业定位` / `### 2. 当下指标读数` 这种结构化标题, 不要全堆一段
-- 每段内: 关键判断 / 数字 / falsifiability 锚用 **粗体** 突出
-- 指标对照、风险因子、观察清单 用列表
-- 长度不达标或缺段 = 没用尽工具, 重新组织
+- Markdown 简体中文, **目标 800-1500 字** (投研问题, 短了就是糊弄).
+- 5 段必须用 `### 1. 产业定位` / `### 2. 当下指标读数` 这种结构化标题, 不要全堆一段.
+- **粗体** 全段 1-2 处, 锁定该段核心判断的句子或数字, 不打装饰. 看到第三处 ** 就该自问 "这真重要吗".
+- **代码反引号** ` ` 只能包裹:
+  (a) 美股 ticker: `NVDA` / `TSLA` / `SPY`
+  (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
+  (c) 指标短名: `RPO` / `Capex/Revenue` / `PMI`
+  **禁止包裹**: 中文短语 (`业绩兑现` / `确定性` / `兑现`) / 英文名词 (`Macro` / `Capex`) / 整句话 / 形容词. 规则极简: 这个 token 是数据字面量吗? 不是就别用反引号, 用粗体或不强调.
+- **表格** (GFM 管道语法) 仅当展示"多维度对照" (≥3 行 × ≥2 列) 时用. 典型: 当下数据 vs 博主原话对照 (列 = 指标 / 博主原话 / 当下值 / 状态). 状态列只填 `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`. 单维度清单一律用列表, 不要造两列假表格.
+- **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
+- **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
+- **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表、`# / ##` 一级二级标题 (与气泡视觉撞).
+- 长度不达标或缺段 = 没用尽工具, 重新组织.
 """
 
 
@@ -408,7 +438,7 @@ _V3_TOOL_USAGE_RULES = """
 
 每次回答按这个顺序走:
 
-1. **先看用户问什么类型的问题, 加载对应的 framework skill** (拿到答题骨架):
+1. **先看用户问什么类型的问题, 加载对应的 framework skill** (拿到这类问题"必须包含的动作"清单, 不是骨架):
 
    | 问题类型 | 触发关键词 | 加载 framework |
    |---|---|---|
@@ -446,12 +476,14 @@ _V3_TOOL_USAGE_RULES = """
 
 # 通用纪律 (跨所有 framework 必须遵守)
 
-- **强信念必带打脸条件** (qinbafrank 真正的指纹). 任何"看多 / 看空"判断都要挂"什么数据出来这个判断就翻车", 具体到 **指标 + 阈值 + 时间窗** 三要素. 表达可换: 打脸条件 / 认错阈值 / 拐点信号 / 撤退条件 / 减仓信号 — 同一回答里混用, 不要堆同一个词.
+- **博主历史判断带的打脸条件要一并转述** (qinbafrank 真正的指纹). 你引用了博主"看多 / 看空"的历史观点, 博主当时如果挂过 "什么数据出来这个判断就翻车" 的阈值 (指标 + 阈值 + 时间窗), 必须一起转述出来. 博主当时没挂, 你不要补 — 不要为了凸显"博主指纹"自己编一个打脸条件.
 - **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为".
 - **没数据时**明确说"需要补充", 不要编造数字.
 - **不预测精确点位 / 不预测 Fed 节奏 / 不喊大顶大底崩盘** — 博主语言指纹.
 - **冲突处理**: skill 框架是判断准则; search_kol_tweets 是具体观点; data tool 是当下事实. 冲突时显式点出"分歧".
 - **禁用词**: all in / 梭哈 / 必涨 / 保底 / 稳赚 / 财富自由 / 猛干 / 绝对崩盘.
+- **任何具体阈值/数字必须来自 search_kol_tweets 召回的博主原话**. 没召回到就标"博主未给具体数字"或"数据待补", 不要编. 这条无例外 — 即使你觉得"按博主方法论可以推断 X<Y", 也不允许编一个具体阈值. 凭训练数据脑补阈值是这个 agent 最常见的错误模式.
+- **开场禁止引言句**: 直接给观点 / 转述博主评价. 禁用 "拆解为几个维度" / "以下为分析" / "可以从几个方面看" / "下面展开" / "可以从以下几点看" 这类填表式开场.
 
 # 引用规则 [#N] (硬性约束)
 
@@ -461,12 +493,33 @@ _V3_TOOL_USAGE_RULES = """
 - 引用号不连写多个: 用 `[#3]` 而不是 `[#3][#4]`; 多个来源用 `[#3] 和 [#4]` 这种自然句式.
 - 引用必须有具体含义: 不要句尾随手挂 `[#11]` 当装饰, 要么佐证一个具体论点, 要么省略.
 
+# 策展人模式 (全 framework 默认生效)
+
+你是博主观点的**策展人**, 不是博主代言人, 也不是判断者. 所有 framework 默认遵守这套约束 (method / veto 因为本身就是转述博主立场, 天然适用; stock / sector / macro / compare 风险更高, 务必严守):
+
+- **主语锁博主**. 用 "博主说过 / 博主认为 / 博主关心 / 博主多次强调". **禁用**: "我看多 X / 我看空 X" / "博主框架下能买 / 不能买" / "建议加仓 / 减仓" / "产业看好 / 板块见顶".
+- **不主动假设场景**. 用户没问 "如果跌了怎么办", 不要主动套 "如果近期回调... 这是杀估值". 只回答用户实际问的问题, 不替博主对未发生的场景做定性.
+- **段数 / 段标题 / 字数你自己决定**. 跟问题深度走, 不要凑骨架. framework 只规定 "必须包含的动作", 不规定 "必须 4 段" 或 "段 1 标题必须是 X". 自然语言组织, 别填表.
+- **如果你选用对照表**展示当下数据 vs 博主原话, 对照列只能填以下机械事实词:
+  - 允许: `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`
+  - 禁用: `看多` / `看空` / `仍成立` / `已破` / `已触发` / `已证伪` / `加仓` / `减仓` / `风险升高` / `接近触发` / `框架成立`
+- 安全护栏: 博主历史推文是过去某一时点的立场, 中间可能出过新事件博主已悄悄改了立场 —— 你不知道. 你只摆 "博主当时说过 X + 当下数据是 Y", 让用户自己拼接结论.
+
 # 输出格式
 
-- Markdown 简体中文.
+- Markdown 简体中文; 段落自然语言为主, 别填表.
 - **长度和结构由加载的 framework skill 决定**, 不要硬套字数或段数.
-- 关键判断 / 数字 / 打脸条件用 **粗体** 突出.
-- 列表用于指标对照 / 观察清单.
+- **粗体** 全段 1-2 处, 锁定该段核心判断的句子或数字, 不打装饰. 看到第三处 ** 就该自问 "这真重要吗".
+- **代码反引号** ` ` 只能包裹:
+  (a) 美股 ticker: `NVDA` / `TSLA` / `SPY`
+  (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
+  (c) 指标短名: `PMI` / `RPO` / `Capex/Revenue`
+  **禁止包裹**: 中文短语 (`业绩兑现` / `确定性` / `兑现`) / 英文名词 (`Macro` / `Capex`) / 整句话 / 形容词. 规则极简: 这个 token 是数据字面量吗? 不是就别用反引号, 用粗体或不强调.
+- **表格** (GFM 管道语法) 仅当展示"多维度对照" (≥3 行 × ≥2 列) 时用. 典型: 当下数据 vs 博主原话对照 (列 = 指标 / 博主原话 / 当下值 / 状态). 状态列只填策展人模式允许的机械事实词 (`已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`). 单维度清单一律用列表, 不要造两列假表格.
+- **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
+- **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
+- **段标题**: 必要时用 `### ` 三级标题; 不要 `# / ##` 与回复区视觉撞.
+- **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表.
 
 # v3 测试声明
 
@@ -683,7 +736,7 @@ async def _run_session(
         except Exception:  # noqa: BLE001
             pass
 
-    return "".join(final_text_parts).strip()
+    return _fix_concat_citations("".join(final_text_parts).strip())
 
 
 async def answer_kol_research(
@@ -791,6 +844,19 @@ async def stream_kol_research(
     google_counts: Dict[str, int] = {}
     token_google = _google_search_calls.set(google_counts)
 
+    # Entry log — appears in /tmp/uvicorn-frank.log before the agent does any work.
+    # If you grep "kol chat request" and don't see this line for a failing turn,
+    # the request never reached the agent (frontend bug, middleware reject, or
+    # backend reload between accept and dispatch).
+    logger.info(
+        "kol chat request: persona=%s message=%r history_len=%d context=%s",
+        persona_username,
+        message[:120],
+        len(history or []),
+        "yes" if content_context else "no",
+    )
+    stream_started_at = time.time()
+
     try:
         await _preload_recent_reports()
         agent = get_agent(persona_username)
@@ -843,18 +909,36 @@ async def stream_kol_research(
 
         if agent_error:
             err = agent_error[0]
+            elapsed = time.time() - stream_started_at
             if isinstance(err, asyncio.TimeoutError):
+                logger.warning(
+                    "kol chat timeout: persona=%s elapsed=%.1fs limit=%ss",
+                    persona_username, elapsed, timeout,
+                )
                 yield {
-                    "type": "final",
-                    "data": KolResearchResponse(
-                        persona_username=persona_username,
-                        message="AI 助手思考时间太长了，请再试一次。",
-                        tool_calls=tool_log,
-                    ).model_dump(),
+                    "type": "error",
+                    "code": "agent_timeout",
+                    "error": "AI 助手思考时间太长了，请再试一次",
                 }
                 return
-            logger.exception("kol_research stream failed", exc_info=err)
-            yield {"type": "error", "error": str(err)}
+            err_text = str(err).lower()
+            if "token" in err_text or "context" in err_text or "too long" in err_text:
+                code = "context_too_long"
+            elif "schema" in err_text or "validation" in err_text or "json" in err_text:
+                code = "model_schema_error"
+            else:
+                code = "agent_error"
+            # logger.exception captures the full traceback — search log for
+            # "kol chat failed" to find the exact stack on a failing turn.
+            logger.exception(
+                "kol chat failed: persona=%s elapsed=%.1fs code=%s err=%s",
+                persona_username, elapsed, code, err,
+            )
+            yield {
+                "type": "error",
+                "code": code,
+                "error": "AI 助手出了点问题，请再试一次",
+            }
             return
 
         navigate = nav_buf[-1] if nav_buf else None
@@ -871,6 +955,25 @@ async def stream_kol_research(
             navigate=navigate,
         )
         yield {"type": "final", "data": final.model_dump()}
+    except Exception as setup_err:  # noqa: BLE001
+        # Setup-phase errors (_preload_recent_reports / get_agent / _build_prompt)
+        # would otherwise bubble out of the generator with zero SSE events,
+        # which the frontend logs as "no final event". Catch and yield a
+        # proper error event so the user sees a useful message and the log
+        # shows where it broke. GeneratorExit / CancelledError are BaseException
+        # subclasses and intentionally NOT caught — client-disconnect cancels
+        # must still propagate to the finally block for contextvar cleanup.
+        elapsed = time.time() - stream_started_at
+        logger.exception(
+            "kol chat setup failed: persona=%s elapsed=%.1fs err=%s",
+            persona_username, elapsed, setup_err,
+        )
+        yield {
+            "type": "error",
+            "code": "agent_setup_error",
+            "error": "AI 助手启动失败，请再试一次",
+        }
+        return
     finally:
         _sse_queue.reset(token_queue)
         persona_chunks_buffer.reset(token_chunks)
