@@ -633,10 +633,9 @@ def mock_twitter_digest_data():
 
 class TestBroadcastTwitterDigest:
     """broadcast_twitter_digest sends only to the dedicated
-    RESEND_SEGMENT_TWITTER_DIGEST audience (opt-in via /profile email
-    preferences). Refuses to broadcast in non-production to avoid blasting
-    real users from dev. No fallback to the daily audience — if the
-    segment env var is missing, broadcast hard-fails.
+    RESEND_SEGMENT_TWITTER_DIGEST segment. Refuses to broadcast in
+    non-production to avoid blasting real users from dev. No fallback to the
+    daily audience — if the segment env var is missing, broadcast hard-fails.
     """
 
     @pytest.mark.asyncio

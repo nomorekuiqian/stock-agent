@@ -28,6 +28,7 @@ def _make_service():
             "morning_report": "seg-morning",
             "daily_report": "seg-evening",
             "weekly_report": "seg-weekly",
+            "twitter_digest": "seg-twitter",
         }
         svc.DAILY_CTA_SEGMENT_IDS = {
             "free": "",
@@ -103,6 +104,43 @@ class TestSyncResendSegmentsAdd:
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
+    def test_twitter_entitlement_adds_when_not_explicitly_opted_out(
+        self, _wait, mock_resend
+    ):
+        svc = _make_service()
+        _mock_current_segments(mock_resend, set())
+        mock_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        actions = svc.sync_resend_segments(
+            TEST_EMAIL,
+            _paid_sub(["twitter_digest"]),
+        )
+
+        add_calls = mock_resend.ContactSegments.add.call_args_list
+        added = {c[0][0]["segment_id"] for c in add_calls}
+        assert "seg-twitter" in added
+        assert "added to twitter_digest" in actions
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
+    def test_twitter_explicit_opt_out_is_not_readded(self, _wait, mock_resend):
+        svc = _make_service()
+        _mock_current_segments(mock_resend, set())
+        mock_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        actions = svc.sync_resend_segments(
+            TEST_EMAIL,
+            {
+                **_paid_sub(["twitter_digest"]),
+                "email_preferences": {"twitter_digest": False},
+            },
+        )
+
+        mock_resend.ContactSegments.add.assert_not_called()
+        assert "added to twitter_digest" not in actions
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
     def test_weekly_entitlement_adds_to_weekly_segment(self, _wait, mock_resend):
         svc = _make_service()
         _mock_current_segments(mock_resend, {"seg-evening"})
@@ -140,6 +178,28 @@ class TestSyncResendSegmentsRemove:
         assert "seg-morning" in removed
         assert "seg-weekly" in removed
         assert "seg-evening" not in removed
+
+    @patch("app.features.subscription.service.resend")
+    @patch("app.features.subscription.service._rate_limit_wait")
+    def test_twitter_explicit_opt_out_removes_existing_segment(
+        self, _wait, mock_resend
+    ):
+        svc = _make_service()
+        _mock_current_segments(mock_resend, {"seg-twitter"})
+        mock_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        actions = svc.sync_resend_segments(
+            TEST_EMAIL,
+            {
+                **_paid_sub(["twitter_digest"]),
+                "email_preferences": {"twitter_digest": False},
+            },
+        )
+
+        mock_resend.ContactSegments.remove.assert_called_once_with(
+            {"email": TEST_EMAIL, "segment_id": "seg-twitter"}
+        )
+        assert "removed from twitter_digest" in actions
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")

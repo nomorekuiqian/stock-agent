@@ -748,3 +748,265 @@ class TestPreferencesEndpoints:
         mock_svc.unsubscribe.assert_not_called()
         # personal_digest value comes from entitlement, not request
         assert resp.json()["preferences"]["personal_digest"] is True
+
+
+# ---------------------------------------------------------------------------
+# Twitter Digest paywall regression coverage (added 2026-05-30)
+# Covers: sync_resend_segments auto-add, get_email_preferences unsubscribed
+# override, ensure_audience env-id branch, channel-scoped unsubscribe.
+# ---------------------------------------------------------------------------
+
+
+class TestGetEmailPreferencesUnsubscribed:
+    """`Contacts.unsubscribed=true` is team-wide and must zero every channel.
+
+    Prior to the 2026-05-30 fix this code only read segment membership, so
+    a user who clicked the native Resend unsubscribe link still appeared
+    `subscribed=true` on /profile even though every broadcast skipped them.
+    """
+
+    def _svc(self):
+        from app.features.subscription.service import SubscriptionService
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc.SEGMENT_IDS = {
+            "morning_report": "seg-morning-id",
+            "daily_report": "seg-evening-id",
+            "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
+        }
+        return svc
+
+    def test_unsubscribed_contact_zeroes_every_channel(self, mock_service_resend):
+        svc = self._svc()
+        mock_service_resend.ContactSegments.list.return_value = {
+            "data": [{"id": "seg-morning-id"}, {"id": "seg-twitter-id"}],
+        }
+        mock_service_resend.Contacts.get.return_value = {"unsubscribed": True}
+
+        prefs = svc.get_email_preferences("user@test.com")
+
+        assert prefs["morning_report"] is False
+        assert prefs["twitter_digest"] is False
+        assert prefs["daily_report"] is False
+        assert prefs["weekly_report"] is False
+
+    def test_subscribed_contact_reflects_segment_state(self, mock_service_resend):
+        """Contacts.unsubscribed=false leaves segment membership as the source of truth."""
+        svc = self._svc()
+        mock_service_resend.ContactSegments.list.return_value = {
+            "data": [{"id": "seg-twitter-id"}],
+        }
+        mock_service_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        prefs = svc.get_email_preferences("user@test.com")
+
+        assert prefs["twitter_digest"] is True
+        assert prefs["morning_report"] is False
+
+    def test_contacts_get_failure_defaults_to_not_unsubscribed(
+        self, mock_service_resend,
+    ):
+        """Transient lookup failure must not flip every channel to false."""
+        svc = self._svc()
+        mock_service_resend.ContactSegments.list.return_value = {
+            "data": [{"id": "seg-twitter-id"}],
+        }
+        mock_service_resend.Contacts.get.side_effect = RuntimeError("api down")
+
+        prefs = svc.get_email_preferences("user@test.com")
+
+        assert prefs["twitter_digest"] is True
+
+
+class TestSyncResendSegmentsTwitterDigest:
+    """Webhook-driven sync must add Max users and remove non-Max users.
+
+    The 2026-05-30 change made `twitter_digest` entitlement-controlled —
+    parity with morning/weekly. Lifetime users derive entitlements in code,
+    so they must be picked up even with an empty `entitlements` array.
+    """
+
+    def _svc(self):
+        from app.features.subscription.service import SubscriptionService
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc.SEGMENT_IDS = {
+            "morning_report": "seg-morning-id",
+            "daily_report": "seg-evening-id",
+            "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
+        }
+        svc.DAILY_CTA_SEGMENT_IDS = {"free": "seg-free-cta", "paid": "seg-paid-cta"}
+        return svc
+
+    def test_max_user_added_when_missing(self, mock_service_resend):
+        svc = self._svc()
+        # Contact not in twitter_digest segment yet
+        mock_service_resend.ContactSegments.list.return_value = {"data": []}
+        mock_service_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            actions = svc.sync_resend_segments(
+                "max@test.com",
+                {"entitlements": ["twitter_digest", "morning_report_email"]},
+            )
+
+        add_args = [c[0][0]["segment_id"] for c in mock_service_resend.ContactSegments.add.call_args_list]
+        assert "seg-twitter-id" in add_args
+        assert "seg-morning-id" in add_args
+        assert any("twitter_digest" in a for a in actions)
+
+    def test_non_max_user_removed_from_segment(self, mock_service_resend):
+        svc = self._svc()
+        # Currently in twitter_digest segment but entitlement gone
+        mock_service_resend.ContactSegments.list.return_value = {
+            "data": [{"id": "seg-twitter-id"}],
+        }
+        mock_service_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            actions = svc.sync_resend_segments(
+                "former-max@test.com",
+                {"entitlements": []},
+            )
+
+        remove_args = [c[0][0]["segment_id"] for c in mock_service_resend.ContactSegments.remove.call_args_list]
+        assert "seg-twitter-id" in remove_args
+        assert any("twitter_digest" in a for a in actions)
+
+    def test_lifetime_user_expands_entitlements_to_include_twitter_digest(
+        self, mock_service_resend,
+    ):
+        """Lifetime users may have empty entitlements column but get all MAX features."""
+        svc = self._svc()
+        mock_service_resend.ContactSegments.list.return_value = {"data": []}
+        mock_service_resend.Contacts.get.return_value = {"unsubscribed": False}
+
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            svc.sync_resend_segments(
+                "lifetime@test.com",
+                {"is_lifetime": True, "entitlements": []},
+            )
+
+        add_args = [
+            c[0][0]["segment_id"]
+            for c in mock_service_resend.ContactSegments.add.call_args_list
+        ]
+        assert "seg-twitter-id" in add_args
+
+
+class TestEnsureAudienceTwitterDigest:
+    """Twitter digest channel must resolve from env config — never name-search.
+
+    Name-based lookup would silently create a new empty audience if the
+    real one was renamed/deleted, breaking the unsubscribe path.
+    """
+
+    def test_returns_audience_id_from_env(self, monkeypatch):
+        from app.features.subscription import service as svc_mod
+        from app.features.subscription.service import (
+            SubscriptionChannel,
+            SubscriptionService,
+        )
+
+        monkeypatch.setattr(
+            SubscriptionService,
+            "_AUDIENCE_ID_ENV",
+            {SubscriptionChannel.TWITTER_DIGEST: "aud-twitter-from-env"},
+        )
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc._audience_ids = {}
+
+        with patch.object(svc_mod, "resend"):
+            result = svc.ensure_audience(SubscriptionChannel.TWITTER_DIGEST)
+
+        assert result == "aud-twitter-from-env"
+
+    def test_missing_env_raises_value_error(self, monkeypatch):
+        from app.features.subscription import service as svc_mod
+        from app.features.subscription.service import (
+            SubscriptionChannel,
+            SubscriptionService,
+        )
+
+        monkeypatch.setattr(
+            SubscriptionService,
+            "_AUDIENCE_ID_ENV",
+            {SubscriptionChannel.TWITTER_DIGEST: ""},
+        )
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc._audience_ids = {}
+
+        with patch.object(svc_mod, "resend"):
+            with pytest.raises(ValueError, match="RESEND_AUDIENCE_TWITTER_DIGEST"):
+                svc.ensure_audience(SubscriptionChannel.TWITTER_DIGEST)
+
+
+class TestUnsubscribeChannelScoping:
+    """`unsubscribe(TWITTER_DIGEST)` must never set team-wide `unsubscribed=true`.
+
+    Resend's `unsubscribed` flag is global per contact — it stops every
+    broadcast for that email, not just the channel being unsubscribed.
+    Twitter digest carries an explicit "只退订推特日报" footer link, so
+    cross-channel impact would be a UX bug.
+
+    Other channels keep the historical "unsubscribe means everything" behavior.
+    """
+
+    def _svc(self):
+        from app.features.subscription.service import SubscriptionService
+
+        svc = SubscriptionService.__new__(SubscriptionService)
+        svc.api_key = "test-key"
+        svc._audience_ids = {}
+        svc.SEGMENT_IDS = {
+            "morning_report": "seg-morning-id",
+            "daily_report": "seg-evening-id",
+            "weekly_report": "seg-weekly-id",
+            "twitter_digest": "seg-twitter-id",
+        }
+        svc.DAILY_CTA_SEGMENT_IDS = {"free": "seg-free-cta", "paid": "seg-paid-cta"}
+        return svc
+
+    def test_twitter_digest_unsubscribe_is_segment_only(self, mock_service_resend):
+        """Twitter digest path skips Contacts.update entirely."""
+        from app.features.subscription.service import SubscriptionChannel
+
+        svc = self._svc()
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            result = svc.unsubscribe(SubscriptionChannel.TWITTER_DIGEST, "user@test.com")
+
+        assert result["success"] is True
+        # Critical: NO Contacts.update — that would set team-wide unsubscribed
+        mock_service_resend.Contacts.update.assert_not_called()
+        # Did remove from the twitter segment via update_email_preferences
+        remove_args = [
+            c[0][0]["segment_id"]
+            for c in mock_service_resend.ContactSegments.remove.call_args_list
+        ]
+        assert "seg-twitter-id" in remove_args
+
+    def test_daily_unsubscribe_still_sets_global_unsubscribed(
+        self, mock_service_resend,
+    ):
+        """Daily report path keeps team-wide unsubscribe behavior."""
+        from app.features.subscription.service import SubscriptionChannel
+
+        svc = self._svc()
+        # ensure_audience for DAILY_REPORT does name lookup → mock that path
+        svc._audience_ids = {SubscriptionChannel.DAILY_REPORT: "aud-daily"}
+        with patch("app.features.subscription.service._rate_limit_wait"):
+            result = svc.unsubscribe(SubscriptionChannel.DAILY_REPORT, "user@test.com")
+
+        assert result["success"] is True
+        mock_service_resend.Contacts.update.assert_called_once()
+        call_kwargs = mock_service_resend.Contacts.update.call_args[0][0]
+        assert call_kwargs["unsubscribed"] is True
+        assert call_kwargs["email"] == "user@test.com"
