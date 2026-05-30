@@ -20,7 +20,6 @@
 功能开发前的设计文档。模板: [_template.md](plans/_template.md)
 
 - [active/](plans/active/) — 进行中或规划中的计划
-  - [conversion-funnel-redesign.md](plans/active/conversion-funnel-redesign.md) — 用户价值感知与转化漏斗重建（12 项改造）
 - [for-you/](plans/for-you/) — /for-you 专属页面改进总纲（P0 基础 → P1 智能 → P2 Copilot）
 - [completed/](plans/completed/) — 已完成的计划
 
@@ -46,7 +45,6 @@
 
 - [pages.md](reference/pages.md) — 前端页面路由表
 - [components.md](reference/components.md) — 前端组件清单
-- [agent-transformation.md](reference/agent-transformation.md) — Agent 架构演进
 - [twitter-kol-source-research.md](reference/twitter-kol-source-research.md) — 推特 KOL 信息源扩展 research
 - [vector-rag-pipeline.md](reference/vector-rag-pipeline.md) — vector embedding / retrieval / RAG pipeline
 

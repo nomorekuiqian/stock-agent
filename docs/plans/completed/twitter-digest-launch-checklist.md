@@ -27,8 +27,8 @@
 
 - **复用 Daily audience**: `TheMarketBrew Daily` (id=`a0e3508d-894b-4e56-a234-66d277c09916`, 624 contacts)
   - 当初误建的空 `TheMarketBrew Twitter Digest` audience 已删除
-  - 回填脚本 `scripts/backfill_twitter_digest_audience.py` 已标 deprecated（保留备用）
-- **QA 单发脚本就绪**: `scripts/qa_twitter_digest_send.py` — 默认发到 kedengpan@gmail.com
+  - 旧回填脚本已清理；当前用 segment audit/seed 脚本维护名单
+- **QA 单发入口**: 使用 `EmailService._qa_send_twitter_digest_to_email()`，避免 dev 环境误触发 broadcast
 - **Broadcast cron workflow**: `.github/workflows/twitter-digest-broadcast.yml` 已写好（北京 08:00 工作日）
 
 ## 还需用户手动做的步骤
@@ -40,6 +40,7 @@
 ```bash
 RESEND_AUDIENCE_TWITTER_DIGEST=a0e3508d-894b-4e56-a234-66d277c09916
 # 这就是 Daily Report audience 的 id, 复用同一份联系人池
+RESEND_SEGMENT_TWITTER_DIGEST=<twitter-digest-segment-id>
 ```
 
 ### 2. ~~回填~~ 不再需要
@@ -59,8 +60,8 @@ backend/app/features/twitter_digest/models.py
 backend/app/features/twitter_digest/prompts.py
 backend/app/features/twitter_digest/router.py
 backend/app/features/twitter_digest/service.py
-backend/scripts/backfill_twitter_digest_audience.py
-backend/scripts/qa_twitter_digest_send.py
+backend/scripts/audit_twitter_digest_segment.py
+backend/scripts/seed_twitter_digest_segment.py
 .github/workflows/twitter-digest-broadcast.yml
 docs/plans/active/twitter-digest-launch-checklist.md
 ```
@@ -106,7 +107,7 @@ GitHub Actions → 选 "Twitter KOL Digest Broadcast" workflow → "Run workflow
 如果上线后发现严重问题:
 
 1. **关闭 cron**: GitHub Actions → workflow → Disable workflow
-2. **临时不发**: 撤掉 prod 的 `RESEND_AUDIENCE_TWITTER_DIGEST` env var，broadcast 会 return error 不发
+2. **临时不发**: 撤掉 prod 的 `RESEND_SEGMENT_TWITTER_DIGEST` env var，broadcast 会 return error 不发
 3. **撤回已发邮件**: Resend dashboard → Broadcasts → cancel（只对 scheduled 的有用，已发出的拉不回）
 
 ## 后续待办（不阻塞上线）

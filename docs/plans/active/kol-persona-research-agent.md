@@ -225,14 +225,14 @@ ADK SkillToolset 是新机制，本地 1.29.0 装了但实战未验证。以下 
 4. **`search_kol_tweets` 工具与 SkillToolset 同时挂 `tools=[]` 的兼容性**：是否会有 tool 名冲突 / 行为干扰
 5. **Vector metadata filter 对 `author_username` 是否真下推到 RPC**（原 V2 plan 遗留问题，未验证）
 
-**Spike 交付物**：`backend/scripts/spike_kol_skills.py`——一个独立 prototype，跑一个完整对话：用户问"NVDA 财报怎么看" → LLM 触发 lens-stock-analysis + lens-ai-infrastructure → 调 search_kol_tweets → 出答案。脚本输出每个 ADK 内部事件 + 命中 chunks + 答案。
+**Spike 交付物**：补一个临时 prototype（路径在实施时确定；旧 spike 脚本已清理，不再作为当前交付物引用），跑一个完整对话：用户问"NVDA 财报怎么看" → LLM 触发 lens-stock-analysis + lens-ai-infrastructure → 调 search_kol_tweets → 出答案。脚本输出每个 ADK 内部事件 + 命中 chunks + 答案。
 
 ## 实施阶段
 
 ### Phase 0：数据 + Spike（一次性，硬卡点）
 
 - [ ] 跑 `scripts/index_kol_tweets.py --authors qinbafrank` 入向量库（先 `--dry-run` 看 quality 过滤后剩多少）
-- [ ] 写 `scripts/spike_kol_skills.py` 验证上述 5 个集成点；记录每个点是否阻塞，决定 Phase 2 实施细节
+- [ ] 补一个临时 spike prototype 验证上述 5 个集成点；记录每个点是否阻塞，决定 Phase 2 实施细节
 - [ ] 必要时给 ADK 提 issue / 找 workaround
 
 ### Phase 1：`shared/kol_persona/` 模块
