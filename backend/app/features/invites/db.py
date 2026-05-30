@@ -125,6 +125,25 @@ async def create_trial_subscription(
         entitlements=sorted(MAX_FEATURES),
     )
 
+    # Resend segment sync — trial activation bypasses the Stripe
+    # `entitlements.active_entitlement_summary.updated` webhook (no real
+    # subscription update event fires), so the Max-only segments
+    # (morning, weekly, twitter_digest) would not pick up the new user
+    # until the next webhook unrelated to this account. Mirror the
+    # set_lifetime() pattern and trigger sync inline.
+    try:
+        from app.features.subscription.service import SubscriptionService
+
+        fresh_sub = await get_subscription(user_id)
+        await asyncio.to_thread(
+            SubscriptionService().sync_resend_segments, user_email, fresh_sub
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "create_trial_subscription: Resend sync failed for user %s: %s",
+            user_id[:8], e,
+        )
+
     logger.info(
         "Trial subscription created: user=%s sub=%s source=%s stripe_pending=%s expires=%s",
         user_id[:8], subscription_id, source, stripe_pending,

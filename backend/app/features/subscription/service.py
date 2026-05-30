@@ -9,6 +9,7 @@ import resend
 
 from app.core.config import (
     RESEND_API_KEY,
+    RESEND_AUDIENCE_TWITTER_DIGEST,
     RESEND_SEGMENT_DAILY_FREE_CTA,
     RESEND_SEGMENT_DAILY_PAID_CTA,
     RESEND_SEGMENT_MORNING,
@@ -64,12 +65,19 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
         "requires_auth": True,
     },
     SubscriptionChannel.TWITTER_DIGEST: {
-        # Dedicated opt-in audience. Membership is controlled by the
-        # `twitter_digest` toggle on /profile (email preferences), which
-        # syncs against `RESEND_SEGMENT_TWITTER_DIGEST`. Unlike the free
-        # daily report, this is Max-only and is never added by default for
-        # anonymous/free signups. Public subscribe is blocked at the router;
-        # only authenticated Max users can enable it via preferences.
+        # Dedicated Max-only segment (`RESEND_SEGMENT_TWITTER_DIGEST`,
+        # currently "Twitter Digest" — id a1b0aa97). Contacts live in the
+        # dedicated `RESEND_AUDIENCE_TWITTER_DIGEST` audience; delivery is
+        # controlled by segment membership. Entitlement sync auto-adds users
+        # unless app-side email preferences explicitly opt them out.
+        #
+        # Opt-out paths intentionally avoid Resend's team-wide
+        # `unsubscribed=true` flag (which would silently kill every other
+        # broadcast for the same contact). See `unsubscribe(TWITTER_DIGEST)`
+        # below — it only removes from this segment.
+        #
+        # Public subscribe is blocked at the router — `requires_auth=True`
+        # is enforced upstream — so anonymous/free signups never land here.
         "audience_name": "TheMarketBrew Twitter Digest",
         "metadata_fields": ["first_name"],
         "requires_auth": True,
@@ -119,21 +127,39 @@ class SubscriptionService:
     # Audience Management
     # =========================================================================
 
+    # Channels that resolve their audience id from an explicit env var
+    # instead of name-based lookup. Segment ids are still separate and should
+    # only be used with ContactSegments/Broadcast segment routing.
+    _AUDIENCE_ID_ENV = {
+        SubscriptionChannel.TWITTER_DIGEST: RESEND_AUDIENCE_TWITTER_DIGEST,
+    }
+
     def ensure_audience(self, channel: SubscriptionChannel) -> str:
         """
-        Ensure the audience for a channel exists, create if not.
+        Resolve the audience id for a channel.
 
-        Args:
-            channel: The subscription channel
-
-        Returns:
-            Audience ID
+        Channels listed in ``_AUDIENCE_ID_ENV`` come from env config — we
+        never name-search or auto-create them, because creating an empty
+        audience under the same name would silently break the unsubscribe
+        path. Other channels fall back to name-based lookup with auto-create
+        for the legacy free-tier flows.
         """
         self._validate_api_key()
 
         # Return cached ID if available
         if channel in self._audience_ids:
             return self._audience_ids[channel]
+
+        env_audience_id = self._AUDIENCE_ID_ENV.get(channel)
+        if channel in self._AUDIENCE_ID_ENV:
+            if not env_audience_id:
+                raise ValueError(
+                    f"Audience id for {channel.value} requires "
+                    f"RESEND_AUDIENCE_{channel.value.upper()} env var; "
+                    "name-based lookup is disabled for this channel."
+                )
+            self._audience_ids[channel] = env_audience_id
+            return env_audience_id
 
         config = self._get_channel_config(channel)
         audience_name = config["audience_name"]
@@ -254,14 +280,13 @@ class SubscriptionService:
     ) -> None:
         """Add a new contact to free-default delivery lists.
 
-        Morning and weekly segments are Pro-only and managed by
-        sync_resend_segments() via the Stripe entitlements webhook.
+        Morning, weekly, and twitter_digest segments are entitlement-gated and
+        managed by ``sync_resend_segments()`` via the Stripe entitlements
+        webhook (plus the trial-creation and set-lifetime call sites). This
+        function only seeds the free-default lists for anonymous/free signups.
 
         Default opt-in segments:
           - daily_report (evening) — always
-
-        Twitter digest is Max-only and must not be added here. Max users opt in
-        from /profile or via a controlled backfill/audit script.
 
         ``sub`` is the user's subscription record (from
         ``payment.db.get_subscription``). When omitted the user is treated as
@@ -319,14 +344,18 @@ class SubscriptionService:
             from app.features.payment.entitlements import MAX_FEATURES
             entitlements = entitlements | set(MAX_FEATURES)
 
-        # Only sync entitlement-controlled segments (morning, weekly).
-        # daily_report (evening) is user-preference only — don't override opt-outs.
-        # twitter_digest is Max-only: sync removes non-entitled or explicitly
-        # disabled users, but does not auto-add on every webhook. Profile opt-in
-        # and audit/backfill scripts are responsible for adding Max recipients.
+        # Entitlement-controlled segments. daily_report (evening) is
+        # user-preference only — don't override opt-outs. twitter_digest is
+        # auto-added for entitled users unless app-side email preferences carry
+        # an explicit false from /profile or the channel unsubscribe link.
+        email_preferences = sub_dict.get("email_preferences") or {}
         desired = {
             "morning_report": "morning_report_email" in entitlements,
             "weekly_report": "weekly_report_email" in entitlements,
+            "twitter_digest": (
+                "twitter_digest" in entitlements
+                and email_preferences.get("twitter_digest") is not False
+            ),
         }
 
         current = self.get_email_preferences(email)
@@ -353,33 +382,6 @@ class SubscriptionService:
                 except Exception as e:
                     logger.warning("sync_resend: remove %s from %s failed: %s", email, report_type, e)
 
-        twitter_seg_id = self.SEGMENT_IDS.get("twitter_digest")
-        twitter_is_in = current.get("twitter_digest", False)
-        twitter_pref = ((sub or {}).get("email_preferences") or {}).get(
-            "twitter_digest"
-        )
-        twitter_entitled = "twitter_digest" in entitlements
-        twitter_should_remove = (
-            twitter_is_in
-            and (
-                not twitter_entitled
-                or twitter_pref is False
-            )
-        )
-        if twitter_seg_id and twitter_should_remove:
-            try:
-                _rate_limit_wait()
-                resend.ContactSegments.remove(
-                    {"email": email, "segment_id": twitter_seg_id}
-                )
-                actions.append("removed from twitter_digest")
-            except Exception as e:
-                logger.warning(
-                    "sync_resend: remove %s from twitter_digest failed: %s",
-                    email,
-                    e,
-                )
-
         actions.extend(
             self._sync_daily_cta_segments(
                 email,
@@ -394,7 +396,13 @@ class SubscriptionService:
         return actions
 
     def get_email_preferences(self, email: str) -> Dict[str, bool]:
-        """Get email preferences by checking which segments a contact belongs to."""
+        """Get email preferences by checking which segments a contact belongs to.
+
+        A contact whose Resend record carries ``unsubscribed=true`` is treated
+        as opted out of every channel, even when their segment memberships
+        still match. This keeps the /profile UI consistent with what Resend
+        will actually deliver (broadcasts skip unsubscribed contacts).
+        """
         self._validate_api_key()
         user_segment_ids: set = set()
         try:
@@ -405,6 +413,22 @@ class SubscriptionService:
         except Exception as e:
             logger.warning("Failed to list segments for %s: %s", email, e)
 
+        # Contact-level unsubscribed flag overrides segment membership.
+        # `Contacts.get(email=...)` returns the global contact record; we
+        # treat any failure (missing contact, transient error) as "not
+        # unsubscribed" so segment state remains the source of truth.
+        is_unsubscribed = False
+        try:
+            _rate_limit_wait()
+            contact = resend.Contacts.get(email=email)
+            contact_dict = (
+                contact if isinstance(contact, dict)
+                else getattr(contact, "__dict__", {}) or {}
+            )
+            is_unsubscribed = bool(contact_dict.get("unsubscribed", False))
+        except Exception as e:
+            logger.debug("Contacts.get unsubscribed lookup failed for %s: %s", email, e)
+
         prefs = {}
         for report_type, seg_id in self.SEGMENT_IDS.items():
             if not seg_id:
@@ -413,7 +437,9 @@ class SubscriptionService:
                 # twitter digest must not appear enabled without its segment.
                 prefs[report_type] = report_type != "twitter_digest"
             else:
-                prefs[report_type] = seg_id in user_segment_ids
+                prefs[report_type] = (
+                    seg_id in user_segment_ids and not is_unsubscribed
+                )
         return prefs
 
     def update_email_preferences(
@@ -475,6 +501,15 @@ class SubscriptionService:
                     e,
                 )
                 continue
+
+            # Note: Resend's `unsubscribed` flag is team-wide (one flag per
+            # contact, applies to every broadcast). We never set it from the
+            # twitter_digest path — that would silently kill daily/morning/
+            # weekly delivery. The only thing that can flip `unsubscribed`
+            # to true for our contacts is Resend's native list-unsubscribe
+            # header / email client opt-out — which is intentionally a
+            # "stop everything" action.
+
             if report_type == "daily_report":
                 self._sync_daily_cta_segments(
                     email,
@@ -547,18 +582,32 @@ class SubscriptionService:
 
     def unsubscribe(self, channel: SubscriptionChannel, email: str) -> Dict[str, Any]:
         """
-        Unsubscribe an email from a channel (soft delete).
+        Unsubscribe an email from a channel.
 
-        Args:
-            channel: The subscription channel
-            email: Subscriber's email address
+        TWITTER_DIGEST is a channel-scoped opt-out — the email footer
+        explicitly says "只退订推特日报", so we MUST NOT touch the team-wide
+        `unsubscribed` flag (which would silently kill every other broadcast
+        for this contact). Instead we just remove them from the dedicated
+        segment, leaving daily/morning/weekly delivery untouched.
 
-        Returns:
-            dict with success status
+        Other channels still set `unsubscribed=true`, matching the historical
+        "unsubscribe means unsubscribe from everything" semantics of the
+        daily report link.
         """
         self._validate_api_key()
 
         try:
+            if channel == SubscriptionChannel.TWITTER_DIGEST:
+                self.update_email_preferences(
+                    email, {"twitter_digest": False}, sub=None
+                )
+                logger.info("Unsubscribed %s from %s (segment-only)", email, channel)
+                return {
+                    "success": True,
+                    "channel": channel.value,
+                    "email": email,
+                }
+
             audience_id = self.ensure_audience(channel)
             update_params: resend.Contacts.UpdateParams = {
                 "audience_id": audience_id,
@@ -573,10 +622,6 @@ class SubscriptionService:
                 # of paid status, so is_paid is a no-op here.
                 self._sync_daily_cta_segments(
                     email, daily_enabled=False, is_paid=False
-                )
-            elif channel == SubscriptionChannel.TWITTER_DIGEST:
-                self.update_email_preferences(
-                    email, {"twitter_digest": False}, sub=None
                 )
             return {
                 "success": True,

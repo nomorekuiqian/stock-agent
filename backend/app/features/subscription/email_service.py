@@ -979,10 +979,9 @@ class EmailService:
     async def broadcast_twitter_digest(self, digest: dict) -> dict:
         """Send the Twitter KOL digest via Resend Broadcasts.
 
-        Sends only to the dedicated `RESEND_SEGMENT_TWITTER_DIGEST` audience —
-        users who have opted in via the email preferences page. Hard-fails
-        if the segment id is unset; no implicit fallback to a broader
-        audience.
+        Sends only to the dedicated `RESEND_SEGMENT_TWITTER_DIGEST` segment.
+        Hard-fails if the segment id is unset; no implicit fallback to a
+        broader audience.
 
         Non-production safety: dev environment refuses to broadcast (no
         per-recipient guard exists for Resend Broadcasts API). Use the

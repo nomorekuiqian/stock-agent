@@ -1,7 +1,7 @@
 """
 Twitter Digest segment drift audit.
 
-Twitter Digest is a Max-only, explicit opt-in email channel. This script is
+Twitter Digest is a Max-only, entitlement-managed email channel. This script is
 read-only by default and checks that the Resend delivery segment does not
 contain users who lack the `twitter_digest` entitlement or who explicitly
 turned the channel off in app-side email preferences.
@@ -26,6 +26,7 @@ import resend  # noqa: E402
 
 from app.core.config import (  # noqa: E402
     RESEND_API_KEY,
+    RESEND_AUDIENCE_TWITTER_DIGEST,
     RESEND_SEGMENT_TWITTER_DIGEST,
 )
 from app.core.database import get_insforge_service  # noqa: E402
@@ -54,17 +55,23 @@ def _rate_wait() -> None:
     time.sleep(RATE_LIMIT_DELAY)
 
 
-async def _list_users() -> list[dict]:
-    result = await get_insforge_service().call_function(
-        "subscriptions",
-        method="GET",
-        params={"action": "list_all"},
-        timeout=60.0,
-    )
-    payload = result.get("data") or {}
-    if not payload.get("success"):
-        raise RuntimeError(f"list_all failed: {payload}")
-    return payload.get("data") or []
+async def _list_segment_members() -> list[dict]:
+    """List every contact currently in the Twitter Digest delivery segment.
+
+    Contacts.list requires the parent audience id. Segment membership is then
+    checked per contact via ContactSegments.list.
+    """
+    _rate_wait()
+    result = resend.Contacts.list(audience_id=RESEND_AUDIENCE_TWITTER_DIGEST)
+    contacts = [c for c in (result.get("data") or []) if c.get("email")]
+    members = []
+    for contact in contacts:
+        email = (contact.get("email") or "").strip().lower()
+        if not email:
+            continue
+        if RESEND_SEGMENT_TWITTER_DIGEST in _segments_for_email(email):
+            members.append(contact)
+    return members
 
 
 def _segments_for_email(email: str) -> set[str]:
@@ -77,26 +84,59 @@ def _segments_for_email(email: str) -> set[str]:
     return {seg.get("id", "") for seg in result.get("data", []) or []}
 
 
+async def _profile_map() -> dict[str, str]:
+    """email -> user_id for everyone with an Insforge auth profile.
+
+    Built once so we don't list_all per email. Emails not in the map are pure
+    mailing-list subscribers (no account) → never entitled.
+    """
+    result = await get_insforge_service().call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "list_user_profiles"},
+        timeout=60.0,
+    )
+    payload = result.get("data") or {}
+    if not payload.get("success"):
+        raise RuntimeError(f"list_user_profiles failed: {payload}")
+    mapping: dict[str, str] = {}
+    for profile in payload.get("data") or []:
+        email = (profile.get("email") or "").strip().lower()
+        uid = profile.get("user_id")
+        if email and uid:
+            mapping[email] = uid
+    return mapping
+
+
 async def collect() -> list[TwitterDigestSegmentRow]:
     if not RESEND_API_KEY:
         raise RuntimeError("RESEND_API_KEY not set")
+    if not RESEND_AUDIENCE_TWITTER_DIGEST:
+        raise RuntimeError("RESEND_AUDIENCE_TWITTER_DIGEST not set")
     if not RESEND_SEGMENT_TWITTER_DIGEST:
         raise RuntimeError("RESEND_SEGMENT_TWITTER_DIGEST not set")
     resend.api_key = RESEND_API_KEY
 
-    users = await _list_users()
+    members = await _list_segment_members()
+    profile_map = await _profile_map()
+    logger.info(
+        "segment members=%d insforge profiles=%d", len(members), len(profile_map)
+    )
+
     rows: list[TwitterDigestSegmentRow] = []
-    for index, user in enumerate(users, start=1):
-        email = (user.get("email") or "").strip().lower()
-        user_id = user.get("user_id")
-        if not email or not user_id:
+    for index, contact in enumerate(members, start=1):
+        email = (contact.get("email") or "").strip().lower()
+        if not email:
+            continue
+        if contact.get("unsubscribed"):
+            # Already excluded from broadcast by Resend; no need to flag drift.
             continue
 
-        sub = await get_subscription(user_id)
+        user_id = profile_map.get(email)
+        sub = await get_subscription(user_id) if user_id else None
         entitlements = set((sub or {}).get("entitlements") or [])
         entitled = bool((sub or {}).get("is_lifetime")) or "twitter_digest" in entitlements
         preference = ((sub or {}).get("email_preferences") or {}).get("twitter_digest")
-        in_segment = RESEND_SEGMENT_TWITTER_DIGEST in _segments_for_email(email)
 
         rows.append(
             TwitterDigestSegmentRow(
@@ -104,11 +144,11 @@ async def collect() -> list[TwitterDigestSegmentRow]:
                 user_id=user_id,
                 entitled=entitled,
                 preference=preference,
-                in_segment=in_segment,
+                in_segment=True,
             )
         )
         if index % 50 == 0:
-            logger.info("processed %d/%d", index, len(users))
+            logger.info("processed %d/%d members", index, len(members))
 
     return rows
 
