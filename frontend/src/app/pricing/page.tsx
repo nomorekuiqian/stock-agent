@@ -14,8 +14,6 @@ const PRO_FEATURES = [
   { feature: '盘前早报（邮件）',    desc: '每个交易日早上推送，帮你预判开盘' },
   { feature: '专属持仓日报（邮件）', desc: '基于你的实际持仓，每日生成只属于你的分析报告' },
   { feature: '宏观周报（邮件）',    desc: '每周宏观要点汇总，直达收件箱' },
-  { feature: '自选股管理',          desc: '追踪最多 25 只股票，个性化推送' },
-  { feature: '市场日报网站',        desc: '在 /today 查看完整晚报和历史存档' },
 ];
 
 type MaxFeature = { feature: string; desc: string; badge?: 'NEW' };
@@ -197,7 +195,6 @@ export default function PricingPage() {
                     <span className="text-xs font-medium text-primary">抢先体验价</span>
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">邮件全解锁 + 市场日报网站</p>
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="text-3xl font-data font-bold text-foreground">{PRICING.pro}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
@@ -278,7 +275,6 @@ export default function PricingPage() {
                     <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">全部功能解锁，AI 驱动专业分析</p>
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="text-3xl font-data font-bold text-foreground">{PRICING.max}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
@@ -476,7 +472,7 @@ export default function PricingPage() {
           <div className="space-y-0 divide-y divide-border/30">
             <FaqItem
               q="Pro 和 Max 有什么区别?"
-              a="宏观仪表盘（/macro）和每日市场日报网站免费开放，注册即可使用。Pro 包含基础邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报）和自选股管理。Max 在此基础上解锁推特 KOL 日报、AI 投研引擎（/research）的无限次对话与选股，以及 AI 深度个股分析（/stock）。"
+              a="宏观仪表盘（/macro）、每日市场日报网站和自选股管理免费开放，注册即可使用。Pro 包含基础邮件订阅（每日晚报、盘前早报、专属持仓日报、宏观周报）。Max 在此基础上解锁推特 KOL 日报、AI 投研引擎（/research）的无限次对话与选股，以及 AI 深度个股分析（/stock）。"
             />
             <FaqItem
               q="抢先体验价会持续多久?"
