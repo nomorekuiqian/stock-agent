@@ -1,4 +1,4 @@
-"""Convert persona lens-*.md files into ADK Skill objects."""
+"""Convert persona skill markdown files into ADK Skill objects."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from app.shared.kol_persona.models import Persona, SkillDoc
 def skill_doc_to_adk_skill(doc: SkillDoc, *, analyst: str = "") -> skill_models.Skill:
     """Wrap a parsed SkillDoc as an ADK Skill object.
 
-    The frontmatter `name` must conform to agentskills.io spec (lowercase + hyphen),
-    which `registry._md_to_skill_doc` already enforces.
+    The generated `name` must conform to agentskills.io spec
+    (lowercase + hyphen), which `registry._skill_md_to_skill_doc` enforces.
     """
     return skill_models.Skill(
         frontmatter=skill_models.Frontmatter(
@@ -29,10 +29,10 @@ def skill_doc_to_adk_skill(doc: SkillDoc, *, analyst: str = "") -> skill_models.
 
 
 def build_lens_skills(persona: Persona) -> List[skill_models.Skill]:
-    """Construct ADK Skill list from a persona's lens docs.
+    """Construct ADK Skill list from a persona's triggerable skill docs.
 
-    Only `lens-*.md` files become Skills. orchestrator / overview / principles
-    are concatenated into Agent.instruction by registry.build_always_on_instruction().
+    Core and macro docs are concatenated into Agent.instruction by
+    registry.build_always_on_instruction().
     """
     return [
         skill_doc_to_adk_skill(doc, analyst=persona.username)

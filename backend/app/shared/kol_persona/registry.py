@@ -1,25 +1,18 @@
-"""Persona registry — loads .md files from `methodologies/<username>/` into memory.
+"""Persona registry — loads KOL skill markdown files into memory.
 
-Layered loading (v1, default):
-  - _orchestrator.md     -> always-on (Agent.instruction)
-  - overview.md          -> always-on (Agent.instruction)
-  - principles-*.md      -> always-on, cross-cutting (Agent.instruction)
-  - lens-*.md            -> trigger-based (ADK SkillToolset)
-  - *.yaml               -> not loaded here; accessed lazily by audit / eval tools
-
-Layered loading (v3 draft, opt-in via env `KOL_PERSONA_VERSION=v3`):
+Layered loading (current qinbafrank skill):
   - core/operating-system.md       -> always-on (orchestrator slot)
   - macro/macro-regime.md          -> always-on (cross-cutting slot)
-  - sector/*.md                    -> trigger-based (SkillToolset)
-  - ticker/*.md                    -> trigger-based (SkillToolset)
-  - evidence/, eval/               -> not loaded
+  - framework/*.md                 -> trigger-based answer-shape skills
+  - sector/*.md                    -> trigger-based topic playbooks
+  - ticker/*.md                    -> trigger-based ticker playbooks
+  - evidence/                      -> not loaded
 
 `get_persona()` is cached. Tests can call `clear_persona_cache()` to reset.
 """
 
 from __future__ import annotations
 
-import os
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -38,10 +31,6 @@ METHODOLOGIES_DIR = (
     / "twitter"
     / "methodologies"
 )
-
-# Opt-in v3 testing mode: set KOL_PERSONA_VERSION=v3 to load the v3 skill draft
-# instead of the v1 methodologies. Defaults to v1.
-PERSONA_VERSION = os.getenv("KOL_PERSONA_VERSION", "v1").lower()
 
 
 def _parse_md(path: Path) -> tuple[Dict[str, Any], str]:
@@ -67,130 +56,31 @@ def _parse_md(path: Path) -> tuple[Dict[str, Any], str]:
     return fm, body
 
 
-def _md_to_skill_doc(path: Path) -> SkillDoc:
-    fm, body = _parse_md(path)
-
-    raw_name = str(fm.get("name") or path.stem).strip()
-    # spec: lowercase alnum + hyphens only, no leading/trailing hyphen
-    name = raw_name.lower().replace("_", "-").replace(" ", "-")
-
-    raw_desc = fm.get("when_to_use") or fm.get("description") or ""
-    description = " ".join(str(raw_desc).split())
-    if len(description) > 1000:
-        description = description[:1000].rstrip() + "..."
-    if not description:
-        description = f"Lens {name}"
-
-    return SkillDoc(
-        name=name,
-        description=description,
-        type=fm.get("type"),
-        body=body.strip(),
-        extra={k: v for k, v in fm.items() if k not in ("name", "when_to_use", "description", "type")},
-    )
-
-
-def _derive_display_name(username: str, overview: Optional[SkillDoc]) -> str:
-    """Try to pull a friendly display label from overview.md, else username."""
-    if not overview:
-        return username
-    return username
-
-
-def _derive_summary(overview: Optional[SkillDoc]) -> str:
-    """Take the "一句话画像" section if present, else first non-empty paragraph."""
-    if not overview:
-        return ""
-    body = overview.body
-    marker = "## 一句话画像"
-    if marker in body:
-        tail = body.split(marker, 1)[1]
-        # First non-empty paragraph after the heading
-        for para in tail.split("\n\n"):
-            chunk = para.strip()
-            if chunk and not chunk.startswith("#"):
-                # Strip surrounding ** markers
-                clean = chunk.replace("**", "").strip()
-                if len(clean) > 280:
-                    clean = clean[:280].rstrip() + "..."
-                return clean
-    # Fallback: first non-heading paragraph
-    for para in body.split("\n\n"):
-        chunk = para.strip()
-        if chunk and not chunk.startswith("#"):
-            clean = chunk.replace("**", "").strip()
-            if len(clean) > 280:
-                clean = clean[:280].rstrip() + "..."
-            return clean
-    return ""
-
-
-def _load_persona_uncached(username: str) -> Optional[Persona]:
-    persona_dir = METHODOLOGIES_DIR / username
-    if not persona_dir.is_dir():
-        logger.warning("Persona dir not found: %s", persona_dir)
-        return None
-
-    orchestrator: Optional[SkillDoc] = None
-    overview: Optional[SkillDoc] = None
-    cross_cutting: List[SkillDoc] = []
-    lenses: Dict[str, SkillDoc] = {}
-
-    for md_path in sorted(persona_dir.glob("*.md")):
-        stem = md_path.stem
-        if stem == "_orchestrator":
-            orchestrator = _md_to_skill_doc(md_path)
-        elif stem == "overview":
-            overview = _md_to_skill_doc(md_path)
-        elif stem.startswith("principles-"):
-            cross_cutting.append(_md_to_skill_doc(md_path))
-        elif stem.startswith("lens-"):
-            doc = _md_to_skill_doc(md_path)
-            lenses[doc.name] = doc
-
-    if not lenses and not orchestrator and not overview:
-        logger.warning("Persona dir %s has no recognized .md files.", persona_dir)
-        return None
-
-    description = _derive_summary(overview)
-
-    return Persona(
-        username=username,
-        display_name=_derive_display_name(username, overview),
-        description=description or f"@{username} methodology",
-        lenses_available=sorted(lenses.keys()),
-        persona_dir=str(persona_dir),
-        orchestrator=orchestrator,
-        overview=overview,
-        cross_cutting=cross_cutting,
-        lenses=lenses,
-        last_indexed_at=None,
-    )
-
-
 @lru_cache(maxsize=8)
 def get_persona(username: str) -> Optional[Persona]:
     """Load a persona by username. Cached.
 
-    Returns None if persona dir does not exist. Routes to v3 loader when
-    `KOL_PERSONA_VERSION=v3` env var is set.
+    Returns None if the selected persona source does not exist.
     """
-    if PERSONA_VERSION == "v3":
-        return _load_persona_v3_uncached(username)
-    return _load_persona_uncached(username)
+    return _load_persona_skill_uncached(username)
 
 
 # ---------------------------------------------------------------------------
-# v3 draft loader (opt-in via KOL_PERSONA_VERSION=v3)
+# Current skill loader
 # ---------------------------------------------------------------------------
 
-_V3_BASE_DIR = METHODOLOGIES_DIR / "_drafts" / "qinbafrank-skill-v3"
+_SKILL_BASE_DIR = METHODOLOGIES_DIR / "qinbafrank"
 
-# Frontmatter on v3 files uses different keys (skill, layer, coverage) than v1.
-# The v1 `name`/`when_to_use` fields are absent, so we derive them here.
+_QINBAFRANK_PUBLIC_BIO = (
+    "Investor in AI、Crypto、TMT，跟踪最前沿科技趋势、野生宏观政经观察、研究全球资本流动性、"
+    "周期趋势投资。记录个人学习和思考，经常出错常态掉坑爬坑。Runner\U0001f3c3"
+)
+
+# Skill files use frontmatter keys such as skill/layer/coverage, so we derive
+# ADK-compatible name/description fields here.
 
 
-def _v3_extract_applicable_section(body: str) -> str:
+def _extract_applicable_section(body: str) -> str:
     """Pull the '## 适用问题' section as the skill description."""
     marker = "## 适用问题"
     if marker not in body:
@@ -202,8 +92,30 @@ def _v3_extract_applicable_section(body: str) -> str:
     return tail.strip()
 
 
-def _v3_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
+_COVERAGE_WORDS = {
+    "high": "博主讨论很多",
+    "medium": "博主有过多次讨论",
+    "low": "博主很少提到",
+    "none": "博主未直接讨论",
+}
+
+
+def _sanitize_skill_body(body: str) -> str:
+    """Keep internal metadata from leaking verbatim into user answers."""
+    def _replace_coverage(match: re.Match) -> str:
+        return _COVERAGE_WORDS.get(match.group(1).lower(), "博主覆盖度待确认")
+
+    return re.sub(
+        r"`?coverage\s*:\s*(high|medium|low|none)`?",
+        _replace_coverage,
+        body,
+        flags=re.IGNORECASE,
+    )
+
+
+def _skill_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
     fm, body = _parse_md(path)
+    body = _sanitize_skill_body(body)
 
     # name: layer-prefixed, lowercase, hyphen-only (ADK Skill spec)
     raw_stem = path.stem.replace("_", "-").replace(" ", "-")
@@ -212,7 +124,7 @@ def _v3_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
 
     # description: prefer "## 适用问题" section content; fall back to first
     # non-heading paragraph; clamp to 1000 chars
-    raw_desc = _v3_extract_applicable_section(body)
+    raw_desc = _extract_applicable_section(body)
     if not raw_desc:
         for para in body.split("\n\n"):
             chunk = para.strip()
@@ -223,26 +135,26 @@ def _v3_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
     if len(description) > 1000:
         description = description[:1000].rstrip() + "..."
     if not description:
-        description = f"v3 {layer} skill: {raw_stem}"
+        description = f"{layer} skill: {raw_stem}"
 
     return SkillDoc(
         name=name,
         description=description,
-        type=f"v3-{layer}",
+        type=layer,
         body=body.strip(),
         extra=fm,
     )
 
 
-def _load_persona_v3_uncached(username: str) -> Optional[Persona]:
-    """Load the v3-draft skill structure. Currently only `qinbafrank` is supported."""
+def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
+    """Load the current skill structure. Currently only `qinbafrank` is supported."""
     if username != "qinbafrank":
-        logger.warning("v3 mode only supports qinbafrank; got %r", username)
+        logger.warning("skill persona loader only supports qinbafrank; got %r", username)
         return None
 
-    v3_dir = _V3_BASE_DIR
-    if not v3_dir.is_dir():
-        logger.warning("v3 draft dir not found: %s", v3_dir)
+    skill_dir = _SKILL_BASE_DIR
+    if not skill_dir.is_dir():
+        logger.warning("skill dir not found: %s", skill_dir)
         return None
 
     orchestrator: Optional[SkillDoc] = None
@@ -250,16 +162,16 @@ def _load_persona_v3_uncached(username: str) -> Optional[Persona]:
     lenses: Dict[str, SkillDoc] = {}
 
     # core/operating-system.md -> always-on (orchestrator slot)
-    core_file = v3_dir / "core" / "operating-system.md"
+    core_file = skill_dir / "core" / "operating-system.md"
     if core_file.exists():
-        orchestrator = _v3_md_to_skill_doc(core_file, "core")
+        orchestrator = _skill_md_to_skill_doc(core_file, "core")
     else:
-        logger.warning("v3 core/operating-system.md missing")
+        logger.warning("core/operating-system.md missing")
 
     # macro/macro-regime.md -> always-on (cross-cutting slot)
-    macro_file = v3_dir / "macro" / "macro-regime.md"
+    macro_file = skill_dir / "macro" / "macro-regime.md"
     if macro_file.exists():
-        cross_cutting.append(_v3_md_to_skill_doc(macro_file, "macro"))
+        cross_cutting.append(_skill_md_to_skill_doc(macro_file, "macro"))
 
     # framework/*.md + sector/*.md + ticker/*.md -> trigger-based skills
     # framework files describe HOW to answer a class of question (the answer
@@ -267,19 +179,19 @@ def _load_persona_v3_uncached(username: str) -> Optional[Persona]:
     # given topic/stock. LLM typically loads 1 framework + 0-2 sector/ticker
     # per turn.
     for layer in ("framework", "sector", "ticker"):
-        layer_dir = v3_dir / layer
+        layer_dir = skill_dir / layer
         if not layer_dir.is_dir():
             continue
         for md_path in sorted(layer_dir.glob("*.md")):
-            doc = _v3_md_to_skill_doc(md_path, layer)
+            doc = _skill_md_to_skill_doc(md_path, layer)
             lenses[doc.name] = doc
 
     if not orchestrator and not lenses:
-        logger.warning("v3 dir %s yielded no skill docs.", v3_dir)
+        logger.warning("skill dir %s yielded no skill docs.", skill_dir)
         return None
 
     logger.info(
-        "Loaded v3 persona %r: 1 core + %d macro + %d sector/ticker lenses",
+        "Loaded persona %r: 1 core + %d macro + %d sector/ticker lenses",
         username,
         len(cross_cutting),
         len(lenses),
@@ -288,12 +200,9 @@ def _load_persona_v3_uncached(username: str) -> Optional[Persona]:
     return Persona(
         username=username,
         display_name=username,
-        description=(
-            "qinbafrank v3-draft skill distillation "
-            "(4-layer: core / macro / sector / ticker)"
-        ),
+        description=_QINBAFRANK_PUBLIC_BIO,
         lenses_available=sorted(lenses.keys()),
-        persona_dir=str(v3_dir),
+        persona_dir=str(skill_dir),
         orchestrator=orchestrator,
         overview=None,
         cross_cutting=cross_cutting,
@@ -303,28 +212,19 @@ def _load_persona_v3_uncached(username: str) -> Optional[Persona]:
 
 
 def list_personas() -> List[PersonaSummary]:
-    """Enumerate available personas under methodologies/."""
-    if not METHODOLOGIES_DIR.is_dir():
+    """Enumerate available personas for the active persona source."""
+    persona = get_persona("qinbafrank")
+    if persona is None:
         return []
-    out: List[PersonaSummary] = []
-    for child in sorted(METHODOLOGIES_DIR.iterdir()):
-        if not child.is_dir():
-            continue
-        if child.name.startswith("_") or child.name.startswith("."):
-            continue
-        persona = get_persona(child.name)
-        if persona is None:
-            continue
-        out.append(
-            PersonaSummary(
-                username=persona.username,
-                display_name=persona.display_name,
-                description=persona.description,
-                lenses_available=persona.lenses_available,
-                last_indexed_at=persona.last_indexed_at,
-            )
+    return [
+        PersonaSummary(
+            username=persona.username,
+            display_name=persona.display_name,
+            description=persona.description,
+            lenses_available=persona.lenses_available,
+            last_indexed_at=persona.last_indexed_at,
         )
-    return out
+    ]
 
 
 def clear_persona_cache() -> None:

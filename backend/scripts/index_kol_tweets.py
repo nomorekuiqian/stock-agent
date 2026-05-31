@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 
 
 SOURCE_TYPE = "kol_tweet"
-# Current production rows may contain either the V3 quality bands
+# Current production rows may contain either the current quality bands
 # (high/medium/low) or an older keep/drop label. Keep both good paths indexable.
 DEFAULT_QUALITIES = ("keep", "high", "medium")
 DEFAULT_TWEET_TYPES = ("original", "quote", "thread", "article")
@@ -381,7 +381,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--include-unenriched",
         action="store_true",
-        help="Also index tweets without V3 enrichment metadata.",
+        help="Also index tweets without enrichment metadata.",
     )
     parser.add_argument("--force", action="store_true", help="Reindex even if content hash matches.")
     parser.add_argument("--dry-run", action="store_true", help="Preview selected tweets without indexing.")

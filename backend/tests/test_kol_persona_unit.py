@@ -1,8 +1,7 @@
-"""Unit tests for shared/kol_persona/ — Phase 1 of kol-persona-research-agent plan.
+"""Unit tests for shared/kol_persona/.
 
-Loads the real qinbafrank .md files under
-`backend/app/features/twitter/methodologies/qinbafrank/` and verifies the
-parsed Persona shape + ADK Skill adapter + search_kol_tweets contract.
+Loads the real qinbafrank skill files and verifies the parsed Persona shape,
+ADK Skill adapter, and search_kol_tweets contract.
 
 Vector search is mocked; no Insforge / embedding round-trip happens.
 """
@@ -44,19 +43,11 @@ def test_get_persona_loads_qinbafrank():
     persona = get_persona("qinbafrank")
     assert persona is not None
     assert persona.username == "qinbafrank"
-    # v3 schema: orchestrator (core/operating-system.md) + macro (cross-cutting)
-    # + framework/sector/ticker lenses. v1 schema: orchestrator + overview +
-    # principles + per-topic lenses. Either schema must produce a usable
-    # persona with orchestrator + non-empty lenses + at least one cross-cutting
-    # doc.
     assert persona.orchestrator is not None
     assert len(persona.cross_cutting) >= 1
     assert len(persona.lenses) >= 4
-    # Both schemas expose lens names — v1: "qinbafrank-on-stocks"; v3:
-    # "sector-ai-infrastructure", "ticker-nvda", "framework-ask-about-stock", etc.
     assert any(
-        name == "qinbafrank-on-stocks"
-        or name.startswith(("sector-", "ticker-", "framework-"))
+        name.startswith(("sector-", "ticker-", "framework-"))
         for name in persona.lenses
     )
 
@@ -71,7 +62,9 @@ def test_list_personas_includes_qinbafrank():
     assert "qinbafrank" in usernames
     qinba = next(s for s in summaries if s.username == "qinbafrank")
     assert qinba.lenses_available  # non-empty
-    assert qinba.description  # derived from overview.md
+    assert qinba.description
+    assert "Investor in AI" in qinba.description
+    assert "skill distillation" not in qinba.description
 
 
 def test_lens_frontmatter_name_is_spec_compliant():
@@ -98,11 +91,7 @@ def test_build_always_on_instruction_contains_signature_phrases():
     persona = get_persona("qinbafrank")
     assert persona is not None
     text = build_always_on_instruction(persona)
-    # Signature phrase present in both v1 (principles-falsifiability.md) and
-    # v3 (core/operating-system.md core belief #3). Avoids picking a phrase
-    # that only one schema surfaces.
     assert "强信念" in text
-    # falsifiability principle proof — both v1 and v3 keep the term 证伪
     assert "证伪" in text
 
 

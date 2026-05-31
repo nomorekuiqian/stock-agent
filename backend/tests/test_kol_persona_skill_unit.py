@@ -1,9 +1,9 @@
 """
-KOL Persona v3 unit tests — covers the v3-draft loader helpers in
+KOL Persona skill unit tests — covers the current skill loader helpers in
 `app.shared.kol_persona.registry` and the citation-range header in
 `app.shared.kol_persona.tools._format_chunks_for_llm`.
 
-No network, no DB. Uses tempdir-backed v3 md files for the loader case.
+No network, no DB. Uses tempdir-backed skill md files for the loader case.
 """
 
 from __future__ import annotations
@@ -14,21 +14,21 @@ from pathlib import Path
 import pytest
 
 from app.shared.kol_persona.registry import (
-    _v3_extract_applicable_section,
-    _v3_md_to_skill_doc,
+    _extract_applicable_section,
+    _skill_md_to_skill_doc,
 )
 from app.shared.kol_persona.tools import _format_chunks_for_llm
 from app.features.vector.models import VectorChunkResult
 
 
 # ---------------------------------------------------------------------------
-# _v3_extract_applicable_section
+# _extract_applicable_section
 # ---------------------------------------------------------------------------
 
 
-class TestV3ExtractApplicableSection:
+class TestExtractApplicableSection:
     def test_returns_empty_when_marker_missing(self):
-        assert _v3_extract_applicable_section("# Some other section\n\nbody") == ""
+        assert _extract_applicable_section("# Some other section\n\nbody") == ""
 
     def test_extracts_text_after_marker(self):
         body = textwrap.dedent(
@@ -43,31 +43,31 @@ class TestV3ExtractApplicableSection:
             ...
             """
         )
-        out = _v3_extract_applicable_section(body)
+        out = _extract_applicable_section(body)
         assert "用户问" in out
         # Must stop at the next h2
         assert "核心问题" not in out
 
     def test_extracts_to_end_when_no_next_h2(self):
         body = "## 适用问题\n\n第一行\n第二行"
-        out = _v3_extract_applicable_section(body)
+        out = _extract_applicable_section(body)
         assert "第一行" in out
         assert "第二行" in out
 
     def test_trims_surrounding_whitespace(self):
         body = "## 适用问题\n\n\n  trimmed body  \n\n## 下一段\n..."
-        out = _v3_extract_applicable_section(body)
+        out = _extract_applicable_section(body)
         # Body is trimmed but next-section content excluded
         assert out.startswith("trimmed body")
         assert "下一段" not in out
 
 
 # ---------------------------------------------------------------------------
-# _v3_md_to_skill_doc — frontmatter + name derivation + description fallback
+# _skill_md_to_skill_doc — frontmatter + name derivation + description fallback
 # ---------------------------------------------------------------------------
 
 
-class TestV3MdToSkillDoc:
+class TestMdToSkillDoc:
     @pytest.fixture
     def md_with_applicable(self, tmp_path: Path) -> Path:
         path = tmp_path / "NVDA.md"
@@ -112,12 +112,12 @@ class TestV3MdToSkillDoc:
         return path
 
     def test_layer_prefixed_lowercase_name(self, md_with_applicable: Path):
-        doc = _v3_md_to_skill_doc(md_with_applicable, "ticker")
+        doc = _skill_md_to_skill_doc(md_with_applicable, "ticker")
         # ADK spec: lowercase + hyphen only, layer-prefixed
         assert doc.name == "ticker-nvda"
 
     def test_description_from_applicable_section(self, md_with_applicable: Path):
-        doc = _v3_md_to_skill_doc(md_with_applicable, "ticker")
+        doc = _skill_md_to_skill_doc(md_with_applicable, "ticker")
         assert "Blackwell" in doc.description or "英伟达" in doc.description
         # Should not include the next h2 heading
         assert "核心问题" not in doc.description
@@ -125,23 +125,41 @@ class TestV3MdToSkillDoc:
     def test_description_falls_back_to_first_paragraph(
         self, md_without_applicable: Path
     ):
-        doc = _v3_md_to_skill_doc(md_without_applicable, "ticker")
+        doc = _skill_md_to_skill_doc(md_without_applicable, "ticker")
         assert "fallback description" in doc.description
 
     def test_type_field_is_layer_namespaced(self, md_with_applicable: Path):
-        doc = _v3_md_to_skill_doc(md_with_applicable, "ticker")
-        assert doc.type == "v3-ticker"
+        doc = _skill_md_to_skill_doc(md_with_applicable, "ticker")
+        assert doc.type == "ticker"
 
     def test_extra_carries_frontmatter(self, md_with_applicable: Path):
-        doc = _v3_md_to_skill_doc(md_with_applicable, "ticker")
+        doc = _skill_md_to_skill_doc(md_with_applicable, "ticker")
         # `extra` should retain coverage / layer keys (sans recognized ones).
         assert doc.extra.get("coverage") == "high"
+
+    def test_body_sanitizes_raw_coverage_label(self, tmp_path: Path):
+        path = tmp_path / "NVDA.md"
+        path.write_text(
+            textwrap.dedent(
+                """
+                # Ticker: NVDA
+
+                ## 覆盖状态
+
+                - `coverage: high` — 博主反复深度讨论
+                """
+            ).strip()
+        )
+        doc = _skill_md_to_skill_doc(path, "ticker")
+
+        assert "`coverage: high`" not in doc.body
+        assert "博主讨论很多" in doc.body
 
     def test_description_clamped_to_1000_chars(self, tmp_path: Path):
         long_section = "x" * 2000
         path = tmp_path / "long.md"
         path.write_text(f"## 适用问题\n\n{long_section}\n\n## 别的")
-        doc = _v3_md_to_skill_doc(path, "ticker")
+        doc = _skill_md_to_skill_doc(path, "ticker")
         # Clamp adds "..." suffix → at most 1000 + 3 chars.
         assert len(doc.description) <= 1003
         assert doc.description.endswith("...")
@@ -149,7 +167,7 @@ class TestV3MdToSkillDoc:
     def test_name_normalizes_underscores_and_spaces(self, tmp_path: Path):
         path = tmp_path / "my_ticker name.md"
         path.write_text("## 适用问题\n\nbody")
-        doc = _v3_md_to_skill_doc(path, "ticker")
+        doc = _skill_md_to_skill_doc(path, "ticker")
         assert doc.name == "ticker-my-ticker-name"
 
 
