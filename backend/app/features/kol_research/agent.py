@@ -22,12 +22,14 @@ import asyncio
 import contextvars
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.google_search_tool import GoogleSearchTool
 from google.adk.tools.skill_toolset import SkillToolset
@@ -37,6 +39,12 @@ from app.core.logging import get_logger
 from app.features.kol_research.models import (
     KolResearchResponse,
     KolToolCallSummary,
+)
+from app.features.kol_research.input_guard import (
+    InputGuardContext,
+    append_data_coverage_warning,
+    build_input_guard_context,
+    validate_data_coverage,
 )
 from app.features.screener.research_agent import (
     _recent_reports,
@@ -92,6 +100,10 @@ _google_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
     contextvars.ContextVar("_kol_research_google_calls", default=None)
 )
 _MAX_GOOGLE_SEARCH_PER_TURN = 1
+_kol_tweet_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
+    contextvars.ContextVar("_kol_research_tweet_search_calls", default=None)
+)
+_MAX_KOL_TWEET_SEARCH_PER_TURN = 3
 # Tool names that ADK exposes for the GoogleSearchTool. ADK currently registers
 # the underlying agent transfer under "google_search_agent"; "google_search"
 # may appear in older / different code paths.
@@ -211,6 +223,24 @@ async def _before_tool_callback(tool, args, tool_context):
     tool_name = getattr(tool, "name", str(tool))
     args = args or {}
 
+    if tool_name == "search_kol_tweets":
+        counts = _kol_tweet_search_calls.get(None)
+        if counts is not None:
+            counts[tool_name] = counts.get(tool_name, 0) + 1
+            if counts[tool_name] > _MAX_KOL_TWEET_SEARCH_PER_TURN:
+                logger.info(
+                    "kol_research: blocked extra search_kol_tweets call (count=%d)",
+                    counts[tool_name],
+                )
+                return {
+                    "status": "rate_limited",
+                    "message": (
+                        "search_kol_tweets 本轮已达上限. 基于已召回的历史观点、"
+                        "已加载 skill 和已注入/已调用的数据回答. 如果证据不足, "
+                        "在答案里说'博主未明确表态'或'需要补充数据'."
+                    ),
+                }
+
     # Hard cap on google_search: kill the second+ call to keep latency in check.
     if tool_name in _GOOGLE_SEARCH_TOOL_NAMES:
         counts = _google_search_calls.get(None)
@@ -313,16 +343,94 @@ def _safe_args_summary(args: dict | None, *, max_len: int = 120) -> Optional[str
     return text
 
 
+# Server-side fallback: even with prompt constraints, LLM occasionally emits
+# concatenated citations like [#3, #5] / [#3,#5] / [#3][#4]. Split into the
+# natural "[#3] 和 [#5]" form. Operates on the final aggregated text only;
+# streaming partial chunks can split a citation token across chunks, so we
+# don't run this on deltas.
+_CITATION_CONCAT_RE = re.compile(r"\[#(\d+)((?:[,\s、]+#?\d+)+)\]")
+_CITATION_ADJACENT_RE = re.compile(r"(\[#\d+\])(?=\[#\d+\])")
+_INTERNAL_COVERAGE_RE = re.compile(
+    r"(?i)(?:[`'\"]?coverage[`'\"]?\s*[:=]\s*)[`'\"]?(high|medium|low|none)[`'\"]?"
+)
+_CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
+_BULLET_BOLD_LABEL_RE = re.compile(r"(?m)^(\s*[*+-]\s+)\*\*([^*\n]{1,40})\*\*([：:])")
+_BOLD_RE = re.compile(r"\*\*([^*\n]+)\*\*")
+_COVERAGE_LABELS = {
+    "high": "博主讨论很充分",
+    "medium": "博主有过多次讨论",
+    "low": "博主提到较少",
+    "none": "博主未直接讨论",
+}
+_TRADING_PHRASE_REPLACEMENTS = (
+    ("视作分批回补仓位的窗口", "视作重新评估仓位风险收益的窗口"),
+    ("视作分批建仓的窗口", "视作分批评估的窗口"),
+    ("分批回补仓位", "分批评估仓位"),
+    ("回补仓位", "重新评估仓位"),
+    ("分批建仓", "分批评估"),
+    ("再分批建仓", "再分批评估"),
+    ("不建议", "不适合"),
+    ("应该等待", "更稳的是等待"),
+    ("恐慌卖出", "因情绪一次性处理"),
+)
+
+
+def _fix_concat_citations(text: str) -> str:
+    """Normalize concatenated citations to the natural "[#a] 和 [#b]" form."""
+    def _split_inner(m: re.Match) -> str:
+        first = m.group(1)
+        rest = re.findall(r"\d+", m.group(2))
+        all_nums = [first] + rest
+        return " 和 ".join(f"[#{n}]" for n in all_nums)
+    text = _CITATION_CONCAT_RE.sub(_split_inner, text)
+    text = _CITATION_ADJACENT_RE.sub(r"\1 和 ", text)
+    return text
+
+
+def _sanitize_user_facing_markdown(text: str) -> str:
+    """Remove internal metadata and debug-looking markdown from final answers."""
+    if not text:
+        return text
+
+    def _replace_coverage(m: re.Match) -> str:
+        return _COVERAGE_LABELS.get(m.group(1).lower(), "博主讨论覆盖度待确认")
+
+    def _replace_code_span(m: re.Match) -> str:
+        token = m.group(1).strip()
+        if not token:
+            return ""
+        if re.fullmatch(r"\$?[A-Z]{1,5}", token):
+            return f"`{token}`"
+        if re.search(r"\d|[<>=±+*/%$]", token):
+            return f"`{token}`"
+        return token
+
+    def _cap_bold(match: re.Match) -> str:
+        nonlocal bold_count
+        bold_count += 1
+        if bold_count <= 3:
+            return match.group(0)
+        return match.group(1)
+
+    text = _INTERNAL_COVERAGE_RE.sub(_replace_coverage, text)
+    text = _CODE_SPAN_RE.sub(_replace_code_span, text)
+    text = _BULLET_BOLD_LABEL_RE.sub(r"\1\2\3", text)
+    for source, target in _TRADING_PHRASE_REPLACEMENTS:
+        text = text.replace(source, target)
+    bold_count = 0
+    return _BOLD_RE.sub(_cap_bold, text)
+
+
 # ---------------------------------------------------------------------------
 # Agent construction (singleton per persona)
 # ---------------------------------------------------------------------------
 
 # LONG-TERM TODO: 下面这套"回答框架 / 工具使用 / 输出格式"规则混合了通用脚手架
 # (任何 KOL persona 都该遵守) 和 qinbafrank 特定的认知模式 (产业派分析师独有的
-# 5 段式推理). 长期方向: 把"产业派回答框架"这种 KOL 特定内容迁回
-# `methodologies/qinbafrank/*.md`, 让换 KOL 时框架自动跟着变 (技术派会用形态/
-# 均线/量能/突破/止损; 量化派会用因子/backtest/sharpe). 当前只服务 qinbafrank,
-# 一次性 hardcode 是可接受的简化.
+# 5 段式推理). 长期方向: 把"产业派回答框架"这种 KOL 特定内容继续沉到
+# skill 文件里, 让换 KOL 时框架自动跟着变 (技术派会用形态/均线/量能/
+# 突破/止损; 量化派会用因子/backtest/sharpe). 当前只服务 qinbafrank, 一次性
+# hardcode 是可接受的简化。
 
 _TOOL_USAGE_RULES = """
 # 工具使用规则
@@ -385,23 +493,150 @@ _TOOL_USAGE_RULES = """
 
 # 输出格式
 
-- Markdown 简体中文, **目标 800-1500 字** (投研问题, 短了就是糊弄)
-- 5 段必须用 `### 1. 产业定位` / `### 2. 当下指标读数` 这种结构化标题, 不要全堆一段
-- 每段内: 关键判断 / 数字 / falsifiability 锚用 **粗体** 突出
-- 指标对照、风险因子、观察清单 用列表
-- 长度不达标或缺段 = 没用尽工具, 重新组织
+- Markdown 简体中文, **目标 800-1500 字** (投研问题, 短了就是糊弄).
+- 5 段必须用 `### 1. 产业定位` / `### 2. 当下指标读数` 这种结构化标题, 不要全堆一段.
+- **粗体** 全段 1-2 处, 锁定该段核心判断的句子或数字, 不打装饰. 看到第三处 ** 就该自问 "这真重要吗".
+- **代码反引号** ` ` 只能包裹:
+  (a) 美股 ticker: `NVDA` / `TSLA` / `SPY`
+  (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
+  (c) 指标短名: `RPO` / `Capex/Revenue` / `PMI`
+  **禁止包裹**: 中文短语 (`业绩兑现` / `确定性` / `兑现`) / 英文名词 (`Macro` / `Capex`) / 整句话 / 形容词. 规则极简: 这个 token 是数据字面量吗? 不是就别用反引号, 用粗体或不强调.
+- **表格** (GFM 管道语法) 仅当展示"多维度对照" (≥3 行 × ≥2 列) 时用. 典型: 当下数据 vs 博主原话对照 (列 = 指标 / 博主原话 / 当下值 / 状态). 状态列只填 `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`. 单维度清单一律用列表, 不要造两列假表格.
+- **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
+- **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
+- **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表、`# / ##` 一级二级标题 (与气泡视觉撞).
+- 长度不达标或缺段 = 没用尽工具, 重新组织.
+"""
+
+
+# ---------------------------------------------------------------------------
+# 当前 Frank skill loader 使用这套更松散的指令
+# ---------------------------------------------------------------------------
+
+_SKILL_TOOL_USAGE_RULES = """
+# 工具使用规则
+
+每次回答按这个顺序走:
+
+1. **先看用户问什么类型的问题, 加载对应的 framework skill** (拿到这类问题"必须包含的动作"清单, 不是骨架):
+
+   | 问题类型 | 触发关键词 | 加载 framework |
+   |---|---|---|
+   | 个股观点 | ticker / 公司中文名 + 怎么看 / 估值 / 财报 / 加仓 / 顶 / 底 | `framework-ask-about-stock` |
+   | 产业板块 | AI 算力 / HBM / 稳定币 / 太空 / SaaS / 物理 AI + 板块 / 看好 / 阶段 | `framework-ask-about-sector` |
+   | 宏观判断 | Fed / 降息 / CPI / 流动性 / 大顶 / 地缘 / 关税 / TACO | `framework-ask-about-macro` |
+   | 新闻事件 | 新闻 / 消息 / 利好利空 / 怎么看这个新闻 / 对 X 影响 | 先判断影响对象: 个股用 stock, 产业用 sector, 宏观用 macro |
+   | 方法论 / 概念 | 什么是 / 怎么判断 / 如何决策 / 为什么 / 是什么意思 | `framework-ask-about-method` |
+   | Veto 类 | meme / 梭哈 / all in / 做空 / 抄底烂 / 一把梭 / 短炒 / 赌 | `framework-ask-about-veto` |
+   | 比较选择 | 还是 / vs / 对比 / 哪个 / 选谁 / 二选一 | `framework-ask-to-compare` |
+
+   边界 case 你自己判断. 通常 1 个 framework 就够; 跨类问题最多 2 个.
+
+2. **再加载对应的内容 skill** (拿到博主对具体主题的看法):
+   - 个股问题 → `ticker-<TICKER>` (例: `ticker-nvda`, `ticker-mrvl` 是 marker)
+   - 产业问题 → `sector-<name>` (`sector-ai-infrastructure` / `sector-crypto-stablecoin-rwa` / `sector-defense-and-space` / `sector-power-and-physical-ai` / `sector-semiconductor-memory-hbm` / `sector-software-ai-disruption` / `sector-fintech-brokerage`)
+   - 宏观问题 → core 和 macro 已经在 system prompt 里, 通常不需要再 load
+   - 方法论 / Veto / 比较 → 通常 framework + core 就够, 按需加 sector / ticker
+
+3. **调 `search_kol_tweets(query=..., author_username="{username}")`** 找博主历史原话. 引用必须用 [#N] 编号 + 作者 + 日期.
+
+4. **调对应的 brief 拿"当下"数据** (除非是方法论 / Veto / 比较类不需要数据):
+   - 个股: `get_stock_brief(symbol)`
+   - 同行对比: `get_peer_brief(symbol)`
+   - 行业鸟瞰: `get_industry_brief(symbol)`
+   - 宏观 / Fed / 利率 / 流动性: `get_macro_brief()`
+   - 早报: `get_report_by_date` / `list_recent_reports`
+   - 技术面 (罕见): `get_technical_analysis`
+   不要调 fine-grained 工具, brief 内部已并发拉数据.
+
+5. **`google_search` 是 escape hatch**, 仅在同时满足三条时调用一次:
+   a) search_kol_tweets 召回 0 条
+   b) 所有 data tool 返回无数据
+   c) 话题超出 skill 覆盖范围
+   调用后在答案显式标注 "以下信息来自 web 搜索, 非博主历史观点".
+
+# 通用纪律 (跨所有 framework 必须遵守)
+
+- **全局回答契约**: 除纯事实查询 / 纯概念解释 / Veto 短答外, 最终答案必须闭合这条链:
+  1. **一句话结论**: 先说当前更像 `风险` / `机会` / `等待确认` / `分歧未决` 中哪一类; 说明影响的是估值、业绩、还是逻辑. 证据不足就说暂不能归位.
+  2. **因果链**: 用 `A -> B -> C` 把数据或事件传导到资产价格, 不能只列指标名. 例: `TGA 回补 -> 银行准备金下降 -> 资金市场压力上升 -> 高估值成长股估值承压`.
+  3. **场景树**: 至少给基准 / 升级 / 缓和三条路径, 每条都必须有触发条件. 不要只写"关注 X/Y/Z".
+  4. **散户可用含义**: 不给买卖指令, 但要翻译成条件化动作语言: `观察` / `等待确认` / `降低单一叙事暴露` / `分批评估` / `避免追高` / `只适合深认知仓位`. 必须解释为什么.
+  5. **打脸条件**: 写清楚什么指标、事件、时间窗会让当前判断下修或推翻. 如果博主没给具体阈值, 写"博主未给具体阈值, 需要补充 X 数据确认".
+- **散户短问模式**: 用户问 "怎么看 X" / "能买吗" / "要卖吗" / "还持有吗" / "这个新闻是利好还是利空" 时, 开头必须用 1-2 句直接回答, 不要先铺背景. 推荐结构:
+  - `短结论`: 按博主方法论, 当前更偏观察 / 等确认 / 风险升级 / 只适合深认知仓位.
+  - `为什么`: 1 条最关键因果链.
+  - `看什么`: 2-3 个确认或打脸信号.
+  - `对你意味着什么`: 条件化动作语言, 不能说应该买卖.
+  这类问题目标 300-700 字; 除非用户明确要深度分析, 不要写成长报告. 默认不用表格, 用 2-4 个短段落或项目符号即可.
+- **"Thesis 是否成立"属于散户短问**, 不是财报长文. 用户问 thesis / 逻辑 / 叙事 是否成立时, 只回答三件事: 现在更像"没被证伪 / 需要继续验证 / 已被削弱"哪一类; 哪 2-3 个事实支撑; 哪 2-3 个信号会打脸. 禁用表格, 禁用"指标对照表"标题.
+- **观察清单不能单独成答案**. 每个观察项都要回答"它变了以后, 市场含义是什么".
+- **禁止专业名词堆叠**. `TGA` / `RRP` / `SOFR` / `RPO` / `Capex` 这类词出现时, 必须翻译成普通投资者能理解的机制语言.
+- **框架标签只用于你内部思考, 不要原样当标题输出**. 禁止把 "因果链" / "场景树" / "Thesis 证伪条件" / "散户可用动作指引" / "coverage" / "high/medium/low/none" 写给用户. 用户可见标题改成自然说法: "为什么还没坏" / "哪些信号会打脸" / "现在怎么处理更稳".
+- **博主历史判断带的打脸条件要一并转述** (qinbafrank 真正的指纹). 你引用了博主"看多 / 看空"的历史观点, 博主当时如果挂过 "什么数据出来这个判断就翻车" 的阈值 (指标 + 阈值 + 时间窗), 必须一起转述出来. 博主当时没挂, 你不要补 — 不要为了凸显"博主指纹"自己编一个打脸条件.
+- **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为".
+- **没数据时**明确说"需要补充", 不要编造数字.
+- **不预测精确点位 / 不预测 Fed 节奏 / 不喊大顶大底崩盘** — 博主语言指纹.
+- **冲突处理**: skill 框架是判断准则; search_kol_tweets 是具体观点; data tool 是当下事实. 冲突时显式点出"分歧".
+- **禁用词**: all in / 梭哈 / 必涨 / 保底 / 稳赚 / 财富自由 / 猛干 / 绝对崩盘.
+- **任何具体阈值/数字必须来自 search_kol_tweets 召回的博主原话**. 没召回到就标"博主未给具体数字"或"数据待补", 不要编. 这条无例外 — 即使你觉得"按博主方法论可以推断 X<Y", 也不允许编一个具体阈值. 凭训练数据脑补阈值是这个 agent 最常见的错误模式.
+- **开场禁止引言句**: 直接给观点 / 转述博主评价. 禁用 "拆解为几个维度" / "以下为分析" / "可以从几个方面看" / "下面展开" / "可以从以下几点看" 这类填表式开场.
+
+# 引用规则 [#N] (硬性约束)
+
+- 只能引用 **search_kol_tweets 工具本轮实际返回过的 [#N] 编号**. 工具结果里会显式告诉你 "Valid citation range: [#X] ~ [#Y]", 严格在这范围内引.
+- **不要瞎编引用号** (例如 [#11]、[#44] 这种你从没在工具返回里见过的编号). 用户看到的中间稿会先于最终 strip 出现, 所以即使后端会 fallback 删掉, 仍要尽量从源头不写错号.
+- **未调 search_kol_tweets 之前不要写 [#N]**. 想引用就先 search, 拿到编号再引.
+- 引用号不连写多个: 用 `[#3]` 而不是 `[#3][#4]`; 多个来源用 `[#3] 和 [#4]` 这种自然句式.
+- 引用必须有具体含义: 不要句尾随手挂 `[#11]` 当装饰, 要么佐证一个具体论点, 要么省略.
+
+# 策展人模式 (全 framework 默认生效)
+
+你是博主观点的**策展人**, 不是博主代言人, 也不是判断者. 所有 framework 默认遵守这套约束 (method / veto 因为本身就是转述博主立场, 天然适用; stock / sector / macro / compare 风险更高, 务必严守):
+
+- **主语锁博主**. 用 "博主说过 / 博主认为 / 博主关心 / 博主多次强调". **禁用**: "我看多 X / 我看空 X" / "博主框架下能买 / 不能买" / "建议加仓 / 减仓" / "产业看好 / 板块见顶".
+- **可以给散户可用含义, 但必须条件化**. 允许说"如果 X 信号未出现, 更适合观察/等待确认"; 禁止说"应该买/应该卖/可以加仓".
+- **交易措辞降级**. 不要用 "建议买入 / 建议卖出 / 应当布局 / 持有是合理的 / 坚决降低 / 回补仓位" 这种像投顾指令的话. 改成 "可以把 X 当作继续观察条件" / "这更像风险复核信号" / "不适合只凭单一叙事加大暴露".
+- **不主动扩写无关交易剧本**. 如果全局回答契约或 framework 要求场景树, 只画与用户问题直接相关的基准 / 升级 / 缓和路径, 不把未发生场景定性成事实.
+- **段数 / 段标题 / 字数你自己决定**. 跟问题深度走, 不要凑骨架. framework 只规定 "必须包含的动作", 不规定 "必须 4 段" 或 "段 1 标题必须是 X". 自然语言组织, 别填表.
+- **如果你选用对照表**展示当下数据 vs 博主原话, 对照列只能填以下机械事实词:
+  - 允许: `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`
+  - 禁用: `看多` / `看空` / `仍成立` / `已破` / `已触发` / `已证伪` / `加仓` / `减仓` / `风险升高` / `接近触发` / `框架成立`
+- 安全护栏: 博主历史推文是过去某一时点的立场, 中间可能出过新事件博主已悄悄改了立场 —— 你不知道. 你只摆 "博主当时说过 X + 当下数据是 Y", 让用户自己拼接结论.
+
+# 输出格式
+
+- Markdown 简体中文; 段落自然语言为主, 别填表.
+- **长度和结构由加载的 framework skill 决定**, 不要硬套字数或段数.
+- **粗体** 全篇最多 3 处; 散户短问最多 1 处. 只加粗真正的结论或打脸信号, 不给每个小标题、每条 bullet、普通形容词加粗.
+- **代码反引号** ` ` 只能包裹:
+  (a) 用户问到的美股 ticker: `NVDA` / `TSLA` / `SPY`
+  (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
+  **禁止包裹**: 中文短语、产品名、普通指标名、公司名、英文名词、整句话、形容词. 例如 Blackwell / Rubin / Revenue YoY / Forward PE / Gross Margin / Capex 都不要加反引号.
+- **内部标签禁止外露**: 不输出 `coverage: high`、`parent_sector`、`marker`、skill 文件名、frontmatter 字段名. 需要表达覆盖度时写成人话: "博主对这只票讨论很多 / 讨论不多 / 没有直接讨论".
+- **表格** 仅当用户明确要"数据对照 / 详细表格", 或确实有 ≥4 个独立指标需要同屏比较时才用. 散户短问、thesis 是否成立、能买吗/要卖吗/持有吗这几类问题禁止用表格, 包括 GFM 管道表、空格对齐表、"指标对照表"小节. 如果用了表格, 列名要像给普通投资者看的语言, 不要出现 "状态" 这种机械列; 最后一列用 "怎么理解".
+- **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
+- **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
+- **段标题**: 必要时用 `### ` 三级标题; 不要 `# / ##` 与回复区视觉撞.
+- **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表.
+
+# skill 来源
+
+当前加载 Frank skill 资产:
+- core/operating-system + macro/macro-regime 已注入此 prompt (always-on)
+- 6 个 framework + 7 sector + 32 ticker playbook + 1 marker 通过 load_skill 按需加载
 """
 
 
 def _build_instruction(persona: Persona) -> str:
     always_on = build_always_on_instruction(persona)
-    tool_rules = _TOOL_USAGE_RULES.format(username=persona.username)
-    return (
-        f"你是 TheMarketBrew 的投研助手 (KOL 视角)，正在用 @{persona.username} 的公开方法论看市场。\n"
+    tool_rules = _SKILL_TOOL_USAGE_RULES.format(username=persona.username)
+    header = (
+        f"你是 TheMarketBrew 的投研助手 (KOL 视角)，"
+        f"正在用 @{persona.username} 的公开方法论 skill 系统看市场。\n"
         f"**绝不能声称自己就是 @{persona.username}**。\n\n"
-        f"{always_on}\n\n"
-        f"{tool_rules}"
     )
+    return f"{header}{always_on}\n\n{tool_rules}"
 
 
 def _build_tools(persona: Persona) -> list:
@@ -439,11 +674,18 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
     if persona is None:
         raise ValueError(f"Unknown persona: {persona_username!r}")
 
+    # Enable Gemini's built-in thinking output so the agent emits `thought=True`
+    # parts during the response stream; the frontend uses them to render a
+    # collapsible "思考过程" section under each KOL answer.
+    gen_config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(include_thoughts=True),
+    )
     agent = LlmAgent(
         name="kol_research_agent",
         model=MODEL,
         instruction=_build_instruction(persona),
         tools=_build_tools(persona),
+        generate_content_config=gen_config,
         before_tool_callback=_before_tool_callback,
         after_tool_callback=_after_tool_callback,
         after_model_callback=meter("kol_research", model=MODEL),
@@ -461,6 +703,7 @@ async def _build_prompt(
     message: str,
     history: List[Dict[str, str]] | None = None,
     content_context: Dict[str, Any] | None = None,
+    input_guard: InputGuardContext | None = None,
 ) -> str:
     parts: List[str] = []
 
@@ -492,6 +735,10 @@ async def _build_prompt(
         # Keep the context light — the agent can call tools to deep-dive.
         parts.append("")
 
+    if input_guard and input_guard.prompt_section:
+        parts.append(input_guard.prompt_section)
+        parts.append("")
+
     parts.append("## User question")
     parts.append(message)
     return "\n".join(parts)
@@ -521,24 +768,59 @@ async def _run_session(
     runner: InMemoryRunner,
     prompt: str,
 ) -> str:
-    """Run one turn, return collected markdown text."""
+    """Run one turn, return collected markdown text.
+
+    Side effect: while running, pushes `message_delta` and `thinking` events
+    onto the SSE queue (if set by the caller via `_sse_queue`). This lets the
+    frontend render token-by-token streaming + chain-of-thought.
+    """
     session = await runner.session_service.create_session(
         app_name=APP_NAME, user_id="kol_research"
     )
     message = types.Content(parts=[types.Part(text=prompt)], role="user")
 
+    queue = _sse_queue.get(None)
     final_text_parts: list[str] = []
+    # ADK requires explicit StreamingMode.SSE to get partial text chunks.
+    # Default is StreamingMode.NONE which only yields final aggregated events
+    # — that's why typewriter streaming wasn't working before.
+    run_config = RunConfig(streaming_mode=StreamingMode.SSE)
     try:
         async for event in runner.run_async(
             user_id="kol_research",
             session_id=session.id,
             new_message=message,
+            run_config=run_config,
         ):
-            if hasattr(event, "content") and event.content and event.content.parts:
-                for part in event.content.parts:
-                    text = getattr(part, "text", None)
-                    if text:
-                        final_text_parts.append(text)
+            if not (hasattr(event, "content") and event.content and event.content.parts):
+                continue
+            is_partial = bool(getattr(event, "partial", False))
+            # Avoid duplicate-text issue (ADK doc Option A): only forward
+            # partial events to the SSE queue; final aggregated events are
+            # used solely to accumulate final_text_parts for the response.
+            for part in event.content.parts:
+                text = getattr(part, "text", None)
+                if not text:
+                    continue
+                # Skip function-call parts (LLM emits these as partial too).
+                has_fc = getattr(part, "function_call", None) is not None
+                if has_fc:
+                    continue
+                is_thought = bool(getattr(part, "thought", False))
+                if is_thought:
+                    if queue is not None and is_partial:
+                        queue.put_nowait({"type": "thinking", "text": text})
+                    continue
+                if is_partial:
+                    if queue is not None:
+                        queue.put_nowait({"type": "message_delta", "text": text})
+                        await asyncio.sleep(0)
+                else:
+                    # Final aggregated text — use as the canonical answer body
+                    # (partial chunks may have lost some structure during stream
+                    # buffering, so we trust the aggregated version for the
+                    # final_text used in KolResearchResponse).
+                    final_text_parts.append(text)
     finally:
         try:
             await runner.session_service.delete_session(
@@ -549,7 +831,8 @@ async def _run_session(
         except Exception:  # noqa: BLE001
             pass
 
-    return "".join(final_text_parts).strip()
+    text = _fix_concat_citations("".join(final_text_parts).strip())
+    return _sanitize_user_facing_markdown(text)
 
 
 async def answer_kol_research(
@@ -574,16 +857,23 @@ async def answer_kol_research(
     token_timers = _tool_started_at.set(timers)
     google_counts: Dict[str, int] = {}
     token_google = _google_search_calls.set(google_counts)
+    kol_search_counts: Dict[str, int] = {}
+    token_kol_search = _kol_tweet_search_calls.set(kol_search_counts)
 
     try:
         await _preload_recent_reports()
         agent = get_agent(persona_username)
         runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
+        input_guard = await build_input_guard_context(
+            message=message,
+            content_context=content_context,
+        )
 
         prompt = await _build_prompt(
             message=message,
             history=history,
             content_context=content_context,
+            input_guard=input_guard,
         )
 
         try:
@@ -594,6 +884,12 @@ async def answer_kol_research(
         except asyncio.TimeoutError:
             logger.error("kol_research timed out for: %s", message[:100])
             text = "AI 助手思考时间太长了，请再试一次。如果持续超时，可以简化一下问题。"
+        missing_data = validate_data_coverage(
+            input_guard.parsed,
+            fulfilled_tool_keys=input_guard.fulfilled_tool_keys,
+            tool_calls=tool_log,
+        )
+        text = append_data_coverage_warning(text, missing_data)
 
         # Final navigate: last candidate wins.
         navigate = nav_buf[-1] if nav_buf else None
@@ -618,6 +914,7 @@ async def answer_kol_research(
         _navigate_buffer.reset(token_nav)
         _tool_started_at.reset(token_timers)
         _google_search_calls.reset(token_google)
+        _kol_tweet_search_calls.reset(token_kol_search)
 
 
 async def stream_kol_research(
@@ -633,6 +930,8 @@ async def stream_kol_research(
       {"type": "skill_activated", "skill_name": ..., "description": ...}
       {"type": "tool_call_start", "tool": ..., "description": ...}
       {"type": "tool_call_end", "tool": ..., "duration_ms": ...}
+      {"type": "thinking", "text": "..."}            # chain-of-thought chunk
+      {"type": "message_delta", "text": "..."}       # incremental answer text
       {"type": "final", "data": KolResearchResponse-dict}
       {"type": "error", "error": "..."}
 
@@ -654,15 +953,35 @@ async def stream_kol_research(
     token_timers = _tool_started_at.set(timers)
     google_counts: Dict[str, int] = {}
     token_google = _google_search_calls.set(google_counts)
+    kol_search_counts: Dict[str, int] = {}
+    token_kol_search = _kol_tweet_search_calls.set(kol_search_counts)
+
+    # Entry log — appears in /tmp/uvicorn-frank.log before the agent does any work.
+    # If you grep "kol chat request" and don't see this line for a failing turn,
+    # the request never reached the agent (frontend bug, middleware reject, or
+    # backend reload between accept and dispatch).
+    logger.info(
+        "kol chat request: persona=%s message=%r history_len=%d context=%s",
+        persona_username,
+        message[:120],
+        len(history or []),
+        "yes" if content_context else "no",
+    )
+    stream_started_at = time.time()
 
     try:
         await _preload_recent_reports()
         agent = get_agent(persona_username)
         runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
+        input_guard = await build_input_guard_context(
+            message=message,
+            content_context=content_context,
+        )
         prompt = await _build_prompt(
             message=message,
             history=history,
             content_context=content_context,
+            input_guard=input_guard,
         )
 
         agent_done = asyncio.Event()
@@ -688,8 +1007,13 @@ async def stream_kol_research(
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.15)
                 yield event
-                if event.get("type") in {"tool_call_start", "skill_activated"}:
-                    # Yield control so SSE flushes before the tool actually runs.
+                if event.get("type") in {
+                    "tool_call_start",
+                    "skill_activated",
+                    "message_delta",
+                    "thinking",
+                }:
+                    # Yield control so SSE flushes the event promptly.
                     await asyncio.sleep(0)
             except asyncio.TimeoutError:
                 pass
@@ -702,18 +1026,36 @@ async def stream_kol_research(
 
         if agent_error:
             err = agent_error[0]
+            elapsed = time.time() - stream_started_at
             if isinstance(err, asyncio.TimeoutError):
+                logger.warning(
+                    "kol chat timeout: persona=%s elapsed=%.1fs limit=%ss",
+                    persona_username, elapsed, timeout,
+                )
                 yield {
-                    "type": "final",
-                    "data": KolResearchResponse(
-                        persona_username=persona_username,
-                        message="AI 助手思考时间太长了，请再试一次。",
-                        tool_calls=tool_log,
-                    ).model_dump(),
+                    "type": "error",
+                    "code": "agent_timeout",
+                    "error": "AI 助手思考时间太长了，请再试一次",
                 }
                 return
-            logger.exception("kol_research stream failed", exc_info=err)
-            yield {"type": "error", "error": str(err)}
+            err_text = str(err).lower()
+            if "token" in err_text or "context" in err_text or "too long" in err_text:
+                code = "context_too_long"
+            elif "schema" in err_text or "validation" in err_text or "json" in err_text:
+                code = "model_schema_error"
+            else:
+                code = "agent_error"
+            # logger.exception captures the full traceback — search log for
+            # "kol chat failed" to find the exact stack on a failing turn.
+            logger.exception(
+                "kol chat failed: persona=%s elapsed=%.1fs code=%s err=%s",
+                persona_username, elapsed, code, err,
+            )
+            yield {
+                "type": "error",
+                "code": code,
+                "error": "AI 助手出了点问题，请再试一次",
+            }
             return
 
         navigate = nav_buf[-1] if nav_buf else None
@@ -721,15 +1063,41 @@ async def stream_kol_research(
             chunk_to_persona_result(c, citation_index=i + 1)
             for i, c in enumerate(chunks_buf)
         ]
+        final_text = agent_text[0] if agent_text else ""
+        missing_data = validate_data_coverage(
+            input_guard.parsed,
+            fulfilled_tool_keys=input_guard.fulfilled_tool_keys,
+            tool_calls=tool_log,
+        )
+        final_text = append_data_coverage_warning(final_text, missing_data)
         final = KolResearchResponse(
             persona_username=persona_username,
-            message=agent_text[0] if agent_text else "",
+            message=final_text,
             kol_chunks=kol_chunks,
             activated_skills=skills_buf,
             tool_calls=tool_log,
             navigate=navigate,
         )
         yield {"type": "final", "data": final.model_dump()}
+    except Exception as setup_err:  # noqa: BLE001
+        # Setup-phase errors (_preload_recent_reports / get_agent / _build_prompt)
+        # would otherwise bubble out of the generator with zero SSE events,
+        # which the frontend logs as "no final event". Catch and yield a
+        # proper error event so the user sees a useful message and the log
+        # shows where it broke. GeneratorExit / CancelledError are BaseException
+        # subclasses and intentionally NOT caught — client-disconnect cancels
+        # must still propagate to the finally block for contextvar cleanup.
+        elapsed = time.time() - stream_started_at
+        logger.exception(
+            "kol chat setup failed: persona=%s elapsed=%.1fs err=%s",
+            persona_username, elapsed, setup_err,
+        )
+        yield {
+            "type": "error",
+            "code": "agent_setup_error",
+            "error": "AI 助手启动失败，请再试一次",
+        }
+        return
     finally:
         _sse_queue.reset(token_queue)
         persona_chunks_buffer.reset(token_chunks)
@@ -738,3 +1106,4 @@ async def stream_kol_research(
         _navigate_buffer.reset(token_nav)
         _tool_started_at.reset(token_timers)
         _google_search_calls.reset(token_google)
+        _kol_tweet_search_calls.reset(token_kol_search)

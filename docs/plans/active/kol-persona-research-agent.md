@@ -2,8 +2,8 @@
 
 > Status: Draft — pending review
 > Updated: 2026-05-20
-> Supersedes: 原 `kol-chat-agent-v2.md`（同一文件，已 rename）。不再走"V1 升级 V2"路径，改为**新建独立博主投研 agent + 退役 `/kol-chat`**。
-> Related: `backend/app/features/screener/research_agent.py`, `backend/app/features/twitter/methodology_chat.py`（即将退役）, `backend/app/features/twitter/live_context.py`（即将退役）, `backend/app/features/vector/`, `backend/app/features/twitter/methodologies/qinbafrank/`, `docs/reference/vector-rag-pipeline.md`
+> Supersedes: 原 `kol-chat-agent` 方案。当前路径是**独立博主投研 agent + 退役 `/kol-chat`**。
+> Related: `backend/app/features/screener/research_agent.py`, `backend/app/features/vector/`, `backend/app/features/twitter/methodologies/qinbafrank/`, `docs/reference/vector-rag-pipeline.md`
 
 ## 决策摘要
 
@@ -14,7 +14,7 @@
 | Skill 机制 | ADK 原生 `google.adk.skills` + `SkillToolset`（1.29.0 已支持） |
 | UI | 复用 `/research` 双栏 UI，顶部 PersonaSelector 决定调哪个 agent 的 endpoint |
 | 数据真相源 | `methodologies/qinbafrank/*.md` 进 ADK Skill；`*.yaml` 留作 evidence/audit |
-| 退役 | `/kol-chat` UI 入口、`methodology_chat.py`、`live_context.py`、`/api/twitter/methodology-chat*` 端点 |
+| 退役 | `/kol-chat` UI 入口、`methodology_chat.py`、`live_context.py`、`/api/twitter/methodology-chat*` 端点已删除 |
 
 ## 目标
 
@@ -32,7 +32,7 @@
 - **不在同一 agent 里做 if persona then else 分支**：演化压力混杂是这次重新拆分的核心动因
 - **不开放运行时 persona 注册**：本期只支持 `qinbafrank`；新增 KOL 走 PR + 蒸馏完整流程
 - **不做 token-level streaming**：保留 SSE 状态事件 + `tool_call_start/end`，外加 `skill_activated` 事件
-- **不在博主 agent 里塞 `output_schema`**（暂定）：参考原 V2 plan 经验，ADK 的 `output_schema + tools` 在 Gemini 上不稳；走 markdown 输出，前端按需 parse navigate hint
+- **不在博主 agent 里塞 `output_schema`**（暂定）：参考前期实验，ADK 的 `output_schema + tools` 在 Gemini 上不稳；走 markdown 输出，前端按需 parse navigate hint
 
 ## 上游依赖
 
@@ -223,7 +223,7 @@ ADK SkillToolset 是新机制，本地 1.29.0 装了但实战未验证。以下 
 2. **`before_tool_callback` / `after_tool_callback` 在 skill 激活时是否触发**：我们 SSE 进度事件依赖这两个 callback；如果 SkillToolset 黑盒掉了，需要找替代 hook（可能是 SkillToolset 自己的事件、或 Agent.events 流）
 3. **Skill body 加载是显式 tool call 还是隐式**：影响 SSE 事件设计——如果 LLM 通过显式 tool call 触发 skill，可以发 `skill_activated` 事件；如果隐式，需要 hook ADK 内部
 4. **`search_kol_tweets` 工具与 SkillToolset 同时挂 `tools=[]` 的兼容性**：是否会有 tool 名冲突 / 行为干扰
-5. **Vector metadata filter 对 `author_username` 是否真下推到 RPC**（原 V2 plan 遗留问题，未验证）
+5. **Vector metadata filter 对 `author_username` 是否真下推到 RPC**（前期遗留问题，未验证）
 
 **Spike 交付物**：补一个临时 prototype（路径在实施时确定；旧 spike 脚本已清理，不再作为当前交付物引用），跑一个完整对话：用户问"NVDA 财报怎么看" → LLM 触发 lens-stock-analysis + lens-ai-infrastructure → 调 search_kol_tweets → 出答案。脚本输出每个 ADK 内部事件 + 命中 chunks + 答案。
 
@@ -278,11 +278,11 @@ ADK SkillToolset 是新机制，本地 1.29.0 装了但实战未验证。以下 
 
 灰度全量后：
 
-- [ ] 前端 `/kol-chat` 页面改成 redirect 到 `/research?persona=qinbafrank`（保留 7 天观察期）
-- [ ] 后端 `methodology_chat.py` / `live_context.py` / `methodology_models.py`（除 `MethodologyCategory` enum 仍在用的部分）删除
-- [ ] `features/twitter/router.py` 移除 `/api/twitter/methodology-chat*` 端点（保留 `/api/twitter/personas` 等仍在用的）
+- [x] 前端 `/kol-chat` 页面删除；对话统一从 `/research?persona=qinbafrank` 和 `/kol/qinbafrank` 入口进入
+- [x] 后端 `methodology_chat.py` / `live_context.py` 删除；`methodology_models.py` 保留给抽取流程使用
+- [x] `features/twitter/router.py` 移除 `/api/twitter/methodology-chat*` 端点
 - [ ] `kol_methodology_conversations` edge function 退役（或保留历史数据查询，不再写入）
-- [ ] 前端 `frontend/src/app/kol-chat/` 目录删除
+- [x] 前端 `frontend/src/app/kol-chat/` 目录删除
 - [ ] flag `kol_research_agent` 退役
 - [ ] 更新 `.context.md` 和本 plan 状态为 Completed
 
@@ -320,12 +320,12 @@ ADK SkillToolset 是新机制，本地 1.29.0 装了但实战未验证。以下 
 - 演化压力混杂：中性 agent 优化"覆盖更多场景 + 小白友好"，博主 agent 优化"还原博主思维 + 维护 lens"，挤一起互相拖累
 - Eval 不独立：调一个会带歪另一个
 
-### 方案 ③：升级 `/kol-chat` v2（原 plan 思路）
+### 方案 ③：继续维护 `/kol-chat`（已放弃）
 
 排除原因：
 
 - `/kol-chat` 是 ChatGPT 风格轻聊 UI，没有 panel / navigation，与"博主投研"产品形态不匹配（用户讨论 NVDA 时需要右侧出现股票面板）
-- 维持两个 KOL agent（`/kol-chat` v2 轻聊 + `/research` overlay 深度）是工程冗余
+- 维持两个 KOL agent（`/kol-chat` 轻聊 + `/research` overlay 深度）是工程冗余
 - 砍掉 `/kol-chat`、用 `/research` UI + persona selector 一站式触达，产品形态更干净
 
 ### 方案 ④：换 SDK（Claude Agent SDK / OpenAI Agents SDK）
@@ -338,7 +338,7 @@ ADK SkillToolset 是新机制，本地 1.29.0 装了但实战未验证。以下 
 
 ## 相关计划
 
-- `kol-chat-live-context-streaming.md` — 旧 `/kol-chat` V1 实施记录（即将退役）
+- `kol-chat-live-context-streaming.md` — 旧 `/kol-chat` 实施记录
 - `kol-methodology-distillation.md` — 方法论蒸馏总计划（YAML 真相源由它产出）
 - `vector-rag-pipeline.md` (`docs/reference/`) — 通用 vector 模块设计
 - `screener/.context.md` — 中性 `/research` agent 现状（本 plan 不动它）

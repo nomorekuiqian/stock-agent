@@ -160,4 +160,15 @@ describe('queryKeys', () => {
       expect(queryKeys.digests.byId('xyz-789')).toEqual(['digests', 'xyz-789']);
     });
   });
+
+  describe('research', () => {
+    it('conversations(userId, pageSize) includes user id and page size', () => {
+      expect(queryKeys.research.conversations('user-123', 20)).toEqual([
+        'research',
+        'conversations',
+        'user-123',
+        20,
+      ]);
+    });
+  });
 });

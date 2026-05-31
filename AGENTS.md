@@ -59,6 +59,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/app/morning/.context.md` -- Pre-market morning report page
 - `frontend/src/app/for-you/.context.md` -- Personalized Brew page
 - `frontend/src/app/stock/.context.md` -- Stock research page
+- `frontend/src/app/kol/.context.md` -- KOL persona pages
 - `frontend/src/app/macro/.context.md` -- Macro dashboard page
 - `frontend/src/app/sectors/.context.md` -- Sector analysis page
 - `frontend/src/app/screener/.context.md` -- Stock screener page

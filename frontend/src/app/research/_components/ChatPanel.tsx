@@ -4,7 +4,9 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
 import ChatInput from './ChatInput';
+import AssistantAvatar from './AssistantAvatar';
 import type { ChatMsg } from '../_lib/researchReducer';
+import type { KolPersonaChunk } from '@/lib/api';
 
 export type { ChatMsg };
 
@@ -30,19 +32,22 @@ interface ChatPanelProps {
   inputPlaceholder?: string;
   toolActivities?: ToolActivity[];
   quota?: QuotaInfo | null;
+  /** Citation chunks for the latest KOL turn — used to make [#N] clickable. */
+  citations?: KolPersonaChunk[];
+  /** Username shown as a persona chip directly above the input. */
+  personaUsername?: string | null;
 }
 
 /**
  * ChatPanel - Left side chat interface.
  *
  * Features:
- * - Message list with auto-scroll
- * - "Scroll to bottom" button when user scrolls up
+ * - Message list with auto-scroll (paused when user scrolls up)
  * - Typing indicator while AI is thinking
  * - Newest AI message gets word-by-word animation
  * - Option chips under AI messages
  */
-export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [], quota }: ChatPanelProps) {
+export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [], quota, citations, personaUsername }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -61,11 +66,6 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages.length, loading, userScrolled]);
-
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setUserScrolled(false);
-  };
 
   // Find the last assistant message index for animation
   const lastAssistantIdx = messages.reduce(
@@ -86,8 +86,12 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
               <ChatMessage
                 role={msg.role}
                 content={msg.content}
-                animate={msg.role === 'assistant' && i === lastAssistantIdx}
+                animate={msg.role === 'assistant' && i === lastAssistantIdx && !msg.streaming}
                 isError={msg.isError}
+                streaming={msg.streaming}
+                thinking={msg.thinking}
+                citations={i === lastAssistantIdx ? citations : undefined}
+                personaUsername={personaUsername}
               />
               {msg.role === 'assistant' && msg.options && msg.options.length > 0 && (
                 <OptionChips
@@ -102,35 +106,29 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
             </div>
         ))}
 
-        {/* Agent status — shows current activity (swap in place, like ChatGPT) */}
-        {loading && (
+        {/* Agent status — shows current activity (swap in place, like ChatGPT).
+            Hidden once the last assistant message starts streaming (either
+            thinking or token output) — from that point the in-message progress
+            UI (ThinkingLine swap → token stream) is the indicator and a second
+            spinner below would be redundant. */}
+        {loading && !(messages[messages.length - 1]?.role === 'assistant'
+          && messages[messages.length - 1]?.streaming
+          && (!!messages[messages.length - 1]?.thinking?.trim()
+              || !!messages[messages.length - 1]?.content?.trim())) && (
           <div
             onClick={onCancelLoading}
-            className={onCancelLoading ? 'cursor-pointer group' : ''}
+            className={onCancelLoading ? 'cursor-pointer group animate-msg-enter' : 'animate-msg-enter'}
             title={onCancelLoading ? '点击取消' : undefined}
           >
-            <div className="flex items-start gap-3 animate-msg-enter">
-              {/* AI avatar */}
-              <div className="shrink-0 w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
-                  <path
-                    d="M4 24V12L10 6V24M10 6L16 14L22 6M22 6V24M28 24V12L22 6"
-                    stroke="url(#status-avatar-grad)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <defs>
-                    <linearGradient id="status-avatar-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#10B981" />
-                      <stop offset="100%" stopColor="#6EE7B7" />
-                    </linearGradient>
-                  </defs>
-                </svg>
+            {/* Mirror ChatMessage AI layout: avatar column + content column, no bubble. */}
+            <div className="flex gap-2 sm:gap-3">
+              <div className="flex flex-col items-center shrink-0">
+                <AssistantAvatar personaUsername={personaUsername} gradientIdSuffix="status" />
+                <div aria-hidden className="flex-1 w-px bg-border/50 mt-1.5 min-h-2" />
               </div>
 
               {/* Single status line — shows current activity, swaps in place */}
-              <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-card border border-border/60">
+              <div className="flex-1 min-w-0 pt-1.5">
                 {(() => {
                   const visible = toolActivities.filter(a => a.tool !== 'set_model_response');
                   const latest = visible[visible.length - 1];
@@ -150,13 +148,13 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
                     </div>
                   );
                 })()}
+                {onCancelLoading && (
+                  <p className="text-xs text-transparent group-hover:text-muted-foreground/70 transition-colors mt-1">
+                    点击取消
+                  </p>
+                )}
               </div>
             </div>
-            {onCancelLoading && (
-              <p className="text-xs text-transparent group-hover:text-muted-foreground/70 transition-colors ml-10 mt-1">
-                点击取消
-              </p>
-            )}
           </div>
         )}
 
@@ -164,23 +162,17 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
         <div ref={bottomRef} />
       </div>
 
-      {/* Scroll to bottom button */}
-      {userScrolled && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 animate-fade-in-up">
-          <button
-            onClick={scrollToBottom}
-            className="px-3 py-1.5 rounded-full bg-card/90 backdrop-blur-sm border border-border/50 text-xs text-muted-foreground hover:text-primary hover:border-primary/30 transition-all duration-200 shadow-lg"
-          >
-            <svg className="w-3 h-3 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12l7 7 7-7" />
-            </svg>
-            最新消息
-          </button>
-        </div>
-      )}
-
       {/* Input area */}
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+        {personaUsername && (
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              @{personaUsername} 视角
+            </span>
+            <span className="text-muted-foreground/70">按博主公开方法论作答</span>
+          </div>
+        )}
         <ChatInput
           onSubmit={onSend}
           loading={loading}

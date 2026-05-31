@@ -27,15 +27,12 @@ import json
 from typing import Any, Awaitable, Callable
 
 from app.core.logging import get_logger
+from app.features.macro.cache.db import get_cached_many, get_cache_data, is_cache_valid
 from app.shared.data_tools.research_tools import (
     get_company_profile,
     get_earnings_calendar,
-    get_economic_calendar,
     get_historical_valuation,
-    get_liquidity_overview,
-    get_macro_risk_summary,
     get_market_overview,
-    get_market_sentiment,
     get_peer_comparison,
     get_stock_fundamentals,
     get_stock_news,
@@ -43,6 +40,21 @@ from app.shared.data_tools.research_tools import (
 )
 
 logger = get_logger(__name__)
+
+_MACRO_BRIEF_CACHE_SECTIONS: dict[str, tuple[str, ...]] = {
+    "risk_summary": ("macro:dashboard",),
+    "liquidity": ("fred:liquidity_metrics",),
+    "sentiment": ("macro:sentiment",),
+    "economic_calendar": ("macro:economic_calendar",),
+    "treasury_rates": ("macro:treasury_rates",),
+    "economy": ("macro:economy",),
+    # :v2 is the current schema; legacy key kept only for backwards compat
+    "inflation_rates": ("macro:inflation_rates:v2", "macro:inflation_rates"),
+    "cpi_breakdown": ("fred:cpi_breakdown",),
+    "liquidity_percentiles": ("macro:liquidity_percentiles",),
+    "global_liquidity": ("fred:global_liquidity",),
+    "trend_context": ("macro:trend_context",),
+}
 
 
 async def _safe_call(name: str, coro: Awaitable[str]) -> Any:
@@ -63,6 +75,172 @@ async def _safe_call(name: str, coro: Awaitable[str]) -> Any:
 def _bundle(sections: dict[str, Any]) -> str:
     """Serialize a brief payload as compact JSON for the LLM."""
     return json.dumps(sections, ensure_ascii=False, default=str)
+
+
+def _unique_macro_cache_keys() -> list[str]:
+    seen: set[str] = set()
+    keys: list[str] = []
+    for aliases in _MACRO_BRIEF_CACHE_SECTIONS.values():
+        for key in aliases:
+            if key not in seen:
+                seen.add(key)
+                keys.append(key)
+    return keys
+
+
+def _pick_cache_row(
+    rows: dict[str, dict[str, Any] | None],
+    keys: tuple[str, ...],
+) -> tuple[str, dict[str, Any] | None]:
+    candidates = [
+        (key, row)
+        for key in keys
+        if (row := rows.get(key)) is not None and get_cache_data(row) is not None
+    ]
+    for key, row in candidates:
+        if is_cache_valid(row):
+            return key, row
+    if candidates:
+        return candidates[0]
+    return keys[0], None
+
+
+def _cache_meta(key: str, row: dict[str, Any] | None) -> dict[str, Any]:
+    data = get_cache_data(row)
+    valid = is_cache_valid(row)
+    return {
+        "cache_key": key,
+        "available": data is not None,
+        "is_valid": valid,
+        "is_stale": data is not None and not valid,
+        "fetched_at": row.get("fetched_at") if row else None,
+        "expires_at": row.get("expires_at") if row else None,
+        "source": row.get("source") if row else None,
+        "last_error": row.get("error") if row else None,
+    }
+
+
+def _summarize_dashboard(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+
+    categories = []
+    for cat in data.get("categories", []) or []:
+        if not isinstance(cat, dict):
+            continue
+        categories.append({
+            "name": cat.get("category_name") or cat.get("name"),
+            "score": cat.get("risk_score") if "risk_score" in cat else cat.get("score"),
+            "level": cat.get("risk_level") or cat.get("level"),
+            "headline": cat.get("headline"),
+        })
+
+    summary = {
+        "composite_score": data.get("composite_score"),
+        "composite_level": data.get("composite_level"),
+        "categories": categories,
+    }
+    if data.get("liquidity_summary"):
+        summary["liquidity_summary"] = data["liquidity_summary"]
+    return summary
+
+
+def _summarize_fundamentals(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+
+    sub_dims = []
+    for dim in data.get("sub_dimensions", []) or []:
+        if not isinstance(dim, dict):
+            continue
+        sub_dims.append({
+            "name": dim.get("name"),
+            "name_zh": dim.get("name_zh"),
+            "score": dim.get("score"),
+            "risk_level": dim.get("risk_level"),
+            "headline": dim.get("headline"),
+        })
+
+    return {
+        "overall_score": data.get("overall_score"),
+        "overall_level": data.get("overall_level"),
+        "overall_headline": data.get("overall_headline"),
+        "sub_dimensions": sub_dims,
+    }
+
+
+def _summarize_liquidity(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+
+    trimmed = {}
+    for key, metric in data.items():
+        if not isinstance(metric, dict):
+            continue
+        trimmed[key] = {
+            "title": metric.get("title", key),
+            "value": metric.get("value"),
+            "date": metric.get("date", ""),
+            "change": metric.get("change"),
+        }
+    return trimmed
+
+
+def _summarize_cpi_breakdown(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+
+    components = []
+    for component in data.get("components", []) or []:
+        if not isinstance(component, dict):
+            continue
+        components.append({
+            "name": component.get("name"),
+            "name_zh": component.get("name_zh"),
+            "date": component.get("date"),
+            "yoy_pct": component.get("yoy_pct"),
+            "mom_pct": component.get("mom_pct"),
+        })
+    return {
+        "timestamp": data.get("timestamp"),
+        "components": components,
+    }
+
+
+def _summarize_calendar(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+
+    events = []
+    for event in data.get("events", []) or []:
+        if not isinstance(event, dict):
+            continue
+        events.append({
+            "date": event.get("date", ""),
+            "event": event.get("event", ""),
+            "previous": event.get("previous"),
+            "estimate": event.get("estimate"),
+            "actual": event.get("actual"),
+            "is_key_event": event.get("is_key_event", False),
+        })
+    return {
+        "events_count": len(events),
+        "events": events,
+    }
+
+
+def _summarize_macro_section(section: str, data: Any) -> Any:
+    if section == "risk_summary":
+        return _summarize_dashboard(data)
+    if section == "liquidity":
+        return _summarize_liquidity(data)
+    if section in {"sentiment", "economy", "inflation_rates"}:
+        return _summarize_fundamentals(data)
+    if section == "cpi_breakdown":
+        return _summarize_cpi_breakdown(data)
+    if section == "economic_calendar":
+        return _summarize_calendar(data)
+    return data
 
 
 async def get_stock_brief(symbol: str) -> str:
@@ -131,31 +309,61 @@ async def get_peer_brief(symbol: str) -> str:
 
 
 async def get_macro_brief() -> str:
-    """获取宏观环境全景 (一次性返回 risk summary / liquidity / market sentiment / economic calendar)。
+    """获取宏观环境全景，在线路径只读取 macro_data_cache 数据库快照。
 
     Use whenever the user asks about macro / Fed / rates / liquidity / market
-    regime, OR as supplementary context for big-cap stock questions where
-    macro tone matters. Replaces 4 separate calls (get_macro_risk_summary,
-    get_liquidity_overview, get_market_sentiment, get_economic_calendar) with
-    a single concurrent fetch.
+    regime, OR as supplementary context for big-cap stock questions where macro
+    tone matters. This tool is DB-only by design: external FRED/FMP refreshes
+    happen in the macro cache cron path, not during a user-facing agent turn.
 
     Returns:
-      JSON with keys: risk_summary, liquidity, sentiment, economic_calendar.
+      JSON with macro sections plus cache freshness metadata. Stale cache data
+      is returned with `is_stale=true` instead of falling through to FRED.
     """
-    logger.info("brief: get_macro_brief()")
-    risk, liquidity, sentiment, calendar = await asyncio.gather(
-        _safe_call("macro_risk", get_macro_risk_summary()),
-        _safe_call("liquidity", get_liquidity_overview()),
-        _safe_call("sentiment", get_market_sentiment()),
-        _safe_call("economic_calendar", get_economic_calendar(days=14)),
-    )
+    logger.info("brief: get_macro_brief(db_only)")
+    rows = await get_cached_many(_unique_macro_cache_keys())
 
-    return _bundle({
-        "risk_summary": risk,
-        "liquidity": liquidity,
-        "sentiment": sentiment,
-        "economic_calendar": calendar,
-    })
+    payload: dict[str, Any] = {}
+    freshness: dict[str, Any] = {}
+    missing: list[str] = []
+    stale: list[str] = []
+    valid: list[str] = []
+
+    for section, keys in _MACRO_BRIEF_CACHE_SECTIONS.items():
+        key, row = _pick_cache_row(rows, keys)
+        data = get_cache_data(row)
+        meta = _cache_meta(key, row)
+        freshness[section] = meta
+
+        if data is None:
+            missing.append(section)
+            payload[section] = {
+                "error": "macro cache entry is missing",
+                "cache_key": key,
+            }
+            continue
+
+        if meta["is_stale"]:
+            stale.append(section)
+        else:
+            valid.append(section)
+        payload[section] = _summarize_macro_section(section, data)
+
+    payload["cache"] = {
+        "policy": "db_only",
+        "valid_sections": valid,
+        "stale_sections": stale,
+        "missing_sections": missing,
+        "freshness": freshness,
+    }
+    if len(missing) == len(_MACRO_BRIEF_CACHE_SECTIONS):
+        payload["error"] = "macro cache unavailable"
+        logger.error(
+            "get_macro_brief: all %d macro cache sections missing — refresher likely down",
+            len(_MACRO_BRIEF_CACHE_SECTIONS),
+        )
+
+    return _bundle(payload)
 
 
 async def get_industry_brief(symbol: str) -> str:

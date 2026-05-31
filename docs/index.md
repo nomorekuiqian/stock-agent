@@ -39,6 +39,10 @@
 - [feature-flags-playbook.md](guides/feature-flags-playbook.md) — Feature flag 新增 / 退役 / 灰度名单管理 / 故障速查（**flag 日常操作看这里，不是归档的 plan runbook**）
 - [llm-usage-metering.md](guides/llm-usage-metering.md) — LLM token 用量埋点：查 cost / 给新 agent 加 metering / 故障速查（**新 LlmAgent 必须挂 `meter()` callback**）
 
+## Eval (docs/evals/)
+
+- [kol-research.md](evals/kol-research.md) — Frank/KOL research agent 轻量评测：case、hard gates、fixture/live 运行方式
+
 ## 参考资料 (docs/reference/)
 
 查阅用，非指导性。

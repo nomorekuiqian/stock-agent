@@ -23,6 +23,7 @@ from app.features.quota.service import (
     check_quota,
     consume_quota,
     _make_identifier,
+    _is_max_user,
     DAILY_LIMIT,
 )
 
@@ -52,6 +53,59 @@ class TestMakeIdentifier:
         """When both user_id and IP are provided, user_id wins."""
         ident, _ = _make_identifier("user-abc", "10.0.0.1")
         assert ident == "user-abc"
+
+
+class TestMaxUserDetection:
+    """Tests for _is_max_user: unlimited research quota access."""
+
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_ai_research_entitlement_is_unlimited(self, mock_get_subscription):
+        """Max entitlement grants unlimited research quota even if plan is stale."""
+        mock_get_subscription.return_value = {
+            "plan": "pro",
+            "status": "active",
+            "entitlements": ["ai_research_engine"],
+        }
+
+        assert await _is_max_user("user-max") is True
+
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_lifetime_user_is_unlimited(self, mock_get_subscription):
+        """Lifetime users inherit all Max entitlements."""
+        mock_get_subscription.return_value = {
+            "plan": "free",
+            "status": "none",
+            "is_lifetime": True,
+            "entitlements": [],
+        }
+
+        assert await _is_max_user("user-lifetime") is True
+
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_legacy_max_plan_fallback_is_unlimited(self, mock_get_subscription):
+        """Legacy/dev rows without entitlement sync still work via plan/status."""
+        mock_get_subscription.return_value = {
+            "plan": "max",
+            "status": "active",
+            "entitlements": [],
+        }
+
+        assert await _is_max_user("user-legacy-max") is True
+
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_pro_without_research_entitlement_is_limited(self, mock_get_subscription):
+        """Pro users without Max research entitlement stay on the daily limit."""
+        mock_get_subscription.return_value = {
+            "plan": "pro",
+            "status": "active",
+            "entitlements": ["morning_report_email"],
+        }
+
+        assert await _is_max_user("user-pro") is False
 
 
 class TestCheckQuota:

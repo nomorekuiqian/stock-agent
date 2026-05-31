@@ -1,8 +1,7 @@
-"""Unit tests for shared/kol_persona/ — Phase 1 of kol-persona-research-agent plan.
+"""Unit tests for shared/kol_persona/.
 
-Loads the real qinbafrank .md files under
-`backend/app/features/twitter/methodologies/qinbafrank/` and verifies the
-parsed Persona shape + ADK Skill adapter + search_kol_tweets contract.
+Loads the real qinbafrank skill files and verifies the parsed Persona shape,
+ADK Skill adapter, and search_kol_tweets contract.
 
 Vector search is mocked; no Insforge / embedding round-trip happens.
 """
@@ -44,12 +43,13 @@ def test_get_persona_loads_qinbafrank():
     persona = get_persona("qinbafrank")
     assert persona is not None
     assert persona.username == "qinbafrank"
-    # orchestrator + overview + at least one principle + 4 lenses
     assert persona.orchestrator is not None
-    assert persona.overview is not None
     assert len(persona.cross_cutting) >= 1
     assert len(persona.lenses) >= 4
-    assert "qinbafrank-on-stocks" in persona.lenses
+    assert any(
+        name.startswith(("sector-", "ticker-", "framework-"))
+        for name in persona.lenses
+    )
 
 
 def test_get_persona_unknown_returns_none():
@@ -62,7 +62,9 @@ def test_list_personas_includes_qinbafrank():
     assert "qinbafrank" in usernames
     qinba = next(s for s in summaries if s.username == "qinbafrank")
     assert qinba.lenses_available  # non-empty
-    assert qinba.description  # derived from overview.md
+    assert qinba.description
+    assert "Investor in AI" in qinba.description
+    assert "skill distillation" not in qinba.description
 
 
 def test_lens_frontmatter_name_is_spec_compliant():
@@ -89,9 +91,7 @@ def test_build_always_on_instruction_contains_signature_phrases():
     persona = get_persona("qinbafrank")
     assert persona is not None
     text = build_always_on_instruction(persona)
-    # Signature phrases from overview.md — proof orchestrator+overview+principles are concatenated
-    assert "电力的视角去看算力" in text
-    # falsifiability principle proof
+    assert "强信念" in text
     assert "证伪" in text
 
 

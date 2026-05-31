@@ -1,10 +1,10 @@
 """
 Macro data cache refresher - fetches external data and stores in DB.
 
-Tier 1 (every 4h): FRED daily data, FMP treasury rates, CNN, VIX/sentiment
+Tier 1 (every 4h): FRED daily data, FMP treasury rates/calendar, CNN, VIX/sentiment
 Tier 2 (every 12h): Computed dashboards (macro risk, economy, inflation, sentiment),
                      liquidity percentiles (from Tier 3 history)
-Tier 3 (every 24h): Calendars, liquidity history (365 days)
+Tier 3 (every 24h): Liquidity history (365 days)
 """
 
 import asyncio
@@ -54,6 +54,7 @@ async def refresh_tier1() -> dict:
     Fetch and cache:
     - fred:liquidity_metrics (SOFR, EFFR, RRP, etc.)
     - macro:treasury_rates (FMP treasury yield curve with daily change)
+    - macro:economic_calendar (FMP high-impact US economic events)
     - macro:sentiment (CNN Fear&Greed + VIX/breadth/credit)
     Note: Commodities & dollar are always fetched real-time, not cached in DB.
     """
@@ -63,6 +64,7 @@ async def refresh_tier1() -> dict:
     try:
         from app.features.macro.liquidity.fred_service import (
             get_latest_value, LIQUIDITY_SERIES, fetch_fred_series,
+            _has_liquidity_metric_values, _liquidity_metrics_fallback,
         )
 
         async def fetch_one(key, sid):
@@ -114,8 +116,25 @@ async def refresh_tier1() -> dict:
         except Exception as e:
             metrics["net_liquidity"] = {"value": None, "error": str(e)}
 
-        ok = await _safe_set("fred:liquidity_metrics", metrics, "fred", TTL_T1)
-        results["fred:liquidity_metrics"] = ok
+        used_liquidity_fallback = False
+        if not _has_liquidity_metric_values(metrics):
+            existing = await get_cached("fred:liquidity_metrics")
+            fallback = await _liquidity_metrics_fallback(get_cache_data(existing))
+            if fallback:
+                logger.warning("T1 liquidity_metrics using stale/history fallback")
+                metrics = fallback
+                used_liquidity_fallback = True
+            else:
+                await _safe_set_with_error(
+                    "fred:liquidity_metrics", "fred", TTL_T1, "No valid liquidity metrics"
+                )
+                results["fred:liquidity_metrics"] = False
+                metrics = None
+
+        if metrics is not None:
+            source = "fred-fallback" if used_liquidity_fallback else "fred"
+            ok = await _safe_set("fred:liquidity_metrics", metrics, source, TTL_T1)
+            results["fred:liquidity_metrics"] = ok
     except Exception as e:
         logger.exception("T1 liquidity_metrics error")
         await _safe_set_with_error("fred:liquidity_metrics", "fred", TTL_T1, str(e))
@@ -136,7 +155,23 @@ async def refresh_tier1() -> dict:
         await _safe_set_with_error("macro:treasury_rates", "fmp", TTL_T1, str(e))
         results["macro:treasury_rates"] = False
 
-    # 3. Market Sentiment (CNN + VIX/breadth/credit)
+    # 3. Economic Calendar (FMP high-impact US events)
+    try:
+        from app.shared.data_tools.calendar import get_economic_calendar
+        data = await asyncio.to_thread(get_economic_calendar, 14)
+        if not data or data.get("status") != "success":
+            error = data.get("error", "Failed to fetch economic calendar") if data else "No data"
+            await _safe_set_with_error("macro:economic_calendar", "fmp", TTL_T1, error)
+            results["macro:economic_calendar"] = False
+        else:
+            ok = await _safe_set("macro:economic_calendar", data, "fmp", TTL_T1)
+            results["macro:economic_calendar"] = ok
+    except Exception as e:
+        logger.exception("T1 economic_calendar error")
+        await _safe_set_with_error("macro:economic_calendar", "fmp", TTL_T1, str(e))
+        results["macro:economic_calendar"] = False
+
+    # 4. Market Sentiment (CNN + VIX/breadth/credit)
     try:
         from app.features.macro.risk.service import get_market_sentiment, _get_cache
         _get_cache("sentiment").clear()
@@ -372,10 +407,19 @@ async def refresh_tier2() -> dict:
 
 
 async def _refresh_dashboard() -> bool:
-    from app.features.macro.risk.service import get_macro_risk_dashboard, _get_cache
+    from app.features.macro.risk.service import (
+        get_macro_risk_dashboard,
+        _get_cache,
+        _fundamentals_indicator_value_count,
+    )
     _get_cache("dashboard").clear()
     data = await get_macro_risk_dashboard(skip_db_cache=True)
-    return await _safe_set("macro:dashboard", data.model_dump(), "computed", TTL_T2)
+    payload = data.model_dump()
+    # If most indicators are missing post-compute, the dashboard was largely
+    # rebuilt from stale db_data via _fill_indicators_*. Tag the cache row so
+    # consumers can avoid treating these as a fresh truth.
+    source = "computed-fallback" if _fundamentals_indicator_value_count(payload) < 4 else "computed"
+    return await _safe_set("macro:dashboard", payload, source, TTL_T2)
 
 
 async def _refresh_economy() -> bool:
@@ -433,13 +477,30 @@ async def _refresh_liquidity_percentiles() -> bool:
 
 async def _refresh_global_liquidity() -> bool:
     """Fetch current global M2 + central bank metrics and cache."""
-    from app.features.macro.liquidity.global_service import fetch_and_compute_global_m2
+    from app.features.macro.liquidity.global_service import (
+        fetch_and_compute_global_m2,
+        _global_liquidity_fallback,
+        _has_global_liquidity_value,
+    )
+
     data = await fetch_and_compute_global_m2()
-    if not data or not data.get("us_m2", {}).get("value"):
-        logger.warning("Global liquidity: no valid US M2 data")
-        await _safe_set_with_error("fred:global_liquidity", "fred", TTL_T2, "No valid US M2")
-        return False
-    return await _safe_set("fred:global_liquidity", data, "fred", TTL_T2)
+    used_fallback = False
+    if not _has_global_liquidity_value(data):
+        existing = await get_cached("fred:global_liquidity")
+        fallback = await _global_liquidity_fallback(get_cache_data(existing))
+        if fallback:
+            logger.warning("Global liquidity using DB/history fallback")
+            data = fallback
+            used_fallback = True
+        else:
+            logger.warning("Global liquidity: no valid data")
+            await _safe_set_with_error("fred:global_liquidity", "fred", TTL_T2, "No valid global liquidity")
+            return False
+
+    if not data.get("us_m2", {}).get("value"):
+        logger.warning("Global liquidity: US M2 missing; caching available global liquidity snapshot")
+    source = "fred-fallback" if used_fallback else "fred"
+    return await _safe_set("fred:global_liquidity", data, source, TTL_T2)
 
 
 async def _refresh_global_liquidity_history() -> bool:

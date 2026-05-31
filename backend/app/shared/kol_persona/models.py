@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field
 class SkillDoc(BaseModel):
     """A parsed .md skill file (frontmatter + body).
 
-    Used both for "always-on" docs (orchestrator / overview / principles)
-    that get concatenated into Agent.instruction, and for "lens" docs that
-    are wrapped into ADK Skills via the SkillToolset.
+    Used both for "always-on" docs that get concatenated into
+    Agent.instruction, and triggerable docs that are wrapped into ADK Skills
+    via the SkillToolset.
     """
 
     name: str = Field(..., description="Skill identifier, lowercase + hyphens.")
@@ -22,7 +22,7 @@ class SkillDoc(BaseModel):
     )
     type: Optional[str] = Field(
         default=None,
-        description="One of master-router / identity-anchor / cross-cutting / lens.",
+        description="Skill layer, e.g. core / macro / framework / sector / ticker.",
     )
     body: str = Field(..., description="Markdown body, frontmatter stripped.")
     extra: Dict[str, Any] = Field(
@@ -42,7 +42,7 @@ class PersonaSummary(BaseModel):
     )
     lenses_available: List[str] = Field(
         default_factory=list,
-        description="Lens skill names (e.g. ['qinbafrank-on-stocks', ...]).",
+        description="Triggerable skill names.",
     )
     last_indexed_at: Optional[str] = Field(
         default=None,
@@ -51,24 +51,24 @@ class PersonaSummary(BaseModel):
 
 
 class Persona(PersonaSummary):
-    """Full persona payload: always-on docs + lens skills + yaml evidence handle."""
+    """Full persona payload: always-on docs + triggerable skills."""
 
     persona_dir: str = Field(..., description="Filesystem path to persona dir.")
     orchestrator: Optional[SkillDoc] = Field(
         default=None,
-        description="_orchestrator.md — master router, always injected.",
+        description="Core skill doc, always injected.",
     )
     overview: Optional[SkillDoc] = Field(
         default=None,
-        description="overview.md — identity anchor, always injected.",
+        description="Optional overview doc, always injected when present.",
     )
     cross_cutting: List[SkillDoc] = Field(
         default_factory=list,
-        description="principles-*.md — always injected.",
+        description="Cross-cutting skill docs, always injected.",
     )
     lenses: Dict[str, SkillDoc] = Field(
         default_factory=dict,
-        description="lens-*.md — triggered via ADK SkillToolset.",
+        description="Triggerable skill docs via ADK SkillToolset.",
     )
 
 

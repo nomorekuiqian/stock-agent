@@ -2,6 +2,7 @@ import { getAccessTokenAsync as getAccessToken, refreshSession } from '@/context
 import type { DailyDigest } from '@/app/twitter-digest/_components/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const STREAM_TIMEOUT_MS = 135_000;
 
 export class ApiError extends Error {
   status: number;
@@ -1106,8 +1107,262 @@ export type KolResearchStreamEvent =
   | { type: 'skill_activated'; skill_name: string; description: string }
   | { type: 'tool_call_start'; tool: string; description: string }
   | { type: 'tool_call_end'; tool: string; duration_ms: number | null }
+  | { type: 'thinking'; text: string }
+  | { type: 'message_delta'; text: string }
   | { type: 'final'; data: KolResearchResponse }
-  | { type: 'error'; error: string };
+  | { type: 'error'; error: string; code?: string; detail?: string; status?: number };
+
+// --- KOL Persona Cockpit (public read) ---
+
+export interface KolCockpitPrinciple {
+  title: string;
+  gist: string;
+}
+
+export interface KolCockpitCore {
+  /** Twitter bio — what the persona says about themselves publicly. Optional. */
+  bio?: string;
+  portrait: string;
+  principles: KolCockpitPrinciple[];
+  fingerprint: string;
+  not_doing: string[];
+}
+
+export interface KolCockpitSectorFront {
+  key: string;
+  group: string;
+  label: string;
+  eyebrow: string;
+  stance: string;
+  signature: string;
+  tickers: string[];
+  mention_count: number;
+}
+
+export interface KolCockpitProfile {
+  persona: { username: string; display_name: string; description: string };
+  core: KolCockpitCore;
+  sectors: KolCockpitSectorFront[];
+}
+
+export interface KolCockpitTweet {
+  id: string;
+  text: string;
+  created_at: string | null;
+  url: string | null;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  tweet_type: string | null;
+  tickers: string[];
+  reply_kind?: 'self' | 'other' | null;
+}
+
+export interface KolCockpitSectorTicker {
+  ticker: string;
+  count: number;
+  latest: string | null;
+}
+
+export interface KolCockpitSectorDetail {
+  key: string;
+  group: string;
+  label: string;
+  eyebrow: string;
+  stance: string;
+  signature: string;
+  primary_question: string;
+  signals: string[];
+  falsifier: string;
+  tickers: KolCockpitSectorTicker[];
+  rep_tweets: KolCockpitTweet[];
+  lens_body: string;
+}
+
+export interface KolCockpitTickerSummary {
+  ticker: string;
+  aliases: string[];
+  count: number;
+  first: string | null;
+  latest: string | null;
+  priceable: boolean;
+  price: number | null;
+  daily_change: number | null;
+  summary?: KolTickerSummary | null;
+}
+
+export interface KolCockpitPricePoint {
+  date: string;
+  close: number;
+}
+
+export interface KolCockpitTickerDetail {
+  ticker: string;
+  aliases: string[];
+  count: number;
+  first: string | null;
+  latest: string | null;
+  priceable: boolean;
+  tweets: KolCockpitTweet[];
+  price_series: KolCockpitPricePoint[];
+  market: {
+    name: string | null;
+    price: number | null;
+    daily_change: number | null;
+    sector: string | null;
+    pe_ttm: number | null;
+  };
+  summary?: KolTickerSummary | null;
+}
+
+export interface KolCockpitFeedItem {
+  id: string;
+  text: string;
+  created_at: string | null;
+  url: string | null;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  tweet_type: string | null;
+  tickers: string[];
+  sectors: string[];
+  /** 'self' = thread continuation (kept), 'other' = reply to someone else (filtered out by default), null = not a reply. */
+  reply_kind: 'self' | 'other' | null;
+}
+
+export interface KolCockpitFeedResponse {
+  tweets: KolCockpitFeedItem[];
+  total: number;
+  has_more: boolean;
+  offset: number;
+  limit: number;
+}
+
+export interface KolCockpitFeedOpts {
+  limit?: number;
+  offset?: number;
+  sector?: string | null;
+  ticker?: string | null;
+}
+
+// --- skill sectors (richer skill-distillation source) ---
+
+export interface KolSectorSummary {
+  key: string;
+  label: string;
+  eyebrow: string;
+  layer: 'sector' | 'macro';
+  short: string;
+  tweet_count: number;
+  ticker_count: number;
+}
+
+export interface KolSectorTicker {
+  ticker: string;
+  coverage: string; // 'high' | 'medium' | 'low' | ''
+  source_count: number;
+  primary_sector: string | null;
+  price: number | null;
+  daily_change: number | null;
+  priceable: boolean;
+  cockpit_count: number;
+}
+
+export interface KolSectorRuleItem {
+  text: string;
+  evidence: KolCockpitTweet[];
+}
+
+export type KolStanceKey =
+  | 'bull_strong'
+  | 'bull'
+  | 'bull_cautious'
+  | 'watch'
+  | 'no_bet'
+  | 'unknown';
+
+export interface KolTickerSummary {
+  stance: KolStanceKey;
+  /** Human-friendly Chinese stance label, e.g. 「看多 · 核心仓」. */
+  stance_label: string;
+  /** 1-line bold thesis distilled from 核心问题. */
+  thesis: string;
+  /** 1-line core logic from 博主如何定位. */
+  key_logic: string;
+  /** coverage level — 'high' | 'medium' | 'low' | '' */
+  coverage: string;
+  /** Industry-chain coordinate, e.g. 「AI 算力基建 · L2 算力整合」. */
+  position: string | null;
+  /** Extended structured fields (extracted from ticker skill markdown sections). */
+  core_questions: string[];
+  signals_watched: string[];
+  bull_conditions: string[];
+  bear_triggers: string[];
+  veto: string[];
+  falsifiers: string[];
+  misreadings: string[];
+}
+
+export interface KolChainTicker {
+  ticker: string;
+  price: number | null;
+  daily_change: number | null;
+  name: string | null;
+  cockpit_count: number;
+  priceable: boolean;
+  stance: string;
+  /** 'covered' = Frank has skill playbook for it. 'not_covered' = supplement. */
+  frank_coverage: 'covered' | 'not_covered';
+  summary?: KolTickerSummary | null;
+}
+
+export interface KolChainSubcategory {
+  name: string;
+  tickers: string[];
+}
+
+export interface KolChainLayer {
+  id: string;
+  label: string;
+  stance: string;
+  primary_question: string;
+  tickers: KolChainTicker[];
+  subcategories: KolChainSubcategory[];
+  rep_ticker: string | null;
+  rep_ticker_series: { date: string; close: number }[];
+  total_mentions: number;
+  weekly_mentions: number[];
+}
+
+export interface KolIndustryChain {
+  board: {
+    key: string;
+    label: string;
+    eyebrow: string;
+    intro: string;
+  };
+  layers: KolChainLayer[];
+  weeks: number;
+}
+
+export interface KolSectorDetail {
+  key: string;
+  label: string;
+  eyebrow: string;
+  layer: 'sector' | 'macro';
+  short: string;
+  tweet_count: number;
+  core_questions: KolSectorRuleItem[];
+  signals: KolSectorRuleItem[];
+  bull_conditions: KolSectorRuleItem[];
+  bear_triggers: KolSectorRuleItem[];
+  veto: KolSectorRuleItem[];
+  falsifiers: KolSectorRuleItem[];
+  misreadings: KolSectorRuleItem[];
+  tickers: KolSectorTicker[];
+  rep_tweets: KolCockpitTweet[];
+  full_body: string;
+}
 
 export interface ResearchKBMessage {
   role: 'user' | 'assistant';
@@ -1133,92 +1388,8 @@ export interface ResearchKBResponse {
   chunks_used: RetrievedChunk[];
 }
 
-export type MethodologyCategory =
-  | 'stock_analysis'
-  | 'sector_analysis'
-  | 'macro_analysis'
-  | 'trading_strategy'
-  | 'risk_management'
-  | 'methodology';
-
-export interface MethodologyChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export interface MethodologyChatRequest {
-  message: string;
-  username?: string;
-  category?: MethodologyCategory | null;
-  history?: MethodologyChatMessage[];
-}
-
-export interface MethodologyCitation {
-  tweet_id: string;
-  quote: string;
-  reason: string;
-}
-
-export interface MethodologyLiveContext {
-  topic: string;
-  symbols: string[];
-  quotes: Array<Record<string, unknown>>;
-  news_events: Array<Record<string, unknown>>;
-  calendar_events: Array<Record<string, unknown>>;
-  market_reports: Array<Record<string, unknown>>;
-  sources: string[];
-  data_timestamp: string;
-  limitations: string[];
-}
-
-export interface MethodologyChatResponse {
-  success: boolean;
-  analyst: string;
-  category: MethodologyCategory;
-  answer: string;
-  citations: MethodologyCitation[];
-  live_context?: MethodologyLiveContext | null;
-  confidence: 'high' | 'medium' | 'low';
-  limitations: string[];
-  suggested_followups: string[];
-}
-
-export interface MethodologyChatStreamEvent {
-  event: 'status' | 'live_context' | 'final' | 'error';
-  data: {
-    step?: string;
-    message?: string;
-    category?: MethodologyCategory;
-    live_context?: MethodologyLiveContext;
-    detail?: string;
-  } & Partial<MethodologyChatResponse>;
-}
-
-export interface MethodologyConversationData {
-  username: string;
-  category: MethodologyCategory | null;
-  messages: unknown[];
-}
-
-export interface MethodologyConversation {
-  id: string;
-  user_id: string;
-  username: string;
-  title: string;
-  data: MethodologyConversationData;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface MethodologyConversationSaveRequest {
-  username: string;
-  title: string;
-  data: MethodologyConversationData;
-  message_count: number;
-}
-
 const AUTH_EXPIRED_ERROR = '登录已过期，请刷新页面或重新登录';
+type AuthRequestOptions = { requiredAuth?: boolean };
 
 async function _authHeaders(
   base: Record<string, string> = {},
@@ -1236,7 +1407,21 @@ async function _authHeaders(
 
 async function readApiError(response: Response, fallback: string): Promise<string> {
   const error = await response.json().catch(() => ({ detail: fallback }));
-  return error.detail || error.error || fallback;
+  const detail = error.detail;
+  if (Array.isArray(detail)) {
+    const first = detail[0] as { loc?: unknown[]; msg?: string } | undefined;
+    const loc = first?.loc?.map(String).join('.') || '';
+    if (loc.includes('history')) {
+      return '对话上下文太长了，请重新发送一次';
+    }
+    if (loc.includes('message')) {
+      return '问题太长了，请压缩后再发送';
+    }
+    return fallback;
+  }
+  if (typeof detail === 'string' && detail) return detail;
+  if (typeof error.error === 'string' && error.error) return error.error;
+  return fallback;
 }
 
 async function throwProtectedApiError(response: Response, fallback: string): Promise<never> {
@@ -2013,159 +2198,6 @@ export const api = {
     },
   },
 
-  // KOL Methodology Chat API
-  twitterMethodology: {
-    chat: async (
-      req: MethodologyChatRequest,
-      options: { signal?: AbortSignal } = {},
-    ): Promise<MethodologyChatResponse> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-      const controller = new AbortController();
-      let timedOut = false;
-      const abortFromCaller = () => controller.abort();
-      options.signal?.addEventListener('abort', abortFromCaller, { once: true });
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-      }, 120_000);
-      try {
-        const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(req),
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
-        }
-        return response.json();
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          if (options.signal?.aborted && !timedOut) {
-            throw new Error('已停止生成');
-          }
-          throw new Error('KOL 方法论助手响应超时，请再试一次');
-        }
-        throw err;
-      } finally {
-        clearTimeout(timeout);
-        options.signal?.removeEventListener('abort', abortFromCaller);
-      }
-    },
-
-    chatStream: async (
-      req: MethodologyChatRequest,
-      onEvent: (event: MethodologyChatStreamEvent) => void,
-      options: { signal?: AbortSignal } = {},
-    ): Promise<MethodologyChatResponse> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-      const response = await fetch(`${API_BASE_URL}/twitter/methodology-chat/stream`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(req),
-        signal: options.signal,
-      });
-      if (!response.ok) {
-        await throwProtectedApiError(response, 'KOL 方法论助手暂时无法响应');
-      }
-      const responseBody = response.body;
-      if (!responseBody) {
-        throw new Error('KOL 方法论助手响应中断，请再试一次');
-      }
-
-      const reader = responseBody.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let finalResponse: MethodologyChatResponse | null = null;
-
-      const flushEvent = (raw: string) => {
-        const lines = raw.split('\n');
-        const eventLine = lines.find((line) => line.startsWith('event:'));
-        const dataLine = lines.find((line) => line.startsWith('data:'));
-        if (!eventLine || !dataLine) return;
-
-        const event = eventLine.slice('event:'.length).trim() as MethodologyChatStreamEvent['event'];
-        const data = JSON.parse(dataLine.slice('data:'.length).trim()) as MethodologyChatStreamEvent['data'];
-        const parsed = { event, data };
-        onEvent(parsed);
-        if (event === 'final') {
-          finalResponse = data as MethodologyChatResponse;
-        }
-        if (event === 'error') {
-          throw new Error(data.detail || data.message || 'KOL 方法论助手暂时无法响应');
-        }
-      };
-
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const chunks = buffer.split('\n\n');
-          buffer = chunks.pop() || '';
-          chunks.forEach(flushEvent);
-        }
-        if (buffer.trim()) flushEvent(buffer);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          throw new Error('已停止生成');
-        }
-        throw err;
-      }
-
-      if (!finalResponse) {
-        throw new Error('KOL 方法论助手响应中断，请再试一次');
-      }
-      return finalResponse;
-    },
-
-    conversations: {
-      latest: async (username = 'qinbafrank'): Promise<MethodologyConversation | null> => {
-        const headers = await _authHeaders({}, { required: true });
-        const response = await fetch(
-          `${API_BASE_URL}/twitter/methodology-conversations/latest?username=${encodeURIComponent(username)}`,
-          { headers },
-        );
-        if (!response.ok) {
-          await throwProtectedApiError(response, 'Failed to fetch KOL conversation');
-        }
-        const json = await response.json();
-        return json.data || null;
-      },
-
-      create: async (
-        req: MethodologyConversationSaveRequest,
-      ): Promise<MethodologyConversation> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(req),
-        });
-        if (!response.ok) {
-          await throwProtectedApiError(response, 'Failed to create KOL conversation');
-        }
-        return response.json();
-      },
-
-      update: async (
-        id: string,
-        req: MethodologyConversationSaveRequest,
-      ): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
-        const response = await fetch(`${API_BASE_URL}/twitter/methodology-conversations/${id}`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify(req),
-        });
-        if (!response.ok) {
-          await throwProtectedApiError(response, 'Failed to update KOL conversation');
-        }
-        return response.json();
-      },
-    },
-  },
-
   // Screener API
   screener: {
     filter: async (req: ScreenerFilterRequest): Promise<ScreenerFilterResult> => {
@@ -2325,8 +2357,11 @@ export const api = {
 
   // Research API (unified endpoints, replaces screener.pick + screener.conversations)
   research: {
-    chat: async (req: ResearchRequest): Promise<ResearchResult> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+    chat: async (req: ResearchRequest, opts?: AuthRequestOptions): Promise<ResearchResult> => {
+      const headers = await _authHeaders(
+        { 'Content-Type': 'application/json' },
+        { required: opts?.requiredAuth === true },
+      );
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 90_000);
       try {
@@ -2352,11 +2387,15 @@ export const api = {
 
     chatStream: async (
       req: ResearchRequest,
-      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; quota_exceeded?: boolean }) => void,
+      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; code?: string; quota_exceeded?: boolean }) => void,
+      opts?: AuthRequestOptions,
     ): Promise<void> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+      const headers = await _authHeaders(
+        { 'Content-Type': 'application/json' },
+        { required: opts?.requiredAuth === true },
+      );
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120_000);
+      const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
       try {
         const response = await fetch(`${API_BASE_URL}/research/chat/stream`, {
           method: 'POST',
@@ -2402,20 +2441,28 @@ export const api = {
       }
     },
 
-    quota: async (): Promise<{ success: boolean; allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean }> => {
-      const headers = await _authHeaders({});
+    quota: async (opts?: AuthRequestOptions): Promise<{ success: boolean; allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean }> => {
+      const headers = await _authHeaders(
+        {},
+        { required: opts?.requiredAuth === true },
+      );
       const response = await fetch(`${API_BASE_URL}/research/quota`, { headers });
       if (!response.ok) return { success: false, allowed: true, used: 0, limit: 5, remaining: 5, unlimited: false };
       return response.json();
     },
 
     conversations: {
-      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+      list: async (opts: { limit?: number; offset?: number } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
         const headers = await _authHeaders({});
         const hasAuth = !!headers['Authorization'];
-        const response = await fetch(`${API_BASE_URL}/research/conversations`, { headers });
+        const params = new URLSearchParams();
+        if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+        if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+        const qs = params.toString();
+        const url = `${API_BASE_URL}/research/conversations${qs ? `?${qs}` : ''}`;
+        const response = await fetch(url, { headers });
         if (!response.ok) {
-          if (!hasAuth) return { conversations: [] };
+          if (!hasAuth) return { conversations: [], has_more: false };
           await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();
@@ -2485,6 +2532,75 @@ export const api = {
       return response.json();
     },
 
+    // --- Cockpit (public reads; no auth required) ---
+    cockpitProfile: async (username: string): Promise<KolCockpitProfile> => {
+      const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/profile`);
+      if (!response.ok) throw new Error('Failed to load persona profile');
+      return response.json();
+    },
+
+    cockpitTickers: async (username: string): Promise<{ tickers: KolCockpitTickerSummary[] }> => {
+      const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/tickers`);
+      if (!response.ok) throw new Error('Failed to load tickers');
+      return response.json();
+    },
+
+    cockpitTickerDetail: async (username: string, ticker: string): Promise<KolCockpitTickerDetail> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/tickers/${ticker}`,
+      );
+      if (!response.ok) throw new Error('Failed to load ticker detail');
+      return response.json();
+    },
+
+    cockpitSectors: async (
+      username: string,
+    ): Promise<{ sectors: KolSectorSummary[] }> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/sectors`,
+      );
+      if (!response.ok) throw new Error('Failed to load skill sectors');
+      return response.json();
+    },
+
+    cockpitIndustryChain: async (
+      username: string,
+      boardKey: string,
+    ): Promise<KolIndustryChain> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/industry_chain/${boardKey}`,
+      );
+      if (!response.ok) throw new Error('Failed to load industry chain');
+      return response.json();
+    },
+
+    cockpitSector: async (
+      username: string,
+      sectorKey: string,
+    ): Promise<KolSectorDetail> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/sectors/${sectorKey}`,
+      );
+      if (!response.ok) throw new Error('Failed to load skill sector detail');
+      return response.json();
+    },
+
+    cockpitFeed: async (
+      username: string,
+      opts: KolCockpitFeedOpts = {},
+    ): Promise<KolCockpitFeedResponse> => {
+      const params = new URLSearchParams();
+      if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+      if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+      if (opts.sector) params.set('sector', opts.sector);
+      if (opts.ticker) params.set('ticker', opts.ticker);
+      const qs = params.toString();
+      const url = `${API_BASE_URL}/kol_research/personas/${username}/feed${qs ? `?${qs}` : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load live feed');
+      return response.json();
+    },
+
     chat: async (req: KolResearchRequest): Promise<KolResearchResponse> => {
       const headers = await _authHeaders({ 'Content-Type': 'application/json' });
       const controller = new AbortController();
@@ -2517,7 +2633,7 @@ export const api = {
     ): Promise<void> => {
       const headers = await _authHeaders({ 'Content-Type': 'application/json' });
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120_000);
+      const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
       if (signal) {
         signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
@@ -2529,7 +2645,15 @@ export const api = {
           signal: controller.signal,
         });
         if (!response.ok) {
-          await throwProtectedApiError(response, 'AI 助手暂时无法响应');
+          const detail = await readApiError(response, 'AI 助手暂时无法响应');
+          onEvent({
+            type: 'error',
+            code: response.status === 401 ? 'auth_error' : 'http_error',
+            status: response.status,
+            error: detail,
+            detail,
+          });
+          return;
         }
         const reader = response.body?.getReader();
         if (!reader) throw new Error('No response body');
@@ -2555,9 +2679,14 @@ export const api = {
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
-          onEvent({ type: 'error', error: 'AI 助手响应超时，请再试一次' });
+          onEvent({ type: 'error', code: 'client_timeout', error: 'AI 助手响应超时，请再试一次' });
         } else {
-          throw err;
+          onEvent({
+            type: 'error',
+            code: 'network_error',
+            error: '连接后端失败，请确认本地后端还在运行。',
+            detail: err instanceof Error ? err.message : String(err),
+          });
         }
       } finally {
         clearTimeout(timeout);
@@ -2565,11 +2694,16 @@ export const api = {
     },
 
     conversations: {
-      list: async (): Promise<{ conversations: ConversationSummary[] }> => {
+      list: async (opts: { limit?: number; offset?: number } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
         const headers = await _authHeaders({});
-        const response = await fetch(`${API_BASE_URL}/kol_research/conversations`, { headers });
+        const params = new URLSearchParams();
+        if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+        if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+        const qs = params.toString();
+        const url = `${API_BASE_URL}/kol_research/conversations${qs ? `?${qs}` : ''}`;
+        const response = await fetch(url, { headers });
         if (!response.ok) {
-          if (response.status === 403) return { conversations: [] };
+          if (response.status === 403) return { conversations: [], has_more: false };
           await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();

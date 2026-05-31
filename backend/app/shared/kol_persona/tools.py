@@ -36,10 +36,19 @@ def _format_chunks_for_llm(
 
     The model uses these to cite the analyst's prior takes in its answer
     with stable [#N] indices.
+
+    The wrapper adds an explicit "valid citation range" header so the LLM
+    only emits [#N] markers that exist (otherwise the frontend would have
+    to strip broken refs after the fact).
     """
     if not results:
-        return "No prior tweets matched. The analyst may not have spoken on this directly."
+        return (
+            "No prior tweets matched. The analyst may not have spoken on this "
+            "directly. **Do not invent [#N] citations** — only cite what this "
+            "or another search_kol_tweets call actually returned."
+        )
 
+    end_index = start_index + len(results) - 1
     lines = []
     for idx, item in enumerate(results, start=start_index):
         md = item.metadata or {}
@@ -54,7 +63,13 @@ def _format_chunks_for_llm(
         if len(content) > 600:
             content = content[:600].rstrip() + "..."
         lines.append(f"[#{idx}] @{author} · {created}{ticker_hint}: {content}")
-    return "\n\n".join(lines)
+    header = (
+        f"Valid citation range for this call: [#{start_index}] ~ [#{end_index}]. "
+        f"You MAY cite any of these indices inline. **Do not write [#N] for any "
+        f"index outside this range** — the frontend strips invalid refs but the "
+        f"user-visible draft will still show them mid-stream."
+    )
+    return f"{header}\n\n" + "\n\n".join(lines)
 
 
 def chunk_to_persona_result(

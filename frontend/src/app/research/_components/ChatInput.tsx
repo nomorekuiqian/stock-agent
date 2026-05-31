@@ -25,7 +25,7 @@ export default function ChatInput({
   onSubmit,
   loading = false,
   onCancel,
-  placeholder = '描述你想找的股票...',
+  placeholder = '继续提问...',
   autoFocus = false,
   quota,
   leftSlot,
@@ -109,7 +109,7 @@ export default function ChatInput({
 
   return (
     <div className="relative flex w-full flex-col gap-2">
-      <div className="relative flex w-full flex-col gap-2 rounded-2xl border border-border bg-card p-2.5 outline-none">
+      <div className="relative flex w-full flex-col gap-2 rounded-2xl border border-border bg-card p-2.5 outline-none transition-all duration-200 has-[textarea:focus]:border-primary/40 has-[textarea:focus]:ring-2 has-[textarea:focus]:ring-primary/10">
         <textarea
           ref={textareaRef}
           value={value}
@@ -130,7 +130,7 @@ export default function ChatInput({
           {loading && onCancel ? (
             <button
               onClick={onCancel}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 active:scale-95"
+              className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 active:scale-95"
               aria-label="停止生成"
             >
               <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
@@ -138,14 +138,14 @@ export default function ChatInput({
               </svg>
             </button>
           ) : loading ? (
-            <div className="flex h-8 w-8 items-center justify-center">
+            <div className="flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center">
               <div className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
             </div>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={!hasValue}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 ${
+              className={`flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-150 ${
                 hasValue
                   ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-md hover:shadow-primary/20 active:scale-90 active:shadow-none'
                   : 'bg-muted text-muted-foreground/70 cursor-default'

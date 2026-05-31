@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownBody from './MarkdownBody';
 import { SectionAnalysis } from '@/lib/api';
 import { Sparkles, ChevronDown } from 'lucide-react';
 
@@ -159,9 +159,9 @@ export function InsightBanner({
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground leading-relaxed">
-                    <ReactMarkdown components={INSIGHT_MD_COMPONENTS}>
+                    <MarkdownBody components={INSIGHT_MD_COMPONENTS}>
                       {content}
-                    </ReactMarkdown>
+                    </MarkdownBody>
                   </div>
                 </div>
               );

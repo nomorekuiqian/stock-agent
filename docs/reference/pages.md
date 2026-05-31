@@ -15,7 +15,7 @@
 | `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Max） |
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
-| `/kol-chat` | qinbafrank 方法论对话 | Backend (twitterMethodology.chat) | 是 |
+| `/kol/qinbafrank` | qinbafrank 博主研究室 | skill 资产 + Backend (kolResearch cockpit/chatStream) | 浏览否；对话需登录 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -101,15 +101,12 @@
 - Max 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Max 用户调用 `listArchiveTeaser`
 - 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
 
-### `/kol-chat` qinbafrank 方法论对话
-- Client Component,需要登录后读取
-- 调用 `api.twitterMethodology.chatStream()` -> `POST /api/twitter/methodology-chat/stream`，用 SSE 分阶段展示路由、实时上下文、生成状态；非 streaming 端点 `POST /api/twitter/methodology-chat` 保留为兼容路径
-- reload 时调用 `api.twitterMethodology.conversations.latest()` 自动恢复当前用户最近一条 qinbafrank 对话
-- 每次发送后持久化到 `kol_methodology_conversations`，先保存用户问题，回答返回后更新完整消息列表
-- 页面内可选择自动路由或手动指定 `stock_analysis` / `macro_analysis` / `sector_analysis` / `trading_strategy` / `methodology`
-- 回答基于 `backend/app/features/twitter/methodologies/qinbafrank/extraction_log/*.json`，并注入 `live_context` 中的 FMP quotes/news/calendar 与最新日报/早报缓存
-- 明确标注这是基于公开推文蒸馏体的模拟视角，不代表 KOL 本人观点
-- 每轮返回 answer、category、confidence、citations、limitations、suggested_followups、live_context
+### `/kol/qinbafrank` qinbafrank 博主研究室
+- Server page + Client Component,页面浏览不要求登录；右侧 Ask the Framework 对话需要登录并开启 `kol_research_agent` flag
+- 模块：身份锚点、最新观点、宏观视角、板块地图、个股雷达、KOL Research Agent 深链入口
+- 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
+- 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
+- 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口

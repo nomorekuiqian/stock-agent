@@ -6,7 +6,7 @@
  * leaderboard has a corresponding section below. No more "MSFT in the bar
  * but not in the body" mismatches.
  *
- * V3 used enrichment-tag mention counts which double-counted multi-ticker
+ * The previous implementation used enrichment-tag mention counts which double-counted multi-ticker
  * tweets and produced different rankings than the LLM-clustered theses.
  * V4 leaderboard is now the table of contents for the body.
  */

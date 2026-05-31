@@ -20,6 +20,10 @@ export interface ChatMsg {
   options?: string[];
   selectedOption?: string | null;
   isError?: boolean;
+  /** Streaming placeholder still receiving deltas. Disables animation, shows live caret. */
+  streaming?: boolean;
+  /** Chain-of-thought chunks accumulated during streaming (KOL agent). */
+  thinking?: string;
 }
 
 export interface FilterStep {
@@ -47,6 +51,17 @@ export interface ResearchState {
   contentStack: ContentContext[];
   // Context entry key — used to detect page refresh vs fresh navigation
   contextEntryKey: string | null;
+  // KOL agent: citation chunks for the latest turn. Stored in reducer state
+  // (vs. local useState) so they survive sessionStorage rehydration and
+  // LOAD_CONVERSATION. Type kept as a loose record to avoid pulling api.ts
+  // types into the reducer.
+  kolChunks: Record<string, unknown>[];
+  // KOL agent: which persona the active conversation belongs to. Lives in
+  // reducer state (not local useState) so it persists across page reloads
+  // via sessionStorage. Without this, a reload while on a KOL conversation
+  // resets persona to null and the next message would route through the
+  // research save path, wiping the conversation's kol_chunks on backend.
+  personaUsername: string | null;
 }
 
 export type ResearchAction =
@@ -65,7 +80,15 @@ export type ResearchAction =
   // Context entry from external pages (skips welcome, starts in chat+loading)
   | { type: 'CONTEXT_ENTRY'; content: ContentContext; key: string }
   // SSE streaming: tool call activity
-  | { type: 'TOOL_ACTIVITY'; tool: string; description: string; status: 'start' | 'end' };
+  | { type: 'TOOL_ACTIVITY'; tool: string; description: string; status: 'start' | 'end' }
+  // SSE streaming: token-level delta to the in-progress assistant message
+  // (created by SEND_MESSAGE setting isLoading=true; we append/upsert the
+  // assistant placeholder on first delta).
+  | { type: 'STREAM_DELTA'; kind: 'message' | 'thinking'; text: string }
+  // KOL agent: replace the latest-turn citation chunks (right-panel data).
+  | { type: 'SET_KOL_CHUNKS'; chunks: Record<string, unknown>[] }
+  // KOL agent: set or clear the active persona. null clears KOL mode.
+  | { type: 'SET_PERSONA'; personaUsername: string | null };
 
 export interface LoadConversationData {
   conversationId: string;
@@ -80,6 +103,10 @@ export interface LoadConversationData {
   // Research Desk: optional content state from saved conversations
   activeContent?: ContentContext;
   contentStack?: ContentContext[];
+  // KOL agent: optional citation chunks from saved conversation
+  kolChunks?: Record<string, unknown>[];
+  // KOL agent: persona username (drives agentKind derivation in callers)
+  personaUsername?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,8 +130,10 @@ export const initialState: ResearchState = {
   hasNewResults: false,
   conversationId: null,
   conversationTitle: '',
+  personaUsername: null,
   activeContent: SCREENER_CONTENT,
   contentStack: [],
+  kolChunks: [],
   contextEntryKey: null,
 };
 
@@ -198,12 +227,28 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
     case 'RECEIVE_RESPONSE': {
       const { result } = action;
 
-      const assistantMsg: ChatMsg = {
-        id: nextMsgId(),
-        role: 'assistant',
-        content: result.message,
-        options: result.options.length > 0 ? result.options : undefined,
-      };
+      // If the last message is a streaming placeholder built up by STREAM_DELTA,
+      // finalize it in-place (don't append a duplicate). Otherwise append fresh.
+      const lastIdx = state.messages.length - 1;
+      const last = state.messages[lastIdx];
+      const upgradeStreaming = last && last.role === 'assistant' && last.streaming;
+
+      const assistantMsg: ChatMsg = upgradeStreaming
+        ? {
+            ...last,
+            content: result.message || last.content,
+            options: result.options.length > 0 ? result.options : last.options,
+            streaming: false,
+          }
+        : {
+            id: nextMsgId(),
+            role: 'assistant',
+            content: result.message,
+            options: result.options.length > 0 ? result.options : undefined,
+          };
+      const baseMessages = upgradeStreaming
+        ? [...state.messages.slice(0, lastIdx), assistantMsg]
+        : [...state.messages, assistantMsg];
 
       // Build funnel steps
       let newFunnelSteps = [...state.funnelSteps];
@@ -225,7 +270,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
       if (result.reset_results) {
         return {
           ...state,
-          messages: [...state.messages, assistantMsg],
+          messages: baseMessages,
           accumulatedFilters: [],
           candidates: [],
           candidateCount: 0,
@@ -252,7 +297,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
 
       return {
         ...state,
-        messages: [...state.messages, assistantMsg],
+        messages: baseMessages,
         accumulatedFilters: result.accumulated_filters || state.accumulatedFilters,
         candidates: hasNewCandidates ? result.candidates : state.candidates,
         candidateCount: result.candidate_count > 0 ? result.candidate_count : state.candidateCount,
@@ -264,6 +309,34 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         hasNewResults: hasNewCandidates,
         conversationTitle: result.title || state.conversationTitle,
       };
+    }
+
+    case 'STREAM_DELTA': {
+      // Append text to the streaming assistant message. If the last message
+      // isn't a streaming placeholder, create one. Used by the KOL agent
+      // (token-by-token SSE) and any future stream-aware agent.
+      const messages = [...state.messages];
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== 'assistant' || !last.streaming) {
+        messages.push({
+          id: nextMsgId(),
+          role: 'assistant',
+          content: action.kind === 'message' ? action.text : '',
+          thinking: action.kind === 'thinking' ? action.text : undefined,
+          streaming: true,
+        });
+      } else if (action.kind === 'thinking') {
+        messages[messages.length - 1] = {
+          ...last,
+          thinking: (last.thinking || '') + action.text,
+        };
+      } else {
+        messages[messages.length - 1] = {
+          ...last,
+          content: last.content + action.text,
+        };
+      }
+      return { ...state, messages };
     }
 
     case 'SET_ERROR': {
@@ -331,7 +404,18 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         // Restore content state if saved, otherwise default to screener
         activeContent: action.data.activeContent ?? SCREENER_CONTENT,
         contentStack: action.data.contentStack ?? [],
+        // KOL agent: restore citation chunks from saved conversation
+        kolChunks: action.data.kolChunks ?? [],
+        // KOL agent: restore persona so a reload-then-send doesn't accidentally
+        // route a KOL conversation through the research save path.
+        personaUsername: action.data.personaUsername ?? null,
       };
+
+    case 'SET_KOL_CHUNKS':
+      return { ...state, kolChunks: action.chunks };
+
+    case 'SET_PERSONA':
+      return { ...state, personaUsername: action.personaUsername };
 
     // Research Desk: content panel navigation
     case 'PUSH_CONTENT':

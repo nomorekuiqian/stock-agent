@@ -68,7 +68,15 @@ export function Navbar() {
               ]}
             />
             <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
-            {hasFlag('kol_chat') && <NavLink href="/kol-chat">KOL 对话</NavLink>}
+            {hasFlag('kol_chat') && (
+              <NavDropdown
+                label="博主研究室"
+                href="/kol/qinbafrank"
+                items={[
+                  { href: '/kol/qinbafrank', label: 'qinbafrank' },
+                ]}
+              />
+            )}
             {hasFlag('for_you_v2') ? (
               <NavDropdown
                 label="专属"
@@ -180,7 +188,15 @@ interface DropdownItem {
   locked?: boolean;
 }
 
-function NavDropdown({ label, href, items }: { label: string; href?: string; items: DropdownItem[] }) {
+function NavDropdown({
+  label,
+  href,
+  items,
+}: {
+  label: string;
+  href?: string;
+  items: DropdownItem[];
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
