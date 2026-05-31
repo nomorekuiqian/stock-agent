@@ -1,0 +1,49 @@
+{
+  "frank_nvda_stock_now": {
+    "persona_username": "qinbafrank",
+    "message": "按 @qinbafrank 的方法论看，`NVDA` 不能被简化成一句买或卖。博主历史上把它放在 AI 算力链的核心位置 [#1]，但当前判断必须同时看订单兑现、估值和回撤承受能力。风险在于如果后续数据不能继续证明需求强，判断要下修。",
+    "kol_chunks": [
+      {
+        "citation_index": 1,
+        "source_id": "tweet-1",
+        "title": "@qinbafrank NVDA",
+        "content": "英伟达是 AI 算力主线核心，但要看需求和业绩兑现。",
+        "similarity": 0.73,
+        "author_username": "qinbafrank",
+        "created_at": "2026-05-01T00:00:00Z",
+        "tickers": ["NVDA"]
+      }
+    ],
+    "activated_skills": ["framework-ask-about-stock", "ticker-nvda"],
+    "tool_calls": [
+      {"name": "load_skill", "args_summary": "{\"skill_name\":\"framework-ask-about-stock\"}", "ok": true},
+      {"name": "search_kol_tweets", "args_summary": "{\"query\":\"NVDA 英伟达 AI 算力\",\"author_username\":\"qinbafrank\"}", "ok": true},
+      {"name": "get_stock_brief", "args_summary": "{\"symbol\":\"NVDA\"}", "ok": true}
+    ],
+    "navigate": {"type": "stock", "params": {"symbol": "NVDA"}}
+  },
+  "frank_macro_liquidity_ai": {
+    "persona_username": "qinbafrank",
+    "message": "流动性变紧对 AI 算力股不是单点利空，而是通过估值折现率和风险偏好传导。博主多次把 AI 算力看成长期主线 [#1]，但如果宏观资金环境转紧，短期更容易先杀估值。散户含义是观察流动性和龙头财报兑现，而不是直接下买卖结论。",
+    "kol_chunks": [
+      {
+        "citation_index": 1,
+        "source_id": "tweet-2",
+        "title": "@qinbafrank AI 算力",
+        "content": "AI 算力是主线，但宏观流动性会影响估值波动。",
+        "similarity": 0.68,
+        "author_username": "qinbafrank",
+        "created_at": "2026-05-02T00:00:00Z",
+        "tickers": []
+      }
+    ],
+    "activated_skills": ["framework-ask-about-macro"],
+    "tool_calls": [
+      {"name": "load_skill", "args_summary": "{\"skill_name\":\"framework-ask-about-macro\"}", "ok": true},
+      {"name": "search_kol_tweets", "args_summary": "{\"query\":\"流动性 AI 算力\",\"author_username\":\"qinbafrank\"}", "ok": true},
+      {"name": "get_macro_brief", "args_summary": null, "ok": true}
+    ],
+    "navigate": {"type": "macro", "params": {}}
+  }
+}
+

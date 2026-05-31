@@ -1,0 +1,87 @@
+cases:
+  - id: frank_nvda_stock_now
+    category: stock
+    message: "NVDA 现在还能买吗？按 Frank 框架看。"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_call_any:
+        - [load_skill, list_skills]
+      must_cover_data:
+        - get_stock_brief:NVDA
+      required_symbols: [NVDA]
+      citation_required: true
+      answer_should_include:
+        - NVDA
+        - 风险
+
+  - id: frank_macro_liquidity_ai
+    category: macro
+    message: "如果流动性变紧，会怎么影响 AI 算力股？"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_call_any:
+        - [load_skill, list_skills]
+      must_cover_data:
+        - get_macro_brief
+      citation_required: true
+      answer_should_include:
+        - 流动性
+        - AI
+
+  - id: frank_nvda_avgo_compare
+    category: compare
+    message: "NVDA 和 AVGO 按 Frank 的产业链框架，谁的确定性更强？"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_cover_data:
+        - get_stock_brief:NVDA
+        - get_stock_brief:AVGO
+      must_call_any:
+        - [get_stock_brief, get_peer_brief, get_industry_brief]
+      required_symbols: [NVDA, AVGO]
+      citation_required: true
+      answer_should_include:
+        - NVDA
+        - AVGO
+
+  - id: frank_method_falsifiability
+    category: methodology
+    message: "Frank 为什么总强调强信念一定要有打脸条件？"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_call_any:
+        - [load_skill, list_skills]
+      citation_required: true
+      answer_should_include:
+        - 打脸
+
+  - id: frank_news_event_nvda
+    category: news
+    message: "假设 OpenAI 又签了新的算力订单，这对 NVDA 是利好还是风险？"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_cover_data:
+        - get_stock_brief:NVDA
+      required_symbols: [NVDA]
+      citation_required: true
+      answer_should_include:
+        - 订单
+        - 风险
+
+  - id: frank_unknown_smallcap
+    category: no_coverage
+    message: "Frank 怎么看 XYZ 这只小盘股？如果他没讲过就直接说没覆盖。"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_not_call:
+        - google_search_agent
+        - google_search
+      citation_required: false
+      answer_should_include:
+        - 没
