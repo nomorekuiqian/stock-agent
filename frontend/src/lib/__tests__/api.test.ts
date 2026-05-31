@@ -835,6 +835,49 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('research.quota', () => {
+    it('checks anonymous quota by default when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      const payload = {
+        success: true,
+        allowed: true,
+        used: 0,
+        limit: 5,
+        remaining: 5,
+        unlimited: false,
+      };
+      mockFetchOk(payload);
+
+      const result = await api.research.quota();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/quota');
+      expect(opts.headers.Authorization).toBeUndefined();
+      expect(result).toEqual(payload);
+    });
+
+    it('fails fast for authenticated quota checks when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      globalThis.fetch = vi.fn();
+
+      await expect(api.research.quota({ requiredAuth: true })).rejects.toThrow('登录已过期');
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('research.chatStream', () => {
+    it('fails fast for authenticated streams when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      globalThis.fetch = vi.fn();
+
+      await expect(
+        api.research.chatStream({ message: 'test' }, vi.fn(), { requiredAuth: true })
+      ).rejects.toThrow('登录已过期');
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('research.conversations.list', () => {
     it('GETs /research/conversations with auth header', async () => {
       const payload = { conversations: [{ id: 'c1', title: 'Test' }] };

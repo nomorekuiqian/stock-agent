@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import ChatInput from './ChatInput';
 import PersonaSelector, { type AgentKind } from './PersonaSelector';
 
@@ -43,22 +44,74 @@ const CAPABILITIES: CapabilityCard[] = [
 interface PersonaDescriptor {
   displayName: string;
   tagline: string[];
-  signatureQuote: string;
-  quoteAttribution: string;
-  starters: string[];
+  quotes: PersonaQuote[];
+  starters: PersonaStarter[];
+}
+
+interface PersonaQuote {
+  label: string;
+  text: string;
+}
+
+interface PersonaStarter {
+  title: string;
+  displayPrompt: string;
+  prompt: string;
 }
 
 const PERSONAS: Record<string, PersonaDescriptor> = {
   qinbafrank: {
     displayName: 'qinbafrank',
-    tagline: ['Macro', 'AI 算力', '能力圈'],
-    signatureQuote: '拿不住的票不是好票。看不懂的票不要碰。',
-    quoteAttribution: '整理自博主公开推文，非博主本人发言',
+    tagline: ['MACRO', 'AI 算力', '加密金融'],
+    quotes: [
+      {
+        label: '定价观',
+        text: '投资的关键不是预测财报，而是预判市场未来如何重新理解一个资产。',
+      },
+      {
+        label: '产业观',
+        text: 'AI 不是单一模型突破，也不是“会聊天”的玩具，而是像电力一样的核心基础设施。',
+      },
+      {
+        label: '宏观观',
+        text: '一个阶段内把影响市场的因素做权重排序，重点关注权重最高的那个驱动因素。',
+      },
+      {
+        label: '风控观',
+        text: '没有研究支撑的信仰，只有 FOMO 的心和 all in 的账户。',
+      },
+    ],
     starters: [
-      '怎么看 NVDA？',
-      '怎么看 TSLA？',
-      'AI 算力板块还有机会吗？',
-      '黄金板块现在怎么看？',
+      {
+        title: '个股诊断',
+        displayPrompt: 'NVDA 还能买吗？',
+        prompt: 'NVDA 还能买吗？',
+      },
+      {
+        title: 'AI 算力链',
+        displayPrompt: 'AI 现在看什么？',
+        prompt: 'AI 现在看什么？',
+      },
+      {
+        title: '宏观流动性',
+        displayPrompt: '大盘现在危险吗？',
+        prompt: '大盘现在危险吗？',
+      },
+      {
+        title: '财报验证',
+        displayPrompt: '财报算利好吗？',
+        prompt: '财报算利好吗？',
+      },
+      {
+        title: '加密金融',
+        displayPrompt: '加密股还能追吗？',
+        prompt: '加密股还能追吗？',
+      },
+      {
+        title: '持仓证伪',
+        displayPrompt: '我该继续拿吗？',
+        prompt: '我拿着 NVDA，该继续拿吗？',
+      },
     ],
   },
 };
@@ -278,7 +331,7 @@ function DefaultIntro({ greeting, userName, universeSize, onSelect }: DefaultInt
 }
 
 // ---------------------------------------------------------------------------
-// Persona intro — editorial "blogger's desk" landing
+// Persona intro landing
 // ---------------------------------------------------------------------------
 
 interface PersonaIntroProps {
@@ -288,103 +341,93 @@ interface PersonaIntroProps {
 
 function PersonaIntro({ persona, onSelect }: PersonaIntroProps) {
   const avatarSrc = `/kol-avatars/${persona.displayName.toLowerCase()}.png`;
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 sm:px-6 py-10 sm:py-16 text-center">
-      {/* Avatar — emerald soft glow */}
-      <div className="relative mb-7 animate-scale-in" style={{ animationDelay: '60ms' }}>
+    <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-4 py-5 text-center sm:px-6 sm:py-10">
+      <div className="relative mb-5 animate-scale-in sm:mb-6" style={{ animationDelay: '60ms' }}>
         <div
           aria-hidden
-          className="absolute inset-0 -m-6 rounded-full bg-emerald-500/20 blur-2xl animate-pulse-glow"
+          className="absolute inset-0 -m-6 rounded-full bg-primary/15 blur-2xl animate-pulse-glow"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={avatarSrc}
           alt={persona.displayName}
-          className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-2 ring-emerald-500/40 ring-offset-4 ring-offset-background"
+          className="relative h-16 w-16 rounded-full object-cover ring-2 ring-primary/40 ring-offset-4 ring-offset-background sm:h-24 sm:w-24"
           onError={(e) => {
-            // Hide broken image; the fallback letterbox below takes over.
             (e.currentTarget as HTMLImageElement).style.display = 'none';
             const sib = (e.currentTarget as HTMLImageElement).nextElementSibling as HTMLElement | null;
-            if (sib) sib.classList.remove('hidden');
+            if (sib) {
+              sib.classList.remove('hidden');
+              sib.classList.add('flex');
+            }
           }}
         />
-        <div className="relative hidden w-24 h-24 sm:w-28 sm:h-28 rounded-full items-center justify-center bg-emerald-500/15 ring-2 ring-emerald-500/40 ring-offset-4 ring-offset-background font-editorial italic text-3xl text-emerald-700">
+        <div className="relative hidden h-16 w-16 items-center justify-center rounded-full border border-primary/30 bg-primary/[0.08] font-editorial text-2xl text-primary sm:h-24 sm:w-24 sm:text-3xl">
           {persona.displayName.slice(0, 2).toUpperCase()}
         </div>
       </div>
 
-      {/* Display name */}
       <h1
-        className="font-editorial italic text-3xl sm:text-5xl tracking-tight text-foreground animate-fade-in-up"
+        className="font-editorial italic text-3xl tracking-tight text-foreground sm:text-5xl animate-fade-in-up"
         style={{ animationDelay: '140ms' }}
       >
         @{persona.displayName}
       </h1>
 
-      {/* Framework tagline — monospace, wide-tracking, bullet-separated */}
       <div
-        className="mt-3 flex items-center gap-2.5 text-xs font-data tracking-[0.32em] uppercase text-muted-foreground/85 animate-fade-in-up"
+        className="mt-3 flex flex-wrap items-center justify-center gap-2 animate-fade-in-up"
         style={{ animationDelay: '220ms' }}
       >
-        {persona.tagline.map((t, i) => (
-          <span key={t} className="flex items-center gap-2.5">
-            {i > 0 && <span aria-hidden className="w-1 h-1 rounded-full bg-emerald-500/60" />}
-            {t}
+        {persona.tagline.map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full border border-border/60 bg-card/70 px-3 py-1 text-sm font-medium text-muted-foreground"
+          >
+            {tag}
           </span>
         ))}
       </div>
 
-      {/* Signature quote */}
-      <blockquote
-        className="relative mt-9 max-w-xl font-editorial italic text-lg sm:text-xl leading-relaxed text-foreground/90 animate-fade-in-up"
-        style={{ animationDelay: '340ms' }}
-      >
-        <span aria-hidden className="absolute -left-5 -top-1 text-3xl text-emerald-500/40 font-editorial">“</span>
-        {persona.signatureQuote}
-        <span aria-hidden className="absolute -right-5 bottom-0 text-3xl text-emerald-500/40 font-editorial">”</span>
-      </blockquote>
-      <p
-        className="mt-3 text-xs text-muted-foreground/70 tracking-wide animate-fade-in-up"
-        style={{ animationDelay: '410ms' }}
-      >
-        — {persona.quoteAttribution}
-      </p>
+      {persona.quotes.length > 0 && (
+        <div className="mt-5 w-full max-w-3xl space-y-2.5 text-left sm:mt-7 sm:space-y-3">
+          {persona.quotes.map((quote, i) => (
+            <blockquote
+              key={quote.label}
+              className={`border-l border-primary/35 pl-4 italic leading-relaxed animate-fade-in-up ${
+                i === 0
+                  ? 'font-editorial text-lg text-foreground sm:text-xl'
+                  : 'text-sm text-foreground/85 sm:text-base'
+              }`}
+              style={{ animationDelay: `${300 + i * 55}ms` }}
+            >
+              <span aria-hidden className="text-primary/80">“</span>
+              {quote.text}
+              <span aria-hidden className="text-primary/80">”</span>
+            </blockquote>
+          ))}
+        </div>
+      )}
 
-      {/* Hairline divider — neutral, separates quote from starter chips */}
-      <div
-        className="mt-9 mb-6 w-12 h-px bg-border/40 animate-fade-in"
-        style={{ animationDelay: '490ms' }}
-      />
-
-      {/* Framework starter chips */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-2xl">
-        {persona.starters.map((q, i) => (
+      <div className="mt-6 grid w-full max-w-4xl grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {persona.starters.map((starter, i) => (
           <button
-            key={q}
+            key={starter.title}
             type="button"
-            onClick={() => onSelect(q)}
-            className="group relative text-left px-4 py-3 rounded-lg border border-border/40 bg-background/60 backdrop-blur-[1px] hover:border-emerald-500/40 hover:bg-emerald-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-colors animate-fade-in-up cursor-pointer"
-            style={{ animationDelay: `${560 + i * 80}ms` }}
+            onClick={() => onSelect(starter.prompt)}
+            className="group rounded-lg border border-border/50 bg-card/70 px-3.5 py-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.04] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 animate-fade-in-up cursor-pointer"
+            style={{ animationDelay: `${540 + i * 60}ms` }}
           >
-            {/* Tiny leading marker — editorial ornament */}
-            <span
-              aria-hidden
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 rounded-r-full bg-emerald-500/40 group-hover:bg-emerald-500/80 transition-colors"
-            />
-            <span className="ml-1.5 text-sm text-foreground/90 group-hover:text-emerald-800 transition-colors">
-              {q}
+            <span className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
+              {starter.title}
+              <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden />
+            </span>
+            <span className="mt-1 block text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-primary">
+              {starter.displayPrompt}
             </span>
           </button>
         ))}
       </div>
-
-      {/* Curator footer disclaimer */}
-      <p
-        className="mt-10 max-w-md text-xs text-muted-foreground/70 font-data tracking-wide animate-fade-in-up"
-        style={{ animationDelay: '900ms' }}
-      >
-        本视角整理自博主公开推文；引用 [#N] 对应博主原文。非投资建议。
-      </p>
     </div>
   );
 }

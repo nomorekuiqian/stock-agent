@@ -40,18 +40,18 @@ export function useKolCockpitFeed(username: string, opts: KolCockpitFeedOpts = {
   });
 }
 
-export function useKolCockpitSectorsV3(username: string) {
+export function useKolCockpitSectors(username: string) {
   return useQuery({
-    queryKey: queryKeys.kol.sectorsV3(username),
-    queryFn: () => api.kolResearch.cockpitSectorsV3(username),
+    queryKey: queryKeys.kol.sectors(username),
+    queryFn: () => api.kolResearch.cockpitSectors(username),
     enabled: ENABLED(username),
   });
 }
 
-export function useKolCockpitSectorV3(username: string, sectorKey: string | null) {
+export function useKolCockpitSector(username: string, sectorKey: string | null) {
   return useQuery({
-    queryKey: queryKeys.kol.sectorDetailV3(username, sectorKey ?? ''),
-    queryFn: () => api.kolResearch.cockpitSectorV3(username, sectorKey!),
+    queryKey: queryKeys.kol.sectorDetail(username, sectorKey ?? ''),
+    queryFn: () => api.kolResearch.cockpitSector(username, sectorKey!),
     enabled: ENABLED(username) && Boolean(sectorKey),
   });
 }

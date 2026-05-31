@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
@@ -31,14 +31,6 @@ function ThinkingLine({
     return parts[parts.length - 1] || '';
   }, [thinking]);
 
-  // Animation key — when latest paragraph changes, remount triggers fade.
-  const swapKey = useRef(0);
-  const prevLatest = useRef(latest);
-  if (prevLatest.current !== latest) {
-    swapKey.current += 1;
-    prevLatest.current = latest;
-  }
-
   if (!visible) return null;
 
   return (
@@ -49,7 +41,7 @@ function ThinkingLine({
         <span className="thinking-dot" />
       </span>
       <span
-        key={swapKey.current}
+        key={latest}
         className="animate-fade-in line-clamp-2 italic"
       >
         {latest}

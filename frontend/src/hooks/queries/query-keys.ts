@@ -85,6 +85,10 @@ export const queryKeys = {
     sectors: () => ['screener', 'sectors'] as const,
     status: () => ['screener', 'status'] as const,
   },
+  research: {
+    all: ['research'] as const,
+    conversations: (userId: string, pageSize: number) => ['research', 'conversations', userId, pageSize] as const,
+  },
   subscriptions: {
     all: ['subscriptions'] as const,
     preferences: () => ['subscriptions', 'preferences'] as const,
@@ -98,9 +102,9 @@ export const queryKeys = {
     tickers: (username: string) => ['kol', username, 'tickers'] as const,
     feed: (username: string, sector: string | null, ticker: string | null, limit: number, offset: number) =>
       ['kol', username, 'feed', { sector, ticker, limit, offset }] as const,
-    sectorsV3: (username: string) => ['kol', username, 'sectors-v3'] as const,
-    sectorDetailV3: (username: string, sectorKey: string) =>
-      ['kol', username, 'sector-v3', sectorKey] as const,
+    sectors: (username: string) => ['kol', username, 'sectors'] as const,
+    sectorDetail: (username: string, sectorKey: string) =>
+      ['kol', username, 'sector', sectorKey] as const,
     industryChain: (username: string, boardKey: string) =>
       ['kol', username, 'industry-chain', boardKey] as const,
     tickerDetail: (username: string, ticker: string) =>

@@ -159,10 +159,10 @@ export function MobileMenu() {
     },
     ...(hasFlag('kol_chat')
       ? [{
-          label: 'KOL 对话',
-          href: '/kol-chat',
+          label: '博主研究室',
+          href: '/kol/qinbafrank',
           children: [
-            { href: '/kol/qinbafrank', label: 'qinbafrank · 产业派' },
+            { href: '/kol/qinbafrank', label: 'qinbafrank' },
           ],
         } as NavSection]
       : []),
