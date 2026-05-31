@@ -121,6 +121,146 @@ def _set_cached(store: dict, data):
     store["ts"] = time.time()
 
 
+def _indicator_has_value(data: dict | None) -> bool:
+    return isinstance(data, dict) and data.get("value") is not None
+
+
+def _fundamentals_has_indicator_values(data: dict | None) -> bool:
+    return _fundamentals_indicator_value_count(data) > 0
+
+
+def _fundamentals_indicator_value_count(data: dict | None) -> int:
+    if not isinstance(data, dict):
+        return 0
+    count = 0
+    for section_key in ("sub_dimensions", "categories"):
+        for section in data.get(section_key) or []:
+            for indicator in section.get("indicators") or []:
+                series_id = str(indicator.get("series_id") or "")
+                if indicator.get("value") is not None and not series_id.startswith("AI_"):
+                    count += 1
+    return count
+
+
+def _cpi_breakdown_has_values(data: dict | None) -> bool:
+    if not isinstance(data, dict):
+        return False
+    for component in data.get("components") or []:
+        if component.get("yoy_pct") is not None or component.get("mom_pct") is not None:
+            return True
+    return False
+
+
+async def _read_first_cache(keys: list[str]) -> tuple[dict | None, bool, str | None]:
+    for key in keys:
+        data, valid = await try_db_cache(key)
+        if data:
+            return data, valid, key
+    return None, False, None
+
+
+def _fill_indicators_from_cached_payload(
+    indicators: dict,
+    cached_data: dict | None,
+    key_by_series_id: dict[str, str],
+) -> None:
+    if not isinstance(cached_data, dict):
+        return
+
+    sections = (cached_data.get("sub_dimensions") or []) + (cached_data.get("categories") or [])
+    for section in sections:
+        for item in section.get("indicators") or []:
+            key = key_by_series_id.get(item.get("series_id"))
+            if not key or _indicator_has_value(indicators.get(key)):
+                continue
+            if item.get("value") is None:
+                continue
+            fallback = dict(item)
+            fallback.setdefault("source", "macro_cache")
+            indicators[key] = fallback
+
+
+def _set_indicator_if_missing(
+    indicators: dict,
+    key: str,
+    value: float | None,
+    *,
+    series_id: str,
+    units: str,
+    source: str,
+    date: str | None = None,
+    change: float | None = None,
+) -> None:
+    if key not in indicators or _indicator_has_value(indicators.get(key)):
+        return
+    if value is None:
+        return
+    indicators[key] = {
+        "series_id": series_id,
+        "value": value,
+        "date": date,
+        "units": units,
+        "change": change,
+        "source": source,
+    }
+
+
+async def _fill_indicators_from_macro_context(indicators: dict) -> None:
+    trend_task = try_db_cache("macro:trend_context")
+    treasury_task = try_db_cache("macro:treasury_rates")
+    (trend_context, _), (treasury_data, _) = await asyncio.gather(trend_task, treasury_task)
+
+    if isinstance(trend_context, dict):
+        trend_map = {
+            "gdp_growth": ("gdp_growth", "A191RL1Q225SBEA", "Percent"),
+            "unemployment": ("unemployment", "UNRATE", "Percent"),
+            "cpi": ("cpi_yoy", "CPIAUCSL", "Percent Change from Year Ago"),
+            "core_pce": ("core_pce_yoy", "PCEPILFE", "Percent Change from Year Ago"),
+            "fed_funds_rate": ("fed_funds", "FEDFUNDS", "Percent"),
+            "michigan_inflation": ("michigan_inflation", "MICH", "Percent"),
+            "inflation_expectations_5y5y": ("inflation_expectations_5y5y", "T5YIFR", "Percent"),
+        }
+        for key, (trend_key, series_id, units) in trend_map.items():
+            item = trend_context.get(trend_key)
+            if isinstance(item, dict):
+                _set_indicator_if_missing(
+                    indicators,
+                    key,
+                    item.get("current"),
+                    series_id=series_id,
+                    units=units,
+                    source="macro:trend_context",
+                )
+
+    if isinstance(treasury_data, dict):
+        rates = treasury_data.get("rates") or {}
+        ten_year = (rates.get("10Y") or {}).get("rate")
+        two_year = (rates.get("2Y") or {}).get("rate")
+        _set_indicator_if_missing(
+            indicators,
+            "treasury_10y",
+            ten_year,
+            series_id="DGS10",
+            units="Percent",
+            source="macro:treasury_rates",
+        )
+        if ten_year is not None and two_year is not None:
+            ten_change = (rates.get("10Y") or {}).get("daily_change_bps")
+            two_change = (rates.get("2Y") or {}).get("daily_change_bps")
+            change = None
+            if ten_change is not None and two_change is not None:
+                change = (ten_change - two_change) / 100
+            _set_indicator_if_missing(
+                indicators,
+                "yield_curve",
+                ten_year - two_year,
+                series_id="T10Y2Y",
+                units="Percentage Points",
+                source="macro:treasury_rates",
+                change=change,
+            )
+
+
 def _score_indicator(value: float | None, low_max: float, mid_max: float, invert: bool = False) -> float:
     """
     Score a single indicator on 0-10 scale.
@@ -198,7 +338,7 @@ def _compute_economic_deterioration(indicators: dict) -> CategoryRiskScore:
             units=data.get("units", ""),
             change=data.get("change"),
             previous_value=data.get("previous_value"),
-            source="fred",
+            source=data.get("source", "fred"),
         ))
 
     headline = _economic_headline(score, recession_prob, yield_curve)
@@ -492,14 +632,23 @@ async def get_macro_risk_dashboard(
             logger.info("Returning cached dashboard (coalesced)")
             return cached
 
+        db_data = None
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("macro:dashboard")
-            if db_valid and db_data:
+            if db_valid and db_data and _fundamentals_has_indicator_values(db_data):
+                indicator_count = _fundamentals_indicator_value_count(db_data)
+                if indicator_count < 4:
+                    logger.warning(
+                        "DB-cached dashboard is partial (%d indicators); serving anyway to avoid FRED storm",
+                        indicator_count,
+                    )
                 logger.info("Returning DB-cached dashboard")
                 dashboard = MacroRiskDashboard(**db_data)
                 _set_cached(_get_cache("dashboard"), dashboard)
                 return dashboard
+        else:
+            db_data, _, _ = await _read_first_cache(["macro:dashboard"])
 
         logger.info("Fetching fresh dashboard data...")
 
@@ -523,6 +672,13 @@ async def get_macro_risk_dashboard(
         )
 
         indicators = {key: data for key, data in fred_results_raw}
+        _fill_indicators_from_cached_payload(
+            indicators,
+            db_data,
+            {series_id: key for key, series_id in MACRO_RISK_FRED_SERIES.items()},
+        )
+        await _fill_indicators_from_macro_context(indicators)
+
         cat1 = _compute_economic_deterioration(indicators)
         cat2 = _compute_credit_risk(indicators)
         cat3 = _compute_employment_risk(indicators)
@@ -846,14 +1002,23 @@ async def get_economic_fundamentals(
             logger.info("Returning cached economy data (coalesced)")
             return cached
 
+        db_data = None
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("macro:economy")
-            if db_valid and db_data:
+            if db_valid and db_data and _fundamentals_has_indicator_values(db_data):
+                indicator_count = _fundamentals_indicator_value_count(db_data)
+                if indicator_count < 8:
+                    logger.warning(
+                        "DB-cached economy data is partial (%d indicators); serving anyway",
+                        indicator_count,
+                    )
                 logger.info("Returning DB-cached economy data")
                 result = EconomicFundamentals(**db_data)
                 _set_cached(_get_cache("economy"), result)
                 return result
+        else:
+            db_data, _, _ = await _read_first_cache(["macro:economy"])
 
         logger.info("Fetching fresh economic fundamentals data...")
 
@@ -878,6 +1043,12 @@ async def get_economic_fundamentals(
         )
 
         indicators = {key: data for key, data in results_raw}
+        _fill_indicators_from_cached_payload(
+            indicators,
+            db_data,
+            {defn[1]: defn[0] for defs in [_GROWTH_INDICATORS, _EMPLOYMENT_INDICATORS, _CREDIT_INDICATORS] for defn in defs},
+        )
+        await _fill_indicators_from_macro_context(indicators)
 
         growth = _compute_subdimension("growth", "增长", 0.35, _GROWTH_INDICATORS, indicators)
         employment = _compute_subdimension("employment", "就业", 0.35, _EMPLOYMENT_INDICATORS, indicators)
@@ -934,14 +1105,29 @@ async def get_inflation_rates(
             logger.info("Returning cached inflation rates data (coalesced)")
             return cached
 
-        # DB cache layer
+        db_data = None
+        # DB cache layer — prefer current :v2 schema, fall back to legacy key
         if not skip_db_cache:
-            db_data, db_valid = await try_db_cache("macro:inflation_rates:v2")
-            if db_valid and db_data:
+            db_data, db_valid, _ = await _read_first_cache([
+                "macro:inflation_rates:v2",
+                "macro:inflation_rates",
+            ])
+            if db_valid and db_data and _fundamentals_has_indicator_values(db_data):
+                indicator_count = _fundamentals_indicator_value_count(db_data)
+                if indicator_count < 4:
+                    logger.warning(
+                        "DB-cached inflation rates is partial (%d indicators); serving anyway",
+                        indicator_count,
+                    )
                 logger.info("Returning DB-cached inflation rates data")
                 result = EconomicFundamentals(**db_data)
                 _set_cached(_get_cache("inflation"), result)
                 return result
+        else:
+            db_data, _, _ = await _read_first_cache([
+                "macro:inflation_rates:v2",
+                "macro:inflation_rates",
+            ])
 
         logger.info("Fetching fresh inflation rates data...")
 
@@ -985,6 +1171,12 @@ async def get_inflation_rates(
         )
 
         indicators = {key: data for key, data in results_raw}
+        _fill_indicators_from_cached_payload(
+            indicators,
+            db_data,
+            {defn[1]: defn[0] for defs in [_INFLATION_RATES_INFLATION, _INFLATION_RATES_RATES] for defn in defs},
+        )
+        await _fill_indicators_from_macro_context(indicators)
 
         inflation = _compute_subdimension("inflation", "通胀", 0.60, _INFLATION_RATES_INFLATION, indicators)
         rates = _compute_subdimension("rates", "利率", 0.40, _INFLATION_RATES_RATES, indicators)
@@ -1042,14 +1234,17 @@ async def get_cpi_breakdown(
             logger.info("Returning cached CPI data (coalesced)")
             return cached
 
+        db_data = None
         # DB cache layer
         if not skip_db_cache:
             db_data, db_valid = await try_db_cache("fred:cpi_breakdown")
-            if db_valid and db_data:
+            if db_valid and _cpi_breakdown_has_values(db_data):
                 logger.info("Returning DB-cached CPI data")
                 result = CpiBreakdown(**db_data)
                 _set_cached(_get_cache("cpi"), result)
                 return result
+        else:
+            db_data, _, _ = await _read_first_cache(["fred:cpi_breakdown"])
 
         logger.info("Fetching fresh CPI breakdown data...")
 
@@ -1106,6 +1301,10 @@ async def get_cpi_breakdown(
             timestamp=now_iso(),
             components=components,
         )
+
+        if not _cpi_breakdown_has_values(result.model_dump()) and _cpi_breakdown_has_values(db_data):
+            logger.warning("Using CPI breakdown fallback because fresh data is empty")
+            result = CpiBreakdown(**db_data)
 
         _set_cached(_get_cache("cpi"), result)
         logger.info("CPI ready: %d components", len(components))

@@ -187,7 +187,7 @@ async def get_global_liquidity_metrics() -> dict:
 
         # DB cache layer
         db_data, db_valid = await try_db_cache("fred:global_liquidity")
-        if db_valid and db_data:
+        if db_valid and _has_global_liquidity_value(db_data):
             logger.info("Returning DB-cached metrics")
             _global_cache["data"] = db_data
             _global_cache["ts"] = time.time()
@@ -195,10 +195,107 @@ async def get_global_liquidity_metrics() -> dict:
 
         # Fetch fresh from FRED
         metrics = await fetch_and_compute_global_m2()
+        if not _has_global_liquidity_value(metrics):
+            fallback = await _global_liquidity_fallback(db_data)
+            if fallback:
+                logger.warning("Using global liquidity fallback because fresh data is empty")
+                _global_cache["data"] = fallback
+                _global_cache["ts"] = time.time()
+                return fallback
+
         _global_cache["data"] = metrics
         _global_cache["ts"] = time.time()
         logger.info("Cached %d metrics", len(metrics))
         return metrics
+
+
+def _has_global_liquidity_value(metrics: dict | None) -> bool:
+    if not isinstance(metrics, dict):
+        return False
+    global_liquidity = metrics.get("global_liquidity")
+    return isinstance(global_liquidity, dict) and global_liquidity.get("value") is not None
+
+
+async def _global_liquidity_fallback(stale_db_data: dict | None) -> dict | None:
+    if _has_global_liquidity_value(stale_db_data):
+        return stale_db_data
+
+    history, _ = await try_db_cache("fred:global_liquidity_history")
+    if not history:
+        return None
+    return _build_global_liquidity_from_history(history)
+
+
+def _build_global_liquidity_from_history(history: dict | None) -> dict | None:
+    if not isinstance(history, dict):
+        return None
+
+    observations = history.get("observations")
+    if not isinstance(observations, list) or not observations:
+        return None
+
+    latest = next(
+        (obs for obs in reversed(observations) if isinstance(obs, dict) and obs.get("value") is not None),
+        None,
+    )
+    if not latest:
+        return None
+
+    return {
+        "global_liquidity": {
+            "series_id": "GLOBAL_LIQUIDITY_INDEX",
+            "title": "Global Liquidity Index",
+            "value": latest.get("value"),
+            "date": latest.get("time"),
+            "units": "Billions of U.S. Dollars",
+            "formula": "Fed Assets + ECB + BOJ - TGA - RRP",
+            "partial": True,
+        },
+        "fed_assets": {
+            "series_id": "WALCL",
+            "title": "Fed Total Assets (USD)",
+            "value": None,
+            "raw_value": None,
+            "date": latest.get("time"),
+            "units": "Billions of U.S. Dollars",
+            "change": None,
+            "partial": True,
+        },
+        "us_m2": {
+            "series_id": "M2SL",
+            "title": "US M2",
+            "value": None,
+            "raw_value": None,
+            "date": latest.get("time"),
+            "units": "Billions of U.S. Dollars",
+            "change": None,
+            "partial": True,
+        },
+        "ecb_assets": {
+            "series_id": "ECBASSETSW",
+            "title": "ECB Total Assets (USD)",
+            "value": None,
+            "raw_value": None,
+            "date": latest.get("time"),
+            "units": "Billions of U.S. Dollars",
+            "change": None,
+            "partial": True,
+        },
+        "boj_assets": {
+            "series_id": "JPNASSETS",
+            "title": "BOJ Total Assets (USD)",
+            "value": None,
+            "raw_value": None,
+            "date": latest.get("time"),
+            "units": "Billions of U.S. Dollars",
+            "change": None,
+            "partial": True,
+        },
+        "fx_rates": {
+            "eurusd": None,
+            "usdjpy": None,
+        },
+    }
 
 
 async def get_global_liquidity_history(days: int = 365) -> dict:

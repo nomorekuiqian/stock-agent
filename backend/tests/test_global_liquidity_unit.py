@@ -24,6 +24,9 @@ from app.features.macro.liquidity.global_service import (
     _get_cached_global,
     _global_cache,
     _CACHE_TTL,
+    _build_global_liquidity_from_history,
+    _global_liquidity_fallback,
+    _has_global_liquidity_value,
     GLOBAL_M2_SERIES,
     CENTRAL_BANK_SERIES,
     DRAIN_SERIES,
@@ -98,6 +101,99 @@ class TestGetCachedGlobal:
     def teardown_method(self):
         """Restore global cache."""
         _global_cache.clear()
+
+
+class TestGlobalLiquidityFallback:
+    """Tests for global liquidity stale/history fallback helpers."""
+
+    def test_has_global_liquidity_value(self):
+        assert _has_global_liquidity_value({
+            "global_liquidity": {"value": 17194.42},
+        })
+        assert not _has_global_liquidity_value({
+            "global_liquidity": {"value": None},
+        })
+
+    def test_build_global_liquidity_from_history(self):
+        result = _build_global_liquidity_from_history({
+            "observations": [
+                {"time": "2026-02-18", "value": 17523.68},
+                {"time": "2026-02-25", "value": 17507.55},
+            ]
+        })
+
+        assert result is not None
+        assert result["global_liquidity"]["value"] == 17507.55
+        assert result["global_liquidity"]["date"] == "2026-02-25"
+        assert result["global_liquidity"]["partial"] is True
+        # Component breakdown is unavailable when reconstructing from history
+        for key in ("fed_assets", "us_m2", "ecb_assets", "boj_assets"):
+            assert result[key]["value"] is None
+            assert result[key]["partial"] is True
+            assert result[key]["date"] == "2026-02-25"
+        assert result["fx_rates"] == {"eurusd": None, "usdjpy": None}
+
+    def test_has_global_liquidity_value_rejects_non_dict(self):
+        assert not _has_global_liquidity_value(None)
+        assert not _has_global_liquidity_value("not a dict")  # type: ignore[arg-type]
+        assert not _has_global_liquidity_value({})
+        assert not _has_global_liquidity_value({"global_liquidity": "not a dict"})
+
+    def test_build_global_liquidity_from_history_returns_none_on_invalid(self):
+        assert _build_global_liquidity_from_history(None) is None
+        assert _build_global_liquidity_from_history({"observations": []}) is None
+        assert _build_global_liquidity_from_history({"observations": "wrong"}) is None
+        # All observations have None values -> no latest -> None
+        assert _build_global_liquidity_from_history({
+            "observations": [
+                {"time": "2026-02-18", "value": None},
+                {"time": "2026-02-25", "value": None},
+            ]
+        }) is None
+
+    def test_build_global_liquidity_skips_null_observations(self):
+        """Latest valid observation wins even when the newest is null."""
+        result = _build_global_liquidity_from_history({
+            "observations": [
+                {"time": "2026-02-18", "value": 17523.68},
+                {"time": "2026-02-25", "value": None},
+            ]
+        })
+        assert result is not None
+        # falls back to the most recent observation that actually has a value
+        assert result["global_liquidity"]["value"] == 17523.68
+
+    @pytest.mark.asyncio
+    async def test_global_liquidity_fallback_returns_stale_when_valid(self):
+        stale = {"global_liquidity": {"value": 17000.0, "date": "2026-01-01"}}
+        result = await _global_liquidity_fallback(stale)
+        # stale data already has the metric -> returned as-is, no DB read needed
+        assert result is stale
+
+    @pytest.mark.asyncio
+    async def test_global_liquidity_fallback_reads_history_when_stale_empty(self):
+        history_payload = {
+            "observations": [
+                {"time": "2026-04-30", "value": 17900.42},
+            ]
+        }
+        with patch(
+            "app.features.macro.liquidity.global_service.try_db_cache",
+            new=AsyncMock(return_value=(history_payload, True)),
+        ):
+            result = await _global_liquidity_fallback(None)
+
+        assert result is not None
+        assert result["global_liquidity"]["value"] == 17900.42
+        assert result["global_liquidity"]["partial"] is True
+
+    @pytest.mark.asyncio
+    async def test_global_liquidity_fallback_returns_none_when_no_history(self):
+        with patch(
+            "app.features.macro.liquidity.global_service.try_db_cache",
+            new=AsyncMock(return_value=(None, False)),
+        ):
+            assert await _global_liquidity_fallback(None) is None
 
 
 # ===========================================================================

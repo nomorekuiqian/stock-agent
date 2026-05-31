@@ -197,7 +197,7 @@ async def get_all_liquidity_metrics() -> dict:
 
         # DB cache layer
         db_data, db_valid = await try_db_cache("fred:liquidity_metrics")
-        if db_valid and db_data:
+        if db_valid and _has_liquidity_metric_values(db_data):
             logger.info("Returning DB-cached metrics")
             _liquidity_cache["data"] = db_data
             _liquidity_cache["ts"] = time.time()
@@ -254,11 +254,103 @@ async def get_all_liquidity_metrics() -> dict:
             logger.error("Error calculating net liquidity: %s", e)
             metrics["net_liquidity"] = {"value": None, "error": str(e)}
 
+        if not _has_liquidity_metric_values(metrics):
+            fallback = await _liquidity_metrics_fallback(db_data)
+            if fallback:
+                logger.warning("Using liquidity metrics fallback because fresh data is empty")
+                _liquidity_cache["data"] = fallback
+                _liquidity_cache["ts"] = time.time()
+                return fallback
+
         _liquidity_cache["data"] = metrics
         _liquidity_cache["ts"] = time.time()
         logger.info("Cached %d metrics", len(metrics))
 
         return metrics
+
+
+def _has_liquidity_metric_values(metrics: dict | None) -> bool:
+    if not isinstance(metrics, dict):
+        return False
+    return any(
+        isinstance(metric, dict) and metric.get("value") is not None
+        for metric in metrics.values()
+    )
+
+
+async def _liquidity_metrics_fallback(stale_db_data: dict | None) -> dict | None:
+    if _has_liquidity_metric_values(stale_db_data):
+        return stale_db_data
+
+    history, _ = await try_db_cache("fred:liquidity_history")
+    if not history:
+        return None
+    return _build_liquidity_metrics_from_history(history)
+
+
+def _build_liquidity_metrics_from_history(history: dict | None) -> dict | None:
+    if not isinstance(history, dict):
+        return None
+
+    observations = history.get("observations")
+    if not isinstance(observations, list) or not observations:
+        return None
+
+    latest = next((obs for obs in reversed(observations) if isinstance(obs, dict)), None)
+    if not latest:
+        return None
+
+    def previous_value(key: str):
+        for obs in reversed(observations[:-1]):
+            if isinstance(obs, dict) and obs.get(key) is not None:
+                return obs.get(key), obs.get("time")
+        return None, None
+
+    def change_pct(key: str, current):
+        prev, _ = previous_value(key)
+        if current is None or prev in (None, 0):
+            return None
+        return ((current - prev) / abs(prev)) * 100
+
+    def metric(key: str, series_id: str, title: str, units: str) -> dict:
+        current = latest.get(key)
+        prev, prev_date = previous_value(key)
+        return {
+            "series_id": series_id,
+            "title": title,
+            "value": current,
+            "date": latest.get("time"),
+            "units": units,
+            "change": change_pct(key, current),
+            "previous_value": prev,
+            "previous_date": prev_date,
+        }
+
+    metrics = {
+        "fed_assets": metric("fed_assets", "WALCL", "Federal Reserve Total Assets", "Billions of Dollars"),
+        "tga": metric("tga", "WDTGAL", "Treasury General Account", "Billions of Dollars"),
+        "rrp": metric("rrp", "RRPONTSYD", "Overnight Reverse Repurchase Agreements", "Billions of Dollars"),
+        "reserves": metric("reserves", "WRESBAL", "Reserve Balances with Federal Reserve Banks", "Billions of Dollars"),
+        "sofr": metric("sofr", "SOFR", "Secured Overnight Financing Rate", "Percent"),
+        "effr": metric("effr", "EFFR", "Effective Federal Funds Rate", "Percent"),
+        "nfci": metric("nfci", "NFCI", "Chicago Fed National Financial Conditions Index", "Index"),
+    }
+
+    net_current = latest.get("value")
+    net_prev, net_prev_date = previous_value("value")
+    metrics["net_liquidity"] = {
+        "series_id": "CALCULATED",
+        "title": "Net Liquidity (WALCL - TGA - RRP)",
+        "value": net_current,
+        "date": latest.get("time"),
+        "units": "Billions of Dollars",
+        "change": change_pct("value", net_current),
+        "previous_value": net_prev,
+        "previous_date": net_prev_date,
+        "formula": "Fed Assets - TGA - RRP",
+    }
+
+    return metrics if _has_liquidity_metric_values(metrics) else None
 
 
 async def get_liquidity_history(days: int = 365) -> dict:

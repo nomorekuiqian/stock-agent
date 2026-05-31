@@ -40,6 +40,13 @@ from app.features.macro.risk.service import (
     _set_cached,
     _get_cache,
     _CACHE_TTL,
+    _cpi_breakdown_has_values,
+    _fill_indicators_from_cached_payload,
+    _fill_indicators_from_macro_context,
+    _fundamentals_has_indicator_values,
+    _fundamentals_indicator_value_count,
+    _indicator_has_value,
+    _set_indicator_if_missing,
 )
 from app.features.macro.risk.models import (
     MacroRiskDashboard,
@@ -108,6 +115,299 @@ class TestScoreIndicator:
         """Value exactly at mid_max boundary."""
         score = _score_indicator(30, 10, 30)
         assert score == pytest.approx(6.0, abs=0.01)
+
+
+class TestMacroFallbackHelpers:
+    """Tests for DB/trend fallback helper behavior."""
+
+    def test_fundamentals_indicator_count_ignores_ai_basket(self):
+        data = {
+            "categories": [
+                {"indicators": [{"series_id": "AI_BASKET_DAILY", "value": 3.0}]},
+                {"indicators": [{"series_id": "UNRATE", "value": 3.9}]},
+            ]
+        }
+
+        assert _fundamentals_indicator_value_count(data) == 1
+
+    def test_fill_indicators_from_cached_payload_only_missing_values(self):
+        indicators = {
+            "unemployment": {"value": None},
+            "yield_curve": {"value": 0.5},
+        }
+        cached = {
+            "sub_dimensions": [
+                {
+                    "indicators": [
+                        {"series_id": "UNRATE", "value": 3.9, "source": "macro_cache"},
+                        {"series_id": "T10Y2Y", "value": 0.3, "source": "macro_cache"},
+                    ]
+                }
+            ]
+        }
+
+        _fill_indicators_from_cached_payload(
+            indicators,
+            cached,
+            {"UNRATE": "unemployment", "T10Y2Y": "yield_curve"},
+        )
+
+        assert indicators["unemployment"]["value"] == 3.9
+        assert indicators["unemployment"]["source"] == "macro_cache"
+        assert indicators["yield_curve"]["value"] == 0.5
+
+    def test_set_indicator_if_missing(self):
+        indicators = {"treasury_10y": {"value": None}}
+
+        _set_indicator_if_missing(
+            indicators,
+            "treasury_10y",
+            4.45,
+            series_id="DGS10",
+            units="Percent",
+            source="macro:treasury_rates",
+        )
+
+        assert indicators["treasury_10y"]["value"] == 4.45
+        assert indicators["treasury_10y"]["source"] == "macro:treasury_rates"
+
+    def test_indicator_has_value_handles_none_and_missing(self):
+        assert _indicator_has_value({"value": 1.23}) is True
+        assert _indicator_has_value({"value": None}) is False
+        assert _indicator_has_value({}) is False
+        assert _indicator_has_value(None) is False
+        # Zero is still a valid value (e.g. 0% unemployment month-over-month)
+        assert _indicator_has_value({"value": 0}) is True
+
+    def test_fundamentals_has_indicator_values_aliases_count(self):
+        assert _fundamentals_has_indicator_values(None) is False
+        assert _fundamentals_has_indicator_values({}) is False
+        assert _fundamentals_has_indicator_values(
+            {"categories": [{"indicators": [{"series_id": "UNRATE", "value": 3.9}]}]}
+        ) is True
+
+    def test_fundamentals_count_skips_when_value_is_none(self):
+        data = {
+            "sub_dimensions": [
+                {"indicators": [{"series_id": "UNRATE", "value": None}]},
+                {"indicators": [{"series_id": "CFNAI", "value": 0.5}]},
+            ]
+        }
+        assert _fundamentals_indicator_value_count(data) == 1
+
+    def test_fundamentals_count_handles_missing_sections(self):
+        # Both `sub_dimensions` and `categories` absent -> 0 (and no crash)
+        assert _fundamentals_indicator_value_count({"other": "stuff"}) == 0
+
+    def test_cpi_breakdown_has_values_detects_yoy_or_mom(self):
+        assert _cpi_breakdown_has_values(None) is False
+        assert _cpi_breakdown_has_values({"components": []}) is False
+        assert _cpi_breakdown_has_values(
+            {"components": [{"yoy_pct": None, "mom_pct": None}]}
+        ) is False
+        assert _cpi_breakdown_has_values(
+            {"components": [{"yoy_pct": 3.1}]}
+        ) is True
+        assert _cpi_breakdown_has_values(
+            {"components": [{"mom_pct": 0.4}]}
+        ) is True
+
+    def test_fill_indicators_skips_unknown_series_id(self):
+        indicators = {"unemployment": {"value": None}}
+        cached = {
+            "sub_dimensions": [
+                {"indicators": [{"series_id": "UNKNOWN_X", "value": 99.9}]}
+            ]
+        }
+        _fill_indicators_from_cached_payload(
+            indicators, cached, {"UNRATE": "unemployment"}
+        )
+        # No matching series_id -> indicator stays None
+        assert indicators["unemployment"]["value"] is None
+
+    def test_fill_indicators_skips_when_cached_value_is_none(self):
+        indicators = {"unemployment": {"value": None}}
+        cached = {
+            "sub_dimensions": [
+                {"indicators": [{"series_id": "UNRATE", "value": None}]}
+            ]
+        }
+        _fill_indicators_from_cached_payload(
+            indicators, cached, {"UNRATE": "unemployment"}
+        )
+        assert indicators["unemployment"]["value"] is None
+
+    def test_fill_indicators_accepts_categories_section(self):
+        indicators = {"unemployment": {"value": None}}
+        cached = {
+            "categories": [
+                {"indicators": [{"series_id": "UNRATE", "value": 3.9}]}
+            ]
+        }
+        _fill_indicators_from_cached_payload(
+            indicators, cached, {"UNRATE": "unemployment"}
+        )
+        assert indicators["unemployment"]["value"] == 3.9
+        # default source applied when not provided by cached payload
+        assert indicators["unemployment"]["source"] == "macro_cache"
+
+    def test_fill_indicators_no_op_when_cached_is_none(self):
+        indicators = {"unemployment": {"value": None}}
+        _fill_indicators_from_cached_payload(indicators, None, {"UNRATE": "unemployment"})
+        assert indicators["unemployment"]["value"] is None
+
+    def test_set_indicator_skips_when_value_is_none(self):
+        indicators = {"treasury_10y": {"value": None}}
+        _set_indicator_if_missing(
+            indicators,
+            "treasury_10y",
+            None,
+            series_id="DGS10",
+            units="Percent",
+            source="macro:treasury_rates",
+        )
+        assert indicators["treasury_10y"]["value"] is None
+
+    def test_set_indicator_skips_when_existing_value_present(self):
+        indicators = {"treasury_10y": {"value": 4.20}}
+        _set_indicator_if_missing(
+            indicators,
+            "treasury_10y",
+            4.45,
+            series_id="DGS10",
+            units="Percent",
+            source="macro:treasury_rates",
+        )
+        # Existing value preserved, not overwritten by fallback
+        assert indicators["treasury_10y"]["value"] == 4.20
+
+    def test_set_indicator_skips_when_key_missing(self):
+        # Helper only fills keys already declared on the indicators dict
+        indicators: dict = {}
+        _set_indicator_if_missing(
+            indicators,
+            "treasury_10y",
+            4.45,
+            series_id="DGS10",
+            units="Percent",
+            source="macro:treasury_rates",
+        )
+        assert "treasury_10y" not in indicators
+
+
+class TestFillIndicatorsFromMacroContext:
+    """Tests for the async helper that pulls trend/treasury context from cache."""
+
+    @pytest.mark.asyncio
+    async def test_fills_trend_context_and_treasury_when_indicators_missing(self):
+        trend = {
+            "gdp_growth": {"current": 2.5},
+            "unemployment": {"current": 3.9},
+            "cpi_yoy": {"current": 3.1},
+        }
+        treasury = {
+            "rates": {
+                "10Y": {"rate": 4.45, "daily_change_bps": 5.0},
+                "2Y": {"rate": 4.80, "daily_change_bps": 2.0},
+            }
+        }
+
+        async def fake_try_db_cache(key):
+            if key == "macro:trend_context":
+                return trend, True
+            if key == "macro:treasury_rates":
+                return treasury, True
+            return None, False
+
+        indicators: dict = {
+            "gdp_growth": {"value": None},
+            "unemployment": {"value": None},
+            "cpi": {"value": None},
+            "treasury_10y": {"value": None},
+            "yield_curve": {"value": None},
+        }
+
+        with patch(
+            "app.features.macro.risk.service.try_db_cache",
+            new=fake_try_db_cache,
+        ):
+            await _fill_indicators_from_macro_context(indicators)
+
+        assert indicators["gdp_growth"]["value"] == 2.5
+        assert indicators["gdp_growth"]["source"] == "macro:trend_context"
+        assert indicators["unemployment"]["value"] == 3.9
+        assert indicators["cpi"]["value"] == 3.1
+        assert indicators["treasury_10y"]["value"] == 4.45
+        assert indicators["yield_curve"]["value"] == pytest.approx(-0.35, abs=0.0001)
+        # change = (10Y_change_bps - 2Y_change_bps) / 100 = (5.0 - 2.0) / 100
+        assert indicators["yield_curve"]["change"] == pytest.approx(0.03, abs=0.0001)
+
+    @pytest.mark.asyncio
+    async def test_does_not_overwrite_existing_indicator_values(self):
+        trend = {"unemployment": {"current": 4.5}}
+
+        async def fake_try_db_cache(key):
+            if key == "macro:trend_context":
+                return trend, True
+            return None, False
+
+        indicators = {"unemployment": {"value": 3.9, "source": "fred"}}
+
+        with patch(
+            "app.features.macro.risk.service.try_db_cache",
+            new=fake_try_db_cache,
+        ):
+            await _fill_indicators_from_macro_context(indicators)
+
+        # Fresh FRED data wins over trend fallback
+        assert indicators["unemployment"]["value"] == 3.9
+        assert indicators["unemployment"]["source"] == "fred"
+
+    @pytest.mark.asyncio
+    async def test_safe_when_caches_missing(self):
+        async def fake_try_db_cache(key):
+            return None, False
+
+        indicators = {"treasury_10y": {"value": None}, "yield_curve": {"value": None}}
+
+        with patch(
+            "app.features.macro.risk.service.try_db_cache",
+            new=fake_try_db_cache,
+        ):
+            await _fill_indicators_from_macro_context(indicators)
+
+        # No fallback data -> values remain None, no crash
+        assert indicators["treasury_10y"]["value"] is None
+        assert indicators["yield_curve"]["value"] is None
+
+    @pytest.mark.asyncio
+    async def test_skips_yield_curve_change_when_bps_missing(self):
+        treasury = {
+            "rates": {
+                "10Y": {"rate": 4.45},
+                "2Y": {"rate": 4.80},
+            }
+        }
+
+        async def fake_try_db_cache(key):
+            if key == "macro:treasury_rates":
+                return treasury, True
+            return None, False
+
+        indicators = {
+            "treasury_10y": {"value": None},
+            "yield_curve": {"value": None},
+        }
+
+        with patch(
+            "app.features.macro.risk.service.try_db_cache",
+            new=fake_try_db_cache,
+        ):
+            await _fill_indicators_from_macro_context(indicators)
+
+        assert indicators["yield_curve"]["value"] == pytest.approx(-0.35, abs=0.0001)
+        # No bps change data -> change stays None (not crash)
+        assert indicators["yield_curve"]["change"] is None
 
 
 # ===========================================================================
