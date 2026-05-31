@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from app.core.deps import verify_user_token_with_email
 from app.core.logging import get_logger
 from app.features.flags.db import get_user_flags
-from app.features.kol_research import cockpit, cockpit_v3
+from app.features.kol_research import cockpit, skill_cockpit
 from app.features.kol_research.agent import (
     DEFAULT_PERSONA,
     answer_kol_research,
@@ -161,15 +161,6 @@ async def cockpit_profile(username: str):
     }
 
 
-@router.get("/personas/{username}/sectors/{sector_key}")
-async def cockpit_sector(username: str, sector_key: str):
-    """Sector detail: curated method + lens body + representative tweet originals."""
-    detail = await cockpit.get_sector_detail(username, sector_key)
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Sector not found")
-    return detail
-
-
 @router.get("/personas/{username}/tickers")
 async def cockpit_tickers(username: str):
     """Ticker list with mention counts + current price."""
@@ -187,35 +178,31 @@ async def cockpit_tickers(username: str):
         q = quotes_by_symbol.get(t["ticker"])
         t["price"] = q.get("price") if q else None
         t["daily_change"] = q.get("daily_change") if q else None
-        t["summary"] = cockpit_v3.get_ticker_summary(t["ticker"])
+        t["summary"] = skill_cockpit.get_ticker_summary(t["ticker"])
     return {"tickers": tickers}
 
 
-@router.get("/personas/{username}/sectors_v3")
-async def cockpit_sectors_v3(username: str):
-    """List v3 sectors for the cockpit sidebar.
-
-    The v3 corpus currently only has qinbafrank; for other personas this
-    returns an empty list (multi-persona v3 distillation is a future task).
-    """
+@router.get("/personas/{username}/sectors")
+async def cockpit_sectors(username: str):
+    """List skill-backed sectors for the cockpit sidebar."""
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
     if username.lower() != "qinbafrank":
         return {"sectors": []}
-    return {"sectors": cockpit_v3.list_sectors_v3()}
+    return {"sectors": skill_cockpit.list_sectors()}
 
 
-@router.get("/personas/{username}/sectors_v3/{sector_key}")
-async def cockpit_sector_v3(username: str, sector_key: str):
-    """Detailed v3 sector + ticker prices + resolved rep tweets."""
+@router.get("/personas/{username}/sectors/{sector_key}")
+async def cockpit_sector(username: str, sector_key: str):
+    """Detailed sector + ticker prices + resolved representative tweets."""
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
     if username.lower() != "qinbafrank":
-        raise HTTPException(status_code=404, detail="No v3 distillation for this persona yet")
+        raise HTTPException(status_code=404, detail="No skill distillation for this persona yet")
 
-    detail = cockpit_v3.get_sector_v3(sector_key)
+    detail = skill_cockpit.get_sector(sector_key)
     if detail is None:
         raise HTTPException(status_code=404, detail="Sector not found")
 
@@ -240,7 +227,7 @@ async def cockpit_sector_v3(username: str, sector_key: str):
                 for q in res.get("quotes") or []:
                     quotes_by_symbol[(q.get("symbol") or "").upper()] = q
             except Exception:  # noqa: BLE001
-                logger.warning("sector_v3 batch quote failed", exc_info=True)
+                logger.warning("sector batch quote failed", exc_info=True)
 
         enriched = []
         for entry in raw_tickers:
@@ -284,7 +271,7 @@ async def cockpit_sector_v3(username: str, sector_key: str):
         for r in rules:
             if not isinstance(r, str) or not r.strip():
                 continue
-            evidence_ids = cockpit_v3.rank_tweets_for_rule(r, candidate_pool, limit=limit)
+            evidence_ids = skill_cockpit.rank_tweets_for_rule(r, candidate_pool, limit=limit)
             evidence: list[dict] = []
             for tid in evidence_ids:
                 slim = next((s for s in candidate_pool if str(s.get("id")) == tid), None)
@@ -321,7 +308,7 @@ async def cockpit_industry_chain(username: str, board_key: str):
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
 
-    board = cockpit_v3.get_industry_chain_definition(board_key)
+    board = skill_cockpit.get_industry_chain_definition(board_key)
     if board is None:
         raise HTTPException(status_code=404, detail="Chain not registered for this board")
 
@@ -404,10 +391,10 @@ async def cockpit_industry_chain(username: str, board_key: str):
 
         def _enrich(tk: str, coverage: str) -> dict:
             q = quotes_by_symbol.get(tk)
-            stance = cockpit_v3.get_ticker_stance(tk) if coverage == "covered" else ""
-            summary = cockpit_v3.get_ticker_summary(tk) if coverage == "covered" else None
+            stance = skill_cockpit.get_ticker_stance(tk) if coverage == "covered" else ""
+            summary = skill_cockpit.get_ticker_summary(tk) if coverage == "covered" else None
             name = (q.get("name") if q else None) or (
-                cockpit_v3.SUPPLEMENT_NAMES.get(tk) if coverage == "not_covered" else None
+                skill_cockpit.SUPPLEMENT_NAMES.get(tk) if coverage == "not_covered" else None
             )
             return {
                 "ticker": tk,
@@ -418,7 +405,7 @@ async def cockpit_industry_chain(username: str, board_key: str):
                 "priceable": tk not in cockpit.NON_PRICEABLE,
                 "stance": stance,
                 "frank_coverage": coverage,  # 'covered' | 'not_covered'
-                "summary": summary,  # null if not in v3 ticker mds
+                "summary": summary,  # null if not in ticker skill markdown
             }
 
         ticker_objs: list[dict] = []
@@ -506,7 +493,7 @@ async def cockpit_ticker_detail(username: str, ticker: str):
         "sector": fundamentals.get("sector"),
         "pe_ttm": fundamentals.get("pe_ttm"),
     }
-    detail["summary"] = cockpit_v3.get_ticker_summary(sym)
+    detail["summary"] = skill_cockpit.get_ticker_summary(sym)
     return detail
 
 

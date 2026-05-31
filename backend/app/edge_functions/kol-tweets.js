@@ -344,10 +344,10 @@ module.exports = async function(request) {
       );
     }
 
-    // POST ?action=list_unenriched - list tweets that need V3 enrichment
+    // POST ?action=list_unenriched - list tweets that need enrichment
     //   body: { since: ISO, limit?: number }
     //
-    // "Needs enrichment" = symbols IS NULL OR symbols isn't the V3 object shape
+    // "Needs enrichment" = symbols IS NULL OR symbols isn't the expected object shape
     // (legacy Phase 1 array form, missing `quality` key, non-object). We can't
     // express the union cleanly via the SDK's typed filter chain so we pull
     // the window without a symbols filter and decide per-row in JS. Volume is
@@ -378,7 +378,7 @@ module.exports = async function(request) {
         if (s === null || s === undefined) return true;
         if (Array.isArray(s)) return true;        // legacy Phase 1 ticker array
         if (typeof s !== "object") return true;
-        if (typeof s.quality !== "string") return true;  // V3 shape but unfilled
+        if (typeof s.quality !== "string") return true;  // expected shape but unfilled
         return false;
       };
       const filtered = (data || []).filter(needsEnrichment);

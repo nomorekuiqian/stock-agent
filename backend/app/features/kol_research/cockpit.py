@@ -51,8 +51,8 @@ def _is_low_quality_reply(t: dict, username: str) -> bool:
 # ---------------------------------------------------------------------------
 # Curated ticker dictionary — ticker -> alias strings.
 # CJK aliases match as substrings; ASCII aliases match case-sensitively on word
-# boundaries (so "ARM" the ticker ≠ "arm", "META" ≠ "metaverse"). Seeded from the
-# tickers named across methodologies/qinbafrank/lens-*.md. Tunable.
+# boundaries (so "ARM" the ticker ≠ "arm", "META" ≠ "metaverse"). Seeded from
+# the Frank cockpit skill ticker universe. Tunable.
 # ---------------------------------------------------------------------------
 TICKER_ALIASES: dict[str, list[str]] = {
     # --- AI 算力底座 / GPU / 半导体设计 ---
@@ -458,9 +458,9 @@ async def get_tweets_by_ids(username: str, ids: list[str]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Curated methodology config — sourced from methodologies/qinbafrank/*.md.
+# Curated cockpit display config.
 # Static identity content (not dynamic), hand-distilled for structured display.
-# The full lens markdown remains the single source for the chat agent.
+# The skill markdown remains the source for the chat agent.
 # ---------------------------------------------------------------------------
 PROFILE_CORE: dict = {
     # Public Twitter bio — what the KOL says about themselves on their profile.
@@ -592,53 +592,53 @@ GROUP_ALIASES: dict[str, str] = {
 }
 
 
-# v3 sector key -> ticker set, populated lazily. Kept SEPARATE from
+# Skill-backed sector key -> ticker set, populated lazily. Kept SEPARATE from
 # _TICKERS_BY_GROUP so the legacy chip-display loop (which iterates that
-# dict) is not polluted with v3 keys.
-_V3_FILTER_TICKERS: dict[str, set[str]] = {}
-_v3_filter_registered = False
+# dict) is not polluted with skill-backed sector keys.
+_SKILL_FILTER_TICKERS: dict[str, set[str]] = {}
+_skill_filter_registered = False
 
 
-def _register_v3_filter_if_needed() -> None:
-    global _v3_filter_registered
-    if _v3_filter_registered:
+def _register_skill_filter_if_needed() -> None:
+    global _skill_filter_registered
+    if _skill_filter_registered:
         return
-    _v3_filter_registered = True
+    _skill_filter_registered = True
     try:
-        from app.features.kol_research import cockpit_v3
-        sector_tickers = cockpit_v3._build_sector_tickers()
-        # Only register the 5 canonical v3 sectors (SECTOR_DISPLAY). The walker
+        from app.features.kol_research import skill_cockpit
+        sector_tickers = skill_cockpit._build_sector_tickers()
+        # Only register the canonical skill-backed sectors (SECTOR_DISPLAY). The walker
         # also yields internal SubLayer keys (semiconductor-memory-hbm /
         # neocloud / fintech-brokerage / power-and-physical-ai) used for the
         # industry-chain map; those should not appear as feed filter chips.
-        for v3_key in cockpit_v3.SECTOR_DISPLAY.keys():
-            entries = sector_tickers.get(v3_key) or []
-            _V3_FILTER_TICKERS[v3_key] = {
+        for sector_key in skill_cockpit.SECTOR_DISPLAY.keys():
+            entries = sector_tickers.get(sector_key) or []
+            _SKILL_FILTER_TICKERS[sector_key] = {
                 str(e.get("ticker") or "").upper()
                 for e in entries
                 if e.get("ticker")
             }
     except Exception:
-        logger.exception("v3 sector filter registration failed")
+        logger.exception("skill sector filter registration failed")
 
 
 def _resolve_group(value: str) -> Optional[str]:
     """Resolve a filter value to either a legacy group label (key of
-    _TICKERS_BY_GROUP) or a canonical v3 sector key (key of
-    _V3_FILTER_TICKERS). Returns None if unrecognized.
+    _TICKERS_BY_GROUP) or a canonical skill-backed sector key (key of
+    _SKILL_FILTER_TICKERS). Returns None if unrecognized.
     """
     if value in _TICKERS_BY_GROUP:
         return value
     alias = GROUP_ALIASES.get(value.lower())
     if alias:
         return alias
-    _register_v3_filter_if_needed()
-    if value in _V3_FILTER_TICKERS:
+    _register_skill_filter_if_needed()
+    if value in _SKILL_FILTER_TICKERS:
         return value
     return None
 
 
-# Macro-layer groups (legacy label + v3 key). For these the feed filter
+# Macro-layer groups (legacy label + skill-backed key). For these the feed filter
 # also matches tweets whose text contains macro keywords, even when no
 # ticker overlap exists — macro tweets often discuss Fed / liquidity / TGA
 # without naming any ticker.
@@ -784,7 +784,7 @@ async def get_feed(
         if resolved is None:
             items = []
         else:
-            allowed = _TICKERS_BY_GROUP.get(resolved) or _V3_FILTER_TICKERS.get(resolved, set())
+            allowed = _TICKERS_BY_GROUP.get(resolved) or _SKILL_FILTER_TICKERS.get(resolved, set())
             if resolved in _MACRO_GROUP_KEYS:
                 # macro tweets often have no ticker — fall back to keyword scan
                 items = [

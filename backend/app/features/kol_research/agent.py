@@ -40,6 +40,12 @@ from app.features.kol_research.models import (
     KolResearchResponse,
     KolToolCallSummary,
 )
+from app.features.kol_research.input_guard import (
+    InputGuardContext,
+    append_data_coverage_warning,
+    build_input_guard_context,
+    validate_data_coverage,
+)
 from app.features.screener.research_agent import (
     _recent_reports,
     get_report_by_date,
@@ -94,6 +100,10 @@ _google_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
     contextvars.ContextVar("_kol_research_google_calls", default=None)
 )
 _MAX_GOOGLE_SEARCH_PER_TURN = 1
+_kol_tweet_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
+    contextvars.ContextVar("_kol_research_tweet_search_calls", default=None)
+)
+_MAX_KOL_TWEET_SEARCH_PER_TURN = 3
 # Tool names that ADK exposes for the GoogleSearchTool. ADK currently registers
 # the underlying agent transfer under "google_search_agent"; "google_search"
 # may appear in older / different code paths.
@@ -213,6 +223,24 @@ async def _before_tool_callback(tool, args, tool_context):
     tool_name = getattr(tool, "name", str(tool))
     args = args or {}
 
+    if tool_name == "search_kol_tweets":
+        counts = _kol_tweet_search_calls.get(None)
+        if counts is not None:
+            counts[tool_name] = counts.get(tool_name, 0) + 1
+            if counts[tool_name] > _MAX_KOL_TWEET_SEARCH_PER_TURN:
+                logger.info(
+                    "kol_research: blocked extra search_kol_tweets call (count=%d)",
+                    counts[tool_name],
+                )
+                return {
+                    "status": "rate_limited",
+                    "message": (
+                        "search_kol_tweets 本轮已达上限. 基于已召回的历史观点、"
+                        "已加载 skill 和已注入/已调用的数据回答. 如果证据不足, "
+                        "在答案里说'博主未明确表态'或'需要补充数据'."
+                    ),
+                }
+
     # Hard cap on google_search: kill the second+ call to keep latency in check.
     if tool_name in _GOOGLE_SEARCH_TOOL_NAMES:
         counts = _google_search_calls.get(None)
@@ -322,6 +350,29 @@ def _safe_args_summary(args: dict | None, *, max_len: int = 120) -> Optional[str
 # don't run this on deltas.
 _CITATION_CONCAT_RE = re.compile(r"\[#(\d+)((?:[,\s、]+#?\d+)+)\]")
 _CITATION_ADJACENT_RE = re.compile(r"(\[#\d+\])(?=\[#\d+\])")
+_INTERNAL_COVERAGE_RE = re.compile(
+    r"(?i)(?:[`'\"]?coverage[`'\"]?\s*[:=]\s*)[`'\"]?(high|medium|low|none)[`'\"]?"
+)
+_CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
+_BULLET_BOLD_LABEL_RE = re.compile(r"(?m)^(\s*[*+-]\s+)\*\*([^*\n]{1,40})\*\*([：:])")
+_BOLD_RE = re.compile(r"\*\*([^*\n]+)\*\*")
+_COVERAGE_LABELS = {
+    "high": "博主讨论很充分",
+    "medium": "博主有过多次讨论",
+    "low": "博主提到较少",
+    "none": "博主未直接讨论",
+}
+_TRADING_PHRASE_REPLACEMENTS = (
+    ("视作分批回补仓位的窗口", "视作重新评估仓位风险收益的窗口"),
+    ("视作分批建仓的窗口", "视作分批评估的窗口"),
+    ("分批回补仓位", "分批评估仓位"),
+    ("回补仓位", "重新评估仓位"),
+    ("分批建仓", "分批评估"),
+    ("再分批建仓", "再分批评估"),
+    ("不建议", "不适合"),
+    ("应该等待", "更稳的是等待"),
+    ("恐慌卖出", "因情绪一次性处理"),
+)
 
 
 def _fix_concat_citations(text: str) -> str:
@@ -336,21 +387,50 @@ def _fix_concat_citations(text: str) -> str:
     return text
 
 
+def _sanitize_user_facing_markdown(text: str) -> str:
+    """Remove internal metadata and debug-looking markdown from final answers."""
+    if not text:
+        return text
+
+    def _replace_coverage(m: re.Match) -> str:
+        return _COVERAGE_LABELS.get(m.group(1).lower(), "博主讨论覆盖度待确认")
+
+    def _replace_code_span(m: re.Match) -> str:
+        token = m.group(1).strip()
+        if not token:
+            return ""
+        if re.fullmatch(r"\$?[A-Z]{1,5}", token):
+            return f"`{token}`"
+        if re.search(r"\d|[<>=±+*/%$]", token):
+            return f"`{token}`"
+        return token
+
+    def _cap_bold(match: re.Match) -> str:
+        nonlocal bold_count
+        bold_count += 1
+        if bold_count <= 3:
+            return match.group(0)
+        return match.group(1)
+
+    text = _INTERNAL_COVERAGE_RE.sub(_replace_coverage, text)
+    text = _CODE_SPAN_RE.sub(_replace_code_span, text)
+    text = _BULLET_BOLD_LABEL_RE.sub(r"\1\2\3", text)
+    for source, target in _TRADING_PHRASE_REPLACEMENTS:
+        text = text.replace(source, target)
+    bold_count = 0
+    return _BOLD_RE.sub(_cap_bold, text)
+
+
 # ---------------------------------------------------------------------------
 # Agent construction (singleton per persona)
 # ---------------------------------------------------------------------------
 
 # LONG-TERM TODO: 下面这套"回答框架 / 工具使用 / 输出格式"规则混合了通用脚手架
 # (任何 KOL persona 都该遵守) 和 qinbafrank 特定的认知模式 (产业派分析师独有的
-# 5 段式推理). 长期方向: 把"产业派回答框架"这种 KOL 特定内容迁回
-# `methodologies/qinbafrank/*.md`, 让换 KOL 时框架自动跟着变 (技术派会用形态/
-# 均线/量能/突破/止损; 量化派会用因子/backtest/sharpe). 当前只服务 qinbafrank,
-# 一次性 hardcode 是可接受的简化.
-#
-# TEMPORARY (2026-05-27): 加入 KOL_PERSONA_VERSION=v3 灰度测试模式。当
-# env var 为 v3 时，_build_instruction 使用 _V3_TOOL_USAGE_RULES (更松
-# 散的回答框架，让 v3 skill md 自带的 "输出模板" 段生效)，不走下面这套
-# 5 段式硬约束。
+# 5 段式推理). 长期方向: 把"产业派回答框架"这种 KOL 特定内容继续沉到
+# skill 文件里, 让换 KOL 时框架自动跟着变 (技术派会用形态/均线/量能/
+# 突破/止损; 量化派会用因子/backtest/sharpe). 当前只服务 qinbafrank, 一次性
+# hardcode 是可接受的简化。
 
 _TOOL_USAGE_RULES = """
 # 工具使用规则
@@ -430,10 +510,10 @@ _TOOL_USAGE_RULES = """
 
 
 # ---------------------------------------------------------------------------
-# v3 灰度测试 — 当 KOL_PERSONA_VERSION=v3 时使用这套更松散的指令
+# 当前 Frank skill loader 使用这套更松散的指令
 # ---------------------------------------------------------------------------
 
-_V3_TOOL_USAGE_RULES = """
+_SKILL_TOOL_USAGE_RULES = """
 # 工具使用规则
 
 每次回答按这个顺序走:
@@ -445,6 +525,7 @@ _V3_TOOL_USAGE_RULES = """
    | 个股观点 | ticker / 公司中文名 + 怎么看 / 估值 / 财报 / 加仓 / 顶 / 底 | `framework-ask-about-stock` |
    | 产业板块 | AI 算力 / HBM / 稳定币 / 太空 / SaaS / 物理 AI + 板块 / 看好 / 阶段 | `framework-ask-about-sector` |
    | 宏观判断 | Fed / 降息 / CPI / 流动性 / 大顶 / 地缘 / 关税 / TACO | `framework-ask-about-macro` |
+   | 新闻事件 | 新闻 / 消息 / 利好利空 / 怎么看这个新闻 / 对 X 影响 | 先判断影响对象: 个股用 stock, 产业用 sector, 宏观用 macro |
    | 方法论 / 概念 | 什么是 / 怎么判断 / 如何决策 / 为什么 / 是什么意思 | `framework-ask-about-method` |
    | Veto 类 | meme / 梭哈 / all in / 做空 / 抄底烂 / 一把梭 / 短炒 / 赌 | `framework-ask-about-veto` |
    | 比较选择 | 还是 / vs / 对比 / 哪个 / 选谁 / 二选一 | `framework-ask-to-compare` |
@@ -471,11 +552,27 @@ _V3_TOOL_USAGE_RULES = """
 5. **`google_search` 是 escape hatch**, 仅在同时满足三条时调用一次:
    a) search_kol_tweets 召回 0 条
    b) 所有 data tool 返回无数据
-   c) 话题超出 v3 skill 覆盖范围
+   c) 话题超出 skill 覆盖范围
    调用后在答案显式标注 "以下信息来自 web 搜索, 非博主历史观点".
 
 # 通用纪律 (跨所有 framework 必须遵守)
 
+- **全局回答契约**: 除纯事实查询 / 纯概念解释 / Veto 短答外, 最终答案必须闭合这条链:
+  1. **一句话结论**: 先说当前更像 `风险` / `机会` / `等待确认` / `分歧未决` 中哪一类; 说明影响的是估值、业绩、还是逻辑. 证据不足就说暂不能归位.
+  2. **因果链**: 用 `A -> B -> C` 把数据或事件传导到资产价格, 不能只列指标名. 例: `TGA 回补 -> 银行准备金下降 -> 资金市场压力上升 -> 高估值成长股估值承压`.
+  3. **场景树**: 至少给基准 / 升级 / 缓和三条路径, 每条都必须有触发条件. 不要只写"关注 X/Y/Z".
+  4. **散户可用含义**: 不给买卖指令, 但要翻译成条件化动作语言: `观察` / `等待确认` / `降低单一叙事暴露` / `分批评估` / `避免追高` / `只适合深认知仓位`. 必须解释为什么.
+  5. **打脸条件**: 写清楚什么指标、事件、时间窗会让当前判断下修或推翻. 如果博主没给具体阈值, 写"博主未给具体阈值, 需要补充 X 数据确认".
+- **散户短问模式**: 用户问 "怎么看 X" / "能买吗" / "要卖吗" / "还持有吗" / "这个新闻是利好还是利空" 时, 开头必须用 1-2 句直接回答, 不要先铺背景. 推荐结构:
+  - `短结论`: 按博主方法论, 当前更偏观察 / 等确认 / 风险升级 / 只适合深认知仓位.
+  - `为什么`: 1 条最关键因果链.
+  - `看什么`: 2-3 个确认或打脸信号.
+  - `对你意味着什么`: 条件化动作语言, 不能说应该买卖.
+  这类问题目标 300-700 字; 除非用户明确要深度分析, 不要写成长报告. 默认不用表格, 用 2-4 个短段落或项目符号即可.
+- **"Thesis 是否成立"属于散户短问**, 不是财报长文. 用户问 thesis / 逻辑 / 叙事 是否成立时, 只回答三件事: 现在更像"没被证伪 / 需要继续验证 / 已被削弱"哪一类; 哪 2-3 个事实支撑; 哪 2-3 个信号会打脸. 禁用表格, 禁用"指标对照表"标题.
+- **观察清单不能单独成答案**. 每个观察项都要回答"它变了以后, 市场含义是什么".
+- **禁止专业名词堆叠**. `TGA` / `RRP` / `SOFR` / `RPO` / `Capex` 这类词出现时, 必须翻译成普通投资者能理解的机制语言.
+- **框架标签只用于你内部思考, 不要原样当标题输出**. 禁止把 "因果链" / "场景树" / "Thesis 证伪条件" / "散户可用动作指引" / "coverage" / "high/medium/low/none" 写给用户. 用户可见标题改成自然说法: "为什么还没坏" / "哪些信号会打脸" / "现在怎么处理更稳".
 - **博主历史判断带的打脸条件要一并转述** (qinbafrank 真正的指纹). 你引用了博主"看多 / 看空"的历史观点, 博主当时如果挂过 "什么数据出来这个判断就翻车" 的阈值 (指标 + 阈值 + 时间窗), 必须一起转述出来. 博主当时没挂, 你不要补 — 不要为了凸显"博主指纹"自己编一个打脸条件.
 - **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为".
 - **没数据时**明确说"需要补充", 不要编造数字.
@@ -498,7 +595,9 @@ _V3_TOOL_USAGE_RULES = """
 你是博主观点的**策展人**, 不是博主代言人, 也不是判断者. 所有 framework 默认遵守这套约束 (method / veto 因为本身就是转述博主立场, 天然适用; stock / sector / macro / compare 风险更高, 务必严守):
 
 - **主语锁博主**. 用 "博主说过 / 博主认为 / 博主关心 / 博主多次强调". **禁用**: "我看多 X / 我看空 X" / "博主框架下能买 / 不能买" / "建议加仓 / 减仓" / "产业看好 / 板块见顶".
-- **不主动假设场景**. 用户没问 "如果跌了怎么办", 不要主动套 "如果近期回调... 这是杀估值". 只回答用户实际问的问题, 不替博主对未发生的场景做定性.
+- **可以给散户可用含义, 但必须条件化**. 允许说"如果 X 信号未出现, 更适合观察/等待确认"; 禁止说"应该买/应该卖/可以加仓".
+- **交易措辞降级**. 不要用 "建议买入 / 建议卖出 / 应当布局 / 持有是合理的 / 坚决降低 / 回补仓位" 这种像投顾指令的话. 改成 "可以把 X 当作继续观察条件" / "这更像风险复核信号" / "不适合只凭单一叙事加大暴露".
+- **不主动扩写无关交易剧本**. 如果全局回答契约或 framework 要求场景树, 只画与用户问题直接相关的基准 / 升级 / 缓和路径, 不把未发生场景定性成事实.
 - **段数 / 段标题 / 字数你自己决定**. 跟问题深度走, 不要凑骨架. framework 只规定 "必须包含的动作", 不规定 "必须 4 段" 或 "段 1 标题必须是 X". 自然语言组织, 别填表.
 - **如果你选用对照表**展示当下数据 vs 博主原话, 对照列只能填以下机械事实词:
   - 允许: `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`
@@ -509,21 +608,21 @@ _V3_TOOL_USAGE_RULES = """
 
 - Markdown 简体中文; 段落自然语言为主, 别填表.
 - **长度和结构由加载的 framework skill 决定**, 不要硬套字数或段数.
-- **粗体** 全段 1-2 处, 锁定该段核心判断的句子或数字, 不打装饰. 看到第三处 ** 就该自问 "这真重要吗".
+- **粗体** 全篇最多 3 处; 散户短问最多 1 处. 只加粗真正的结论或打脸信号, 不给每个小标题、每条 bullet、普通形容词加粗.
 - **代码反引号** ` ` 只能包裹:
-  (a) 美股 ticker: `NVDA` / `TSLA` / `SPY`
+  (a) 用户问到的美股 ticker: `NVDA` / `TSLA` / `SPY`
   (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
-  (c) 指标短名: `PMI` / `RPO` / `Capex/Revenue`
-  **禁止包裹**: 中文短语 (`业绩兑现` / `确定性` / `兑现`) / 英文名词 (`Macro` / `Capex`) / 整句话 / 形容词. 规则极简: 这个 token 是数据字面量吗? 不是就别用反引号, 用粗体或不强调.
-- **表格** (GFM 管道语法) 仅当展示"多维度对照" (≥3 行 × ≥2 列) 时用. 典型: 当下数据 vs 博主原话对照 (列 = 指标 / 博主原话 / 当下值 / 状态). 状态列只填策展人模式允许的机械事实词 (`已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`). 单维度清单一律用列表, 不要造两列假表格.
+  **禁止包裹**: 中文短语、产品名、普通指标名、公司名、英文名词、整句话、形容词. 例如 Blackwell / Rubin / Revenue YoY / Forward PE / Gross Margin / Capex 都不要加反引号.
+- **内部标签禁止外露**: 不输出 `coverage: high`、`parent_sector`、`marker`、skill 文件名、frontmatter 字段名. 需要表达覆盖度时写成人话: "博主对这只票讨论很多 / 讨论不多 / 没有直接讨论".
+- **表格** 仅当用户明确要"数据对照 / 详细表格", 或确实有 ≥4 个独立指标需要同屏比较时才用. 散户短问、thesis 是否成立、能买吗/要卖吗/持有吗这几类问题禁止用表格, 包括 GFM 管道表、空格对齐表、"指标对照表"小节. 如果用了表格, 列名要像给普通投资者看的语言, 不要出现 "状态" 这种机械列; 最后一列用 "怎么理解".
 - **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
 - **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
 - **段标题**: 必要时用 `### ` 三级标题; 不要 `# / ##` 与回复区视觉撞.
 - **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表.
 
-# v3 测试声明
+# skill 来源
 
-当前使用 KOL_PERSONA_VERSION=v3, 加载 `_drafts/qinbafrank-skill-v3/`:
+当前加载 Frank skill 资产:
 - core/operating-system + macro/macro-regime 已注入此 prompt (always-on)
 - 6 个 framework + 7 sector + 32 ticker playbook + 1 marker 通过 load_skill 按需加载
 """
@@ -531,21 +630,12 @@ _V3_TOOL_USAGE_RULES = """
 
 def _build_instruction(persona: Persona) -> str:
     always_on = build_always_on_instruction(persona)
-    # 根据 KOL_PERSONA_VERSION 选择 tool usage rules
-    from app.shared.kol_persona.registry import PERSONA_VERSION
-    if PERSONA_VERSION == "v3":
-        tool_rules = _V3_TOOL_USAGE_RULES.format(username=persona.username)
-        header = (
-            f"你是 TheMarketBrew 的投研助手 (KOL 视角, v3 测试模式)，"
-            f"正在用 @{persona.username} 的 v3-draft skill 系统看市场。\n"
-            f"**绝不能声称自己就是 @{persona.username}**。\n\n"
-        )
-    else:
-        tool_rules = _TOOL_USAGE_RULES.format(username=persona.username)
-        header = (
-            f"你是 TheMarketBrew 的投研助手 (KOL 视角)，正在用 @{persona.username} 的公开方法论看市场。\n"
-            f"**绝不能声称自己就是 @{persona.username}**。\n\n"
-        )
+    tool_rules = _SKILL_TOOL_USAGE_RULES.format(username=persona.username)
+    header = (
+        f"你是 TheMarketBrew 的投研助手 (KOL 视角)，"
+        f"正在用 @{persona.username} 的公开方法论 skill 系统看市场。\n"
+        f"**绝不能声称自己就是 @{persona.username}**。\n\n"
+    )
     return f"{header}{always_on}\n\n{tool_rules}"
 
 
@@ -613,6 +703,7 @@ async def _build_prompt(
     message: str,
     history: List[Dict[str, str]] | None = None,
     content_context: Dict[str, Any] | None = None,
+    input_guard: InputGuardContext | None = None,
 ) -> str:
     parts: List[str] = []
 
@@ -642,6 +733,10 @@ async def _build_prompt(
         elif ctx_type == "macro":
             parts.append("## User is currently viewing: Macro Dashboard")
         # Keep the context light — the agent can call tools to deep-dive.
+        parts.append("")
+
+    if input_guard and input_guard.prompt_section:
+        parts.append(input_guard.prompt_section)
         parts.append("")
 
     parts.append("## User question")
@@ -736,7 +831,8 @@ async def _run_session(
         except Exception:  # noqa: BLE001
             pass
 
-    return _fix_concat_citations("".join(final_text_parts).strip())
+    text = _fix_concat_citations("".join(final_text_parts).strip())
+    return _sanitize_user_facing_markdown(text)
 
 
 async def answer_kol_research(
@@ -761,16 +857,23 @@ async def answer_kol_research(
     token_timers = _tool_started_at.set(timers)
     google_counts: Dict[str, int] = {}
     token_google = _google_search_calls.set(google_counts)
+    kol_search_counts: Dict[str, int] = {}
+    token_kol_search = _kol_tweet_search_calls.set(kol_search_counts)
 
     try:
         await _preload_recent_reports()
         agent = get_agent(persona_username)
         runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
+        input_guard = await build_input_guard_context(
+            message=message,
+            content_context=content_context,
+        )
 
         prompt = await _build_prompt(
             message=message,
             history=history,
             content_context=content_context,
+            input_guard=input_guard,
         )
 
         try:
@@ -781,6 +884,12 @@ async def answer_kol_research(
         except asyncio.TimeoutError:
             logger.error("kol_research timed out for: %s", message[:100])
             text = "AI 助手思考时间太长了，请再试一次。如果持续超时，可以简化一下问题。"
+        missing_data = validate_data_coverage(
+            input_guard.parsed,
+            fulfilled_tool_keys=input_guard.fulfilled_tool_keys,
+            tool_calls=tool_log,
+        )
+        text = append_data_coverage_warning(text, missing_data)
 
         # Final navigate: last candidate wins.
         navigate = nav_buf[-1] if nav_buf else None
@@ -805,6 +914,7 @@ async def answer_kol_research(
         _navigate_buffer.reset(token_nav)
         _tool_started_at.reset(token_timers)
         _google_search_calls.reset(token_google)
+        _kol_tweet_search_calls.reset(token_kol_search)
 
 
 async def stream_kol_research(
@@ -843,6 +953,8 @@ async def stream_kol_research(
     token_timers = _tool_started_at.set(timers)
     google_counts: Dict[str, int] = {}
     token_google = _google_search_calls.set(google_counts)
+    kol_search_counts: Dict[str, int] = {}
+    token_kol_search = _kol_tweet_search_calls.set(kol_search_counts)
 
     # Entry log — appears in /tmp/uvicorn-frank.log before the agent does any work.
     # If you grep "kol chat request" and don't see this line for a failing turn,
@@ -861,10 +973,15 @@ async def stream_kol_research(
         await _preload_recent_reports()
         agent = get_agent(persona_username)
         runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
+        input_guard = await build_input_guard_context(
+            message=message,
+            content_context=content_context,
+        )
         prompt = await _build_prompt(
             message=message,
             history=history,
             content_context=content_context,
+            input_guard=input_guard,
         )
 
         agent_done = asyncio.Event()
@@ -946,9 +1063,16 @@ async def stream_kol_research(
             chunk_to_persona_result(c, citation_index=i + 1)
             for i, c in enumerate(chunks_buf)
         ]
+        final_text = agent_text[0] if agent_text else ""
+        missing_data = validate_data_coverage(
+            input_guard.parsed,
+            fulfilled_tool_keys=input_guard.fulfilled_tool_keys,
+            tool_calls=tool_log,
+        )
+        final_text = append_data_coverage_warning(final_text, missing_data)
         final = KolResearchResponse(
             persona_username=persona_username,
-            message=agent_text[0] if agent_text else "",
+            message=final_text,
             kol_chunks=kol_chunks,
             activated_skills=skills_buf,
             tool_calls=tool_log,
@@ -982,3 +1106,4 @@ async def stream_kol_research(
         _navigate_buffer.reset(token_nav)
         _tool_started_at.reset(token_timers)
         _google_search_calls.reset(token_google)
+        _kol_tweet_search_calls.reset(token_kol_search)

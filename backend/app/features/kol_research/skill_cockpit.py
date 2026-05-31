@@ -1,7 +1,7 @@
-"""KOL Persona Cockpit — v3 skill distillation reader.
+"""KOL Persona Cockpit — skill distillation reader.
 
-Reads the v3 distilled skill markdown bundles (sector/ + macro/ + ticker/)
-under `methodologies/_drafts/qinbafrank-skill-v3/` and exposes them as
+Reads the distilled skill markdown bundles (sector/ + macro/ + ticker/)
+under `methodologies/qinbafrank/` and exposes them as
 structured cockpit payloads for the /kol/[username]/sectors panel.
 
 Parsing is line-based (no markdown lib): split by H2/H3 headings, extract
@@ -26,41 +26,81 @@ logger = get_logger(__name__)
 # -------------------------------------------------------------------- paths
 
 _HERE = Path(__file__).parent
-V3_ROOT = (
+SKILL_ROOT = (
     _HERE.parent
     / "twitter"
     / "methodologies"
-    / "_drafts"
-    / "qinbafrank-skill-v3"
+    / "qinbafrank"
 )
 
 
 # --------------------------------------------------------- display registry
 
-# Each entry maps a v3 skill key (= md filename stem) to its UI labels.
-# Sectors come first (sorted by tweet_count at runtime), macro pinned to
-# the bottom of the list.
+# Each entry maps a skill key (= md filename stem) to its UI labels.
+# Product-facing sector keys are deliberately broader than the raw corpus:
+# a few files are subtopics that should contribute evidence/counts without
+# becoming separate page entry points.
 SECTOR_DISPLAY: dict[str, dict] = {
     "ai-infrastructure": {
-        "label": "AI 算力基建",
+        "label": "AI 基建",
         "eyebrow": "AI INFRASTRUCTURE",
         "path": "sector/ai-infrastructure.md",
         "layer": "sector",
-        "short": "AI 算力链 · 物理底层 → 算力 → 数据中心 → 应用 → 物理 AI",
+        "short": "算力链 · 半导体 / HBM → 数据中心 → 应用 → 物理 AI",
+        "children": [
+            "ai-infrastructure",
+            "semiconductor-memory-hbm",
+            "power-and-physical-ai",
+        ],
     },
     "crypto-stablecoin-rwa": {
-        "label": "加密 · 链上金融",
-        "eyebrow": "CRYPTO & FINTECH",
+        "label": "加密金融",
+        "eyebrow": "CRYPTO FINANCE",
         "path": "sector/crypto-stablecoin-rwa.md",
         "layer": "sector",
         "short": "底层网络 → 稳定币 → 合规交易所 → 加密原生 → 散户金融入口",
+        "children": [
+            "crypto-stablecoin-rwa",
+            "fintech-brokerage",
+        ],
     },
     "defense-and-space": {
-        "label": "国防与太空",
+        "label": "国防太空",
         "eyebrow": "DEFENSE & SPACE",
         "path": "sector/defense-and-space.md",
         "layer": "sector",
         "short": "太空发射 → 卫星 → 子系统 → 大型承包商 → 政府软件",
+    },
+    "power-and-physical-ai": {
+        "label": "电力与物理 AI",
+        "eyebrow": "POWER & PHYSICAL AI",
+        "path": "sector/power-and-physical-ai.md",
+        "layer": "sector",
+        "short": "电力卡脖子 → 冷却/核电 → Robotaxi → 人形机器人",
+        "visible": False,
+    },
+    "semiconductor-memory-hbm": {
+        "label": "半导体 · HBM 存储",
+        "eyebrow": "SEMIS & MEMORY",
+        "path": "sector/semiconductor-memory-hbm.md",
+        "layer": "sector",
+        "short": "HBM / DRAM / NAND · AI 算力 L1 层关键瓶颈",
+        "visible": False,
+    },
+    "fintech-brokerage": {
+        "label": "Fintech · 经纪商",
+        "eyebrow": "FINTECH BROKERAGE",
+        "path": "sector/fintech-brokerage.md",
+        "layer": "sector",
+        "short": "Z 世代经纪商 → 预测市场 → 加密交易 → 24 小时金融入口",
+        "visible": False,
+    },
+    "software-ai-disruption": {
+        "label": "软件板块",
+        "eyebrow": "SOFTWARE DISRUPTION",
+        "path": "sector/software-ai-disruption.md",
+        "layer": "sector",
+        "short": "AI 颠覆下的 SaaS、网络安全、数据层和入口层",
     },
     "macro-regime": {
         "label": "宏观环境与流动性",
@@ -264,9 +304,9 @@ def _fuzzy_section(sections: dict[str, str], *needles: str) -> str:
 # ----------------------------------------------------------- file readers
 
 def _read(path_rel: str) -> Optional[str]:
-    p = V3_ROOT / path_rel
+    p = SKILL_ROOT / path_rel
     if not p.exists():
-        logger.warning("v3 file missing: %s", p)
+        logger.warning("skill file missing: %s", p)
         return None
     return p.read_text(encoding="utf-8")
 
@@ -290,6 +330,20 @@ def _load_sector_index() -> dict[str, int]:
     return counts
 
 
+def _sector_leaf_keys(key: str, meta: Optional[dict] = None) -> list[str]:
+    """Return raw sector keys that roll up into a product-facing sector."""
+    meta = meta or SECTOR_DISPLAY.get(key) or {}
+    children = meta.get("children")
+    if not isinstance(children, list) or not children:
+        return [key]
+    return [child for child in children if child in SECTOR_DISPLAY]
+
+
+def _sector_tweet_count(key: str, counts: dict[str, int], meta: Optional[dict] = None) -> int:
+    """Tweet count for a visible sector, including hidden subtopic files."""
+    return sum(counts.get(child, 0) for child in _sector_leaf_keys(key, meta))
+
+
 # --------------------------------------- ticker membership per sector
 
 _sector_tickers_cache: Optional[dict[str, list[dict]]] = None
@@ -306,7 +360,7 @@ def _build_sector_tickers() -> dict[str, list[dict]]:
         return _sector_tickers_cache
 
     out: dict[str, list[dict]] = {}
-    ticker_dir = V3_ROOT / "ticker"
+    ticker_dir = SKILL_ROOT / "ticker"
     if not ticker_dir.is_dir():
         _sector_tickers_cache = out
         return out
@@ -336,37 +390,85 @@ def _build_sector_tickers() -> dict[str, list[dict]]:
         entry = {
             "ticker": ticker,
             "coverage": coverage,
-            "v3_count": int(direct_count) if isinstance(direct_count, int) else 0,
+            "source_count": int(direct_count) if isinstance(direct_count, int) else 0,
             "primary_sector": primary if isinstance(primary, str) else None,
         }
         for s in members:
             out.setdefault(s, []).append(entry)
 
     for arr in out.values():
-        arr.sort(key=lambda x: -x["v3_count"])
+        arr.sort(key=lambda x: -x["source_count"])
     _sector_tickers_cache = out
+    return out
+
+
+def _tickers_for_sector_key(key: str) -> list[dict]:
+    """Merged ticker membership for a product-facing sector."""
+    sector_tk = _build_sector_tickers()
+    merged: dict[str, dict] = {}
+    for child in _sector_leaf_keys(key):
+        for entry in sector_tk.get(child) or []:
+            ticker = entry.get("ticker")
+            if not ticker:
+                continue
+            existing = merged.get(ticker)
+            if existing is None:
+                merged[ticker] = {
+                    **entry,
+                    "sector_keys": [child],
+                }
+                continue
+            existing["source_count"] = max(existing.get("source_count") or 0, entry.get("source_count") or 0)
+            if child not in existing["sector_keys"]:
+                existing["sector_keys"].append(child)
+
+    out = list(merged.values())
+    out.sort(key=lambda x: -x["source_count"])
+    return out
+
+
+def _sector_rep_tweet_ids(key: str) -> list[str]:
+    """Representative tweet IDs for a sector, including hidden subtopics."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for child in _sector_leaf_keys(key):
+        child_meta = SECTOR_DISPLAY.get(child)
+        if not child_meta:
+            continue
+        raw = _read(child_meta["path"])
+        if raw is None:
+            continue
+        body = _strip_frontmatter(raw)
+        sections = _split_h2(body)
+        evidence = _fuzzy_section(sections, "Evidence Map", "Evidence")
+        for tid in _extract_tweet_ids(evidence):
+            if tid in seen:
+                continue
+            seen.add(tid)
+            out.append(tid)
     return out
 
 
 # --------------------------------------------------- public API
 
-def list_sectors_v3() -> list[dict]:
+def list_sectors() -> list[dict]:
     """Sector list for the cockpit sidebar.
 
     Sorted by tweet_count desc; macro layer pinned at the end.
     """
     counts = _load_sector_index()
-    sector_tk = _build_sector_tickers()
     out: list[dict] = []
     for key, meta in SECTOR_DISPLAY.items():
-        tickers = sector_tk.get(key) or []
+        if meta.get("visible") is False:
+            continue
+        tickers = _tickers_for_sector_key(key)
         out.append({
             "key": key,
             "label": meta["label"],
             "eyebrow": meta["eyebrow"],
             "layer": meta["layer"],
             "short": meta.get("short", ""),
-            "tweet_count": counts.get(key, 0),
+            "tweet_count": _sector_tweet_count(key, counts, meta),
             "ticker_count": len(tickers),
         })
     out.sort(key=lambda x: (x["layer"] == "macro", -x["tweet_count"]))
@@ -382,7 +484,7 @@ def list_sectors_v3() -> list[dict]:
 # Supply chain ordered upstream → downstream. The "物理底层 · 电力 / 能源股"
 # layer was dropped after audit (Frank hasn't discussed VST / CEG / NEE etc.
 # in this persona — chain now starts at 上游半导体).
-# `covered`     : tickers Frank has v3 distillation playbooks for (full stance)
+# `covered`     : tickers Frank has skill playbooks for (full stance)
 # `supplements` : same-industry tickers Frank has NOT deeply discussed
 #                 (UI no longer renders these — kept for future Apply-chat flow)
 AI_INFRA_CHAIN: list[dict] = [
@@ -629,7 +731,7 @@ def _build_ticker_stances() -> dict[str, str]:
         return _ticker_stance_cache
 
     out: dict[str, str] = {}
-    ticker_dir = V3_ROOT / "ticker"
+    ticker_dir = SKILL_ROOT / "ticker"
     if not ticker_dir.is_dir():
         _ticker_stance_cache = out
         return out
@@ -698,7 +800,7 @@ TICKER_SUMMARY_OVERRIDES: dict[str, dict] = {
 }
 
 
-# Manually-curated summaries for tickers WITHOUT a v3 playbook md.
+# Manually-curated summaries for tickers WITHOUT a skill playbook md.
 # These are written from reading Frank's actual tweets — they describe
 # how he's historically discussed the ticker, not a full playbook.
 # Coverage = 'low' for all (since no formal distillation).
@@ -1080,7 +1182,7 @@ def _find_chain_position(ticker: str) -> Optional[str]:
 
 
 def _build_ticker_summaries() -> dict[str, dict]:
-    """Parse all v3 ticker md files. Returns ticker -> extended summary:
+    """Parse all ticker skill markdown files. Returns ticker -> extended summary:
     { stance, stance_label, thesis, key_logic, coverage, position,
       core_questions[], signals_watched[],
       bull_conditions[], bear_triggers[], veto[], falsifiers[],
@@ -1091,7 +1193,7 @@ def _build_ticker_summaries() -> dict[str, dict]:
         return _summary_cache
 
     out: dict[str, dict] = {}
-    ticker_dir = V3_ROOT / "ticker"
+    ticker_dir = SKILL_ROOT / "ticker"
     if not ticker_dir.is_dir():
         _summary_cache = out
         return out
@@ -1178,12 +1280,12 @@ def _build_ticker_summaries() -> dict[str, dict]:
 
         out[ticker] = summary
 
-    # Inject manually-curated summaries for tickers WITHOUT a v3 playbook.
+    # Inject manually-curated summaries for tickers WITHOUT a skill playbook.
     # These read Frank's actual tweets and capture his historical view, but
     # don't claim playbook-grade depth. coverage stays 'low'.
     for ticker, manual in TICKER_MANUAL_SUMMARIES.items():
         if ticker in out:
-            continue  # v3 md takes precedence if present
+            continue  # skill md takes precedence if present
         body_for_stance = manual.get("key_logic", "") + " " + manual.get("thesis", "")
         stance_key, stance_label = _derive_stance(body_for_stance, manual.get("coverage", "low"))
         synthetic = {
@@ -1208,7 +1310,7 @@ def _build_ticker_summaries() -> dict[str, dict]:
 
 
 def get_ticker_summary(ticker: str) -> Optional[dict]:
-    """Return summary dict for a ticker, or None if not in v3."""
+    """Return summary dict for a ticker, or None if not in the skill set."""
     return _build_ticker_summaries().get(ticker.upper())
 
 
@@ -1223,7 +1325,7 @@ def get_industry_chain_definition(key: str) -> Optional[dict]:
 
 # ----------------------------------------------------------------
 
-def get_sector_v3(key: str) -> Optional[dict]:
+def get_sector(key: str) -> Optional[dict]:
     """Detailed sector payload with parsed structured sections."""
     meta = SECTOR_DISPLAY.get(key)
     if meta is None:
@@ -1276,13 +1378,13 @@ def get_sector_v3(key: str) -> Optional[dict]:
         _fuzzy_section(sections, "常见误读", "误读")
     )
 
-    # Evidence Map → ordered tweet_ids
-    evidence = _fuzzy_section(sections, "Evidence Map", "Evidence")
-    rep_tweet_ids = _extract_tweet_ids(evidence)
+    # Evidence Map → ordered tweet_ids. Visible sector boards include hidden
+    # subtopic evidence (for example HBM and physical AI under AI infrastructure).
+    rep_tweet_ids = _sector_rep_tweet_ids(key)
 
-    # Tickers in this sector
-    sector_tk = _build_sector_tickers()
-    tickers = sector_tk.get(key) or []
+    # Tickers in this sector. Visible sector boards include hidden subtopic
+    # ticker memberships, deduped by ticker.
+    tickers = _tickers_for_sector_key(key)
 
     return {
         "key": key,
@@ -1290,7 +1392,7 @@ def get_sector_v3(key: str) -> Optional[dict]:
         "eyebrow": meta["eyebrow"],
         "layer": meta["layer"],
         "short": meta.get("short", ""),
-        "tweet_count": _load_sector_index().get(key, 0),
+        "tweet_count": _sector_tweet_count(key, _load_sector_index(), meta),
         "core_questions": core_questions,
         "signals": signals,
         "bull_conditions": bull_conditions,
