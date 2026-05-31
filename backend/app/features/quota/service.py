@@ -2,7 +2,7 @@
 Research quota service.
 
 Rules:
-- Max subscribers: unlimited
+- Users with the Max `ai_research_engine` entitlement: unlimited
 - Everyone else (anonymous / free / Pro): 5 questions per day
 - Only user-sent messages count (not AI responses)
 - Daily reset at midnight UTC
@@ -15,15 +15,27 @@ from app.utils.timezone import today_str
 logger = get_logger(__name__)
 
 DAILY_LIMIT = 5
+UNLIMITED_QUOTA_FEATURE = "ai_research_engine"
 
 
 async def _is_max_user(user_id: str) -> bool:
-    """Check if user has Max subscription (unlimited quota)."""
+    """Check if user has Max research access (unlimited quota)."""
     from app.features.payment.db import get_subscription
+    from app.features.payment.entitlements import MAX_FEATURES
 
     sub = await get_subscription(user_id)
     if not sub:
         return False
+
+    if sub.get("is_lifetime"):
+        return UNLIMITED_QUOTA_FEATURE in MAX_FEATURES
+
+    entitlements = set(sub.get("entitlements") or [])
+    if UNLIMITED_QUOTA_FEATURE in entitlements:
+        return True
+
+    # Backward-compatible fallback for older/dev rows where Stripe entitlements
+    # have not been synced yet but the Max plan/status fields are present.
     return (
         sub.get("plan") == "max"
         and sub.get("status") == "active"
