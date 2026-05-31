@@ -8,32 +8,19 @@ Endpoints:
   GET  /api/twitter/fetch-runs             (cron, list recent fetch run records)
   GET  /api/twitter/tweets                 (auth, list stored tweets)
   GET  /api/twitter/stats                  (auth, tweet statistics)
-  POST /api/twitter/methodology-chat       (auth, chat with distilled KOL methodology)
-  GET  /api/twitter/methodology-conversations/latest (auth, load latest methodology chat)
 """
 
-import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
-from app.features.twitter import conversation_db
 from app.features.twitter import db
-from app.features.twitter.methodology_chat import (
-    MethodologyChatRequest,
-    answer_methodology_chat,
-    answer_methodology_chat_with_context,
-    choose_methodology_category,
-    load_methodology_payload,
-)
 from app.features.twitter.methodology_extractor import extract_methodology_for_category
 from app.features.twitter.methodology_models import MethodologyCategory
-from app.features.twitter.live_context import build_live_context
 from app.features.twitter.models import FetchConfiguredKolsRequest
 from app.features.twitter.service import (
     fetch_configured_kols,
@@ -50,13 +37,6 @@ class ExtractMethodologyRequest(BaseModel):
     category: MethodologyCategory
     methodology_version: str = Field(default="v1.0", min_length=1)
     limit: int = Field(default=2000, ge=20, le=5000)
-
-
-class MethodologyConversationSaveRequest(BaseModel):
-    username: str = Field(default="qinbafrank", min_length=1)
-    title: str = Field(default="", max_length=120)
-    data: dict = Field(default_factory=dict)
-    message_count: int = Field(default=0, ge=0)
 
 
 @router.get("/tweets")
@@ -126,165 +106,6 @@ async def extract_methodology(
         "insufficient_evidence_notes": output.insufficient_evidence_notes,
         "artifacts": artifacts,
     }
-
-
-@router.post("/methodology-chat")
-@limiter.limit("12/minute")
-async def methodology_chat(
-    request: Request,
-    body: MethodologyChatRequest,
-    _user_id: str = Depends(verify_user_token),
-):
-    """Answer a user question through a distilled KOL methodology package."""
-    output = await answer_methodology_chat(body)
-    return {"success": True, **output.model_dump()}
-
-
-def _sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-
-@router.post("/methodology-chat/stream")
-@limiter.limit("12/minute")
-async def methodology_chat_stream(
-    request: Request,
-    body: MethodologyChatRequest,
-    _user_id: str = Depends(verify_user_token),
-):
-    """Stream methodology chat progress as SSE events, then emit the final answer."""
-
-    async def event_stream():
-        try:
-            category = body.category or choose_methodology_category(body.message)
-            yield _sse_event(
-                "status",
-                {
-                    "step": "routing",
-                    "message": f"已路由到 {category}",
-                    "category": category,
-                },
-            )
-
-            methodology = load_methodology_payload(body.username, category)
-            yield _sse_event(
-                "status",
-                {
-                    "step": "methodology",
-                    "message": "已载入 qinbafrank 方法论蒸馏体",
-                    "category": category,
-                },
-            )
-
-            yield _sse_event(
-                "status",
-                {
-                    "step": "live_context",
-                    "message": "正在获取 FMP 行情、新闻事件和日报上下文",
-                    "category": category,
-                },
-            )
-            live_context = await build_live_context(body.message)
-            yield _sse_event(
-                "live_context",
-                {
-                    "step": "live_context_ready",
-                    "message": "实时上下文已就绪",
-                    "live_context": live_context.model_dump(),
-                },
-            )
-
-            yield _sse_event(
-                "status",
-                {
-                    "step": "generation",
-                    "message": "正在按方法论生成回答",
-                    "category": category,
-                },
-            )
-            output = await answer_methodology_chat_with_context(
-                request=body,
-                category=category,
-                methodology=methodology,
-                live_context=live_context,
-            )
-            yield _sse_event("final", {"success": True, **output.model_dump()})
-        except Exception as exc:
-            logger.exception("methodology chat stream failed")
-            yield _sse_event(
-                "error",
-                {
-                    "success": False,
-                    "detail": str(exc),
-                },
-            )
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
-    )
-
-
-@router.get("/methodology-conversations/latest")
-async def methodology_latest_conversation(
-    username: str = Query("qinbafrank", min_length=1),
-    user_id: str = Depends(verify_user_token),
-):
-    """Load the latest persisted KOL methodology conversation for a user."""
-    row = await conversation_db.get_latest_conversation(user_id, username)
-    return {"success": True, "data": row}
-
-
-@router.get("/methodology-conversations/{conversation_id}")
-async def methodology_get_conversation(
-    conversation_id: str,
-    user_id: str = Depends(verify_user_token),
-):
-    """Load one persisted KOL methodology conversation."""
-    row = await conversation_db.get_conversation(conversation_id, user_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return {"success": True, "data": row}
-
-
-@router.post("/methodology-conversations", status_code=201)
-async def methodology_create_conversation(
-    body: MethodologyConversationSaveRequest,
-    user_id: str = Depends(verify_user_token),
-):
-    """Create a persisted KOL methodology conversation."""
-    row = await conversation_db.create_conversation(
-        user_id=user_id,
-        username=body.username,
-        title=body.title,
-        data=body.data,
-        message_count=body.message_count,
-    )
-    if not row:
-        raise HTTPException(status_code=500, detail="Failed to create conversation")
-    return row
-
-
-@router.put("/methodology-conversations/{conversation_id}")
-async def methodology_update_conversation(
-    conversation_id: str,
-    body: MethodologyConversationSaveRequest,
-    user_id: str = Depends(verify_user_token),
-):
-    """Update a persisted KOL methodology conversation."""
-    ok = await conversation_db.update_conversation(
-        conversation_id=conversation_id,
-        user_id=user_id,
-        title=body.title,
-        data=body.data,
-        message_count=body.message_count,
-    )
-    if not ok:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return {"success": True}
 
 
 # ---------------------------------------------------------------------------
