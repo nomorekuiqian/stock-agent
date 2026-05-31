@@ -80,27 +80,32 @@ def save_request():
 class TestListConversations:
     @patch(f"{CONV_DB}.list_conversations", new_callable=AsyncMock)
     def test_returns_conversations(self, mock_list, client, sample_conversation):
-        mock_list.return_value = [
-            {
-                "id": sample_conversation["id"],
-                "title": sample_conversation["title"],
-                "message_count": 2,
-                "updated_at": "2026-03-05T10:00:00Z",
-            }
-        ]
+        mock_list.return_value = {
+            "items": [
+                {
+                    "id": sample_conversation["id"],
+                    "title": sample_conversation["title"],
+                    "message_count": 2,
+                    "updated_at": "2026-03-05T10:00:00Z",
+                }
+            ],
+            "has_more": False,
+        }
         resp = client.get("/api/screener/conversations")
         assert resp.status_code == 200
         body = resp.json()
         assert len(body["conversations"]) == 1
         assert body["conversations"][0]["title"] == "高股息蓝筹"
-        mock_list.assert_called_once_with(MOCK_USER_ID)
+        assert body["has_more"] is False
+        mock_list.assert_called_once_with(MOCK_USER_ID, limit=20, offset=0)
 
     @patch(f"{CONV_DB}.list_conversations", new_callable=AsyncMock)
     def test_returns_empty_list(self, mock_list, client):
-        mock_list.return_value = []
+        mock_list.return_value = {"items": [], "has_more": False}
         resp = client.get("/api/screener/conversations")
         assert resp.status_code == 200
         assert resp.json()["conversations"] == []
+        assert resp.json()["has_more"] is False
 
 
 # ---------------------------------------------------------------------------
