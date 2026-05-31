@@ -14,3 +14,6 @@
 .roo
 .trae
 .windsurf
+
+# Local scratch — claude enrichment batch artifacts (tweets + enrichments)
+scripts/claude_enrich/_work/
