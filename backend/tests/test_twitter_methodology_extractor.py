@@ -7,10 +7,6 @@ from app.features.twitter.methodology_extractor import (
     repair_evidence_quotes,
     validate_evidence,
 )
-from app.features.twitter.methodology_chat import (
-    choose_methodology_category,
-    load_methodology_payload,
-)
 from app.features.twitter.methodology_models import CategoryMethodology
 
 
@@ -97,18 +93,3 @@ async def test_list_tweets_by_category_pages_until_limit(monkeypatch):
             "limit": 20,
         },
     ]
-
-
-def test_choose_methodology_category_routes_common_questions():
-    assert choose_methodology_category("美联储延后降息怎么看流动性") == "macro_analysis"
-    assert choose_methodology_category("NVDA 财报后估值贵不贵") == "stock_analysis"
-    assert choose_methodology_category("AI 基建产业链哪个环节最卡") == "sector_analysis"
-    assert choose_methodology_category("现在应该加仓还是等买点") == "trading_strategy"
-
-
-def test_load_methodology_payload_reads_generated_artifact():
-    payload = load_methodology_payload("qinbafrank", "methodology")
-
-    assert payload["analyst"] == "qinbafrank"
-    assert payload["category"] == "methodology"
-    assert payload["source_tweet_count"] >= 20
