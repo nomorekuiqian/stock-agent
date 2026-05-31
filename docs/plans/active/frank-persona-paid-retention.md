@@ -19,7 +19,7 @@
 
 - 首页：`ChatComposer` 前置 + 最新观点 / 领域 / 个股 / 追问 2x2 模块。
 - Latest：真实推文 feed，可筛选。
-- Sectors：v3 方法论板块、宏观框架、证据推文。
+- Sectors：skill 方法论板块、宏观框架、证据推文。
 - Stocks：ticker 列表、价格 x 提及时间线、逐字原文摘录、`TickerNarrative`。
 - Chat：跳 `/research?agent=kol&persona=qinbafrank&q=...`，真实对话在 `/research` 完成。
 
@@ -220,7 +220,7 @@ GET /api/kol_research/personas/qinbafrank/tickers/{ticker}
 POST /api/kol_research/personas/qinbafrank/diagnose
   新增：Frank Framework Diagnosis
         |
-        +-- v3 ticker playbook / sector skill
+        +-- ticker playbook / sector skill
         +-- cockpit tweet evidence
         +-- FMP quote / fundamentals / history
         +-- macro risk dashboard
@@ -247,7 +247,7 @@ GET /api/kol_research/personas/qinbafrank/monitors
 保留现有公开端点：
 
 - `GET /api/kol_research/personas/{username}/profile`
-- `GET /api/kol_research/personas/{username}/sectors_v3`
+- `GET /api/kol_research/personas/{username}/sectors`
 - `GET /api/kol_research/personas/{username}/tickers`
 - `GET /api/kol_research/personas/{username}/tickers/{ticker}`
 - `GET /api/kol_research/personas/{username}/feed`
@@ -355,7 +355,7 @@ Frank 框架股票诊断与持续观察
 
 ### Phase 1 · 付费诊断 MVP（3-5 天）
 
-5. [ ] 新增 `diagnose` 后端 service，先不建复杂 scoring engine，基于 ticker detail + v3 playbook + FMP quote + macro risk 输出结构化 diagnosis。
+5. [ ] 新增 `diagnose` 后端 service，先不建复杂 scoring engine，基于 ticker detail + skill playbook + FMP quote + macro risk 输出结构化 diagnosis。
 6. [ ] 新增 `POST /api/kol_research/personas/{username}/diagnose`，使用 Max entitlement gate。
 7. [ ] 前端新增 `FrankDiagnosisPanel`，显示 posture、score breakdown、direct evidence、methodology inference、falsifiers。
 8. [ ] 免费用户显示诊断 preview + Max CTA；Max 用户显示完整内容。

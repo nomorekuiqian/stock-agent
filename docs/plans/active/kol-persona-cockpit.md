@@ -71,7 +71,7 @@ like_count, retweet_count, reply_count, view_count, category, symbols
 
 **D. 价格 + 基本面** — `backend/app/shared/fmp/`：FMP 历史日线 + profile/quote（市值 / PE TTM / forward PE / 52 周区间 / 板块）。
 
-**E. 对话 agent** — 见 `docs/plans/active/kol-persona-research-agent.md`：`/research` 双栏台已支持博主视角（`personaUsername` 状态、`🎙️ @qinbafrank 视角` chip、KOL chunks 面板），默认 persona `qinbafrank`。`/kol-chat` 正在退役，对话统一收口到 `/research`。
+**E. 对话 agent** — 见 `docs/plans/active/kol-persona-research-agent.md`：`/research` 双栏台已支持博主视角（`personaUsername` 状态、`🎙️ @qinbafrank 视角` chip、KOL chunks 面板），默认 persona `qinbafrank`。`/kol-chat` 已退役，对话统一收口到 `/research`。
 
 ## 设计
 

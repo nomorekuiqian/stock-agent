@@ -6,13 +6,13 @@
 > - `frontend/src/app/kol/.context.md`
 > - `backend/app/features/screener/.context.md`
 > - `backend/app/features/stock/.context.md`
-> - `docs/plans/active/qinbafrank-skill-distillation-v3.md`
+> - `docs/plans/active/qinbafrank-skill-distillation.md`
 > - `docs/plans/active/kol-persona-cockpit.md`
 > Vision: 产品策略.md > 模块 4「机会发现」+ 方向三「统一研究台」
 
 ## 目标
 
-基于 qinbafrank v3 skill 蒸馏内容，构建一个可追溯、指标驱动核心部分的 `Frank-style Stock Radar`，把 Frank 的公开方法论解释为一套可审计规则、可计算指标和选股姿态，用于在 `/kol/qinbafrank/radar` 输出候选股排序、证据链、核心指标和可证伪条件。
+基于 qinbafrank skill 蒸馏内容，构建一个可追溯、指标驱动核心部分的 `Frank-style Stock Radar`，把 Frank 的公开方法论解释为一套可审计规则、可计算指标和选股姿态，用于在 `/kol/qinbafrank/radar` 输出候选股排序、证据链、核心指标和可证伪条件。
 
 ## 现状
 
@@ -20,8 +20,8 @@
 
 KOL 侧：
 
-- `backend/app/features/kol_research/` 已有 qinbafrank persona agent、公开 cockpit API、v3 skill loader 和 tweet feed。
-- v3 skill draft 已落在 `backend/app/features/twitter/methodologies/_drafts/qinbafrank-skill-v3/`，包含：
+- `backend/app/features/kol_research/` 已有 qinbafrank persona agent、公开 cockpit API、skill loader 和 tweet feed。
+- current skill 已落在 `backend/app/features/twitter/methodologies/qinbafrank/`，包含：
   - `core/operating-system.md`
   - `macro/macro-regime.md`
   - 7 个 sector skill
@@ -42,12 +42,12 @@ KOL 侧：
 
 ### 关键缺口
 
-现有 v3 skill 能解释「Frank 怎么看」，但还不能稳定产出「按 Frank 逻辑筛出来的候选清单」。
+当前 skill 能解释「Frank 怎么看」，但还不能稳定产出「按 Frank 逻辑筛出来的候选清单」。
 
 缺的不是更多 chat，而是一个中间层：
 
 ```text
-v3 skill 方法论
+skill 方法论
   -> 可审计 rule ledger
   -> 指标映射 metric map
   -> scoring / posture engine
@@ -92,7 +92,7 @@ Candidates: NVDA / MU / GOOGL / CRCL / HOOD ...
 - ticker / company
 - posture：`Core Watch` / `Wait for Pullback` / `Small Trial` / `Monitor Only` / `Avoid`
 - Frank Fit Score
-- 命中的 v3 rules
+- 命中的 skill rules
 - 指标证据
 - tweet evidence
 - falsifiers
@@ -102,7 +102,7 @@ Candidates: NVDA / MU / GOOGL / CRCL / HOOD ...
 ### 设计原则
 
 1. **方法论先于指标**  
-   不是把市场上所有指标塞进模型，而是先从 v3 skill 提取 Frank 明确看重的判断逻辑，再决定哪些指标能承载这些逻辑。
+   不是把市场上所有指标塞进模型，而是先从 skill 提取 Frank 明确看重的判断逻辑，再决定哪些指标能承载这些逻辑。
 
 2. **核心部分必须指标驱动**  
    候选股排名的核心分数必须由可计算指标推动，包括 coverage、sector fit、growth、profitability、valuation risk、technical pullback、macro regime compatibility 等。
@@ -122,7 +122,7 @@ Candidates: NVDA / MU / GOOGL / CRCL / HOOD ...
 ### 数据流
 
 ```text
-v3 skill markdown + evidence map
+skill markdown + evidence map
         |
         v
 Methodology Rule Ledger
@@ -130,7 +130,7 @@ Methodology Rule Ledger
         |
         v
 Candidate Universe
-  v3 ticker playbooks + sector tickers + screener universe subset
+  ticker playbooks + sector tickers + screener universe subset
         |
         v
 Metric Snapshot
@@ -156,7 +156,7 @@ Frontend
 建议文件：
 
 ```text
-backend/app/features/twitter/methodologies/_drafts/qinbafrank-skill-v3/evidence/radar-rules.json
+backend/app/features/twitter/methodologies/qinbafrank/evidence/radar-rules.json
 ```
 
 每条 rule 结构：
@@ -197,7 +197,7 @@ MVP 不要求所有 rule 都能自动算，但要求每个用于打分的 metric
 
 | Pillar | Frank 方法论来源 | 核心指标 | 数据源 | MVP 是否计分 |
 |---|---|---|---|---|
-| `theme_fit` | 产业故事是否加速；先看产业主线 | 所属 v3 sector、sector tweet count、theme priority | v3 sector index / ticker playbook | 是 |
+| `theme_fit` | 产业故事是否加速；先看产业主线 | 所属 sector、sector tweet count、theme priority | sector index / ticker playbook | 是 |
 | `chain_position` | 越靠近物理瓶颈，确定性越强；龙头/收租位优先 | curated chain role：L0/L1/L2/合规入口/应用层 | rule ledger + ticker playbook | 是 |
 | `frank_coverage` | 不能伪造 Frank 直接观点 | coverage tag、direct mention count、recent mention age | ticker playbook + cockpit index | 是 |
 | `business_quality` | 基本面主导；数据验证叙事 | revenue growth、eps growth、margin、ROE/ROIC、FCF margin | screener / stock service | 是 |
@@ -219,9 +219,9 @@ MVP 不要求所有 rule 都能自动算，但要求每个用于打分的 metric
 MVP universe 不扫全市场，先做高可信窄集：
 
 ```text
-Universe V1 =
-  v3 ticker playbooks
-  + v3 sector files中明确列出的 tickers
+Initial universe =
+  ticker playbooks
+  + sector files中明确列出的 tickers
   + cockpit.TICKER_ALIASES 内可配价美股
 ```
 
@@ -231,7 +231,7 @@ Universe V1 =
 - 非美股、未上市公司、crypto asset，除非页面以「不可配价观察对象」单独展示
 - 纯 meme / 无基本面标的
 
-后续 V2 再接入全市场 hidden gems：
+后续阶段 再接入全市场 hidden gems：
 
 ```text
 screener universe
@@ -407,7 +407,7 @@ frontend/src/app/kol/[username]/_components/RadarEvidenceTrail.tsx
    宏观档位 + 本次扫描口径 + 更新时间
 
 2. Theme Map
-   v3 sector 主题排序，展示为什么当前这些主题在 Frank 框架里靠前
+   sector 主题排序，展示为什么当前这些主题在 Frank 框架里靠前
 
 3. Candidate List
    排名、posture、score、confidence、核心命中理由
@@ -438,7 +438,7 @@ Frank 直接讨论过
 每个 Top candidate 必须满足：
 
 - 至少 2 条 `rule_id`
-- 至少 1 条来自 v3 skill 的 source path
+- 至少 1 条来自 skill 的 source path
 - 若声称 direct evidence，必须有 tweet id
 - 至少 3 个 metric evidence 进入 score
 - 至少 1 个 falsifier
@@ -460,7 +460,7 @@ NVDA, GOOGL, MSFT, META, AMZN, MU, ORCL, COIN, HOOD, CRCL, RKLB, PLTR, MRVL
 
 #### 3. Holdout Replay
 
-从 v3 蒸馏时未进入 rule 的 tweets 中抽样：
+从 当前蒸馏时未进入 rule 的 tweets 中抽样：
 
 - 输入 tweet 提到的 ticker / sector。
 - Radar 应能把对应 ticker 或 sector 排到合理位置。
@@ -478,7 +478,7 @@ NVDA, GOOGL, MSFT, META, AMZN, MU, ORCL, COIN, HOOD, CRCL, RKLB, PLTR, MRVL
 
 ### Phase 0 · Rule Ledger 设计与人工校准
 
-1. [ ] 从 v3 skill 中抽取首批 radar rules：core 5 条、macro 5 条、sector 每个 3-5 条、ticker 高覆盖每个 2-3 条。
+1. [ ] 从 skill 中抽取首批 radar rules：core 5 条、macro 5 条、sector 每个 3-5 条、ticker 高覆盖每个 2-3 条。
 2. [ ] 为每条 rule 标注 `source_tweet_ids`、`skill_path`、`applies_to`、`falsifier`。
 3. [ ] 建立 `metric_specs`：明确哪些 rule 可自动计分，哪些只进入解释层。
 4. [ ] 写 `radar-rules.json`，并做 JSON schema 校验。
@@ -487,7 +487,7 @@ NVDA, GOOGL, MSFT, META, AMZN, MU, ORCL, COIN, HOOD, CRCL, RKLB, PLTR, MRVL
 
 5. [ ] 新增 `radar_models.py`：定义 `RadarRule`、`MetricEvidence`、`RadarCandidate`、`RadarResponse`。
 6. [ ] 新增 `radar_rules.py`：加载 `radar-rules.json`，校验 rule_id 唯一、source path 存在。
-7. [ ] 新增 `radar.py` 的 candidate universe builder：读取 v3 ticker playbook + cockpit ticker index。
+7. [ ] 新增 `radar.py` 的 candidate universe builder：读取 ticker playbook + cockpit ticker index。
 8. [ ] 接入 screener universe，为 candidate 补全 growth、valuation、profitability、technical 派生字段。
 9. [ ] 接入 stock quote/profile fallback，处理 screener 缺失的 ticker。
 10. [ ] 接入 macro risk service，产出 `macro_regime`。
@@ -527,8 +527,8 @@ NVDA, GOOGL, MSFT, META, AMZN, MU, ORCL, COIN, HOOD, CRCL, RKLB, PLTR, MRVL
 
 ## 依赖
 
-- v3 skill 文件必须稳定存在，特别是 ticker playbook 的 frontmatter：`coverage`、`direct_mention_count`、`parent_sector`。
-- screener universe cache 需要可用；否则 MVP 只能降级为 coverage + v3 rule 的弱 radar。
+- skill 文件必须稳定存在，特别是 ticker playbook 的 frontmatter：`coverage`、`direct_mention_count`、`parent_sector`。
+- screener universe cache 需要可用；否则 MVP 只能降级为 coverage + skill rule 的弱 radar。
 - stock quote/profile 依赖 FMP / yfinance，必须优雅降级。
 - macro risk service 若不可用，`macro_compatibility` 分数应默认中性且标注 unavailable，不能编造宏观档位。
 - `/research` KOL deep link 行为需与现有 KOL cockpit plan 对齐，避免 `symbol` 参数和 screener 语义冲突。
