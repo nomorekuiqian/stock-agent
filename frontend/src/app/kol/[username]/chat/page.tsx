@@ -1,18 +1,17 @@
 'use client';
 
-import { use } from 'react';
+import { use, type ReactNode } from 'react';
 import Link from 'next/link';
-import { MessageCircle, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Database, MessageCircle, SearchCheck, Waypoints } from 'lucide-react';
 
 import { useKolCockpitProfile } from '@/hooks/queries/use-kol-data';
-
-const STARTER_QUESTIONS = [
-  '他怎么看 NVDA 现在的位置？',
-  'HBM 卡脖子的拐点信号是什么？',
-  'AI 算力链下一步看哪个分层？',
-  '宏观风险等级现在是哪一级？',
-  '加密板块只看稳定币吗？还是有其他叙事？',
-];
+import ChatComposer from '../_components/ChatComposer';
+import KolPanelHeader from '../_components/KolPanelHeader';
+import {
+  buildKolAgentHref,
+  getDefaultKolAgentQuestion,
+  getKolStarterPrompts,
+} from '../_components/kolAgentLinks';
 
 export default function ChatLaunchpad({
   params,
@@ -22,40 +21,67 @@ export default function ChatLaunchpad({
   const { username } = use(params);
   const { data: profile } = useKolCockpitProfile(username);
   const displayName = profile?.persona.display_name ?? username;
-  // /research 会读 agent=kol + persona=... 自动激活 KOL 视角, 读 q= 自动发送 starter
-  const chatHref = `/research?agent=kol&persona=${encodeURIComponent(username)}`;
+  const titleName = username.toLowerCase() === 'qinbafrank' ? 'qinbafrank' : displayName;
+  // /research 读取 agent=kol + persona=... 激活 KOL 视角，读取 q= 后直接发送 starter。
+  const defaultChatHref = buildKolAgentHref(
+    username,
+    getDefaultKolAgentQuestion(username, titleName),
+  );
+  const starterQuestions = getKolStarterPrompts(username);
 
   return (
-    <div className="py-10 md:py-16">
-      <div className="mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="flex items-start gap-4 border-b border-border/40 pb-7">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-primary/30 bg-primary/10">
-            <MessageCircle className="h-5 w-5 text-primary" strokeWidth={1.6} />
+    <div className="py-5 md:py-7">
+      <KolPanelHeader
+        title={`用 ${titleName} 框架追问`}
+        meta="博主研究室 · 方法论 / 数据 / 原文"
+      />
+
+      <section className="mt-5 rounded-lg border border-primary/30 bg-primary/[0.045] p-4 md:p-5">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-md border border-primary/30 bg-primary/10 text-primary">
+                <MessageCircle className="h-4 w-4" strokeWidth={1.7} />
+              </span>
+              <div>
+                <p className="font-data text-[10px] uppercase tracking-[0.18em] text-primary">
+                  博主研究室
+                </p>
+                <h3 className="text-lg font-semibold tracking-tight text-foreground">
+                  把问题直接放进 qinbafrank 的研究框架里
+                </h3>
+              </div>
+            </div>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              这个入口会把公开方法论、历史推文和当前数据放在同一个上下文里回答。命中原推时，会把对应证据带出来。
+            </p>
+            <div className="mt-5">
+              <ChatComposer
+                username={username}
+                displayName={titleName}
+                suggestions={starterQuestions.slice(0, 3)}
+              />
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-data text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              MODULE 04
-            </p>
-            <h2 className="mt-1 font-editorial text-2xl text-foreground md:text-[28px]">
-              用 {displayName} 的视角追问
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              对话由 AI 基于他的方法论 + 历史推文回答，不是本人发言。命中原推会展示「原文支持」。
-            </p>
+
+          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+            <FeaturePoint icon={<Waypoints className="h-4 w-4" />} title="方法论" body="按他的判断路径拆问题" />
+            <FeaturePoint icon={<Database className="h-4 w-4" />} title="数据" body="接入宏观、板块和个股数据" />
+            <FeaturePoint icon={<SearchCheck className="h-4 w-4" />} title="原文" body="优先返回可验证证据" />
           </div>
         </div>
+      </section>
 
-        {/* Starters */}
-        <div className="mt-8">
+      <div className="mx-auto mt-8 max-w-2xl">
+        <div>
           <p className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            可以这样问
+            高价值追问
           </p>
           <ul className="mt-3 space-y-2">
-            {STARTER_QUESTIONS.map((q) => (
+            {starterQuestions.map((q) => (
               <li key={q}>
                 <Link
-                  href={`${chatHref}&q=${encodeURIComponent(q)}`}
+                  href={buildKolAgentHref(username, q)}
                   className="group flex items-start gap-3 rounded-md border border-border/60 bg-card/30 px-4 py-3 transition hover:border-primary/40 hover:bg-primary/5"
                 >
                   <span className="mt-0.5 font-data text-[11px] tabular-nums text-muted-foreground/70 group-hover:text-primary">
@@ -71,10 +97,9 @@ export default function ChatLaunchpad({
           </ul>
         </div>
 
-        {/* Main CTA */}
         <div className="mt-9 flex items-center gap-3">
           <Link
-            href={chatHref}
+            href={defaultChatHref}
             className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary/15"
           >
             打开对话
@@ -85,6 +110,28 @@ export default function ChatLaunchpad({
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FeaturePoint({
+  icon,
+  title,
+  body,
+}: {
+  icon: ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-md border border-primary/20 bg-background/45 p-3">
+      <div className="flex items-center gap-2 text-primary">
+        {icon}
+        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+      </div>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+        {body}
+      </p>
     </div>
   );
 }

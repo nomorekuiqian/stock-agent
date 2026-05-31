@@ -48,12 +48,15 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-md border border-border bg-popover px-3 py-2 font-data text-xs shadow-lg">
-      <div className="tabular-nums text-foreground">{row.date}</div>
-      <div className="mt-0.5 tabular-nums text-muted-foreground">收盘 ${row.close?.toFixed(2)}</div>
+    <div className="rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-lg">
+      <div className="font-data tabular-nums text-foreground">{row.date}</div>
+      <div className="mt-0.5 text-muted-foreground">
+        收盘 <span className="font-data tabular-nums">${row.close?.toFixed(2)}</span>
+      </div>
       {row.count > 0 ? (
-        <div className="mt-1 tabular-nums text-primary">
-          提及 {row.count} · ♥ {row.likes}
+        <div className="mt-1 text-primary">
+          提及 <span className="font-data tabular-nums">{row.count}</span> · 赞{' '}
+          <span className="font-data tabular-nums">{row.likes}</span>
         </div>
       ) : null}
     </div>
@@ -140,9 +143,13 @@ export default function PriceTimelineChart({ priceSeries, tweets }: Props) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-center font-data text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
-        emerald 点 = 一次提及 · 点越大 = 当日赞越多
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full border border-primary bg-primary/40" aria-hidden />
+          提及时点
+        </span>
+        <span>点越大，当日赞越多</span>
+      </div>
     </div>
   );
 }

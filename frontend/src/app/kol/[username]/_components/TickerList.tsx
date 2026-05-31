@@ -34,7 +34,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Search */}
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -42,12 +42,14 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜 NVDA / 英伟达"
-          className="w-full rounded-md border border-border/60 bg-input/30 py-2 pl-9 pr-8 font-data text-xs uppercase tracking-wider text-foreground placeholder:text-muted-foreground/70 transition focus:border-primary/40 focus:outline-none"
+          className="h-10 w-full rounded-md border border-border/60 bg-input/30 py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground transition focus:border-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
         />
         {query ? (
           <button
+            type="button"
             onClick={() => setQuery('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground"
+            aria-label="清空搜索"
+            className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground transition hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
           >
             <X className="h-3 w-3" />
           </button>
@@ -56,10 +58,10 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
 
       {/* Meta line */}
       <div className="mt-3 flex items-baseline justify-between">
-        <span className="font-data text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
           {filtered.length} / {tickers.length} 标的
         </span>
-        <span className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+        <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
           按提及频次
         </span>
       </div>
@@ -67,10 +69,10 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
       {/* List */}
       <ul
         role="listbox"
-        className="-mr-1 mt-2 flex-1 space-y-0 overflow-y-auto pr-1"
+        className="-mr-1 mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1"
       >
         {filtered.length === 0 ? (
-          <li className="px-3 py-6 text-center font-data text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <li className="rounded-md border border-dashed border-border/50 px-3 py-6 text-center text-sm text-muted-foreground">
             无命中
           </li>
         ) : (
@@ -82,13 +84,15 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                 <button
                   type="button"
                   onClick={() => onSelect(t.ticker)}
-                  className={`group/row relative block w-full border-b border-border/30 px-3 py-3 text-left transition ${
-                    active ? 'bg-accent' : 'hover:bg-muted/40'
+                  className={`group/row relative block w-full rounded-md border px-3 py-3 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+                    active
+                      ? 'border-primary/30 bg-primary/[0.06]'
+                      : 'border-border/30 bg-transparent hover:border-border/60 hover:bg-muted/40'
                   }`}
                 >
                   <span
                     aria-hidden
-                    className={`absolute left-0 top-0 h-full w-[2px] transition-opacity ${
+                    className={`absolute left-0 top-2 h-[calc(100%-1rem)] w-0.5 rounded-full transition-opacity ${
                       active ? 'bg-primary opacity-100' : 'bg-primary opacity-0 group-hover/row:opacity-30'
                     }`}
                   />
@@ -110,7 +114,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                   ) : null}
                   {/* Mention bar */}
                   <div className="mt-1.5 flex items-center gap-2">
-                    <div className="h-[2px] flex-1 overflow-hidden rounded-full bg-muted/60">
+                    <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-muted/60">
                       <div
                         className={`h-full transition-all ${
                           active ? 'bg-primary' : 'bg-primary/50 group-hover/row:bg-primary/70'
@@ -118,7 +122,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                         style={{ width: `${widthPct}%` }}
                       />
                     </div>
-                    <span className="shrink-0 font-data text-[10px] tabular-nums text-muted-foreground">
+                    <span className="shrink-0 font-data text-micro font-medium tabular-nums text-muted-foreground">
                       {t.count}
                     </span>
                   </div>
@@ -135,7 +139,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
 function PriceMini({ price, change }: { price: number | null; change: number | null }) {
   if (price == null) {
     return (
-      <span className="font-data text-[10px] tracking-wider text-muted-foreground/70">
+      <span className="text-xs font-medium text-muted-foreground">
         无报价
       </span>
     );
@@ -150,7 +154,7 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
       ? 'text-primary'
       : 'text-destructive';
   return (
-    <span className={`flex items-center gap-1 font-data text-[11px] tabular-nums ${color}`}>
+    <span className={`flex items-center gap-1 font-data text-xs tabular-nums ${color}`}>
       {price.toFixed(2)}
       {hasChange && ChangeIcon ? (
         <span className="inline-flex items-center gap-0.5">

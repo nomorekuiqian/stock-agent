@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 
-import type { KolSectorV3Summary } from '@/lib/api';
+import type { KolSectorSummary } from '@/lib/api';
 
 export interface FeedFilterValue {
   sector: string | null;
@@ -13,13 +13,13 @@ export interface FeedFilterValue {
 interface Props {
   value: FeedFilterValue;
   onChange: (v: FeedFilterValue) => void;
-  /** v3 sectors driving the chip list (4 sector + 1 macro). */
-  sectors?: KolSectorV3Summary[];
+  /** skill sectors driving the chip list (4 sector + 1 macro). */
+  sectors?: KolSectorSummary[];
   resultCount?: number | null;
 }
 
 /**
- * Horizontal filter bar — "全部" + one chip per v3 sector on the left,
+ * Horizontal filter bar — "全部" + one chip per skill sector on the left,
  * ticker search on the right.
  */
 export default function FeedFilterBar({ value, onChange, sectors, resultCount }: Props) {

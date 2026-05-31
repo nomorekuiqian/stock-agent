@@ -61,20 +61,20 @@ export default function TweetFeedCard({ item, staggerMs }: Props) {
           {relative || '时间未知'}
         </time>
         {isThread ? (
-          <span className="inline-flex items-center gap-1 font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+          <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
             <GitBranch className="h-3 w-3" />
             线程
           </span>
         ) : null}
         {isQuote ? (
-          <span className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
             引用
           </span>
         ) : null}
         {item.sectors.slice(0, 2).map((s) => (
           <span
             key={s}
-            className="rounded-sm border border-border/60 px-1.5 py-0.5 font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+            className="rounded-sm border border-border/60 px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
           >
             {s}
           </span>
@@ -82,13 +82,13 @@ export default function TweetFeedCard({ item, staggerMs }: Props) {
         {item.tickers.slice(0, 4).map((tk) => (
           <span
             key={tk}
-            className="rounded-sm bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-medium tracking-wider text-primary"
+            className="rounded-sm bg-primary/10 px-1.5 py-0.5 font-data text-xs font-medium tracking-wider text-primary"
           >
             ${tk}
           </span>
         ))}
         {item.tickers.length > 4 ? (
-          <span className="font-data text-[10px] text-muted-foreground">
+          <span className="font-data text-xs text-muted-foreground">
             +{item.tickers.length - 4}
           </span>
         ) : null}
@@ -96,7 +96,7 @@ export default function TweetFeedCard({ item, staggerMs }: Props) {
 
       {/* Raw text — verbatim, whitespace preserved */}
       <div className="mt-2.5">
-        <p className="whitespace-pre-wrap text-[15px] leading-[1.75] text-foreground md:leading-[1.8]">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground md:text-base">
           <LinkifiedText text={visibleText} />
           {long && !expanded ? (
             <>
@@ -104,7 +104,7 @@ export default function TweetFeedCard({ item, staggerMs }: Props) {
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="ml-1 inline-flex items-center font-data text-xs uppercase tracking-[0.12em] text-primary hover:underline"
+                className="ml-1 inline-flex min-h-7 items-center text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               >
                 展开
               </button>
@@ -124,7 +124,7 @@ export default function TweetFeedCard({ item, staggerMs }: Props) {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-sm text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             >
               <XLogo className="h-3 w-3" />
               原文

@@ -105,7 +105,7 @@ function ChainNodeWithArrow({
     <>
       <ChainCard layer={layer} active={active} onClick={onClick} />
       {!isLast ? (
-        <div className="flex shrink-0 items-center px-0.5 text-muted-foreground/30">
+        <div className="flex shrink-0 items-center px-0.5 text-muted-foreground">
           <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
         </div>
       ) : null}
@@ -137,7 +137,7 @@ function ChainCard({
     >
       <h3
         className={`text-base font-medium tracking-tight ${
-          active ? 'text-primary' : 'text-foreground/90'
+          active ? 'text-primary' : 'text-foreground'
         }`}
       >
         {layer.label}
@@ -151,7 +151,7 @@ function ChainCard({
             <span
               key={t.ticker}
               className={`font-data text-xs font-medium tabular-nums ${
-                active ? 'text-foreground/75' : 'text-muted-foreground/85'
+                active ? 'text-foreground' : 'text-muted-foreground'
               }`}
             >
               ${t.ticker}
@@ -242,7 +242,7 @@ function TickerCard({
         <div className="shrink-0 text-right">
           {ticker.price != null ? (
             <>
-              <div className="font-data text-sm tabular-nums text-foreground/85">
+              <div className="font-data text-sm tabular-nums text-foreground">
                 ${ticker.price.toFixed(2)}
               </div>
               {hasChange && ChangeIcon ? (
@@ -262,7 +262,7 @@ function TickerCard({
 
       {/* Thesis */}
       {thesis ? (
-        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-foreground/80 group-hover:text-foreground/95">
+        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-foreground">
           {thesis}
         </p>
       ) : null}

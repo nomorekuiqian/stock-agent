@@ -2,26 +2,28 @@
 
 import Link from 'next/link';
 import {
-  AlertTriangle,
+  Activity,
   ArrowUpRight,
-  CheckCircle2,
-  Gauge,
-  GitBranch,
+  Compass,
+  Landmark,
   LineChart,
   Search,
-  ShieldAlert,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import type {
   EconomicFundamentalsResponse,
   GlobalLiquidityMetrics,
-  KolSectorV3Detail,
+  KolCockpitFeedItem,
+  KolCockpitTweet,
+  KolSectorDetail,
+  KolSectorRuleItem,
   LiquidityMetric,
   LiquidityMetrics,
   RiskIndicator,
 } from '@/lib/api';
 import { useLiquidityMetrics, useGlobalLiquidity } from '@/hooks/queries/use-liquidity-data';
+import { useKolCockpitFeed } from '@/hooks/queries/use-kol-data';
 import {
   useEconomicFundamentals,
   useInflationRates,
@@ -29,11 +31,9 @@ import {
   useTreasuryCommodities,
 } from '@/hooks/queries/use-macro-data';
 import { formatLiquidityValue } from '@/app/macro/liquidity/liquidity-metrics';
-import ExpandableRule from './ExpandableRule';
-import TweetFeedCard from './TweetFeedCard';
 
 interface Props {
-  detail: KolSectorV3Detail;
+  detail: KolSectorDetail;
   username: string;
 }
 
@@ -53,18 +53,84 @@ interface IndicatorCardData {
 
 interface IndicatorGroup {
   id: string;
-  title: string;
-  description: string;
   items: IndicatorCardData[];
 }
 
-interface RegimeSummary {
-  label: string;
-  body: string;
+interface MacroPillarConfig {
+  id: string;
+  eyebrow: string;
+  title: string;
+  thesis: string;
+  question: string;
+  method: string[];
+  indicatorKeys: string[];
+  evidenceTerms: string[];
   tone: Tone;
+  icon: ReactNode;
 }
 
-const FOCUS_INDICATOR_KEYS = ['net-liquidity', 'sofr-effr', '10y', 'hy-oas', 'vix', 'usdjpy'];
+interface MacroPillar extends MacroPillarConfig {
+  signals: string[];
+  indicators: IndicatorCardData[];
+  ruleItems: MacroRuleRef[];
+  evidenceTweets: KolCockpitTweet[];
+}
+
+interface MacroRuleRef {
+  section: string;
+  item: KolSectorRuleItem;
+}
+
+const MACRO_PILLAR_CONFIGS: MacroPillarConfig[] = [
+  {
+    id: 'liquidity',
+    eyebrow: 'Liquidity Regime',
+    title: '流动性体制',
+    thesis: '先判断市场里的水位是否从“偏紧”升级成“钱荒”。',
+    question: '准备金、TGA、RRP、SOFR 有没有形成同方向压力？',
+    method: ['准备金 3.0T / 3.2T 阈值', 'TGA 是否抽水', 'SOFR-EFFR 是否走阔'],
+    indicatorKeys: ['net-liquidity', 'reserves', 'tga', 'rrp', 'sofr-effr'],
+    evidenceTerms: ['准备金', 'TGA', 'RRP', 'SOFR', '钱荒', '流动性'],
+    tone: 'watch',
+    icon: <Activity className="h-4 w-4" />,
+  },
+  {
+    id: 'policy',
+    eyebrow: 'Policy Economy',
+    title: '政策经济学',
+    thesis: '不只看 Fed，还看财政、关税、政治约束如何改变市场预期。',
+    question: '政策主张能不能落地？市场定价的是口号还是节奏？',
+    method: ['政策三人组', '关税 / TACO 边界', '财政与中期选举约束'],
+    indicatorKeys: ['10y', 'inflation', 'yield-curve'],
+    evidenceTerms: ['政策三人组', '贝森特', '沃什', '关税', 'TACO', '中期选举', '国家安全战略'],
+    tone: 'neutral',
+    icon: <Landmark className="h-4 w-4" />,
+  },
+  {
+    id: 'inflation',
+    eyebrow: 'Inflation & Jobs',
+    title: '通胀就业',
+    thesis: '通胀决定宽松空间，就业拆分决定软着陆叙事是否站得住。',
+    question: 'CPI / PCE 是否连续超预期？非农强弱来自哪里？',
+    method: ['核心 CPI / PCE', '非农行业拆分', 'GDP 与软着陆叙事'],
+    indicatorKeys: ['inflation', '10y', 'yield-curve'],
+    evidenceTerms: ['CPI', 'PCE', '通胀', '非农', '就业', 'GDP', '降息'],
+    tone: 'supportive',
+    icon: <LineChart className="h-4 w-4" />,
+  },
+  {
+    id: 'geopolitics',
+    eyebrow: 'Geopolitics & Structure',
+    title: '地缘与市场结构',
+    thesis: '单点地缘不是结论，只有传导到能源、信用或流动性才升级。',
+    question: '冲突是否影响咽喉？市场结构是否已经无对冲、过拥挤？',
+    method: ['霍尔木兹 / OPEC+', 'VIX 与信用利差', '日元套息与资产 MEME 化'],
+    indicatorKeys: ['vix', 'hy-oas', 'usdjpy', 'global-liquidity', 'fear-greed'],
+    evidenceTerms: ['霍尔木兹', '伊朗', 'OPEC', 'VIX', '日元', 'COT', 'MEME', '地缘'],
+    tone: 'stress',
+    icon: <Compass className="h-4 w-4" />,
+  },
+];
 
 const toneText: Record<Tone, string> = {
   supportive: 'text-primary',
@@ -87,6 +153,13 @@ const toneDot: Record<Tone, string> = {
   neutral: 'bg-muted-foreground',
 };
 
+const toneBar: Record<Tone, string> = {
+  supportive: 'bg-primary',
+  watch: 'bg-amber-500',
+  stress: 'bg-destructive',
+  neutral: 'bg-muted-foreground',
+};
+
 export default function MacroRegimeFramework({ detail, username }: Props) {
   const { data: liquidityRes, isLoading: liquidityLoading } = useLiquidityMetrics();
   const { data: globalLiquidityRes, isLoading: globalLoading } = useGlobalLiquidity();
@@ -94,6 +167,10 @@ export default function MacroRegimeFramework({ detail, username }: Props) {
   const { data: inflationRes, isLoading: inflationLoading } = useInflationRates();
   const { data: sentimentRes, isLoading: sentimentLoading } = useMarketSentiment();
   const { data: treasuryRes, isLoading: treasuryLoading } = useTreasuryCommodities();
+  const { data: macroFeedRes } = useKolCockpitFeed(username, {
+    limit: 80,
+    sector: 'macro',
+  });
 
   const metrics = liquidityRes?.success ? liquidityRes.metrics : null;
   const globalMetrics = globalLiquidityRes?.success ? globalLiquidityRes.data : null;
@@ -117,533 +194,594 @@ export default function MacroRegimeFramework({ detail, username }: Props) {
     sentiment,
     tenYear: treasury?.treasury.rates['10Y']?.rate ?? null,
   });
-  const focusIndicators = pickFocusIndicators(indicatorGroups);
-  const regimeSummary = summarizeRegime(focusIndicators);
-  const indicatorsLoading =
-    loading && focusIndicators.every((indicator) => indicator.value === 'N/A');
-
-  const chatHref =
-    `/research?agent=kol&persona=${encodeURIComponent(username)}` +
-    `&q=${encodeURIComponent('按 Frank 的宏观框架，现在阵眼在哪里？哪些指标最需要盯？')}`;
+  const macroPillars = buildMacroPillars(indicatorGroups, detail);
+  const macroFeedTweets = useMemo(
+    () => (macroFeedRes?.tweets ?? []).map(feedItemToTweet),
+    [macroFeedRes?.tweets],
+  );
 
   return (
     <div className="pb-10">
-      <header className="rounded-lg border border-border/50 bg-card/30">
-        <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 max-w-3xl">
-            <p className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              {detail.eyebrow}
-            </p>
-            <h2 className="mt-2 font-editorial text-3xl tracking-tight text-foreground md:text-4xl">
-              宏观视角
-            </h2>
-            <p className="mt-3 text-base leading-relaxed text-foreground">
-              这不是完整宏观仪表盘，而是 Frank 用来判断风险级别的一张工作台：先找阵眼，再确认它有没有升级成系统性冲击。
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <FrameworkTag label="找主导变量" />
-              <FrameworkTag label="只看硬证据" />
-              <FrameworkTag label="不把利空直接等同减仓" />
-            </div>
-          </div>
-
-          <div className="border-t border-border/40 pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">当前框架读数</p>
-              <p className={`mt-2 text-2xl font-semibold tracking-tight ${toneText[regimeSummary.tone]}`}>
-                {regimeSummary.label}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {regimeSummary.body}
-              </p>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                href={chatHref}
-                className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary/15"
-              >
-                问现在阵眼
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/macro"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border/50 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-              >
-                完整 Macro
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
-        <DecisionPathRail />
-        <IndicatorFocusTable items={focusIndicators} loading={indicatorsLoading} />
-      </div>
-
-      <section className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <FrameworkSummary
-          title="什么时候会转向乐观"
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          items={detail.bull_conditions.map((item) => item.text)}
-          tone="supportive"
-        />
-        <FrameworkSummary
-          title="最容易误读的地方"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          items={detail.misreadings.map((item) => item.text)}
-          tone="watch"
-        />
-      </section>
-
-      <EvidenceSections detail={detail} username={username} />
+      <MacroPillarAtlas
+        pillars={macroPillars}
+        username={username}
+        feedTweets={macroFeedTweets}
+        loading={loading}
+      />
     </div>
   );
 }
 
-function FrameworkTag({ label }: { label: string }) {
+function MacroPillarAtlas({
+  pillars,
+  username,
+  feedTweets,
+  loading,
+}: {
+  pillars: MacroPillar[];
+  username: string;
+  feedTweets: KolCockpitTweet[];
+  loading: boolean;
+}) {
+  const [activeId, setActiveId] = useState(pillars[0]?.id ?? 'liquidity');
+  const [query, setQuery] = useState('');
+  const activePillar = pillars.find((pillar) => pillar.id === activeId) ?? pillars[0];
+
+  if (!activePillar) return null;
+
   return (
-    <span className="rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-sm font-medium text-primary">
-      {label}
-    </span>
+    <section className="mt-6">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            4 个宏观主题
+          </p>
+          <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+            选择一个主题
+          </h3>
+        </div>
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+          切换主题后，下方同步更新数据、判断规则和原文检索。
+        </p>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-1 xl:auto-rows-max xl:content-start">
+          {pillars.map((pillar) => (
+            <MacroPillarCard
+              key={pillar.id}
+              pillar={pillar}
+              active={pillar.id === activePillar.id}
+              onSelect={() => {
+                setActiveId(pillar.id);
+                setQuery('');
+              }}
+            />
+          ))}
+        </div>
+        <MacroPillarDeepDive
+          pillar={activePillar}
+          username={username}
+          feedTweets={feedTweets}
+          query={query}
+          onQueryChange={setQuery}
+          loading={loading}
+        />
+      </div>
+    </section>
   );
 }
 
-function DecisionPathRail() {
-  const steps = [
+function MacroPillarCard({
+  pillar,
+  active,
+  onSelect,
+}: {
+  pillar: MacroPillar;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const primaryIndicator = pillar.indicators.find((indicator) => indicator.value !== 'N/A');
+  const evidenceCount = uniqueTweets([
+    ...pillar.evidenceTweets,
+    ...pillar.ruleItems.flatMap((rule) => rule.item.evidence),
+  ]).length;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      aria-label={`${pillar.title}，${Math.max(evidenceCount, pillar.evidenceTweets.length)} 条原文，当前读数 ${primaryIndicator ? primaryIndicator.value : 'N/A'}`}
+      className={`group min-h-32 w-full rounded-lg border p-3 text-left transition-[border-color,background-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-safe:hover:-translate-y-0.5 sm:min-h-36 sm:p-4 xl:min-h-0 ${
+        active ? toneBg[pillar.tone] : 'border-border/45 bg-card/20 hover:border-primary/30 hover:bg-primary/[0.035]'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="hidden truncate text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground sm:block">
+            {pillar.eyebrow}
+          </p>
+          <h4 className={`text-base font-semibold tracking-tight sm:mt-1 sm:text-lg ${active ? toneText[pillar.tone] : 'text-foreground'}`}>
+            {pillar.title}
+          </h4>
+        </div>
+        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md border sm:h-9 sm:w-9 ${toneBg[pillar.tone]} ${toneText[pillar.tone]}`}>
+          {pillar.icon}
+        </span>
+      </div>
+
+      <p className="mt-2 hidden text-sm leading-relaxed text-foreground sm:line-clamp-2 sm:block">
+        {pillar.thesis}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/30 pt-3 text-xs font-medium text-muted-foreground">
+        <span>
+          <span className="font-data tabular-nums text-foreground">
+            {Math.max(evidenceCount, pillar.evidenceTweets.length)}
+          </span>{' '}
+          条原文
+        </span>
+        <span className="min-w-0 truncate">
+          读数{' '}
+          <span className={`font-data tabular-nums ${primaryIndicator ? toneText[primaryIndicator.tone] : 'text-muted-foreground'}`}>
+            {primaryIndicator ? primaryIndicator.value : 'N/A'}
+          </span>
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function MacroPillarDeepDive({
+  pillar,
+  username,
+  feedTweets,
+  query,
+  onQueryChange,
+  loading,
+}: {
+  pillar: MacroPillar;
+  username: string;
+  feedTweets: KolCockpitTweet[];
+  query: string;
+  onQueryChange: (value: string) => void;
+  loading: boolean;
+}) {
+  const allTweets = collectPillarTweets(pillar, feedTweets);
+  const filteredRules = filterPillarRules(pillar, query);
+  const filteredTweets = filterTweets(allTweets, query).slice(0, 8);
+  const summaryItems = getSummaryItems(pillar, filteredRules).slice(0, 5);
+  const chips = getSearchChips(pillar);
+  const chatHref =
+    `/research?agent=kol&persona=${encodeURIComponent(username)}` +
+    `&q=${encodeURIComponent(`按 qinbafrank 的宏观框架解释${pillar.title}：重点看哪些数据、现在怎么判断、有哪些原文依据。`)}`;
+
+  return (
+    <article className="overflow-hidden rounded-lg border border-border/45 bg-card/20">
+      <div className={`h-1 ${toneBar[pillar.tone]}`} />
+      <div className="border-b border-border/35 p-4 md:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 max-w-3xl">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              {pillar.eyebrow}
+            </p>
+            <h4 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+              {pillar.title}
+            </h4>
+            <p className="mt-2 text-sm leading-relaxed text-foreground">
+              {pillar.thesis}
+            </p>
+          </div>
+          <Link
+            href={chatHref}
+            className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary/15 sm:w-auto"
+          >
+            追问这个主题
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-5 p-4 md:p-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <section className="min-w-0">
+          <SectionTitle label="看什么数据" />
+          {pillar.indicators.length > 0 ? (
+            <div className="mt-3 divide-y divide-border/35">
+              {pillar.indicators.map((indicator) => (
+                <MacroIndicatorRow key={indicator.key} item={indicator} />
+              ))}
+            </div>
+          ) : loading ? (
+            <EmptyEvidenceState text="正在读取宏观指标..." />
+          ) : (
+            <EmptyEvidenceState text="这个主题暂时没有对应的实时指标。" />
+          )}
+        </section>
+
+        <section className="min-w-0 border-t border-border/35 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+          <SectionTitle label="怎么判断" />
+          <p className="mt-3 text-sm leading-relaxed text-foreground">
+            核心问题：{pillar.question}
+          </p>
+          <ol className="mt-3 space-y-2">
+            {pillar.method.map((item, index) => (
+              <li
+                key={item}
+                className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 text-sm leading-relaxed text-foreground"
+              >
+                <span className="font-data text-xs tabular-nums text-primary">{index + 1}</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
+      <section className="border-t border-border/35 p-4 md:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <SectionTitle label="历史观点检索" />
+            <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
+              命中 {summaryItems.length} 条观点摘要、{filteredTweets.length} 条原文。
+            </p>
+          </div>
+          <div className="w-full sm:w-80">
+            <label className="sr-only" htmlFor={`macro-search-${pillar.id}`}>
+              搜索历史观点
+            </label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                id={`macro-search-${pillar.id}`}
+                value={query}
+                onChange={(event) => onQueryChange(event.target.value)}
+                placeholder="搜 TGA、CPI、就业、关税..."
+                className="h-11 w-full rounded-md border border-border/50 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              onClick={() => onQueryChange(chip)}
+              className={`min-h-11 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
+                query === chip
+                  ? 'border-primary/40 bg-primary/10 text-primary'
+                  : 'border-border/45 text-muted-foreground hover:border-primary/35 hover:text-primary'
+              }`}
+            >
+              {chip}
+            </button>
+          ))}
+          {query ? (
+            <button
+              type="button"
+              onClick={() => onQueryChange('')}
+              className="min-h-11 rounded-md border border-border/45 px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:border-primary/35 hover:text-primary"
+            >
+              清空
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid gap-5 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">观点摘要</p>
+            {summaryItems.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {summaryItems.map((item, index) => (
+                  <li key={`${item}-${index}`} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-2 text-sm leading-relaxed text-foreground">
+                    <span className={`mt-2 h-1.5 w-1.5 rounded-full ${toneDot[pillar.tone]}`} />
+                    <span>{stripLeadingMarker(item)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyEvidenceState text="没有命中这组关键词，换一个主题词试试。" />
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">原文</p>
+            {filteredTweets.length > 0 ? (
+              <div className="mt-3 divide-y divide-border/35">
+                {filteredTweets.map((tweet) => (
+                  <MacroTweetExcerpt key={tweet.id} tweet={tweet} />
+                ))}
+              </div>
+            ) : (
+              <EmptyEvidenceState text="这组关键词暂时没有对应原文。" />
+            )}
+          </div>
+        </div>
+      </section>
+    </article>
+  );
+}
+
+function SectionTitle({ label }: { label: string }) {
+  return <h5 className="text-sm font-semibold tracking-tight text-foreground">{label}</h5>;
+}
+
+function MacroIndicatorRow({ item }: { item: IndicatorCardData }) {
+  return (
+    <div className="py-3 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{item.label}</p>
+          <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            {item.source}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <p className="font-data text-base font-semibold tabular-nums text-foreground">
+            {item.value}
+          </p>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-md border border-current/20 px-2 py-1 text-xs font-medium ${toneText[item.tone]}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${toneDot[item.tone]}`} />
+            {item.status}
+          </span>
+        </div>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        {item.frankRead}
+      </p>
+    </div>
+  );
+}
+
+function EmptyEvidenceState({ text }: { text: string }) {
+  return (
+    <div className="mt-3 rounded-md border border-border/40 bg-background/25 p-4 text-center text-sm text-muted-foreground">
+      {text}
+    </div>
+  );
+}
+
+function MacroTweetExcerpt({ tweet }: { tweet: KolCockpitTweet }) {
+  return (
+    <article className="py-3 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <time dateTime={tweet.created_at ?? undefined}>{formatDateSafe(tweet.created_at)}</time>
+        <span>
+          <span className="font-data tabular-nums">{formatNumber(tweet.like_count)}</span> 赞
+        </span>
+        {tweet.url ? (
+          <a
+            href={tweet.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+          >
+            看原文
+            <ArrowUpRight className="h-3 w-3" />
+          </a>
+        ) : null}
+      </div>
+      <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+        {tweet.text}
+      </p>
+    </article>
+  );
+}
+
+function buildMacroPillars(
+  groups: IndicatorGroup[],
+  detail: KolSectorDetail,
+): MacroPillar[] {
+  const indicatorByKey = new Map<string, IndicatorCardData>();
+  groups.forEach((group) => {
+    group.items.forEach((item) => {
+      indicatorByKey.set(item.key, item);
+    });
+  });
+
+  return MACRO_PILLAR_CONFIGS.map((config) => ({
+    ...config,
+    indicators: config.indicatorKeys
+      .map((key) => indicatorByKey.get(key))
+      .filter((item): item is IndicatorCardData => Boolean(item)),
+    signals: pickRuleTexts(detail.signals, config.evidenceTerms, 3),
+    ruleItems: collectRuleItems(detail, config.evidenceTerms),
+    evidenceTweets: collectEvidenceTweets(detail, config.evidenceTerms),
+  }));
+}
+
+function collectRuleItems(
+  detail: KolSectorDetail,
+  terms: string[],
+): MacroRuleRef[] {
+  const sections: Array<{
+    section: string;
+    items: KolSectorRuleItem[];
+  }> = [
     {
-      number: '01',
-      icon: <Search className="h-4 w-4" />,
-      title: '先找阵眼',
-      body: '流动性、政策、地缘、产业基本面，先判断哪个变量在主导。',
+      section: '追问',
+      items: detail.core_questions,
     },
     {
-      number: '02',
-      icon: <GitBranch className="h-4 w-4" />,
-      title: '再定级别',
-      body: '小调整、中级调整、大级别冲击分开处理，不把所有回撤都当大顶。',
+      section: '指标',
+      items: detail.signals,
     },
     {
-      number: '03',
-      icon: <Gauge className="h-4 w-4" />,
-      title: '只认硬证据',
-      body: '准备金、TGA、RRP、SOFR、信用利差和 VIX 必须给出信号。',
+      section: '看多',
+      items: detail.bull_conditions,
     },
     {
-      number: '04',
-      icon: <LineChart className="h-4 w-4" />,
-      title: '最后做判断',
-      body: '基本面没破时，宏观逆风更多是杀估值；杀到位才可能变机会。',
+      section: '风险',
+      items: detail.bear_triggers,
+    },
+    {
+      section: '边界',
+      items: detail.veto,
+    },
+    {
+      section: '打脸',
+      items: detail.falsifiers,
+    },
+    {
+      section: '误读',
+      items: detail.misreadings,
     },
   ];
 
-  return (
-    <section className="rounded-lg border border-border/45 bg-card/20 p-4 md:p-5">
-      <div>
-        <p className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Decision Path
-        </p>
-        <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-          四步就够
-        </h3>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          这页只保留判断顺序，不展开成完整教程。
-        </p>
-      </div>
-      <ol className="mt-5 space-y-4">
-        {steps.map((step) => (
-          <li key={step.number} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3">
-            <div className="flex flex-col items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
-                {step.icon}
-              </span>
-              {step.number !== '04' ? <span className="h-full w-px bg-border/50" /> : null}
-            </div>
-            <div className="pb-1">
-              <p className="font-data text-xs uppercase tracking-[0.15em] text-muted-foreground">
-                {step.number}
-              </p>
-              <h4 className="mt-1 text-base font-semibold text-foreground">{step.title}</h4>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
+  const matched = sections.flatMap((section) =>
+    section.items
+      .filter((item) => ruleMatchesTerms(item, terms))
+      .map((item) => ({
+        section: section.section,
+        item,
+      })),
+  );
+
+  if (matched.length > 0) return matched;
+
+  return sections.flatMap((section) =>
+    section.items.slice(0, 2).map((item) => ({
+      section: section.section,
+      item,
+    })),
   );
 }
 
-function IndicatorFocusTable({
-  items,
-  loading,
-}: {
-  items: IndicatorCardData[];
-  loading: boolean;
-}) {
-  return (
-    <section className="rounded-lg border border-border/45 bg-card/20 p-4 md:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Key Signals
-          </p>
-          <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-            只看 6 个读数
-          </h3>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            先看是否从杀估值升级成融资或信用风险；其余证据放在下方折叠区。
-          </p>
-        </div>
-        <Link
-          href="/macro"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-primary"
-        >
-          完整仪表盘
-          <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
-      {loading ? (
-        <div className="mt-6 rounded-md border border-border/40 bg-background/35 p-6 text-center text-sm text-muted-foreground">
-          正在读取宏观指标...
-        </div>
-      ) : (
-        <div className="mt-5 divide-y divide-border/40">
-          {items.map((item) => (
-            <IndicatorFocusRow key={item.key} item={item} />
-          ))}
-        </div>
-      )}
-    </section>
+function collectEvidenceTweets(
+  detail: KolSectorDetail,
+  terms: string[],
+): KolCockpitTweet[] {
+  const ruleEvidence = collectRuleItems(detail, terms).flatMap((rule) => rule.item.evidence);
+  const representative = detail.rep_tweets.filter((tweet) => textMatchesTerms(tweet.text, terms));
+  return uniqueTweets([...representative, ...ruleEvidence]);
+}
+
+function collectPillarTweets(
+  pillar: MacroPillar,
+  feedTweets: KolCockpitTweet[],
+): KolCockpitTweet[] {
+  const fromRules = pillar.ruleItems.flatMap((rule) => rule.item.evidence);
+  const fromFeed = feedTweets.filter((tweet) => textMatchesTerms(tweet.text, getFeedTerms(pillar)));
+  return uniqueTweets([...pillar.evidenceTweets, ...fromRules, ...fromFeed]);
+}
+
+function filterPillarRules(
+  pillar: MacroPillar,
+  query: string,
+): MacroRuleRef[] {
+  const trimmed = query.trim();
+  if (!trimmed) return pillar.ruleItems;
+  return pillar.ruleItems.filter((rule) =>
+    textMatchesQuery(
+      [
+        rule.section,
+        rule.item.text,
+        ...rule.item.evidence.map((tweet) => tweet.text),
+      ].join('\n'),
+      trimmed,
+    ),
   );
 }
 
-function IndicatorFocusRow({ item }: { item: IndicatorCardData }) {
-  return (
-    <div className="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-foreground">{item.label}</p>
-          <span className="font-data text-xs uppercase tracking-[0.12em] text-muted-foreground">
-            {item.source}
-          </span>
-        </div>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.frankRead}</p>
-      </div>
-      <div className="flex items-center justify-between gap-3 md:justify-end">
-        <p className="font-data text-xl font-semibold tabular-nums text-foreground">
-          {item.value}
-        </p>
-        <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border border-current/20 px-2 py-1 text-xs font-medium ${toneText[item.tone]}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${toneDot[item.tone]}`} />
-          {item.status}
-        </span>
-      </div>
-      {item.change || item.date ? (
-        <p className="font-data text-xs uppercase tracking-[0.12em] text-muted-foreground md:col-span-2">
-          {item.change ?? (item.date ? formatDate(item.date) : '')}
-        </p>
-      ) : null}
-    </div>
-  );
+function filterTweets(
+  tweets: KolCockpitTweet[],
+  query: string,
+): KolCockpitTweet[] {
+  const trimmed = query.trim();
+  if (!trimmed) return tweets;
+  return tweets.filter((tweet) => textMatchesQuery(tweet.text, trimmed));
 }
 
-function FrameworkSummary({
-  title,
-  icon,
-  items,
-  tone,
-}: {
-  title: string;
-  icon: ReactNode;
-  items: string[];
-  tone: 'supportive' | 'watch';
-}) {
-  const fallback = tone === 'supportive' ? '等待救市动作、估值回落和基本面确认。' : '不要把单点消息直接翻译成仓位动作。';
-  return (
-    <section className="rounded-lg border border-border/45 bg-card/20 p-4">
-      <div className="flex items-center gap-2">
-        <span className={`grid h-8 w-8 place-items-center rounded-md ${toneBg[tone]} ${toneText[tone]}`}>
-          {icon}
-        </span>
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      </div>
-      <ul className="mt-3 space-y-2">
-        {(items.length > 0 ? items : [fallback]).slice(0, 3).map((item, index) => (
-          <li key={index} className="flex gap-2 text-sm leading-relaxed text-foreground/85">
-            <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${toneDot[tone]}`} />
-            <span>{stripLeadingMarker(item)}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+function getSummaryItems(pillar: MacroPillar, rules: MacroRuleRef[]): string[] {
+  const items = [
+    ...rules.map((rule) => rule.item.text),
+    ...pillar.signals,
+    ...pillar.method,
+  ];
+  return Array.from(new Set(items.map(stripLeadingMarker).filter(Boolean)));
 }
 
-function EvidenceSections({ detail, username }: Props) {
-  return (
-    <section className="mt-6 rounded-lg border border-border/45 bg-card/20 p-4 md:p-5">
-      <div>
-        <p className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Research Trail
-        </p>
-        <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-          证据留在这里，不挤占首屏
-        </h3>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          需要追溯原文、完整指标清单或框架边界时再展开。
-        </p>
-      </div>
-
-      <div className="mt-4 divide-y divide-border/40">
-        {detail.core_questions.length > 0 ? (
-          <EvidenceDisclosure
-            eyebrow="Framework Questions"
-            title="进入宏观判断前先问什么"
-            help={`${detail.core_questions.length} 个核心问题`}
-          >
-            <ol className="space-y-1">
-              {detail.core_questions.map((q, i) => (
-                <ExpandableRule
-                  key={i}
-                  text={q.text}
-                  evidence={q.evidence}
-                  askPrefix="详细聊聊他在追问的问题："
-                  username={username}
-                  leftAdorn={
-                    <span className="grid h-6 w-6 place-items-center rounded-full border border-primary/35 bg-primary/10 font-data text-xs tabular-nums text-primary">
-                      {i + 1}
-                    </span>
-                  }
-                />
-              ))}
-            </ol>
-          </EvidenceDisclosure>
-        ) : null}
-
-        {detail.signals.length > 0 ? (
-          <EvidenceDisclosure
-            eyebrow="Evidence Map"
-            title="原框架里列出的硬指标"
-            help={`${detail.signals.length} 条完整指标清单`}
-          >
-            <ul className="grid gap-1 lg:grid-cols-2">
-              {detail.signals.map((s, i) => (
-                <ExpandableRule
-                  key={i}
-                  text={s.text}
-                  evidence={s.evidence}
-                  askPrefix="他追踪的这个数据现在什么状态："
-                  username={username}
-                  leftAdorn={<Search className="mt-1 h-4 w-4 text-primary/70" />}
-                />
-              ))}
-            </ul>
-          </EvidenceDisclosure>
-        ) : null}
-
-        {(detail.veto.length > 0 || detail.misreadings.length > 0) ? (
-          <EvidenceDisclosure
-            eyebrow="Guardrails"
-            title="使用这套框架时最容易踩的坑"
-            help="边界条件和常见误读"
-          >
-            <div className="grid gap-4 lg:grid-cols-2">
-              {detail.veto.length > 0 ? (
-                <RuleColumn
-                  title="他不会这样下注"
-                  items={detail.veto}
-                  askPrefix="他为什么不碰这条："
-                  username={username}
-                />
-              ) : null}
-              {detail.misreadings.length > 0 ? (
-                <RuleColumn
-                  title="常见误读"
-                  items={detail.misreadings}
-                  askPrefix="他纠正这个常见误解："
-                  username={username}
-                  destructive
-                />
-              ) : null}
-            </div>
-          </EvidenceDisclosure>
-        ) : null}
-
-        {detail.rep_tweets.length > 0 ? (
-          <EvidenceDisclosure
-            eyebrow="Original Tweets"
-            title="代表观点"
-            help={`共 ${detail.rep_tweets.length} 条原文，默认显示前 4 条`}
-          >
-            <div className="divide-y divide-border/40">
-              {detail.rep_tweets.slice(0, 4).map((tweet) => (
-                <TweetFeedCard
-                  key={tweet.id}
-                  item={{
-                    id: tweet.id,
-                    text: tweet.text,
-                    created_at: tweet.created_at,
-                    url: tweet.url,
-                    like_count: tweet.like_count,
-                    retweet_count: tweet.retweet_count,
-                    reply_count: tweet.reply_count,
-                    tweet_type: tweet.tweet_type,
-                    tickers: tweet.tickers,
-                    sectors: [],
-                    reply_kind: tweet.reply_kind ?? null,
-                  }}
-                />
-              ))}
-            </div>
-          </EvidenceDisclosure>
-        ) : null}
-
-        {detail.full_body ? (
-          <EvidenceDisclosure
-            eyebrow="Full Framework"
-            title="完整框架原文"
-            help="保留原始蒸馏文本，便于审计"
-          >
-            <pre className="mt-4 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/85">
-              {detail.full_body}
-            </pre>
-          </EvidenceDisclosure>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function EvidenceDisclosure({
-  eyebrow,
-  title,
-  help,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  help?: string;
-  children: ReactNode;
-}) {
-  return (
-    <details className="group py-4">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 transition hover:text-primary [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0">
-          <span className="font-data text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {eyebrow}
-          </span>
-          <span className="mt-1 block text-base font-semibold tracking-tight text-foreground">
-            {title}
-          </span>
-          {help ? <span className="mt-1 block text-sm text-muted-foreground">{help}</span> : null}
-        </span>
-        <span className="shrink-0 rounded-md border border-border/50 px-2 py-1 text-xs font-medium text-muted-foreground transition group-open:border-primary/30 group-open:text-primary">
-          <span className="group-open:hidden">展开</span>
-          <span className="hidden group-open:inline">收起</span>
-        </span>
-      </summary>
-      <div className="mt-4">{children}</div>
-    </details>
-  );
-}
-
-function RuleColumn({
-  title,
-  items,
-  askPrefix,
-  username,
-  destructive,
-}: {
-  title: string;
-  items: { text: string; evidence: KolSectorV3Detail['veto'][number]['evidence'] }[];
-  askPrefix: string;
-  username: string;
-  destructive?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-border/45 bg-background/45 p-3">
-      <p className="mb-2 text-sm font-medium text-foreground">{title}</p>
-      <ul className="space-y-1">
-        {items.map((item, index) => (
-          <ExpandableRule
-            key={index}
-            text={stripLeadingMarker(item.text)}
-            evidence={item.evidence}
-            askPrefix={askPrefix}
-            username={username}
-            variant={destructive ? 'destructive' : 'default'}
-            leftAdorn={
-              destructive ? (
-                <AlertTriangle className="mt-1 h-4 w-4 text-destructive/70" />
-              ) : (
-                <ShieldAlert className="mt-1 h-4 w-4 text-muted-foreground" />
-              )
-            }
-          />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function pickFocusIndicators(groups: IndicatorGroup[]): IndicatorCardData[] {
-  const byKey = new Map<string, IndicatorCardData>();
-  groups.forEach((group) => {
-    group.items.forEach((item) => {
-      byKey.set(item.key, item);
-    });
-  });
-  return FOCUS_INDICATOR_KEYS.map((key) => byKey.get(key)).filter(
-    (item): item is IndicatorCardData => Boolean(item),
-  );
-}
-
-function summarizeRegime(items: IndicatorCardData[]): RegimeSummary {
-  const available = items.filter((item) => item.value !== 'N/A');
-  const stressCount = available.filter((item) => item.tone === 'stress').length;
-  const watchCount = available.filter((item) => item.tone === 'watch').length;
-  const supportiveCount = available.filter((item) => item.tone === 'supportive').length;
-
-  if (available.length < 3) {
-    return {
-      label: '数据仍不完整',
-      body: '先别急着下宏观结论。Frank 的框架要求至少看到流动性、融资和信用三类信号同时给出方向。',
-      tone: 'neutral',
-    };
-  }
-
-  if (stressCount >= 2) {
-    return {
-      label: '系统性压力升温',
-      body: '多个关键读数进入压力区，重点看融资压力和信用利差是否继续扩散。',
-      tone: 'stress',
-    };
-  }
-
-  if (stressCount >= 1 || watchCount >= 2) {
-    return {
-      label: '宏观逆风，需要验证',
-      body: '有压力信号，但还不能直接翻译成减仓。下一步看它是否从杀估值升级成杀逻辑。',
-      tone: 'watch',
-    };
-  }
-
-  if (supportiveCount >= 2) {
-    return {
-      label: '压力可控',
-      body: '当前更像估值和情绪层面的扰动。只要信用和融资没有共振恶化，仍要回到基本面判断。',
-      tone: 'supportive',
-    };
-  }
-
-  return {
-    label: '中性观察',
-    body: '读数没有给出单边结论，适合保持框架跟踪，不用把单条宏观新闻直接变成仓位动作。',
-    tone: 'neutral',
+function getSearchChips(pillar: MacroPillar): string[] {
+  const defaults: Record<string, string[]> = {
+    liquidity: ['准备金', 'TGA', 'RRP', 'SOFR', '钱荒'],
+    policy: ['关税', 'TACO', '财政', '中期选举', '沃什'],
+    inflation: ['CPI', 'PCE', '非农', '就业', '降息'],
+    geopolitics: ['霍尔木兹', 'VIX', '日元', 'OPEC', 'MEME'],
   };
+  return defaults[pillar.id] ?? pillar.evidenceTerms.slice(0, 5);
+}
+
+function getFeedTerms(pillar: MacroPillar): string[] {
+  const terms: Record<string, string[]> = {
+    liquidity: ['准备金', 'TGA', 'RRP', 'SOFR', 'SRF', '钱荒', '缩表', 'H.4.1'],
+    policy: ['贝森特', '沃什', '关税', 'TACO', '中期选举', '政策三人组', '国家安全战略'],
+    inflation: ['CPI', 'PCE', '通胀', '非农', '就业', 'GDP', '降息'],
+    geopolitics: ['霍尔木兹', '伊朗', 'OPEC', 'VIX', '日元', 'COT', 'MEME'],
+  };
+  return terms[pillar.id] ?? pillar.evidenceTerms;
+}
+
+function ruleMatchesTerms(rule: KolSectorRuleItem, terms: string[]): boolean {
+  return textMatchesTerms(rule.text, terms);
+}
+
+function textMatchesQuery(text: string, query: string): boolean {
+  const haystack = text.toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((term) => haystack.includes(term));
+}
+
+function uniqueTweets(tweets: KolCockpitTweet[]): KolCockpitTweet[] {
+  const seen = new Set<string>();
+  const out: KolCockpitTweet[] = [];
+  for (const tweet of tweets) {
+    if (seen.has(tweet.id)) continue;
+    seen.add(tweet.id);
+    out.push(tweet);
+  }
+  return out.sort((a, b) => {
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
+function feedItemToTweet(item: KolCockpitFeedItem): KolCockpitTweet {
+  return {
+    id: item.id,
+    text: item.text,
+    created_at: item.created_at,
+    url: item.url,
+    like_count: item.like_count,
+    retweet_count: item.retweet_count,
+    reply_count: item.reply_count,
+    tweet_type: item.tweet_type,
+    tickers: item.tickers,
+    reply_kind: item.reply_kind,
+  };
+}
+
+function pickRuleTexts(
+  rules: KolSectorDetail['signals'],
+  terms: string[],
+  limit: number,
+): string[] {
+  const matches = rules
+    .map((rule) => rule.text)
+    .filter((text) => textMatchesTerms(text, terms));
+  return matches.slice(0, limit);
+}
+
+function textMatchesTerms(text: string, terms: string[]): boolean {
+  const lower = text.toLowerCase();
+  return terms.some((term) => lower.includes(term.toLowerCase()));
 }
 
 function buildIndicatorGroups({
@@ -671,8 +809,6 @@ function buildIndicatorGroups({
   return [
     {
       id: 'liquidity-core',
-      title: '阵眼一：市场里的水位',
-      description: 'Frank 会先看流动性是不是从“紧”升级到“钱荒”。',
       items: [
         reservesCard(metrics?.reserves ?? null),
         tgaCard(metrics?.tga ?? null),
@@ -682,8 +818,6 @@ function buildIndicatorGroups({
     },
     {
       id: 'funding-stress',
-      title: '阵眼二：融资压力有没有失控',
-      description: '单个宏观利空不够，短端融资压力才是升级信号。',
       items: [
         fundingSpreadCard(metrics?.sofr ?? null, metrics?.effr ?? null),
         nfciCard(metrics?.nfci ?? null),
@@ -691,8 +825,6 @@ function buildIndicatorGroups({
     },
     {
       id: 'valuation-policy',
-      title: '阵眼三：是杀估值还是杀逻辑',
-      description: '通胀和利率决定估值压力，但不必然推翻产业逻辑。',
       items: [
         tenYearCard(tenYear),
         inflationCard(cpi, corePce),
@@ -701,8 +833,6 @@ function buildIndicatorGroups({
     },
     {
       id: 'systemic-risk',
-      title: '阵眼四：有没有系统性冲击',
-      description: '只有信用、情绪和全球流动性一起恶化，风险级别才会抬升。',
       items: [
         creditCard(hyOas),
         vixCard(vix),
@@ -938,7 +1068,7 @@ function inflationCard(cpi: RiskIndicator | null, corePce: RiskIndicator | null)
     status,
     source: 'CPIAUCSL / PCEPILFE',
     change: cpi?.change != null ? `CPI ${signed(cpi.change, 2)}` : null,
-    frankRead: '通胀决定联储是否有宽松空间；但 Frank 不会单靠“要降息”去预测大顶大底。',
+    frankRead: '通胀决定联储是否有宽松空间；但 qinbafrank 不会单靠“要降息”去预测大顶大底。',
   };
 }
 
@@ -1055,7 +1185,7 @@ function fearGreedCard(scoreRaw: number | null): IndicatorCardData {
     tone,
     status,
     source: 'CNN Composite',
-    frankRead: '情绪极端只说明定价拥挤。Frank 会继续追问：是情绪踩踏，还是基本面真的变了？',
+    frankRead: '情绪极端只说明定价拥挤。qinbafrank 会继续追问：是情绪踩踏，还是基本面真的变了？',
   };
 }
 
@@ -1110,8 +1240,15 @@ function signed(value: number, digits: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}`;
 }
 
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('zh-CN', {
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('zh-CN', { notation: 'compact' }).format(value);
+}
+
+function formatDateSafe(date: string | null): string {
+  if (!date) return '未知时间';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '未知时间';
+  return parsed.toLocaleDateString('zh-CN', {
     month: 'short',
     day: 'numeric',
   });
@@ -1125,5 +1262,8 @@ function formatCompactCurrencyFromBillions(value: number): string {
 }
 
 function stripLeadingMarker(s: string): string {
-  return s.replace(/^[\u274c\u2705\u26a0\ufe0f\s]+/, '').trim();
+  return s
+    .replace(/^[\u274c\u2705\u26a0\ufe0f\s]+/, '')
+    .replace(/\u9635\u773c/g, '主导变量')
+    .trim();
 }

@@ -8,7 +8,7 @@ interface Props {
 
 /**
  * Plain-prose narrative — 4 labeled paragraphs of his actual logic for
- * this stock. Uses Frank's own words (extracted from v3 ticker md) and
+ * this stock. Uses Frank's own words (extracted from ticker skill markdown) and
  * does NOT impose categorical labels on his stance.
  *
  * Sections:
@@ -40,17 +40,17 @@ export default function TickerNarrative({ summary }: Props) {
       render: () => (
         <>
           {summary.position ? (
-            <p className="mb-1.5 font-data text-[10px] uppercase tracking-[0.16em] text-primary/80">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-[0.14em] text-primary">
               {summary.position}
             </p>
           ) : null}
           {summary.thesis ? (
-            <p className="text-[15px] font-medium leading-snug text-foreground">
+            <p className="text-base font-medium leading-snug text-foreground">
               {summary.thesis}
             </p>
           ) : null}
           {summary.key_logic ? (
-            <p className={`${summary.thesis ? 'mt-1.5' : ''} text-[14px] leading-relaxed text-muted-foreground`}>
+            <p className={`${summary.thesis ? 'mt-1.5' : ''} text-sm leading-relaxed text-muted-foreground`}>
               {summary.key_logic}
             </p>
           ) : null}
@@ -64,7 +64,7 @@ export default function TickerNarrative({ summary }: Props) {
       eyebrow: '02',
       label: '机会',
       render: () => (
-        <p className="text-[14px] leading-relaxed text-foreground/90">
+        <p className="text-sm leading-relaxed text-foreground">
           {summary.bull_conditions.slice(0, 4).map(strip).join('；')}。
         </p>
       ),
@@ -76,7 +76,7 @@ export default function TickerNarrative({ summary }: Props) {
       eyebrow: '03',
       label: '风险',
       render: () => (
-        <p className="text-[14px] leading-relaxed text-foreground/90">
+        <p className="text-sm leading-relaxed text-foreground">
           {risks.join('；')}。
         </p>
       ),
@@ -96,7 +96,7 @@ export default function TickerNarrative({ summary }: Props) {
             {signalsItems.map((item, j) => (
               <li
                 key={j}
-                className="flex gap-2 text-sm leading-relaxed text-foreground/90"
+                className="flex gap-2 text-sm leading-relaxed text-foreground"
               >
                 <span className="mt-2 inline-block h-1 w-1 shrink-0 rounded-full bg-primary/60" />
                 <span>{item}</span>
@@ -104,7 +104,7 @@ export default function TickerNarrative({ summary }: Props) {
             ))}
           </ul>
         ) : (
-          <p className="text-[14px] leading-relaxed text-foreground/90">
+          <p className="text-sm leading-relaxed text-foreground">
             {signalsItems.join('；')}。
           </p>
         ),
@@ -114,19 +114,34 @@ export default function TickerNarrative({ summary }: Props) {
   if (blocks.length === 0) return null;
 
   return (
-    <section className="mt-5 space-y-5 border-t border-border/40 pt-5">
-      {blocks.map((b, i) => (
-        <div key={i}>
-          <p className="font-data text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            {b.eyebrow} · {b.label}
-          </p>
-          <div className="mt-2">{b.render()}</div>
-        </div>
-      ))}
+    <section className="mt-6 border-t border-border/40 pt-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          观点框架
+        </p>
+        <span className="h-px flex-1 bg-border/40" aria-hidden />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {blocks.map((b, i) => (
+          <div
+            key={i}
+            className={`rounded-md border border-border/40 bg-card/20 p-4 ${
+              i === 0 ? 'md:col-span-2' : ''
+            }`}
+          >
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              {b.eyebrow} · {b.label}
+            </p>
+            <div className="mt-2">{b.render()}</div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
 
+const LEADING_MARKER_RE = /^[\s\u2705\u274c\u26a0\uFE0F]+/u;
+
 function strip(s: string): string {
-  return s.replace(/^[❌✅⚠️\s]+/, '').trim();
+  return s.replace(LEADING_MARKER_RE, '').trim();
 }

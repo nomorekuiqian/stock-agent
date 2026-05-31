@@ -2,7 +2,8 @@
 
 import { use, Suspense } from 'react';
 
-import SectorExplorerV3 from '../_components/SectorExplorerV3';
+import KolPanelHeader from '../_components/KolPanelHeader';
+import SectorExplorer from '../_components/SectorExplorer';
 
 export default function SectorsPage({
   params,
@@ -12,23 +13,10 @@ export default function SectorsPage({
   const { username } = use(params);
   return (
     <div className="pt-4 md:pt-6">
-      <SectionHeader />
+      <KolPanelHeader title="板块地图" meta="产业链主线 · 历史观点 · 原文逐字" />
       <Suspense fallback={null}>
-        <SectorExplorerV3 username={username} />
+        <SectorExplorer username={username} />
       </Suspense>
-    </div>
-  );
-}
-
-function SectionHeader() {
-  return (
-    <div className="mb-1 flex items-baseline justify-between gap-4">
-      <h2 className="font-editorial text-2xl text-foreground md:text-3xl">
-        板块机会
-      </h2>
-      <div className="hidden font-data text-xs uppercase tracking-[0.18em] text-muted-foreground/70 md:block">
-        板块 · 产业链 · 代表观点
-      </div>
     </div>
   );
 }

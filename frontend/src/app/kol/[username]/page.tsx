@@ -2,16 +2,14 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { Rss, Layers, CandlestickChart, MessageCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Rss, Radar, Layers, CandlestickChart, MessageCircle, TrendingUp, TrendingDown } from 'lucide-react';
 
 import {
   useKolCockpitProfile,
   useKolCockpitTickers,
   useKolCockpitFeed,
-  useKolCockpitSectorsV3,
+  useKolCockpitSectors,
 } from '@/hooks/queries/use-kol-data';
-import type { KolCockpitProfile } from '@/lib/api';
-import ChatComposer from './_components/ChatComposer';
 import OverviewMiniPreview from './_components/OverviewMiniPreview';
 import { relativeTimeCN } from './_components/relativeTime';
 
@@ -25,41 +23,44 @@ export default function OverviewPage({
   const profileQ = useKolCockpitProfile(username);
   const tickersQ = useKolCockpitTickers(username);
   const feedQ = useKolCockpitFeed(username, { limit: 3 });
-  const sectorsQ = useKolCockpitSectorsV3(username);
+  const sectorsQ = useKolCockpitSectors(username);
 
   const profile = profileQ.data ?? null;
   const tickers = tickersQ.data?.tickers ?? [];
   const feed = feedQ.data?.tweets ?? [];
-  const sectorsV3 = sectorsQ.data?.sectors ?? [];
+  const sectors = sectorsQ.data?.sectors ?? [];
+  const macroSummary = sectors.find((sector) => sector.layer === 'macro' || sector.key === 'macro-regime');
+  const sectorOnly = sectors.filter((sector) => sector.layer === 'sector');
   const loading = profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading || sectorsQ.isLoading;
 
   const displayName = profile?.persona.display_name ?? username;
-  const suggestions = buildSuggestions(profile, displayName);
-  const chatHref = `/research?agent=kol&persona=${encodeURIComponent(username)}`;
+  const titleName = username.toLowerCase() === 'qinbafrank' ? 'qinbafrank' : displayName;
   const lensPositioning =
     username.toLowerCase() === 'qinbafrank'
-      ? '把 qinbafrank 的公开观点整理成可查询、可验证、可持续跟踪的股票研究框架。'
+      ? '把 @qinbafrank 的公开观点、原文证据和当前数据，整理成一张可追问的研究地图。'
       : `把 @${username} 的公开观点整理成可查询、可验证、可持续跟踪的股票研究框架。`;
 
   return (
     <div className="space-y-7 py-6 md:space-y-8 md:py-8">
       <section className="max-w-3xl space-y-2">
         <p className="font-data text-[11px] uppercase tracking-[0.22em] text-primary">
-          Frank Lens
+          博主研究室
         </p>
         <h2 className="font-editorial text-2xl leading-tight tracking-tight text-foreground md:text-[30px]">
           {lensPositioning}
         </h2>
       </section>
 
-      {/* Chat composer — 第一屏的核心动作,前置在 hero 下方 */}
-      <ChatComposer username={username} displayName={displayName} suggestions={suggestions} />
+      <ResearchToolButton
+        username={username}
+        displayName={titleName}
+      />
 
-      {/* 2x2 模块网格 — 最新观点 / 板块 / 个股 / 对话 */}
+      {/* 2x2 模块网格 — 最新观点 / 宏观 / 板块 / 个股 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
         {/* 1. Latest */}
         <OverviewMiniPreview
-          title="最新观点"
+          title="原文流"
           icon={Rss}
           href={`/kol/${username}/latest`}
         >
@@ -93,15 +94,45 @@ export default function OverviewPage({
           )}
         </OverviewMiniPreview>
 
-        {/* 2. Sectors — 每个板块单独可点击,直接进入该板块详情 */}
-        <OverviewMiniPreview title="他专注的领域" icon={Layers}>
+        {/* 2. Macro */}
+        <OverviewMiniPreview
+          title="宏观框架"
+          icon={Radar}
+          href={`/kol/${username}/macro`}
+        >
+          {loading ? (
+            <MiniLoading rows={3} />
+          ) : (
+            <div className="space-y-3.5">
+              <p className="line-clamp-3 text-sm leading-relaxed text-foreground">
+                {macroSummary?.short ?? '围绕流动性、政策经济学、通胀就业和市场结构，追踪他的宏观判断框架。'}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {['流动性', '政策经济学', '通胀就业', '市场结构'].map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-md border border-border/40 bg-background/40 px-2.5 py-2 text-xs font-medium text-muted-foreground"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <p className="font-data text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                数据 / 判断 / 历史原文
+              </p>
+            </div>
+          )}
+        </OverviewMiniPreview>
+
+        {/* 3. Sectors — 每个板块单独可点击,直接进入该板块详情 */}
+        <OverviewMiniPreview title="板块地图" icon={Layers}>
           {loading ? (
             <MiniLoading rows={5} />
-          ) : sectorsV3.length === 0 ? (
+          ) : sectorOnly.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无内容</p>
           ) : (
             <ul className="space-y-1.5">
-              {sectorsV3.map((s) => (
+              {sectorOnly.map((s) => (
                 <li key={s.key}>
                   <Link
                     href={`/kol/${username}/sectors?key=${encodeURIComponent(s.key)}`}
@@ -134,9 +165,9 @@ export default function OverviewPage({
           )}
         </OverviewMiniPreview>
 
-        {/* 3. Stocks */}
+        {/* 4. Stocks */}
         <OverviewMiniPreview
-          title="个股观点"
+          title="个股雷达"
           icon={CandlestickChart}
           href={`/kol/${username}/stocks`}
         >
@@ -166,40 +197,42 @@ export default function OverviewPage({
           )}
         </OverviewMiniPreview>
 
-        {/* 4. Chat — each suggestion opens a fresh chat seeded with that question.
-            href on the card is intentionally omitted so per-item Links can carry
-            their own ?q= seed without nested-anchor issues. */}
-        <OverviewMiniPreview
-          title={`追问 ${displayName} 的视角`}
-          icon={MessageCircle}
-        >
-          <ul className="space-y-2">
-            {(suggestions ?? DEFAULT_STARTER).map((q) => (
-              <li key={q}>
-                <Link
-                  href={`${chatHref}&q=${encodeURIComponent(q)}`}
-                  className="group/q flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/40 px-3 py-2 text-sm text-foreground/85 transition hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
-                >
-                  <span className="min-w-0 flex-1">{q}</span>
-                  <span
-                    aria-hidden
-                    className="font-data text-xs text-muted-foreground/70 opacity-0 transition group-hover/q:opacity-100 md:inline"
-                  >
-                    问 →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href={chatHref}
-            className="mt-3 inline-flex items-center gap-1 font-data text-xs uppercase tracking-wider text-muted-foreground transition hover:text-primary"
-          >
-            进入完整对话 →
-          </Link>
-        </OverviewMiniPreview>
       </div>
     </div>
+  );
+}
+
+function ResearchToolButton({
+  username,
+  displayName,
+}: {
+  username: string;
+  displayName: string;
+}) {
+  const href = `/research?agent=kol&persona=${encodeURIComponent(username)}`;
+
+  return (
+    <Link
+      href={href}
+      className="group inline-flex min-h-16 w-full max-w-xl items-center justify-between gap-4 rounded-lg border border-primary/30 bg-primary/[0.055] px-5 py-4 text-left transition hover:border-primary/50 hover:bg-primary/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-primary/30 bg-primary/10 text-primary">
+          <MessageCircle className="h-5 w-5" strokeWidth={1.7} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-lg font-semibold tracking-tight text-foreground">
+            Chat
+          </span>
+          <span className="block truncate text-sm text-muted-foreground">
+            用 {displayName} 框架追问
+          </span>
+        </span>
+      </span>
+      <span className="shrink-0 rounded-md border border-primary/25 px-3 py-1.5 text-sm font-medium text-primary transition group-hover:border-primary/45 group-hover:bg-primary/10">
+        打开
+      </span>
+    </Link>
   );
 }
 
@@ -239,36 +272,4 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
       ) : null}
     </div>
   );
-}
-
-const DEFAULT_STARTER = [
-  '他怎么看 NVDA 现在的位置？',
-  'AI 算力链下一步看哪里？',
-  '宏观风险等级现在是哪一级？',
-];
-
-/**
- * 用 profile 数据构造 3 个建议问题。
- * 用于 ChatComposer 的 chip + Module 04 的 starter 列表共享。
- */
-function buildSuggestions(
-  profile: KolCockpitProfile | null,
-  displayName: string,
-): string[] | undefined {
-  if (!profile) return undefined;
-  const topSector = profile.sectors[0]?.label;
-  const principles = profile.core.principles ?? [];
-  const fingerprint = profile.core.fingerprint;
-  const out: string[] = [];
-  if (topSector) out.push(`他怎么看「${topSector}」现在的位置？`);
-  if (principles.length > 0 && principles[0].title) {
-    out.push(`${displayName} 说的「${principles[0].title}」具体怎么用？`);
-  }
-  if (fingerprint) out.push('他最近有改变立场的标的吗？');
-  while (out.length < 3) {
-    const next = DEFAULT_STARTER[out.length] ?? DEFAULT_STARTER[0];
-    if (!out.includes(next)) out.push(next);
-    else break;
-  }
-  return out.slice(0, 3);
 }

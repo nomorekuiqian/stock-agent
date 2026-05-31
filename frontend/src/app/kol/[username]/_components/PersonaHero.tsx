@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 
 interface Props {
@@ -41,9 +42,11 @@ export default function PersonaHero({
           className="group/avatar block shrink-0 rounded-full ring-offset-2 ring-offset-background transition focus-visible:ring-2 focus-visible:ring-primary"
         >
           {showImage ? (
-            <img
+            <Image
               src={avatarUrl!}
               alt={`${displayName} 头像`}
+              width={48}
+              height={48}
               onError={() => setImgFailed(true)}
               className="h-12 w-12 rounded-full border border-border/60 object-cover transition group-hover/avatar:border-primary/60"
               loading="eager"

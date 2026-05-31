@@ -46,35 +46,88 @@ export default function StockExplorer({ username }: Props) {
 
   if (tickers.length === 0) {
     return (
-      <div className="py-16 text-center font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="py-16 text-center text-sm font-medium text-muted-foreground">
         暂无个股观点
       </div>
     );
   }
 
-  return (
-    <div className="grid gap-6 py-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:py-8">
-      {/* Left rail */}
-      <aside className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)]">
-        <TickerList
-          tickers={tickers}
-          selected={selected}
-          onSelect={pickTicker}
-        />
-      </aside>
+  const totalMentions = tickers.reduce((sum, item) => sum + item.count, 0);
+  const pricedCount = tickers.filter((item) => item.priceable && item.price != null).length;
 
-      {/* Right detail */}
-      <div className="min-w-0">
-        <TickerDetail username={username} ticker={selected} />
+  return (
+    <div className="py-5 md:py-6 lg:py-7">
+      <ExplorerSummary
+        tickerCount={tickers.length}
+        totalMentions={totalMentions}
+        pricedCount={pricedCount}
+      />
+
+      <div className="grid gap-6 pt-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8 lg:pt-6">
+        {/* Left rail */}
+        <aside className="h-72 min-h-0 overflow-hidden sm:h-96 lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-7rem)]">
+          <TickerList
+            tickers={tickers}
+            selected={selected}
+            onSelect={pickTicker}
+          />
+        </aside>
+
+        {/* Right detail */}
+        <div className="min-w-0">
+          <TickerDetail username={username} ticker={selected} />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function ExplorerSummary({
+  tickerCount,
+  totalMentions,
+  pricedCount,
+}: {
+  tickerCount: number;
+  totalMentions: number;
+  pricedCount: number;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 border-b border-border/30 pb-5 sm:gap-3">
+      <SummaryMetric label="覆盖标的" value={tickerCount.toLocaleString()} suffix="只" />
+      <SummaryMetric label="公开提及" value={totalMentions.toLocaleString()} suffix="次" />
+      <SummaryMetric label="报价标的" value={pricedCount.toLocaleString()} suffix="只" />
+    </div>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  suffix: string;
+}) {
+  return (
+    <div className="rounded-md border border-border/40 bg-card/25 px-3 py-3">
+      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 font-data text-lg font-semibold text-foreground tabular-nums">
+        {value}
+        <span className="ml-1 font-sans text-sm font-normal text-muted-foreground">
+          {suffix}
+        </span>
+      </p>
     </div>
   );
 }
 
 function LoadingPlaceholder() {
   return (
-    <div className="grid gap-6 py-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:py-8">
-      <div className="space-y-2">
+    <div className="grid gap-6 py-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8 lg:py-8">
+      <div className="h-72 space-y-2 sm:h-96 lg:h-auto">
         <div className="h-9 w-full rounded-md bg-muted/40" />
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="border-b border-border/30 py-3">

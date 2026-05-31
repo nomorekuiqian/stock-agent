@@ -7,7 +7,7 @@ import {
   type KolCockpitFeedItem,
   type KolCockpitTickerSummary,
 } from '@/lib/api';
-import { useKolCockpitSectorsV3 } from '@/hooks/queries/use-kol-data';
+import { useKolCockpitSectors } from '@/hooks/queries/use-kol-data';
 import FeedFilterBar, { type FeedFilterValue } from './FeedFilterBar';
 import HotTickersRail from './HotTickersRail';
 import TweetFeedCard from './TweetFeedCard';
@@ -32,7 +32,7 @@ export default function LiveFeed({ username, tickers }: Props) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Shared with sector page & overview via TanStack Query cache.
-  const sectorsQ = useKolCockpitSectorsV3(username);
+  const sectorsQ = useKolCockpitSectors(username);
   const sectors = sectorsQ.data?.sectors ?? [];
 
   // Initial + filter-change fetch.
