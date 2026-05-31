@@ -8,6 +8,8 @@ from app.core.deps import verify_admin_or_nonprod_or_cron, verify_user_token
 from app.core.logging import get_logger
 from app.features.vector.models import (
     DeleteVectorSourceResponse,
+    KolTweetIndexRequest,
+    KolTweetIndexResponse,
     VectorContextRequest,
     VectorContextResponse,
     VectorIndexRequest,
@@ -21,6 +23,7 @@ from app.features.vector.service import (
     index_document,
     search,
 )
+from app.features.vector.kol_tweets import index_kol_tweets
 
 logger = get_logger(__name__)
 
@@ -62,6 +65,27 @@ async def index_endpoint(
         return await index_document(request)
     except Exception as exc:
         logger.exception("Vector index failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/index-kol-tweets", response_model=KolTweetIndexResponse)
+async def index_kol_tweets_endpoint(
+    request: KolTweetIndexRequest,
+    auth_path: str = Depends(verify_admin_or_nonprod_or_cron),
+):
+    """Index selected Twitter/KOL tweets into the generic vector store."""
+    logger.info(
+        "vector index KOL tweets authors=%s window=%dh limit=%d dry_run=%s auth=%s",
+        request.author_usernames or "all_enabled_kols",
+        request.window_hours,
+        request.limit,
+        request.dry_run,
+        auth_path,
+    )
+    try:
+        return await index_kol_tweets(request)
+    except Exception as exc:
+        logger.exception("KOL tweet vector indexing failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

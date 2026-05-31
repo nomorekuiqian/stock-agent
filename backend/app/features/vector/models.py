@@ -108,3 +108,55 @@ class DeleteVectorSourceResponse(BaseModel):
     success: bool
     deleted_documents: int = 0
     deleted_chunks: int = 0
+
+
+class KolTweetIndexRequest(BaseModel):
+    author_usernames: List[str] = Field(
+        default_factory=list,
+        description="Twitter usernames to index. Empty means all enabled KOLs.",
+    )
+    window_hours: int = Field(default=72, ge=1, le=24 * 30)
+    limit: int = Field(default=200, ge=1, le=5000)
+    page_size: int = Field(default=1000, ge=1, le=1000)
+    tweet_types: List[str] = Field(
+        default_factory=lambda: ["original", "quote", "thread", "article"]
+    )
+    qualities: List[str] = Field(default_factory=lambda: ["keep", "high", "medium"])
+    include_unenriched: bool = False
+    force: bool = Field(
+        default=False,
+        description="Reindex rows even when vector content hash matches.",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="Return selected rows without writing embeddings.",
+    )
+
+
+class KolTweetIndexPreview(BaseModel):
+    source_type: str
+    source_id: str
+    author: Optional[str] = None
+    tweet_type: Optional[str] = None
+    quality: Optional[str] = None
+    tickers: List[str] = Field(default_factory=list)
+    title: str
+
+
+class KolTweetIndexResponse(BaseModel):
+    success: bool
+    raw: int = 0
+    eligible: int = 0
+    indexed: int = 0
+    skipped: int = 0
+    failed: int = 0
+    author_usernames: List[str] = Field(default_factory=list)
+    tweet_types: List[str] = Field(default_factory=list)
+    qualities: List[str] = Field(default_factory=list)
+    include_unenriched: bool = False
+    window_hours: int
+    limit: int
+    raw_breakdown: Dict[str, int] = Field(default_factory=dict)
+    eligible_breakdown: Dict[str, int] = Field(default_factory=dict)
+    previews: List[KolTweetIndexPreview] = Field(default_factory=list)
+    errors: List[Dict[str, str]] = Field(default_factory=list)
