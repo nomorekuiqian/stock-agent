@@ -267,7 +267,7 @@ export default function SubNav({
                           strokeWidth={1.6}
                         />
                         <span
-                          className={`truncate text-sm font-medium tracking-tight lg:hidden ${
+                          className={`truncate text-sm font-medium lg:hidden ${
                             isEmphasized
                               ? "text-primary-foreground"
                               : "text-foreground"

@@ -17,7 +17,7 @@ export default function TransparencyNote({ username }: Props) {
           <FileCheck2 className="h-4 w-4" strokeWidth={1.7} />
         </span>
         <div className="min-w-0">
-          <p className="font-data text-[11px] text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             内容边界
           </p>
           <p className="mt-2 max-w-4xl text-sm leading-relaxed text-muted-foreground">

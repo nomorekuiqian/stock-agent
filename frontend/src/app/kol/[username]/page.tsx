@@ -64,6 +64,7 @@ export default function OverviewPage({
         username={username}
         feed={feed}
         tickers={tickers}
+        totalTweets={feedQ.data?.total ?? null}
         loading={profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading}
       />
     );
@@ -75,7 +76,7 @@ export default function OverviewPage({
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
           博主研究室
         </p>
-        <h2 className="font-editorial text-2xl leading-tight tracking-tight text-foreground md:text-3xl">
+        <h2 className="font-editorial text-2xl leading-tight text-foreground md:text-3xl">
           {lensPositioning}
         </h2>
       </section>
@@ -169,7 +170,7 @@ export default function OverviewPage({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <h4 className="truncate text-sm font-medium tracking-tight text-foreground group-hover/sec:text-primary">
+                        <h4 className="truncate text-sm font-medium text-foreground group-hover/sec:text-primary">
                           {s.label}
                         </h4>
                         {s.layer === 'macro' ? (
@@ -235,11 +236,13 @@ function FrankOverview({
   username,
   feed,
   tickers,
+  totalTweets,
   loading,
 }: {
   username: string;
   feed: KolCockpitFeedItem[];
   tickers: KolCockpitTickerSummary[];
+  totalTweets: number | null;
   loading: boolean;
 }) {
   const previewTopicIds: FrankHighlightTopicId[] = ['ai-trend', 'capex-war', 'market-rules'];
@@ -251,36 +254,91 @@ function FrankOverview({
     live: tickers.find((ticker) => ticker.ticker.toUpperCase() === company.ticker),
   }));
   const sectionMap = Object.fromEntries(FRANK_SECTIONS.map((s) => [s.id, s])) as Record<FrankSectionId, typeof FRANK_SECTIONS[number]>;
+  const overviewStats = [
+    { label: '精华主题', value: '7', helper: '框架归档', valueClassName: 'text-primary' },
+    {
+      label: '个股档案',
+      value: FRANK_COMPANY_RECOMMENDATIONS.length.toString(),
+      helper: '推荐线索',
+      valueClassName: 'text-amber-400',
+    },
+    {
+      label: '原文记录',
+      value: totalTweets?.toLocaleString() ?? '--',
+      helper: '可回溯',
+      valueClassName: 'text-foreground',
+    },
+  ];
+  const promptExamples = [
+    '按 Frank 的 AI 框架，现在瓶颈传到哪一环？',
+    '把 PLTR 放回他的历史观点里，逻辑变了吗？',
+    '按他的调整分级，这轮下跌更像哪一种？',
+  ];
 
   return (
-    <div className="space-y-7 py-6 md:space-y-8 md:py-8">
-      <section className="max-w-3xl space-y-3">
-        <h2 className="font-editorial text-3xl leading-tight tracking-tight text-foreground md:text-4xl">
-          qinbafrank 研究室
-        </h2>
-        <p className="text-base leading-relaxed text-muted-foreground md:text-lg">
-          把他在 X 上散落的观点、原文证据和个股表态整理在一处 ——
-          按主题读精华、按个股复盘演化、随时回到原文,也可以基于这些上下文追问他的框架。
-        </p>
-      </section>
+    <div className="space-y-6 py-5 md:space-y-7 md:py-8">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+        <section className="max-w-3xl space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="h-px w-12 bg-gradient-to-r from-primary to-transparent" />
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+              KOL ARCHIVE
+            </span>
+            <span className="rounded-sm border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-xs font-medium text-amber-300">
+              原文支持
+            </span>
+          </div>
+          <div className="space-y-3">
+            <h2 className="font-editorial text-3xl leading-tight text-foreground md:text-4xl">
+              先看框架，再回到原文验证
+            </h2>
+            <p className="max-w-[68ch] text-sm leading-relaxed text-muted-foreground md:text-lg">
+              把 @qinbafrank 在 X 上散落的观点、原文证据和个股表态整理在一处。先按主题建立框架，再按个股和时间线回看观点如何演化。
+            </p>
+            <p className="text-sm font-medium text-muted-foreground sm:hidden">
+              7 个精华主题 · {FRANK_COMPANY_RECOMMENDATIONS.length} 个股档案 · {totalTweets?.toLocaleString() ?? '--'} 条原文
+            </p>
+          </div>
+        </section>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+        <div className="hidden grid-cols-3 gap-2 rounded-lg border border-border/45 bg-card/30 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:grid">
+          {overviewStats.map((stat) => (
+            <div key={stat.label} className="min-w-0">
+              <div className={`font-data text-xl font-semibold tabular-nums ${stat.valueClassName}`}>
+                {stat.value}
+              </div>
+              <div className="mt-1 text-xs font-medium text-foreground">
+                {stat.label}
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {stat.helper}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:gap-5">
         <OverviewMiniPreview
           title={sectionMap.highlights.label}
           icon={BookOpenText}
           href={`/kol/${username}/sectors`}
+          className="md:col-span-7"
+          bodyClassName="space-y-4"
         >
           <SectionIntro text={sectionMap.highlights.purpose} />
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {highlightHighlights.map((item) => (
-              <li key={item.id} className="flex items-baseline gap-2">
-                <time className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
+              <li key={item.id} className="grid gap-1 border-l border-primary/25 pl-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3">
+                <time className="font-data text-xs tabular-nums text-muted-foreground">
                   {item.date}
                 </time>
-                <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-                  {item.topic}
-                </span>
-                <p className="truncate text-sm text-foreground">{item.title}</p>
+                <div className="min-w-0">
+                  <span className="rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                    {item.topic}
+                  </span>
+                  <p className="mt-1 truncate text-sm text-foreground">{item.title}</p>
+                </div>
               </li>
             ))}
           </ul>
@@ -290,6 +348,8 @@ function FrankOverview({
           title={sectionMap.stocks.label}
           icon={CandlestickChart}
           href={`/kol/${username}/stocks`}
+          className="md:col-span-5"
+          bodyClassName="space-y-4"
         >
           <SectionIntro text={sectionMap.stocks.purpose} />
           {loading ? (
@@ -297,14 +357,19 @@ function FrankOverview({
           ) : recommendedCompanies.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无内容</p>
           ) : (
-            <ul className="grid grid-cols-3 gap-2">
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3">
               {recommendedCompanies.map(({ company, live }) => (
                 <li
                   key={company.ticker}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border/40 bg-background/40 px-2 py-1.5"
+                  className="flex min-h-16 items-center justify-between gap-2 rounded-md border border-border/40 bg-background/45 px-2.5 py-2"
                 >
-                  <span className="font-data text-sm font-medium tabular-nums text-foreground">
-                    ${company.ticker}
+                  <span className="min-w-0">
+                    <span className="block font-data text-sm font-medium tabular-nums text-foreground">
+                      ${company.ticker}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {company.name}
+                    </span>
                   </span>
                   <PriceMini price={live?.price ?? null} change={live?.daily_change ?? null} />
                 </li>
@@ -317,6 +382,8 @@ function FrankOverview({
           title={sectionMap.library.label}
           icon={Rss}
           href={`/kol/${username}/latest`}
+          className="md:col-span-7"
+          bodyClassName="space-y-4"
         >
           <SectionIntro text={sectionMap.library.purpose} />
           {loading ? (
@@ -324,13 +391,15 @@ function FrankOverview({
           ) : feed.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无内容</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {feed.slice(0, 3).map((t) => (
-                <li key={t.id} className="flex items-baseline gap-2">
-                  <time className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
+                <li key={t.id} className="grid gap-1 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-3">
+                  <time className="font-data text-xs tabular-nums text-muted-foreground">
                     {relativeTimeCN(t.created_at)}
                   </time>
-                  <p className="truncate text-sm text-foreground">{t.text}</p>
+                  <p className="line-clamp-2 text-sm leading-relaxed text-foreground">
+                    {formatTweetPreview(t)}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -338,13 +407,25 @@ function FrankOverview({
         </OverviewMiniPreview>
 
         <OverviewMiniPreview
-          title="追问"
+          title="专属智能体问答"
           icon={MessageCircle}
           href={`/research?agent=kol&persona=${encodeURIComponent(username)}`}
+          className="md:col-span-5"
+          bodyClassName="space-y-4"
         >
           <SectionIntro text={sectionMap.chat.purpose} />
-          <div className="rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
-            打开 qinbafrank 研究助手
+          <div className="space-y-2">
+            {promptExamples.map((prompt) => (
+              <span
+                key={prompt}
+                className="block rounded-md border border-border/40 bg-background/45 px-3 py-2 text-sm text-foreground transition group-hover:border-primary/25 group-hover:bg-primary/5"
+              >
+                {prompt}
+              </span>
+            ))}
+          </div>
+          <div className="inline-flex min-h-11 items-center rounded-md border border-primary/25 bg-primary/10 px-3 text-sm font-medium text-primary transition group-hover:border-primary/45 group-hover:bg-primary/15">
+            开始问答
           </div>
         </OverviewMiniPreview>
       </div>
@@ -354,10 +435,17 @@ function FrankOverview({
 
 function SectionIntro({ text }: { text: string }) {
   return (
-    <p className="mb-3.5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+    <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
       {text}
     </p>
   );
+}
+
+function formatTweetPreview(tweet: KolCockpitFeedItem) {
+  return (tweet.key_claim || tweet.text)
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function ResearchToolButton({
@@ -379,7 +467,7 @@ function ResearchToolButton({
           <MessageCircle className="h-5 w-5" strokeWidth={1.7} />
         </span>
         <span className="min-w-0">
-          <span className="block text-lg font-semibold tracking-tight text-foreground">
+          <span className="block text-lg font-semibold text-foreground">
             打开研究助手
           </span>
           <span className="block truncate text-sm text-muted-foreground">

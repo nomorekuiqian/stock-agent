@@ -64,7 +64,7 @@ export default function PersonaHero({
         {/* Name + portrait */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
-            <h1 className="truncate font-editorial text-2xl tracking-tight text-foreground md:text-[28px]">
+            <h1 className="truncate font-editorial text-2xl text-foreground md:text-3xl">
               <a
                 href={xProfileUrl}
                 target="_blank"

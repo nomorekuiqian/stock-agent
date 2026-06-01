@@ -34,13 +34,6 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
 
   const errored = profileQ.isError || tickersQ.isError || feedQ.isError;
   const ready = profileQ.data && tickersQ.data && feedQ.data;
-  // Sectors API failure is non-fatal (sectorCount falls back to a default),
-  // but we want a console trace so oncall can spot it without staring at the
-  // network tab.
-  if (sectorsQ.isError && sectorsQ.error) {
-    console.warn('useKolCockpitSectors failed; sector KPI fell back to default', sectorsQ.error);
-  }
-
   if (!ready) {
     return (
       <div className="min-h-screen bg-background">

@@ -1047,7 +1047,7 @@ const sectionMeta: Omit<FrankSectionSummary, 'featuredCount'>[] = [
     shortLabel: '精华',
     href: '/kol/qinbafrank/sectors',
     purpose:
-      '按 7 个主线主题归档他的精华原文。一眼看清他在 AI 算力、Capex 战、美股规律等主线上的核心论点，不必从时间流里挖。',
+      '按 7 个主线主题归档精华原文，先看 AI 算力、Capex 战和美股规律，再回到证据验证。',
     mapHint: '7 个板块 / 原文证据 / 主题索引',
   },
   {
@@ -1056,7 +1056,7 @@ const sectionMeta: Omit<FrankSectionSummary, 'featuredCount'>[] = [
     shortLabel: '个股',
     href: '/kol/qinbafrank/stocks',
     purpose:
-      '按 ticker 展开的研究档案:观点框架 + 时间线演化 + 价格图叠加提及时点。看清他何时 cover、当前怎么看、之后股价怎么走。',
+      '按 ticker 展开推荐档案、观点时间线和价格验证，快速看清每家公司对应哪条产业逻辑。',
     mapHint: 'Thesis / 首次提及 / 价格验证',
   },
   {
@@ -1065,16 +1065,16 @@ const sectionMeta: Omit<FrankSectionSummary, 'featuredCount'>[] = [
     shortLabel: '内容库',
     href: '/kol/qinbafrank/latest',
     purpose:
-      '全量原文时间流,可按产业板块、宏观、美股规律或具体个股精确筛选。想读他原话时,直接定位历史推文。',
+      '保留全量原文时间流，可按主题、宏观线索或具体个股筛选，想读原话时直接定位历史推文。',
     mapHint: '精选内容 / 全量原文 / 主题筛选',
   },
   {
     id: 'chat',
-    label: 'Chat',
+    label: '追问',
     shortLabel: '追问',
     href: '/research?agent=kol&persona=qinbafrank',
     purpose:
-      '以他所有公开内容为上下文的研究助手。直接问他的判断,让他的框架回答你的具体问题。',
+      '用提炼出来的 qinbafrank 投研框架以及过往内容来回答。',
     mapHint: '追问框架 / 对比个股 / 解释传导',
   },
 ];
