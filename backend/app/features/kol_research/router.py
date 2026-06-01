@@ -447,6 +447,7 @@ async def cockpit_feed(
     offset: int = 0,
     sector: str | None = None,
     ticker: str | None = None,
+    topic: str | None = None,
 ):
     """Time-desc tweet feed for the Live Feed module.
 
@@ -455,6 +456,8 @@ async def cockpit_feed(
       offset (default 0)
       sector — group label or short alias: 'AI 算力链' / 'ai' / '加密·稳定币' / 'crypto' / '宏观' / 'macro'
       ticker — exact ticker symbol (case-insensitive), matches via alias dict
+      topic  — topic-tree node key: 'industry', 'industry/ai_infra', 'macro', 'rules', ...
+               See cockpit.get_topic_tree() for the full set.
     """
     persona = get_persona(username)
     if persona is None:
@@ -467,7 +470,29 @@ async def cockpit_feed(
         offset=offset,
         sector=sector,
         ticker=ticker,
+        topic=topic,
     )
+
+
+@router.get("/personas/{username}/topics")
+async def cockpit_topics(username: str):
+    """Topic-filter tree (产业板块 with leaves / 宏观 / 美股规律) with tweet counts."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    return await cockpit.get_topic_tree(username)
+
+
+@router.get("/personas/{username}/tweets/by-ids")
+async def cockpit_tweets_by_ids(username: str, ids: str):
+    """Full-text tweets for curated evidence ids, preserving requested order."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    requested = [item.strip() for item in ids.split(",") if item.strip()]
+    if len(requested) > 30:
+        raise HTTPException(status_code=400, detail="Too many tweet ids")
+    return await cockpit.get_evidence_tweets_by_ids(username, requested)
 
 
 @router.get("/personas/{username}/tickers/{ticker}")
@@ -495,6 +520,21 @@ async def cockpit_ticker_detail(username: str, ticker: str):
     }
     detail["summary"] = skill_cockpit.get_ticker_summary(sym)
     return detail
+
+
+@router.get("/personas/{username}/tickers/{ticker}/timeline")
+async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
+    """Per-ticker vertical opinion timeline. Picks the most informative
+    enrichment-annotated mentions chronologically.
+    """
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    limit = max(3, min(limit, 20))
+    result = await cockpit.get_ticker_timeline(username, ticker, limit=limit)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Ticker not covered")
+    return result
 
 
 # ---------------------------------------------------------------------------
