@@ -107,6 +107,51 @@ def test_data_coverage_warning_fails_required_prefetch():
     assert "must_cover_data:get_stock_brief:NVDA" in {c.name for c in result.hard_failures}
 
 
+def test_required_sections_are_checked_as_headings():
+    case = EvalCase(
+        id="sections",
+        message="NVDA 怎么看",
+        expected={"required_sections": ["结论", "Frank 过往观点", "现状", "总结"]},
+    )
+    response = {
+        "message": (
+            "### 结论\n"
+            "先给结论。\n\n"
+            "### Frank 过往观点\n"
+            "历史观点。\n\n"
+            "### 现状\n"
+            "当前数据。\n\n"
+            "### 总结\n"
+            "观察信号。"
+        ),
+        "kol_chunks": [],
+        "tool_calls": [],
+    }
+
+    result = evaluate_case(case, response)
+
+    assert result.passed is True
+
+
+def test_required_sections_fail_when_heading_missing():
+    case = EvalCase(
+        id="missing-section",
+        message="NVDA 怎么看",
+        expected={"required_sections": ["结论", "Frank 过往观点", "现状", "总结"]},
+    )
+    response = {
+        "message": "结论：只有内联文本。\n\n### 现状\n当前数据。",
+        "kol_chunks": [],
+        "tool_calls": [],
+    }
+
+    result = evaluate_case(case, response)
+
+    failed = {c.name for c in result.hard_failures}
+    assert "required_section:Frank 过往观点" in failed
+    assert "required_section:总结" in failed
+
+
 def test_report_summary_counts_failures():
     passing = evaluate_case(
         EvalCase(id="ok", message="x"),

@@ -14,6 +14,11 @@ cases:
       answer_should_include:
         - NVDA
         - 风险
+      required_sections: &frank_sections
+        - 结论
+        - Frank 过往观点
+        - 现状
+        - 总结
 
   - id: frank_macro_liquidity_ai
     category: macro
@@ -29,6 +34,7 @@ cases:
       answer_should_include:
         - 流动性
         - AI
+      required_sections: *frank_sections
 
   - id: frank_nvda_avgo_compare
     category: compare
@@ -46,6 +52,7 @@ cases:
       answer_should_include:
         - NVDA
         - AVGO
+      required_sections: *frank_sections
 
   - id: frank_method_falsifiability
     category: methodology
@@ -58,6 +65,7 @@ cases:
       citation_required: true
       answer_should_include:
         - 打脸
+      required_sections: *frank_sections
 
   - id: frank_news_event_nvda
     category: news
@@ -72,6 +80,7 @@ cases:
       answer_should_include:
         - 订单
         - 风险
+      required_sections: *frank_sections
 
   - id: frank_unknown_smallcap
     category: no_coverage
@@ -85,3 +94,4 @@ cases:
       citation_required: false
       answer_should_include:
         - 没
+      required_sections: *frank_sections
