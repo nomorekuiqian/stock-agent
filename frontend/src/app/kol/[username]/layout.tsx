@@ -34,18 +34,28 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
 
   const errored = profileQ.isError || tickersQ.isError || feedQ.isError;
   const ready = profileQ.data && tickersQ.data && feedQ.data;
+  // qinbafrank uses the full-bleed workspace layout across all sub-pages so the
+  // topic tree / sector explorer / feed rails have room to breathe. The loading
+  // shell must match — otherwise the page visibly jumps from max-w-7xl to full
+  // bleed on every navigation / refresh.
+  const isWideWorkspace = username.toLowerCase() === 'qinbafrank';
+  const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
+
   if (!ready) {
     return (
       <div className="min-h-screen bg-background">
         <HeroSkeleton />
         <SubNavSkeleton />
         {errored ? (
-          <div className="mx-auto max-w-7xl px-4 py-16 text-center text-sm text-muted-foreground md:px-6">
+          <div className={`mx-auto px-4 py-16 text-center text-sm text-muted-foreground md:px-6 ${shellWidth}`}>
             无法加载该博主的驾驶舱 · 请检查网络或稍后重试。
           </div>
         ) : (
-          <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-            {children}
+          <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
+            <aside className="hidden lg:block lg:border-r lg:border-border/60" aria-hidden />
+            <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">
+              {children}
+            </main>
           </div>
         )}
       </div>
@@ -62,9 +72,6 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   const sectorCount =
     sectorsQ.data?.sectors.filter((sector) => sector.layer === 'sector').length ??
     (username.toLowerCase() === 'qinbafrank' ? 4 : profile.sectors.length);
-  // qinbafrank uses the full-bleed workspace layout across all sub-pages so the
-  // topic tree / sector explorer / feed rails have room to breathe.
-  const isWideWorkspace = username.toLowerCase() === 'qinbafrank';
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,11 +85,7 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
       />
       {/* Body: mobile stacks (SubNav strip then main).
           lg+ becomes a 2-col grid with a slim persona sidebar + main content. */}
-      <div
-        className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${
-          isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl'
-        }`}
-      >
+      <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
         <aside className="lg:border-r lg:border-border/60 lg:pr-2">
           <SubNav
             username={profile.persona.username}
