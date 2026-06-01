@@ -13,19 +13,13 @@ export default function StocksPage({
   const { username } = use(params);
   return (
     <div className="pt-5 md:pt-7">
-      <SectionHeader />
+      <KolPanelHeader
+        title="个股观点"
+        meta="按标的展开:价格曲线叠加他的提及时点,定位他何时 cover、之后股价怎么走"
+      />
       <Suspense fallback={null}>
         <StockExplorer username={username} />
       </Suspense>
     </div>
-  );
-}
-
-function SectionHeader() {
-  return (
-    <KolPanelHeader
-      title="个股雷达"
-      meta="价格曲线 / 提及时点 / 原文逐字"
-    />
   );
 }

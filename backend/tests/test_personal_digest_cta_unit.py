@@ -223,9 +223,10 @@ class TestFilterActiveSubscribersFailOpen:
         assert len(result) == 1
         assert result[0]["_is_real_paid"] is True
 
-    async def test_trial_user_classified_correctly(self):
-        """Sanity: trial users (with access_expires_at in the future) get
-        `_is_real_paid=False`, which routes to upsell."""
+    async def test_legacy_trial_user_classified_as_paid(self):
+        """Post-freemium: trial users (with access_expires_at) still get
+        `_is_real_paid=True` because they have entitlements. The plan keeps
+        legacy trial users on PAID CTA until their trial winds down naturally."""
         from app.features.subscription import email_service
 
         future = "2099-12-31T00:00:00Z"
@@ -248,7 +249,7 @@ class TestFilterActiveSubscribersFailOpen:
             result = await email_service._filter_active_subscribers(entitled)
 
         assert len(result) == 1
-        assert result[0]["_is_real_paid"] is False
+        assert result[0]["_is_real_paid"] is True
 
 
 class TestTierClassification:
@@ -266,12 +267,14 @@ class TestTierClassification:
         sub = {"entitlements": ["personal_digest_email"], "access_expires_at": None}
         assert is_real_paid_sub(sub) is True
 
-    def test_trial_with_expiry_is_not_paid_so_gets_upsell(self):
+    def test_legacy_trial_with_expiry_still_paid_under_freemium(self):
+        """Post-freemium: access_expires_at no longer demotes the user — any
+        entitlements present mean paid CTA. See docs/plans/active/freemium-lifecycle-email.md."""
         sub = {
             "entitlements": ["personal_digest_email"],
             "access_expires_at": "2026-12-31T00:00:00Z",
         }
-        assert is_real_paid_sub(sub) is False
+        assert is_real_paid_sub(sub) is True
 
     def test_no_entitlements_is_not_paid(self):
         assert is_real_paid_sub({"entitlements": []}) is False

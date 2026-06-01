@@ -1,157 +1,22 @@
 """
 Unit tests for the conversion funnel optimization.
 
-Covers:
-- create_trial_subscription: idempotency, Stripe fallback, repeated trial prevention
-- auto-trial endpoint: response, welcome email trigger
+Covers (post-freemium-transition):
 - email_guard: non-production email blocking
-- onboarding drip: day calculation, schedule matching
+- onboarding drip: day calculation, schedule matching (legacy drip; deprecated)
 - freemium: daily usage tracking
 
-All tests mock external services (Stripe, Resend, Insforge).
-No real emails are sent. No production data is touched.
+create_trial_subscription tests deleted — function is a deprecated stub.
+See docs/plans/active/freemium-lifecycle-email.md.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+import pytest  # noqa: F401  -- kept for class-level markers in remaining tests
+from datetime import datetime, timezone, timedelta  # noqa: F401
+from unittest.mock import AsyncMock, MagicMock, patch  # noqa: F401
 
 MOCK_UID = "test-user-0000-1111-funnel"
 MOCK_EMAIL = "test-funnel@example.com"
 
-
-# ---------------------------------------------------------------------------
-# create_trial_subscription
-# ---------------------------------------------------------------------------
-
-class TestCreateTrialSubscription:
-    """Tests for the shared trial creation function."""
-
-    @pytest.mark.asyncio
-    @patch("app.features.invites.db.STRIPE_SECRET_KEY", "sk_test_xxx")
-    @patch("app.features.invites.db.STRIPE_MAX_PRICE_ID", "price_max_xxx")
-    @patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.invites.db.get_or_create_stripe_customer", new_callable=AsyncMock)
-    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock)
-    async def test_new_user_creates_trial(self, mock_get_sub, mock_get_customer, mock_upsert):
-        """Brand new user gets a 14-day Max trial."""
-        mock_get_sub.return_value = None
-        mock_get_customer.return_value = "cus_test123"
-
-        with patch("app.features.invites.db.asyncio.to_thread") as mock_thread:
-            mock_sub = MagicMock()
-            mock_sub.to_dict.return_value = {
-                "id": "sub_test123",
-                "trial_end": int((datetime.now(timezone.utc) + timedelta(days=14)).timestamp()),
-            }
-            mock_thread.return_value = mock_sub
-
-            from app.features.invites.db import create_trial_subscription
-            result = await create_trial_subscription(
-                user_id=MOCK_UID,
-                user_email=MOCK_EMAIL,
-                source="auto_registration",
-            )
-
-        assert result["success"] is True
-        assert result["already_active"] is False
-        assert result["stripe_pending"] is False
-        assert result["subscription_id"] == "sub_test123"
-        mock_upsert.assert_called_once()
-        call_kwargs = mock_upsert.call_args
-        assert call_kwargs.kwargs.get("plan") == "max" or call_kwargs[1].get("plan") == "max"
-
-    @pytest.mark.asyncio
-    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock)
-    async def test_active_max_user_skips(self, mock_get_sub):
-        """User with active Max subscription should NOT get another trial."""
-        mock_get_sub.return_value = {
-            "plan": "max",
-            "status": "active",
-            "access_expires_at": "2026-05-01T00:00:00Z",
-            "stripe_subscription_id": "sub_existing",
-        }
-
-        from app.features.invites.db import create_trial_subscription
-        result = await create_trial_subscription(
-            user_id=MOCK_UID,
-            user_email=MOCK_EMAIL,
-            source="auto_registration",
-        )
-
-        assert result["success"] is True
-        assert result["already_active"] is True
-
-    @pytest.mark.asyncio
-    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock)
-    async def test_canceled_max_user_skips(self, mock_get_sub):
-        """User with canceled Max subscription should NOT get a new trial.
-        This prevents repeated free trials after expiry.
-        """
-        mock_get_sub.return_value = {
-            "plan": "max",
-            "status": "canceled",
-            "access_expires_at": "2026-01-01T00:00:00Z",
-            "stripe_subscription_id": "sub_old",
-        }
-
-        from app.features.invites.db import create_trial_subscription
-        result = await create_trial_subscription(
-            user_id=MOCK_UID,
-            user_email=MOCK_EMAIL,
-            source="auto_registration",
-        )
-
-        assert result["success"] is True
-        assert result["already_active"] is True
-
-    @pytest.mark.asyncio
-    @patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.invites.db.get_or_create_stripe_customer", new_callable=AsyncMock)
-    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock)
-    async def test_stripe_failure_falls_back_to_db(self, mock_get_sub, mock_get_customer, mock_upsert):
-        """When Stripe fails, trial is written directly to DB with stripe_pending."""
-        mock_get_sub.return_value = None
-        mock_get_customer.side_effect = Exception("Stripe connection timeout")
-
-        from app.features.invites.db import create_trial_subscription
-        result = await create_trial_subscription(
-            user_id=MOCK_UID,
-            user_email=MOCK_EMAIL,
-            source="auto_registration",
-        )
-
-        assert result["success"] is True
-        assert result["stripe_pending"] is True
-        assert result["already_active"] is False
-        mock_upsert.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch("app.features.invites.db.get_subscription", new_callable=AsyncMock)
-    async def test_free_user_can_get_trial(self, mock_get_sub):
-        """User with plan=free should be able to get a trial."""
-        mock_get_sub.return_value = {
-            "plan": "free",
-            "status": "active",
-        }
-
-        with patch("app.features.invites.db.get_or_create_stripe_customer", new_callable=AsyncMock) as mock_cust, \
-             patch("app.features.invites.db.upsert_subscription", new_callable=AsyncMock), \
-             patch("app.features.invites.db.asyncio.to_thread") as mock_thread:
-            mock_cust.return_value = "cus_test"
-            mock_sub = MagicMock()
-            mock_sub.to_dict.return_value = {"id": "sub_new", "trial_end": None}
-            mock_thread.return_value = mock_sub
-
-            from app.features.invites.db import create_trial_subscription
-            result = await create_trial_subscription(
-                user_id=MOCK_UID,
-                user_email=MOCK_EMAIL,
-                source="auto_registration",
-            )
-
-        assert result["success"] is True
-        assert result["already_active"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -221,25 +86,29 @@ class TestOnboardingDrip:
     def test_trial_day_calculation(self):
         """Day should be calculated from access_expires_at.
 
-        Uses midnight timestamps to avoid fractional-day rounding issues.
+        Pins `datetime.now` inside the onboarding module to a fixed midnight
+        so the timedelta(...).days truncation is deterministic regardless of
+        wall-clock time when CI runs (previously failed when CI fired after
+        23:00 UTC).
         """
-        from app.features.notification.onboarding import _calculate_trial_day_from_expiry
+        from app.features.notification import onboarding as ob
 
-        today_midnight = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        fixed_now = datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
+        with patch.object(ob, "datetime") as mock_dt:
+            mock_dt.now.return_value = fixed_now
+            mock_dt.fromisoformat.side_effect = datetime.fromisoformat
 
-        # Trial expiring in 14 days from midnight = Day 0
-        expires = (today_midnight + timedelta(days=14, hours=23)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) == 0
+            # Trial expiring in 14 days + 23h = Day 0
+            expires = (fixed_now + timedelta(days=14, hours=23)).isoformat()
+            assert ob._calculate_trial_day_from_expiry(expires) == 0
 
-        # Trial expiring in 7 days from midnight = Day 7
-        expires = (today_midnight + timedelta(days=7, hours=23)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) == 7
+            # Trial expiring in 7 days + 23h = Day 7
+            expires = (fixed_now + timedelta(days=7, hours=23)).isoformat()
+            assert ob._calculate_trial_day_from_expiry(expires) == 7
 
-        # Trial expiring tomorrow = Day 13
-        expires = (today_midnight + timedelta(days=1, hours=23)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) == 13
+            # Trial expiring tomorrow + 23h = Day 13
+            expires = (fixed_now + timedelta(days=1, hours=23)).isoformat()
+            assert ob._calculate_trial_day_from_expiry(expires) == 13
 
     def test_trial_day_out_of_range(self):
         """Days outside 0-14 should return None."""

@@ -240,6 +240,17 @@ def evaluate_case(
             )
         )
 
+    for section in expected.get("required_sections", []) or []:
+        label = str(section)
+        checks.append(
+            CheckResult(
+                "required_section:%s" % label,
+                _section_present(message, label),
+                "hard",
+                "missing section heading `%s`" % label,
+            )
+        )
+
     if google_calls:
         disclosed = "web 搜索" in message or "非博主历史观点" in message
         checks.append(
@@ -386,6 +397,11 @@ def _data_coverage_satisfied(response: dict[str, Any], key: str) -> bool:
 
     message = str(response.get("message") or "")
     return "数据覆盖提示" not in message
+
+
+def _section_present(message: str, label: str) -> bool:
+    pattern = r"(?m)^\s{0,3}(?:#{1,6}\s*)?(?:\*\*)?%s(?:\*\*)?\s*[：:]?\s*$"
+    return re.search(pattern % re.escape(label), message or "") is not None
 
 
 def _p95(values: list[int]) -> int:

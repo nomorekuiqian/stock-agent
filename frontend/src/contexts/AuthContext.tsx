@@ -91,48 +91,6 @@ function markSynced(userId: string): void {
   localStorage.setItem(SYNC_KEY, JSON.stringify({ userId, ts: Date.now() }));
 }
 
-const AUTO_TRIAL_KEY = 'auto_trial_attempted';
-
-function hasTrialBeenAttempted(userId: string): boolean {
-  if (typeof window === 'undefined') return true;
-  return localStorage.getItem(`${AUTO_TRIAL_KEY}_${userId}`) === 'true';
-}
-
-function markTrialAttempted(userId: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(`${AUTO_TRIAL_KEY}_${userId}`, 'true');
-  }
-}
-
-async function ensureTrialActivated(token: string, userId: string): Promise<void> {
-  if (hasTrialBeenAttempted(userId)) return;
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/invites/auto-trial`,
-      { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (data.already_active) {
-        // User already has a subscription (webhook worked or previous trial)
-      } else {
-        console.log('[AuthContext] Auto-trial activated');
-        // Notify SubscriptionContext to reload (cache is stale)
-        try {
-          localStorage.removeItem('sub_status');
-          window.dispatchEvent(new Event('trial-activated'));
-        } catch {}
-      }
-      markTrialAttempted(userId);
-    }
-    // Non-2xx: don't mark, so it retries next session
-  } catch {
-    console.warn('[AuthContext] Auto-trial request failed, will retry next session');
-    // Don't mark as attempted so it retries
-  }
-}
-
 async function syncUserWithSubscriptions(user: User): Promise<void> {
   if (!needsSync(user.id)) return;
 
@@ -156,15 +114,6 @@ async function syncUserWithSubscriptions(user: User): Promise<void> {
       } catch (subError) {
         console.warn('[AuthContext] Auto-subscribe failed:', subError);
       }
-    }
-
-    // Auto-trial: ensure new users get 14-day Max trial.
-    // Covers all registration paths (email, Google OAuth).
-    // Idempotent: backend returns already_active for existing subscribers.
-    // localStorage prevents repeated API calls for the same user.
-    const token = _cachedAccessToken;
-    if (token) {
-      await ensureTrialActivated(token, user.id);
     }
 
     if (result.success) {

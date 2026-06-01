@@ -1,183 +1,96 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { track } from '@vercel/analytics';
 import { AIPaywall } from '../shared';
 
-// ---------------------------------------------------------------------------
-// Mock dependencies
-// ---------------------------------------------------------------------------
 const mockUseAuth = vi.fn();
-const mockGetAccessToken = vi.fn();
+const mockUseSubscription = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/stock/AAPL',
+}));
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: (...args: unknown[]) => mockUseAuth(...args),
-  getAccessTokenAsync: (...args: unknown[]) => mockGetAccessToken(...args),
 }));
 
-const mockRefreshSubscription = vi.fn();
-const mockUseSubscription = vi.fn();
 vi.mock('@/contexts/SubscriptionContext', () => ({
   useSubscription: (...args: unknown[]) => mockUseSubscription(...args),
 }));
 
-const mockRefreshEntitlements = vi.fn();
-const mockUseEntitlements = vi.fn();
-vi.mock('@/contexts/EntitlementsContext', () => ({
-  useEntitlements: (...args: unknown[]) => mockUseEntitlements(...args),
+vi.mock('@vercel/analytics', () => ({
+  track: vi.fn(),
 }));
 
-const mockFetch = vi.fn();
+vi.mock('@/lib/pricing', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/pricing')>();
+  return { ...actual, STRIPE_LIVE: true };
+});
+
+const trackMock = vi.mocked(track);
 
 beforeEach(() => {
-  mockFetch.mockReset();
-  mockGetAccessToken.mockReset();
-  mockRefreshSubscription.mockReset();
-  mockRefreshEntitlements.mockReset();
-  globalThis.fetch = mockFetch;
-
-  mockGetAccessToken.mockResolvedValue('fake-token');
+  mockUseAuth.mockReset();
+  mockUseSubscription.mockReset();
+  trackMock.mockReset();
   mockUseSubscription.mockReturnValue({
-    refreshSubscription: mockRefreshSubscription,
+    createCheckout: vi.fn(),
+    isCheckoutLoading: false,
   });
 });
 
-// Vitest is not configured with `globals: true`, so testing-library's
-// auto-cleanup is not wired up. Clean up manually so DOM doesn't leak.
 afterEach(() => {
   cleanup();
 });
 
-function setupAuthenticatedEligible() {
-  mockUseAuth.mockReturnValue({ isAuthenticated: true });
-  mockUseEntitlements.mockReturnValue({
-    trialEligible: true,
-    refresh: mockRefreshEntitlements,
-  });
-}
-
-function setupAuthenticatedUsedTrial() {
-  mockUseAuth.mockReturnValue({ isAuthenticated: true });
-  mockUseEntitlements.mockReturnValue({
-    trialEligible: false,
-    refresh: mockRefreshEntitlements,
-  });
-}
-
-function setupUnauthenticated() {
-  mockUseAuth.mockReturnValue({ isAuthenticated: false });
-  mockUseEntitlements.mockReturnValue({
-    trialEligible: true,
-    refresh: mockRefreshEntitlements,
-  });
-}
-
-// ---------------------------------------------------------------------------
-// CTA selection by trialEligible flag
-// ---------------------------------------------------------------------------
-describe('AIPaywall - CTA selection', () => {
-  it('shows "开启 14 天免费试用" button when authenticated and trial-eligible', () => {
-    setupAuthenticatedEligible();
+describe('AIPaywall - post-freemium CTA', () => {
+  it('renders "免费注册" link routing to /login with the stock returnPath when unauthenticated', () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: false });
 
     render(<AIPaywall symbol="AAPL" label="AI 分析" />);
 
-    expect(screen.getByText('开启 14 天免费试用')).toBeTruthy();
-    // No "试用已结束" copy on the eligible path
-    expect(screen.queryByText('你的试用已结束')).toBeNull();
-  });
-
-  it('shows "试用已结束" + "查看订阅方案" when authenticated and trial-ineligible', () => {
-    setupAuthenticatedUsedTrial();
-
-    render(<AIPaywall symbol="AAPL" label="AI 分析" />);
-
-    expect(screen.getByText('你的试用已结束')).toBeTruthy();
-    expect(screen.getByText('查看订阅方案')).toBeTruthy();
-    // No trial activation button on this path
-    expect(screen.queryByText('开启 14 天免费试用')).toBeNull();
-  });
-
-  it('shows "免费注册体验" link when unauthenticated', () => {
-    setupUnauthenticated();
-
-    render(<AIPaywall symbol="AAPL" label="AI 分析" />);
-
-    expect(screen.getByText('免费注册体验')).toBeTruthy();
+    const registerLink = screen.getByText('免费注册').closest('a');
+    expect(registerLink).toBeTruthy();
+    expect(registerLink?.getAttribute('href')).toBe('/login?redirect=%2Fstock%2FAAPL');
+    expect(screen.queryByText('14 天免费试用')).toBeNull();
     expect(screen.queryByText('开启 14 天免费试用')).toBeNull();
     expect(screen.queryByText('你的试用已结束')).toBeNull();
   });
-});
 
-// ---------------------------------------------------------------------------
-// Regression: handleActivateTrial must always refresh, never short-circuit on
-// `already_active=true`. This is the morning-report bug from 2026-05-03.
-// ---------------------------------------------------------------------------
-describe('AIPaywall - activate trial flow', () => {
-  it('calls refresh helpers when backend returns already_active=false (fresh trial)', async () => {
-    setupAuthenticatedEligible();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ already_active: false }),
-    });
+  it('renders the unified "解锁全部功能" lock copy and no legacy /pricing link when authenticated', () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: true });
 
     render(<AIPaywall symbol="AAPL" label="AI 分析" />);
 
-    fireEvent.click(screen.getByText('开启 14 天免费试用'));
+    expect(screen.getAllByText('解锁全部功能').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: /升级 Max/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /pricing/ })).toBeNull();
+  });
 
-    await waitFor(() => {
-      expect(mockRefreshSubscription).toHaveBeenCalledTimes(1);
-      expect(mockRefreshEntitlements).toHaveBeenCalledWith({ fresh: true });
+  it('fires paywall_view on mount with the stock_ai_paywall source', () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: true });
+
+    render(<AIPaywall symbol="AAPL" label="AI 分析" />);
+
+    expect(trackMock).toHaveBeenCalledWith('paywall_view', {
+      source: 'stock_ai_paywall',
+      tier: 'max',
     });
   });
 
-  it('still refreshes when backend returns already_active=true (race with auto-trial)', async () => {
-    // Regression test: pre-fix, this case set trialUsed=true and skipped refresh,
-    // so a newly-registered user with an active trial saw "试用已结束" forever.
-    setupAuthenticatedEligible();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ already_active: true }),
-    });
+  it('fires paywall_cta_click with authenticated=true when the unlock button is clicked', () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: true });
 
     render(<AIPaywall symbol="AAPL" label="AI 分析" />);
 
-    fireEvent.click(screen.getByText('开启 14 天免费试用'));
+    const ctaButton = screen.getByRole('button', { name: /解锁全部功能|订阅功能即将上线/ });
+    fireEvent.click(ctaButton);
 
-    await waitFor(() => {
-      // The whole point of the fix: even when already_active=true, we still
-      // refresh to discover the truth from the server.
-      expect(mockRefreshSubscription).toHaveBeenCalledTimes(1);
-      expect(mockRefreshEntitlements).toHaveBeenCalledWith({ fresh: true });
-    });
-  });
-
-  it('shows error message when backend returns non-200', async () => {
-    setupAuthenticatedEligible();
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ detail: 'rate_limited' }),
-    });
-
-    render(<AIPaywall symbol="AAPL" label="AI 分析" />);
-
-    fireEvent.click(screen.getByText('开启 14 天免费试用'));
-
-    await waitFor(() => {
-      expect(screen.getByText('rate_limited')).toBeTruthy();
-    });
-    // No refresh on failure
-    expect(mockRefreshSubscription).not.toHaveBeenCalled();
-    expect(mockRefreshEntitlements).not.toHaveBeenCalled();
-  });
-
-  it('shows network error when fetch rejects', async () => {
-    setupAuthenticatedEligible();
-    mockFetch.mockRejectedValueOnce(new Error('network down'));
-
-    render(<AIPaywall symbol="AAPL" label="AI 分析" />);
-
-    fireEvent.click(screen.getByText('开启 14 天免费试用'));
-
-    await waitFor(() => {
-      expect(screen.getByText('网络错误，请稍后再试')).toBeTruthy();
+    expect(trackMock).toHaveBeenCalledWith('paywall_cta_click', {
+      source: 'stock_ai_paywall',
+      tier: 'max',
+      authenticated: true,
     });
   });
 });

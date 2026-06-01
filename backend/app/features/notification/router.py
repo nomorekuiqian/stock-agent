@@ -778,11 +778,16 @@ async def get_onboarding_email_preview(
 
 @router.post("/cron/onboarding-emails", dependencies=[Depends(verify_cron_secret)])
 async def cron_onboarding_emails():
-    """Daily cron: send onboarding drip emails to trial users.
+    """DEPRECATED — legacy trial-tied onboarding drip.
 
-    Checks each active trial user's day count and sends the appropriate
-    onboarding email (Day 0, 1, 3, 7, 11, 14). Skips users who have
-    already received the email for their current stage.
+    Replaced by `/api/cron/lifecycle/onboarding-pass` after the freemium
+    transition (docs/plans/active/freemium-lifecycle-email.md). The scheduled
+    GitHub Actions trigger has been removed; this endpoint stays callable
+    only via manual workflow_dispatch so any in-flight legacy trial users
+    can still receive their remaining drip steps.
+
+    Returns counters but, in practice, fires no emails once all auto-trial
+    rows expire (process_onboarding_emails reads `access_expires_at`).
     """
     try:
         from app.features.notification.onboarding import process_onboarding_emails
@@ -791,7 +796,8 @@ async def cron_onboarding_emails():
 
         return {
             "success": True,
-            "message": "Onboarding drip campaign processed",
+            "deprecated": True,
+            "message": "Legacy onboarding drip — use /cron/lifecycle/onboarding-pass.",
             **result,
         }
 

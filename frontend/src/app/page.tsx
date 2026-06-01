@@ -91,7 +91,7 @@ export default function Home() {
                   </svg>
                 </Link>
                 <p className="text-xs text-muted-foreground/70">
-                  无需信用卡 · 14 天免费试用
+                  无需信用卡 · 每日市场日报 + 宏观仪表盘永久免费
                 </p>
               </div>
 
@@ -276,7 +276,7 @@ export default function Home() {
                 href="/pricing"
                 className="block w-full px-4 py-3 bg-card text-foreground rounded-lg text-sm font-semibold text-center transition-all hover:border-primary/30 active:scale-[0.98] border border-border/50"
               >
-                立即订阅 — {PRICING.proPerMonth}
+                立即订阅
               </Link>
               <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
             </div>
@@ -320,7 +320,7 @@ export default function Home() {
                   href="/pricing"
                   className="block w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold text-center transition-all hover:bg-primary/90 active:scale-[0.98]"
                 >
-                  立即订阅 — {PRICING.maxPerMonth}
+                  立即订阅
                 </Link>
                 <p className="text-xs text-muted-foreground/70 text-center mt-2.5">随时取消 · Stripe 安全支付</p>
               </div>

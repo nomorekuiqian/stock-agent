@@ -1,11 +1,20 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
+import { createContext, useContext, useRef, useState, useCallback, useMemo, useEffect, ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth, getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
+import { queryKeys } from '@/hooks/queries/query-keys';
+import { trackCheckoutComplete } from '@/lib/paywall-analytics';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
+
+interface SubscriptionStatus {
+  plan: string;
+  status: string;
+  current_period_end: string | null;
+  access_expires_at: string | null;
+}
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -21,234 +30,108 @@ interface SubscriptionContextType {
   createCheckout: (tier?: 'pro' | 'max', returnPath?: string) => Promise<void>;
   openBillingPortal: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
-  redeemInviteCode: (code: string) => Promise<{ success: boolean; error?: string; accessExpiresAt?: string }>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
-
-const CACHE_KEY = 'sub_status';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-function readCache(userId: string) {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const cached = JSON.parse(raw);
-    if (cached.userId !== userId) return null;
-    if (Date.now() - cached.ts > CACHE_TTL) return null;
-    return cached;
-  } catch { return null; }
-}
-
-function writeCache(userId: string, plan: string, status: string, periodEnd: string | null, accessExpiresAt: string | null) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      userId, plan, status, periodEnd, accessExpiresAt, ts: Date.now(),
-    }));
-  } catch {}
-}
 
 function isExpired(accessExpiresAt: string | null): boolean {
   if (!accessExpiresAt) return false;
   return new Date(accessExpiresAt) <= new Date();
 }
 
+async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('No access token');
+  }
+  const res = await fetch(`${API_BASE_URL}/payment/subscription-status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Subscription status fetch failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [plan, setPlan] = useState('free');
-  const [status, setStatus] = useState('none');
-  const [currentPeriodEnd, setCurrentPeriodEnd] = useState<string | null>(null);
-  const [accessExpiresAt, setAccessExpiresAt] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [portalError, setPortalError] = useState<string | null>(null);
 
-  const isActive = status === 'active' && !isExpired(accessExpiresAt);
-  // isPro: user has Pro OR Max (any paid tier)
-  const isPro = !PAYWALL_ENABLED || (
-    (plan === 'pro' || plan === 'max') && isActive
+  // One-shot read at mount: are we returning from a Stripe Checkout success?
+  const [isCheckoutReturn] = useState(
+    () => typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('checkout') === 'success'
   );
-  // isMax: user has Max tier specifically
+
+  const queryKey = user?.id
+    ? queryKeys.subscriptionStatus.byUser(user.id)
+    : queryKeys.subscriptionStatus.all;
+
+  const { data, isLoading: queryLoading } = useQuery({
+    queryKey,
+    queryFn: fetchSubscriptionStatus,
+    enabled: PAYWALL_ENABLED && !authLoading && isAuthenticated && !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 3,
+    placeholderData: (prev) => prev,
+    // After Stripe checkout returns, poll every second until the webhook
+    // flips plan to pro/max + status=active. Stops automatically once active.
+    refetchInterval: (q) => {
+      if (!isCheckoutReturn) return false;
+      const sub = q.state.data as SubscriptionStatus | undefined;
+      if (sub && (sub.plan === 'pro' || sub.plan === 'max') && sub.status === 'active') {
+        return false;
+      }
+      return 1000;
+    },
+  });
+
+  // Clean ?checkout=success from URL once active, and fire the completion
+  // event for the paywall funnel exactly once.
+  const completionTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!isCheckoutReturn || !data) return;
+    if ((data.plan === 'pro' || data.plan === 'max') && data.status === 'active') {
+      if (!completionTrackedRef.current) {
+        trackCheckoutComplete({ tier: data.plan as 'pro' | 'max' });
+        completionTrackedRef.current = true;
+      }
+      if (typeof window !== 'undefined' && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('checkout');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [isCheckoutReturn, data]);
+
+  const plan = data?.plan || 'free';
+  const status = data?.status || 'none';
+  const currentPeriodEnd = data?.current_period_end || null;
+  const accessExpiresAt = data?.access_expires_at || null;
+  const isActive = status === 'active' && !isExpired(accessExpiresAt);
+
+  const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max') && isActive);
   const isMax = !PAYWALL_ENABLED || (plan === 'max' && isActive);
 
-  // Detect checkout return once on mount
-  const isCheckoutReturn = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('checkout') === 'success';
+  // Mirrors EntitlementsContext: only "loading" while we've never had data.
+  // A refresh failure does not flip back to loading and cannot silently
+  // demote a paying user.
+  const isLoading = authLoading || (PAYWALL_ENABLED && isAuthenticated && queryLoading && !data);
 
-  const refreshSubscription = useCallback(async (signal?: AbortSignal) => {
-    if (!PAYWALL_ENABLED || !user?.id) {
-      setPlan('free');
-      setStatus('none');
-      setCurrentPeriodEnd(null);
-      setAccessExpiresAt(null);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const token = await getAccessToken();
-      if (!token || signal?.aborted) {
-        setIsLoading(false);
-        return;
-      }
-      const res = await fetch(
-        `${API_BASE_URL}/payment/subscription-status`,
-        { headers: { 'Authorization': `Bearer ${token}` }, signal }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const p = data.plan || 'free';
-        const s = data.status || 'none';
-        const pe = data.current_period_end || null;
-        const ae = data.access_expires_at || null;
-        setPlan(p);
-        setStatus(s);
-        setCurrentPeriodEnd(pe);
-        setAccessExpiresAt(ae);
-        writeCache(user.id, p, s, pe, ae);
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.warn('[Subscription] Failed to fetch status:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id]);
-
-  // Poll until subscription is active (for checkout return)
-  const pollForProStatus = useCallback(async () => {
-    if (!PAYWALL_ENABLED || !user?.id) return;
-    const maxAttempts = 10;
-    const interval = 1000;
-
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        const token = await getAccessToken();
-        if (!token) break;
-        const res = await fetch(
-          `${API_BASE_URL}/payment/subscription-status`,
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const p = data.plan || 'free';
-          const s = data.status || 'none';
-          const pe = data.current_period_end || null;
-          const ae = data.access_expires_at || null;
-          setPlan(p);
-          setStatus(s);
-          setCurrentPeriodEnd(pe);
-          setAccessExpiresAt(ae);
-          writeCache(user.id, p, s, pe, ae);
-
-          if ((p === 'pro' || p === 'max') && s === 'active') {
-            setIsLoading(false);
-            if (typeof window !== 'undefined' && window.history.replaceState) {
-              const url = new URL(window.location.href);
-              url.searchParams.delete('checkout');
-              window.history.replaceState({}, '', url.toString());
-            }
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('[Subscription] Poll attempt failed:', err);
-      }
-      await new Promise(resolve => setTimeout(resolve, interval));
-    }
-    setIsLoading(false);
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!PAYWALL_ENABLED) {
-      setIsLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-
-    if (isAuthenticated && user?.id) {
-      if (isCheckoutReturn) {
-        localStorage.removeItem(CACHE_KEY);
-        pollForProStatus();
-      } else {
-        const cached = readCache(user.id);
-        if (cached) {
-          setPlan(cached.plan);
-          setStatus(cached.status);
-          setCurrentPeriodEnd(cached.periodEnd);
-          setAccessExpiresAt(cached.accessExpiresAt ?? null);
-          setIsLoading(false);
-          refreshSubscription(controller.signal);
-        } else {
-          refreshSubscription(controller.signal);
-        }
-      }
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => controller.abort();
-  }, [authLoading, isAuthenticated, user?.id, refreshSubscription, isCheckoutReturn, pollForProStatus]);
-
-  // Auto-refresh when trial is activated (fired by AuthContext.ensureTrialActivated)
-  useEffect(() => {
-    const handler = () => {
-      console.log('[Subscription] Trial activated, refreshing status');
-      refreshSubscription();
-    };
-    window.addEventListener('trial-activated', handler);
-    return () => window.removeEventListener('trial-activated', handler);
-  }, [refreshSubscription]);
-
-  const redeemInviteCode = useCallback(async (code: string) => {
-    try {
-      const token = await getAccessToken();
-      if (!token) return { success: false, error: '请先登录' };
-
-      const res = await fetch(`${API_BASE_URL}/invites/redeem`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        const errorMap: Record<string, string> = {
-          invalid_code: '邀请码无效或已过期',
-          already_redeemed: '你已经兑换过邀请码了',
-        };
-        return { success: false, error: errorMap[data.detail] || data.detail || '兑换失败，请稍后再试' };
-      }
-
-      // Refresh subscription state after successful redemption
-      if (user?.id) {
-        localStorage.removeItem(CACHE_KEY);
-        await refreshSubscription();
-      }
-
-      return {
-        success: true,
-        accessExpiresAt: data.access_expires_at,
-      };
-    } catch (err) {
-      console.error('[Subscription] Redeem invite failed:', err);
-      return { success: false, error: '网络错误，请稍后再试' };
-    }
-  }, [user?.id, refreshSubscription]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refreshSubscription = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey]);
 
   const createCheckout = useCallback(async (tier: 'pro' | 'max' = 'pro', returnPath?: string) => {
     if (!user?.id) {
       setCheckoutError('Please sign in first.');
       return;
     }
-
     const email = user.email || '';
     if (!email) {
       setCheckoutError('No email found. Please sign out and sign in again.');
@@ -277,8 +160,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        window.location.href = data.checkout_url;
+        const json = await res.json();
+        window.location.href = json.checkout_url;
       } else {
         const errorData = await res.json().catch(() => ({}));
         setCheckoutError(errorData.detail || 'Failed to create checkout session. Please try again.');
@@ -289,9 +172,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setCheckoutError('Network error. Please check your connection and try again.');
       setIsCheckoutLoading(false);
     }
-  }, [user?.id, user?.email]);
-
-  const [portalError, setPortalError] = useState<string | null>(null);
+  }, [user]);
 
   const openBillingPortal = useCallback(async () => {
     if (!user?.id) return;
@@ -303,16 +184,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         setPortalError('登录已过期，请重新登录');
         return;
       }
-      const res = await fetch(
-        `${API_BASE_URL}/payment/portal-session`,
-        {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/payment/portal-session`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
       if (res.ok) {
-        const data = await res.json();
-        window.location.href = data.portal_url;
+        const json = await res.json();
+        window.location.href = json.portal_url;
       } else {
         const errorData = await res.json().catch(() => ({}));
         console.error('[Subscription] Portal session failed:', res.status, errorData);
@@ -324,25 +202,31 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id]);
 
+  const value = useMemo<SubscriptionContextType>(
+    () => ({
+      isPro,
+      isMax,
+      isLoading,
+      isCheckoutLoading,
+      checkoutError,
+      portalError,
+      plan,
+      status,
+      currentPeriodEnd,
+      accessExpiresAt,
+      createCheckout,
+      openBillingPortal,
+      refreshSubscription,
+    }),
+    [
+      isPro, isMax, isLoading, isCheckoutLoading, checkoutError, portalError,
+      plan, status, currentPeriodEnd, accessExpiresAt,
+      createCheckout, openBillingPortal, refreshSubscription,
+    ]
+  );
+
   return (
-    <SubscriptionContext.Provider
-      value={{
-        isPro,
-        isMax,
-        isLoading,
-        isCheckoutLoading,
-        checkoutError,
-        portalError,
-        plan,
-        status,
-        currentPeriodEnd,
-        accessExpiresAt,
-        createCheckout,
-        openBillingPortal,
-        refreshSubscription,
-        redeemInviteCode,
-      }}
-    >
+    <SubscriptionContext.Provider value={value}>
       {children}
     </SubscriptionContext.Provider>
   );

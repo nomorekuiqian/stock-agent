@@ -1,4 +1,3 @@
-// No import needed - createClient is injected by the Insforge worker template
 module.exports = async function(request) {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -413,6 +412,9 @@ module.exports = async function(request) {
           current_period_end: sub.current_period_end || null,
           created_at: sub.created_at || u.created_at,
           updated_at: sub.updated_at || null,
+          onboarding_completed_at: sub.onboarding_completed_at || null,
+          lifecycle_state: sub.lifecycle_state || {},
+          reactivation_state: sub.reactivation_state || null,
           // Activity stats
           conversations: parseInt(conv.conversation_count) || 0,
           messages: parseInt(conv.total_messages) || 0,
@@ -488,6 +490,58 @@ module.exports = async function(request) {
 
       return new Response(
         JSON.stringify({ success: true, data: profiles }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST ?action=update_lifecycle_state
+    // Body: { user_id, patch: {...} }
+    // Shallow-merges patch into lifecycle_state JSONB (top-level keys replaced; nested objects fully overwritten).
+    // Caller is responsible for read-modify-write of nested structures (e.g. onboarding_sent dict).
+    if (request.method === "POST" && action === "update_lifecycle_state") {
+      const body = await request.json();
+      const { user_id, patch } = body;
+
+      if (!user_id || typeof patch !== "object" || patch === null) {
+        return new Response(
+          JSON.stringify({ success: false, error: "user_id and patch (object) required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: current, error: getErr } = await client.database
+        .from("subscriptions")
+        .select("lifecycle_state")
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      if (getErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: getErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const merged = { ...(current?.lifecycle_state || {}), ...patch };
+
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .upsert(
+          { user_id, lifecycle_state: merged, updated_at: new Date().toISOString() },
+          { onConflict: "user_id" }
+        )
+        .select("user_id, lifecycle_state")
+        .single();
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

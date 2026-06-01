@@ -1,14 +1,17 @@
 'use client';
 
-import Link from 'next/link';
-import { LockKeyhole } from 'lucide-react';
+import { useEffect } from 'react';
+
+import { UnlockCTA } from '@/components/UnlockCTA';
+import { trackPaywallView } from '@/lib/paywall-analytics';
+
+const SOURCE = 'morning' as const;
 
 /**
  * Locked content placeholder for 盘前早报.
  *
- * Pure visual blur. The conversion CTA lives in `SectionUnlockCta` below,
- * rendered once per locked section so the button stays prominent without
- * spamming a link inside every placeholder.
+ * Pure visual blur. The conversion CTA lives in `SectionUnlockCta` /
+ * `UpgradeBanner` — both now defer to the shared `<UnlockCTA />` component.
  */
 export function LockedBlur({
   lines = 3,
@@ -55,22 +58,12 @@ export function LockedBlur({
 
 /**
  * Section-level unlock CTA. Centered, prominent button rendered once per
- * locked section card. Sized for easy tap on mobile and obvious on desktop.
+ * locked section card.
  */
-export function SectionUnlockCta({
-  label = '订阅解锁',
-}: {
-  label?: string;
-}) {
+export function SectionUnlockCta() {
   return (
     <div className="mt-5 flex justify-center">
-      <Link
-        href="/pricing"
-        className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-500/20 transition-colors hover:bg-amber-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        <LockKeyhole className="w-4 h-4" aria-hidden />
-        {label}
-      </Link>
+      <UnlockCTA source={SOURCE} variant="primary" hideArrow />
     </div>
   );
 }
@@ -83,25 +76,18 @@ export function SectionUnlockCta({
  */
 export function UpgradeBanner({
   isAuthenticated,
-  trialEligible,
   targetPath,
 }: {
   isAuthenticated: boolean;
-  trialEligible: boolean;
   targetPath: string;
 }) {
-  let ctaHref: string;
-  let ctaLabel: string;
-  if (!isAuthenticated) {
-    ctaHref = `/login?redirect=${encodeURIComponent(targetPath)}`;
-    ctaLabel = '注册免费体验 14 天';
-  } else if (trialEligible) {
-    ctaHref = '/pricing';
-    ctaLabel = '开启 14 天免费试用';
-  } else {
-    ctaHref = '/pricing';
-    ctaLabel = '订阅解锁全部内容';
-  }
+  useEffect(() => {
+    trackPaywallView({ source: SOURCE, tier: 'max' });
+  }, []);
+
+  // The shared CTA derives auth + returnPath internally; prop API preserved
+  // for the legacy callers in MorningReportBody.
+  void isAuthenticated;
 
   return (
     <section
@@ -121,12 +107,7 @@ export function UpgradeBanner({
             策略归属订阅用户。
           </p>
         </div>
-        <Link
-          href={ctaHref}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-500/90 whitespace-nowrap"
-        >
-          {ctaLabel}
-        </Link>
+        <UnlockCTA source={SOURCE} variant="primary" returnPath={targetPath} hideArrow />
       </div>
     </section>
   );

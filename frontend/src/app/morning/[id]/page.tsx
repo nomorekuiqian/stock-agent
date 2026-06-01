@@ -1,14 +1,38 @@
-import { cache } from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { getAuthCookies } from '@/lib/auth-cookies';
+import type { MorningReport } from '@/lib/api';
 import { MorningReportBody } from '../_components/MorningReportBody';
 
-// ISR: revalidate every hour (reports don't change after generation)
-export const revalidate = 3600;
+// Per-user dynamic: the backend strips paid AI fields when called without
+// a token. We forward the access-token cookie so authenticated subscribers
+// get the unlocked payload in the SSR HTML (no client-side flicker).
+export const dynamic = 'force-dynamic';
 
-const getMorningReport = cache((id: string) => api.morningReports.getById(id));
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+
+async function getMorningReport(id: string): Promise<MorningReport | null> {
+  const { accessToken } = await getAuthCookies();
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/morning/reports/${id}`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      return null;
+    }
+    const json = await res.json();
+    return (json.data ?? null) as MorningReport | null;
+  } catch {
+    return null;
+  }
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;

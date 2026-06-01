@@ -10,10 +10,10 @@ export function ReportTabs() {
   const isToday = pathname.startsWith('/today') || (!isMorning && !isTwitterDigest);
 
   return (
-    <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border/50">
+    <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border/50 bg-muted/50 p-1">
       <Link
         href="/morning"
-        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+        className={`whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
           isMorning
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
@@ -23,7 +23,7 @@ export function ReportTabs() {
       </Link>
       <Link
         href="/today"
-        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+        className={`whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
           isToday
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
@@ -33,7 +33,7 @@ export function ReportTabs() {
       </Link>
       <Link
         href="/twitter-digest"
-        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+        className={`whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
           isTwitterDigest
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'

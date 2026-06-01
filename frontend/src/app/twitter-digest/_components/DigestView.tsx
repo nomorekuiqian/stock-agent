@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
 
 import { HotLeaderboard } from './HotLeaderboard';
@@ -41,9 +42,10 @@ function isEmpty(d: DailyDigest): boolean {
 export function DigestView({ date, digest, isAuthenticated = false }: Props) {
   if (!digest) {
     return (
-      <main className="min-h-screen bg-background">
+      <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background editorial-paper">
+        <DigestPageHeader showSubscribe />
         <div className="max-w-4xl mx-auto px-4 md:px-6 py-24 text-center">
-          <h1 className="font-editorial text-2xl text-foreground/85">该日期暂无日报</h1>
+          <h2 className="font-editorial text-2xl text-foreground/85">该日期暂无日报</h2>
           <p className="text-muted-foreground mt-3 text-sm">{formatHeaderDate(date)}</p>
           <p className="text-muted-foreground mt-2 text-sm max-w-sm mx-auto">
             可能是当天 KOL 产出未达收录标准。
@@ -95,31 +97,8 @@ export function DigestView({ date, digest, isAuthenticated = false }: Props) {
     : undefined;
 
   return (
-    <main className="min-h-screen bg-background editorial-paper">
-      {/* Page Header (matches Daily / Morning report layout) */}
-      <section className="border-b border-border/50">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 animate-fade-in-up">
-                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-sky-400 to-transparent animate-line-expand" />
-                <span className="text-sky-400 text-xs font-semibold tracking-[0.25em] uppercase">Twitter Digest</span>
-              </div>
-              <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
-                推特 KOL 日报
-              </h1>
-              <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
-                每天 5 分钟带你看清美股高质量 KOL 观点
-              </p>
-            </div>
-
-            <div className="flex flex-col items-start md:items-end gap-4 animate-fade-in-up delay-300">
-              <ReportTabs />
-              <TwitterDigestActions showSubscribe={!locked} />
-            </div>
-          </div>
-        </div>
-      </section>
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background editorial-paper">
+      <DigestPageHeader showSubscribe={!locked} />
 
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-10 space-y-6">
         <OpeningSection
@@ -199,6 +178,36 @@ export function DigestView({ date, digest, isAuthenticated = false }: Props) {
         <Footer digest={digest} />
       </div>
     </main>
+  );
+}
+
+function DigestPageHeader({ showSubscribe }: { showSubscribe: boolean }) {
+  return (
+    <section className="border-b border-border/50">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 animate-fade-in-up">
+              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-sky-400 to-transparent animate-line-expand" />
+              <span className="text-sky-400 text-xs font-semibold tracking-[0.25em] uppercase">Twitter Digest</span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
+              推特 KOL 日报
+            </h1>
+            <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
+              每天 5 分钟带你看清美股高质量 KOL 观点
+            </p>
+          </div>
+
+          <div className="flex flex-col items-start md:items-end gap-4 animate-fade-in-up delay-300">
+            <ReportTabs />
+            <TwitterDigestActions showSubscribe={showSubscribe} />
+          </div>
+        </div>
+
+        <ReportHeroBanner src="/report-banners/twitter-digest-banner.png" priority />
+      </div>
+    </section>
   );
 }
 

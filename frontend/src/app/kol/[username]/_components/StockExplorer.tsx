@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useKolCockpitTickers } from '@/hooks/queries/use-kol-data';
 import TickerList from './TickerList';
 import TickerDetail from './TickerDetail';
+import { FRANK_COMPANY_RECOMMENDATIONS } from './frankContentData';
 
 interface Props {
   username: string;
@@ -17,13 +18,20 @@ export default function StockExplorer({ username }: Props) {
 
   const { data, isError } = useKolCockpitTickers(username);
   const tickers = data?.tickers ?? null;
+  const isFrank = username.toLowerCase() === 'qinbafrank';
+  const preferredTicker =
+    isFrank && tickers
+      ? FRANK_COMPANY_RECOMMENDATIONS.find((company) =>
+          tickers.some((ticker) => ticker.ticker === company.ticker),
+        )?.ticker ?? null
+      : null;
 
   // Selected derives from URL + data at render time. URL is source of truth;
   // pickTicker updates URL and React re-derives — no setState-in-effect needed.
   const selected =
     tickers && urlTicker && tickers.some((t) => t.ticker === urlTicker)
       ? urlTicker
-      : tickers?.[0]?.ticker ?? null;
+      : preferredTicker ?? tickers?.[0]?.ticker ?? null;
 
   // Keep URL in sync with selection (shallow — no scroll/refetch).
   function pickTicker(t: string) {
@@ -52,18 +60,9 @@ export default function StockExplorer({ username }: Props) {
     );
   }
 
-  const totalMentions = tickers.reduce((sum, item) => sum + item.count, 0);
-  const pricedCount = tickers.filter((item) => item.priceable && item.price != null).length;
-
   return (
     <div className="py-5 md:py-6 lg:py-7">
-      <ExplorerSummary
-        tickerCount={tickers.length}
-        totalMentions={totalMentions}
-        pricedCount={pricedCount}
-      />
-
-      <div className="grid gap-6 pt-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8 lg:pt-6">
+      <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8">
         {/* Left rail */}
         <aside className="h-72 min-h-0 overflow-hidden sm:h-96 lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-7rem)]">
           <TickerList
@@ -78,48 +77,6 @@ export default function StockExplorer({ username }: Props) {
           <TickerDetail username={username} ticker={selected} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function ExplorerSummary({
-  tickerCount,
-  totalMentions,
-  pricedCount,
-}: {
-  tickerCount: number;
-  totalMentions: number;
-  pricedCount: number;
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-2 border-b border-border/30 pb-5 sm:gap-3">
-      <SummaryMetric label="覆盖标的" value={tickerCount.toLocaleString()} suffix="只" />
-      <SummaryMetric label="公开提及" value={totalMentions.toLocaleString()} suffix="次" />
-      <SummaryMetric label="报价标的" value={pricedCount.toLocaleString()} suffix="只" />
-    </div>
-  );
-}
-
-function SummaryMetric({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: string;
-  suffix: string;
-}) {
-  return (
-    <div className="rounded-md border border-border/40 bg-card/25 px-3 py-3">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-data text-lg font-semibold text-foreground tabular-nums">
-        {value}
-        <span className="ml-1 font-sans text-sm font-normal text-muted-foreground">
-          {suffix}
-        </span>
-      </p>
     </div>
   );
 }

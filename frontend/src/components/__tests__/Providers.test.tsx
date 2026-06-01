@@ -31,6 +31,10 @@ vi.mock('@/contexts/EntitlementsContext', () => ({
   EntitlementsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@/components/OnboardingGate', () => ({
+  OnboardingGate: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 vi.mock('@/hooks/queries/query-client', () => ({
   makeQueryClient: () => ({}),
 }));

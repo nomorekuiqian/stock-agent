@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { ArrowRight, Crown, Sparkles, Zap } from 'lucide-react';
-import { PRICING } from '@/lib/pricing';
 
 /**
  * Conversion CTA shown at the bottom of every macro page.
@@ -21,7 +20,7 @@ import { PRICING } from '@/lib/pricing';
  *  - Max user            → hidden (no upsell needed)
  *  - Pro user            → nudge toward Max, headline: 无限 AI 投研引擎
  *  - Free authenticated  → dual path (Pro + Max)
- *  - Unauthenticated     → sign up for free trial
+ *  - Unauthenticated     → sign up CTA (free 永久免费版)
  */
 
 type SectionKey = 'macro' | 'economy' | 'inflation' | 'liquidity' | 'sentiment' | 'weekly';
@@ -115,7 +114,7 @@ export function MacroUpgradeCTA() {
                 href="/pricing"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                升级 Max · {PRICING.maxPerMonth}
+                升级 Max
               </Link>
             </div>
           </div>
@@ -140,7 +139,7 @@ export function MacroUpgradeCTA() {
           <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-2xl">
             {isAuthenticated
               ? `${copy.subline} 或订阅 Pro 获取每周宏观邮件推送。`
-              : '注册即可体验 14 天全部 Max 功能 — AI 投研引擎无限使用、深度个股分析、邮件推送,从宏观到个股一站式投研。'}
+              : '注册免费用每日市场日报 + 宏观仪表盘; 升级 Max 解锁 AI 投研引擎无限使用、深度个股分析、推特 KOL 日报。'}
           </p>
           <div className="grid md:grid-cols-2 gap-3">
             <Link
@@ -151,7 +150,7 @@ export function MacroUpgradeCTA() {
                 <Zap className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground">Pro · {PRICING.proPerMonth}</p>
+                <p className="text-sm font-semibold text-foreground">Pro</p>
                 <p className="text-xs text-muted-foreground">宏观周报 + 持仓日报 + 自选股</p>
               </div>
               <ArrowRight className="w-4 h-4 text-primary shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -164,7 +163,7 @@ export function MacroUpgradeCTA() {
                 <Crown className="w-4 h-4 text-amber-400" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground">Max · {PRICING.maxPerMonth}</p>
+                <p className="text-sm font-semibold text-foreground">Max</p>
                 <p className="text-xs text-muted-foreground">无限 AI 投研 + 深度个股分析</p>
               </div>
               <ArrowRight className="w-4 h-4 text-amber-400 shrink-0 transition-transform group-hover:translate-x-0.5" />

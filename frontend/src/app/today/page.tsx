@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ReportContent } from '@/components/ReportContent';
+import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
 import { TodayActions } from './_components/TodayActions';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
@@ -88,138 +89,110 @@ export default async function TodayPage() {
     .filter(r => r.report_date !== today)
     .slice(0, 5);
   const totalReports = historyResult.total;
+  const reportTitle = report?.title || '今日日报';
 
   return (
-    <main className="min-h-screen bg-background">
-      {/* Page Header */}
-      <section className="border-b border-border/50">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 animate-fade-in-up">
-                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
-                <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">Daily Report</span>
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background">
+      <div className="mx-auto max-w-5xl px-4 md:px-6">
+        <section className="border-b border-border/50 py-8 md:py-12">
+          <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
+            <div className="max-w-4xl space-y-4 animate-fade-in-up">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
+                <span className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
+                  Daily Report
+                </span>
                 {report && !isToday && (
-                  <span className="text-amber-500 text-xs font-semibold tracking-[0.2em] ml-2">/ Archive</span>
+                  <span className="ml-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                    · Archive
+                  </span>
                 )}
               </div>
-              <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
-                今日日报
-              </h1>
-              <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
-                AI 驱动的市场分析，提供可操作的投资洞察，助力明智决策
-              </p>
+
+              <div className="space-y-3">
+                <p className="font-data text-xs tabular-nums text-muted-foreground">
+                  {formatReportDate(report?.report_date ?? today)}
+                </p>
+                <h1 className="max-w-4xl font-editorial text-3xl leading-tight text-foreground md:text-5xl">
+                  {reportTitle}
+                </h1>
+                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                  {report?.summary || 'AI 驱动的市场分析，提供可操作的投资洞察，助力明智决策。'}
+                </p>
+              </div>
             </div>
 
-            <div className="flex flex-col items-start md:items-end gap-4 animate-fade-in-up delay-300">
+            <div className="flex flex-col items-start gap-4 lg:items-end animate-fade-in-up delay-100">
               <ReportTabs />
               <TodayActions
                 chatHref={report ? `/research?context=daily_report&date=${report.report_date || ''}` : undefined}
               />
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Report Content */}
-      {report ? (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          <section className="animate-fade-in-up delay-150">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
-                <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm font-data text-foreground tabular-nums">{formatReportDate(report.report_date)}</span>
-              </div>
-            </div>
+          <ReportHeroBanner src="/report-banners/evening-report-banner.png" priority />
+        </section>
 
-            {report.title && (
-              <h2 className="text-2xl md:text-3xl font-editorial text-foreground leading-[1.15]">
-                {report.title}
-              </h2>
-            )}
-
-            {report.summary && (
-              <p className="text-muted-foreground mt-3 leading-relaxed max-w-2xl">
-                {report.summary}
-              </p>
-            )}
-          </section>
-
-          <ReportContent
-            indices={report.indices as IndexData[] | undefined}
-            intro={report.intro}
-            news={report.news}
-            report_summary={report.report_summary}
-            calendar={report.calendar}
-            showDisclaimer={false}
-          />
-        </div>
-      ) : (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
-          <div className="text-center space-y-6 animate-fade-in-up">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center animate-float">
-              <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-xl font-editorial text-foreground mb-2">暂无报告</h3>
-              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                市场报告每日生成，请稍后再来查看
+        {report ? (
+          <article className="py-8 md:py-10">
+            <ReportContent
+              indices={report.indices as IndexData[] | undefined}
+              intro={report.intro}
+              news={report.news}
+              report_summary={report.report_summary}
+              calendar={report.calendar}
+              showDisclaimer={false}
+            />
+          </article>
+        ) : (
+          <div className="py-20">
+            <div className="mx-auto max-w-sm space-y-3 text-center animate-fade-in-up">
+              <h2 className="text-2xl font-medium text-foreground">暂无报告</h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                市场报告每日生成，请稍后再来查看。
               </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {twitterDigestTeaser && (
         <TwitterDigestConversion teaser={twitterDigestTeaser} />
       )}
 
-      {/* Historical Reports Section */}
       {historicalReports.length > 0 && (
-        <section className="border-t border-border/50 mt-12">
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
-            <div className="flex items-center justify-between mb-8 animate-fade-in-up">
+        <section className="mt-4 border-t border-border/60">
+          <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+            <div className="mb-6 flex items-end justify-between gap-4 animate-fade-in-up">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-5 bg-primary rounded-full" />
-                  <h3 className="text-xl font-editorial text-foreground">往期报告</h3>
-                </div>
-                <p className="text-sm text-muted-foreground pl-3 tabular-nums">{totalReports} 份报告存档</p>
+                <h2 className="text-xl font-medium text-foreground">往期报告</h2>
+                <p className="text-sm text-muted-foreground tabular-nums">{totalReports} 份报告存档</p>
               </div>
               <Link
                 href="/today/archive"
-                className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1 group"
+                className="group inline-flex items-center gap-1 text-sm text-primary transition-colors hover:text-primary/80"
               >
                 查看全部
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="divide-y divide-border/50 rounded-lg border border-border/40 bg-card/50">
               {historicalReports.map((r, i) => (
                 <Link
                   key={r.id}
                   href={`/today/${r.id}`}
-                  className="group terminal-card p-6 hover:bg-card/80 hover:-translate-y-0.5 hover-glow animate-fade-in-up"
+                  className="group grid gap-2 px-4 py-4 transition-colors hover:bg-card/60 sm:grid-cols-[1fr_auto] sm:items-center md:px-5 animate-fade-in-up"
                   style={{ animationDelay: `${200 + i * 100}ms` }}
                 >
-                  <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug mb-4">
+                  <h3 className="line-clamp-1 text-sm font-medium leading-6 text-foreground transition-colors group-hover:text-primary">
                     {r.title || formatReportDate(r.report_date)}
-                  </h4>
-                  <div className="flex items-center justify-between pt-4 border-t border-border/30">
-                    <span className="text-xs font-data text-muted-foreground tabular-nums tracking-wide">
-                      {formatDateShort(r.report_date)}
-                    </span>
-                    <svg className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+                  </h3>
+                  <span className="font-data text-xs text-muted-foreground tabular-nums">
+                    {formatDateShort(r.report_date)}
+                  </span>
                 </Link>
               ))}
             </div>
@@ -244,7 +217,7 @@ function TwitterDigestConversion({ teaser }: { teaser: TwitterDigestTeaser }) {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 max-w-[48px] bg-gradient-to-r from-amber-400 to-transparent" />
-                <span className="text-amber-400 text-xs font-semibold tracking-[0.22em] uppercase">
+                <span className="text-amber-400 text-xs font-medium tracking-[0.2em] uppercase">
                   Max Intelligence
                 </span>
               </div>
@@ -288,7 +261,7 @@ function TwitterDigestConversion({ teaser }: { teaser: TwitterDigestTeaser }) {
               >
                 浏览往期归档
               </Link>
-              <p className="text-[11px] text-muted-foreground text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 全文、邮件推送和历史归档为 Max 专属
               </p>
             </div>

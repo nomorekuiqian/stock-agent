@@ -3,9 +3,12 @@ Research quota service.
 
 Rules:
 - Users with the Max `ai_research_engine` entitlement: unlimited
-- Everyone else (anonymous / free / Pro): 5 questions per day
+- Everyone else (anonymous / free / Pro): 2 questions per day
 - Only user-sent messages count (not AI responses)
 - Daily reset at midnight UTC
+
+Note: Pro is NOT differentiated from free here — only Max gets unlimited.
+See docs/constraints/subscription-model.md ("AI 投研对话 Pro 不差异化").
 """
 
 from app.core.logging import get_logger
@@ -14,7 +17,7 @@ from app.utils.timezone import today_str
 
 logger = get_logger(__name__)
 
-DAILY_LIMIT = 5
+DAILY_LIMIT = 2
 UNLIMITED_QUOTA_FEATURE = "ai_research_engine"
 
 

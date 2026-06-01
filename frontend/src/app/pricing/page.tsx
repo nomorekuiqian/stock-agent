@@ -49,32 +49,17 @@ export default function PricingPage() {
     isPro, isMax,
     isLoading: subLoading,
     createCheckout,
-    redeemInviteCode,
     plan,
     accessExpiresAt,
   } = useSubscription();
 
-  const [codeInput, setCodeInput] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [isRedeeming, setIsRedeeming] = useState(false);
-  const [redeemSuccess, setRedeemSuccess] = useState(false);
   const [checkoutTier, setCheckoutTier] = useState<'pro' | 'max' | null>(null);
 
-  const isExpiredTrial =
-    isAuthenticated &&
-    (plan === 'pro' || plan === 'max') &&
-    accessExpiresAt &&
-    new Date(accessExpiresAt) < new Date();
-
-  const isActiveTrial =
-    isAuthenticated &&
-    isPro &&
-    accessExpiresAt &&
-    new Date(accessExpiresAt) > new Date();
+  // Freemium 模型已无自动 trial。剩下的 access_expires_at 只在少量遗留邀请码用户
+  // 上还会出现，他们走完后自然消失，因此 pricing 页不再为这种状态显示横幅。
 
   const isPaidPro = isPro && !accessExpiresAt && plan === 'pro';
   const isPaidMax = isMax && !accessExpiresAt;
-  const isPaidAny = isPaidPro || isPaidMax;
 
   const loading = authLoading || subLoading;
 
@@ -86,23 +71,6 @@ export default function PricingPage() {
     setCheckoutTier(tier);
     await createCheckout(tier);
     setCheckoutTier(null);
-  };
-
-  const handleRedeem = async () => {
-    if (!codeInput.trim()) return;
-    if (!isAuthenticated) {
-      router.push('/login?redirect=/pricing');
-      return;
-    }
-    setIsRedeeming(true);
-    setCodeError('');
-    const result = await redeemInviteCode(codeInput.trim());
-    setIsRedeeming(false);
-    if (result.success) {
-      setRedeemSuccess(true);
-    } else {
-      setCodeError(result.error || '兑换失败');
-    }
   };
 
   return (
@@ -143,26 +111,6 @@ export default function PricingPage() {
             </div>
           </div>
         )}
-        {!loading && isActiveTrial && (
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
-              <Check className="w-4 h-4 text-primary" />
-              <span className="text-sm text-primary font-medium">
-                免费试用中 -- 订阅后可享每月不间断服务
-              </span>
-            </div>
-          </div>
-        )}
-        {!loading && isExpiredTrial && (
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <span className="text-sm text-amber-400 light:text-amber-600 font-medium">
-                你的体验期已结束，选择一个方案继续使用
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* ── Two-column Pricing + Free aside ─────────────────── */}
         <div className="max-w-4xl mx-auto mb-16 md:mb-20">
 
@@ -397,72 +345,7 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* ── Free Trial / Invite Code ────────────────────────── */}
-        {!loading && !isPaidAny && (
-          <section className="max-w-md mx-auto mb-16 md:mb-20">
-            <div className="text-center mb-5">
-              <div className="h-px bg-border/30 mb-5" />
-              <p className="text-xs text-muted-foreground tracking-wide uppercase">
-                {isActiveTrial ? '还没准备好付费?' : '免费试用'}
-              </p>
-            </div>
-
-            {!isAuthenticated && !isActiveTrial && (
-              <div className="text-center mb-5">
-                <Link
-                  href="/login?redirect=/pricing"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors"
-                >
-                  注册即试用 14 天全功能
-                </Link>
-              </div>
-            )}
-
-            {redeemSuccess ? (
-              <div className="terminal-card p-6 text-center">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                  <Check className="w-5 h-5 text-primary" />
-                </div>
-                <p className="text-sm font-medium text-foreground mb-1">兑换成功</p>
-                <p className="text-xs text-muted-foreground">你已获得 14 天全功能体验</p>
-                <Link
-                  href="/today"
-                  className="inline-block mt-4 text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  开始探索 &rarr;
-                </Link>
-              </div>
-            ) : (
-              <>
-                {isActiveTrial && (
-                  <p className="text-xs text-muted-foreground text-center mb-3">
-                    试用期 14 天免费体验，付费订阅则按月持续使用
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={codeInput}
-                    onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => e.key === 'Enter' && handleRedeem()}
-                    placeholder="有邀请码？在此输入"
-                    className="flex-1 px-3 py-2.5 bg-card border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
-                  />
-                  <button
-                    onClick={handleRedeem}
-                    disabled={isRedeeming || !codeInput.trim()}
-                    className="px-4 py-2.5 bg-card border border-border/60 rounded-lg text-sm font-medium text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
-                  >
-                    {isRedeeming ? '兑换中...' : '兑换'}
-                  </button>
-                </div>
-              </>
-            )}
-            {codeError && (
-              <p className="text-xs text-red-400 mt-2 text-center">{codeError}</p>
-            )}
-          </section>
-        )}
+        {/* Free Trial / Invite Code section removed in freemium transition */}
 
         {/* ── FAQ ─────────────────────────────────────────────── */}
         <div className="max-w-lg mx-auto">
@@ -487,8 +370,8 @@ export default function PricingPage() {
               a="可以。通过 Stripe 管理订阅，取消后当前计费周期内仍可使用，不会额外收费。"
             />
             <FaqItem
-              q="免费试用包含哪些功能?"
-              a="注册即可获得 14 天全功能（Max 级别）体验，到期后可选择 Pro 或 Max 继续使用。"
+              q="免费版包含哪些功能?"
+              a="注册后永久免费使用每日市场日报、宏观仪表盘和 25 只自选股管理；AI 投研引擎也提供每天 2 次免费体验。需要更深度功能时再升级 Pro 或 Max。"
             />
             <FaqItem
               q="支持哪些支付方式?"

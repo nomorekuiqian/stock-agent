@@ -376,8 +376,10 @@ class TestSyncDailyCtaSegments:
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
-    def test_trial_user_stays_in_free_cta(self, _wait, mock_resend):
-        """Trial users have entitlements but access_expires_at set -> free CTA."""
+    def test_legacy_trial_user_moves_to_paid_cta(self, _wait, mock_resend):
+        """Post-freemium: legacy trial users (entitlements + access_expires_at)
+        now route to PAID CTA so the model change does not jolt them with
+        upgrade prompts during their remaining trial days. See cta_tier.py."""
         svc = self._make_cta_service()
         _mock_current_segments(mock_resend, {"seg-evening"})
 
@@ -388,9 +390,9 @@ class TestSyncDailyCtaSegments:
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls}
-        assert "seg-daily-free-cta" in added
-        assert "seg-daily-paid-cta" not in added
-        assert "added to daily_free_cta" in actions
+        assert "seg-daily-paid-cta" in added
+        assert "seg-daily-free-cta" not in added
+        assert "added to daily_paid_cta" in actions
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")

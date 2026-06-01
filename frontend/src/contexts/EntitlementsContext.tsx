@@ -1,14 +1,20 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
+import { createContext, useContext, useMemo, ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth, getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
+import { queryKeys } from '@/hooks/queries/query-keys';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
+interface EntitlementsResponse {
+  entitlements: string[];
+  // `trial_eligible` is still returned by the backend for now (legacy)
+  // but no UI consumes it post-freemium; intentionally not surfaced here.
+}
+
 interface EntitlementsContextValue {
   entitlements: Set<string>;
-  trialEligible: boolean;
   isLoading: boolean;
   has: (feature: string) => boolean;
   refresh: (opts?: { fresh?: boolean }) => Promise<void>;
@@ -16,57 +22,83 @@ interface EntitlementsContextValue {
 
 const EntitlementsContext = createContext<EntitlementsContextValue | null>(null);
 
+async function fetchEntitlements(fresh: boolean): Promise<EntitlementsResponse> {
+  const token = await getAccessToken();
+  if (!token) {
+    // Surface as an error so React Query retries — never cache an empty
+    // set just because we momentarily lacked a token. The `enabled` flag
+    // on useQuery prevents the call entirely when truly unauthenticated.
+    throw new Error('No access token');
+  }
+  const url = fresh
+    ? `${API_BASE_URL}/payment/me/entitlements?fresh=true`
+    : `${API_BASE_URL}/payment/me/entitlements`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Entitlements fetch failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export function EntitlementsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [entitlements, setEntitlements] = useState<Set<string>>(new Set());
-  // Default true for unauthenticated/loading state so the trial CTA shows optimistically.
-  const [trialEligible, setTrialEligible] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async (opts?: { fresh?: boolean }) => {
-    if (!isAuthenticated) {
-      setEntitlements(new Set());
-      setTrialEligible(true);
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const token = await getAccessToken();
-      if (!token) {
-        setIsLoading(false);
-        return;
+  const { data, isLoading: queryLoading } = useQuery({
+    queryKey: queryKeys.entitlements.me(),
+    queryFn: () => fetchEntitlements(false),
+    enabled: !authLoading && isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 3,
+    placeholderData: (prev) => prev,
+  });
+
+  const entitlements = useMemo(
+    () => new Set(data?.entitlements || []),
+    [data?.entitlements]
+  );
+
+  // isLoading: while auth is hydrating, OR while we have NEVER had data and
+  // are authenticated + actively fetching. Subsequent background refetches
+  // do not flip isLoading back to true (React Query preserves data + uses
+  // isFetching for that), so a refresh failure cannot silently demote a
+  // paying user to "free".
+  const isLoading = authLoading || (isAuthenticated && queryLoading && !data);
+
+  const refresh = useMemo(
+    () => async (opts?: { fresh?: boolean }) => {
+      if (opts?.fresh) {
+        // Bypass backend's 5-min subscription cache (e.g. right after
+        // Stripe webhook / lifetime grant). Don't go through React Query's
+        // invalidate path because that wouldn't pass fresh=true.
+        try {
+          const data = await fetchEntitlements(true);
+          queryClient.setQueryData(queryKeys.entitlements.me(), data);
+        } catch {
+          // Swallow — existing cached value (placeholderData) stays.
+        }
+      } else {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.entitlements.me() });
       }
-      const url = opts?.fresh
-        ? `${API_BASE_URL}/payment/me/entitlements?fresh=true`
-        : `${API_BASE_URL}/payment/me/entitlements`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setEntitlements(new Set(data.entitlements || []));
-        setTrialEligible(data.trial_eligible !== false);
-      }
-    } catch {
-      // Silently fail - entitlements will be empty, paywall will show
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated]);
+    },
+    [queryClient]
+  );
 
-  useEffect(() => {
-    if (!authLoading) {
-      refresh();
-    }
-  }, [isAuthenticated, authLoading, refresh]);
-
-  const has = useCallback(
-    (feature: string) => entitlements.has(feature),
+  const has = useMemo(
+    () => (feature: string) => entitlements.has(feature),
     [entitlements]
   );
 
+  const value = useMemo(
+    () => ({ entitlements, isLoading, has, refresh }),
+    [entitlements, isLoading, has, refresh]
+  );
+
   return (
-    <EntitlementsContext.Provider value={{ entitlements, trialEligible, isLoading, has, refresh }}>
+    <EntitlementsContext.Provider value={value}>
       {children}
     </EntitlementsContext.Provider>
   );

@@ -219,6 +219,10 @@ class TestNoCrossFeatureImports:
         ("kol_research", "screener"),
         ("kol_research", "daily_report"),
         ("kol_research", "flags"),
+        # Onboarding state lives on subscriptions table (payment.db) +
+        # cron entrypoint delegates to subscription.lifecycle_scheduler.
+        ("onboarding", "payment"),
+        ("onboarding", "subscription"),
     }
 
     def test_no_cross_feature_imports(self):

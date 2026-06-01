@@ -11,7 +11,7 @@ import {
 import type { KolCockpitTickerSummary } from '@/lib/api';
 import PersonaHero from './_components/PersonaHero';
 import SubNav from './_components/SubNav';
-import TransparencyFooter from './_components/TransparencyFooter';
+import TransparencyNote from './_components/TransparencyNote';
 import { relativeTimeCN } from './_components/relativeTime';
 import { HeroSkeleton, SubNavSkeleton } from './_components/Skeletons';
 
@@ -34,12 +34,12 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
 
   const errored = profileQ.isError || tickersQ.isError || feedQ.isError;
   const ready = profileQ.data && tickersQ.data && feedQ.data;
-  // Sectors API failure is non-fatal (sectorCount falls back to a default),
-  // but we want a console trace so oncall can spot it without staring at the
-  // network tab.
-  if (sectorsQ.isError && sectorsQ.error) {
-    console.warn('useKolCockpitSectors failed; sector KPI fell back to default', sectorsQ.error);
-  }
+  // qinbafrank uses the full-bleed workspace layout across all sub-pages so the
+  // topic tree / sector explorer / feed rails have room to breathe. The loading
+  // shell must match — otherwise the page visibly jumps from max-w-7xl to full
+  // bleed on every navigation / refresh.
+  const isWideWorkspace = username.toLowerCase() === 'qinbafrank';
+  const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
 
   if (!ready) {
     return (
@@ -47,12 +47,15 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
         <HeroSkeleton />
         <SubNavSkeleton />
         {errored ? (
-          <div className="mx-auto max-w-7xl px-4 py-16 text-center text-sm text-muted-foreground md:px-6">
+          <div className={`mx-auto px-4 py-16 text-center text-sm text-muted-foreground md:px-6 ${shellWidth}`}>
             无法加载该博主的驾驶舱 · 请检查网络或稍后重试。
           </div>
         ) : (
-          <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-            {children}
+          <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
+            <aside className="hidden lg:block lg:border-r lg:border-border/60" aria-hidden />
+            <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">
+              {children}
+            </main>
           </div>
         )}
       </div>
@@ -82,7 +85,7 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
       />
       {/* Body: mobile stacks (SubNav strip then main).
           lg+ becomes a 2-col grid with a slim persona sidebar + main content. */}
-      <div className="mx-auto max-w-7xl lg:grid lg:grid-cols-[72px_minmax(0,1fr)]">
+      <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
         <aside className="lg:border-r lg:border-border/60 lg:pr-2">
           <SubNav
             username={profile.persona.username}
@@ -95,9 +98,11 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
             }}
           />
         </aside>
-        <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">{children}</main>
+        <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">
+          {children}
+          <TransparencyNote username={profile.persona.username} />
+        </main>
       </div>
-      <TransparencyFooter username={profile.persona.username} />
     </div>
   );
 }

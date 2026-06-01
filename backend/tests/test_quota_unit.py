@@ -140,12 +140,12 @@ class TestCheckQuota:
         assert result["remaining"] == 0
 
     @pytest.mark.asyncio
-    @patch("app.features.quota.service.get_usage", new_callable=AsyncMock, return_value=3)
+    @patch("app.features.quota.service.get_usage", new_callable=AsyncMock, return_value=1)
     async def test_anonymous_quota_check(self, mock_usage):
         """Anonymous user quota check uses IP-based identifier."""
         result = await check_quota(None, "203.0.113.50")
         assert result["allowed"] is True
-        assert result["remaining"] == DAILY_LIMIT - 3
+        assert result["remaining"] == DAILY_LIMIT - 1
         mock_usage.assert_called_once()
         call_args = mock_usage.call_args[0]
         assert call_args[0] == "ip:203.0.113.50"

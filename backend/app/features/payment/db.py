@@ -57,6 +57,9 @@ async def upsert_subscription(
     entitlements: Optional[list] = None,
     is_lifetime: Optional[bool] = None,
     email_preferences: Optional[Dict[str, bool]] = None,
+    onboarding_completed_at: Optional[str] = None,
+    lifecycle_state: Optional[Dict[str, Any]] = None,
+    reactivation_state: Optional[str] = None,
 ) -> bool:
     """Insert or update a subscription record.
 
@@ -94,6 +97,12 @@ async def upsert_subscription(
         body["is_lifetime"] = is_lifetime
     if email_preferences is not None:
         body["email_preferences"] = email_preferences
+    if onboarding_completed_at is not None:
+        body["onboarding_completed_at"] = onboarding_completed_at
+    if lifecycle_state is not None:
+        body["lifecycle_state"] = lifecycle_state
+    if reactivation_state is not None:
+        body["reactivation_state"] = reactivation_state
 
     service = get_insforge_service()
     result = await service.call_function(

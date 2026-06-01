@@ -48,6 +48,14 @@ def _is_low_quality_reply(t: dict, username: str) -> bool:
     text = t.get("text") or ""
     return len(text) < _LONG_REPLY_MIN_LEN
 
+
+def _default_feed_visible(items: list[dict], username: str) -> list[dict]:
+    """Apply the default Live-Feed visibility filter (drops low-quality
+    replies). Shared by `get_feed` and `get_topic_tree` so tree counts and
+    feed hit counts stay aligned by construction.
+    """
+    return [t for t in items if not _is_low_quality_reply(t, username)]
+
 # ---------------------------------------------------------------------------
 # Curated ticker dictionary — ticker -> alias strings.
 # CJK aliases match as substrings; ASCII aliases match case-sensitively on word
@@ -273,7 +281,54 @@ async def _fetch_all_tweets(username: str) -> list[dict]:
     return rows
 
 
+# Topic tree leaves under "产业板块". Each leaf aggregates one or more raw
+# enrichment `sectors` strings into a user-facing bucket.
+_TOPIC_INDUSTRY_LEAVES: dict[str, tuple[str, ...]] = {
+    "ai_infra": ("AI_infra",),
+    "optical": ("CPO", "photonics", "optical_transceiver"),
+    "semi": ("power_semi", "substrates"),
+    "neocloud": ("neocloud",),
+    "defense": ("defense",),
+    "space": ("space",),
+}
+_TOPIC_INDUSTRY_LEAF_LABELS: dict[str, str] = {
+    "ai_infra": "AI 基建",
+    "optical": "光通信",
+    "semi": "半导体",
+    "neocloud": "新型云",
+    "defense": "国防",
+    "space": "太空",
+}
+
+
+def _classify_tweet_topics(content_type: Optional[str], sectors: Optional[list[str]]) -> list[str]:
+    """Map a tweet's enrichment (content_type + sectors) to topic node keys.
+
+    Returns keys like "macro", "rules", "industry/ai_infra". A tweet may map to
+    multiple keys (e.g. mentions both AI_infra and CPO).
+    """
+    topics: list[str] = []
+    sectors_set = set(sectors or [])
+    if content_type == "macro_view" or "macro" in sectors_set:
+        topics.append("macro")
+    if content_type == "sector_framework":
+        topics.append("rules")
+    for leaf, src_sectors in _TOPIC_INDUSTRY_LEAVES.items():
+        if any(s in sectors_set for s in src_sectors):
+            topics.append(f"industry/{leaf}")
+    return topics
+
+
 def _slim_tweet(t: dict, tickers: list[str]) -> dict:
+    raw_symbols = t.get("symbols")
+    symbols: dict = raw_symbols if isinstance(raw_symbols, dict) else {}
+    content_type = symbols.get("content_type")
+    raw_sectors = symbols.get("sectors")
+    sectors_raw = raw_sectors if isinstance(raw_sectors, list) else None
+    key_claim = symbols.get("key_claim")
+    raw_stances = symbols.get("ticker_stances")
+    ticker_stances = raw_stances if isinstance(raw_stances, list) else None
+    topics = _classify_tweet_topics(content_type, sectors_raw)
     return {
         "id": t.get("id"),
         "text": t.get("text") or "",
@@ -284,6 +339,11 @@ def _slim_tweet(t: dict, tickers: list[str]) -> dict:
         "reply_count": t.get("reply_count") or 0,
         "tweet_type": t.get("tweet_type"),
         "tickers": tickers,
+        # Enrichment surfaces — exposed to the cockpit UI for topic filtering.
+        "content_type": content_type,
+        "key_claim": key_claim,
+        "topics": topics,
+        "ticker_stances": ticker_stances,
         # Raw reply target, kept on the slim so feed-time filters can classify
         # self-thread continuations vs replies-to-others.
         "in_reply_to_username": t.get("in_reply_to_username"),
@@ -447,6 +507,95 @@ async def get_ticker_tweets(
         "latest": info["latest"],
         "priceable": ticker.upper() not in NON_PRICEABLE,
         "tweets": clean_tweets,
+    }
+
+
+# Content types that carry actionable opinion. `noise` is filler; `macro_view`
+# is not ticker-specific. Everything else (thesis / catalyst / risk_flag /
+# sector_framework / trade_action) is fair game for the per-ticker timeline.
+_TIMELINE_KEEP_TYPES: frozenset[str] = frozenset(
+    {"thesis", "catalyst", "risk_flag", "sector_framework", "trade_action"}
+)
+
+
+def _stance_for(ticker: str, stances: Optional[list]) -> Optional[str]:
+    if not isinstance(stances, list):
+        return None
+    target = ticker.upper()
+    for entry in stances:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("ticker") or "").upper() == target:
+            stance = entry.get("stance")
+            if isinstance(stance, str):
+                return stance
+    return None
+
+
+def _pick_timeline_items(tweets: list[dict], ticker: str, limit: int) -> list[dict]:
+    """Select the most informative subset of mentions to render on the vertical
+    timeline. Rules: keep tweets with a non-empty key_claim AND a non-trivial
+    content_type. Always preserve the earliest + the latest. From the middle
+    pool, pick the top by like_count up to `limit`.
+    """
+    eligible = [
+        t for t in tweets
+        if (t.get("key_claim") or "").strip()
+        and (t.get("content_type") in _TIMELINE_KEEP_TYPES)
+    ]
+    if not eligible:
+        return []
+    eligible.sort(key=lambda t: t.get("created_at") or "")
+
+    if len(eligible) <= limit:
+        chosen = eligible
+    else:
+        earliest, latest = eligible[0], eligible[-1]
+        middle = eligible[1:-1]
+        # Score = like_count primarily; tie-break by created_at desc so newer
+        # wins when likes are equal.
+        middle.sort(
+            key=lambda t: (t.get("like_count") or 0, t.get("created_at") or ""),
+            reverse=True,
+        )
+        keep_middle = middle[: max(0, limit - 2)]
+        chosen = [earliest, *keep_middle, latest]
+        chosen.sort(key=lambda t: t.get("created_at") or "")
+
+    out: list[dict] = []
+    for t in chosen:
+        out.append({
+            "id": t.get("id"),
+            "created_at": t.get("created_at"),
+            "url": t.get("url"),
+            "like_count": t.get("like_count") or 0,
+            "content_type": t.get("content_type"),
+            "key_claim": t.get("key_claim"),
+            "stance": _stance_for(ticker, t.get("ticker_stances")),
+        })
+    return out
+
+
+async def get_ticker_timeline(
+    username: str,
+    ticker: str,
+    *,
+    limit: int = 10,
+) -> Optional[dict]:
+    """Per-ticker vertical opinion timeline: ~10 hand-picked turning points
+    drawn from his enrichment-annotated mentions. Returns None if the ticker
+    isn't covered at all.
+    """
+    detail = await get_ticker_tweets(username, ticker)
+    if detail is None:
+        return None
+    items = _pick_timeline_items(detail["tweets"], ticker, limit)
+    return {
+        "ticker": ticker.upper(),
+        "first": detail["first"],
+        "latest": detail["latest"],
+        "total": detail["count"],
+        "items": items,
     }
 
 
@@ -746,6 +895,7 @@ async def get_feed(
     offset: int = 0,
     sector: Optional[str] = None,
     ticker: Optional[str] = None,
+    topic: Optional[str] = None,
     include_replies: bool = False,
 ) -> dict:
     """Time-desc tweet feed for the Live Feed module.
@@ -773,11 +923,22 @@ async def get_feed(
     # Default: filter low-quality replies (short replies to others).
     # Long replies-to-others (>= _LONG_REPLY_MIN_LEN) are kept as substantive.
     if not include_replies:
-        items = [t for t in items if not _is_low_quality_reply(t, username)]
+        items = _default_feed_visible(items, username)
 
     if ticker:
         target = ticker.upper()
         items = [t for t in items if target in (t.get("tickers") or [])]
+
+    if topic:
+        # "industry" parent matches any industry/* leaf; specific leaves match
+        # only themselves.
+        if topic == "industry":
+            items = [
+                t for t in items
+                if any(k.startswith("industry/") for k in (t.get("topics") or []))
+            ]
+        else:
+            items = [t for t in items if topic in (t.get("topics") or [])]
 
     if sector:
         resolved = _resolve_group(sector)
@@ -830,3 +991,97 @@ async def get_feed(
         "offset": offset,
         "limit": limit,
     }
+
+
+async def get_topic_tree(username: str) -> dict:
+    """Return the topic-filter tree (产业板块 / 宏观 / 美股规律) with per-node tweet
+    counts. Reuses the cached index so it shares freshness with the feed.
+
+    Counts are de-duplicated per tweet:
+      - leaf counts: number of tweets mapped to that leaf
+      - "industry" parent count: number of tweets mapped to ANY industry/* leaf
+        (a tweet hitting both AI 基建 and 光通信 is counted once for the parent)
+    """
+    index = await get_index(username)
+    items: list[dict] = index.get("all_tweets") or []
+    items = _default_feed_visible(items, username)
+
+    counts: dict[str, int] = {}
+    for t in items:
+        topics = set(t.get("topics") or [])
+        for k in topics:
+            counts[k] = counts.get(k, 0) + 1
+        if any(k.startswith("industry/") for k in topics):
+            counts["industry"] = counts.get("industry", 0) + 1
+
+    industry_children = [
+        {
+            "key": f"industry/{leaf}",
+            "label": _TOPIC_INDUSTRY_LEAF_LABELS[leaf],
+            "count": counts.get(f"industry/{leaf}", 0),
+        }
+        for leaf in _TOPIC_INDUSTRY_LEAVES.keys()
+    ]
+    return {
+        "tree": [
+            {
+                "key": "industry",
+                "label": "产业板块",
+                "count": counts.get("industry", 0),
+                "children": industry_children,
+            },
+            {"key": "macro", "label": "宏观", "count": counts.get("macro", 0)},
+            {"key": "rules", "label": "美股规律", "count": counts.get("rules", 0)},
+        ],
+        "total": len(items),
+    }
+
+
+async def get_evidence_tweets_by_ids(username: str, ids: list[str]) -> dict:
+    """Return slim full-text tweets for curated evidence ids.
+
+    The persona pages use this for in-page evidence reading. Results preserve
+    caller order and silently skip ids that are not present in the local index.
+    """
+    requested = [str(item).strip() for item in ids if str(item).strip()]
+    if not requested:
+        return {"tweets": []}
+
+    index = await get_index(username)
+    by_id: dict[str, dict] = index.get("by_id") or {}
+    cached_hits = [by_id.get(tweet_id) for tweet_id in requested]
+    needs_refresh = any(tweet is None or _is_bare_url_text(tweet.get("text") or "") for tweet in cached_hits)
+    if needs_refresh:
+        index = await get_index(username, force=True)
+        by_id = index.get("by_id") or {}
+
+    tweets: list[dict] = []
+    for tweet_id in requested:
+        t = by_id.get(tweet_id)
+        if not t:
+            continue
+
+        groups: list[str] = []
+        for tk in t.get("tickers") or []:
+            for group, tks in _TICKERS_BY_GROUP.items():
+                if tk in tks and group not in groups:
+                    groups.append(group)
+
+        reply_kind: Optional[str] = None
+        if t.get("tweet_type") == "reply":
+            reply_to = (t.get("in_reply_to_username") or "").lower()
+            if reply_to == username.lower():
+                reply_kind = "self"
+            elif reply_to:
+                reply_kind = "other"
+
+        out = {**t, "sectors": groups, "reply_kind": reply_kind}
+        out.pop("in_reply_to_username", None)
+        tweets.append(out)
+
+    return {"tweets": tweets}
+
+
+def _is_bare_url_text(text: str) -> bool:
+    stripped = text.strip()
+    return stripped.startswith(("http://", "https://")) and len(stripped.split()) == 1

@@ -102,8 +102,9 @@
 - 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
-- Server page + Client Component,页面浏览不要求登录；右侧 Ask the Framework 对话需要登录并开启 `kol_research_agent` flag
-- 模块：身份锚点、最新观点、宏观视角、板块地图、个股雷达、KOL Research Agent 深链入口
+- Server page + Client Component,页面浏览不要求登录；KOL Research Agent 对话需要登录并开启 `kol_research_agent` flag
+- 首页定位为 Frank 历史内容档案馆，四个一级入口：过往精华、个股、全量内容库、Chat
+- `/kol/qinbafrank/sectors` 为过往精华内容库，按 7 个主题归档：AI 大趋势、资本开支战争、过往推荐公司、美股调整规律、美股行情判断、宏观与地缘、加密基建与 RWA；每个主题下继续整理为子话题卡片（公司推荐按 PLTR / HOOD / 美光 / 7709-EWY / CPU-博通 / BB / IBM 分组），页面采用左侧检索卡片 + 右侧时间线切换、导读和原文 reader；X 原文入口在标题旁；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/sectors?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
 - 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
 - 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
 - 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断

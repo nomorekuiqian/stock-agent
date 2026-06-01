@@ -1155,6 +1155,9 @@ export interface KolCockpitTweet {
   reply_count: number;
   tweet_type: string | null;
   tickers: string[];
+  content_type?: string | null;
+  key_claim?: string | null;
+  topics?: string[];
   reply_kind?: 'self' | 'other' | null;
 }
 
@@ -1226,8 +1229,44 @@ export interface KolCockpitFeedItem {
   tweet_type: string | null;
   tickers: string[];
   sectors: string[];
+  /** Enrichment content_type: thesis | trade_action | catalyst | sector_framework | risk_flag | macro_view | noise */
+  content_type?: string | null;
+  /** Curated Chinese one-sentence claim from the enrichment pipeline. */
+  key_claim?: string | null;
+  /** Topic-tree node keys this tweet belongs to (e.g. ['industry/ai_infra', 'macro']). */
+  topics?: string[];
   /** 'self' = thread continuation (kept), 'other' = reply to someone else (filtered out by default), null = not a reply. */
   reply_kind: 'self' | 'other' | null;
+}
+
+export interface KolCockpitTickerTimelineItem {
+  id: string;
+  created_at: string | null;
+  url: string | null;
+  like_count: number;
+  content_type: string | null;
+  key_claim: string | null;
+  stance: 'bull' | 'bear' | 'neutral' | null;
+}
+
+export interface KolCockpitTickerTimeline {
+  ticker: string;
+  first: string | null;
+  latest: string | null;
+  total: number;
+  items: KolCockpitTickerTimelineItem[];
+}
+
+export interface KolCockpitTopicNode {
+  key: string;
+  label: string;
+  count: number;
+  children?: KolCockpitTopicNode[];
+}
+
+export interface KolCockpitTopicsResponse {
+  tree: KolCockpitTopicNode[];
+  total: number;
 }
 
 export interface KolCockpitFeedResponse {
@@ -1238,11 +1277,16 @@ export interface KolCockpitFeedResponse {
   limit: number;
 }
 
+export interface KolCockpitEvidenceResponse {
+  tweets: KolCockpitFeedItem[];
+}
+
 export interface KolCockpitFeedOpts {
   limit?: number;
   offset?: number;
   sector?: string | null;
   ticker?: string | null;
+  topic?: string | null;
 }
 
 // --- skill sectors (richer skill-distillation source) ---
@@ -2594,10 +2638,46 @@ export const api = {
       if (opts.offset !== undefined) params.set('offset', String(opts.offset));
       if (opts.sector) params.set('sector', opts.sector);
       if (opts.ticker) params.set('ticker', opts.ticker);
+      if (opts.topic) params.set('topic', opts.topic);
       const qs = params.toString();
       const url = `${API_BASE_URL}/kol_research/personas/${username}/feed${qs ? `?${qs}` : ''}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to load live feed');
+      return response.json();
+    },
+
+    cockpitTickerTimeline: async (
+      username: string,
+      ticker: string,
+    ): Promise<KolCockpitTickerTimeline> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/tickers/${ticker}/timeline`,
+      );
+      if (!response.ok) throw new Error('Failed to load ticker timeline');
+      return response.json();
+    },
+
+    cockpitTopics: async (
+      username: string,
+    ): Promise<KolCockpitTopicsResponse> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/topics`,
+      );
+      if (!response.ok) throw new Error('Failed to load topic tree');
+      return response.json();
+    },
+
+    cockpitTweetsByIds: async (
+      username: string,
+      ids: string[],
+    ): Promise<KolCockpitEvidenceResponse> => {
+      if (ids.length === 0) return { tweets: [] };
+      const params = new URLSearchParams();
+      params.set('ids', ids.join(','));
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/tweets/by-ids?${params.toString()}`,
+      );
+      if (!response.ok) throw new Error('Failed to load evidence tweets');
       return response.json();
     },
 
@@ -2922,6 +3002,30 @@ export const api = {
       }, 'Failed to save profile');
       if (!response.ok) {
         await throwProtectedApiError(response, 'Failed to save profile');
+      }
+      return response.json();
+    },
+  },
+
+  user: {
+    onboardingStatus: async (): Promise<{ completed: boolean }> => {
+      const headers = await _authHeaders({}, { required: true });
+      const response = await fetch(`${API_BASE_URL}/user/onboarding-status`, { headers });
+      if (!response.ok) return { completed: false };
+      return response.json();
+    },
+
+    completeOnboarding: async (): Promise<{ completed: boolean; completed_at?: string }> => {
+      const headers = await _authHeaders(
+        { 'Content-Type': 'application/json' },
+        { required: true },
+      );
+      const response = await fetch(`${API_BASE_URL}/user/onboarding/complete`, {
+        method: 'POST',
+        headers,
+      });
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to mark onboarding complete');
       }
       return response.json();
     },

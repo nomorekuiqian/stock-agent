@@ -101,3 +101,7 @@ yarn-error.log*
 # by cockpit_v3.py at runtime. Production artifacts (skill MDs, small index
 # JSONs) stay under methodologies/_drafts/qinbafrank-skill-v3/.
 backend/app/features/twitter/_distillation_artifacts/
+
+# Scratch / tool artifacts (not part of the project)
+.context/
+tmp/

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpenText,
   CandlestickChart,
   Layers,
   LayoutDashboard,
@@ -34,7 +35,7 @@ interface Props {
 }
 
 interface NavItem {
-  key: "overview" | "latest" | "sectors" | "macro" | "stocks" | "chat";
+  key: "overview" | "latest" | "sectors" | "macro" | "history" | "stocks" | "chat";
   label: string;
   icon: LucideIcon;
   kpi: (k: KpiSet, displayName: string) => string;
@@ -104,43 +105,35 @@ const FRANK_ITEMS: NavItem[] = [
     href: (u) => `/kol/${u}`,
   },
   {
-    key: "latest",
-    label: "原文流",
-    icon: Rss,
-    kpi: (k) =>
-      k.latestCount != null
-        ? `${k.latestCount} 条公开观点`
-        : "滚动看他在说什么",
-    href: (u) => `/kol/${u}/latest`,
-  },
-  {
     key: "sectors",
-    label: "板块地图",
-    icon: Layers,
-    kpi: (k) =>
-      k.sectorCount != null ? `${k.sectorCount} 条主线` : "板块与产业链分层",
+    label: "过往精华",
+    icon: BookOpenText,
+    kpi: () => "7 个主题完整归档",
     href: (u) => `/kol/${u}/sectors`,
   },
   {
-    key: "macro",
-    label: "宏观框架",
-    icon: Radar,
-    kpi: () => "流动性 / 政策 / 通胀 / 结构",
-    href: (u) => `/kol/${u}/macro`,
-  },
-  {
     key: "stocks",
-    label: "个股雷达",
+    label: "个股",
     icon: CandlestickChart,
     kpi: (k) =>
-      k.tickerCount != null ? `${k.tickerCount} 票覆盖` : "历史观点 + 价格联动",
+      k.tickerCount != null ? `${k.tickerCount} 票覆盖` : "推荐档案与价格验证",
     href: (u) => `/kol/${u}/stocks`,
   },
   {
+    key: "latest",
+    label: "全量库",
+    icon: Rss,
+    kpi: (k) =>
+      k.latestCount != null
+        ? `精选 + ${k.latestCount} 条原文`
+        : "精选内容 + 全量原文",
+    href: (u) => `/kol/${u}/latest`,
+  },
+  {
     key: "chat",
-    label: "追问 qinbafrank",
+    label: "追问",
     icon: MessageCircle,
-    kpi: () => "进入研究助手",
+    kpi: () => "qinbafrank 研究助手",
     href: (u) => `/research?agent=kol&persona=${encodeURIComponent(u)}`,
     activePath: () => "/research",
     emphasized: true,
@@ -173,7 +166,7 @@ export default function SubNav({
           sticky top-0 z-30
           border-b border-border/60 bg-background/95 backdrop-blur
           supports-[backdrop-filter]:bg-background/80
-          lg:top-20 lg:mx-1 lg:mt-3 lg:h-fit lg:rounded-2xl lg:border lg:border-border/50 lg:bg-card/30 lg:backdrop-blur
+          lg:top-20 lg:mx-1 lg:mt-3 lg:h-fit lg:rounded-lg lg:border lg:border-border/50 lg:bg-card/30 lg:backdrop-blur
           lg:supports-[backdrop-filter]:bg-card/30
         "
       >
@@ -183,7 +176,7 @@ export default function SubNav({
               <Link
                 href={`/kol/${username}`}
                 aria-label={`${navTitle} 首页`}
-                className="group relative grid h-12 place-items-center rounded-xl border border-primary/20 bg-primary/[0.06] transition hover:border-primary/45 hover:bg-primary/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="group relative grid h-12 place-items-center rounded-md border border-primary/20 bg-primary/[0.06] transition hover:border-primary/45 hover:bg-primary/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 {avatarUrl ? (
                   <Image
@@ -206,18 +199,18 @@ export default function SubNav({
               className="hidden lg:block"
             >
               <div className="text-sm font-medium">{navTitle}</div>
-              <div className="mt-0.5 font-data text-micro uppercase tracking-[0.14em] opacity-70">
+              <div className="mt-0.5 text-micro font-medium uppercase tracking-[0.14em] opacity-70">
                 @{username}
               </div>
             </TooltipContent>
           </Tooltip>
         </div>
         <ul
-          className="
+          className={`
             grid auto-cols-[minmax(5.75rem,1fr)] grid-flow-col overflow-x-auto divide-x divide-border/40
-            md:auto-cols-auto md:grid-flow-row md:grid-cols-6
+            md:auto-cols-auto md:grid-flow-row ${isFrank ? "md:grid-cols-5" : "md:grid-cols-6"}
             lg:flex lg:overflow-visible lg:flex-col lg:divide-x-0 lg:divide-y lg:py-2
-          "
+          `}
         >
           {items.map((item) => {
             const href = item.href(username, displayName);
@@ -242,7 +235,7 @@ export default function SubNav({
                     <Link
                       href={href}
                       aria-label={labelText}
-                      className={`group relative flex h-16 flex-col justify-center gap-1 overflow-hidden px-2.5 transition-colors md:h-20 md:px-5 lg:mx-2 lg:h-12 lg:flex-row lg:items-center lg:justify-center lg:gap-0 lg:rounded-xl lg:px-0 lg:py-0 ${
+                      className={`group relative flex h-16 flex-col justify-center gap-1 overflow-hidden px-2.5 transition-colors md:h-20 md:px-5 lg:mx-2 lg:h-12 lg:flex-row lg:items-center lg:justify-center lg:gap-0 lg:rounded-md lg:px-0 lg:py-0 ${
                         isEmphasized
                           ? "border border-primary/45 bg-primary text-primary-foreground shadow-sm shadow-primary/25 hover:bg-primary/90"
                           : isActive
@@ -274,7 +267,7 @@ export default function SubNav({
                           strokeWidth={1.6}
                         />
                         <span
-                          className={`truncate text-sm font-medium tracking-tight md:text-[15px] lg:hidden ${
+                          className={`truncate text-sm font-medium lg:hidden ${
                             isEmphasized
                               ? "text-primary-foreground"
                               : "text-foreground"
@@ -285,7 +278,7 @@ export default function SubNav({
                       </div>
                       {/* KPI sub-line — hidden mobile, shown md, hidden lg (tooltip) */}
                       <div
-                        className={`hidden truncate pl-6 font-data text-[11px] uppercase tracking-[0.12em] md:block lg:hidden ${
+                        className={`hidden truncate pl-6 text-xs font-medium uppercase tracking-[0.12em] md:block lg:hidden ${
                           isEmphasized
                             ? "text-primary-foreground/80"
                             : "text-muted-foreground"
@@ -302,7 +295,7 @@ export default function SubNav({
                     className="hidden lg:block"
                   >
                     <div className="text-sm font-medium">{labelText}</div>
-                    <div className="mt-0.5 font-data text-[10px] uppercase tracking-[0.14em] opacity-70">
+                    <div className="mt-0.5 text-micro font-medium uppercase tracking-[0.14em] opacity-70">
                       {kpiText}
                     </div>
                   </TooltipContent>
