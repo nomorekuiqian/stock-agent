@@ -40,9 +40,10 @@ export async function GET(request: NextRequest) {
 
   await setAuthCookies(data.accessToken, data.refreshToken);
 
-  // Detect first-time users via the onboarding-status endpoint. completed=false
-  // covers both "no subscription row yet" and "row exists but onboarding_completed_at
-  // is NULL", so legacy users that never went through the new flow also land here.
+  // Detect first-time users via the onboarding-status endpoint. The lifecycle
+  // migration backfills every pre-existing account with a completed row, so
+  // completed=false now only fires for brand-new signups (no subscription
+  // row yet, or a row whose onboarding_completed_at is still NULL).
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   let needsOnboarding = false;
   try {
