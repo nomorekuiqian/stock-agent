@@ -3,7 +3,6 @@ import { ReportContent } from '@/components/ReportContent';
 import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
 import { TodayActions } from './_components/TodayActions';
-import { QuotaBanner } from './_components/QuotaBanner';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MarketData, ReportListItem, TwitterDigestTeaser } from '@/lib/api';
 
@@ -95,7 +94,6 @@ export default async function TodayPage() {
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background">
       <div className="mx-auto max-w-5xl px-4 md:px-6">
-        <QuotaBanner />
         <section className="border-b border-border/50 py-8 md:py-12">
           <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
             <div className="max-w-4xl space-y-4 animate-fade-in-up">
