@@ -1,16 +1,13 @@
 """Unit tests for is_real_paid_sub — daily report CTA tier classifier.
 
-Covers the 5 user states defined in
-docs/plans/active/paid-user-cta-automation.md plus edge cases (None, empty
-dict, trial-to-paid conversion residue, lifetime revocation).
+Post-freemium-transition rules (see
+docs/plans/active/freemium-lifecycle-email.md, "用户状态分类与处理"):
+any user with non-empty entitlements is treated as paid, regardless of
+access_expires_at. This includes legacy trial users during the transition
+window.
 """
 
 from app.features.subscription.cta_tier import is_real_paid_sub
-
-
-# ---------------------------------------------------------------------------
-# 5 canonical user states
-# ---------------------------------------------------------------------------
 
 
 def test_anonymous_or_no_sub_record_is_not_paid():
@@ -18,19 +15,26 @@ def test_anonymous_or_no_sub_record_is_not_paid():
     assert is_real_paid_sub({}) is False
 
 
-def test_trial_user_with_access_expiry_is_not_paid():
-    """State #2/#3: trial users have entitlements + access_expires_at set."""
+def test_legacy_trial_user_with_entitlements_is_paid():
+    """Legacy auto-trial users (in transition window) are treated as paid.
+
+    They have entitlements + access_expires_at. New rule ignores
+    access_expires_at — entitlements alone qualify them for PAID CTA
+    so the model change does not jolt them with upgrade prompts during
+    their remaining trial days.
+    """
     sub = {
         "entitlements": ["morning_report_email", "weekly_report_email"],
         "access_expires_at": "2030-01-01T00:00:00Z",
         "invite_code": "AUTO_TRIAL",
-        "stripe_subscription_id": "sub_trial_123",  # trials DO have this
+        "stripe_subscription_id": "sub_trial_123",
         "is_lifetime": False,
     }
-    assert is_real_paid_sub(sub) is False
+    assert is_real_paid_sub(sub) is True
 
 
-def test_invite_redeem_user_is_not_paid():
+def test_legacy_invite_redeem_user_is_paid():
+    """Same: invite-code recipients with entitlements get PAID CTA."""
     sub = {
         "entitlements": ["morning_report_email"],
         "access_expires_at": "2030-01-01T00:00:00Z",
@@ -38,14 +42,14 @@ def test_invite_redeem_user_is_not_paid():
         "stripe_subscription_id": "sub_trial_456",
         "is_lifetime": False,
     }
-    assert is_real_paid_sub(sub) is False
+    assert is_real_paid_sub(sub) is True
 
 
 def test_expired_trial_with_cleared_entitlements_is_not_paid():
-    """State #3: trial expired, Stripe webhook revoked entitlements."""
+    """Trial expired, entitlements revoked → downgraded to free."""
     sub = {
         "entitlements": [],
-        "access_expires_at": "2020-01-01T00:00:00Z",  # past
+        "access_expires_at": "2020-01-01T00:00:00Z",
         "invite_code": "AUTO_TRIAL",
         "is_lifetime": False,
     }
@@ -154,8 +158,10 @@ def test_missing_is_lifetime_field_is_treated_as_false():
     }
     assert is_real_paid_sub(sub) is True
 
-    sub_trial = {
+    # Even with access_expires_at set, entitlements present = paid under
+    # the new freemium rules.
+    sub_with_expiry = {
         "entitlements": ["morning_report_email"],
         "access_expires_at": "2030-01-01T00:00:00Z",
     }
-    assert is_real_paid_sub(sub_trial) is False
+    assert is_real_paid_sub(sub_with_expiry) is True

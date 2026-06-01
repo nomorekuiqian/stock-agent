@@ -14,26 +14,21 @@ from typing import Any, Mapping, Optional
 def is_real_paid_sub(sub: Optional[Mapping[str, Any]]) -> bool:
     """Whether this subscription belongs in DAILY_PAID_CTA segment.
 
-    A user is "real paid" when they should see the thank-you CTA instead of
-    the upgrade CTA in the daily report email.
-
     Decision tree:
-      1. ``is_lifetime=True`` -> paid (lifetime users always get thank-you).
-      2. ``entitlements`` empty -> not paid (free user or expired trial).
-      3. ``access_expires_at`` set -> not paid (still in trial window). The
-         real paid checkout flow clears this field via
-         ``clear_access_expires_at=True`` in payment/router.py; trial flows
-         in invites/db.py always set it. So this field is the cleanest
-         trial-vs-paid signal even when ``invite_code`` lingers from a
-         pre-conversion trial.
-      4. Otherwise (entitlements + no access_expires_at) -> real paid.
+      1. ``is_lifetime=True`` -> paid.
+      2. ``entitlements`` empty -> not paid (free user or fully-downgraded).
+      3. Otherwise -> paid.
+
+    Note: ``access_expires_at`` was a trial signal in the pre-freemium model.
+    It is intentionally not checked here — any user with entitlements is
+    treated as paid, including the few remaining users on the legacy auto
+    trial during the transition window. See
+    ``docs/plans/active/freemium-lifecycle-email.md`` ("用户状态分类与处理").
     """
     if not sub:
         return False
     if sub.get("is_lifetime"):
         return True
     if not sub.get("entitlements"):
-        return False
-    if sub.get("access_expires_at"):
         return False
     return True
