@@ -43,31 +43,6 @@ const POPULAR_GROUPS: { label: string; symbols: string[] }[] = [
 
 const MAX_WATCHLIST = 25;
 const MIN_WATCHLIST = 3;
-const MAG7 = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA"];
-
-// Used for the Step 3 modal sample digest copy (one of these stocks shown).
-const SAMPLE_TICKERS: Record<string, { name: string; sampleHeadline: string; sampleInsight: string }> = {
-  NVDA: {
-    name: "NVIDIA",
-    sampleHeadline: "数据中心 GPU 需求超预期 / 估值压力上升",
-    sampleInsight: "短期: 财报后 AI 资本开支信号偏暖; 中期: 关注 hyperscaler 订单节奏 + 中美芯片关税演绎",
-  },
-  AAPL: {
-    name: "Apple",
-    sampleHeadline: "iPhone 17 销售温和 / 服务业务持续强劲",
-    sampleInsight: "短期: 中国份额承压但服务利润率扩张; 中期: AI on-device 节奏决定明年估值",
-  },
-  TSLA: {
-    name: "Tesla",
-    sampleHeadline: "Cybercab 落地节奏 / 中国销量回暖",
-    sampleInsight: "短期: 4Q 交付指引乐观; 中期: FSD 订阅渗透 + 储能业务双引擎",
-  },
-  MSFT: {
-    name: "Microsoft",
-    sampleHeadline: "Azure AI 营收占比突破 30% / Copilot 商业化加速",
-    sampleInsight: "短期: AI 资本开支拖累毛利率; 中期: 企业 AI 标准化卡位优势明显",
-  },
-};
 
 function OnboardingContent() {
   const router = useRouter();
@@ -162,7 +137,7 @@ function OnboardingContent() {
       // if they cancel the Stripe checkout.
       await api.user.completeOnboarding().catch(() => {});
       // Stripe Checkout redirect — never returns control to this page.
-      await createCheckout("pro");
+      await createCheckout("max");
     } catch {
       setCheckoutPending(false);
       setError("跳转支付失败，请稍后再试");
@@ -301,12 +276,6 @@ function OnboardingContent() {
 
   // ── Step 3: Personal-digest upsell modal ──
   if (showStep3) {
-    const sampleSymbol =
-      selectedSymbols.find((s) => SAMPLE_TICKERS[s]) ??
-      selectedSymbols.find((s) => MAG7.includes(s)) ??
-      "NVDA";
-    const sample = SAMPLE_TICKERS[sampleSymbol] ?? SAMPLE_TICKERS.NVDA;
-
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
         <div className="max-w-lg w-full">
@@ -315,29 +284,33 @@ function OnboardingContent() {
               <Star className="w-6 h-6 text-primary" />
             </div>
             <h2 className="text-2xl font-editorial text-foreground mb-2">
-              为你的 {selectedSymbols.length} 只自选股，每天生成专属日报
+              为你的 {selectedSymbols.length} 只自选股,每天生成专属日报
             </h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-              每天根据你的持仓 + 当日新闻，由 AI 生成一份个性化分析。
-              不订阅，你建好的自选股没有日常 ROI。
+              每天根据你的持仓 + 当日新闻,AI 把跟这几只股票相关的要闻、催化剂、风险信号汇总成一份。
+              自选股建好了不订阅,等于没有日常 ROI。
             </p>
           </div>
 
-          {/* Sample preview */}
-          <div className="rounded-xl border border-border/50 bg-card/60 p-5 mb-6">
-            <p className="text-xs text-muted-foreground/70 font-medium uppercase tracking-wider mb-3">
-              专属日报示例 · {sample.name} ({sampleSymbol})
+          {/* MAX-only extras — emphasize what升级 MAX bundles beyond personal digest */}
+          <div className="rounded-xl border border-primary/25 bg-primary/[0.04] p-4 mb-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-primary mb-2.5">
+              升级 MAX 同时解锁
             </p>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground/70 mb-1">今日要闻</p>
-                <p className="text-sm text-foreground leading-relaxed">{sample.sampleHeadline}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground/70 mb-1">AI 视角</p>
-                <p className="text-sm text-foreground leading-relaxed">{sample.sampleInsight}</p>
-              </div>
-            </div>
+            <ul className="space-y-1.5 text-sm text-foreground">
+              <li className="flex gap-2">
+                <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-primary" />
+                <span><span className="font-medium">推特 KOL 日报</span> · 每天整理金融博主的关键观点 + 完整归档</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-primary" />
+                <span><span className="font-medium">AI 投研引擎无限用</span> · 对话式追问 + 全市场 AI 选股</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-primary" />
+                <span><span className="font-medium">AI 深度个股分析</span> · 基本面、技术面、估值对比一键生成</span>
+              </li>
+            </ul>
           </div>
 
           {error && <p className="text-sm text-red-400 mb-4 text-center">{error}</p>}
@@ -355,7 +328,7 @@ function OnboardingContent() {
               </>
             ) : (
               <>
-                升级 Pro 立即激活
+                升级 MAX 立即解锁
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
