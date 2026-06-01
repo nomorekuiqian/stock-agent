@@ -172,7 +172,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setCheckoutError('Network error. Please check your connection and try again.');
       setIsCheckoutLoading(false);
     }
-  }, [user?.id, user?.email]);
+  }, [user]);
 
   const openBillingPortal = useCallback(async () => {
     if (!user?.id) return;
