@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MorningReportContent } from '../MorningReportContent';
 import type {
@@ -6,6 +6,27 @@ import type {
   MorningGlobalSnapshot,
   MorningOvernightItem,
 } from '@/lib/api';
+
+// SectionUnlockCta uses next/navigation, auth and subscription hooks for the
+// direct-to-Stripe upgrade flow. The tests below only render the locked layout
+// shape; stub the dependencies so the component mounts without a real router /
+// provider stack.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/morning',
+}));
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: false, isLoading: false, user: null }),
+}));
+vi.mock('@/contexts/SubscriptionContext', () => ({
+  useSubscription: () => ({
+    createCheckout: vi.fn(),
+    isCheckoutLoading: false,
+  }),
+}));
+vi.mock('@vercel/analytics', () => ({
+  track: vi.fn(),
+}));
 
 // ---------------------------------------------------------------------------
 // Cleanup between tests (vitest globals not enabled)

@@ -406,7 +406,7 @@ function ProfileContent(): ReactNode {
                       href="/pricing"
                       className="block w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors text-center"
                     >
-                      升级到 Pro — {PRICING.proPerMonth}
+                      升级到 Pro
                     </Link>
                   </div>
                 </div>
@@ -448,7 +448,7 @@ function ProfileContent(): ReactNode {
                       href="/pricing"
                       className="block w-full px-4 py-2.5 mb-3 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-600/90 transition-colors text-center"
                     >
-                      升级到 Max — {PRICING.maxPerMonth}
+                      升级到 Max
                     </Link>
                   )}
 

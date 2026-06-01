@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, useCallback, useMemo, useEffect, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth, getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 import { queryKeys } from '@/hooks/queries/query-keys';
+import { trackCheckoutComplete } from '@/lib/paywall-analytics';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
@@ -90,10 +91,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Clean ?checkout=success from URL once active.
+  // Clean ?checkout=success from URL once active, and fire the completion
+  // event for the paywall funnel exactly once.
+  const completionTrackedRef = useRef(false);
   useEffect(() => {
     if (!isCheckoutReturn || !data) return;
     if ((data.plan === 'pro' || data.plan === 'max') && data.status === 'active') {
+      if (!completionTrackedRef.current) {
+        trackCheckoutComplete({ tier: data.plan as 'pro' | 'max' });
+        completionTrackedRef.current = true;
+      }
       if (typeof window !== 'undefined' && window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete('checkout');

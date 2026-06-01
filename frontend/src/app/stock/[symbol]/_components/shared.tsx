@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
-import { Crown, ArrowRight, Lock } from 'lucide-react';
+import { ArrowRight, Lock } from 'lucide-react';
+import { UnlockCTA } from '@/components/UnlockCTA';
+import { trackPaywallView } from '@/lib/paywall-analytics';
 
 // =============================================================================
 // AI Paywall - inline CTA shown when user lacks stock_research entitlement
 // =============================================================================
 
+const SOURCE = 'stock_ai_paywall' as const;
+
 export function AIPaywall({ symbol, label }: { symbol: string; label: string }) {
   const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    trackPaywallView({ source: SOURCE, tier: 'max' });
+  }, []);
+
+  const returnPath = `/stock/${symbol}`;
 
   return (
     <div className="px-6 py-8 text-center">
@@ -23,7 +33,7 @@ export function AIPaywall({ symbol, label }: { symbol: string; label: string }) 
 
       <h3 className="font-editorial text-lg text-foreground mb-2">
         <Lock className="w-4 h-4 text-amber-400/70 inline -mt-0.5 mr-1.5" />
-        Max 订阅专属
+        解锁全部功能
       </h3>
 
       <p className="text-xs text-muted-foreground mb-6 leading-relaxed max-w-[260px] mx-auto">
@@ -32,7 +42,7 @@ export function AIPaywall({ symbol, label }: { symbol: string; label: string }) 
 
       {!isAuthenticated ? (
         <Link
-          href={`/login?redirect=/stock/${symbol}`}
+          href={`/login?redirect=${encodeURIComponent(returnPath)}`}
           className="group inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 border border-primary/25 rounded-lg
             text-sm font-medium text-primary hover:bg-primary/20 hover:border-primary/40 transition-all"
         >
@@ -40,15 +50,7 @@ export function AIPaywall({ symbol, label }: { symbol: string; label: string }) 
           <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
         </Link>
       ) : (
-        <Link
-          href="/pricing?plan=max"
-          className="group inline-flex items-center gap-2 px-5 py-2.5 bg-amber-400/10 border border-amber-400/25 rounded-lg
-            text-sm font-medium text-amber-400 hover:bg-amber-400/20 hover:border-amber-400/40 transition-all"
-        >
-          <Crown className="w-3.5 h-3.5" />
-          <span>升级 Max</span>
-          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-        </Link>
+        <UnlockCTA source={SOURCE} variant="secondary" size="md" returnPath={returnPath} />
       )}
     </div>
   );

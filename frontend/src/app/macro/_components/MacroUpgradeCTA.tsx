@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { ArrowRight, Crown, Sparkles, Zap } from 'lucide-react';
-import { PRICING } from '@/lib/pricing';
 
 /**
  * Conversion CTA shown at the bottom of every macro page.
@@ -115,7 +114,7 @@ export function MacroUpgradeCTA() {
                 href="/pricing"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                升级 Max · {PRICING.maxPerMonth}
+                升级 Max
               </Link>
             </div>
           </div>
@@ -151,7 +150,7 @@ export function MacroUpgradeCTA() {
                 <Zap className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground">Pro · {PRICING.proPerMonth}</p>
+                <p className="text-sm font-semibold text-foreground">Pro</p>
                 <p className="text-xs text-muted-foreground">宏观周报 + 持仓日报 + 自选股</p>
               </div>
               <ArrowRight className="w-4 h-4 text-primary shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -164,7 +163,7 @@ export function MacroUpgradeCTA() {
                 <Crown className="w-4 h-4 text-amber-400" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground">Max · {PRICING.maxPerMonth}</p>
+                <p className="text-sm font-semibold text-foreground">Max</p>
                 <p className="text-xs text-muted-foreground">无限 AI 投研 + 深度个股分析</p>
               </div>
               <ArrowRight className="w-4 h-4 text-amber-400 shrink-0 transition-transform group-hover:translate-x-0.5" />
