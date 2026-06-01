@@ -64,7 +64,6 @@ export default function OverviewPage({
         username={username}
         feed={feed}
         tickers={tickers}
-        totalTweets={feedQ.data?.total ?? null}
         loading={profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading}
       />
     );
@@ -236,13 +235,11 @@ function FrankOverview({
   username,
   feed,
   tickers,
-  totalTweets,
   loading,
 }: {
   username: string;
   feed: KolCockpitFeedItem[];
   tickers: KolCockpitTickerSummary[];
-  totalTweets: number | null;
   loading: boolean;
 }) {
   const previewTopicIds: FrankHighlightTopicId[] = ['ai-trend', 'capex-war', 'market-rules'];
@@ -254,21 +251,6 @@ function FrankOverview({
     live: tickers.find((ticker) => ticker.ticker.toUpperCase() === company.ticker),
   }));
   const sectionMap = Object.fromEntries(FRANK_SECTIONS.map((s) => [s.id, s])) as Record<FrankSectionId, typeof FRANK_SECTIONS[number]>;
-  const overviewStats = [
-    { label: '精华主题', value: '7', helper: '框架归档', valueClassName: 'text-primary' },
-    {
-      label: '个股档案',
-      value: FRANK_COMPANY_RECOMMENDATIONS.length.toString(),
-      helper: '推荐线索',
-      valueClassName: 'text-amber-400',
-    },
-    {
-      label: '原文记录',
-      value: totalTweets?.toLocaleString() ?? '--',
-      helper: '可回溯',
-      valueClassName: 'text-foreground',
-    },
-  ];
   const promptExamples = [
     '按 Frank 的 AI 框架，现在瓶颈传到哪一环？',
     '把 PLTR 放回他的历史观点里，逻辑变了吗？',
@@ -277,46 +259,23 @@ function FrankOverview({
 
   return (
     <div className="space-y-6 py-5 md:space-y-7 md:py-8">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-        <section className="max-w-3xl space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="h-px w-12 bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-              KOL ARCHIVE
-            </span>
-            <span className="rounded-sm border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-xs font-medium text-amber-300">
-              原文支持
-            </span>
-          </div>
-          <div className="space-y-3">
-            <h2 className="font-editorial text-3xl leading-tight text-foreground md:text-4xl">
-              先看框架，再回到原文验证
-            </h2>
-            <p className="max-w-[68ch] text-sm leading-relaxed text-muted-foreground md:text-lg">
-              把 @qinbafrank 在 X 上散落的观点、原文证据和个股表态整理在一处。先按主题建立框架，再按个股和时间线回看观点如何演化。
-            </p>
-            <p className="text-sm font-medium text-muted-foreground sm:hidden">
-              7 个精华主题 · {FRANK_COMPANY_RECOMMENDATIONS.length} 个股档案 · {totalTweets?.toLocaleString() ?? '--'} 条原文
-            </p>
-          </div>
-        </section>
-
-        <div className="hidden grid-cols-3 gap-2 rounded-lg border border-border/45 bg-card/30 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:grid">
-          {overviewStats.map((stat) => (
-            <div key={stat.label} className="min-w-0">
-              <div className={`font-data text-xl font-semibold tabular-nums ${stat.valueClassName}`}>
-                {stat.value}
-              </div>
-              <div className="mt-1 text-xs font-medium text-foreground">
-                {stat.label}
-              </div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {stat.helper}
-              </div>
-            </div>
-          ))}
+      <section className="max-w-3xl space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="h-px w-12 bg-gradient-to-r from-primary to-transparent" />
+          <span className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+            KOL ARCHIVE
+          </span>
         </div>
-      </div>
+        <div className="space-y-3">
+          <h2 className="font-editorial text-3xl leading-tight tracking-tight text-foreground md:text-4xl">
+            qinbafrank 研究室
+          </h2>
+          <p className="max-w-[68ch] text-base leading-relaxed text-muted-foreground md:text-lg">
+            把他在 X 上散落的观点、原文证据和个股表态整理在一处 ——
+            按主题读精华、按个股复盘演化、随时回到原文,也可以基于这些上下文追问他的框架。
+          </p>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:gap-5">
         <OverviewMiniPreview
