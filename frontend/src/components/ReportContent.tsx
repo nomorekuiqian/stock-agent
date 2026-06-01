@@ -34,11 +34,11 @@ const INDICATOR_NAMES: Record<string, string> = {
   'US Dollar': 'US DOLLAR',
 };
 
-// Section header component (matching email style)
+// Section header component
 const SectionHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex items-center gap-3 mb-5">
-    <div className="w-1 h-5 bg-primary rounded-full" />
-    <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+  <div className="mb-5 flex items-center gap-2">
+    <div className="h-5 w-1 rounded-full bg-primary" />
+    <h2 className="text-base font-semibold text-foreground">
       {children}
     </h2>
   </div>
@@ -46,8 +46,9 @@ const SectionHeader = ({ children }: { children: React.ReactNode }) => (
 
 // Subsection header component
 const SubsectionHeader = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-    {children}
+  <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
+    <span className="h-1.5 w-1.5 rounded-full bg-amber-400/80 light:bg-amber-600" />
+    <span className="text-amber-400 light:text-amber-700">{children}</span>
   </h3>
 );
 
@@ -55,7 +56,7 @@ const NewsTimestamp = ({ timestamp }: { timestamp?: string }) => {
   if (!timestamp) return null;
 
   return (
-    <div className="flex items-center gap-2 pl-1 text-xs leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
+    <div className="mt-1.5 mb-2.5 flex items-center gap-2 pl-1 font-data text-xs leading-normal text-muted-foreground/75">
       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/50">
         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l2.5 2.5m6.5-2.5a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -95,26 +96,26 @@ export function ReportContent({
     <div className="space-y-5">
       {/* Market Overview - 6 Key Indices Grid */}
       {keyIndices.length > 0 && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+        <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>市场概览</SectionHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-flow-dense grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             {keyIndices.map((index) => {
               const change = index.change_percent || 0;
               const isPositive = change >= 0;
               return (
                 <div
                   key={index.name}
-                  className="bg-muted/80 rounded-lg p-4 text-center border border-border/50"
+                  className="rounded-lg border border-border/40 bg-card/40 p-3"
                 >
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
                     {index.displayName}
                   </p>
-                  <p className="text-xl font-semibold text-foreground">
+                  <p className="font-data text-xl font-semibold text-foreground">
                     {index.value > 1000
                       ? index.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
                       : index.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
-                  <p className={`text-sm font-semibold mt-1 ${isPositive ? 'text-primary' : 'text-destructive'}`}>
+                  <p className={`mt-1 font-data text-sm font-medium ${isPositive ? 'text-emerald-400 light:text-emerald-600' : 'text-red-400 light:text-red-600'}`}>
                     {index.change_unit === 'bps'
                       ? `${isPositive ? '+' : ''}${change.toFixed(1)}bp`
                       : `${isPositive ? '+' : ''}${change.toFixed(2)}%`}
@@ -128,7 +129,7 @@ export function ReportContent({
 
       {/* Intro / Today's Overview */}
       {intro && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+        <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>今日要点</SectionHeader>
           <p className="text-base text-foreground leading-relaxed whitespace-pre-line">
             {intro.replace(/\\n/g, '\n')}
@@ -138,7 +139,7 @@ export function ReportContent({
 
       {/* News Section */}
       {news && (news.headlines?.length > 0 || news.briefs?.length > 0) && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+        <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>新闻</SectionHeader>
 
           {/* Headlines */}
@@ -147,19 +148,19 @@ export function ReportContent({
               <SubsectionHeader>头条</SubsectionHeader>
               <div className="space-y-4">
                 {news.headlines.map((headline, idx) => (
-                  <div key={idx} className="pb-4 border-b border-border last:border-0 last:pb-0">
+                  <div key={idx} className="pb-4 border-b border-border/40 last:border-0 last:pb-0">
                     <a
                       href={headline.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-base font-semibold text-foreground hover:text-primary transition-colors block mb-2"
+                      className="mb-2 block text-base font-semibold leading-relaxed text-foreground transition-colors hover:text-primary"
                     >
                       {headline.title}
                     </a>
                     <NewsTimestamp timestamp={headline.published_at} />
-                    <p className="text-sm text-muted-foreground mb-3">{headline.fact_summary}</p>
-                    <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
-                      <p className="text-sm text-foreground leading-relaxed">
+                    <p className="mb-3 text-sm leading-relaxed text-muted-foreground">{headline.fact_summary}</p>
+                    <div className="rounded-lg border border-border/30 bg-card/40 p-3">
+                      <p className="text-sm leading-relaxed text-foreground">
                         {headline.deep_analysis}
                       </p>
                     </div>
@@ -175,17 +176,17 @@ export function ReportContent({
               <SubsectionHeader>快讯</SubsectionHeader>
               <div className="space-y-3">
                 {news.briefs.map((brief, idx) => (
-                  <div key={idx} className="pb-3 border-b border-border/50 last:border-0 last:pb-0">
+                  <div key={idx} className="pb-3 border-b border-border/40 last:border-0 last:pb-0">
                     <a
                       href={brief.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-foreground hover:text-primary transition-colors block"
+                      className="block text-sm font-medium leading-relaxed text-foreground transition-colors hover:text-primary"
                     >
                       {brief.title}
                     </a>
                     <NewsTimestamp timestamp={brief.published_at} />
-                    <p className="text-sm text-muted-foreground mt-1">{brief.summary}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{brief.summary}</p>
                   </div>
                 ))}
               </div>
@@ -196,7 +197,7 @@ export function ReportContent({
 
       {/* Upcoming Events Calendar */}
       {calendar && calendar.length > 0 && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+        <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>近期事件</SectionHeader>
           <div className="space-y-4">
             {calendar.slice(0, 5).map((event, idx) => {
@@ -210,7 +211,7 @@ export function ReportContent({
                   <div className={`flex-shrink-0 w-14 rounded-lg p-2 text-center ${
                     isToday
                       ? 'bg-primary/10 border border-primary/20'
-                      : 'bg-secondary border border-border'
+                      : 'bg-card/40 border border-border/40'
                   }`}>
                     <p className={`text-xs uppercase ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                       {calendarDate.month}
@@ -234,7 +235,7 @@ export function ReportContent({
 
       {/* Summary */}
       {report_summary && (
-        <section className="bg-card rounded-xl border border-border p-5 animate-fade-in-up">
+        <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>总结与展望</SectionHeader>
           {Array.isArray(report_summary) ? (
             <div className="space-y-6">

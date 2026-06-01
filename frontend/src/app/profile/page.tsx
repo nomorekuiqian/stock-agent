@@ -89,10 +89,10 @@ function ProfileContent(): ReactNode {
   const {
     isPro, isMax, isLoading: subLoading, status,
     currentPeriodEnd, accessExpiresAt,
-    openBillingPortal, redeemInviteCode, refreshSubscription,
+    openBillingPortal,
     portalError,
   } = useSubscription();
-  const { has: hasEntitlement, refresh: refreshEntitlements } = useEntitlements();
+  const { has: hasEntitlement } = useEntitlements();
 
   const { data: serverPrefs, isLoading: prefsLoading, isError: prefsError } = useEmailPreferences(
     isAuthenticated
@@ -135,10 +135,6 @@ function ProfileContent(): ReactNode {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Invite code inline state
-  const [codeInput, setCodeInput] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [codeSuccess, setCodeSuccess] = useState('');
-  const [isRedeeming, setIsRedeeming] = useState(false);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
   async function handleManageSubscription() {
     setIsPortalLoading(true);
@@ -213,26 +209,6 @@ function ProfileContent(): ReactNode {
       setMessage({ type: 'error', text: '偏好保存失败' });
     }
     setSaving(false);
-  }
-
-  async function handleRedeemCode() {
-    if (!codeInput.trim()) return;
-    setIsRedeeming(true);
-    setCodeError('');
-    setCodeSuccess('');
-    const result = await redeemInviteCode(codeInput.trim());
-    setIsRedeeming(false);
-    if (result.success) {
-      setCodeInput('');
-      setCodeSuccess(result.accessExpiresAt
-        ? `已激活，有效期至 ${formatDate(result.accessExpiresAt)}`
-        : '兑换成功'
-      );
-      await refreshSubscription();
-      await refreshEntitlements({ fresh: true });
-    } else {
-      setCodeError(result.error || '兑换失败，请稍后再试');
-    }
   }
 
   const initials = user.name
@@ -570,36 +546,6 @@ function ProfileContent(): ReactNode {
                 </div>
               )}
 
-              {/* Invite code section (hidden for paid Pro) */}
-              {!isPaid && (
-                <div className="border-t border-border/40 px-5 py-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                    {isTrial && daysLeft !== null && daysLeft <= 7 ? '兑换新邀请码延续访问' : isTrial ? '兑换邀请码' : '使用邀请码'}
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={codeInput}
-                      onChange={e => { setCodeInput(e.target.value.toUpperCase()); setCodeError(''); setCodeSuccess(''); }}
-                      onKeyDown={e => e.key === 'Enter' && handleRedeemCode()}
-                      placeholder="例如：BREW2026"
-                      className="flex-1 px-3 py-2 bg-background border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 font-mono tracking-wider focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-colors"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRedeemCode}
-                      disabled={isRedeeming || !codeInput.trim()}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap flex items-center gap-1.5"
-                    >
-                      {isRedeeming ? (
-                        <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-                      ) : '兑换'}
-                    </button>
-                  </div>
-                  {codeError && <p className="text-xs text-red-400 mt-2">{codeError}</p>}
-                  {codeSuccess && <p className="text-xs text-primary mt-2">{codeSuccess}</p>}
-                </div>
-              )}
             </div>
           </div>
         )}

@@ -19,32 +19,27 @@ interface Props {
 }
 
 /**
- * Client wrapper that renders the morning report body and applies the
- * twitter-digest-style section paywall: futures cards and global markets
- * tables stay visible, AI-generated narrative is replaced by LockedBlur, and
- * an UpgradeBanner sits above the fold for free / unauth users.
+ * Renders the morning report body with section-level paywall.
  *
- * SSR contract: the backend `/morning/reports/{id}` endpoint strips AI text
- * fields when the caller lacks the `morning_website` entitlement. Server
- * fetches have no bearer token, so the report passed in here is *always*
- * the locked shape (`is_locked === true`) when rendered server-side. Once
- * we know the visitor has the entitlement, we re-fetch client-side with
- * the bearer token to upgrade in place. This keeps paid content out of the
- * SSR'd HTML even for subscribers — only their authenticated client fetch
- * sees the full payload.
+ * SSR contract: the parent server component reads the access-token cookie
+ * and forwards it as `Authorization` to the backend. When the cookie is
+ * present + valid, the backend returns the unlocked payload directly in
+ * the SSR HTML (no client-side flicker).
+ *
+ * Fallback: if the cookie was missing or expired at SSR time but the
+ * authenticated client *does* have the entitlement, we re-fetch via the
+ * authenticated client to upgrade in place. This case is rare (only when
+ * the 15-min access-token cookie expires between sessions) but worth
+ * handling so subscribers never see a stale lock.
  */
 export function MorningReportBody({ report: initialReport, targetPath }: Props) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { has, trialEligible, isLoading: entLoading } = useEntitlements();
+  const { has, isLoading: entLoading } = useEntitlements();
 
   const [report, setReport] = useState<MorningReport>(initialReport);
 
   const hasMorningAccess = has('morning_website');
 
-  // Subscriber upgrade path: server gave us the locked shape because the
-  // SSR fetch had no token. If the visitor actually has access, re-fetch
-  // through the authenticated client to get the full payload. Keyed on
-  // `report_id` so navigating between archived reports re-triggers.
   useEffect(() => {
     if (!PAYWALL_ENABLED || !hasMorningAccess) return;
     if (!initialReport.is_locked) return;
@@ -57,25 +52,21 @@ export function MorningReportBody({ report: initialReport, targetPath }: Props) 
         setReport(full);
       })
       .catch(() => {
-        // upgrade is best-effort; keep showing the locked shape on failure
+        // upgrade is best-effort; keep the SSR-rendered locked shape on failure
       });
     return () => {
       cancelled = true;
     };
   }, [hasMorningAccess, initialReport.is_locked, initialReport.report_id]);
 
-  // Until we know who the visitor is, default to *locked* — never flash
-  // paid content. (Server already returned locked data so this only
-  // affects the unauth → locked frame timing, not actual data exposure.)
-  const stillResolving = PAYWALL_ENABLED && (authLoading || (isAuthenticated && entLoading));
-  const locked = PAYWALL_ENABLED && (stillResolving || !hasMorningAccess || report.is_locked === true);
+  const locked = PAYWALL_ENABLED && report.is_locked === true;
+  const ctaResolving = PAYWALL_ENABLED && (authLoading || (isAuthenticated && entLoading));
 
   return (
     <>
-      {locked && (
+      {locked && !ctaResolving && (
         <UpgradeBanner
           isAuthenticated={isAuthenticated}
-          trialEligible={trialEligible}
           targetPath={targetPath}
         />
       )}

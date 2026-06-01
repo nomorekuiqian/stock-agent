@@ -1,21 +1,33 @@
 import Link from 'next/link';
+import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
 import { MorningReportBody } from './_components/MorningReportBody';
 import { AiChatLink } from '@/components/AiChatLink';
+import { getAuthCookies } from '@/lib/auth-cookies';
 import { marketTodayStr, formatReportDate, formatDateShort } from '@/lib/timezone';
 import type { MorningReport, MorningReportListItem } from '@/lib/api';
 
+// Per-user dynamic: we forward the user's access-token cookie to the
+// backend so subscribers' SSR HTML contains the unlocked report rather
+// than the locked shape. ISR can't be used here because the response
+// depends on who's logged in.
 export const dynamic = 'force-dynamic';
-export const revalidate = 300;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 const SERVER_FETCH_TIMEOUT_MS = 10000;
 
+async function authHeaders(): Promise<Record<string, string>> {
+  const { accessToken } = await getAuthCookies();
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
 async function getMorningReportByDate(date: string): Promise<MorningReport | null> {
   try {
+    const headers = await authHeaders();
     const res = await fetch(`${API_BASE}/morning/reports/date/${date}`, {
-      next: { revalidate: 300 },
+      headers,
+      cache: 'no-store',
       signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
@@ -28,8 +40,10 @@ async function getMorningReportByDate(date: string): Promise<MorningReport | nul
 
 async function getMorningReportLatest(): Promise<MorningReport | null> {
   try {
+    const headers = await authHeaders();
     const res = await fetch(`${API_BASE}/morning/reports/latest`, {
-      next: { revalidate: 300 },
+      headers,
+      cache: 'no-store',
       signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
@@ -42,6 +56,8 @@ async function getMorningReportLatest(): Promise<MorningReport | null> {
 
 async function getMorningReportList(): Promise<{ data: MorningReportListItem[]; total: number }> {
   try {
+    // The list endpoint returns only metadata (titles, dates) — no AI text —
+    // so it doesn't need auth forwarding. Keep ISR for it.
     const res = await fetch(`${API_BASE}/morning/reports?limit=6&offset=0`, {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
@@ -71,7 +87,7 @@ export default async function MorningPage() {
   const totalReports = historyResult.total;
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background">
       {/* Page Header */}
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
@@ -102,6 +118,8 @@ export default async function MorningPage() {
               </div>
             </div>
           </div>
+
+          <ReportHeroBanner src="/report-banners/morning-brief-banner.png" priority />
         </div>
       </section>
 

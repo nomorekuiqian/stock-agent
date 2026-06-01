@@ -83,25 +83,15 @@ export function SectionUnlockCta({
  */
 export function UpgradeBanner({
   isAuthenticated,
-  trialEligible,
   targetPath,
 }: {
   isAuthenticated: boolean;
-  trialEligible: boolean;
   targetPath: string;
 }) {
-  let ctaHref: string;
-  let ctaLabel: string;
-  if (!isAuthenticated) {
-    ctaHref = `/login?redirect=${encodeURIComponent(targetPath)}`;
-    ctaLabel = '注册免费体验 14 天';
-  } else if (trialEligible) {
-    ctaHref = '/pricing';
-    ctaLabel = '开启 14 天免费试用';
-  } else {
-    ctaHref = '/pricing';
-    ctaLabel = '订阅解锁全部内容';
-  }
+  const ctaHref = isAuthenticated
+    ? '/pricing'
+    : `/login?redirect=${encodeURIComponent(targetPath)}`;
+  const ctaLabel = isAuthenticated ? '订阅解锁全部内容' : '免费注册，查看更多内容';
 
   return (
     <section

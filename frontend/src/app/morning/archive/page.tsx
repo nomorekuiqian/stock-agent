@@ -79,7 +79,7 @@ export default function MorningArchivePage() {
                 href={isAuthenticated ? '/pricing' : `/login?redirect=${encodeURIComponent('/morning/archive')}`}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-500/90"
               >
-                {isAuthenticated ? '订阅解锁' : '登录后开启试用'}
+                {isAuthenticated ? '订阅解锁' : '登录后免费查看'}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

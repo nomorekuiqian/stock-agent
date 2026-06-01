@@ -21,7 +21,7 @@ import { PRICING } from '@/lib/pricing';
  *  - Max user            → hidden (no upsell needed)
  *  - Pro user            → nudge toward Max, headline: 无限 AI 投研引擎
  *  - Free authenticated  → dual path (Pro + Max)
- *  - Unauthenticated     → sign up for free trial
+ *  - Unauthenticated     → sign up CTA (free 永久免费版)
  */
 
 type SectionKey = 'macro' | 'economy' | 'inflation' | 'liquidity' | 'sentiment' | 'weekly';
@@ -140,7 +140,7 @@ export function MacroUpgradeCTA() {
           <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-2xl">
             {isAuthenticated
               ? `${copy.subline} 或订阅 Pro 获取每周宏观邮件推送。`
-              : '注册即可体验 14 天全部 Max 功能 — AI 投研引擎无限使用、深度个股分析、邮件推送,从宏观到个股一站式投研。'}
+              : '注册免费用每日市场日报 + 宏观仪表盘; 升级 Max 解锁 AI 投研引擎无限使用、深度个股分析、推特 KOL 日报。'}
           </p>
           <div className="grid md:grid-cols-2 gap-3">
             <Link
