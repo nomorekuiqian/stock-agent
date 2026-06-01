@@ -2,7 +2,16 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { Rss, Radar, Layers, CandlestickChart, MessageCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  BookOpenText,
+  CandlestickChart,
+  Layers,
+  MessageCircle,
+  Radar,
+  Rss,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 
 import {
   useKolCockpitProfile,
@@ -10,6 +19,14 @@ import {
   useKolCockpitFeed,
   useKolCockpitSectors,
 } from '@/hooks/queries/use-kol-data';
+import type { KolCockpitFeedItem, KolCockpitTickerSummary } from '@/lib/api';
+import {
+  FRANK_COMPANY_RECOMMENDATIONS,
+  FRANK_FEATURED_CONTENT,
+  FRANK_SECTIONS,
+  type FrankHighlightTopicId,
+  type FrankSectionId,
+} from './_components/frankContentData';
 import OverviewMiniPreview from './_components/OverviewMiniPreview';
 import { relativeTimeCN } from './_components/relativeTime';
 
@@ -31,22 +48,34 @@ export default function OverviewPage({
   const sectors = sectorsQ.data?.sectors ?? [];
   const macroSummary = sectors.find((sector) => sector.layer === 'macro' || sector.key === 'macro-regime');
   const sectorOnly = sectors.filter((sector) => sector.layer === 'sector');
-  const loading = profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading || sectorsQ.isLoading;
+  const isFrank = username.toLowerCase() === 'qinbafrank';
+  const loading = profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading || (!isFrank && sectorsQ.isLoading);
 
   const displayName = profile?.persona.display_name ?? username;
   const titleName = username.toLowerCase() === 'qinbafrank' ? 'qinbafrank' : displayName;
   const lensPositioning =
-    username.toLowerCase() === 'qinbafrank'
-      ? '把 @qinbafrank 的公开观点、原文证据和当前数据，整理成一张可追问的研究地图。'
+    isFrank
+      ? '把 @qinbafrank 的公开观点、原文证据和当前数据，整理成可追问的内容档案馆。'
       : `把 @${username} 的公开观点整理成可查询、可验证、可持续跟踪的股票研究框架。`;
+
+  if (isFrank) {
+    return (
+      <FrankOverview
+        username={username}
+        feed={feed}
+        tickers={tickers}
+        loading={profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading}
+      />
+    );
+  }
 
   return (
     <div className="space-y-7 py-6 md:space-y-8 md:py-8">
       <section className="max-w-3xl space-y-2">
-        <p className="font-data text-[11px] uppercase tracking-[0.22em] text-primary">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
           博主研究室
         </p>
-        <h2 className="font-editorial text-2xl leading-tight tracking-tight text-foreground md:text-[30px]">
+        <h2 className="font-editorial text-2xl leading-tight tracking-tight text-foreground md:text-3xl">
           {lensPositioning}
         </h2>
       </section>
@@ -73,13 +102,13 @@ export default function OverviewPage({
               {feed.slice(0, 3).map((t) => (
                 <li key={t.id} className="editorial-item">
                   <div className="flex items-center gap-2">
-                    <time className="font-data text-[11px] tabular-nums text-muted-foreground">
+                    <time className="font-data text-xs tabular-nums text-muted-foreground">
                       {relativeTimeCN(t.created_at)}
                     </time>
                     {t.tickers.slice(0, 3).map((tk) => (
                       <span
                         key={tk}
-                        className="rounded-sm bg-primary/10 px-1 py-0.5 font-data text-[10px] font-medium tracking-wider text-primary"
+                        className="rounded-sm bg-primary/10 px-1 py-0.5 font-data text-micro font-medium tracking-wider text-primary"
                       >
                         ${tk}
                       </span>
@@ -117,7 +146,7 @@ export default function OverviewPage({
                   </span>
                 ))}
               </div>
-              <p className="font-data text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 数据 / 判断 / 历史原文
               </p>
             </div>
@@ -144,7 +173,7 @@ export default function OverviewPage({
                           {s.label}
                         </h4>
                         {s.layer === 'macro' ? (
-                          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 font-data text-[9px] uppercase tracking-wider text-muted-foreground">
+                          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-micro font-medium text-muted-foreground">
                             宏观
                           </span>
                         ) : null}
@@ -155,7 +184,7 @@ export default function OverviewPage({
                         </p>
                       ) : null}
                     </div>
-                    <span className="shrink-0 font-data text-[11px] tabular-nums text-muted-foreground/80">
+                    <span className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
                       {s.tweet_count} 条
                     </span>
                   </Link>
@@ -186,7 +215,7 @@ export default function OverviewPage({
                     <div className="font-data text-sm font-medium tabular-nums text-foreground">
                       ${t.ticker}
                     </div>
-                    <div className="mt-0.5 font-data text-[10px] tabular-nums text-muted-foreground">
+                    <div className="mt-0.5 font-data text-xs tabular-nums text-muted-foreground">
                       {t.count} 次提及
                     </div>
                   </div>
@@ -199,6 +228,135 @@ export default function OverviewPage({
 
       </div>
     </div>
+  );
+}
+
+function FrankOverview({
+  username,
+  feed,
+  tickers,
+  loading,
+}: {
+  username: string;
+  feed: KolCockpitFeedItem[];
+  tickers: KolCockpitTickerSummary[];
+  loading: boolean;
+}) {
+  const previewTopicIds: FrankHighlightTopicId[] = ['ai-trend', 'capex-war', 'market-rules'];
+  const highlightHighlights = previewTopicIds
+    .map((topicId) => FRANK_FEATURED_CONTENT.find((item) => item.topicId === topicId))
+    .filter((item): item is typeof FRANK_FEATURED_CONTENT[number] => Boolean(item));
+  const recommendedCompanies = FRANK_COMPANY_RECOMMENDATIONS.slice(0, 6).map((company) => ({
+    company,
+    live: tickers.find((ticker) => ticker.ticker.toUpperCase() === company.ticker),
+  }));
+  const sectionMap = Object.fromEntries(FRANK_SECTIONS.map((s) => [s.id, s])) as Record<FrankSectionId, typeof FRANK_SECTIONS[number]>;
+
+  return (
+    <div className="space-y-7 py-6 md:space-y-8 md:py-8">
+      <section className="max-w-3xl space-y-3">
+        <h2 className="font-editorial text-3xl leading-tight tracking-tight text-foreground md:text-4xl">
+          qinbafrank 研究室
+        </h2>
+        <p className="text-base leading-relaxed text-muted-foreground md:text-lg">
+          把他在 X 上散落的观点、原文证据和个股表态整理在一处 ——
+          按主题读精华、按个股复盘演化、随时回到原文,也可以基于这些上下文追问他的框架。
+        </p>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+        <OverviewMiniPreview
+          title={sectionMap.highlights.label}
+          icon={BookOpenText}
+          href={`/kol/${username}/sectors`}
+        >
+          <SectionIntro text={sectionMap.highlights.purpose} />
+          <ul className="space-y-2">
+            {highlightHighlights.map((item) => (
+              <li key={item.id} className="flex items-baseline gap-2">
+                <time className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
+                  {item.date}
+                </time>
+                <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  {item.topic}
+                </span>
+                <p className="truncate text-sm text-foreground">{item.title}</p>
+              </li>
+            ))}
+          </ul>
+        </OverviewMiniPreview>
+
+        <OverviewMiniPreview
+          title={sectionMap.stocks.label}
+          icon={CandlestickChart}
+          href={`/kol/${username}/stocks`}
+        >
+          <SectionIntro text={sectionMap.stocks.purpose} />
+          {loading ? (
+            <MiniLoading rows={2} />
+          ) : recommendedCompanies.length === 0 ? (
+            <p className="text-sm text-muted-foreground">暂无内容</p>
+          ) : (
+            <ul className="grid grid-cols-3 gap-2">
+              {recommendedCompanies.map(({ company, live }) => (
+                <li
+                  key={company.ticker}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border/40 bg-background/40 px-2 py-1.5"
+                >
+                  <span className="font-data text-sm font-medium tabular-nums text-foreground">
+                    ${company.ticker}
+                  </span>
+                  <PriceMini price={live?.price ?? null} change={live?.daily_change ?? null} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </OverviewMiniPreview>
+
+        <OverviewMiniPreview
+          title={sectionMap.library.label}
+          icon={Rss}
+          href={`/kol/${username}/latest`}
+        >
+          <SectionIntro text={sectionMap.library.purpose} />
+          {loading ? (
+            <MiniLoading rows={3} />
+          ) : feed.length === 0 ? (
+            <p className="text-sm text-muted-foreground">暂无内容</p>
+          ) : (
+            <ul className="space-y-2">
+              {feed.slice(0, 3).map((t) => (
+                <li key={t.id} className="flex items-baseline gap-2">
+                  <time className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
+                    {relativeTimeCN(t.created_at)}
+                  </time>
+                  <p className="truncate text-sm text-foreground">{t.text}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </OverviewMiniPreview>
+
+        <OverviewMiniPreview
+          title="追问"
+          icon={MessageCircle}
+          href={`/research?agent=kol&persona=${encodeURIComponent(username)}`}
+        >
+          <SectionIntro text={sectionMap.chat.purpose} />
+          <div className="rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+            打开 qinbafrank 研究助手
+          </div>
+        </OverviewMiniPreview>
+      </div>
+    </div>
+  );
+}
+
+function SectionIntro({ text }: { text: string }) {
+  return (
+    <p className="mb-3.5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+      {text}
+    </p>
   );
 }
 
@@ -222,7 +380,7 @@ function ResearchToolButton({
         </span>
         <span className="min-w-0">
           <span className="block text-lg font-semibold tracking-tight text-foreground">
-            Chat
+            打开研究助手
           </span>
           <span className="block truncate text-sm text-muted-foreground">
             用 {displayName} 框架追问
@@ -262,7 +420,7 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
         : 'text-destructive';
   const ChangeIcon = hasChange && (change ?? 0) !== 0 ? (up ? TrendingUp : TrendingDown) : null;
   return (
-    <div className={`shrink-0 text-right font-data text-[11px] tabular-nums ${color}`}>
+    <div className={`shrink-0 text-right font-data text-xs tabular-nums ${color}`}>
       <div>{price.toFixed(2)}</div>
       {hasChange && ChangeIcon ? (
         <div className="flex items-center justify-end gap-0.5">

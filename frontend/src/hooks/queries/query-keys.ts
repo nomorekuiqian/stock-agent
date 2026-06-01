@@ -93,6 +93,14 @@ export const queryKeys = {
     all: ['subscriptions'] as const,
     preferences: () => ['subscriptions', 'preferences'] as const,
   },
+  entitlements: {
+    all: ['entitlements'] as const,
+    me: () => ['entitlements', 'me'] as const,
+  },
+  subscriptionStatus: {
+    all: ['subscription-status'] as const,
+    byUser: (userId: string) => ['subscription-status', userId] as const,
+  },
   featureFlags: {
     all: ['feature-flags'] as const,
   },
@@ -100,8 +108,15 @@ export const queryKeys = {
     all: ['kol'] as const,
     profile: (username: string) => ['kol', username, 'profile'] as const,
     tickers: (username: string) => ['kol', username, 'tickers'] as const,
-    feed: (username: string, sector: string | null, ticker: string | null, limit: number, offset: number) =>
-      ['kol', username, 'feed', { sector, ticker, limit, offset }] as const,
+    topics: (username: string) => ['kol', username, 'topics'] as const,
+    feed: (
+      username: string,
+      sector: string | null,
+      ticker: string | null,
+      limit: number,
+      offset: number,
+      topic: string | null = null,
+    ) => ['kol', username, 'feed', { sector, ticker, topic, limit, offset }] as const,
     sectors: (username: string) => ['kol', username, 'sectors'] as const,
     sectorDetail: (username: string, sectorKey: string) =>
       ['kol', username, 'sector', sectorKey] as const,
@@ -109,5 +124,9 @@ export const queryKeys = {
       ['kol', username, 'industry-chain', boardKey] as const,
     tickerDetail: (username: string, ticker: string) =>
       ['kol', username, 'ticker', ticker] as const,
+    tickerTimeline: (username: string, ticker: string) =>
+      ['kol', username, 'ticker-timeline', ticker] as const,
+    evidenceTweets: (username: string, ids: string[]) =>
+      ['kol', username, 'evidence-tweets', ids.join(',')] as const,
   },
 };

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import { useKolTickerDetail } from "@/hooks/queries/use-kol-data";
 import type { KolCockpitTweet } from "@/lib/api";
 import PriceTimelineChart from "./PriceTimelineChart";
 import TweetFeedCard from "./TweetFeedCard";
 import TickerNarrative from "./TickerNarrative";
+import TickerOpinionTimeline from "./TickerOpinionTimeline";
 import { IndustryChainSkeleton } from "./Skeletons";
 import { buildKolAgentHref, getTickerKolAgentQuestion } from "./kolAgentLinks";
 
@@ -26,6 +27,34 @@ export default function TickerDetail({ username, ticker }: Props) {
     isError,
   } = useKolTickerDetail(username, ticker);
   const [tab, setTab] = useState<ExcerptTab>("latest");
+
+  // Right column (opinion timeline) is locked to the left column's intrinsic
+  // height at lg+ and scrolls internally. Measuring the left with
+  // ResizeObserver keeps the two visually matched even when content reflows;
+  // matchMedia gates the height constraint so the stacked mobile layout stays
+  // natural.
+  const narrativeRef = useRef<HTMLDivElement | null>(null);
+  const [narrativeHeight, setNarrativeHeight] = useState<number | null>(null);
+  const [isWide, setIsWide] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    const node = narrativeRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setNarrativeHeight(Math.round(node.getBoundingClientRect().height));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [detail?.ticker]);
 
   if (!ticker) {
     return <EmptyState />;
@@ -65,7 +94,7 @@ export default function TickerDetail({ username, ticker }: Props) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                {detail.market.sector || "—"} · 提及 {detail.count} 次
+                提及 {detail.count} 次
               </p>
               {detail.summary?.coverage ? (
                 <span className="rounded-sm border border-border/60 bg-card/50 px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -77,15 +106,9 @@ export default function TickerDetail({ username, ticker }: Props) {
                 </span>
               ) : null}
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-3">
-              <h2 className="font-editorial text-3xl tracking-tight text-foreground md:text-4xl">
-                ${detail.ticker}
-              </h2>
-              <PriceDisplay
-                price={detail.market.price}
-                change={detail.market.daily_change}
-              />
-            </div>
+            <h2 className="mt-1 font-editorial text-3xl tracking-tight text-foreground md:text-4xl">
+              ${detail.ticker}
+            </h2>
             {detail.market.name ? (
               <p className="mt-1 text-sm text-muted-foreground">
                 {detail.market.name}
@@ -101,42 +124,75 @@ export default function TickerDetail({ username, ticker }: Props) {
           </Link>
         </div>
 
-        {/* Basics row */}
-        <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border/40 pt-4 md:grid-cols-4">
+        {/* Coverage metadata — kept lean: 次数 + 时间跨度 */}
+        <div className="mt-5 grid grid-cols-3 gap-x-6 gap-y-3 border-t border-border/40 pt-4">
           <Stat label="提及次数" value={`${detail.count}`} />
-          <Stat
-            label="PE (TTM)"
-            value={
-              detail.market.pe_ttm != null
-                ? detail.market.pe_ttm.toFixed(1)
-                : "—"
-            }
-          />
           <Stat label="首次提及" value={shortDate(detail.first)} />
           <Stat label="最新提及" value={shortDate(detail.latest)} />
         </div>
       </div>
 
-      {/* Plain-prose narrative — 3-4 short paragraphs of his actual logic */}
-      {detail.summary ? <TickerNarrative summary={detail.summary} /> : null}
-
-      {/* Chart */}
-      <div className="border-b border-border/40 py-6">
-        <div className="mb-3 flex items-baseline justify-between">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            价格 × 提及时间线
-          </p>
-          {detail.priceable ? null : (
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              非美股 · 无报价
-            </p>
+      {/* Two-column: 左 静态观点框架 · 右 动态观点时间线.
+          Left's measured height is applied as an explicit `height` on the
+          right column at lg+; flex inside lets the scroll area fill whatever
+          is left after the header. Mobile (stacked) falls back to natural
+          height. */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div ref={narrativeRef} className="min-w-0">
+          {detail.summary ? (
+            <TickerNarrative summary={detail.summary} />
+          ) : (
+            <section className="mt-6 border-t border-border/40 pt-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  观点框架
+                </p>
+                <span className="h-px flex-1 bg-border/40" aria-hidden />
+              </div>
+              <div className="rounded-md border border-dashed border-border/40 bg-card/15 px-4 py-10 text-center text-sm text-muted-foreground">
+                暂无方法论观点框架
+              </div>
+            </section>
           )}
         </div>
-        <PriceTimelineChart
-          priceSeries={detail.price_series}
-          tweets={detail.tweets}
-        />
+        <div
+          className="flex min-w-0 flex-col"
+          style={
+            isWide && narrativeHeight
+              ? { height: `${narrativeHeight}px` }
+              : undefined
+          }
+        >
+          <section className="mt-6 flex min-h-0 flex-1 flex-col border-t border-border/40 pt-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                观点时间线
+              </p>
+              <span className="h-px flex-1 bg-border/40" aria-hidden />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+              <TickerOpinionTimeline
+                username={username}
+                ticker={detail.ticker}
+              />
+            </div>
+          </section>
+        </div>
       </div>
+
+      {/* Chart — hidden entirely for tickers without price data (crypto /
+          private / unsupported). */}
+      {detail.priceable && detail.price_series.length > 0 ? (
+        <div className="border-b border-border/40 py-6">
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            价格 × 提及时间线
+          </p>
+          <PriceTimelineChart
+            priceSeries={detail.price_series}
+            tweets={detail.tweets}
+          />
+        </div>
+      ) : null}
 
       {/* Tweet excerpts */}
       <div className="pt-6">
@@ -191,43 +247,6 @@ function toFeedItem(t: KolCockpitTweet) {
     sectors: [] as string[],
     reply_kind: t.reply_kind ?? null,
   };
-}
-
-function PriceDisplay({
-  price,
-  change,
-}: {
-  price: number | null;
-  change: number | null;
-}) {
-  if (price == null) {
-    return (
-      <span className="font-data text-sm text-muted-foreground">无报价</span>
-    );
-  }
-  const hasChange = change != null;
-  const up = (change ?? 0) > 0;
-  const flat = (change ?? 0) === 0;
-  const ChangeIcon = !hasChange || flat ? null : up ? TrendingUp : TrendingDown;
-  const color =
-    !hasChange || flat
-      ? "text-muted-foreground"
-      : up
-        ? "text-primary"
-        : "text-destructive";
-  return (
-    <span
-      className={`flex items-baseline gap-2 font-data text-xl tabular-nums ${color}`}
-    >
-      {price.toFixed(2)}
-      {hasChange && ChangeIcon ? (
-        <span className="inline-flex items-center gap-0.5 text-sm">
-          <ChangeIcon className="h-3.5 w-3.5" />
-          {Math.abs(change!).toFixed(2)}%
-        </span>
-      ) : null}
-    </span>
-  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

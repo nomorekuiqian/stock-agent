@@ -31,11 +31,20 @@ export function useKolCockpitTickers(username: string) {
 export function useKolCockpitFeed(username: string, opts: KolCockpitFeedOpts = {}) {
   const sector = opts.sector ?? null;
   const ticker = opts.ticker ?? null;
+  const topic = opts.topic ?? null;
   const limit = opts.limit ?? 20;
   const offset = opts.offset ?? 0;
   return useQuery({
-    queryKey: queryKeys.kol.feed(username, sector, ticker, limit, offset),
+    queryKey: queryKeys.kol.feed(username, sector, ticker, limit, offset, topic),
     queryFn: () => api.kolResearch.cockpitFeed(username, opts),
+    enabled: ENABLED(username),
+  });
+}
+
+export function useKolCockpitTopics(username: string) {
+  return useQuery({
+    queryKey: queryKeys.kol.topics(username),
+    queryFn: () => api.kolResearch.cockpitTopics(username),
     enabled: ENABLED(username),
   });
 }
@@ -69,5 +78,22 @@ export function useKolTickerDetail(username: string, ticker: string | null) {
     queryKey: queryKeys.kol.tickerDetail(username, ticker ?? ''),
     queryFn: () => api.kolResearch.cockpitTickerDetail(username, ticker!),
     enabled: ENABLED(username) && Boolean(ticker),
+  });
+}
+
+export function useKolTickerTimeline(username: string, ticker: string | null) {
+  return useQuery({
+    queryKey: queryKeys.kol.tickerTimeline(username, ticker ?? ''),
+    queryFn: () => api.kolResearch.cockpitTickerTimeline(username, ticker!),
+    enabled: ENABLED(username) && Boolean(ticker),
+  });
+}
+
+export function useKolEvidenceTweets(username: string, ids: string[]) {
+  const stableIds = ids.filter(Boolean);
+  return useQuery({
+    queryKey: queryKeys.kol.evidenceTweets(username, stableIds),
+    queryFn: () => api.kolResearch.cockpitTweetsByIds(username, stableIds),
+    enabled: ENABLED(username) && stableIds.length > 0,
   });
 }

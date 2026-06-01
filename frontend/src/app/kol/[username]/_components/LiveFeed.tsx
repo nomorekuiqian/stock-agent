@@ -16,12 +16,33 @@ import { FeedListSkeleton } from './Skeletons';
 interface Props {
   username: string;
   tickers: KolCockpitTickerSummary[];
+  /** Optional topic-tree filter (e.g. 'industry/ai_infra'). Controlled by parent. */
+  topic?: string | null;
+  /** If provided, ticker filter is controlled by the parent. */
+  ticker?: string | null;
+  /** Hide the internal top filter bar (used when parent renders its own filters). */
+  hideFilterBar?: boolean;
+  /** Hide the right hot-tickers rail (used when parent renders a left ticker list). */
+  hideTickerRail?: boolean;
+  /** Called when the empty-state "清除筛选" button is pressed in controlled mode. */
+  onClearFilter?: () => void;
 }
 
 const PAGE_SIZE = 20;
 
-export default function LiveFeed({ username, tickers }: Props) {
+export default function LiveFeed({
+  username,
+  tickers,
+  topic = null,
+  ticker: controlledTicker,
+  hideFilterBar = false,
+  hideTickerRail = false,
+  onClearFilter,
+}: Props) {
+  const tickerControlled = controlledTicker !== undefined;
   const [filter, setFilter] = useState<FeedFilterValue>({ sector: null, ticker: null });
+  const activeTicker = tickerControlled ? (controlledTicker ?? null) : filter.ticker;
+  const activeSector = filter.sector;
   const [items, setItems] = useState<KolCockpitFeedItem[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -44,8 +65,9 @@ export default function LiveFeed({ username, tickers }: Props) {
       .cockpitFeed(username, {
         limit: PAGE_SIZE,
         offset: 0,
-        sector: filter.sector,
-        ticker: filter.ticker,
+        sector: activeSector,
+        ticker: activeTicker,
+        topic,
       })
       .then((res) => {
         if (myKey !== loadKey.current) return;
@@ -61,7 +83,7 @@ export default function LiveFeed({ username, tickers }: Props) {
         if (myKey !== loadKey.current) return;
         setLoading(false);
       });
-  }, [username, filter.sector, filter.ticker]);
+  }, [username, activeSector, activeTicker, topic]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || loading) return;
@@ -71,8 +93,9 @@ export default function LiveFeed({ username, tickers }: Props) {
       const res = await api.kolResearch.cockpitFeed(username, {
         limit: PAGE_SIZE,
         offset: items.length,
-        sector: filter.sector,
-        ticker: filter.ticker,
+        sector: activeSector,
+        ticker: activeTicker,
+        topic,
       });
       if (myKey !== loadKey.current) return;
       setItems((prev) => [...prev, ...res.tweets]);
@@ -82,7 +105,7 @@ export default function LiveFeed({ username, tickers }: Props) {
     } finally {
       if (myKey === loadKey.current) setLoadingMore(false);
     }
-  }, [username, items.length, filter.sector, filter.ticker, hasMore, loadingMore, loading]);
+  }, [username, items.length, activeSector, activeTicker, topic, hasMore, loadingMore, loading]);
 
   // Intersection observer for infinite scroll.
   useEffect(() => {
@@ -98,14 +121,25 @@ export default function LiveFeed({ username, tickers }: Props) {
     return () => observer.disconnect();
   }, [loadMore]);
 
+  const clearAll = () => {
+    if (tickerControlled) {
+      onClearFilter?.();
+      setFilter({ sector: null, ticker: null });
+    } else {
+      setFilter({ sector: null, ticker: null });
+    }
+  };
+
   return (
     <div className="pb-12">
-      <FeedFilterBar
-        value={filter}
-        onChange={setFilter}
-        sectors={sectors}
-        resultCount={total}
-      />
+      {hideFilterBar ? null : (
+        <FeedFilterBar
+          value={filter}
+          onChange={setFilter}
+          sectors={sectors}
+          resultCount={total}
+        />
+      )}
 
       <div className="flex gap-10">
         {/* Feed column */}
@@ -115,7 +149,7 @@ export default function LiveFeed({ username, tickers }: Props) {
           ) : error ? (
             <FeedError onRetry={() => setFilter({ ...filter })} />
           ) : items.length === 0 ? (
-            <FeedEmpty onClear={() => setFilter({ sector: null, ticker: null })} />
+            <FeedEmpty onClear={clearAll} />
           ) : (
             <>
               <div className="divide-y divide-border/40">
@@ -149,13 +183,15 @@ export default function LiveFeed({ username, tickers }: Props) {
         </div>
 
         {/* Right rail */}
-        <HotTickersRail
-          tickers={tickers}
-          activeTicker={filter.ticker}
-          onSelectTicker={(tk) =>
-            setFilter((f) => ({ sector: null, ticker: f.ticker === tk ? null : tk }))
-          }
-        />
+        {hideTickerRail ? null : (
+          <HotTickersRail
+            tickers={tickers}
+            activeTicker={activeTicker}
+            onSelectTicker={(tk) =>
+              setFilter((f) => ({ sector: null, ticker: f.ticker === tk ? null : tk }))
+            }
+          />
+        )}
       </div>
     </div>
   );
