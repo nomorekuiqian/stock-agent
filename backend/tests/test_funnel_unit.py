@@ -86,25 +86,29 @@ class TestOnboardingDrip:
     def test_trial_day_calculation(self):
         """Day should be calculated from access_expires_at.
 
-        Uses midnight timestamps to avoid fractional-day rounding issues.
+        Pins `datetime.now` inside the onboarding module to a fixed midnight
+        so the timedelta(...).days truncation is deterministic regardless of
+        wall-clock time when CI runs (previously failed when CI fired after
+        23:00 UTC).
         """
-        from app.features.notification.onboarding import _calculate_trial_day_from_expiry
+        from app.features.notification import onboarding as ob
 
-        today_midnight = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        fixed_now = datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
+        with patch.object(ob, "datetime") as mock_dt:
+            mock_dt.now.return_value = fixed_now
+            mock_dt.fromisoformat.side_effect = datetime.fromisoformat
 
-        # Trial expiring in 14 days from midnight = Day 0
-        expires = (today_midnight + timedelta(days=14, hours=23)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) == 0
+            # Trial expiring in 14 days + 23h = Day 0
+            expires = (fixed_now + timedelta(days=14, hours=23)).isoformat()
+            assert ob._calculate_trial_day_from_expiry(expires) == 0
 
-        # Trial expiring in 7 days from midnight = Day 7
-        expires = (today_midnight + timedelta(days=7, hours=23)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) == 7
+            # Trial expiring in 7 days + 23h = Day 7
+            expires = (fixed_now + timedelta(days=7, hours=23)).isoformat()
+            assert ob._calculate_trial_day_from_expiry(expires) == 7
 
-        # Trial expiring tomorrow = Day 13
-        expires = (today_midnight + timedelta(days=1, hours=23)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) == 13
+            # Trial expiring tomorrow + 23h = Day 13
+            expires = (fixed_now + timedelta(days=1, hours=23)).isoformat()
+            assert ob._calculate_trial_day_from_expiry(expires) == 13
 
     def test_trial_day_out_of_range(self):
         """Days outside 0-14 should return None."""
