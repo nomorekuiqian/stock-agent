@@ -11,7 +11,7 @@ import {
 import type { KolCockpitTickerSummary } from '@/lib/api';
 import PersonaHero from './_components/PersonaHero';
 import SubNav from './_components/SubNav';
-import TransparencyFooter from './_components/TransparencyFooter';
+import TransparencyNote from './_components/TransparencyNote';
 import { relativeTimeCN } from './_components/relativeTime';
 import { HeroSkeleton, SubNavSkeleton } from './_components/Skeletons';
 
@@ -69,6 +69,9 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   const sectorCount =
     sectorsQ.data?.sectors.filter((sector) => sector.layer === 'sector').length ??
     (username.toLowerCase() === 'qinbafrank' ? 4 : profile.sectors.length);
+  // qinbafrank uses the full-bleed workspace layout across all sub-pages so the
+  // topic tree / sector explorer / feed rails have room to breathe.
+  const isWideWorkspace = username.toLowerCase() === 'qinbafrank';
 
   return (
     <div className="min-h-screen bg-background">
@@ -82,7 +85,11 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
       />
       {/* Body: mobile stacks (SubNav strip then main).
           lg+ becomes a 2-col grid with a slim persona sidebar + main content. */}
-      <div className="mx-auto max-w-7xl lg:grid lg:grid-cols-[72px_minmax(0,1fr)]">
+      <div
+        className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${
+          isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl'
+        }`}
+      >
         <aside className="lg:border-r lg:border-border/60 lg:pr-2">
           <SubNav
             username={profile.persona.username}
@@ -95,9 +102,11 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
             }}
           />
         </aside>
-        <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">{children}</main>
+        <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">
+          {children}
+          <TransparencyNote username={profile.persona.username} />
+        </main>
       </div>
-      <TransparencyFooter username={profile.persona.username} />
     </div>
   );
 }

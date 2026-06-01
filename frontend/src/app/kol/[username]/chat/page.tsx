@@ -44,11 +44,11 @@ export default function ChatLaunchpad({
                 <MessageCircle className="h-4 w-4" strokeWidth={1.7} />
               </span>
               <div>
-                <p className="font-data text-[10px] uppercase tracking-[0.18em] text-primary">
+                <p className="text-xs font-medium text-primary">
                   博主研究室
                 </p>
                 <h3 className="text-lg font-semibold tracking-tight text-foreground">
-                  把问题直接放进 qinbafrank 的研究框架里
+                  把问题直接放进 {titleName} 的研究框架里
                 </h3>
               </div>
             </div>
@@ -74,7 +74,7 @@ export default function ChatLaunchpad({
 
       <div className="mx-auto mt-8 max-w-2xl">
         <div>
-          <p className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             高价值追问
           </p>
           <ul className="mt-3 space-y-2">
@@ -84,10 +84,10 @@ export default function ChatLaunchpad({
                   href={buildKolAgentHref(username, q)}
                   className="group flex items-start gap-3 rounded-md border border-border/60 bg-card/30 px-4 py-3 transition hover:border-primary/40 hover:bg-primary/5"
                 >
-                  <span className="mt-0.5 font-data text-[11px] tabular-nums text-muted-foreground/70 group-hover:text-primary">
+                  <span className="mt-0.5 text-xs font-medium tabular-nums text-muted-foreground group-hover:text-primary">
                     /
                   </span>
-                  <span className="flex-1 text-sm text-foreground/90 group-hover:text-foreground">
+                  <span className="flex-1 text-sm text-foreground">
                     {q}
                   </span>
                   <ArrowUpRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground transition group-hover:text-primary group-hover:translate-x-0.5" />
@@ -105,7 +105,7 @@ export default function ChatLaunchpad({
             打开对话
             <ArrowUpRight className="h-4 w-4" />
           </Link>
-          <p className="font-data text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             需登录 · 灰度中
           </p>
         </div>
@@ -129,7 +129,7 @@ function FeaturePoint({
         {icon}
         <h4 className="text-sm font-semibold text-foreground">{title}</h4>
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
         {body}
       </p>
     </div>
