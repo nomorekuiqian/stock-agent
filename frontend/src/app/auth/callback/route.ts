@@ -40,26 +40,24 @@ export async function GET(request: NextRequest) {
 
   await setAuthCookies(data.accessToken, data.refreshToken);
 
-  // Detect new user: check if they have a subscription record.
-  // If not, this is a first-time registration — activate trial + send to onboarding.
+  // Detect first-time users via the onboarding-status endpoint. completed=false
+  // covers both "no subscription row yet" and "row exists but onboarding_completed_at
+  // is NULL", so legacy users that never went through the new flow also land here.
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-  let isNewUser = false;
+  let needsOnboarding = false;
   try {
-    const trialRes = await fetch(`${apiUrl}/invites/auto-trial`, {
-      method: 'POST',
+    const res = await fetch(`${apiUrl}/user/onboarding-status`, {
       headers: { Authorization: `Bearer ${data.accessToken}` },
     });
-    if (trialRes.ok) {
-      const trialData = await trialRes.json();
-      isNewUser = !trialData.already_active;
+    if (res.ok) {
+      const status = await res.json();
+      needsOnboarding = status.completed === false;
     }
   } catch {
-    // Non-blocking: if auto-trial fails, client-side fallback will retry
+    // Non-blocking — fall through to intended destination
   }
 
-  // New users go to onboarding; returning users go to their intended destination
   const safePath = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/today';
-  const finalPath = isNewUser ? '/onboarding' : safePath;
-
+  const finalPath = needsOnboarding ? '/onboarding' : safePath;
   return NextResponse.redirect(new URL(finalPath, baseUrl));
 }

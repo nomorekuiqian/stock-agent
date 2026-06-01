@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { OnboardingGate } from '@/components/OnboardingGate';
 import { makeQueryClient } from '@/hooks/queries/query-client';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -19,7 +20,9 @@ export function Providers({ children }: { children: ReactNode }) {
         <AuthProvider>
           <SubscriptionProvider>
             <EntitlementsProvider>
-              <TooltipProvider>{children}</TooltipProvider>
+              <TooltipProvider>
+                <OnboardingGate>{children}</OnboardingGate>
+              </TooltipProvider>
             </EntitlementsProvider>
           </SubscriptionProvider>
         </AuthProvider>

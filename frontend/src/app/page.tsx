@@ -91,7 +91,7 @@ export default function Home() {
                   </svg>
                 </Link>
                 <p className="text-xs text-muted-foreground/70">
-                  无需信用卡 · 14 天免费试用
+                  无需信用卡 · 每日市场日报 + 宏观仪表盘永久免费
                 </p>
               </div>
 
