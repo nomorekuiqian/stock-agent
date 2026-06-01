@@ -49,6 +49,7 @@
 
 - [pages.md](reference/pages.md) — 前端页面路由表
 - [components.md](reference/components.md) — 前端组件清单
+- [frank-feedback-raw.md](reference/frank-feedback-raw.md) — qinbafrank 页面改造反馈原始记录（逐字保留）
 - [twitter-kol-source-research.md](reference/twitter-kol-source-research.md) — 推特 KOL 信息源扩展 research
 - [vector-rag-pipeline.md](reference/vector-rag-pipeline.md) — vector embedding / retrieval / RAG pipeline
 
