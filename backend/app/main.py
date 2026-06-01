@@ -145,6 +145,7 @@ from app.features.portfolio_health.router import router as portfolio_health_rout
 from app.features.memory.router import router as memory_router
 from app.features.flags.router import router as flags_router
 from app.features.flags.admin_router import router as flags_admin_router
+from app.features.onboarding.router import router as onboarding_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -176,6 +177,7 @@ app.include_router(portfolio_health_router)
 app.include_router(memory_router)
 app.include_router(flags_router)
 app.include_router(flags_admin_router)
+app.include_router(onboarding_router)
 
 
 # ---------------------------------------------------------------------------

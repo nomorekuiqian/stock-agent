@@ -503,9 +503,12 @@ async def _send_onboarding_email(email: str, subject: str, html: str) -> bool:
 
 
 async def process_onboarding_emails() -> dict:
-    """Main cron handler: send drip emails to trial users.
+    """DEPRECATED: legacy trial-tied drip. Replaced by
+    `app.features.subscription.lifecycle_scheduler.run_onboarding_pass`.
 
-    Returns summary of actions taken.
+    Naturally fires no emails after the freemium transition because new users
+    no longer get trials (so `list_trials` returns nothing). Kept until all
+    legacy trial users have wound down.
     """
     trial_users = await _get_trial_users()
     if not trial_users:

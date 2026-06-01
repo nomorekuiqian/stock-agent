@@ -1,11 +1,13 @@
-name: Onboarding Drip Campaign
+name: Onboarding Drip Campaign (Deprecated)
 
+# DEPRECATED — replaced by `lifecycle-onboarding.yml` after the freemium
+# transition (see docs/plans/active/freemium-lifecycle-email.md). The old
+# trial-tied drip can no longer fire useful emails because new users do not
+# get auto trials. Workflow retained briefly so legacy trial users still
+# winding down can be manually re-triggered if needed; the schedule is
+# disabled to stop daily noise.
 on:
-  schedule:
-    # Run daily at UTC 15:00 = 8:00 AM PDT / 7:00 AM PST
-    # Morning send so new trial users get their first email early in the day
-    - cron: '0 15 * * *'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:  # Manual-only trigger; scheduled cron removed
 
 jobs:
   send-onboarding:
