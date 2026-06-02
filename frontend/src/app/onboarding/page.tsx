@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useStockSearch } from "@/hooks/useStockSearch";
@@ -50,6 +51,14 @@ function OnboardingContent() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { createCheckout } = useSubscription();
   const saveWatchlistMutation = useSaveWatchlist();
+  const queryClient = useQueryClient();
+
+  // Prime OnboardingGate's query so the gate sees completion immediately,
+  // even if the next refetch lands on a backend instance that hasn't seen
+  // the upsert yet (in-memory _sub_cache is per-process).
+  const markOnboardingCompleteLocally = useCallback(() => {
+    queryClient.setQueryData(["onboarding-status"], { completed: true });
+  }, [queryClient]);
 
   const currentStep = Number(searchParams.get("step") || "1");
 
@@ -136,13 +145,14 @@ function OnboardingContent() {
       // Mark onboarding complete first so the user doesn't bounce back here
       // if they cancel the Stripe checkout.
       await api.user.completeOnboarding().catch(() => {});
+      markOnboardingCompleteLocally();
       // Stripe Checkout redirect — never returns control to this page.
       await createCheckout("max");
     } catch {
       setCheckoutPending(false);
       setError("跳转支付失败，请稍后再试");
     }
-  }, [createCheckout]);
+  }, [createCheckout, markOnboardingCompleteLocally]);
 
   const handleStep3Skip = useCallback(async () => {
     setCheckoutPending(true);
@@ -152,8 +162,9 @@ function OnboardingContent() {
       // Non-blocking — let the user through even if marking failed; the
       // middleware will catch them next time if not.
     }
+    markOnboardingCompleteLocally();
     router.push("/today");
-  }, [router]);
+  }, [router, markOnboardingCompleteLocally]);
 
   const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0] || "";
 

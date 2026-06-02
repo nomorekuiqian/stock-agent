@@ -28,10 +28,14 @@ async def get_subscription(user_id: str) -> Optional[Dict[str, Any]]:
     data = result.get("data", {})
     if data.get("success"):
         sub = data.get("data")
-        _sub_cache[user_id] = (sub, now)
+        # Only cache positive hits. Negative-caching None propagates stale
+        # "no row" results across the 5-min TTL even after the row is
+        # created on another backend instance — caused production users to
+        # bounce to /onboarding repeatedly after completion.
+        if sub is not None:
+            _sub_cache[user_id] = (sub, now)
         return sub
 
-    _sub_cache[user_id] = (None, now)
     return None
 
 
