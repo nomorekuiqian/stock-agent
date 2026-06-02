@@ -3009,21 +3009,22 @@ export const api = {
 
   user: {
     onboardingStatus: async (): Promise<{ completed: boolean }> => {
-      const headers = await _authHeaders({}, { required: true });
-      const response = await fetch(`${API_BASE_URL}/user/onboarding-status`, { headers });
-      if (!response.ok) return { completed: false };
+      const response = await fetchProtected(
+        `${API_BASE_URL}/user/onboarding-status`,
+        {},
+        'Failed to fetch onboarding status',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to fetch onboarding status');
+      }
       return response.json();
     },
 
     completeOnboarding: async (): Promise<{ completed: boolean; completed_at?: string }> => {
-      const headers = await _authHeaders(
-        { 'Content-Type': 'application/json' },
-        { required: true },
-      );
-      const response = await fetch(`${API_BASE_URL}/user/onboarding/complete`, {
+      const response = await fetchProtected(`${API_BASE_URL}/user/onboarding/complete`, {
         method: 'POST',
-        headers,
-      });
+        headers: { 'Content-Type': 'application/json' },
+      }, 'Failed to mark onboarding complete');
       if (!response.ok) {
         await throwProtectedApiError(response, 'Failed to mark onboarding complete');
       }

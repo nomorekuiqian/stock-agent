@@ -10,6 +10,7 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useStockSearch } from "@/hooks/useStockSearch";
 import { useSaveWatchlist } from "@/hooks/queries/use-watchlist";
 import { api, StockSearchResult } from "@/lib/api";
+import { markLocalOnboardingCompleted } from "@/lib/onboarding-status";
 import { STOCK_NAMES } from "@/lib/stock-names";
 import {
   X,
@@ -57,8 +58,10 @@ function OnboardingContent() {
   // even if the next refetch lands on a backend instance that hasn't seen
   // the upsert yet (in-memory _sub_cache is per-process).
   const markOnboardingCompleteLocally = useCallback(() => {
-    queryClient.setQueryData(["onboarding-status"], { completed: true });
-  }, [queryClient]);
+    if (!user?.id) return;
+    markLocalOnboardingCompleted(user.id);
+    queryClient.setQueryData(["onboarding-status", user.id], { completed: true });
+  }, [queryClient, user?.id]);
 
   const currentStep = Number(searchParams.get("step") || "1");
 

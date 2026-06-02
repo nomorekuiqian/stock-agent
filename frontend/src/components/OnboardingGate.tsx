@@ -5,6 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import {
+  hasLocalOnboardingCompleted,
+  markLocalOnboardingCompleted,
+} from '@/lib/onboarding-status';
 
 /**
  * Forces logged-in users that have never completed onboarding to land on
@@ -18,9 +22,9 @@ import { api } from '@/lib/api';
  *    lets these through without a cookie, so we mirror the list to avoid
  *    interrupting anonymous browsing if the user is logged in elsewhere.
  *
- * The status query is gated on `isAuthenticated`, cached for the session,
- * and falls back silently on network errors — gating is best-effort and
- * must never block a paying user from real content.
+ * The status query is gated on `isAuthenticated` and skipped permanently
+ * once this browser has seen completion for the current user. Gating is
+ * best-effort and must never block a paying user from real content.
  */
 const PUBLIC_PREFIXES = [
   '/',
@@ -47,27 +51,38 @@ function isOnboardingExempt(pathname: string): boolean {
 }
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const pathname = usePathname() || '/';
   const router = useRouter();
 
   const exempt = isOnboardingExempt(pathname);
+  const userId = user?.id ?? null;
+  const locallyCompleted = hasLocalOnboardingCompleted(userId);
 
   const { data } = useQuery({
-    queryKey: ['onboarding-status'],
-    queryFn: () => api.user.onboardingStatus(),
-    enabled: !authLoading && isAuthenticated && !exempt,
+    queryKey: ['onboarding-status', userId],
+    queryFn: async () => {
+      const status = await api.user.onboardingStatus();
+      if (status.completed === true) {
+        markLocalOnboardingCompleted(userId);
+      }
+      return status;
+    },
+    enabled: !authLoading && isAuthenticated && !!userId && !exempt && !locallyCompleted,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     retry: 1,
   });
 
+  const completed = locallyCompleted || data?.completed === true;
+
   useEffect(() => {
     if (!isAuthenticated || exempt) return;
+    if (completed) return;
     if (data && data.completed === false) {
       router.replace('/onboarding');
     }
-  }, [isAuthenticated, exempt, data, router]);
+  }, [isAuthenticated, exempt, completed, data, router]);
 
   return <>{children}</>;
 }

@@ -21,7 +21,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 import { api, ApiError } from '../api';
-import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
+import { getAccessTokenAsync as getAccessToken, refreshSession } from '@/contexts/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,6 +59,7 @@ describe('api (post cache removal)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getAccessToken).mockResolvedValue('fake-token');
+    vi.mocked(refreshSession).mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -782,6 +783,87 @@ describe('api (post cache removal)', () => {
 
       await expect(api.watchlist.get()).rejects.toThrow('登录已过期');
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('user onboarding auth handling', () => {
+    it('refreshes and retries onboarding status after a stale token 401', async () => {
+      vi.mocked(refreshSession).mockResolvedValueOnce('fresh-token');
+      globalThis.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({}),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ completed: true }),
+        });
+
+      const result = await api.user.onboardingStatus();
+
+      expect(result).toEqual({ completed: true });
+      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('/user/onboarding-status'),
+        { headers: { Authorization: 'Bearer fake-token' } },
+      );
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/user/onboarding-status'),
+        { headers: { Authorization: 'Bearer fresh-token' } },
+      );
+    });
+
+    it('does not convert onboarding status failures into incomplete onboarding', async () => {
+      mockFetchError(500, 'DB unavailable');
+
+      await expect(api.user.onboardingStatus()).rejects.toThrow('DB unavailable');
+    });
+
+    it('fails onboarding status fast when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      globalThis.fetch = vi.fn();
+
+      await expect(api.user.onboardingStatus()).rejects.toThrow('登录已过期');
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('refreshes and retries onboarding completion after a stale token 401', async () => {
+      vi.mocked(refreshSession).mockResolvedValueOnce('fresh-token');
+      globalThis.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({}),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            completed: true,
+            completed_at: '2026-06-01T20:00:00Z',
+          }),
+        });
+
+      const result = await api.user.completeOnboarding();
+
+      expect(result.completed).toBe(true);
+      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/user/onboarding/complete'),
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            Authorization: 'Bearer fresh-token',
+          },
+        },
+      );
     });
   });
 

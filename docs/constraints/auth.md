@@ -2,26 +2,26 @@
 
 ## 概述
 
-当前前端认证体系只使用 `@insforge/sdk` 客户端直接调用（SDK Direct），不使用 `@insforge/nextjs`，也没有同源 `/api/auth` server bridge（`/api/auth/route.ts` 目前不存在）。
+当前前端认证体系使用 server-cookie bridge，不使用 `@insforge/nextjs`。登录、注册、邮箱验证和 OAuth code exchange 在 Next.js server actions / route handlers 中调用 `@insforge/sdk`，然后把 token 写入本域 first-party httpOnly cookies。
 
 核心原则：
 
-- SDK 负责登录、注册、OAuth callback、session 恢复、refresh、登出
-- 项目代码只负责 `AuthContext`、路由保护、登录后跳转、后端 Bearer token 适配
+- `frontend/src/app/actions/auth.ts` 负责邮箱密码登录、注册、邮箱验证、登出、OAuth 启动
+- `frontend/src/app/auth/callback/route.ts` 负责 OAuth callback code exchange
+- `frontend/src/app/api/auth/session/route.ts` 负责 session 校验和 refresh
+- `AuthContext` 只保存客户端用户状态和 access token 内存缓存
 - 受保护后端接口继续使用 `Authorization: Bearer <token>` + `verify_user_token`
-- `middleware.ts` 只做 first-pass 路由保护（检查 `insforge_csrf_token` first-party cookie），不是权威 auth source
+- `middleware.ts` 只做 first-pass 路由保护（检查 `app_access_token` / `app_refresh_token` 是否存在），不是权威 auth source
 
-### 已知局限（SDK Direct）
+### Cookie 与 Token
 
-`insforge_refresh_token` 由 Insforge 服务器通过 `Set-Cookie` 设置在 **Insforge 域名**上，是我们站点的第三方 cookie。`insforge.auth.refreshSession()` 调用时需要携带该 cookie（`credentials: "include"`），在以下场景下会被阻止，导致**刷新页面后登录状态丢失**：
+- `app_access_token`: 15 分钟 TTL
+- `app_refresh_token`: 7 天 TTL
+- `app_oauth_cv`: OAuth PKCE code verifier 临时 cookie，10 分钟 TTL
 
-- Chrome 无痕模式（默认阻止第三方 cookie）
-- Safari（ITP 策略默认阻止跨域 cookie）
-- Firefox（Enhanced Tracking Protection 可能阻止）
+业务 API 通过 `getAccessTokenAsync()` 取内存 token。受保护 API 必须走 `fetchProtected()`，当后端返回 401 时调用 `/api/auth/session` refresh 并重试一次。
 
-`insforge_csrf_token` 是 SDK 通过 `document.cookie` 写在我们域名的 first-party cookie，不受影响，因此 middleware 路由保护仍然正常工作。
-
-**根本解决方案**：实现 `/api/auth/route.ts` Server Bridge，在 server side 完成登录并将 token 存为我们域名的 httpOnly first-party cookie。见 `frontend/src/app/api/auth/.context.md`。
+Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读本地 `onboarding_completed:{userId}` marker，已完成用户不再请求后端。没有 marker 时，`api.user.onboardingStatus()` 只有在后端明确返回 `{"completed": false}` 时才表示未完成。401、网络错误、5xx 不能转换成 `{ completed: false }`，否则已完成用户会被误跳到 `/onboarding`。
 
 ## 主链路
 
@@ -30,9 +30,9 @@
 ```text
 用户在 /login 输入邮箱和密码
   -> AuthContext.signIn()
-  -> lib/auth.ts signIn()
-  -> insforge.auth.signInWithPassword({ email, password })
-  -> SDK 保存当前 session
+  -> signInAction()
+  -> server-side Insforge signInWithPassword({ email, password })
+  -> setAuthCookies(accessToken, refreshToken)
   -> AuthContext 更新 user
   -> /login 页面根据 isAuthenticated 跳到最终 redirect
 ```
@@ -42,14 +42,15 @@
 ```text
 用户点击 Google 登录
   -> AuthContext.signInWithGoogle()
-  -> lib/auth.ts signInWithGoogle()
-  -> insforge.auth.signInWithOAuth({ provider: 'google', redirectTo: '/auth/callback' })
+  -> startOAuthAction()
+  -> server-side Insforge signInWithOAuth({ provider: 'google', redirectTo, skipBrowserRedirect: true })
+  -> app_oauth_cv 临时 cookie 保存 code verifier
   -> 浏览器跳转到 Google
   -> Google 回跳 /auth/callback?insforge_code=...
-  -> SDK 在客户端初始化时自动处理 callback code exchange
-  -> /auth/callback 页面调用 completeOAuthSignIn() 确认当前 user
-  -> AuthContext.refreshUser() 同步当前登录态
-  -> 页面跳到 sessionStorage 里的最终 redirect
+  -> /auth/callback/route.ts 服务端 exchangeOAuthCode()
+  -> setAuthCookies(accessToken, refreshToken)
+  -> 非阻塞查询 onboarding status
+  -> 跳到 /onboarding 或最终 redirect
 ```
 
 ### 3. 注册与邮箱验证
@@ -57,15 +58,15 @@
 ```text
 用户在 /login 切到注册态
   -> AuthContext.signUp()
-  -> lib/auth.ts signUp()
-  -> insforge.auth.signUp({ email, password, name })
+  -> signUpAction()
+  -> server-side Insforge signUp({ email, password, name })
   -> 如果 requireEmailVerification = true：
        1. 记录 pending email / name
        2. 跳到 /verify-email
        3. 用户输入 6 位验证码，或带 token/otp 回到该页
        4. AuthContext.verifyEmail()
-       5. insforge.auth.verifyEmail({ email, otp })
-       6. SDK 自动保存 session，用户直接进入登录态
+       5. verifyEmailAction() -> server-side Insforge verifyEmail({ email, otp })
+       6. setAuthCookies(accessToken, refreshToken)，用户直接进入登录态
        7. 页面补写 pending name 到 profile
 ```
 
@@ -73,9 +74,9 @@
 
 ```text
 /forgot-password
-  -> insforge.auth.sendResetPasswordEmail(email)
-  -> exchangeResetPasswordToken(email, code)
-  -> resetPassword(newPassword, otp)
+  -> sendPasswordResetEmailAction(email)
+  -> exchangeResetPasswordCodeAction(email, code)
+  -> resetPasswordAction(newPassword, otp)
 ```
 
 ### 5. 路由保护
@@ -83,10 +84,10 @@
 ```text
 用户访问受保护页面
   -> Next.js middleware 先执行
-  -> 检查 insforge_csrf_token 是否存在
+  -> 检查 app_access_token / app_refresh_token 是否存在
   -> 没有时跳到 /login?redirect=当前路径
   -> 有时先放行
-  -> AuthContext 再通过当前 session 决定真实登录态
+  -> AuthContext 通过 /api/auth/session 决定真实登录态
 ```
 
 当前由 `middleware` 首层保护的页面包括：`/for-you`、`/profile`、`/macro`、`/sectors`、`/screener`
@@ -96,46 +97,43 @@
 前端对 session 的读取顺序：
 
 ```text
-getCurrentAuthSession() / getAccessToken()
-  -> 先读模块级内存缓存（_sessionCache，含 JWT 过期检查，60 秒缓冲）
-  -> 再读 SDK tokenManager in-memory session（getSdkSession）
-  -> 如果都没有，再调用 insforge.auth.refreshSession()
+getAccessTokenAsync()
+  -> 先读模块级 _cachedAccessToken
+  -> 没有时请求 /api/auth/session
+  -> /api/auth/session 先验证 access token，失败再用 refresh token 刷新
   -> 返回 user / accessToken
 ```
 
-### OAuth Callback 竞态处理
+### OAuth Callback 处理
 
-SDK 在构造时启动 `detectAuthCallback()`，将 PKCE code exchange 封装为 `authCallbackHandled` Promise。只有 `insforge.auth.getCurrentUser()` 内部会 `await authCallbackHandled`，其余方法（包括 `refreshSession()`）**不会等待**。
-
-在 `/auth/callback` 页面挂载时，`AuthContext` 的初始 hydration 会触发 `getSessionWithRefresh()`。如果此时直接调 `refreshSession()`，code exchange 尚未完成会得到 401。
-
-处理方式：
+OAuth callback 现在是服务端 route handler，避免客户端 SDK callback 与 session refresh 竞态：
 
 ```text
-getSessionWithRefresh()
-  -> isOAuthCallbackRoute() 检查路径是否为 /auth/callback
-  -> 命中则委托给 getCallbackRouteSession()
-     -> 调 insforge.auth.getCurrentUser()（内部 await authCallbackHandled）
-     -> 读 getSdkSession()（tokenManager 已被 code exchange 填充）
-     -> 不再落入 refreshAndCacheSession()，避免重复 401
+/auth/callback/route.ts
+  -> getAndClearOAuthCodeVerifier()
+  -> exchangeOAuthCode()
+  -> setAuthCookies()
+  -> onboarding-status probe
+  -> redirect
 ```
 
 说明：
 
-- `callback 场景`：`getCallbackRouteSession()` 是唯一入口，严禁再调 `refreshSession()`
-- `completeOAuthSignIn()`（`/auth/callback` 页面调用）：调一次 `getCurrentUser()`，再读 `getSdkSession()`，不重复调任何方法
-- `getAccessToken()` 是前端调用业务后端接口的唯一 Bearer token 入口
-- `api.ts` 里的受保护请求统一通过它补 `Authorization` 头
+- `/api/auth/session` 是客户端 session 恢复入口
+- `getAccessTokenAsync()` 是前端调用业务后端接口的 Bearer token 入口
+- `api.ts` 里需要登录的请求统一通过 `_authHeaders()` / `fetchProtected()` 补 `Authorization` 头
 
 ## 前后端职责
 
 ### 前端文件
 
-- `frontend/src/lib/insforge.ts` - 创建浏览器侧 InsForge SDK client
-- `frontend/src/lib/auth.ts` - 认证封装、session 读取、Bearer token 获取
+- `frontend/src/lib/insforge.ts` - 浏览器侧 InsForge SDK client（保留给少量客户端直接能力）
+- `frontend/src/lib/insforge-server.ts` - 服务端 InsForge SDK client
+- `frontend/src/app/actions/auth.ts` - 认证 server actions
+- `frontend/src/app/api/auth/session/route.ts` - session 校验和 refresh route
 - `frontend/src/contexts/AuthContext.tsx` - 前端唯一 auth 状态源
 - `frontend/middleware.ts` - 受保护路由首层拦截
-- `frontend/src/app/auth/callback/page.tsx` - OAuth callback 完成页
+- `frontend/src/app/auth/callback/route.ts` - OAuth callback 完成 route
 - `frontend/src/app/verify-email/page.tsx` - 邮箱验证页
 
 ### 后端
