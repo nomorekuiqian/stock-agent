@@ -161,11 +161,12 @@ def _normalize_cli_values(values: list[str] | None) -> list[str]:
 
 
 async def _resolve_usernames(author_usernames: list[str]) -> list[str]:
-    from app.shared.twitter_kol_config import enabled_kols
-
     if author_usernames:
         return [username.lstrip("@") for username in author_usernames]
-    return [kol["username"] for kol in enabled_kols()]
+
+    from app.features.twitter.service import get_enabled_kols
+
+    return [kol["username"] for kol in await get_enabled_kols()]
 
 
 async def _pull_kol_tweets(
