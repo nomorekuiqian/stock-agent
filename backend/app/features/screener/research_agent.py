@@ -13,16 +13,26 @@ Layered tool architecture:
 import asyncio
 import contextvars
 import json
+import time
 from datetime import date
 from typing import Any, Dict, List, Optional
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.plugins import LoggingPlugin
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.google_search_tool import GoogleSearchTool
+from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
+from app.core.config import AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT
 from app.core.logging import get_logger
+from app.features.agent_runtime import (
+    AssembledContext,
+    ContextAssemblyRequest,
+    default_budget_plan,
+)
+from app.features.agent_runtime.runtime import get_agent_runtime
 from app.features.screener.agent import (
     _current_universe,
     execute_screener,
@@ -32,8 +42,18 @@ from app.features.screener.agent import (
 )
 from app.shared.data_tools.research_tools import research_data_tools
 from app.shared.llm_metering import meter
+from app.shared.llm_output import CoerceNoneToDefaultsMixin
 
-RESEARCH_MODEL = "gemini-3.1-flash-lite"
+RESEARCH_MODEL_NAME = "gemini-3.5-flash"
+RESEARCH_MODEL = RESEARCH_MODEL_NAME
+# Enable Gemini's built-in thinking so the agent emits `thought=True` parts during
+# the streaming response; the frontend renders them as a "思考过程" section.
+_RESEARCH_GENERATE_CONTENT_CONFIG = genai_types.GenerateContentConfig(
+    thinking_config=genai_types.ThinkingConfig(
+        include_thoughts=True,
+        thinking_level=genai_types.ThinkingLevel.LOW,
+    ),
+)
 
 logger = get_logger(__name__)
 
@@ -75,6 +95,7 @@ _TOOL_DESCRIPTIONS = {
     "get_economic_calendar": lambda _: "正在查询经济日历...",
     "get_morning_report": lambda _: "正在获取今日早报...",
     "get_weekly_report": lambda _: "正在获取最新周报...",
+    "get_twitter_digest": lambda _: "正在获取今日推特日报...",
 }
 
 
@@ -92,10 +113,9 @@ def _get_tool_description(tool_name: str, args: dict) -> str:
 # Tool → Right-panel navigation
 # ---------------------------------------------------------------------------
 #
-# Tool calls are strong intent signals: when the agent calls get_stock_quote("NVDA"),
-# the user clearly wants to see NVDA. We auto-fill `navigate` in the final result
-# based on the last tool call, so the right panel switches even when the LLM
-# forgets to set `navigate` explicitly. Agent-provided `navigate` always wins.
+# Tool calls are strong intent signals. We auto-fill `navigate` from tool calls
+# when the LLM omits it, but screener/filter turns must keep the right panel on
+# the fresh candidate list even if the agent later probes an individual ticker.
 
 _TOOL_NAVIGATE: Dict[str, Any] = {
     "get_stock_quote": lambda a: (
@@ -134,6 +154,7 @@ _TOOL_NAVIGATE: Dict[str, Any] = {
     "get_market_overview": lambda _a: {"type": "macro", "params": {}},
     "get_morning_report": lambda _a: {"type": "morning_report", "params": {}},
     "get_weekly_report": lambda _a: {"type": "macro", "params": {}},
+    "get_twitter_digest": lambda _a: {"type": "twitter_digest", "params": {}},
     "get_report_by_date": lambda a: (
         {"type": "daily_report", "params": {"date": a.get("report_date", "")}}
         if a.get("report_date") else None
@@ -155,12 +176,51 @@ def _resolve_tool_navigate(tool_name: str, args: dict) -> Optional[Dict[str, Any
     return result
 
 
+def _select_auto_navigate(
+    parsed: Dict[str, Any],
+    nav_buf: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Choose the right-panel auto navigation for a completed agent turn.
+
+    Screener tools mean the turn updated the stock-picking result panel. If the
+    model later probes a ticker from those results, do not let that incidental
+    stock tool steal the panel away from the fresh candidate list.
+    """
+    if not nav_buf:
+        return None
+
+    raw_filters = parsed.get("filters", [])
+    filters = _parse_json_field(raw_filters, [])
+    has_filters = isinstance(filters, list) and len(filters) > 0
+    raw_update_results = parsed.get("update_results")
+    update_results = has_filters if raw_update_results is None else raw_update_results is not False
+    screener_nav = next(
+        (nav for nav in reversed(nav_buf) if nav.get("type") == "screener"),
+        None,
+    )
+
+    if screener_nav and (update_results or has_filters):
+        return screener_nav
+    if has_filters and update_results:
+        return {"type": "screener", "params": {}, "reason": "auto:filters"}
+    return nav_buf[-1]
+
+
 # Auto-navigate candidates collected during a single agent run. run_stream
 # initializes this to [] and reads the last entry to fill parsed.navigate when
 # the agent omitted it.
 _navigate_buffer: contextvars.ContextVar[Optional[List[Dict[str, Any]]]] = (
     contextvars.ContextVar("_navigate_buffer", default=None)
 )
+_tool_started_at: contextvars.ContextVar[Optional[Dict[str, float]]] = (
+    contextvars.ContextVar("_tool_started_at", default=None)
+)
+# Hard cap on google_search calls per turn. Each call is ~20-30s and burns the
+# turn budget if the LLM falls back to "just google it" multiple times.
+_google_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
+    contextvars.ContextVar("_research_google_search_calls", default=None)
+)
+_GOOGLE_SEARCH_TOOL_NAMES = {"google_search_agent", "google_search"}
 
 
 async def _before_tool_callback(tool, args, tool_context):
@@ -171,7 +231,34 @@ async def _before_tool_callback(tool, args, tool_context):
     Also records a navigate candidate so the right panel can auto-switch when
     the agent omits an explicit `navigate` field in its output.
     """
+    from app.core.config import AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN
+
     tool_name = getattr(tool, "name", str(tool))
+    args = args or {}
+
+    # Per-turn hard cap on google_search. Each call is ~20-30s; without a cap
+    # the LLM can chain 3-4 web searches and blow the turn timeout. Returning
+    # a dict here short-circuits the tool and the LLM sees this as the result.
+    if tool_name in _GOOGLE_SEARCH_TOOL_NAMES:
+        counts = _google_search_calls.get(None)
+        if counts is not None:
+            counts[tool_name] = counts.get(tool_name, 0) + 1
+            if counts[tool_name] > AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN:
+                logger.info(
+                    "research: blocked extra google_search call (count=%d)",
+                    counts[tool_name],
+                )
+                return {
+                    "status": "rate_limited",
+                    "message": (
+                        "google_search 本轮已达上限. 基于已有工具结果回答即可. "
+                        "如果数据真的不足, 在答案里说'需要补充'."
+                    ),
+                }
+
+    timers = _tool_started_at.get(None)
+    if timers is not None:
+        timers[tool_name] = time.monotonic()
     queue = _sse_queue.get(None)
     if queue is not None:
         desc = _get_tool_description(tool_name, args)
@@ -182,7 +269,7 @@ async def _before_tool_callback(tool, args, tool_context):
         })
     nav_buf = _navigate_buffer.get(None)
     if nav_buf is not None:
-        candidate = _resolve_tool_navigate(tool_name, args or {})
+        candidate = _resolve_tool_navigate(tool_name, args)
         if candidate:
             nav_buf.append(candidate)
     return None  # proceed with tool execution
@@ -190,12 +277,23 @@ async def _before_tool_callback(tool, args, tool_context):
 
 async def _after_tool_callback(tool, args, tool_context, tool_response):
     """ADK after_tool_callback: emit SSE event when a tool completes."""
+    from app.features.agent_runtime.events import summarize_tool_result
+
     queue = _sse_queue.get(None)
+    tool_name = getattr(tool, "name", str(tool))
+    duration_ms: int | None = None
+    timers = _tool_started_at.get(None)
+    if timers and tool_name in timers:
+        duration_ms = int((time.monotonic() - timers.pop(tool_name)) * 1000)
     if queue is not None:
-        tool_name = getattr(tool, "name", str(tool))
+        summary = summarize_tool_result(tool_response)
         queue.put_nowait({
             "type": "tool_call_end",
             "tool": tool_name,
+            "duration_ms": duration_ms,
+            "result_preview": summary["preview"],
+            "result_hash": summary["hash"],
+            "result_truncated": summary["truncated"],
         })
     return None  # use original tool response
 
@@ -296,6 +394,74 @@ def _format_macro_context(ctx: dict) -> str:
 
     if ctx.get("takeaway"):
         parts.append("### Strategy Takeaway\n%s" % ctx["takeaway"])
+
+    return "\n\n".join(parts)
+
+
+def _format_twitter_digest_context(ctx: dict) -> str:
+    """Format twitter digest data as natural language context for the Agent."""
+    parts = []
+    parts.append(
+        "## User is currently viewing: %s KOL Twitter Digest"
+        % ctx.get("date", "latest")
+    )
+    if ctx.get("headline"):
+        parts.append("### Headline\n%s" % ctx["headline"])
+
+    hot_tickers = ctx.get("hot_tickers")
+    if hot_tickers and isinstance(hot_tickers, list):
+        rows = []
+        for h in hot_tickers[:10]:
+            if isinstance(h, dict):
+                rows.append("- %s · %d mentions / %d KOLs" % (
+                    h.get("label", ""), h.get("count", 0), h.get("kols", 0)
+                ))
+        if rows:
+            parts.append("### Hot Tickers\n%s" % "\n".join(rows))
+
+    theses = ctx.get("ticker_theses")
+    if theses and isinstance(theses, list):
+        for t in theses[:8]:
+            if not isinstance(t, dict):
+                continue
+            head = "### Ticker %s · side=%s · %d tweets" % (
+                t.get("ticker", ""), t.get("side", ""), t.get("tweet_count", 0),
+            )
+            stance = t.get("stance_summary", "")
+            synth = t.get("synthesis_zh", "")
+            kols = t.get("primary_kols") or []
+            body = []
+            if stance:
+                body.append("Stance: %s" % stance)
+            if synth:
+                body.append("Synthesis: %s" % synth)
+            if kols:
+                body.append("KOLs: %s" % ", ".join(kols[:4]))
+            body.append("buy=%d / sell=%d / observation=%d" % (
+                t.get("buy_count", 0), t.get("sell_count", 0), t.get("observation_count", 0),
+            ))
+            parts.append("%s\n%s" % (head, "\n".join(body)))
+
+    threads = ctx.get("macro_threads")
+    if threads and isinstance(threads, list):
+        rows = []
+        for m in threads[:4]:
+            if isinstance(m, dict):
+                rows.append("- %s: %s" % (m.get("title", ""), m.get("synthesis_zh", "")[:200]))
+        if rows:
+            parts.append("### Macro Threads\n%s" % "\n".join(rows))
+
+    watchpoints = ctx.get("watchpoints")
+    if watchpoints and isinstance(watchpoints, list):
+        rows = []
+        for w in watchpoints[:5]:
+            if isinstance(w, dict):
+                rows.append("- %s (%s): %s" % (
+                    w.get("title", ""), w.get("date_hint", ""),
+                    w.get("why_it_matters_zh", "")[:200],
+                ))
+        if rows:
+            parts.append("### Watchpoints\n%s" % "\n".join(rows))
 
     return "\n\n".join(parts)
 
@@ -422,8 +588,13 @@ def _format_brew_context(ctx: dict) -> str:
 # Output Schema
 # ---------------------------------------------------------------------------
 
-class ResearchAgentOutput(BaseModel):
-    """Structured output from the research agent."""
+class ResearchAgentOutput(CoerceNoneToDefaultsMixin, BaseModel):
+    """Structured output from the research agent.
+
+    Runs on DeepSeek via LiteLlm with `response_format={"type": "json_object"}`,
+    which is not schema-enforcing — see `CoerceNoneToDefaultsMixin` for why we
+    need to absorb stray `null` values that the model may emit.
+    """
 
     message: str = Field(
         description=(
@@ -453,16 +624,16 @@ class ResearchAgentOutput(BaseModel):
         default=None,
         description="Field to sort results by (e.g. 'market_cap', 'dividend_yield').",
     )
-    sort_order: str = Field(
+    sort_order: Optional[str] = Field(
         default="desc",
         description="Sort direction: 'asc' or 'desc'.",
     )
-    limit: int = Field(
+    limit: Optional[int] = Field(
         default=100,
         description="Max results to return. Use 100 for broad exploration, 30-50 for narrowed results.",
     )
     update_results: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Whether this turn should refresh the stock list on the right panel. "
             "True when filters change (user narrows/broadens criteria). "
@@ -495,8 +666,8 @@ class ResearchAgentOutput(BaseModel):
             "the tools you call (e.g. get_stock_fundamentals -> stock panel), "
             "so leave this null in most cases. Only set this when the user asks "
             "to switch panels but you did not call any tool. Format: "
-            '{"type": "stock|screener|daily_report|morning_report|macro|brew|'
-            'macro_liquidity|macro_economy|macro_inflation|macro_sentiment", '
+            '{"type": "stock|screener|daily_report|morning_report|twitter_digest|'
+            'macro|brew|macro_liquidity|macro_economy|macro_inflation|macro_sentiment", '
             '"params": {...}, "reason": "..."}.'
         ),
     )
@@ -626,38 +797,40 @@ RESEARCH_AGENT_INSTRUCTION = """\
   - get_market_overview · get_macro_risk_summary · get_liquidity_overview · get_market_sentiment
 - 报告与日历
   - get_morning_report · get_weekly_report · list_recent_reports · get_report_by_date
+  - get_twitter_digest (KOL 推特圈每日聚合: ticker 多空、宏观讨论、Watchpoints)
   - get_earnings_calendar · get_economic_calendar
 - 兜底
   - google_search · 仅在以上工具都答不了时使用
 
-每个工具自己的 docstring 里写了"什么时候用、输入输出"，调用前看清楚。
+# 决策顺序
+
+每个用户 message 先判定一个主意图，然后只为这个主意图调用工具：
+
+- 选股 / 筛选 / 收窄条件（如 "PE 小于 20、有分红"）：
+  调 `execute_screener` 或 `filter_by_tickers`；输出当前全部有效 `filters`；`update_results=true`；`navigate=null`。
+  不要顺手挑 AMD/NVDA 等单只股票再查行情、新闻或基本面，除非用户明确说"打开/分析这只"。
+- 清空筛选 / 换方向：
+  输出 `filters=[]`；`update_results=true`；`navigate=null`。
+- 个股投研（如 "AMD 怎么样"、"打开 NVDA 技术面"）：
+  调 stock 类工具；`update_results=false`；`filters` 保持当前已有条件，不要刷新筛选结果。
+- 宏观 / 报告 / Brew：
+  调对应工具；`update_results=false`；`filters` 保持当前已有条件。
+- KOL / 推特圈 / 博主在聊什么（如 "今天 KOL 都在聊什么"、"推特圈对 NVDA 怎么看"、"博主们对 AI 算力的最新观点"）：
+  **必须调 `get_twitter_digest`**，不要用 `google_search` 兜底。digest 里有 ticker_theses / macro_threads / watchpoints。`update_results=false`。
+- 纯聊天 / 解释已有结果：
+  能直接回答就不调用工具；`update_results=false`；`filters` 保持当前已有条件。
 
 # 工作原则
 
-1. 先理解意图再动手 · 不要拿到任何问题就立刻拉数据，先想清楚用户在问什么
-2. 工具组合 · 复杂问题可能要 2-3 个工具串联（估值 + 财报 + 技术 / 宏观 + 流动性 + 情绪）
-3. 数据 → 洞察 · 报告数字必须附解读（"RSI=72 → 超买短期回调风险"），不要堆数字不解释
-4. 中文白话 · 必要的术语翻译：
-   - PE / 市盈率 → 股价是否划算
-   - ROE → 盈利能力
-   - RSI → 最近涨太多还是跌太多
-   - 分析师评级 → 华尔街专家们怎么看
-   - 市值 → 公司大小
-   - beta → 波动大不大
-5. 没有数据时直说"需要补充" · 不要笼统判断冒充事实
-6. 不冒充任何人 · 你是 TheMarketBrew 的助手，不是某位分析师本人
-
-# 工作流
-
-每一轮：
-1. 看上下文（用户消息 + history + 当前右面板 context + watchlist）
-2. 决定该做什么：选股 / 个股投研 / 宏观分析 / 解读报告 / 纯聊天
-3. 调对应工具拿数据（如果需要）
-4. 解读 + 给出结构化输出
+1. 先分类意图，再调用对应工具；不要为了切换右面板额外调用工具。
+2. 工具结果要转成洞察：给出数字时同时解释含义，不复制原始 JSON。
+3. 中文白话，必要时解释 PE/ROE/RSI 等指标。
+4. 没有数据时直说"需要补充"，不要编造。
+5. 不冒充任何人；你是 TheMarketBrew 的助手。
 
 # 右面板导航
 
-**重要：你不需要操心右面板切换。** 当你调用 stock / macro / report 类工具时，系统会自动把右面板切到对应视图（调 get_stock_fundamentals → 切到 stock 详情，调 get_liquidity_overview → 切到 macro liquidity，等等）。
+**重要：你不需要操心右面板切换。** 系统会根据主意图和工具调用自动切换右侧面板。不要为了切换面板而额外调用 stock / macro / report 工具。
 
 `navigate` 字段几乎总是留空 (null)。只有一种例外：用户明确说"帮我切到 X 页"但你不需要拉任何新数据时，才主动输出 navigate。
 
@@ -665,12 +838,12 @@ RESEARCH_AGENT_INSTRUCTION = """\
 
 按需填充，不需要的字段就留空 / 默认值，不要硬凑：
 
-- `message` (必填) · Markdown 中文，段落分明（`\\n\\n` 分段），4-8 段为宜，关键标题用 `**粗体独占一行**`，列表用 bullet
-- `title` · 5-10 字方向概括，反映当前讨论焦点
+- `message` (必填) · Markdown 中文，段落分明（`\\n\\n` 分段），关键标题用 `**粗体独占一行**`，列表用 bullet；长度自行判断，复杂问题展开讲，简单问题别凑字
+- `title` · 方向概括，反映当前讨论焦点
 - `options` · 3-5 个后续追问选项（中文短语，点击直接发给你）
-- `update_results` · 仅选股场景为 true，其他场景一律 false
-- `filters` · 仅选股场景。output 时必须包含所有累积的 filter
-- `recommendations` · 仅当 match_count <= 15 或用户明确说"帮我推荐"时填，symbol 必须是 ticker（如 "NVDA"），每只 2-4 句理由
+- `update_results` · 筛选条件变化或清空筛选时才是 true；其他场景一律 false
+- `filters` · 始终放当前已有的全部有效 filter；筛选变化时更新，非筛选场景保持不变
+- `recommendations` · 仅当 match_count <= 15 或用户明确说"帮我推荐"时填；从工具 preview 可见标的里选 3-5 个；symbol 必须是 ticker（如 "NVDA"）
 - `sort_by` / `sort_order` / `limit` · 仅选股场景
 - `navigate` · 几乎总是 null（见上文）
 
@@ -681,29 +854,19 @@ RESEARCH_AGENT_INSTRUCTION = """\
 - 列举 3+ 项用 `- bullet`
 - 不要堆数字不解读
 
-# 上下文适配
-
-右面板可能在某个视图，回答自然贴合就行 — 不要硬编码"模式切换"：
-
-- screener 视图 · 用户大概率在挑股票，回答偏选股向导
-- stock 视图 · 用户在看某只股票，回答偏个股投研，可以引用上下文里的数据
-- daily_report / morning_report · 用户在读报告，回答偏新闻/事件解读
-- macro · 用户在看宏观，回答偏宏观分析
-- brew · 用户在看自己的持仓 digest，回答要联系用户持仓
-
 # Watchlist 联动
 
 如果上下文里有 "User Watchlist"，自然引用用户的持仓：
 - 聊新闻时联系持仓影响
 - 推荐股票时提到与持仓的互补 / 重叠
-- 用户问"我的股票怎么样"直接用 get_stock_quote 拉 watchlist symbols
+- 用户问"我的股票怎么样"直接用 get_stock_quote 拉 watchlist symbols，`update_results=false`，不要误判成筛选
 
 # 选股工作流（仅当用户意图是挑股票时）
 
 1. 把用户偏好翻译成 filter 条件（参考 execute_screener docstring 的偏好对照表）
 2. 调 execute_screener 看 match_count，太多 (>50) 就追加条件，太少 (<5) 就放宽最严格那条
 3. 累积式 · output 的 filters 永远是当前所有有效条件，不要替换式输出
-4. match_count <= 15 时填 recommendations，>15 时只给方向选项让用户继续收窄
+4. match_count <= 15 时从 preview 可见标的里填 3-5 个 recommendations，>15 时只给方向选项让用户继续收窄
 5. 主题股（加密、AI 芯片、核能、量子等不对应标准 sector）用 filter_by_tickers，自己列 20-50 个 ticker
 
 # 几个 hard 规则
@@ -728,10 +891,294 @@ _research_agent = LlmAgent(
     output_schema=ResearchAgentOutput,
     output_key="picker",
     tools=research_tools,
+    generate_content_config=_RESEARCH_GENERATE_CONTENT_CONFIG,
     before_tool_callback=_before_tool_callback,
     after_tool_callback=_after_tool_callback,
-    after_model_callback=meter("screener.research", model=RESEARCH_MODEL),
+    after_model_callback=meter("screener.research", model=RESEARCH_MODEL_NAME),
 )
+
+
+def _render_research_content_context(content_context: dict[str, Any] | None) -> str | None:
+    """Render rich Research Desk right-panel context for ContextEngine."""
+    if not content_context:
+        return None
+
+    prompt_parts: list[str] = []
+    ctx_type = content_context.get("type", "screener")
+    if ctx_type == "stock":
+        symbol = content_context.get("symbol", "")
+        prompt_parts.append("## User is currently viewing: %s Stock Research" % symbol)
+        quote = content_context.get("quote", {})
+        if quote:
+            prompt_parts.append(
+                "Price: $%.2f (%s%.2f%%)"
+                % (
+                    quote.get("price", 0) or 0,
+                    "+" if (quote.get("change_percent", 0) or 0) >= 0 else "",
+                    quote.get("change_percent", 0) or 0,
+                )
+            )
+            prompt_parts.append(
+                "Market Cap: %s" % _format_market_cap(quote.get("market_cap"))
+            )
+        fundamentals = content_context.get("fundamentals", {})
+        if fundamentals:
+            valuation = fundamentals.get("valuation", {})
+            profitability = fundamentals.get("profitability", {})
+            growth = fundamentals.get("growth", {})
+            parts = []
+            if valuation.get("pe"):
+                parts.append("PE %.1f" % valuation["pe"])
+            if valuation.get("pb"):
+                parts.append("PB %.1f" % valuation["pb"])
+            if valuation.get("ps"):
+                parts.append("PS %.1f" % valuation["ps"])
+            if profitability.get("roe"):
+                parts.append("ROE %.1f%%" % (profitability["roe"] * 100))
+            if growth.get("revenue_yoy"):
+                parts.append("Revenue YoY %+.1f%%" % (growth["revenue_yoy"] * 100))
+            if parts:
+                prompt_parts.append("Fundamentals: %s" % " | ".join(parts))
+
+        earnings_history = content_context.get("earnings_history")
+        if earnings_history:
+            eps_parts = []
+            for eh in earnings_history[:4]:
+                if isinstance(eh, dict):
+                    q = eh.get("quarter", "")
+                    actual = eh.get("eps_actual")
+                    est = eh.get("eps_estimate")
+                    surprise = eh.get("surprise_percent")
+                    eps_parts.append(
+                        "%s: EPS $%.2f (est $%.2f, %s%.1f%%)"
+                        % (
+                            q[:7] if q else "?",
+                            actual or 0,
+                            est or 0,
+                            "+" if (surprise or 0) >= 0 else "",
+                            (surprise or 0) * 100,
+                        )
+                    )
+            if eps_parts:
+                prompt_parts.append("EPS History: " + " | ".join(eps_parts))
+
+        financial_growth = content_context.get("financial_growth")
+        if financial_growth and len(financial_growth) > 0:
+            latest = financial_growth[0] if isinstance(financial_growth[0], dict) else {}
+            g_parts = []
+            if latest.get("revenueGrowth") is not None:
+                g_parts.append("Revenue YoY %+.1f%%" % (latest["revenueGrowth"] * 100))
+            if latest.get("netIncomeGrowth") is not None:
+                g_parts.append("Net Income YoY %+.1f%%" % (latest["netIncomeGrowth"] * 100))
+            if latest.get("epsdilutedGrowth") is not None:
+                g_parts.append("EPS YoY %+.1f%%" % (latest["epsdilutedGrowth"] * 100))
+            if g_parts:
+                prompt_parts.append("Latest Quarter Growth: " + " | ".join(g_parts))
+
+        income_stmts = content_context.get("income_statements")
+        if income_stmts and len(income_stmts) > 0:
+            latest_is = income_stmts[0] if isinstance(income_stmts[0], dict) else {}
+            is_parts = []
+            if latest_is.get("revenue"):
+                is_parts.append("Revenue %s" % _format_market_cap(latest_is["revenue"]))
+            if latest_is.get("net_income"):
+                is_parts.append("Net Income %s" % _format_market_cap(latest_is["net_income"]))
+            if latest_is.get("gross_profit_ratio"):
+                is_parts.append("Gross Margin %.1f%%" % (latest_is["gross_profit_ratio"] * 100))
+            if is_parts:
+                prompt_parts.append("Latest Income Statement: " + " | ".join(is_parts))
+
+        tech_derived = content_context.get("technical_derived")
+        if tech_derived and isinstance(tech_derived, dict):
+            t_parts = []
+            if tech_derived.get("trend_direction"):
+                t_parts.append("Trend: %s" % tech_derived["trend_direction"])
+            if tech_derived.get("rsi_zone"):
+                t_parts.append("RSI: %s" % tech_derived["rsi_zone"])
+            if tech_derived.get("macd_cross"):
+                t_parts.append("MACD: %s" % tech_derived["macd_cross"])
+            if tech_derived.get("ma_alignment"):
+                t_parts.append("MA: %s" % tech_derived["ma_alignment"])
+            if tech_derived.get("bb_position"):
+                t_parts.append("BB: %s" % tech_derived["bb_position"])
+            if tech_derived.get("volume_trend"):
+                t_parts.append("Volume: %s" % tech_derived["volume_trend"])
+            if t_parts:
+                prompt_parts.append("Technical Signals: " + " | ".join(t_parts))
+
+        sr = content_context.get("support_resistance")
+        if sr and isinstance(sr, dict):
+            sr_parts = []
+            if sr.get("resistance_1"):
+                sr_parts.append("R1 $%.2f" % sr["resistance_1"])
+            if sr.get("support_1"):
+                sr_parts.append("S1 $%.2f" % sr["support_1"])
+            if sr_parts:
+                prompt_parts.append("Support/Resistance: " + " | ".join(sr_parts))
+
+        analyst = content_context.get("analyst_summary")
+        if analyst and isinstance(analyst, dict):
+            a_parts = []
+            if analyst.get("consensus"):
+                a_parts.append("Consensus: %s" % analyst["consensus"])
+            if analyst.get("total"):
+                a_parts.append("%d analysts" % analyst["total"])
+            if analyst.get("price_target_avg"):
+                a_parts.append("Avg Target $%.0f" % analyst["price_target_avg"])
+            if a_parts:
+                prompt_parts.append("Analyst Ratings: " + " | ".join(a_parts))
+
+        recent_news = content_context.get("recent_news")
+        if recent_news and isinstance(recent_news, list):
+            news_titles = [
+                n.get("title", "")
+                for n in recent_news[:5]
+                if isinstance(n, dict) and n.get("title")
+            ]
+            if news_titles:
+                prompt_parts.append("Recent News Headlines:")
+                for title in news_titles:
+                    prompt_parts.append("- %s" % title[:120])
+
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see all this data in the right panel (4 tabs: Overview, Earnings, Technical, Market). "
+            "Use the available quote, fundamentals, earnings history, technical signals, and recent news above. "
+            "Do not assume fields that are not present in the provided context. "
+            "If user wants to see a different stock, use the navigate field to switch to that stock's research view."
+        )
+    elif ctx_type == "daily_report":
+        prompt_parts.append(_format_daily_report_context(content_context))
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see the daily report in the right panel. "
+            "Answer questions about market news and trends using the report data above. "
+            "If the user is interested in a specific stock mentioned in the report, "
+            "use the navigate field to switch to that stock's research view."
+        )
+    elif ctx_type == "morning_report":
+        prompt_parts.append(_format_morning_report_context(content_context))
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see the pre-market morning report in the right panel. "
+            "Answer questions about overnight news, futures movements, and today's key events "
+            "using the report data above. "
+            "If the user is interested in a specific stock or sector mentioned in the report, "
+            "use the navigate field to switch to that stock's research view."
+        )
+    elif ctx_type == "twitter_digest":
+        prompt_parts.append(_format_twitter_digest_context(content_context))
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see the KOL twitter digest in the right panel. "
+            "Answer questions about what tracked KOLs are saying — bull/bear stances on "
+            "individual tickers, macro debates, forward-looking watchpoints — using the "
+            "digest data above. Cite specific KOL views when relevant; do not invent "
+            "stances. If the user wants to dive into a specific ticker mentioned, use the "
+            "navigate field to switch to that stock's research view."
+        )
+    elif ctx_type == "macro":
+        macro_context = _format_macro_context(content_context)
+        if macro_context:
+            prompt_parts.append(macro_context)
+            prompt_parts.append("")
+            prompt_parts.append(
+                "The user can see the macro risk dashboard in the right panel. "
+                "Answer questions about macro conditions, signal lights, and their "
+                "implications using the data above. "
+                "If the user is interested in a specific stock or sector, "
+                "use the navigate field to switch to that stock's research view."
+            )
+    elif ctx_type == "brew":
+        brew_context = _format_brew_context(content_context)
+        if brew_context:
+            prompt_parts.append(brew_context)
+            prompt_parts.append("")
+            prompt_parts.append(
+                "The user can see their personalized daily digest in the right panel. "
+                "You know their watchlist and today's performance for each stock. "
+                "Answer questions as a personal investment advisor - focus on how news "
+                "and events affect THEIR holdings specifically, not the market overall. "
+                "If the user wants to dive deeper into a specific stock, "
+                "use the navigate field to switch to that stock's research view."
+            )
+    elif ctx_type == "macro_liquidity":
+        prompt_parts.append("## User is currently viewing: Liquidity Environment")
+        nl = content_context.get("net_liquidity")
+        if nl is not None:
+            prompt_parts.append(
+                "Net Liquidity: $%.2fT" % (nl / 1000)
+                if nl >= 1000
+                else "Net Liquidity: $%.0fB" % nl
+            )
+        change = content_context.get("net_liquidity_change")
+        if change is not None:
+            prompt_parts.append("Change: %+.2f%%" % change)
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see liquidity metrics in the right panel. "
+            "Answer questions about Fed balance sheet, TGA, RRP, and monetary conditions "
+            "using the data above. Default update_results=false."
+        )
+    elif ctx_type == "macro_economy":
+        prompt_parts.append("## User is currently viewing: Economic Fundamentals")
+        headline = content_context.get("overall_headline", "")
+        if headline:
+            prompt_parts.append("Assessment: %s" % headline)
+        dims = content_context.get("dimensions", [])
+        for d in dims:
+            if isinstance(d, dict):
+                prompt_parts.append(
+                    "- %s: %s (score %.1f/10)"
+                    % (d.get("name_zh", ""), d.get("headline", ""), d.get("score", 0))
+                )
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see economic indicators in the right panel. "
+            "Answer questions about GDP, employment, credit conditions. "
+            "Default update_results=false."
+        )
+    elif ctx_type == "macro_inflation":
+        prompt_parts.append("## User is currently viewing: Inflation & Rates")
+        headline = content_context.get("overall_headline", "")
+        if headline:
+            prompt_parts.append("Assessment: %s" % headline)
+        cpi = content_context.get("cpi_components", [])
+        if cpi:
+            prompt_parts.append("CPI components:")
+            for c in cpi:
+                if isinstance(c, dict):
+                    yoy = c.get("yoy_pct")
+                    prompt_parts.append(
+                        "- %s: YoY %s"
+                        % (
+                            c.get("name_zh", ""),
+                            "%.1f%%" % yoy if yoy is not None else "N/A",
+                        )
+                    )
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see inflation and rate data in the right panel. "
+            "Answer questions about CPI, Fed policy, interest rates. "
+            "Default update_results=false."
+        )
+    elif ctx_type == "macro_sentiment":
+        prompt_parts.append("## User is currently viewing: Market Sentiment")
+        score = content_context.get("overall_score")
+        headline = content_context.get("overall_headline", "")
+        if score is not None:
+            prompt_parts.append("CNN Fear & Greed: %.0f/100" % score)
+        if headline:
+            prompt_parts.append("Assessment: %s" % headline)
+        prompt_parts.append("")
+        prompt_parts.append(
+            "The user can see sentiment indicators in the right panel. "
+            "Answer questions about market fear/greed, VIX, put/call ratios. "
+            "Default update_results=false."
+        )
+
+    rendered = "\n".join(part for part in prompt_parts if part is not None).strip()
+    return rendered or None
 
 
 # ---------------------------------------------------------------------------
@@ -760,124 +1207,193 @@ class ResearchAgent:
         from google.genai import types
 
         nav_buf: List[Dict[str, Any]] = []
-        _navigate_buffer.set(nav_buf)
+        google_counts: Dict[str, int] = {}
+        token_nav = _navigate_buffer.set(nav_buf)
+        token_timers = _tool_started_at.set({})
+        token_google = _google_search_calls.set(google_counts)
 
-        session = await self.runner.session_service.create_session(
-            app_name="stock_picker", user_id="research"
-        )
-        message = types.Content(
-            parts=[types.Part(text=prompt)], role="user"
-        )
         try:
-            async for _ in self.runner.run_async(
-                user_id="research", session_id=session.id, new_message=message
-            ):
-                pass
-        except Exception as run_err:
-            logger.warning("Agent run error (checking state): %s", run_err)
+            session = await self.runner.session_service.create_session(
+                app_name="stock_picker", user_id="research"
+            )
+            message = types.Content(
+                parts=[types.Part(text=prompt)], role="user"
+            )
+            try:
+                async for _ in self.runner.run_async(
+                    user_id="research", session_id=session.id, new_message=message
+                ):
+                    pass
+            except Exception as run_err:
+                logger.warning("Agent run error (checking state): %s", run_err)
 
-        # Extract output from session state
-        session_data = await self.runner.session_service.get_session(
-            app_name="stock_picker", user_id="research", session_id=session.id
-        )
-        result: Dict[str, Any] = {}
-        if session_data and hasattr(session_data, "state"):
-            state = session_data.state or {}
-            raw = state.get("picker", {})
-            if isinstance(raw, str):
-                try:
-                    result = json.loads(raw)
-                except json.JSONDecodeError:
-                    result = {}
-            elif isinstance(raw, dict):
-                result = raw
-
-        # Auto-fill navigate from tool calls when the agent omitted it
-        if not result.get("navigate") and nav_buf:
-            result["navigate"] = nav_buf[-1]
-
-        # Cleanup session (one-shot, not persistent yet)
-        try:
-            await self.runner.session_service.delete_session(
+            # Extract output from session state
+            session_data = await self.runner.session_service.get_session(
                 app_name="stock_picker", user_id="research", session_id=session.id
             )
-        except Exception:
-            pass
+            result: Dict[str, Any] = {}
+            if session_data and hasattr(session_data, "state"):
+                state = session_data.state or {}
+                raw = state.get("picker", {})
+                if isinstance(raw, str):
+                    try:
+                        result = json.loads(raw)
+                    except json.JSONDecodeError:
+                        result = {}
+                elif isinstance(raw, dict):
+                    result = raw
 
-        _navigate_buffer.set(None)
-        return result
+            # Auto-fill navigate from tool calls when the agent omitted it.
+            # Prefer screener when this turn updated screening filters/results.
+            if not result.get("navigate"):
+                auto_nav = _select_auto_navigate(result, nav_buf)
+                if auto_nav:
+                    result["navigate"] = auto_nav
 
-    async def run_stream(self, prompt: str, universe: list[dict] | None = None):
+            # Cleanup session (one-shot, not persistent yet)
+            try:
+                await self.runner.session_service.delete_session(
+                    app_name="stock_picker", user_id="research", session_id=session.id
+                )
+            except Exception:
+                pass
+
+            return result
+        finally:
+            _navigate_buffer.reset(token_nav)
+            _tool_started_at.reset(token_timers)
+            _google_search_calls.reset(token_google)
+
+    async def run_stream(
+        self,
+        prompt: str,
+        *,
+        retry_prompt_factory=None,
+    ):
         """Run agent with SSE streaming. Yields SSE event dicts.
 
         Tool events are emitted via ADK callbacks (before_tool_callback/after_tool_callback)
         through the _sse_queue ContextVar. This method reads from that queue and yields events.
 
-        Note: We use normal run_async (not StreamingMode.SSE) because SSE mode
-        is incompatible with output_schema — it doesn't populate session state.
-        Tool call events come from ADK callbacks instead, which work in all modes.
+        On `context_too_long` the stream optionally retries once with a
+        shorter prompt obtained from `retry_prompt_factory()`. Mirrors the
+        KOL agent's behavior so a single oversized turn doesn't surface as
+        a hard error when the conversation can still be saved by shrinking
+        history.
         """
         from google.genai import types
 
         queue: asyncio.Queue = asyncio.Queue()
-        _sse_queue.set(queue)
-
         nav_buf: List[Dict[str, Any]] = []
-        _navigate_buffer.set(nav_buf)
+        google_counts: Dict[str, int] = {}
+        token_queue = _sse_queue.set(queue)
+        token_nav = _navigate_buffer.set(nav_buf)
+        token_timers = _tool_started_at.set({})
+        token_google = _google_search_calls.set(google_counts)
 
-        session = await self.runner.session_service.create_session(
-            app_name="stock_picker", user_id="research"
-        )
-        message = types.Content(
-            parts=[types.Part(text=prompt)], role="user"
-        )
+        active_session_id: str | None = None
+        # Mutable state filled by _stream_once for each pass so the outer flow
+        # can decide whether to retry without losing the streamed events.
+        run_state: Dict[str, Any] = {"session_id": None, "error": None}
 
-        try:
-            # Run agent in background task so we can yield tool events
-            # from the callback queue as they happen (before tools finish)
+        async def _stream_once(current_prompt: str):
+            """Async generator: yields SSE events in real-time as the agent runs.
+
+            Mirrors the KOL agent pattern — events drain from the queue while
+            the agent task is still running so thinking/tool events stream to
+            the UI immediately instead of being held until the run finishes.
+            Final session_id / error is written into ``run_state``.
+            """
+            nonlocal active_session_id
+            session = await self.runner.session_service.create_session(
+                app_name="stock_picker", user_id="research"
+            )
+            active_session_id = session.id
+            run_state["session_id"] = session.id
+            run_state["error"] = None
+            message = types.Content(
+                parts=[types.Part(text=current_prompt)], role="user"
+            )
             agent_done = asyncio.Event()
             agent_error: list = []
 
+            # StreamingMode.SSE makes ADK emit partial events with `part.thought`
+            # for reasoning-content chunks. DeepSeek V4-Pro streams reasoning and
+            # JSON content on separate channels, so the JSON body is buffered as
+            # usual while thinking text streams through the SSE queue.
+            run_config = RunConfig(streaming_mode=StreamingMode.SSE)
+
             async def _run_agent():
                 try:
-                    async for _ in self.runner.run_async(
+                    async for ev in self.runner.run_async(
                         user_id="research",
                         session_id=session.id,
                         new_message=message,
+                        run_config=run_config,
                     ):
-                        pass
-                except Exception as e:
+                        if not (
+                            hasattr(ev, "content")
+                            and ev.content
+                            and ev.content.parts
+                        ):
+                            continue
+                        if not bool(getattr(ev, "partial", False)):
+                            # Only forward thinking from partial chunks; the
+                            # final aggregated event would re-emit the whole
+                            # reasoning blob and double the UI text.
+                            continue
+                        for part in ev.content.parts:
+                            text = getattr(part, "text", None)
+                            if not text:
+                                continue
+                            if getattr(part, "function_call", None) is not None:
+                                continue
+                            if not bool(getattr(part, "thought", False)):
+                                # Non-thought partials are JSON fragments of the
+                                # output schema — useless to render, drop them.
+                                continue
+                            queue.put_nowait({"type": "thinking", "text": text})
+                            await asyncio.sleep(0)
+                except Exception as e:  # noqa: BLE001
                     agent_error.append(e)
                 finally:
                     agent_done.set()
 
             task = asyncio.create_task(_run_agent())
-
-            # Poll the queue for tool events while agent runs.
-            # Yield each event individually with a small pause after tool_call_start
-            # so the SSE client receives it before tool_call_end arrives.
             while not agent_done.is_set():
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=0.15)
                     yield event
-                    if event.get("type") == "tool_call_start":
-                        await asyncio.sleep(0)  # flush to SSE client
+                    if event.get("type") in {
+                        "tool_call_start",
+                        "tool_call_end",
+                        "thinking",
+                    }:
+                        # Yield control so SSE flushes the event promptly.
+                        await asyncio.sleep(0)
                 except asyncio.TimeoutError:
                     pass
-
-            # Drain any remaining events after agent finishes
             while not queue.empty():
                 yield queue.get_nowait()
+            await task
 
-            # Propagate agent errors
-            if agent_error:
-                raise agent_error[0]
+            run_state["error"] = agent_error[0] if agent_error else None
 
-            await task  # ensure task is cleaned up
+        async def _delete_session(session_id: str | None) -> None:
+            if not session_id:
+                return
+            try:
+                await self.runner.session_service.delete_session(
+                    app_name="stock_picker",
+                    user_id="research",
+                    session_id=session_id,
+                )
+            except Exception:  # noqa: BLE001
+                pass
 
-            # Extract final result from session state
+        async def _extract_parsed(session_id: str) -> Dict[str, Any]:
             session_data = await self.runner.session_service.get_session(
-                app_name="stock_picker", user_id="research", session_id=session.id
+                app_name="stock_picker", user_id="research", session_id=session_id
             )
             parsed: Dict[str, Any] = {}
             if session_data and hasattr(session_data, "state") and session_data.state:
@@ -889,61 +1405,84 @@ class ResearchAgent:
                         parsed = {"message": raw}
                 elif isinstance(raw, dict):
                     parsed = raw
+            if not parsed.get("navigate"):
+                auto_nav = _select_auto_navigate(parsed, nav_buf)
+                if auto_nav:
+                    parsed["navigate"] = auto_nav
+            return parsed
 
-            # Auto-fill navigate from tool calls when the agent omitted it
-            if not parsed.get("navigate") and nav_buf:
-                parsed["navigate"] = nav_buf[-1]
+        def _classify(err: BaseException) -> str:
+            err_text = str(err).lower()
+            if "token" in err_text or "context" in err_text or "too long" in err_text:
+                return "context_too_long"
+            if "schema" in err_text or "validation" in err_text or "json" in err_text:
+                return "model_schema_error"
+            return "agent_error"
 
-            # Yield raw parsed agent output — router handles post-processing
+        try:
+            async for event in _stream_once(prompt):
+                yield event
+            err = run_state["error"]
+            session_id = run_state["session_id"]
+
+            if err is not None and _classify(err) == "context_too_long" and retry_prompt_factory is not None:
+                logger.warning(
+                    "research stream context_too_long: retrying once with shrunk prompt"
+                )
+                # Reset only the SSE / nav buffers; keep google counts so an
+                # already-spent google_search call still counts toward the cap.
+                nav_buf.clear()
+                await _delete_session(session_id)
+                try:
+                    shrunk_prompt = await retry_prompt_factory()
+                except Exception:  # noqa: BLE001
+                    logger.exception("research retry_prompt_factory failed")
+                    shrunk_prompt = None
+                if shrunk_prompt:
+                    async for event in _stream_once(shrunk_prompt):
+                        yield event
+                    err = run_state["error"]
+                    session_id = run_state["session_id"]
+
+            if err is not None:
+                if isinstance(err, asyncio.TimeoutError):
+                    logger.exception("Research stream timed out")
+                    yield {
+                        "type": "error",
+                        "code": "agent_timeout",
+                        "message": "AI 助手思考时间太长了，请再试一次",
+                    }
+                    return
+                logger.exception("Research stream error: %s", err)
+                yield {
+                    "type": "error",
+                    "code": _classify(err),
+                    "message": "AI 助手出了点问题，请再试一次",
+                }
+                return
+
+            parsed = await _extract_parsed(session_id)
             yield {
                 "type": "done",
                 "parsed": parsed,
             }
-        except asyncio.TimeoutError:
-            logger.exception("Research stream timed out")
-            yield {
-                "type": "error",
-                "code": "agent_timeout",
-                "message": "AI 助手思考时间太长了，请再试一次",
-            }
-        except Exception as e:
-            err_text = str(e).lower()
-            if "token" in err_text or "context" in err_text or "too long" in err_text:
-                code = "context_too_long"
-            elif "schema" in err_text or "validation" in err_text or "json" in err_text:
-                code = "model_schema_error"
-            else:
-                code = "agent_error"
-            logger.exception("Research stream error: %s", e)
-            yield {
-                "type": "error",
-                "code": code,
-                "message": "AI 助手出了点问题，请再试一次",
-            }
         finally:
-            _sse_queue.set(None)
-            _navigate_buffer.set(None)
-            try:
-                await self.runner.session_service.delete_session(
-                    app_name="stock_picker", user_id="research", session_id=session.id
-                )
-            except Exception:
-                pass
+            _sse_queue.reset(token_queue)
+            _navigate_buffer.reset(token_nav)
+            _tool_started_at.reset(token_timers)
+            _google_search_calls.reset(token_google)
+            await _delete_session(active_session_id)
 
-    async def build_prompt(
+    async def assemble_prompt_context(
         self,
         message: str,
         history: List[Dict[str, str]] | None = None,
         accumulated_filters: List[Dict[str, Any]] | None = None,
-        universe_size: int = 0,
         content_context: dict | None = None,
         user_id: str | None = None,
-    ) -> str:
-        """Build the full prompt with context injection.
-
-        Shared by guide() and run_stream() to ensure consistent behavior.
-        """
-        # Load user watchlist for personalization
+        session: Any = None,
+    ) -> AssembledContext:
+        """Assemble the actual prompt that will be sent to the Research Agent."""
         watchlist_symbols: list[str] = []
         if user_id:
             try:
@@ -954,308 +1493,76 @@ class ResearchAgent:
             except Exception:
                 logger.warning("Failed to load watchlist for user %s", user_id[:12] if user_id else "")
 
-        prompt_parts = []
-
-        # Current date context
-        prompt_parts.append("## Current Date: %s" % date.today().isoformat())
-        prompt_parts.append("")
-
-        # User watchlist context
+        prefix_sections = ["## Current Date: %s" % date.today().isoformat()]
         if watchlist_symbols:
-            prompt_parts.append("## User Watchlist")
-            prompt_parts.append(
-                "User is tracking these stocks: %s"
-                % ", ".join(watchlist_symbols[:30])
+            prefix_sections.append(
+                "\n".join(
+                    [
+                        "## User Watchlist",
+                        "User is tracking these stocks: %s"
+                        % ", ".join(watchlist_symbols[:30]),
+                        (
+                            "When relevant, reference their holdings in your analysis. "
+                            "Do not force mentions if unrelated to the conversation."
+                        ),
+                    ]
+                )
             )
-            prompt_parts.append(
-                "When relevant, reference their holdings in your analysis. "
-                "Do not force mentions if unrelated to the conversation."
-            )
-            prompt_parts.append("")
-
-        # Conversation history
-        if history:
-            prompt_parts.append("## Conversation History")
-            for turn in history[-20:]:
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                if role == "user":
-                    prompt_parts.append("User: %s" % content)
-                else:
-                    prompt_parts.append("Assistant: %s" % content)
-            prompt_parts.append("")
-
-        # Accumulated filters from previous turns
         if accumulated_filters:
-            prompt_parts.append("## Currently Active Filters")
-            prompt_parts.append(
-                "These filters are already applied from previous conversation turns. "
-                "Include ALL of them in your output unless the user wants to change direction."
+            prefix_sections.append(
+                "\n".join(
+                    [
+                        "## Currently Active Filters",
+                        (
+                            "These filters are already applied from previous conversation turns. "
+                            "Include ALL of them in your output unless the user wants to change direction."
+                        ),
+                        json.dumps(accumulated_filters, ensure_ascii=False),
+                    ]
+                )
             )
-            prompt_parts.append(json.dumps(accumulated_filters, ensure_ascii=False))
-            prompt_parts.append("")
 
-        # Universe info
-        prompt_parts.append("## Universe: %d stocks loaded" % universe_size)
-        prompt_parts.append("")
+        assembled = await get_agent_runtime().assemble_context(
+            ContextAssemblyRequest(
+                message=message,
+                history=history or [],
+                content_context=content_context,
+                session=session,
+                history_keep=20,
+                char_soft_limit=AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT,
+                budget_plan=default_budget_plan(),
+                prefix_sections=prefix_sections,
+                content_renderer=_render_research_content_context,
+            )
+        )
+        if assembled.dropped_history:
+            logger.info(
+                "research prompt history truncated: kept=%d dropped=%d size=%d",
+                assembled.kept_history,
+                assembled.dropped_history,
+                assembled.char_count,
+            )
+        return assembled
 
-        # Content context (Research Desk: what user is viewing in right panel)
-        if content_context:
-            ctx_type = content_context.get("type", "screener")
-            if ctx_type == "stock":
-                symbol = content_context.get("symbol", "")
-                prompt_parts.append("## User is currently viewing: %s Stock Research" % symbol)
-                # Format quote data
-                quote = content_context.get("quote", {})
-                if quote:
-                    prompt_parts.append("Price: $%.2f (%s%.2f%%)" % (
-                        quote.get("price", 0) or 0,
-                        "+" if (quote.get("change_percent", 0) or 0) >= 0 else "",
-                        quote.get("change_percent", 0) or 0,
-                    ))
-                    prompt_parts.append("Market Cap: %s" % _format_market_cap(quote.get("market_cap")))
-                # Format fundamentals
-                fundamentals = content_context.get("fundamentals", {})
-                if fundamentals:
-                    valuation = fundamentals.get("valuation", {})
-                    profitability = fundamentals.get("profitability", {})
-                    growth = fundamentals.get("growth", {})
-                    parts = []
-                    if valuation.get("pe"): parts.append("PE %.1f" % valuation["pe"])
-                    if valuation.get("pb"): parts.append("PB %.1f" % valuation["pb"])
-                    if valuation.get("ps"): parts.append("PS %.1f" % valuation["ps"])
-                    if profitability.get("roe"): parts.append("ROE %.1f%%" % (profitability["roe"] * 100))
-                    if growth.get("revenue_yoy"): parts.append("Revenue YoY %+.1f%%" % (growth["revenue_yoy"] * 100))
-                    if parts:
-                        prompt_parts.append("Fundamentals: %s" % " | ".join(parts))
-                # Earnings data
-                earnings_history = content_context.get("earnings_history")
-                if earnings_history:
-                    eps_parts = []
-                    for eh in earnings_history[:4]:
-                        if isinstance(eh, dict):
-                            q = eh.get("quarter", "")
-                            actual = eh.get("eps_actual")
-                            est = eh.get("eps_estimate")
-                            surprise = eh.get("surprise_percent")
-                            eps_parts.append("%s: EPS $%.2f (est $%.2f, %s%.1f%%)" % (
-                                q[:7] if q else "?",
-                                actual or 0, est or 0,
-                                "+" if (surprise or 0) >= 0 else "", (surprise or 0) * 100
-                            ))
-                    if eps_parts:
-                        prompt_parts.append("EPS History: " + " | ".join(eps_parts))
-
-                financial_growth = content_context.get("financial_growth")
-                if financial_growth and len(financial_growth) > 0:
-                    latest = financial_growth[0] if isinstance(financial_growth[0], dict) else {}
-                    g_parts = []
-                    if latest.get("revenueGrowth") is not None:
-                        g_parts.append("Revenue YoY %+.1f%%" % (latest["revenueGrowth"] * 100))
-                    if latest.get("netIncomeGrowth") is not None:
-                        g_parts.append("Net Income YoY %+.1f%%" % (latest["netIncomeGrowth"] * 100))
-                    if latest.get("epsdilutedGrowth") is not None:
-                        g_parts.append("EPS YoY %+.1f%%" % (latest["epsdilutedGrowth"] * 100))
-                    if g_parts:
-                        prompt_parts.append("Latest Quarter Growth: " + " | ".join(g_parts))
-
-                income_stmts = content_context.get("income_statements")
-                if income_stmts and len(income_stmts) > 0:
-                    latest_is = income_stmts[0] if isinstance(income_stmts[0], dict) else {}
-                    is_parts = []
-                    if latest_is.get("revenue"):
-                        is_parts.append("Revenue %s" % _format_market_cap(latest_is["revenue"]))
-                    if latest_is.get("net_income"):
-                        is_parts.append("Net Income %s" % _format_market_cap(latest_is["net_income"]))
-                    if latest_is.get("gross_profit_ratio"):
-                        is_parts.append("Gross Margin %.1f%%" % (latest_is["gross_profit_ratio"] * 100))
-                    if is_parts:
-                        prompt_parts.append("Latest Income Statement: " + " | ".join(is_parts))
-
-                # Technical data
-                tech_derived = content_context.get("technical_derived")
-                if tech_derived and isinstance(tech_derived, dict):
-                    t_parts = []
-                    if tech_derived.get("trend_direction"):
-                        t_parts.append("Trend: %s" % tech_derived["trend_direction"])
-                    if tech_derived.get("rsi_zone"):
-                        t_parts.append("RSI: %s" % tech_derived["rsi_zone"])
-                    if tech_derived.get("macd_cross"):
-                        t_parts.append("MACD: %s" % tech_derived["macd_cross"])
-                    if tech_derived.get("ma_alignment"):
-                        t_parts.append("MA: %s" % tech_derived["ma_alignment"])
-                    if tech_derived.get("bb_position"):
-                        t_parts.append("BB: %s" % tech_derived["bb_position"])
-                    if tech_derived.get("volume_trend"):
-                        t_parts.append("Volume: %s" % tech_derived["volume_trend"])
-                    if t_parts:
-                        prompt_parts.append("Technical Signals: " + " | ".join(t_parts))
-
-                sr = content_context.get("support_resistance")
-                if sr and isinstance(sr, dict):
-                    sr_parts = []
-                    if sr.get("resistance_1"):
-                        sr_parts.append("R1 $%.2f" % sr["resistance_1"])
-                    if sr.get("support_1"):
-                        sr_parts.append("S1 $%.2f" % sr["support_1"])
-                    if sr_parts:
-                        prompt_parts.append("Support/Resistance: " + " | ".join(sr_parts))
-
-                # Market / analyst data
-                analyst = content_context.get("analyst_summary")
-                if analyst and isinstance(analyst, dict):
-                    a_parts = []
-                    if analyst.get("consensus"):
-                        a_parts.append("Consensus: %s" % analyst["consensus"])
-                    if analyst.get("total"):
-                        a_parts.append("%d analysts" % analyst["total"])
-                    if analyst.get("price_target_avg"):
-                        a_parts.append("Avg Target $%.0f" % analyst["price_target_avg"])
-                    if a_parts:
-                        prompt_parts.append("Analyst Ratings: " + " | ".join(a_parts))
-
-                recent_news = content_context.get("recent_news")
-                if recent_news and isinstance(recent_news, list):
-                    news_titles = [n.get("title", "") for n in recent_news[:5] if isinstance(n, dict) and n.get("title")]
-                    if news_titles:
-                        prompt_parts.append("Recent News Headlines:")
-                        for title in news_titles:
-                            prompt_parts.append("- %s" % title[:120])
-
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see all this data in the right panel (4 tabs: Overview, Earnings, Technical, Market). "
-                    "You have the full picture: quote, fundamentals, earnings history, technical signals, analyst ratings, and recent news. "
-                    "Use ALL of this data to answer the user's questions comprehensively. "
-                    "If user wants to see a different stock, use the navigate field to switch to that stock's research view."
-                )
-                prompt_parts.append("")
-            elif ctx_type == "daily_report":
-                report_context = _format_daily_report_context(content_context)
-                prompt_parts.append(report_context)
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see the daily report in the right panel. "
-                    "Answer questions about market news and trends using the report data above. "
-                    "If the user is interested in a specific stock mentioned in the report, "
-                    "use the navigate field to switch to that stock's research view."
-                )
-                prompt_parts.append("")
-            elif ctx_type == "morning_report":
-                morning_context = _format_morning_report_context(content_context)
-                prompt_parts.append(morning_context)
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see the pre-market morning report in the right panel. "
-                    "Answer questions about overnight news, futures movements, and today's key events "
-                    "using the report data above. "
-                    "If the user is interested in a specific stock or sector mentioned in the report, "
-                    "use the navigate field to switch to that stock's research view."
-                )
-                prompt_parts.append("")
-            elif ctx_type == "macro":
-                macro_context = _format_macro_context(content_context)
-                if macro_context:
-                    prompt_parts.append(macro_context)
-                    prompt_parts.append("")
-                    prompt_parts.append(
-                        "The user can see the macro risk dashboard in the right panel. "
-                        "Answer questions about macro conditions, signal lights, and their "
-                        "implications using the data above. "
-                        "If the user is interested in a specific stock or sector, "
-                        "use the navigate field to switch to that stock's research view."
-                    )
-                    prompt_parts.append("")
-            elif ctx_type == "brew":
-                brew_context = _format_brew_context(content_context)
-                if brew_context:
-                    prompt_parts.append(brew_context)
-                    prompt_parts.append("")
-                    prompt_parts.append(
-                        "The user can see their personalized daily digest in the right panel. "
-                        "You know their watchlist and today's performance for each stock. "
-                        "Answer questions as a personal investment advisor - focus on how news "
-                        "and events affect THEIR holdings specifically, not the market overall. "
-                        "If the user wants to dive deeper into a specific stock, "
-                        "use the navigate field to switch to that stock's research view."
-                    )
-                    prompt_parts.append("")
-            elif ctx_type == "macro_liquidity":
-                prompt_parts.append("## User is currently viewing: Liquidity Environment")
-                nl = content_context.get("net_liquidity")
-                if nl is not None:
-                    prompt_parts.append("Net Liquidity: $%.2fT" % (nl / 1000) if nl >= 1000 else "Net Liquidity: $%.0fB" % nl)
-                change = content_context.get("net_liquidity_change")
-                if change is not None:
-                    prompt_parts.append("Change: %+.2f%%" % change)
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see liquidity metrics in the right panel. "
-                    "Answer questions about Fed balance sheet, TGA, RRP, and monetary conditions "
-                    "using the data above. Default update_results=false."
-                )
-                prompt_parts.append("")
-            elif ctx_type == "macro_economy":
-                prompt_parts.append("## User is currently viewing: Economic Fundamentals")
-                headline = content_context.get("overall_headline", "")
-                if headline:
-                    prompt_parts.append("Assessment: %s" % headline)
-                dims = content_context.get("dimensions", [])
-                for d in dims:
-                    if isinstance(d, dict):
-                        prompt_parts.append("- %s: %s (score %.1f/10)" % (
-                            d.get("name_zh", ""), d.get("headline", ""), d.get("score", 0)
-                        ))
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see economic indicators in the right panel. "
-                    "Answer questions about GDP, employment, credit conditions. "
-                    "Default update_results=false."
-                )
-                prompt_parts.append("")
-            elif ctx_type == "macro_inflation":
-                prompt_parts.append("## User is currently viewing: Inflation & Rates")
-                headline = content_context.get("overall_headline", "")
-                if headline:
-                    prompt_parts.append("Assessment: %s" % headline)
-                cpi = content_context.get("cpi_components", [])
-                if cpi:
-                    prompt_parts.append("CPI components:")
-                    for c in cpi:
-                        if isinstance(c, dict):
-                            yoy = c.get("yoy_pct")
-                            prompt_parts.append("- %s: YoY %s" % (
-                                c.get("name_zh", ""),
-                                "%.1f%%" % yoy if yoy is not None else "N/A"
-                            ))
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see inflation and rate data in the right panel. "
-                    "Answer questions about CPI, Fed policy, interest rates. "
-                    "Default update_results=false."
-                )
-                prompt_parts.append("")
-            elif ctx_type == "macro_sentiment":
-                prompt_parts.append("## User is currently viewing: Market Sentiment")
-                score = content_context.get("overall_score")
-                headline = content_context.get("overall_headline", "")
-                if score is not None:
-                    prompt_parts.append("CNN Fear & Greed: %.0f/100" % score)
-                if headline:
-                    prompt_parts.append("Assessment: %s" % headline)
-                prompt_parts.append("")
-                prompt_parts.append(
-                    "The user can see sentiment indicators in the right panel. "
-                    "Answer questions about market fear/greed, VIX, put/call ratios. "
-                    "Default update_results=false."
-                )
-                prompt_parts.append("")
-
-        # Current user message
-        prompt_parts.append("## User's Message")
-        prompt_parts.append(message)
-
-        return "\n".join(prompt_parts)
+    async def build_prompt(
+        self,
+        message: str,
+        history: List[Dict[str, str]] | None = None,
+        accumulated_filters: List[Dict[str, Any]] | None = None,
+        content_context: dict | None = None,
+        user_id: str | None = None,
+        session: Any = None,
+    ) -> str:
+        """Build the full prompt with ContextEngine budget enforcement."""
+        assembled = await self.assemble_prompt_context(
+            message=message,
+            history=history,
+            accumulated_filters=accumulated_filters,
+            content_context=content_context,
+            user_id=user_id,
+            session=session,
+        )
+        return assembled.prompt
 
     async def guide(
         self,
@@ -1265,6 +1572,8 @@ class ResearchAgent:
         universe: list[dict] | None = None,
         content_context: dict | None = None,
         user_id: str | None = None,
+        session: Any = None,
+        prebuilt_prompt: str | None = None,
     ) -> Dict[str, Any]:
         """Process one turn of the guided stock research conversation."""
         _current_universe.set(universe if universe else [])
@@ -1278,21 +1587,22 @@ class ResearchAgent:
             logger.warning("Failed to pre-load recent reports for tools")
             _recent_reports.set([])
 
-        prompt = await self.build_prompt(
+        prompt = prebuilt_prompt or await self.build_prompt(
             message=message,
             history=history,
             accumulated_filters=accumulated_filters,
-            universe_size=len(universe) if universe else 0,
             content_context=content_context,
             user_id=user_id,
+            session=session,
         )
 
         logger.info("Research agent message: %s", message[:100])
 
+        from app.core.config import AGENT_RUNTIME_RESEARCH_TIMEOUT_S
         try:
             result = await asyncio.wait_for(
                 self._run_session(prompt),
-                timeout=75.0,
+                timeout=AGENT_RUNTIME_RESEARCH_TIMEOUT_S,
             )
         except asyncio.TimeoutError:
             _current_universe.set([])

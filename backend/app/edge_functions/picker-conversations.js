@@ -93,7 +93,7 @@ module.exports = async function(request) {
     // POST ?action=create - create new conversation
     if (request.method === "POST" && action === "create") {
       const body = await request.json();
-      const { user_id, title, data: convData, message_count } = body;
+      const { id: requestedId, user_id, title, data: convData, message_count } = body;
 
       if (!user_id) {
         return new Response(
@@ -111,6 +111,15 @@ module.exports = async function(request) {
         created_at: now,
         updated_at: now,
       };
+      if (requestedId) {
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedId)) {
+          return new Response(
+            JSON.stringify({ success: false, error: "invalid id" }),
+            { status: 400, headers: jsonHeaders }
+          );
+        }
+        row.id = requestedId;
+      }
 
       const { data, error } = await client.database
         .from(TABLE)
@@ -134,7 +143,7 @@ module.exports = async function(request) {
     // PUT ?action=update&id=xxx - update conversation
     if (request.method === "PUT" && action === "update" && id) {
       const body = await request.json();
-      const { user_id, title, data: convData, message_count } = body;
+      const { user_id, title, data: convData, message_count, touch } = body;
 
       if (!user_id) {
         return new Response(
@@ -144,11 +153,13 @@ module.exports = async function(request) {
       }
 
       const updates = {
-        updated_at: new Date().toISOString(),
         title: undefined,
         data: undefined,
         message_count: undefined,
       };
+      if (touch !== false) {
+        updates.updated_at = new Date().toISOString();
+      }
       if (title !== undefined) updates.title = title;
       if (convData !== undefined) updates.data = convData;
       if (message_count !== undefined) updates.message_count = message_count;

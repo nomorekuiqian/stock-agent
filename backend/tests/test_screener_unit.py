@@ -831,10 +831,11 @@ class TestFilterByTickers:
              "revenue_growth_ttm": 20, "change_3m": 15},
         ]
 
-    def test_matches_tickers_in_universe(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_matches_tickers_in_universe(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers(["COIN", "MARA", "SQ"]))
+            result = json.loads(await filter_by_tickers(["COIN", "MARA", "SQ"]))
             assert result["match_count"] == 3
             tickers = [p["ticker"] for p in result["preview"]]
             assert "COIN" in tickers
@@ -844,63 +845,70 @@ class TestFilterByTickers:
         finally:
             _current_universe.set([])
 
-    def test_reports_not_in_universe(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_reports_not_in_universe(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers(["COIN", "RIOT", "BTBT"]))
+            result = json.loads(await filter_by_tickers(["COIN", "RIOT", "BTBT"]))
             assert result["match_count"] == 1
             assert "RIOT" in result["not_in_universe"]
             assert "BTBT" in result["not_in_universe"]
         finally:
             _current_universe.set([])
 
-    def test_case_insensitive(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_case_insensitive(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers(["coin", "Mara"]))
+            result = json.loads(await filter_by_tickers(["coin", "Mara"]))
             assert result["match_count"] == 2
         finally:
             _current_universe.set([])
 
-    def test_sorted_by_market_cap_desc(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_sorted_by_market_cap_desc(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers(["COIN", "MARA", "AAPL", "SQ"]))
+            result = json.loads(await filter_by_tickers(["COIN", "MARA", "AAPL", "SQ"]))
             caps = [p.get("market_cap", 0) for p in result["preview"]]
             assert caps == sorted(caps, reverse=True)
         finally:
             _current_universe.set([])
 
-    def test_empty_tickers_returns_zero(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_empty_tickers_returns_zero(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers([]))
+            result = json.loads(await filter_by_tickers([]))
             assert result["match_count"] == 0
         finally:
             _current_universe.set([])
 
-    def test_preview_includes_industry_field(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_preview_includes_industry_field(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers(["COIN"]))
+            result = json.loads(await filter_by_tickers(["COIN"]))
             preview = result["preview"][0]
             assert "industry" in preview
             assert preview["industry"] == "Crypto Exchange"
         finally:
             _current_universe.set([])
 
-    def test_invalid_input_returns_error(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_invalid_input_returns_error(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers("not a list"))
+            result = json.loads(await filter_by_tickers("not a list"))
             assert "error" in result
         finally:
             _current_universe.set([])
 
-    def test_whitespace_in_tickers_stripped(self, crypto_universe):
+    @pytest.mark.asyncio
+    async def test_whitespace_in_tickers_stripped(self, crypto_universe):
         _current_universe.set(crypto_universe)
         try:
-            result = json.loads(filter_by_tickers(["  COIN  ", " MARA"]))
+            result = json.loads(await filter_by_tickers(["  COIN  ", " MARA"]))
             assert result["match_count"] == 2
         finally:
             _current_universe.set([])
@@ -919,8 +927,9 @@ class TestGetFieldDistribution:
         yield
         _current_universe.set([])
 
-    def test_numeric_field_stats(self):
-        result = json.loads(get_field_distribution("pe_ttm"))
+    @pytest.mark.asyncio
+    async def test_numeric_field_stats(self):
+        result = json.loads(await get_field_distribution("pe_ttm"))
         assert result["type"] == "numeric"
         assert "min" in result
         assert "max" in result
@@ -928,25 +937,29 @@ class TestGetFieldDistribution:
         assert "median" in result
         assert result["non_null_count"] > 0
 
-    def test_categorical_field_stats(self):
-        result = json.loads(get_field_distribution("sector"))
+    @pytest.mark.asyncio
+    async def test_categorical_field_stats(self):
+        result = json.loads(await get_field_distribution("sector"))
         assert result["type"] == "categorical"
         assert "top_values" in result
         assert result["unique_count"] > 0
 
-    def test_boolean_field_stats(self):
-        result = json.loads(get_field_distribution("above_sma50"))
+    @pytest.mark.asyncio
+    async def test_boolean_field_stats(self):
+        result = json.loads(await get_field_distribution("above_sma50"))
         assert result["type"] == "boolean"
         assert "true_count" in result
         assert "false_count" in result
 
-    def test_nonexistent_field(self):
-        result = json.loads(get_field_distribution("nonexistent_field"))
+    @pytest.mark.asyncio
+    async def test_nonexistent_field(self):
+        result = json.loads(await get_field_distribution("nonexistent_field"))
         assert "error" in result
         assert result["non_null_count"] == 0
 
-    def test_sector_filter(self):
-        result = json.loads(get_field_distribution("pe_ttm", sector="Finance"))
+    @pytest.mark.asyncio
+    async def test_sector_filter(self):
+        result = json.loads(await get_field_distribution("pe_ttm", sector="Finance"))
         assert result["type"] == "numeric"
         # Only JPM in Finance sector
         assert result["non_null_count"] == 1
@@ -965,8 +978,9 @@ class TestListAvailableSectors:
         yield
         _current_universe.set([])
 
-    def test_returns_sectors_with_counts(self):
-        result = json.loads(list_available_sectors())
+    @pytest.mark.asyncio
+    async def test_returns_sectors_with_counts(self):
+        result = json.loads(await list_available_sectors())
         assert result["total_sectors"] > 0
         assert result["total_stocks"] == 5
         for sector in result["sectors"]:
@@ -975,8 +989,14 @@ class TestListAvailableSectors:
             assert "count" in sector
             assert sector["count"] > 0
 
-    def test_empty_universe(self):
-        _current_universe.set([])
-        result = json.loads(list_available_sectors())
-        assert result["total_sectors"] == 0
-        assert result["total_stocks"] == 0
+    @pytest.mark.asyncio
+    async def test_empty_universe(self, monkeypatch):
+        # Setting _current_universe to [] alone isn't enough — the agent's
+        # `_ensure_universe()` then falls through to the lazy loader. Mock the
+        # loader itself so the function genuinely sees an empty universe.
+        async def _empty_loader():
+            return []
+        from app.features.screener import agent as screener_agent
+        monkeypatch.setattr(screener_agent, "_ensure_universe", _empty_loader)
+        result = json.loads(await list_available_sectors())
+        assert "error" in result

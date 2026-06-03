@@ -23,8 +23,14 @@ from app.features.screener.agent import (
     _current_universe,
     execute_screener,
 )
-from app.features.screener.research_agent import _parse_json_field
+from app.features.screener.research_agent import (
+    ResearchAgent,
+    ResearchAgentOutput,
+    _parse_json_field,
+    _select_auto_navigate,
+)
 from app.features.screener.models import ResearchRequest, ResearchResult
+from app.features.screener.router import _postprocess_agent_output
 
 
 # ---------------------------------------------------------------------------
@@ -63,13 +69,19 @@ def mini_universe():
 # ---------------------------------------------------------------------------
 
 class TestExecuteScreenerTickerExtraction:
-    """Tests that execute_screener extracts clean tickers from symbol field."""
+    """Tests that execute_screener extracts clean tickers from symbol field.
 
-    def test_strips_exchange_prefix(self, mini_universe):
+    Universe is supplied via the `_current_universe` ContextVar fast-path —
+    `_ensure_universe()` returns the preset value without hitting the remote
+    cache, so these tests stay offline.
+    """
+
+    @pytest.mark.asyncio
+    async def test_strips_exchange_prefix(self, mini_universe):
         """NASDAQ:AAPL -> AAPL in preview ticker field."""
         _current_universe.set(mini_universe)
         try:
-            result = json.loads(execute_screener("[]"))
+            result = json.loads(await execute_screener("[]"))
             preview = result["preview"]
             tickers = [p["ticker"] for p in preview]
             assert "AAPL" in tickers
@@ -82,32 +94,35 @@ class TestExecuteScreenerTickerExtraction:
         finally:
             _current_universe.set([])
 
-    def test_empty_symbol_produces_empty_ticker(self):
+    @pytest.mark.asyncio
+    async def test_empty_symbol_produces_empty_ticker(self):
         """Stock with no symbol field produces empty ticker."""
         universe = [{"name": "NoSymbol", "market_cap": 1e9}]
         _current_universe.set(universe)
         try:
-            result = json.loads(execute_screener("[]"))
+            result = json.loads(await execute_screener("[]"))
             assert result["preview"][0]["ticker"] == ""
         finally:
             _current_universe.set([])
 
-    def test_symbol_without_prefix(self):
+    @pytest.mark.asyncio
+    async def test_symbol_without_prefix(self):
         """Symbol without exchange prefix is kept as-is."""
         universe = [{"symbol": "TSLA", "name": "Tesla", "market_cap": 8e11}]
         _current_universe.set(universe)
         try:
-            result = json.loads(execute_screener("[]"))
+            result = json.loads(await execute_screener("[]"))
             assert result["preview"][0]["ticker"] == "TSLA"
         finally:
             _current_universe.set([])
 
-    def test_filtered_results_have_clean_tickers(self, mini_universe):
+    @pytest.mark.asyncio
+    async def test_filtered_results_have_clean_tickers(self, mini_universe):
         """Filtered results also have clean tickers."""
         _current_universe.set(mini_universe)
         try:
             filters = json.dumps([{"field": "sector", "op": "eq", "value": "Technology Services"}])
-            result = json.loads(execute_screener(filters))
+            result = json.loads(await execute_screener(filters))
             assert result["match_count"] == 2
             tickers = [p["ticker"] for p in result["preview"]]
             assert "AAPL" in tickers
@@ -213,6 +228,48 @@ class TestSymbolValidation:
 
 
 # ---------------------------------------------------------------------------
+# Tests: Research Agent prompt assembly
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_research_prompt_uses_context_engine_budget_and_rich_context():
+    """The actual Research prompt should be assembled by ContextEngine.
+
+    This catches regressions where router/runtime records a budgeted snapshot
+    but ResearchAgent sends a separately hand-built, unbudgeted prompt to ADK.
+    """
+
+    agent = ResearchAgent.__new__(ResearchAgent)
+    history = [
+        {"role": "user", "content": "old oversized context " + ("x" * 25_000)},
+        {"role": "assistant", "content": "recent answer"},
+        {"role": "user", "content": "recent question"},
+        {"role": "assistant", "content": "latest answer"},
+        {"role": "user", "content": "latest question"},
+    ]
+
+    assembled = await agent.assemble_prompt_context(
+        message="继续看 NVDA",
+        history=history,
+        accumulated_filters=[{"field": "sector", "op": "eq", "value": "Technology Services"}],
+        content_context={
+            "type": "stock",
+            "symbol": "NVDA",
+            "quote": {"price": 120.0, "change_percent": 1.5, "market_cap": 3_000_000_000_000},
+        },
+    )
+
+    assert "old oversized context" not in assembled.prompt
+    assert "latest question" in assembled.prompt
+    assert "## Currently Active Filters" in assembled.prompt
+    # universe_size line was removed — the universe is no longer pre-loaded,
+    # so the LLM can't be told a precise count here.
+    assert "Universe:" not in assembled.prompt
+    assert "NVDA Stock Research" in assembled.prompt
+    assert assembled.metadata["truncated_sections"]["history"]["dropped"] == 1
+
+
+# ---------------------------------------------------------------------------
 # Tests: _parse_json_field (research_agent.py)
 # ---------------------------------------------------------------------------
 
@@ -246,6 +303,89 @@ class TestParseJsonField:
 
 
 # ---------------------------------------------------------------------------
+# Tests: Research Agent right-panel navigation
+# ---------------------------------------------------------------------------
+
+class TestResearchNavigation:
+    """Tests for automatic right-panel navigation after tool calls."""
+
+    def test_filter_turn_prefers_screener_over_later_stock_tool(self):
+        parsed = {
+            "filters": [{"field": "pe_ttm", "op": "lt", "value": 20}],
+            "update_results": True,
+        }
+        nav = _select_auto_navigate(
+            parsed,
+            [
+                {"type": "screener", "params": {}, "reason": "auto:execute_screener"},
+                {"type": "stock", "params": {"symbol": "AMD"}, "reason": "auto:get_stock_quote"},
+            ],
+        )
+
+        assert nav is not None
+        assert nav["type"] == "screener"
+
+    def test_pure_stock_turn_keeps_stock_navigation(self):
+        parsed = {
+            "filters": [],
+            "update_results": False,
+        }
+        nav = _select_auto_navigate(
+            parsed,
+            [{"type": "stock", "params": {"symbol": "AMD"}, "reason": "auto:get_stock_quote"}],
+        )
+
+        assert nav is not None
+        assert nav["type"] == "stock"
+        assert nav["params"]["symbol"] == "AMD"
+
+    def test_postprocess_forces_screener_for_filter_results(self, mini_universe):
+        parsed = {
+            "message": "筛到了 PE 小于 20 的股票。",
+            "options": [],
+            "filters": [{"field": "pe_ttm", "op": "lt", "value": 20}],
+            "update_results": True,
+            "navigate": {"type": "stock", "params": {"symbol": "AMD"}},
+        }
+
+        result = _postprocess_agent_output(parsed, mini_universe)
+
+        assert result.candidate_count == 1
+        assert result.candidates[0]["symbol"] == "NYSE:JPM"
+        assert result.navigate == {
+            "type": "screener",
+            "params": {},
+            "reason": "filter_results",
+        }
+
+    def test_postprocess_infers_filter_update_when_update_results_missing(self, mini_universe):
+        parsed = {
+            "message": "筛到了 PE 小于 20 的股票。",
+            "options": [],
+            "filters": [{"field": "pe_ttm", "op": "lt", "value": 20}],
+        }
+
+        result = _postprocess_agent_output(parsed, mini_universe)
+
+        assert result.candidate_count == 1
+        assert result.candidates[0]["symbol"] == "NYSE:JPM"
+        assert result.navigate["type"] == "screener"
+
+    def test_postprocess_does_not_reset_when_update_results_missing_and_no_filters(self, mini_universe):
+        parsed = {
+            "message": "这是一次纯聊天回复。",
+            "options": [],
+            "filters": [],
+        }
+
+        result = _postprocess_agent_output(parsed, mini_universe)
+
+        assert result.reset_results is False
+        assert result.candidates == []
+        assert result.navigate is None
+
+
+# ---------------------------------------------------------------------------
 # Tests: Pydantic models (models.py)
 # ---------------------------------------------------------------------------
 
@@ -268,6 +408,12 @@ class TestResearchRequest:
     def test_message_max_length(self):
         with pytest.raises(Exception):
             ResearchRequest(message="x" * 501)
+
+
+class TestResearchAgentOutput:
+    def test_update_results_defaults_false(self):
+        output = ResearchAgentOutput(message="纯聊天")
+        assert output.update_results is False
 
 
 class TestResearchResult:

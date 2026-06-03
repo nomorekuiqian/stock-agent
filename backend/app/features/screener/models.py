@@ -45,6 +45,24 @@ class ResearchRequest(BaseModel):
         max_length=30,
     )
     active_context: dict[str, Any] | None = None
+    session_id: str | None = Field(
+        default=None,
+        max_length=80,
+        description=(
+            "Durable agent runtime session id. In Phase 1 this is the same "
+            "UUID as conversation_id; conversation_id remains a compatibility alias."
+        ),
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Compatibility alias for session_id.",
+    )
+    turn_id: str | None = Field(
+        default=None,
+        max_length=120,
+        description="Client-generated idempotency key for this user turn.",
+    )
 
 
 class ResearchResult(BaseModel):
@@ -107,11 +125,19 @@ class ConversationDetail(BaseModel):
 
 
 class ConversationSaveRequest(BaseModel):
+    id: str | None = Field(default=None, max_length=80)
     title: str = Field(default="", max_length=50)
     data: dict[str, Any] = Field(
         description="Full conversation state (messages, filters, candidates, etc.)",
     )
     message_count: int = Field(default=0, ge=0)
+    touch: bool = Field(
+        default=True,
+        description=(
+            "When false, persist state without advancing updated_at. Used for "
+            "UI-only panel state saves so history sorting stays tied to chat turns."
+        ),
+    )
 
 
 class FilterResult(BaseModel):

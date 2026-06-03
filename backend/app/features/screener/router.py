@@ -27,6 +27,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
+from app.core.config import AGENT_RUNTIME_REQUEST_HISTORY
 from app.core.deps import verify_cron_secret, verify_user_token, optional_user_token
 from app.core.rate_limit import _get_real_ip
 from app.core.logging import get_logger
@@ -62,6 +63,192 @@ _universe_cache: Dict[str, Any] = {
     "ts": 0.0,
 }
 _CACHE_TTL = 300  # 5 minutes
+RESEARCH_AGENT_ID = "research_agent"
+
+
+def _runtime_session_id(req: ResearchRequest) -> str | None:
+    return req.session_id or req.conversation_id
+
+
+def _request_history_for_runtime(req: ResearchRequest) -> list[dict]:
+    if AGENT_RUNTIME_REQUEST_HISTORY == "disabled":
+        return []
+    return req.history if req.history else []
+
+
+async def _prepare_research_runtime_turn(
+    *,
+    req: ResearchRequest,
+    user_id: str | None,
+    agent: Any,
+):
+    session_id = _runtime_session_id(req)
+    if not user_id or not session_id:
+        return None
+    try:
+        from app.features.agent_runtime import (
+            AgentRunRequest,
+            AgentRuntimeTurn,
+        )
+        from app.features.agent_runtime.runtime import get_agent_runtime
+
+        runtime_request = AgentRunRequest(
+            agent_id=RESEARCH_AGENT_ID,
+            user_id=user_id,
+            session_id=session_id,
+            message=req.message,
+            history=_request_history_for_runtime(req),
+            content_context=req.active_context,
+            metadata={"agent_kind": "research"},
+            turn_id=req.turn_id,
+        )
+        runtime = get_agent_runtime()
+        session = await runtime.load_session(runtime_request)
+        session_history = session.chat_history()
+        if session_history:
+            effective_history = session_history
+        elif AGENT_RUNTIME_REQUEST_HISTORY == "fallback" and req.history:
+            effective_history = req.history
+        else:
+            effective_history = None
+        assembled = await agent.assemble_prompt_context(
+            message=req.message,
+            history=effective_history,
+            accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
+            content_context=req.active_context,
+            user_id=user_id,
+            session=session,
+        )
+        return AgentRuntimeTurn(
+            request=runtime_request,
+            session=session,
+            assembled_context=assembled,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "research runtime prepare failed session_id=%s",
+            session_id,
+        )
+        return None
+
+
+def _effective_research_history(runtime_turn, req: ResearchRequest) -> list[dict] | None:
+    """Resolve the history list the agent should see for this turn.
+
+    Flag semantics:
+      - "primary"   — runtime session is authoritative. If runtime returned an
+                      empty transcript we DO NOT silently re-import the
+                      client-supplied `history`; the agent sees an empty
+                      history. This is what the plan's "grayscale primary
+                      mode" expects, so we can A/B test the "frontend stops
+                      sending history" rollout.
+      - "fallback"  — runtime session is preferred. If it has no transcript,
+                      fall back to `req.history` so older clients keep
+                      working through the migration.
+      - "disabled"  — `req.history` is ignored end-to-end (see
+                      `_request_history_for_runtime`).
+    """
+    if runtime_turn is not None:
+        session_history = runtime_turn.session.chat_history()
+        if session_history:
+            return session_history
+    if AGENT_RUNTIME_REQUEST_HISTORY == "fallback" and req.history:
+        return req.history
+    return None
+
+
+async def _complete_research_runtime_turn(
+    runtime_turn,
+    *,
+    assistant_text: str,
+    tool_calls: list[dict[str, Any]] | None = None,
+) -> None:
+    if runtime_turn is None or not assistant_text:
+        return
+    try:
+        from app.features.agent_runtime.events import (
+            append_turn_events,
+            context_budget_truncated_event,
+            context_snapshot_event,
+            tool_call_events,
+        )
+        from app.features.agent_runtime.runtime import get_agent_runtime
+
+        await get_agent_runtime().complete_turn(
+            runtime_turn,
+            assistant_text=assistant_text,
+            metadata={"agent_kind": "research"},
+        )
+        events_to_write: list[dict[str, Any]] = [
+            context_snapshot_event(runtime_turn),
+            *tool_call_events(tool_calls),
+        ]
+        budget_event = context_budget_truncated_event(runtime_turn)
+        if budget_event is not None:
+            events_to_write.append(budget_event)
+        await append_turn_events(
+            runtime_turn,
+            metadata={"agent_kind": "research"},
+            events=events_to_write,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "research runtime complete failed session_id=%s",
+            getattr(getattr(runtime_turn, "session", None), "session_id", None),
+        )
+
+
+async def _record_research_runtime_error(
+    runtime_turn,
+    *,
+    code: str,
+    stage: str,
+    message: str,
+) -> None:
+    if runtime_turn is None:
+        return
+    try:
+        from app.features.agent_runtime.events import append_turn_events, error_event
+
+        await append_turn_events(
+            runtime_turn,
+            metadata={"agent_kind": "research"},
+            events=[error_event(code=code, stage=stage, message=message)],
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "research runtime error event failed session_id=%s",
+            getattr(getattr(runtime_turn, "session", None), "session_id", None),
+        )
+
+
+async def _sync_research_runtime_ui_state(
+    *,
+    user_id: str,
+    conversation_id: str | None,
+    title: str | None,
+    data: dict[str, Any] | None,
+    source: str,
+) -> None:
+    if not conversation_id:
+        return
+    try:
+        from app.features.agent_runtime.events import sync_ui_state
+
+        await sync_ui_state(
+            user_id=user_id,
+            agent_id=RESEARCH_AGENT_ID,
+            session_id=conversation_id,
+            agent_kind="research",
+            title=title,
+            data=data,
+            source=source,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "research runtime ui sync failed conversation_id=%s",
+            conversation_id,
+        )
 
 
 async def _load_universe() -> Dict[str, Any]:
@@ -363,7 +550,11 @@ def _postprocess_agent_output(
     options_raw = parsed.get("options", [])
     filters = parsed.get("filters", [])
     recommendations_raw = parsed.get("recommendations", [])
-    update_results = parsed.get("update_results", True)
+    raw_update_results = parsed.get("update_results")
+    update_results = bool(filters) if raw_update_results is None else raw_update_results is not False
+    navigate = parsed.get("navigate")
+    if navigate and not isinstance(navigate, dict):
+        navigate = None
 
     options = [str(o) for o in options_raw if o]
 
@@ -430,6 +621,9 @@ def _postprocess_agent_output(
         if resolved:
             recommendations.append({"symbol": resolved, "reason": pr["reason"]})
 
+    if filters and update_results:
+        navigate = {"type": "screener", "params": {}, "reason": "filter_results"}
+
     return ResearchResult(
         success=True,
         message=agent_message,
@@ -441,7 +635,7 @@ def _postprocess_agent_output(
         accumulated_filters=filters,
         reset_results=reset_results,
         title=parsed.get("title", ""),
-        navigate=parsed.get("navigate"),
+        navigate=navigate,
         data_freshness=freshness,
         is_stale=not is_valid,
     )
@@ -473,17 +667,33 @@ async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_t
 
     # Run research agent
     agent = get_research_agent()
+    runtime_turn = await _prepare_research_runtime_turn(
+        req=req,
+        user_id=user_id,
+        agent=agent,
+    )
     try:
         parsed = await agent.guide(
             message=req.message,
-            history=req.history if req.history else None,
+            history=_effective_research_history(runtime_turn, req),
             accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
             universe=universe,
             content_context=req.active_context,
             user_id=user_id,
+            session=getattr(runtime_turn, "session", None) if runtime_turn else None,
+            prebuilt_prompt=(
+                getattr(runtime_turn.assembled_context, "prompt", None)
+                if runtime_turn else None
+            ),
         )
     except Exception as e:
         logger.error("Research agent error: %s", e)
+        await _record_research_runtime_error(
+            runtime_turn,
+            code="agent_error",
+            stage="model_run",
+            message="AI 助手出了点问题，请再试一次",
+        )
         return ResearchResult(
             success=False,
             message="AI 助手出了点问题，请再试一次",
@@ -493,6 +703,7 @@ async def pick_stocks(req: ResearchRequest, user_id: str = Depends(verify_user_t
         )
 
     result = _postprocess_agent_output(parsed, universe, freshness, is_valid)
+    await _complete_research_runtime_turn(runtime_turn, assistant_text=result.message)
     return result
 
 
@@ -550,11 +761,19 @@ async def create_conversation(
         title=req.title,
         data=req.data,
         message_count=req.message_count,
+        conversation_id=req.id,
     )
     if not result:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=500, detail="Failed to create conversation")
+    await _sync_research_runtime_ui_state(
+        user_id=user_id,
+        conversation_id=result.get("id"),
+        title=req.title,
+        data=req.data,
+        source="conversation_create",
+    )
     return result
 
 
@@ -575,6 +794,7 @@ async def update_conversation(
         title=req.title,
         data=req.data,
         message_count=req.message_count,
+        touch=req.touch,
     )
     if not ok:
         from fastapi import HTTPException
@@ -582,6 +802,13 @@ async def update_conversation(
         raise HTTPException(
             status_code=404, detail="Conversation not found or not owned"
         )
+    await _sync_research_runtime_ui_state(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        title=req.title,
+        data=req.data,
+        source="conversation_update",
+    )
     return {"success": True}
 
 
@@ -739,24 +966,19 @@ async def research_chat_stream(
     effective_user_id = user_id or "anonymous"
     logger.info("research_chat_stream called by user %s", effective_user_id[:12])
 
-    cache = await _load_universe()
-    universe = cache["universe"]
-
-    if not universe:
-        async def error_stream():
-            yield "data: %s\n\n" % _json.dumps(
-                {"type": "error", "message": "数据还没准备好，请稍等一下再试"},
-                ensure_ascii=False,
-            )
-        return StreamingResponse(error_stream(), media_type="text/event-stream")
-
     agent = get_research_agent()
 
     async def event_generator():
-        from app.features.screener.agent import _current_universe
+        from app.core.logging import use_turn_context
+        from app.features.screener.agent import _ensure_universe
         from app.features.screener.research_agent import _recent_reports
 
-        _current_universe.set(universe if universe else [])
+        turn_ctx = use_turn_context(
+            turn_id=req.turn_id,
+            session_id=_runtime_session_id(req),
+            agent_id=RESEARCH_AGENT_ID,
+        )
+        turn_ctx.__enter__()
 
         try:
             from app.features.daily_report.db import list_reports
@@ -765,33 +987,109 @@ async def research_chat_stream(
         except Exception:
             _recent_reports.set([])
 
-        # Reuse guide()'s prompt building
-        prompt = await agent.build_prompt(
-            message=req.message,
-            history=req.history if req.history else None,
-            accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
-            universe_size=len(universe),
-            content_context=req.active_context,
-            user_id=effective_user_id,
+        # Reuse guide()'s prompt building. Universe is NOT pre-loaded here —
+        # screener tools (execute_screener / filter_by_tickers / ...) trigger
+        # `_ensure_universe()` on demand, so greeting / stock / macro / report
+        # turns no longer pay the 6s cold-cache fee.
+        runtime_turn = await _prepare_research_runtime_turn(
+            req=req,
+            user_id=user_id,
+            agent=agent,
         )
+        effective_history = _effective_research_history(runtime_turn, req)
+        runtime_session = (
+            getattr(runtime_turn, "session", None) if runtime_turn else None
+        )
+        if runtime_turn is not None:
+            prompt = runtime_turn.assembled_context.prompt
+        else:
+            prompt = await agent.build_prompt(
+                message=req.message,
+                history=effective_history,
+                accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
+                content_context=req.active_context,
+                user_id=effective_user_id,
+                session=runtime_session,
+            )
 
-        freshness = cache.get("freshness")
-        is_valid = cache.get("is_valid", True)
+        async def _shrunk_prompt_factory() -> str:
+            # Mirror KOL agent's retry-with-shrunk-history: drop everything
+            # except the last user/assistant exchange and rebuild. The shrunk
+            # prompt explicitly passes session=None so build_prompt does not
+            # silently re-expand the history from the durable transcript.
+            tail = (effective_history or [])[-2:]
+            return await agent.build_prompt(
+                message=req.message,
+                history=tail,
+                accumulated_filters=req.accumulated_filters if req.accumulated_filters else None,
+                content_context=req.active_context,
+                user_id=effective_user_id,
+                session=None,
+            )
+
+        tool_descriptions: dict[str, str] = {}
+        tool_calls: list[dict[str, Any]] = []
 
         try:
-            async for event in agent.run_stream(prompt, universe):
+            async for event in agent.run_stream(
+                prompt,
+                retry_prompt_factory=_shrunk_prompt_factory,
+            ):
                 if event.get("type") == "done":
                     # Apply same post-processing as /chat (filter, symbol resolve, etc.)
                     parsed = event.get("parsed", {})
-                    result = _postprocess_agent_output(parsed, universe, freshness, is_valid)
+                    # Universe is only needed downstream if the agent actually
+                    # produced filters or recommendations — otherwise it stays
+                    # unloaded and this turn pays zero cold-cache cost.
+                    needs_universe = bool(parsed.get("filters")) or bool(parsed.get("recommendations"))
+                    if needs_universe:
+                        universe_data = await _ensure_universe()
+                        freshness = _universe_cache.get("freshness")
+                        is_valid = _universe_cache.get("is_valid", True)
+                    else:
+                        universe_data = []
+                        freshness = None
+                        is_valid = True
+                    result = _postprocess_agent_output(parsed, universe_data, freshness, is_valid)
+                    await _complete_research_runtime_turn(
+                        runtime_turn,
+                        assistant_text=result.message,
+                        tool_calls=tool_calls,
+                    )
                     yield "data: %s\n\n" % _json.dumps(
                         {"type": "done", "result": result.model_dump()},
                         ensure_ascii=False, default=str,
                     )
+                elif event.get("type") == "tool_call_start":
+                    tool_name = event.get("tool")
+                    if tool_name:
+                        tool_descriptions[str(tool_name)] = str(event.get("description") or "")
+                    yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
+                elif event.get("type") == "tool_call_end":
+                    tool_name = event.get("tool")
+                    if tool_name:
+                        tool_calls.append({
+                            "name": str(tool_name),
+                            "description": tool_descriptions.get(str(tool_name)),
+                            "duration_ms": event.get("duration_ms"),
+                            "ok": True,
+                            "result_preview": event.get("result_preview"),
+                            "result_hash": event.get("result_hash"),
+                            "result_truncated": bool(event.get("result_truncated")),
+                        })
+                    yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
+                elif event.get("type") == "error":
+                    await _record_research_runtime_error(
+                        runtime_turn,
+                        code=str(event.get("code") or "agent_error"),
+                        stage="model_run",
+                        message=str(event.get("message") or "AI 助手出了点问题，请再试一次"),
+                    )
+                    yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
                 else:
                     yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
         finally:
-            _current_universe.set([])
             _recent_reports.set([])
+            turn_ctx.__exit__(None, None, None)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

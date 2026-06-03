@@ -5,6 +5,7 @@ Provides the shared FunctionTools and utilities used by the ResearchAgent.
 The tools operate on a per-coroutine universe ContextVar for thread safety.
 """
 
+import asyncio
 import contextvars
 import json
 import os
@@ -38,6 +39,40 @@ _current_universe: contextvars.ContextVar[list[dict]] = contextvars.ContextVar(
 
 
 # ---------------------------------------------------------------------------
+# Lazy universe loader
+# ---------------------------------------------------------------------------
+#
+# Historically the router pre-loaded the 3789-stock universe and set
+# `_current_universe` before invoking the agent — so every turn (greetings,
+# stock detail, macro, KOL chat) paid a 6s cold-cache fee even when no
+# screener tool fired. Now the universe is loaded lazily: only when a
+# screener tool actually runs.
+#
+# `_ensure_universe` first respects an already-set ContextVar (so the
+# non-streaming `/pick` path that still pre-loads keeps working), and
+# otherwise pulls from the router's TTL cache. The lock dedups concurrent
+# cold-cache callers within one process.
+
+_universe_load_lock = asyncio.Lock()
+
+
+async def _ensure_universe() -> list[dict]:
+    """Return the screener universe, lazily loading from cache on demand.
+
+    Returns [] if the underlying cache is empty / unavailable — tools should
+    treat that as a "data not ready" condition and return a graceful error
+    payload so the LLM can apologize instead of throwing.
+    """
+    preset = _current_universe.get()
+    if preset:
+        return preset
+    async with _universe_load_lock:
+        from app.features.screener.router import _load_universe
+        cache = await _load_universe()
+    return cache.get("universe") or []
+
+
+# ---------------------------------------------------------------------------
 # Filter operators (shared between tools and filters.py)
 # ---------------------------------------------------------------------------
 
@@ -53,10 +88,10 @@ _OPS = {
 
 
 # ---------------------------------------------------------------------------
-# Tool Functions (operate on _current_universe)
+# Tool Functions (lazily load the universe on first call via _ensure_universe)
 # ---------------------------------------------------------------------------
 
-def execute_screener(
+async def execute_screener(
     filters_json: str,
     sort_by: str = "market_cap",
     sort_order: str = "desc",
@@ -120,7 +155,10 @@ def execute_screener(
         return json.dumps({"error": "filters_json must be a JSON array of filter objects."})
 
     # Apply filters (inline to capture total match count before limiting)
-    filtered = list(_current_universe.get())
+    universe = await _ensure_universe()
+    if not universe:
+        return json.dumps({"error": "数据还没准备好，请稍等一下再试"})
+    filtered = list(universe)
     for f in filters:
         field = f.get("field")
         op = f.get("op")
@@ -156,12 +194,12 @@ def execute_screener(
     return json.dumps({
         "match_count": total_matches,
         "returned_count": len(top_results),
-        "universe_size": len(_current_universe.get()),
+        "universe_size": len(universe),
         "preview": preview,
     }, ensure_ascii=False, default=str)
 
 
-def get_field_distribution(field: str, sector: str = "") -> str:
+async def get_field_distribution(field: str, sector: str = "") -> str:
     """Get distribution statistics for a data field to help set reasonable thresholds.
 
     Call this when you need to understand what values are typical for a field
@@ -176,7 +214,9 @@ def get_field_distribution(field: str, sector: str = "") -> str:
         For boolean fields: true_count, false_count.
         For categorical fields: top 20 value counts.
     """
-    stocks = _current_universe.get()
+    stocks = await _ensure_universe()
+    if not stocks:
+        return json.dumps({"error": "数据还没准备好，请稍等一下再试"})
     if sector:
         stocks = [
             s for s in stocks
@@ -251,7 +291,7 @@ def get_field_distribution(field: str, sector: str = "") -> str:
     }, ensure_ascii=False)
 
 
-def filter_by_tickers(
+async def filter_by_tickers(
     tickers: list[str],
     sort_by: str = "market_cap",
     sort_order: str = "desc",
@@ -279,8 +319,11 @@ def filter_by_tickers(
 
     ticker_set = {t.upper().strip() for t in tickers if isinstance(t, str)}
 
+    universe = await _ensure_universe()
+    if not universe:
+        return json.dumps({"error": "数据还没准备好，请稍等一下再试"})
     matched = []
-    for s in _current_universe.get():
+    for s in universe:
         raw_sym = s.get("symbol", "")
         clean = raw_sym.split(":")[-1].upper() if raw_sym else ""
         if clean in ticker_set:
@@ -312,13 +355,13 @@ def filter_by_tickers(
 
     return json.dumps({
         "match_count": len(matched),
-        "universe_size": len(_current_universe.get()),
+        "universe_size": len(universe),
         "not_in_universe": not_found,
         "preview": preview,
     }, ensure_ascii=False, default=str)
 
 
-def list_available_sectors() -> str:
+async def list_available_sectors() -> str:
     """List all available stock sectors with Chinese names and stock counts.
 
     Call this to see what sectors are available for filtering.
@@ -327,7 +370,9 @@ def list_available_sectors() -> str:
         JSON with total_sectors, total_stocks, and array of sectors
         (English name, Chinese name, stock count).
     """
-    universe = _current_universe.get()
+    universe = await _ensure_universe()
+    if not universe:
+        return json.dumps({"error": "数据还没准备好，请稍等一下再试"})
     counts: dict[str, int] = {}
     for s in universe:
         sector = s.get("sector")

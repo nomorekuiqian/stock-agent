@@ -19,6 +19,7 @@ from google.adk.plugins import LoggingPlugin
 from google.adk.runners import InMemoryRunner
 from pydantic import BaseModel, Field
 
+from app.core.config import AGENT_RUNTIME_RESEARCH_TIMEOUT_S
 from app.core.logging import get_logger
 from app.features.screener.agent import (
     _current_universe,
@@ -84,11 +85,11 @@ class PickerAgentOutput(BaseModel):
         default=None,
         description="Field to sort results by (e.g. 'market_cap', 'dividend_yield').",
     )
-    sort_order: str = Field(
+    sort_order: Optional[str] = Field(
         default="desc",
         description="Sort direction: 'asc' or 'desc'.",
     )
-    limit: int = Field(
+    limit: Optional[int] = Field(
         default=100,
         description="Max results to return. Use 100 for broad exploration, 30-50 for narrowed results.",
     )
@@ -571,7 +572,7 @@ class StockPickerAgent:
                     prompt=prompt,
                     output_key="picker",
                 ),
-                timeout=75.0,
+                timeout=AGENT_RUNTIME_RESEARCH_TIMEOUT_S,
             )
         except asyncio.TimeoutError:
             _current_universe.set([])

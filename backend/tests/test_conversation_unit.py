@@ -148,6 +148,7 @@ class TestCreateConversation:
             title=save_request["title"],
             data=save_request["data"],
             message_count=save_request["message_count"],
+            conversation_id=None,
         )
 
     @patch(f"{CONV_DB}.create_conversation", new_callable=AsyncMock)
@@ -178,6 +179,7 @@ class TestUpdateConversation:
             title=save_request["title"],
             data=save_request["data"],
             message_count=save_request["message_count"],
+            touch=True,
         )
 
     @patch(f"{CONV_DB}.update_conversation", new_callable=AsyncMock)

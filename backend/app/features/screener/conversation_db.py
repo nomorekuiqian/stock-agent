@@ -75,19 +75,23 @@ async def create_conversation(
     title: str,
     data: dict[str, Any],
     message_count: int,
+    conversation_id: str | None = None,
 ) -> Optional[dict]:
     """Create a new conversation. Returns the created row (with id)."""
     service = get_insforge_service()
+    body: dict[str, Any] = {
+        "user_id": user_id,
+        "title": title,
+        "data": data,
+        "message_count": message_count,
+    }
+    if conversation_id:
+        body["id"] = conversation_id
     result = await service.call_function(
         _FUNCTION_NAME,
         method="POST",
         params={"action": "create"},
-        json_body={
-            "user_id": user_id,
-            "title": title,
-            "data": data,
-            "message_count": message_count,
-        },
+        json_body=body,
         timeout=10.0,
     )
     data_resp = result.get("data", {})
@@ -103,9 +107,10 @@ async def update_conversation(
     title: Optional[str] = None,
     data: Optional[dict[str, Any]] = None,
     message_count: Optional[int] = None,
+    touch: bool = True,
 ) -> bool:
     """Update an existing conversation. Returns True on success."""
-    body: dict[str, Any] = {"user_id": user_id}
+    body: dict[str, Any] = {"user_id": user_id, "touch": touch}
     if title is not None:
         body["title"] = title
     if data is not None:
