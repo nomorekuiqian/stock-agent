@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import ChatInput from './ChatInput';
 import PersonaSelector, { type AgentKind } from './PersonaSelector';
 
@@ -18,23 +18,249 @@ const GREETINGS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Default capability cards
+// Default capability cards (4-card layout, two interaction patterns)
 // ---------------------------------------------------------------------------
 
-interface CapabilityCard {
+type CardId = 'screener' | 'stock' | 'macro' | 'daily';
+type AccentName = 'emerald' | 'amber' | 'sky' | 'violet' | 'rose';
+type GlyphName = 'funnel' | 'candles' | 'gauge' | 'paper';
+
+interface CardOption {
   title: string;
-  description: string;
-  example: string;
+  desc?: string;
+  prompt: string;
+  dot?: AccentName;
 }
 
+interface BaseCard {
+  id: CardId;
+  title: string;
+  description: string;
+  hint: string;
+  accent: AccentName;
+  glyph: GlyphName;
+}
+
+interface ExpandCard extends BaseCard {
+  mode: 'options';
+  options: CardOption[];
+  freeInputPlaceholder?: string;
+}
+
+interface TickerCard extends BaseCard {
+  mode: 'ticker';
+  chips: string[];
+}
+
+type CapabilityCard = ExpandCard | TickerCard;
+
+// All Tailwind class strings are literal so they survive the JIT compiler's
+// content scan. NEVER template-string the accent name — Tailwind won't see it.
+interface AccentClasses {
+  borderActive: string;        // 'border-emerald-500/40'
+  borderActiveHover: string;   // 'hover:border-emerald-500/40'
+  borderActiveFocus: string;   // 'focus:border-emerald-500/40'
+  bgTint: string;              // 'bg-emerald-500/[0.04]'
+  bgTintHover: string;         // 'hover:bg-emerald-500/[0.04]'
+  textActive: string;          // 'text-emerald-400'
+  textActiveHover: string;     // 'hover:text-emerald-400'
+  textActiveGroupHover: string;// 'group-hover:text-emerald-400'
+  textRest: string;            // 'text-emerald-500/70'
+  ring: string;                // 'focus-visible:ring-emerald-500/40'
+  ringFocus: string;           // 'focus:ring-emerald-500/40'
+  glow: string;                // arbitrary radial-gradient bg
+}
+
+const ACCENTS: Record<AccentName, AccentClasses> = {
+  emerald: {
+    borderActive: 'border-emerald-500/40',
+    borderActiveHover: 'hover:border-emerald-500/40',
+    borderActiveFocus: 'focus:border-emerald-500/40',
+    bgTint: 'bg-emerald-500/[0.04]',
+    bgTintHover: 'hover:bg-emerald-500/[0.04]',
+    textActive: 'text-emerald-400',
+    textActiveHover: 'hover:text-emerald-400',
+    textActiveGroupHover: 'group-hover:text-emerald-400',
+    textRest: 'text-emerald-500/70',
+    ring: 'focus-visible:ring-emerald-500/40',
+    ringFocus: 'focus:ring-emerald-500/40',
+    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(16,185,129,0.14),transparent_70%)]',
+  },
+  amber: {
+    borderActive: 'border-amber-500/40',
+    borderActiveHover: 'hover:border-amber-500/40',
+    borderActiveFocus: 'focus:border-amber-500/40',
+    bgTint: 'bg-amber-500/[0.05]',
+    bgTintHover: 'hover:bg-amber-500/[0.05]',
+    textActive: 'text-amber-400',
+    textActiveHover: 'hover:text-amber-400',
+    textActiveGroupHover: 'group-hover:text-amber-400',
+    textRest: 'text-amber-500/70',
+    ring: 'focus-visible:ring-amber-500/40',
+    ringFocus: 'focus:ring-amber-500/40',
+    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(245,158,11,0.16),transparent_70%)]',
+  },
+  sky: {
+    borderActive: 'border-sky-500/40',
+    borderActiveHover: 'hover:border-sky-500/40',
+    borderActiveFocus: 'focus:border-sky-500/40',
+    bgTint: 'bg-sky-500/[0.05]',
+    bgTintHover: 'hover:bg-sky-500/[0.05]',
+    textActive: 'text-sky-400',
+    textActiveHover: 'hover:text-sky-400',
+    textActiveGroupHover: 'group-hover:text-sky-400',
+    textRest: 'text-sky-500/70',
+    ring: 'focus-visible:ring-sky-500/40',
+    ringFocus: 'focus:ring-sky-500/40',
+    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(14,165,233,0.16),transparent_70%)]',
+  },
+  violet: {
+    borderActive: 'border-violet-500/40',
+    borderActiveHover: 'hover:border-violet-500/40',
+    borderActiveFocus: 'focus:border-violet-500/40',
+    bgTint: 'bg-violet-500/[0.05]',
+    bgTintHover: 'hover:bg-violet-500/[0.05]',
+    textActive: 'text-violet-400',
+    textActiveHover: 'hover:text-violet-400',
+    textActiveGroupHover: 'group-hover:text-violet-400',
+    textRest: 'text-violet-500/70',
+    ring: 'focus-visible:ring-violet-500/40',
+    ringFocus: 'focus:ring-violet-500/40',
+    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(139,92,246,0.16),transparent_70%)]',
+  },
+  rose: {
+    // rose is dot-only — never used as a card accent. Filled in for completeness.
+    borderActive: 'border-rose-500/40',
+    borderActiveHover: 'hover:border-rose-500/40',
+    borderActiveFocus: 'focus:border-rose-500/40',
+    bgTint: 'bg-rose-500/[0.05]',
+    bgTintHover: 'hover:bg-rose-500/[0.05]',
+    textActive: 'text-rose-400',
+    textActiveHover: 'hover:text-rose-400',
+    textActiveGroupHover: 'group-hover:text-rose-400',
+    textRest: 'text-rose-500/70',
+    ring: 'focus-visible:ring-rose-500/40',
+    ringFocus: 'focus:ring-rose-500/40',
+    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(244,63,94,0.16),transparent_70%)]',
+  },
+};
+
+// Standalone dot colors for per-option leading indicators (daily reports).
+const DOT_BG: Record<AccentName, string> = {
+  emerald: 'bg-emerald-400',
+  amber: 'bg-amber-400',
+  sky: 'bg-sky-400',
+  violet: 'bg-violet-400',
+  rose: 'bg-rose-400',
+};
+
 const CAPABILITIES: CapabilityCard[] = [
-  { title: '一句话选股', description: '大白话从 5000 只里筛到几只', example: 'PE 小于 20、有分红' },
-  { title: '个股研究台', description: '基本面、技术面、新闻、同行对标', example: '深入分析 NVDA' },
-  { title: '宏观仪表盘', description: '流动性、经济、通胀、情绪 四维信号灯', example: '现在宏观环境怎么样' },
-  { title: '市场日报', description: '复盘昨日市场发生了什么', example: '解读今天的市场日报' },
-  { title: '盘前早报', description: '今天开盘前要看什么', example: '今早盘前要点' },
-  { title: '专属日报', description: '基于你的持仓自动生成', example: '我持仓今天怎么样' },
+  {
+    id: 'screener',
+    title: '一句话选股',
+    description: '用大白话从 5000 只里筛到几只',
+    hint: '看示例',
+    accent: 'emerald',
+    glyph: 'funnel',
+    mode: 'options',
+    options: [
+      { title: '不知道从哪问？', desc: '让 Agent 帮你梳理思路', prompt: '我该怎么挑股票？给我几个常见的切入角度' },
+      { title: '估值', desc: 'PE 小于 20 且有稳定分红', prompt: '帮我找 PE 小于 20 且有稳定分红的股票' },
+      { title: '趋势', desc: '突破 52 周新高 + 放量', prompt: '帮我找突破 52 周新高且成交量放大的股票' },
+      { title: '主题', desc: 'AI 算力链里的龙头', prompt: 'AI 算力产业链里有哪些龙头？' },
+      { title: '红利', desc: '股息率 4%+，连续 5 年增长', prompt: '帮我找股息率 4% 以上、连续 5 年增长股息的公司' },
+    ],
+    freeInputPlaceholder: '或者，自己描述你想筛的股票...',
+  },
+  {
+    id: 'stock',
+    title: '个股研究台',
+    description: '基本面、技术面、新闻、同行对标',
+    hint: '输入代码',
+    accent: 'amber',
+    glyph: 'candles',
+    mode: 'ticker',
+    chips: ['NVDA', 'TSLA', 'AAPL', 'PLTR', 'COIN'],
+  },
+  {
+    id: 'macro',
+    title: '宏观仪表盘',
+    description: '流动性 / 经济 / 通胀 / 情绪 四维信号',
+    hint: '4 维度',
+    accent: 'sky',
+    glyph: 'gauge',
+    mode: 'options',
+    options: [
+      { title: '流动性', desc: '美联储、利率、信用利差', prompt: '现在市场流动性怎么样？' },
+      { title: '经济', desc: '增长、就业、消费、制造业', prompt: '美国经济现在处于什么阶段？' },
+      { title: '通胀', desc: 'CPI、PPI、通胀预期', prompt: '通胀压力现在还大吗？' },
+      { title: '情绪', desc: '恐慌贪婪、VIX、资金流向', prompt: '市场情绪现在是恐慌还是贪婪？' },
+    ],
+  },
+  {
+    id: 'daily',
+    title: '每日简报',
+    description: '复盘、盘前、专属、KOL 热议',
+    hint: '4 种日报',
+    accent: 'violet',
+    glyph: 'paper',
+    mode: 'options',
+    options: [
+      { title: '市场日报', desc: '复盘昨日市场发生了什么', prompt: '解读今天的市场日报', dot: 'amber' },
+      { title: '盘前早报', desc: '今天开盘前要看什么', prompt: '今早盘前要点', dot: 'rose' },
+      { title: '专属日报', desc: '基于你的持仓自动生成', prompt: '我持仓今天怎么样', dot: 'emerald' },
+      { title: '推特日报', desc: 'KOL 今天都在聊什么', prompt: '今天 KOL 都在聊什么？', dot: 'sky' },
+    ],
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// Card glyphs — tiny inline SVGs, currentColor friendly.
+// ---------------------------------------------------------------------------
+
+function CardGlyph({ name, className }: { name: GlyphName; className?: string }) {
+  const common = {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.6,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    className,
+    'aria-hidden': true as const,
+  };
+  switch (name) {
+    case 'funnel':
+      return (
+        <svg {...common}>
+          <path d="M4 5h16l-6.2 8.2v5.3l-3.6 1.5v-6.8L4 5z" />
+        </svg>
+      );
+    case 'candles':
+      return (
+        <svg {...common}>
+          <path d="M7 4v3M7 17v3M17 4v6M17 18v2" />
+          <rect x="5.5" y="7" width="3" height="10" rx="0.6" />
+          <rect x="15.5" y="10" width="3" height="8" rx="0.6" />
+        </svg>
+      );
+    case 'gauge':
+      return (
+        <svg {...common}>
+          <path d="M4 16a8 8 0 1116 0" />
+          <path d="M12 16l4-4" />
+          <circle cx="12" cy="16" r="1.1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'paper':
+      return (
+        <svg {...common}>
+          <path d="M5 5h11l3 3v11H5z" />
+          <path d="M8 10h8M8 13h8M8 16h5" />
+        </svg>
+      );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Persona descriptors. Lookup by username; falls back to qinbafrank-style copy.
@@ -263,6 +489,10 @@ interface DefaultIntroProps {
 }
 
 function DefaultIntro({ greeting, userName, universeSize, onSelect }: DefaultIntroProps) {
+  const [expandedId, setExpandedId] = useState<CardId | null>(null);
+  const toggle = (id: CardId) =>
+    setExpandedId((prev) => (prev === id ? null : id));
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col px-4 sm:px-6 py-8 sm:py-12">
       <div className="mb-10 sm:mb-14 animate-fade-in-up">
@@ -297,32 +527,297 @@ function DefaultIntro({ greeting, userName, universeSize, onSelect }: DefaultInt
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {CAPABILITIES.map((cap, i) => (
-          <button
-            key={cap.title}
-            type="button"
-            onClick={() => onSelect(cap.example)}
-            className="group relative flex flex-col text-left p-5 rounded-xl border border-border/50 hover:border-primary/40 hover:bg-primary/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition-colors duration-200 animate-fade-in-up cursor-pointer"
-            style={{ animationDelay: `${i * 60}ms` }}
-          >
-            <h3 className="font-editorial text-lg leading-tight text-foreground mb-1.5">
-              {cap.title}
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              {cap.description}
-            </p>
-            <div className="mt-auto pt-3 border-t border-border/40 group-hover:border-primary/20 flex items-center gap-2 transition-colors">
-              <span className="text-sm text-foreground/70 group-hover:text-primary transition-colors flex-1 truncate">
-                {cap.example}
-              </span>
-              <svg
-                className="w-3.5 h-3.5 text-muted-foreground/70 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0"
-                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              >
-                <path d="M5 12h14M13 5l7 7-7 7" />
-              </svg>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+        {CAPABILITIES.map((card, i) => (
+          <CapabilityCardView
+            key={card.id}
+            card={card}
+            expanded={expandedId === card.id}
+            onToggle={() => toggle(card.id)}
+            onSubmit={onSelect}
+            index={i}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Capability card — dispatches to options-expand or ticker-input body.
+// Color identity comes from card.accent (see ACCENTS map).
+// ---------------------------------------------------------------------------
+
+interface CapabilityCardViewProps {
+  card: CapabilityCard;
+  expanded: boolean;
+  onToggle: () => void;
+  onSubmit: (value: string) => void;
+  index: number;
+}
+
+function CapabilityCardView({
+  card,
+  expanded,
+  onToggle,
+  onSubmit,
+  index,
+}: CapabilityCardViewProps) {
+  const a = ACCENTS[card.accent];
+
+  return (
+    <div
+      className={`group relative rounded-xl border bg-card/30 animate-fade-in-up transition-colors duration-200 overflow-hidden ${
+        expanded
+          ? `${a.borderActive} ${a.bgTint}`
+          : `border-border/50 ${a.borderActiveHover} ${a.bgTintHover}`
+      }`}
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      {/* Ambient corner glow — only on expand. Sits below content, doesn't catch clicks. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${a.glow} ${
+          expanded ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={`card-body-${card.id}`}
+        className={`relative w-full text-left p-5 focus:outline-none focus-visible:ring-2 ${a.ring} cursor-pointer`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
+                expanded ? a.borderActive : 'border-border/40'
+              } ${a.bgTint} transition-colors`}
+            >
+              <CardGlyph
+                name={card.glyph}
+                className={`h-4 w-4 transition-colors ${expanded ? a.textActive : a.textRest} ${a.textActiveGroupHover}`}
+              />
             </div>
+            <div className="min-w-0">
+              <h3 className="font-editorial text-lg leading-tight text-foreground mb-1.5">
+                {card.title}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {card.description}
+              </p>
+            </div>
+          </div>
+          <div
+            className={`flex items-center gap-1.5 text-xs shrink-0 mt-1 transition-colors ${
+              expanded ? a.textActive : `${a.textRest} ${a.textActiveGroupHover}`
+            }`}
+          >
+            <span>{card.hint}</span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                expanded ? 'rotate-180' : ''
+              }`}
+              aria-hidden
+            />
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div
+          id={`card-body-${card.id}`}
+          className="relative px-5 pb-5 border-t border-border/30 animate-fade-in-up"
+        >
+          {card.mode === 'ticker' ? (
+            <TickerEntry
+              chips={card.chips}
+              accent={a}
+              onSubmit={(ticker) => onSubmit(`深入分析 ${ticker}`)}
+            />
+          ) : (
+            <OptionGrid
+              options={card.options}
+              accent={a}
+              freeInputPlaceholder={card.freeInputPlaceholder}
+              onSubmit={onSubmit}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Option grid — used by 一句话选股 / 宏观仪表盘 / 每日简报
+// ---------------------------------------------------------------------------
+
+interface OptionGridProps {
+  options: CardOption[];
+  accent: AccentClasses;
+  freeInputPlaceholder?: string;
+  onSubmit: (value: string) => void;
+}
+
+function OptionGrid({ options, accent, freeInputPlaceholder, onSubmit }: OptionGridProps) {
+  const [freeText, setFreeText] = useState('');
+  const isComposingRef = useRef(false);
+
+  const submitFreeText = () => {
+    const trimmed = freeText.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    setFreeText('');
+  };
+
+  return (
+    <div className="pt-4 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt.title}
+            type="button"
+            onClick={() => onSubmit(opt.prompt)}
+            className={`flex items-start gap-2.5 rounded-lg border border-border/40 bg-background/40 px-3.5 py-2.5 text-left transition-colors duration-200 ${accent.borderActiveHover} ${accent.bgTintHover} focus:outline-none focus-visible:ring-2 ${accent.ring} cursor-pointer`}
+          >
+            {opt.dot && (
+              <span
+                aria-hidden
+                className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${DOT_BG[opt.dot]}`}
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-foreground leading-tight">
+                {opt.title}
+              </div>
+              {opt.desc && (
+                <div className="mt-0.5 text-xs text-muted-foreground leading-relaxed truncate">
+                  {opt.desc}
+                </div>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {freeInputPlaceholder && (
+        <div className="relative">
+          <input
+            type="text"
+            value={freeText}
+            onChange={(e) => setFreeText(e.target.value)}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={() => { isComposingRef.current = false; }}
+            onKeyDown={(e) => {
+              if (isComposingRef.current || e.nativeEvent.isComposing) return;
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitFreeText();
+              }
+            }}
+            placeholder={freeInputPlaceholder}
+            aria-label="自定义筛选条件"
+            className={`w-full rounded-lg border border-border/40 bg-background/40 pl-3.5 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none ${accent.borderActiveFocus} focus:ring-1 ${accent.ringFocus} transition-colors duration-200`}
+          />
+          <button
+            type="button"
+            onClick={submitFreeText}
+            disabled={!freeText.trim()}
+            aria-label="发送"
+            className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors duration-200 ${
+              freeText.trim()
+                ? `${accent.textActive} ${accent.bgTintHover} cursor-pointer`
+                : 'text-muted-foreground/30 cursor-not-allowed'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M5 12h14M13 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ticker entry — used by 个股研究台
+// ---------------------------------------------------------------------------
+
+interface TickerEntryProps {
+  chips: string[];
+  accent: AccentClasses;
+  onSubmit: (ticker: string) => void;
+}
+
+function TickerEntry({ chips, accent, onSubmit }: TickerEntryProps) {
+  const [value, setValue] = useState('');
+  const isComposingRef = useRef(false);
+
+  const submit = () => {
+    const trimmed = value.trim().toUpperCase();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    setValue('');
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposingRef.current || e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  return (
+    <div className="pt-4 space-y-3">
+      <div className="relative">
+        <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${accent.textRest}`} aria-hidden>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionEnd={() => { isComposingRef.current = false; }}
+          placeholder="输入股票代码或公司名，如 NVDA / 英伟达"
+          aria-label="输入股票代码"
+          className={`w-full pl-10 pr-12 py-2.5 rounded-lg border border-border/40 bg-background/40 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none ${accent.borderActiveFocus} focus:ring-1 ${accent.ringFocus} transition-colors duration-200 uppercase tracking-wide`}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!value.trim()}
+          aria-label="开始分析"
+          className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors duration-200 ${
+            value.trim()
+              ? `${accent.textActive} hover:${accent.bgTint} cursor-pointer`
+              : 'text-muted-foreground/30 cursor-not-allowed'
+          }`}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M5 12h14M13 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground/60 mr-1">热门</span>
+        {chips.map((ticker) => (
+          <button
+            key={ticker}
+            type="button"
+            onClick={() => onSubmit(ticker)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium tracking-wide ${accent.textRest} bg-background/50 border border-border/40 ${accent.borderActiveHover} ${accent.textActiveHover} ${accent.bgTintHover} transition-colors duration-200 focus:outline-none focus-visible:ring-2 ${accent.ring} cursor-pointer`}
+          >
+            {ticker}
           </button>
         ))}
       </div>

@@ -87,7 +87,7 @@ export default function ConversationSidebar({
   }, [hasMore, loadingMore, onLoadMore, conversations.length]);
 
   return (
-    <div className="h-full w-full flex flex-col">
+    <div data-testid="research-conversation-sidebar" className="h-full min-h-0 w-full flex flex-col">
       {/* ── Logo header ── */}
       <div className="px-3 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">

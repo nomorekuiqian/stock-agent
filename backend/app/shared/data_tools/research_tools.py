@@ -758,6 +758,112 @@ async def get_weekly_report() -> str:
 
 
 # =============================================================================
+# Twitter Digest (KOL aggregation)
+# =============================================================================
+
+
+async def get_twitter_digest() -> str:
+    """Get today's KOL Twitter digest — what tracked Twitter/X finance KOLs are saying right now.
+
+    CALL THIS TOOL (do not fall back to web search) whenever the user asks about:
+      - "KOL" / "博主" / "推特" / "Twitter" 圈在说 / 在聊什么
+      - 今天 / 最近 KOL 对某只 ticker 的看法
+      - KOL 圈对某个赛道 (AI 算力 / 加密 / Fed) 的多空分歧
+      - 推特日报内容、watchpoints、博主热议
+
+    Example triggering queries (must trigger this tool, not tavily_search):
+      "今天 KOL 都在聊什么"
+      "推特圈对 NVDA 怎么看"
+      "博主们对 AI 算力的最新观点"
+      "最近 KOL 圈有什么热议"
+      "今日推特日报"
+
+    Returns: { date, headline, hot_tickers, hot_sectors, ticker_theses (with bull/bear
+    stance summaries + synthesis), macro_threads, watchpoints }. Returns
+    {"message": "No twitter digest available yet today"} if no digest is published yet.
+    """
+    from app.features.twitter_digest.db import get_latest_digest
+
+    logger.info("research_tool: get_twitter_digest()")
+    try:
+        digest = await get_latest_digest()
+        if not digest:
+            return _safe_json_dumps({"message": "No twitter digest available yet today"})
+
+        d = digest.model_dump()
+
+        # Hot lists — top items only
+        def _trim_hot(items, limit):
+            if not items or not isinstance(items, list):
+                return []
+            out = []
+            for it in items[:limit]:
+                if isinstance(it, dict):
+                    out.append({
+                        "label": it.get("label", ""),
+                        "count": it.get("count", 0),
+                        "kols": it.get("kols", 0),
+                    })
+            return out
+
+        # Ticker theses — keep stance / synthesis / counts, drop full argument arrays
+        theses = []
+        for t in (d.get("ticker_theses") or [])[:8]:
+            if not isinstance(t, dict):
+                continue
+            theses.append({
+                "ticker": t.get("ticker", ""),
+                "side": t.get("side", ""),
+                "primary_kols": (t.get("primary_kols") or [])[:4],
+                "tweet_count": t.get("tweet_count", 0),
+                "stance_summary": t.get("stance_summary", ""),
+                "synthesis_zh": t.get("synthesis_zh", ""),
+                "buy_count": t.get("buy_count", 0),
+                "sell_count": t.get("sell_count", 0),
+                "observation_count": t.get("observation_count", 0),
+            })
+
+        # Macro threads — synthesis only, drop key_points
+        threads = []
+        for m in (d.get("macro_threads") or [])[:4]:
+            if not isinstance(m, dict):
+                continue
+            threads.append({
+                "title": m.get("title", ""),
+                "layer": m.get("layer", "macro"),
+                "primary_kols": (m.get("primary_kols") or [])[:4],
+                "synthesis_zh": m.get("synthesis_zh", ""),
+            })
+
+        # Watchpoints — title + date + why, drop evidence arguments
+        watchpoints = []
+        for w in (d.get("watchpoints") or [])[:5]:
+            if not isinstance(w, dict):
+                continue
+            watchpoints.append({
+                "title": w.get("title", ""),
+                "date_hint": w.get("date_hint", ""),
+                "why_it_matters_zh": w.get("why_it_matters_zh", ""),
+                "related_tickers": (w.get("related_tickers") or [])[:6],
+            })
+
+        return _safe_json_dumps({
+            "date": d.get("date", ""),
+            "headline": d.get("headline", ""),
+            "tracked_kols": (d.get("tracked_kols") or [])[:20],
+            "input_tweet_count": d.get("input_tweet_count", 0),
+            "hot_tickers": _trim_hot(d.get("hot_tickers"), 10),
+            "hot_sectors": _trim_hot(d.get("hot_sectors"), 5),
+            "ticker_theses": theses,
+            "macro_threads": threads,
+            "watchpoints": watchpoints,
+        })
+    except Exception as e:
+        logger.error("get_twitter_digest failed: %s", e)
+        return _safe_json_dumps({"error": str(e)[:200]})
+
+
+# =============================================================================
 # Tool registry for import
 # =============================================================================
 
@@ -782,4 +888,5 @@ research_data_tools = [
     # V2: reports
     get_morning_report,
     get_weekly_report,
+    get_twitter_digest,
 ]

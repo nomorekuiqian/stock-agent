@@ -63,7 +63,10 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
   // Auto-scroll to bottom on new messages (unless user scrolled up)
   useEffect(() => {
     if (!userScrolled) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   }, [messages.length, loading, userScrolled]);
 
@@ -74,12 +77,13 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
   );
 
   return (
-    <div className="relative flex flex-col h-full">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Messages area */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-4"
+        data-testid="research-chat-scroll"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 py-4 space-y-4"
       >
         {messages.map((msg, i) => (
             <div key={msg.id}>

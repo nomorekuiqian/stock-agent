@@ -166,10 +166,14 @@ export function loadState(): ResearchState {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState;
     const saved = JSON.parse(raw) as Partial<ResearchState>;
-    // Migrate old {label,value} options to plain strings
+    // Migrate old {label,value} options to plain strings. Also force-clear any
+    // residual `streaming: true` from a tab that was unmounted mid-SSE — without
+    // this, ChatPanel keeps rendering the streaming indicator forever on the
+    // half-finished assistant bubble and the conversation appears "stuck loading".
     if (saved.messages) {
       saved.messages = saved.messages.map((m) => ({
         ...m,
+        streaming: false,
         options: m.options?.map((o: unknown) =>
           typeof o === 'string' ? o : (o as { label?: string }).label ?? '',
         ),
@@ -440,6 +444,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
       return {
         ...state,
         activeContent: action.content,
+        contentStack: [],
       };
 
     case 'CONTEXT_ENTRY':

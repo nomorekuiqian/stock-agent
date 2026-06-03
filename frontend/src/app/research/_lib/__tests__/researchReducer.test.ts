@@ -632,7 +632,7 @@ describe('POP_CONTENT', () => {
 });
 
 describe('SWITCH_CONTENT', () => {
-  it('replaces active content without changing stack', () => {
+  it('replaces active content', () => {
     const stockContent = {
       type: 'stock' as const,
       label: 'MSFT',
@@ -646,6 +646,26 @@ describe('SWITCH_CONTENT', () => {
     });
     expect(state.activeContent).toBe(stockContent);
     expect(state.contentStack).toHaveLength(0);
+  });
+
+  it('clears existing stack when switching content', () => {
+    const stockContent = {
+      type: 'stock' as const,
+      label: 'AMD',
+      summary: '',
+      params: { symbol: 'AMD' },
+      available_actions: [],
+    };
+    let state = researchReducer(initialState, { type: 'PUSH_CONTENT', content: stockContent });
+    expect(state.contentStack).toHaveLength(1);
+
+    state = researchReducer(state, {
+      type: 'SWITCH_CONTENT',
+      content: initialState.activeContent,
+    });
+
+    expect(state.activeContent).toBe(initialState.activeContent);
+    expect(state.contentStack).toEqual([]);
   });
 });
 

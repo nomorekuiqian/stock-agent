@@ -5,6 +5,7 @@ import type { FilterStep } from './FilterProgress';
 import type { StockPanelContextPayload } from './panel/StockPanelView';
 import type { DailyReportContextPayload } from './DailyReportView';
 import type { MorningReportContextPayload } from './MorningReportView';
+import type { TwitterDigestContextPayload } from './TwitterDigestView';
 import type { BrewContextPayload } from './BrewDigestView';
 import type { MacroPanelContextPayload } from './panel/MacroPanelView';
 import type { StockTab, MacroTab } from '../_lib/contentTypes';
@@ -13,6 +14,7 @@ import StockPanelView from './panel/StockPanelView';
 import MacroPanelView from './panel/MacroPanelView';
 import DailyReportView from './DailyReportView';
 import MorningReportView from './MorningReportView';
+import TwitterDigestView from './TwitterDigestView';
 import BrewDigestView from './BrewDigestView';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +42,8 @@ interface ContentPanelProps {
   onReportContextReady?: (payload: DailyReportContextPayload) => void;
   /** Called when morning report data is loaded in MorningReportView, for Agent context. */
   onMorningContextReady?: (payload: MorningReportContextPayload) => void;
+  /** Called when twitter digest data is loaded in TwitterDigestView, for Agent context. */
+  onTwitterDigestContextReady?: (payload: TwitterDigestContextPayload) => void;
   /** Called when macro panel data is loaded in MacroPanelView, for Agent context. */
   onMacroPanelContextReady?: (payload: MacroPanelContextPayload) => void;
   /** Called when brew digest data is loaded in BrewDigestView, for Agent context. */
@@ -54,6 +58,7 @@ export default function ContentPanel({
   onStockContextReady,
   onReportContextReady,
   onMorningContextReady,
+  onTwitterDigestContextReady,
   onMacroPanelContextReady,
   onBrewContextReady,
 }: ContentPanelProps) {
@@ -106,6 +111,14 @@ export default function ContentPanel({
             key={activeContent.params.date || 'latest'}
             date={activeContent.params.date || undefined}
             onContextReady={onMorningContextReady}
+          />
+        )}
+
+        {activeContent.type === 'twitter_digest' && (
+          <TwitterDigestView
+            key={activeContent.params.date || 'latest'}
+            date={activeContent.params.date || undefined}
+            onContextReady={onTwitterDigestContextReady}
           />
         )}
 

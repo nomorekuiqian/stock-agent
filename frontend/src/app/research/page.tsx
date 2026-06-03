@@ -18,10 +18,12 @@ import {
   saveState,
   STORAGE_KEY,
 } from './_lib/researchReducer';
+import { SCREENER_CONTENT, type ContentContext } from './_lib/contentTypes';
 import type { ChatMsg, LoadConversationData } from './_lib/researchReducer';
 import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
 import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
+import type { TwitterDigestContextPayload } from './_components/TwitterDigestView';
 import type { MacroPanelContextPayload } from './_components/panel/MacroPanelView';
 import type { BrewContextPayload } from './_components/BrewDigestView';
 import WelcomeScreen from './_components/WelcomeScreen';
@@ -49,6 +51,7 @@ const CONVERSATIONS_STALE_TIME_MS = 10 * 60 * 1000;
 const CONVERSATIONS_GC_TIME_MS = 60 * 60 * 1000;
 const CONVERSATIONS_STORAGE_MAX_AGE_MS = 60 * 60 * 1000;
 const MAX_QUOTA = { allowed: true, used: 0, limit: 0, remaining: 0, unlimited: true };
+const SEND_RUNTIME_HISTORY = process.env.NEXT_PUBLIC_AGENT_RUNTIME_SEND_HISTORY !== 'false';
 
 type ApiHistoryMessage = { role: 'user' | 'assistant'; content: string };
 type ConversationListPage = { conversations: ConversationSummary[]; has_more?: boolean };
@@ -186,9 +189,17 @@ function getAgentErrorMessage(event: {
 function getContextKey(contextType: string, params: URLSearchParams): string {
   if (contextType === 'daily_report') return `daily_report:${params.get('date') || ''}`;
   if (contextType === 'morning_report') return `morning_report:${params.get('date') || ''}`;
+  if (contextType === 'twitter_digest') return `twitter_digest:${params.get('date') || ''}`;
   if (contextType === 'stock') return `stock:${params.get('symbol') || ''}`;
   if (contextType === 'brew') return `brew:${params.get('digestId') || ''}`;
   return contextType; // e.g. 'macro'
+}
+
+function getPanelContentSignature(
+  activeContent: ContentContext,
+  contentStack: ContentContext[],
+): string {
+  return JSON.stringify({ activeContent, contentStack });
 }
 
 // ---------------------------------------------------------------------------
@@ -233,15 +244,18 @@ function ScreenerContent() {
   const stockContextRef = useRef<StockContextPayload | null>(null);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
+  const twitterDigestContextRef = useRef<TwitterDigestContextPayload | null>(null);
   const macroPanelContextRef = useRef<MacroPanelContextPayload | null>(null);
   const brewContextRef = useRef<BrewContextPayload | null>(null);
   const convCache = useRef<Map<string, Record<string, unknown>>>(new Map());
   const pendingSeed = useRef<string | null>(null);
   const pendingSeedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
+  const loadingConversationRef = useRef(false);
   const searchParams = useSearchParams();
   const contextInitialized = useRef(false);
   const skipPanelSaveRef = useRef(true);
+  const lastPanelContentSignatureRef = useRef<string | null>(null);
   const latestStateRef = useRef(state);
   const conversationUserId = userId ?? 'anonymous';
   const conversationListQueryKey = useMemo(
@@ -351,6 +365,22 @@ function ScreenerContent() {
       pendingSeed.current = date
         ? `帮我解读 ${date} 的盘前早报`
         : '帮我看看今早的盘前早报';
+    } else if (contextType === 'twitter_digest') {
+      const date = searchParams.get('date') || '';
+      dispatch({
+        type: 'CONTEXT_ENTRY',
+        key: contextKey,
+        content: {
+          type: 'twitter_digest',
+          label: date ? `${date} 推特日报` : '推特日报',
+          summary: '',
+          params: date ? { date } : {},
+          available_actions: ['看 KOL 多空打架', '深入某只票的博主观点', '看 watchpoints'],
+        },
+      });
+      pendingSeed.current = date
+        ? `帮我解读 ${date} 的推特日报`
+        : '今天 KOL 都在聊什么？';
     } else if (contextType === 'macro') {
       dispatch({
         type: 'CONTEXT_ENTRY',
@@ -417,7 +447,6 @@ function ScreenerContent() {
     // on 'research'. React's setState bails out on unchanged values, so this
     // is free when nothing changed.
     setAgentKind('kol_research');
-    setPersonaUsername(personaParam);
 
     // Seed gate fires once per (persona, q) tuple — prevents the same
     // starter URL from RESET-ing the conversation again if the user
@@ -429,14 +458,30 @@ function ScreenerContent() {
         personaParam.toLowerCase() === 'qinbafrank' ? 'Frank' : `@${personaParam}`;
       seedQ = `按 ${personaName} 的框架分析 ${symbolParam.toUpperCase()}：他怎么看这个标的、核心逻辑是什么、有哪些原文依据？`;
     }
-    if (!seedQ) return;
+    if (!seedQ) {
+      setPersonaUsername(personaParam);
+      return;
+    }
     const signature = `${personaParam}|${seedQ}`;
     if (lastProcessedKolSeed.current === signature) return;
+
+    const firstUserMessage = state.messages.find((m) => m.role === 'user');
+    const hasRestoredSeedConversation = (
+      state.phase === 'chat' &&
+      state.personaUsername === personaParam &&
+      firstUserMessage?.content === seedQ
+    );
+    if (hasRestoredSeedConversation) {
+      lastProcessedKolSeed.current = signature;
+      return;
+    }
+
     lastProcessedKolSeed.current = signature;
 
     // Seeded entries always start a fresh conversation — drop current state
     // (saved server-side already) so the seed becomes turn 1.
     dispatch({ type: 'RESET' });
+    dispatch({ type: 'SET_PERSONA', personaUsername: personaParam });
     pendingSeed.current = seedQ;
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
     // Slightly longer delay than CONTEXT_ENTRY path because we don't gate on
@@ -449,12 +494,86 @@ function ScreenerContent() {
       pendingSeed.current = null;
       handleSendRef.current?.(msg);
     }, 250);
-  }, [searchParams]);
+  }, [searchParams, setAgentKind, setPersonaUsername, state.phase, state.personaUsername, state.messages]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // Phase 1 reconciliation: on initial mount, if sessionStorage rehydrated a
+  // conversation, double-check the runtime to pick up any new messages that
+  // landed since this tab last persisted (e.g., a turn finished on another
+  // device, or the picker save was lagging). Runs ONCE per mount so the user
+  // never gets re-fetched mid-conversation.
+  const runtimeReconciledRef = useRef(false);
+  useEffect(() => {
+    if (runtimeReconciledRef.current) return;
+    if (!userId) return;
+    if (loadingConversationRef.current) return;
+    const cid = state.conversationId;
+    if (!cid) return;
+    if (state.isLoading) return; // mid-turn — don't yank the rug
+    runtimeReconciledRef.current = true;
+    const inferredAgentId: 'research_agent' | 'kol_research_agent' =
+      state.personaUsername ? 'kol_research_agent' : 'research_agent';
+    api.agentRuntime
+      .getSession(cid, inferredAgentId)
+      .then((rt) => {
+        if (!rt || !rt.entries || rt.entries.length === 0) return;
+        // Replace the local message list when runtime is *strictly more
+        // complete* than what's already on screen. Same-or-fewer entries
+        // normally means the local sessionStorage state already reflects the
+        // latest known turn, and overwriting would discard any in-progress
+        // typing buffer.
+        //
+        // Exception: if the local tail is a half-finished SSE turn — either a
+        // streaming-flagged assistant bubble or an empty placeholder — the
+        // user切走了页面让 SSE reader 中断，runtime 已经在后端写完了完整消息
+        // 但条数恰好与本地相等。此时必须用 runtime 覆盖，否则那条 streaming
+        // 消息会永远显示"转圈"状态，整个会话看起来一直 load 不出来。
+        const localCount = state.messages.length;
+        const localTail = state.messages[localCount - 1];
+        const localTailStuck = !!localTail
+          && localTail.role === 'assistant'
+          && (localTail.streaming === true
+            || (typeof localTail.content === 'string' && localTail.content.trim() === ''));
+        if (rt.entries.length <= localCount && !localTailStuck) return;
+        const merged = rt.entries.map((entry, idx) => ({
+          id: (entry.client_event_id || entry.id || `runtime-${idx}`) as string,
+          role: entry.role,
+          content: entry.content,
+        })) as ChatMsg[];
+        const uiState = rt.ui_state as
+          | { active_content?: unknown; content_stack?: unknown }
+          | null;
+        skipPanelSaveRef.current = true;
+        dispatch({
+          type: 'LOAD_CONVERSATION',
+          data: {
+            conversationId: cid,
+            title: (rt.title as string | null) || state.conversationTitle || '',
+            messages: merged,
+            accumulatedFilters: state.accumulatedFilters,
+            candidates: state.candidates as unknown as LoadConversationData['candidates'],
+            candidateCount: state.candidateCount,
+            universeSize: state.universeSize,
+            recommendations: state.recommendations as unknown as LoadConversationData['recommendations'],
+            funnelSteps: state.funnelSteps,
+            activeContent: (uiState?.active_content as LoadConversationData['activeContent']) ?? state.activeContent,
+            contentStack: (Array.isArray(uiState?.content_stack) ? uiState!.content_stack : state.contentStack) as LoadConversationData['contentStack'],
+            kolChunks: state.kolChunks,
+            personaUsername: state.personaUsername,
+          },
+        });
+      })
+      .catch(() => {
+        // Best-effort; silently fall back to sessionStorage state.
+      });
+    // We intentionally depend on userId + state.conversationId only — the
+    // effect must NOT re-run when messages mutate during a turn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, state.conversationId]);
 
   // Persist the paginated sidebar list so returning to /research does not
   // re-fetch the same lightweight history page on every mount.
@@ -552,8 +671,31 @@ function ScreenerContent() {
     return base;
   }, []);
 
-  const upsertConversationSummary = useCallback((summary: ConversationSummary) => {
+  const upsertConversationSummary = useCallback((
+    summary: ConversationSummary,
+    options: { promote?: boolean } = {},
+  ) => {
+    const promote = options.promote ?? true;
     queryClient.setQueryData<ConversationListInfiniteData>(conversationListQueryKey, (old) => {
+      if (!promote) {
+        if (!old) return old;
+        let found = false;
+        const pages = old.pages.map((page) => ({
+          ...page,
+          conversations: (page.conversations ?? []).map((conv) => {
+            if (conv.id !== summary.id) return conv;
+            found = true;
+            return {
+              ...conv,
+              title: summary.title,
+              message_count: summary.message_count,
+              updated_at: conv.updated_at || summary.updated_at,
+            };
+          }),
+        }));
+        return found ? { ...old, pages } : old;
+      }
+
       if (!old) {
         return {
           pages: [{ conversations: [summary], has_more: false }],
@@ -601,11 +743,15 @@ function ScreenerContent() {
     title: string,
     data: Record<string, unknown>,
     messageCount: number,
+    createId?: string,
+    options: { touch?: boolean } = {},
   ) => {
+    const touch = options.touch ?? true;
     setSaveStatus('saving');
     try {
       if (!convId) {
         const created = await api.research.conversations.create({
+          id: createId,
           title,
           data,
           message_count: messageCount,
@@ -625,6 +771,7 @@ function ScreenerContent() {
           title,
           data,
           message_count: messageCount,
+          touch,
         });
         convCache.current.set(convId, { title, data });
         upsertConversationSummary({
@@ -632,7 +779,7 @@ function ScreenerContent() {
           title,
           message_count: messageCount,
           updated_at: new Date().toISOString(),
-        });
+        }, { promote: touch });
       }
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -644,8 +791,10 @@ function ScreenerContent() {
   // Persist panel state to backend when user navigates the right panel
   // (catches navigation that happens between or after chat messages)
   useEffect(() => {
+    const panelContentSignature = getPanelContentSignature(state.activeContent, state.contentStack);
     if (skipPanelSaveRef.current) {
       skipPanelSaveRef.current = false;
+      lastPanelContentSignatureRef.current = panelContentSignature;
       return;
     }
     // KOL conversations are persisted by handleKolSend through the
@@ -654,9 +803,14 @@ function ScreenerContent() {
     // conversation would overwrite data with a payload that has neither field,
     // and the right-side citation panel would come back empty next time the
     // conversation is loaded.
-    if (agentKind === 'kol_research') return;
+    if (agentKind === 'kol_research') {
+      lastPanelContentSignatureRef.current = panelContentSignature;
+      return;
+    }
+    if (lastPanelContentSignatureRef.current === panelContentSignature) return;
     const s = latestStateRef.current;
     if (!s.conversationId || s.messages.length === 0) return;
+    lastPanelContentSignatureRef.current = panelContentSignature;
 
     const convData = buildConversationData(
       s.messages,
@@ -726,6 +880,12 @@ function ScreenerContent() {
     flushPendingSeed();
   }, [flushPendingSeed]);
 
+  // Receive twitter digest data from TwitterDigestView for Agent context
+  const handleTwitterDigestContextReady = useCallback((payload: TwitterDigestContextPayload) => {
+    twitterDigestContextRef.current = payload;
+    flushPendingSeed();
+  }, [flushPendingSeed]);
+
   // Receive macro panel data from MacroPanelView for Agent context
   const handleMacroPanelContextReady = useCallback((payload: MacroPanelContextPayload) => {
     macroPanelContextRef.current = payload;
@@ -738,6 +898,104 @@ function ScreenerContent() {
     flushPendingSeed();
   }, [flushPendingSeed]);
 
+  const buildActiveContext = useCallback((): ResearchRequest['active_context'] => {
+    if (state.activeContent.type === 'stock' && stockContextRef.current) {
+      const ctx = stockContextRef.current;
+      return {
+        type: ctx.type,
+        symbol: ctx.symbol,
+        quote: ctx.quote ?? undefined,
+        fundamentals: ctx.fundamentals ?? undefined,
+        earnings_history: ctx.earnings_history ?? undefined,
+        financial_growth: ctx.financial_growth ?? undefined,
+        income_statements: ctx.income_statements ?? undefined,
+        technical_derived: ctx.technical_derived ?? undefined,
+        support_resistance: ctx.support_resistance ?? undefined,
+        recent_news: ctx.recent_news ?? undefined,
+      };
+    }
+    if (state.activeContent.type === 'stock' && state.activeContent.params.symbol) {
+      return {
+        type: 'stock',
+        symbol: state.activeContent.params.symbol,
+      };
+    }
+    if (state.activeContent.type === 'daily_report' && reportContextRef.current) {
+      const ctx = reportContextRef.current;
+      return {
+        type: ctx.type,
+        date: ctx.date,
+        title: ctx.title ?? undefined,
+        summary: ctx.summary ?? undefined,
+        intro: ctx.intro ?? undefined,
+        news: ctx.news ?? undefined,
+        report_summary: ctx.report_summary ?? undefined,
+        calendar: ctx.calendar ?? undefined,
+      };
+    }
+    if (state.activeContent.type === 'morning_report' && morningContextRef.current) {
+      const ctx = morningContextRef.current;
+      return {
+        type: ctx.type,
+        date: ctx.date,
+        title: ctx.title ?? undefined,
+        market_pulse: ctx.market_pulse ?? undefined,
+        futures: ctx.futures ?? undefined,
+        global_markets: ctx.global_markets ?? undefined,
+        overnight_news: ctx.overnight_news ?? undefined,
+        today_focus: ctx.today_focus ?? undefined,
+        morning_summary: ctx.summary ?? undefined,
+      };
+    }
+    if (state.activeContent.type === 'twitter_digest' && twitterDigestContextRef.current) {
+      const ctx = twitterDigestContextRef.current;
+      return {
+        type: ctx.type,
+        date: ctx.date,
+        headline: ctx.headline,
+        hot_tickers: ctx.hot_tickers,
+        ticker_theses: ctx.ticker_theses,
+        macro_threads: ctx.macro_threads,
+        watchpoints: ctx.watchpoints,
+      };
+    }
+    if (
+      (state.activeContent.type === 'macro' || state.activeContent.type.startsWith('macro_')) &&
+      macroPanelContextRef.current
+    ) {
+      const ctx = macroPanelContextRef.current;
+      return {
+        type: 'macro',
+        active_tab: ctx.active_tab,
+        week_label: ctx.week_label,
+        verdict: ctx.verdict,
+        signal_lights: ctx.signal_lights,
+        landscape: ctx.landscape,
+        narrative: ctx.narrative,
+        takeaway: ctx.takeaway,
+        liquidity: ctx.liquidity,
+        economy: ctx.economy,
+        inflation: ctx.inflation,
+        sentiment: ctx.sentiment,
+      };
+    }
+    if (state.activeContent.type === 'brew' && brewContextRef.current) {
+      const ctx = brewContextRef.current;
+      return {
+        type: 'brew',
+        digest_date: ctx.digest_date ?? undefined,
+        symbols_used: ctx.symbols ?? undefined,
+        greeting: ctx.greeting ?? undefined,
+        one_line_summary: ctx.one_line_summary ?? undefined,
+        stocks: ctx.stocks ?? undefined,
+        events: ctx.events ?? undefined,
+        news: ctx.news ?? undefined,
+        summary_content: ctx.summary_content ?? undefined,
+      };
+    }
+    return undefined;
+  }, [state.activeContent]);
+
   // Send message handler
   // KOL-mode send. Independent codepath: we don't touch screener candidates / filters.
   const handleKolSend = useCallback(async (message: string) => {
@@ -746,21 +1004,27 @@ function ScreenerContent() {
       return;
     }
     dispatch({ type: 'SEND_MESSAGE', message });
-    dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
     try {
       const history = buildCompactHistory(state.messages, KOL_HISTORY_LIMIT);
+      const existingChunks = (latestStateRef.current.kolChunks as unknown as KolPersonaChunk[]) || [];
+      const activeContext = buildActiveContext();
 
       let finalMessage = '';
       let finalChunks: KolPersonaChunk[] = [];
       let finalNavigate: { type: string; params: Record<string, string>; reason?: string } | null = null;
       let errored = false;
+      const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
+      const turnId = crypto.randomUUID();
 
       await api.kolResearch.chatStream(
         {
           message,
-          history,
+          history: SEND_RUNTIME_HISTORY ? history : undefined,
           persona_username: personaUsername || 'qinbafrank',
-          // KOL agent currently ignores active_context (kept minimal in Phase 4).
+          session_id: conversationIdForTurn,
+          conversation_id: conversationIdForTurn,
+          turn_id: turnId,
+          content_context: activeContext as Record<string, unknown> | undefined,
         },
         (event: KolResearchStreamEvent) => {
           if (event.type === 'skill_activated') {
@@ -865,10 +1129,11 @@ function ScreenerContent() {
 
       // Route title through RECEIVE_RESPONSE so it lands in state.conversationTitle.
       const resultWithTitle: ResearchResult = { ...result, title: titleForRespose };
+      const chunksToPersist = finalChunks.length > 0 ? finalChunks : existingChunks;
       dispatch({ type: 'RECEIVE_RESPONSE', result: resultWithTitle });
       dispatch({
         type: 'SET_KOL_CHUNKS',
-        chunks: finalChunks as unknown as Record<string, unknown>[],
+        chunks: chunksToPersist as unknown as Record<string, unknown>[],
       });
 
       // Persist to KOL conversations table.
@@ -891,11 +1156,16 @@ function ScreenerContent() {
         ];
         const convData: Record<string, unknown> = {
           messages: allMessages,
-          kol_chunks: finalChunks,
+          kol_chunks: chunksToPersist,
           persona_username: persona,
+          content_stack: latestState.contentStack,
         };
+        if (latestState.activeContent.type !== 'screener') {
+          convData.active_content = latestState.activeContent;
+        }
         if (isFirstTurn) {
           const created = await api.kolResearch.conversations.create({
+            id: conversationIdForTurn,
             title: finalTitle,
             data: convData,
             message_count: allMessages.length,
@@ -939,7 +1209,7 @@ function ScreenerContent() {
           : 'AI 助手暂时无法响应',
       });
     }
-  }, [state.messages, personaUsername, upsertConversationSummary]);
+  }, [buildActiveContext, state.messages, personaUsername, upsertConversationSummary]);
 
   const handleSend = useCallback(async (message: string) => {
     // Route to KOL agent codepath when a persona is loaded.
@@ -956,91 +1226,23 @@ function ScreenerContent() {
     dispatch({ type: 'SEND_MESSAGE', message });
 
     try {
-      // Build active_context from the current content panel view
-      let activeContext: ResearchRequest['active_context'];
-      if (state.activeContent.type === 'stock' && stockContextRef.current) {
-        const ctx = stockContextRef.current;
-        activeContext = {
-          type: ctx.type,
-          symbol: ctx.symbol,
-          quote: ctx.quote ?? undefined,
-          fundamentals: ctx.fundamentals ?? undefined,
-          // Earnings
-          earnings_history: ctx.earnings_history ?? undefined,
-          financial_growth: ctx.financial_growth ?? undefined,
-          income_statements: ctx.income_statements ?? undefined,
-          // Technical
-          technical_derived: ctx.technical_derived ?? undefined,
-          support_resistance: ctx.support_resistance ?? undefined,
-          // Market
-          recent_news: ctx.recent_news ?? undefined,
-        };
-      } else if (state.activeContent.type === 'daily_report' && reportContextRef.current) {
-        const ctx = reportContextRef.current;
-        activeContext = {
-          type: ctx.type,
-          date: ctx.date,
-          title: ctx.title ?? undefined,
-          summary: ctx.summary ?? undefined,
-          intro: ctx.intro ?? undefined,
-          news: ctx.news ?? undefined,
-          report_summary: ctx.report_summary ?? undefined,
-          calendar: ctx.calendar ?? undefined,
-        };
-      } else if (state.activeContent.type === 'morning_report' && morningContextRef.current) {
-        const ctx = morningContextRef.current;
-        activeContext = {
-          type: ctx.type,
-          date: ctx.date,
-          title: ctx.title ?? undefined,
-          market_pulse: ctx.market_pulse ?? undefined,
-          futures: ctx.futures ?? undefined,
-          global_markets: ctx.global_markets ?? undefined,
-          overnight_news: ctx.overnight_news ?? undefined,
-          today_focus: ctx.today_focus ?? undefined,
-          morning_summary: ctx.summary ?? undefined,
-        };
-      } else if ((state.activeContent.type === 'macro' || state.activeContent.type.startsWith('macro_')) && macroPanelContextRef.current) {
-        const ctx = macroPanelContextRef.current;
-        activeContext = {
-          type: 'macro',
-          active_tab: ctx.active_tab,
-          week_label: ctx.week_label,
-          verdict: ctx.verdict,
-          signal_lights: ctx.signal_lights,
-          landscape: ctx.landscape,
-          narrative: ctx.narrative,
-          takeaway: ctx.takeaway,
-          liquidity: ctx.liquidity,
-          economy: ctx.economy,
-          inflation: ctx.inflation,
-          sentiment: ctx.sentiment,
-        };
-      } else if (state.activeContent.type === 'brew' && brewContextRef.current) {
-        const ctx = brewContextRef.current;
-        activeContext = {
-          type: 'brew',
-          digest_date: ctx.digest_date ?? undefined,
-          symbols_used: ctx.symbols ?? undefined,
-          greeting: ctx.greeting ?? undefined,
-          one_line_summary: ctx.one_line_summary ?? undefined,
-          stocks: ctx.stocks ?? undefined,
-          events: ctx.events ?? undefined,
-          news: ctx.news ?? undefined,
-          summary_content: ctx.summary_content ?? undefined,
-        };
-      }
+      const activeContext = buildActiveContext();
 
       let streamResult: ResearchResult | null = null;
       let streamErrorHandled = false;
+      const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
+      const turnId = crypto.randomUUID();
 
       await api.research.chatStream(
         {
           message,
-          history: buildHistory(),
+          history: SEND_RUNTIME_HISTORY ? buildHistory() : undefined,
           accumulated_filters: state.accumulatedFilters.length > 0
             ? state.accumulatedFilters
             : undefined,
+          session_id: conversationIdForTurn,
+          conversation_id: conversationIdForTurn,
+          turn_id: turnId,
           active_context: activeContext || undefined,
         },
         (event) => {
@@ -1078,60 +1280,88 @@ function ScreenerContent() {
       dispatch({ type: 'RECEIVE_RESPONSE', result });
 
       // Handle agent-driven navigation (e.g. "show me NVDA" or "show daily report")
-      if (result.navigate?.type === 'stock' && result.navigate.params?.symbol) {
-        handleStockClick(result.navigate.params.symbol, result.navigate.params?.tab);
+      let saveActiveContent: ContentContext = state.activeContent;
+      let saveContentStack: ContentContext[] = state.contentStack;
+      const pushPanelContent = (content: ContentContext) => {
+        dispatch({ type: 'PUSH_CONTENT', content });
+        saveActiveContent = content;
+        saveContentStack = [...state.contentStack, state.activeContent];
+        setMobileTab('results');
+      };
+      const switchToScreener = () => {
+        stockContextRef.current = null;
+        reportContextRef.current = null;
+        morningContextRef.current = null;
+        macroPanelContextRef.current = null;
+        brewContextRef.current = null;
+        dispatch({ type: 'SWITCH_CONTENT', content: SCREENER_CONTENT });
+        saveActiveContent = SCREENER_CONTENT;
+        saveContentStack = [];
+        setMobileTab('results');
+      };
+      const hasFreshScreenerResults =
+        result.navigate?.type === 'screener' ||
+        result.reset_results ||
+        result.candidates.length > 0 ||
+        result.recommendations.length > 0;
+
+      if (hasFreshScreenerResults) {
+        switchToScreener();
+      } else if (result.navigate?.type === 'stock' && result.navigate.params?.symbol) {
+        const symbol = result.navigate.params.symbol;
+        stockContextRef.current = null;
+        pushPanelContent({
+          type: 'stock',
+          label: `${symbol} 个股研究`,
+          summary: symbol,
+          params: { symbol, ...(result.navigate.params?.tab ? { tab: result.navigate.params.tab } : {}) },
+          available_actions: ['查看基本面', '技术分析', '返回选股'],
+        });
       } else if (result.navigate?.type === 'daily_report') {
         reportContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'daily_report',
-            label: '市场日报',
-            summary: '',
-            params: { date: result.navigate.params?.date ?? '' },
-            available_actions: ['追问日报内容', '查看提到的个股', '查看宏观背景'],
-          },
+        pushPanelContent({
+          type: 'daily_report',
+          label: '市场日报',
+          summary: '',
+          params: { date: result.navigate.params?.date ?? '' },
+          available_actions: ['追问日报内容', '查看提到的个股', '查看宏观背景'],
         });
-        setMobileTab('results');
       } else if (result.navigate?.type === 'morning_report') {
         morningContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'morning_report',
-            label: '盘前早报',
-            summary: '',
-            params: { date: result.navigate.params?.date ?? '' },
-            available_actions: ['解读早报要点', '分析期货动向', '看今日市场焦点'],
-          },
+        pushPanelContent({
+          type: 'morning_report',
+          label: '盘前早报',
+          summary: '',
+          params: { date: result.navigate.params?.date ?? '' },
+          available_actions: ['解读早报要点', '分析期货动向', '看今日市场焦点'],
         });
-        setMobileTab('results');
+      } else if (result.navigate?.type === 'twitter_digest') {
+        twitterDigestContextRef.current = null;
+        pushPanelContent({
+          type: 'twitter_digest',
+          label: '推特日报',
+          summary: '',
+          params: { date: result.navigate.params?.date ?? '' },
+          available_actions: ['看 KOL 多空打架', '深入某只票的博主观点', '看 watchpoints'],
+        });
       } else if (result.navigate?.type === 'macro') {
         macroPanelContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'macro',
-            label: '宏观风险仪表盘',
-            summary: '',
-            params: { ...(result.navigate.params?.tab ? { tab: result.navigate.params.tab } : {}) },
-            available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
-          },
+        pushPanelContent({
+          type: 'macro',
+          label: '宏观风险仪表盘',
+          summary: '',
+          params: { ...(result.navigate.params?.tab ? { tab: result.navigate.params.tab } : {}) },
+          available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
         });
-        setMobileTab('results');
       } else if (result.navigate?.type === 'brew') {
         brewContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'brew',
-            label: '专属日报',
-            summary: '',
-            params: {},
-            available_actions: ['追问持仓表现', '查看个股详情', '查看宏观背景'],
-          },
+        pushPanelContent({
+          type: 'brew',
+          label: '专属日报',
+          summary: '',
+          params: {},
+          available_actions: ['追问持仓表现', '查看个股详情', '查看宏观背景'],
         });
-        setMobileTab('results');
       } else if (
         result.navigate?.type === 'macro_liquidity' ||
         result.navigate?.type === 'macro_economy' ||
@@ -1146,35 +1376,13 @@ function ScreenerContent() {
           macro_sentiment: 'sentiment',
         };
         macroPanelContextRef.current = null;
-        dispatch({
-          type: 'PUSH_CONTENT',
-          content: {
-            type: 'macro',
-            label: '宏观风险仪表盘',
-            summary: '',
-            params: { tab: tabMap[result.navigate.type] },
-            available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
-          },
+        pushPanelContent({
+          type: 'macro',
+          label: '宏观风险仪表盘',
+          summary: '',
+          params: { tab: tabMap[result.navigate.type] },
+          available_actions: ['深入某个维度', '查看对持仓影响', '返回选股'],
         });
-        setMobileTab('results');
-      } else if (result.navigate?.type === 'screener') {
-        // Navigate back to screener — clear stack, reset context refs
-        stockContextRef.current = null;
-        reportContextRef.current = null;
-        morningContextRef.current = null;
-        macroPanelContextRef.current = null;
-        brewContextRef.current = null;
-        dispatch({
-          type: 'SWITCH_CONTENT',
-          content: {
-            type: 'screener',
-            label: '选股结果',
-            summary: '',
-            params: {},
-            available_actions: ['继续筛选', '查看个股详情', '重新开始'],
-          },
-        });
-        setMobileTab('results');
       }
 
       // Auto-save conversation (fire-and-forget)
@@ -1207,8 +1415,8 @@ function ScreenerContent() {
         allMessages,
         result,
         saveFunnelSteps,
-        state.activeContent,
-        state.contentStack,
+        saveActiveContent,
+        saveContentStack,
         { kolChunks: state.kolChunks, personaUsername },
       );
       // Title is only set on first turn (create); subsequent updates keep existing title
@@ -1221,6 +1429,7 @@ function ScreenerContent() {
         title,
         convData as Record<string, unknown>,
         allMessages.length,
+        isFirstTurn ? conversationIdForTurn : undefined,
       );
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
@@ -1234,7 +1443,7 @@ function ScreenerContent() {
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [agentKind, personaUsername, handleKolSend, buildHistory, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, router, buildConversationData, saveConversation, handleStockClick, signOut, userId]);
+  }, [agentKind, personaUsername, handleKolSend, buildHistory, buildActiveContext, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, router, buildConversationData, saveConversation, signOut, userId]);
 
   // Keep ref in sync so flushPendingSeed can call the latest handleSend
   useEffect(() => {
@@ -1332,6 +1541,7 @@ function ScreenerContent() {
   const handleLoadConversation = useCallback(async (conversationId: string) => {
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
     pendingSeed.current = null;
+    loadingConversationRef.current = true;
 
     // NOTE: 不在这里 save current conversation. 之前的逻辑有两个 bug:
     // 1) 它一律走 api.research.conversations.update + 不带 kol_chunks/persona_username
@@ -1346,6 +1556,7 @@ function ScreenerContent() {
     const cached = convCache.current.get(conversationId);
     if (cached) {
       loadConversationData(conversationId, cached);
+      loadingConversationRef.current = false;
       return;
     }
 
@@ -1369,13 +1580,75 @@ function ScreenerContent() {
       });
     }
 
+    // Phase 1 restore strategy:
+    //   1. Picker conversation is still fetched first because it carries the
+    //      research-specific extras (accumulated_filters, candidates,
+    //      recommendations, funnel, kol_chunks, persona_username) that the
+    //      durable runtime store does not track.
+    //   2. Picker's `data.persona_username` tells us whether to ask the
+    //      runtime for `kol_research_agent` or `research_agent` events.
+    //   3. Runtime is consulted in parallel. If it has any entries, runtime
+    //      becomes the source of truth for the visible message list and the
+    //      right-panel ui_state — picker is treated as a cache that may have
+    //      missed a save mid-conversation.
+    //   4. If runtime has no session row, the picker payload is used as-is,
+    //      matching the pre-runtime behavior.
     try {
-      const conv = await api.research.conversations.get(conversationId);
-      if (!conv) return;
-      convCache.current.set(conversationId, conv);
-      loadConversationData(conversationId, conv);
+      const picker = await api.research.conversations.get(conversationId).catch(() => null);
+      const pickerData = ((picker?.data || {}) as Record<string, unknown>);
+      const inferredAgentId: 'research_agent' | 'kol_research_agent' =
+        typeof pickerData.persona_username === 'string' && pickerData.persona_username
+          ? 'kol_research_agent'
+          : 'research_agent';
+      let runtimeSession = await api.agentRuntime
+        .getSession(conversationId, inferredAgentId)
+        .catch(() => null);
+      if (!runtimeSession && !picker) {
+        const alternateAgentId = inferredAgentId === 'research_agent'
+          ? 'kol_research_agent'
+          : 'research_agent';
+        runtimeSession = await api.agentRuntime
+          .getSession(conversationId, alternateAgentId)
+          .catch(() => null);
+      }
+
+      if (!runtimeSession && !picker) {
+        if (summary) dispatch({ type: 'RESET' });
+        return;
+      }
+
+      const merged: Record<string, unknown> = { ...(picker || {}) };
+      const mergedData: Record<string, unknown> = { ...pickerData };
+
+      if (runtimeSession) {
+        if (runtimeSession.entries && runtimeSession.entries.length > 0) {
+          mergedData.messages = runtimeSession.entries.map((entry, idx) => ({
+            id: entry.client_event_id || entry.id || `runtime-${idx}`,
+            role: entry.role,
+            content: entry.content,
+          }));
+        }
+        const uiState = runtimeSession.ui_state as { active_content?: unknown; content_stack?: unknown } | null;
+        if (uiState && (uiState.active_content !== undefined || uiState.content_stack !== undefined)) {
+          mergedData.active_content = uiState.active_content;
+          mergedData.content_stack = Array.isArray(uiState.content_stack) ? uiState.content_stack : [];
+        }
+        if (runtimeSession.title) {
+          merged.title = runtimeSession.title;
+        }
+        const runtimePersona = runtimeSession.metadata?.persona_username;
+        if (typeof runtimePersona === 'string' && runtimePersona) {
+          mergedData.persona_username = runtimePersona;
+          mergedData.agent_kind = 'kol_research';
+        }
+      }
+      merged.data = mergedData;
+      convCache.current.set(conversationId, merged);
+      loadConversationData(conversationId, merged);
     } catch {
       if (summary) dispatch({ type: 'RESET' });
+    } finally {
+      loadingConversationRef.current = false;
     }
   }, [conversations, loadConversationData]);
 
@@ -1431,10 +1704,11 @@ function ScreenerContent() {
         <div
           className={`
             hidden lg:flex shrink-0 border-r border-border/50 overflow-hidden flex-col
-            transition-[width] duration-200 ease-out
-            ${historyOpen ? 'sidebar-open' : 'w-0'}
+            transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+            ${historyOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'}
           `}
           style={historyOpen ? { width: 'clamp(14rem, 15vw, 18rem)' } : undefined}
+          aria-hidden={!historyOpen}
         >
           <ConversationSidebar
             conversations={conversations}
@@ -1456,22 +1730,27 @@ function ScreenerContent() {
 
         {/* Welcome content — when sidebar is collapsed, show an obvious open button */}
         <div className="flex-1 flex flex-col">
-          {!historyOpen && (
-            <div className="shrink-0 px-3 py-2 hidden lg:flex items-center">
-              <button
-                onClick={() => setHistoryOpen(true)}
-                title="展开历史对话"
-                aria-label="展开历史对话"
-                className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-foreground/80 hover:text-foreground bg-muted/40 hover:bg-muted/70 border border-border/60 transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 3v18" />
-                </svg>
-                <span className="text-xs">历史</span>
-              </button>
-            </div>
-          )}
+          <div
+            className={`
+              shrink-0 px-3 py-2 hidden lg:flex items-center
+              transition-opacity duration-200 ease-out
+              ${historyOpen ? 'opacity-0 pointer-events-none h-0 py-0' : 'opacity-100'}
+            `}
+            aria-hidden={historyOpen}
+          >
+            <button
+              onClick={() => setHistoryOpen(true)}
+              title="展开历史对话"
+              aria-label="展开历史对话"
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-foreground/80 hover:text-foreground bg-muted/40 hover:bg-muted/70 border border-border/60 transition-colors cursor-pointer"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M9 3v18" />
+              </svg>
+              <span className="text-xs">历史</span>
+            </button>
+          </div>
           <div className="flex-1 overflow-hidden">
             <WelcomeScreen
               onSelect={handleSend}
@@ -1507,24 +1786,27 @@ function ScreenerContent() {
       </div>
 
       {/* Main content: split panels */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Left: History sidebar + Chat panel */}
         <div
+          data-testid="research-chat-shell"
           className={`
             w-full lg:w-1/2 lg:border-r lg:border-border/20
             ${mobileTab === 'chat' ? 'flex' : 'hidden lg:flex'}
-            overflow-hidden
+            min-h-0 overflow-hidden
           `}
         >
           {/* Collapsible history sidebar — overlay on mobile, inline on desktop */}
           <div
             className={`
-              shrink-0 border-r border-border/50 overflow-hidden
-              transition-[width] duration-200 ease-out
-              ${historyOpen ? 'absolute lg:relative z-20 h-full bg-background shadow-xl lg:shadow-none' : 'w-0'}
-              ${!historyOpen ? 'hidden' : 'flex flex-col'}
+              shrink-0 border-r border-border/50 overflow-hidden flex min-h-0 flex-col
+              transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+              ${historyOpen
+                ? 'absolute inset-y-0 lg:relative lg:inset-y-auto h-full lg:h-auto z-20 bg-background shadow-xl lg:shadow-none opacity-100'
+                : 'w-0 opacity-0 pointer-events-none'}
             `}
             style={historyOpen ? { width: 'clamp(16rem, 70vw, 18rem)' } : undefined}
+            aria-hidden={!historyOpen}
           >
             <ConversationSidebar
               conversations={conversations}
@@ -1537,33 +1819,45 @@ function ScreenerContent() {
               onToggle={() => setHistoryOpen(false)}
               userName={user?.name}
               userEmail={user?.email}
+              userTier={userTier}
+              hasMore={hasMoreConversations}
+              loadingMore={loadingMoreConversations}
+              onLoadMore={handleLoadMoreConversations}
             />
           </div>
           {/* Backdrop overlay — mobile only, closes sidebar on tap */}
-          {historyOpen && (
-            <div
-              className="absolute inset-0 z-10 bg-black/20 lg:hidden"
-              onClick={() => setHistoryOpen(false)}
-            />
-          )}
+          <div
+            onClick={() => setHistoryOpen(false)}
+            className={`
+              absolute inset-0 z-10 bg-black/20 lg:hidden
+              transition-opacity duration-300 ease-out
+              ${historyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+            `}
+            aria-hidden={!historyOpen}
+          />
           {/* Chat panel */}
-          <div className="flex-1 flex flex-col relative min-w-0">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative min-w-0">
             {/* Chat header: sidebar toggle + persona selector */}
             <div className="shrink-0 px-3 py-2 flex items-center gap-2">
-              {!historyOpen && (
-                <button
-                  onClick={() => setHistoryOpen(true)}
-                  title="历史对话"
-                  aria-label="展开历史对话"
-                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-foreground/80 hover:text-foreground bg-muted/40 hover:bg-muted/70 border border-border/60 transition-colors cursor-pointer"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M9 3v18" />
-                  </svg>
-                  <span className="text-xs">历史</span>
-                </button>
-              )}
+              <button
+                onClick={() => setHistoryOpen(true)}
+                title="历史对话"
+                aria-label="展开历史对话"
+                tabIndex={historyOpen ? -1 : 0}
+                className={`
+                  inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-foreground/80
+                  hover:text-foreground bg-muted/40 hover:bg-muted/70 border border-border/60
+                  transition-[opacity,transform,background-color,color] duration-200 ease-out cursor-pointer
+                  ${historyOpen ? 'opacity-0 -translate-x-1 pointer-events-none' : 'opacity-100 translate-x-0'}
+                `}
+                aria-hidden={historyOpen}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 3v18" />
+                </svg>
+                <span className="text-xs">历史</span>
+              </button>
             </div>
             <ChatPanel
               messages={state.messages}
@@ -1590,7 +1884,7 @@ function ScreenerContent() {
           className={`
             w-full lg:w-1/2
             ${mobileTab === 'results' ? 'flex' : 'hidden lg:flex'}
-            flex-col
+            min-h-0 flex-col overflow-hidden
           `}
         >
           {agentKind === 'kol_research' ? (
@@ -1613,6 +1907,7 @@ function ScreenerContent() {
               onStockContextReady={handleStockContextReady}
               onReportContextReady={handleReportContextReady}
               onMorningContextReady={handleMorningContextReady}
+              onTwitterDigestContextReady={handleTwitterDigestContextReady}
               onMacroPanelContextReady={handleMacroPanelContextReady}
               onBrewContextReady={handleBrewContextReady}
             />

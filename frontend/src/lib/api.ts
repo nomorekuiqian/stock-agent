@@ -1008,10 +1008,41 @@ export interface ScreenerAskResult {
 
 // Stock Research Agent types
 
+export interface AgentRuntimeMessageEntry {
+  role: 'user' | 'assistant';
+  content: string;
+  metadata?: Record<string, unknown>;
+  turn_id?: string | null;
+  client_event_id?: string | null;
+  client_ts?: string | null;
+  created_at: string;
+  id?: string;
+}
+
+export interface AgentRuntimeCursor {
+  created_at: string;
+  id: string;
+}
+
+export interface AgentRuntimeSession {
+  session: Record<string, unknown> | null;
+  entries: AgentRuntimeMessageEntry[];
+  events: Record<string, unknown>[];
+  cursor: AgentRuntimeCursor | null;
+  messages_cursor: AgentRuntimeCursor | null;
+  ui_state: Record<string, unknown> | null;
+  summary: string | null;
+  title: string | null;
+  metadata: Record<string, unknown>;
+}
+
 export interface ResearchRequest {
   message: string;
   history?: { role: string; content: string }[];
   accumulated_filters?: { field: string; op: string; value: unknown }[];
+  session_id?: string;
+  conversation_id?: string;
+  turn_id?: string;
   active_context?: {
     type: string;
     symbol?: string;
@@ -1048,6 +1079,12 @@ export interface ResearchRequest {
     overnight_news?: unknown;
     today_focus?: unknown;
     morning_summary?: unknown;
+    // twitter_digest fields
+    headline?: string;
+    hot_tickers?: unknown;
+    ticker_theses?: unknown;
+    macro_threads?: unknown;
+    watchpoints?: unknown;
     // brew (personal digest) fields
     digest_date?: string;
     symbols_used?: string[];
@@ -1098,9 +1135,11 @@ export interface ConversationSummary {
 }
 
 export interface ConversationSaveRequest {
+  id?: string;
   title: string;
   data: Record<string, unknown>;
   message_count: number;
+  touch?: boolean;
 }
 
 // ===========================================================================
@@ -1145,6 +1184,9 @@ export interface KolResearchRequest {
   history?: KolResearchMessage[];
   persona_username?: string;
   content_context?: Record<string, unknown>;
+  session_id?: string;
+  conversation_id?: string;
+  turn_id?: string;
 }
 
 export interface KolResearchResponse {
@@ -1157,10 +1199,12 @@ export interface KolResearchResponse {
 }
 
 export interface KolConversationSaveRequest {
+  id?: string;
   title: string;
   data: Record<string, unknown>;
   message_count: number;
   persona_username: string;
+  touch?: boolean;
 }
 
 export type KolResearchStreamEvent =
@@ -2460,6 +2504,47 @@ export const api = {
   },
 
   // Research API (unified endpoints, replaces screener.pick + screener.conversations)
+  /**
+   * Durable agent runtime restore.
+   * Reads session snapshot + visible messages + cursor from the runtime store,
+   * so a refresh / device switch reconstructs the conversation from
+   * `agent_session_events` rather than the legacy picker_conversations row.
+   * Returns null when the session has no runtime row yet — callers should
+   * fall through to the picker compatibility path in that case.
+   */
+  agentRuntime: {
+    getSession: async (
+      sessionId: string,
+      agentId: 'research_agent' | 'kol_research_agent',
+      opts?: {
+        limit?: number;
+        afterCreatedAt?: string;
+        afterId?: string;
+      },
+    ): Promise<AgentRuntimeSession | null> => {
+      const headers = await _authHeaders({}, { required: true });
+      const params = new URLSearchParams({ agent_id: agentId });
+      if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+      if (opts?.afterCreatedAt && opts?.afterId) {
+        params.set('after_created_at', opts.afterCreatedAt);
+        params.set('after_id', opts.afterId);
+      }
+      const response = await fetch(
+        `${API_BASE_URL}/agent-runtime/sessions/${encodeURIComponent(sessionId)}?${params.toString()}`,
+        { headers },
+      );
+      if (!response.ok) {
+        if (response.status === 404 || response.status === 502) return null;
+        await throwProtectedApiError(response, 'Failed to restore agent session');
+      }
+      const data = (await response.json()) as AgentRuntimeSession;
+      // Empty shape ({session: null, entries: []}) means "no runtime row yet".
+      // Surface as null so callers can cleanly fall through to picker fallback.
+      if (!data || !data.session) return null;
+      return data;
+    },
+  },
+
   research: {
     chat: async (req: ResearchRequest, opts?: AuthRequestOptions): Promise<ResearchResult> => {
       const headers = await _authHeaders(

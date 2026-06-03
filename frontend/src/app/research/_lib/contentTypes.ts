@@ -9,7 +9,7 @@
 // Core types
 // ---------------------------------------------------------------------------
 
-export type ContentType = 'screener' | 'stock' | 'daily_report' | 'morning_report' | 'macro' | 'macro_liquidity' | 'macro_economy' | 'macro_inflation' | 'macro_sentiment' | 'sector' | 'brew';
+export type ContentType = 'screener' | 'stock' | 'daily_report' | 'morning_report' | 'twitter_digest' | 'macro' | 'macro_liquidity' | 'macro_economy' | 'macro_inflation' | 'macro_sentiment' | 'sector' | 'brew';
 
 export type StockTab = 'overview' | 'earnings' | 'technical' | 'market';
 export type MacroTab = 'overview' | 'liquidity' | 'economy' | 'inflation' | 'sentiment';
@@ -51,6 +51,14 @@ export const MORNING_REPORT_CONTENT: ContentContext = {
   summary: '',
   params: {},
   available_actions: ['解读早报要点', '分析期货动向', '看今日市场焦点'],
+};
+
+export const TWITTER_DIGEST_CONTENT: ContentContext = {
+  type: 'twitter_digest',
+  label: '推特日报',
+  summary: '',
+  params: {},
+  available_actions: ['看 KOL 多空打架', '深入某只票的博主观点', '看 watchpoints'],
 };
 
 export const MACRO_CONTENT: ContentContext = {
