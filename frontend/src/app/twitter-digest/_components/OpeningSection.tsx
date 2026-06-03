@@ -22,14 +22,13 @@ interface Props {
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
+// `date` is the ET market day stored by the backend. Use UTC arithmetic to
+// derive the weekday so the result is the same in every reader's timezone.
 function formatHeaderDate(date: string): string {
-  try {
-    const [y, m, d] = date.split('-').map(Number);
-    const dt = new Date(`${date}T08:00:00+08:00`);
-    return `${y} 年 ${m} 月 ${d} 日 · ${WEEKDAYS[dt.getDay()]}`;
-  } catch {
-    return date;
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  const [y, m, d] = date.split('-').map(Number);
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${y} 年 ${m} 月 ${d} 日 · ${weekday}`;
 }
 
 export function OpeningSection({

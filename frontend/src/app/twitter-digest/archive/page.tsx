@@ -11,17 +11,18 @@ import { api, type TwitterDigestListItem } from '@/lib/api';
 const PAGE_SIZE = 12;
 const ARCHIVE_ERROR_MESSAGE = '归档暂时不可用，请稍后再试';
 
+// `date` is the ET market day stored by the backend. Build the formatted
+// string from a UTC-anchored Date so the weekday matches across timezones.
 function formatArchiveDate(date: string): string {
-  try {
-    return new Date(`${date}T08:00:00+08:00`).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      weekday: 'short',
-    });
-  } catch {
-    return date;
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('zh-CN', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  });
 }
 
 function tickerLabels(item: TwitterDigestListItem): string[] {

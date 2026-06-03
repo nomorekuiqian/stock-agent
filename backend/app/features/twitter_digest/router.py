@@ -154,9 +154,10 @@ async def broadcast_endpoint(
         )
 
     digest_dict = digest.model_dump()
-    # Prefer the explicit query param, then the persisted BJT business date,
-    # and only fall back to slicing the UTC generated_at for legacy rows
-    # (will be off by a day around the 22:00 UTC cron — accept for history).
+    # Prefer the explicit query param, then the persisted ET market date,
+    # and only fall back to slicing the UTC generated_at for legacy rows that
+    # predate the ET-business-day migration (will be off by a day; accepted
+    # for archival reads).
     derived_date = (
         date
         or digest.date

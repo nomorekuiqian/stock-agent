@@ -34,7 +34,7 @@ from app.features.twitter_digest.models import (
 from app.features.twitter_digest.service import (
     _backfill_watchpoint_evidence,
     _budget_curate_tweets,
-    _business_date_bjt,
+    _business_date_et,
     _compute_other_tickers,
     _compute_top_tickers_priors,
     _CURATE_MAX_TWEETS,
@@ -406,27 +406,27 @@ class TestFallbackThesisForMissing:
 
 
 # ---------------------------------------------------------------------------
-# _business_date_bjt
+# _business_date_et
 # ---------------------------------------------------------------------------
 
 
-class TestBusinessDateBjt:
-    """digest date must be the BJT calendar day, not UTC."""
+class TestBusinessDateEt:
+    """digest date must be the ET market calendar day."""
 
-    def test_evening_utc_rolls_to_next_bjt_day(self):
-        # 22:00 UTC on 2026-05-11 = 06:00 BJT on 2026-05-12 (cron firing time)
-        t = datetime(2026, 5, 11, 22, 0, tzinfo=timezone.utc)
-        assert _business_date_bjt(t) == "2026-05-12"
+    def test_post_close_utc_same_et_day_edt(self):
+        # 20:30 UTC on 2026-05-12 = 16:30 ET (EDT) — actual cron firing time.
+        t = datetime(2026, 5, 12, 20, 30, tzinfo=timezone.utc)
+        assert _business_date_et(t) == "2026-05-12"
 
-    def test_afternoon_utc_same_bjt_day(self):
-        # 15:30 UTC on 2026-05-12 = 23:30 BJT on 2026-05-12
-        t = datetime(2026, 5, 12, 15, 30, tzinfo=timezone.utc)
-        assert _business_date_bjt(t) == "2026-05-12"
+    def test_post_close_utc_same_et_day_est(self):
+        # 20:30 UTC on 2026-01-15 = 15:30 ET (EST) — winter cron firing time.
+        t = datetime(2026, 1, 15, 20, 30, tzinfo=timezone.utc)
+        assert _business_date_et(t) == "2026-01-15"
 
-    def test_pre_dawn_utc_still_bjt_today(self):
-        # 03:00 UTC on 2026-05-12 = 11:00 BJT on 2026-05-12
+    def test_early_utc_morning_rolls_to_previous_et_day(self):
+        # 03:00 UTC on 2026-05-12 = 23:00 ET on 2026-05-11 (EDT, UTC-4).
         t = datetime(2026, 5, 12, 3, 0, tzinfo=timezone.utc)
-        assert _business_date_bjt(t) == "2026-05-12"
+        assert _business_date_et(t) == "2026-05-11"
 
 
 # ---------------------------------------------------------------------------

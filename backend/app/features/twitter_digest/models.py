@@ -289,7 +289,7 @@ class DailyDigest(BaseModel):
     """The full digest persisted in `kol_daily_digests` and returned by the API."""
 
     # Meta
-    date: str = ""  # BJT business date (YYYY-MM-DD); empty for legacy rows
+    date: str = ""  # ET market date the digest covers (YYYY-MM-DD); empty for legacy rows
     generated_at: str
     window_hours: int
     input_tweet_count: int

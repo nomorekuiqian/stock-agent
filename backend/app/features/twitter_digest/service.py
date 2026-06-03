@@ -16,6 +16,7 @@ import json
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Type, TypeVar
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ValidationError
 
@@ -1149,15 +1150,19 @@ def _digest_is_empty(d: DailyDigest) -> bool:
     return len(d.ticker_theses) == 0 and len(d.macro_threads) == 0
 
 
-def _business_date_bjt(dt_utc: datetime) -> str:
-    """Business date for this digest in Beijing timezone (UTC+8).
+_MARKET_TZ = ZoneInfo("America/New_York")
 
-    The pipeline runs at 06:00 BJT (UTC 22:00 of the previous day). Using the
-    raw UTC date would file the digest under yesterday's calendar date, which
-    breaks broadcast deep-links and `/twitter-digest/{date}` routing. Pin the
-    digest to the BJT calendar day so cron, persistence, and email URLs agree.
+
+def _business_date_et(dt_utc: datetime) -> str:
+    """Business date for this digest = US Eastern market day.
+
+    Cron fires at UTC 20:30 (= ET 16:30 EDT / 15:30 EST — 30 min after US
+    close), so the ET calendar day at that instant is the trading day this
+    digest covers. Anchoring `date` to ET keeps the URL, broadcast deep-link,
+    and on-page title aligned with the market session the content describes,
+    regardless of where the reader lives.
     """
-    return (dt_utc + timedelta(hours=8)).date().isoformat()
+    return dt_utc.astimezone(_MARKET_TZ).date().isoformat()
 
 
 async def generate_daily_digest(
@@ -1181,7 +1186,7 @@ async def generate_daily_digest(
     final_thesis_tickers = {t.ticker.upper() for t in curated.ticker_theses}
     other_tickers = _compute_other_tickers(tweets, final_thesis_tickers)
 
-    business_date = _business_date_bjt(started_at)
+    business_date = _business_date_et(started_at)
 
     digest = DailyDigest(
         date=business_date,
