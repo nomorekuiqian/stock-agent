@@ -147,6 +147,7 @@ from app.features.memory.router import router as memory_router
 from app.features.flags.router import router as flags_router
 from app.features.flags.admin_router import router as flags_admin_router
 from app.features.onboarding.router import router as onboarding_router
+from app.features.agent_runtime.router import router as agent_runtime_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -162,6 +163,7 @@ app.include_router(notification_router)
 app.include_router(payment_router)
 app.include_router(invites_router)
 app.include_router(morning_report_router)
+app.include_router(agent_runtime_router)
 app.include_router(screener_router)
 app.include_router(research_router)
 app.include_router(kol_research_router)

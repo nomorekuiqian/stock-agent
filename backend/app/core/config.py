@@ -100,6 +100,10 @@ ADMIN_EMAILS = [
 # EMAIL_PRO_GATE: when true, only Pro subscribers receive email broadcasts.
 # Default false — logic is deployed but inactive, same pattern as NEXT_PUBLIC_ENABLE_PAYWALL.
 EMAIL_PRO_GATE = os.getenv("EMAIL_PRO_GATE", "false").lower() == "true"
+AGENT_RUNTIME_REQUEST_HISTORY = os.getenv(
+    "AGENT_RUNTIME_REQUEST_HISTORY",
+    "fallback",
+).lower()
 
 # Cache settings
 STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days
@@ -108,4 +112,88 @@ STOCK_ANALYSIS_CACHE_HOURS = 168  # 7 days
 VECTOR_EMBEDDING_MODEL = os.getenv(
     "VECTOR_EMBEDDING_MODEL",
     os.getenv("RAG_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
+)
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+# Agent runtime tunables
+# These were previously module constants in features/agent_runtime and the two
+# feature agents. Exposed via env so production can adjust without redeploy.
+AGENT_RUNTIME_INMEMORY_MAX_SESSIONS = _int_env(
+    "AGENT_RUNTIME_INMEMORY_MAX_SESSIONS", 256
+)
+AGENT_RUNTIME_INMEMORY_MAX_TRANSCRIPT = _int_env(
+    "AGENT_RUNTIME_INMEMORY_MAX_TRANSCRIPT", 64
+)
+AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT = _int_env(
+    "AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT", 60_000
+)
+AGENT_RUNTIME_TOOL_CACHE_TTL = _float_env(
+    "AGENT_RUNTIME_TOOL_CACHE_TTL", 300.0
+)
+AGENT_RUNTIME_TOOL_CACHE_MAXSIZE = _int_env(
+    "AGENT_RUNTIME_TOOL_CACHE_MAXSIZE", 2048
+)
+AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN = _int_env(
+    "AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN", 1
+)
+AGENT_RUNTIME_MAX_KOL_TWEET_SEARCH_PER_TURN = _int_env(
+    "AGENT_RUNTIME_MAX_KOL_TWEET_SEARCH_PER_TURN", 3
+)
+AGENT_RUNTIME_RESEARCH_TIMEOUT_S = _float_env(
+    "AGENT_RUNTIME_RESEARCH_TIMEOUT_S", 75.0
+)
+AGENT_RUNTIME_KOL_TIMEOUT_S = _float_env(
+    "AGENT_RUNTIME_KOL_TIMEOUT_S", 120.0
+)
+AGENT_RUNTIME_HISTORY_FETCH_LIMIT = _int_env(
+    "AGENT_RUNTIME_HISTORY_FETCH_LIMIT", 200
+)
+# Hard cap for tool_response serialized payload kept in events.payload.result.
+# Anything longer is truncated and an sha256 of the original is stored alongside
+# so audit/replay can detect whether the cached/displayed text matches.
+AGENT_RUNTIME_TOOL_RESULT_MAX_CHARS = _int_env(
+    "AGENT_RUNTIME_TOOL_RESULT_MAX_CHARS", 1024
+)
+
+# BudgetPlan per-section char allocations. Each section is rendered inside the
+# corresponding cap; ContextEngine logs a `context_budget_truncated` event when
+# any section was reduced to fit. These are tunable per-env so operators can
+# rebalance without a redeploy when Phase 2/3 work adds workspace + memory.
+AGENT_RUNTIME_BUDGET_INPUT_GUARD = _int_env(
+    "AGENT_RUNTIME_BUDGET_INPUT_GUARD", 6_000
+)
+AGENT_RUNTIME_BUDGET_ACTIVE_MEMORY = _int_env(
+    "AGENT_RUNTIME_BUDGET_ACTIVE_MEMORY", 1_800
+)
+AGENT_RUNTIME_BUDGET_ATTACHED_WORKSPACE = _int_env(
+    "AGENT_RUNTIME_BUDGET_ATTACHED_WORKSPACE", 6_000
+)
+AGENT_RUNTIME_BUDGET_HISTORY = _int_env(
+    "AGENT_RUNTIME_BUDGET_HISTORY", 20_000
+)
+AGENT_RUNTIME_BUDGET_CONTENT_CONTEXT = _int_env(
+    "AGENT_RUNTIME_BUDGET_CONTENT_CONTEXT", 8_000
+)
+AGENT_RUNTIME_BUDGET_INFERRED_MEMORY = _int_env(
+    "AGENT_RUNTIME_BUDGET_INFERRED_MEMORY", 800
 )

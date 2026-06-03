@@ -147,6 +147,8 @@ DB_WRITE_FUNCTIONS = [
     # Feature flags admin
     ("app.features.flags.db", "upsert_assignment"),
     ("app.features.flags.db", "delete_assignment"),
+    # Agent runtime durable session writes
+    ("app.features.agent_runtime.db", "append_entries"),
 ]
 
 

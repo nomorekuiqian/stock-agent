@@ -222,6 +222,12 @@ class TestNoCrossFeatureImports:
         ("kol_research", "screener"),
         ("kol_research", "daily_report"),
         ("kol_research", "flags"),
+        # agent_runtime is the shared runtime layer (session store, context
+        # engine, durable events). The chat-style features depend on it; it
+        # also reads picker_conversations as a migration-period fallback.
+        ("kol_research", "agent_runtime"),
+        ("screener", "agent_runtime"),
+        ("agent_runtime", "screener"),
         # Onboarding state lives on subscriptions table (payment.db) +
         # cron entrypoint delegates to subscription.lifecycle_scheduler.
         ("onboarding", "payment"),
@@ -369,6 +375,12 @@ class TestFeatureModuleStructure:
     # Directories that are feature-like but have sub-features
     COMPOSITE_FEATURES = {"macro"}
 
+    # Shared infrastructure features: live under features/ for proximity to
+    # the agents that consume them, but expose runtime primitives instead of
+    # a router/agent/service entry point. They are exempted from the
+    # standard "needs router/agent/service" check.
+    SHARED_INFRA_FEATURES = {"agent_runtime"}
+
     def test_feature_modules_have_required_files(self):
         if not FEATURES_DIR.exists():
             pytest.skip("features/ directory not found")
@@ -406,7 +418,10 @@ class TestFeatureModuleStructure:
                     f"    FIX: Create {rel_path}/{required} documenting the module"
                 )
 
-        # Check "needs either" groups
+        # Check "needs either" groups (shared-infra features are exempt — they
+        # intentionally expose runtime primitives instead of a feature entry point).
+        if feature_dir.name in self.SHARED_INFRA_FEATURES:
+            return
         for group in self.NEEDS_EITHER:
             if not any((feature_dir / f).exists() for f in group):
                 violations.append(

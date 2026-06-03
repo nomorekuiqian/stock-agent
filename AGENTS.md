@@ -37,6 +37,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 
 **Backend**:
 - `backend/app/core/.context.md` -- Core infrastructure
+- `backend/app/features/agent_runtime/.context.md` -- Shared Agent runtime/session/context layer
 - `backend/app/features/daily_report/.context.md` -- Market daily report
 - `backend/app/features/morning_report/.context.md` -- Pre-market morning report
 - `backend/app/features/brew/.context.md` -- Personalized summary (Brew)
