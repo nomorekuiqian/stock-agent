@@ -11,6 +11,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
+from app.core.config import AGENT_RUNTIME_RESEARCH_TIMEOUT_S
 from app.core.logging import get_logger
 from app.features.research_kb.models import (
     ResearchKBMessage,
@@ -143,7 +144,7 @@ async def answer(
     prompt = "\n".join(prompt_parts)
 
     try:
-        text = await asyncio.wait_for(_run_session(prompt), timeout=75.0)
+        text = await asyncio.wait_for(_run_session(prompt), timeout=AGENT_RUNTIME_RESEARCH_TIMEOUT_S)
     except asyncio.TimeoutError:
         logger.warning("research_kb agent timeout: %s", message[:80])
         return ResearchKBResponse(
