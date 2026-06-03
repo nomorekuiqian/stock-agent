@@ -92,19 +92,23 @@ export default function StockCard({
     >
       <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px] hover-glow">
         {onRemove && (
+          // Hover-capable pointers reveal the X on group-hover only.
+          // [@media(hover:none)] forces it visible on touch devices where there
+          // is no hover state — was the source of the "can't delete on iPad" bug.
           <button
+            type="button"
             onClick={handleRemoveClick}
-            className={`absolute top-2 right-2 rounded-lg border transition-all duration-200 z-10 ${
+            className={`absolute top-1.5 right-1.5 z-10 rounded-full border shadow-sm transition-all duration-200 active:scale-90 ${
               confirmingRemove
-                ? 'px-2 py-1 bg-red-500/10 border-red-500/30 text-red-500 opacity-100'
-                : 'p-1.5 bg-muted/80 sm:bg-muted/50 border-border/50 text-muted-foreground sm:text-muted-foreground/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30'
+                ? 'px-2.5 py-1 bg-red-500 border-red-500 text-white opacity-100'
+                : 'p-1.5 bg-card/95 backdrop-blur-sm border-border/60 text-muted-foreground/80 hover:text-white hover:bg-red-500 hover:border-red-500 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:p-2'
             }`}
-            aria-label={confirmingRemove ? `Confirm remove ${symbol}` : `Remove ${symbol}`}
+            aria-label={confirmingRemove ? `确认移除 ${symbol}` : `移除 ${symbol}`}
           >
             {confirmingRemove ? (
-              <span className="text-xs font-medium leading-none">确认?</span>
+              <span className="text-xs font-medium leading-none whitespace-nowrap">确认?</span>
             ) : (
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             )}
           </button>
         )}

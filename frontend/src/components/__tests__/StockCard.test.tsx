@@ -82,7 +82,7 @@ describe('StockCard', () => {
       />
     );
 
-    const removeBtn = screen.getByLabelText('Remove AAPL');
+    const removeBtn = screen.getByLabelText('移除 AAPL');
 
     // First click - shows confirmation
     fireEvent.click(removeBtn);
@@ -90,7 +90,7 @@ describe('StockCard', () => {
     expect(screen.getByText('确认?')).toBeTruthy();
 
     // Second click - actually removes
-    const confirmBtn = screen.getByLabelText('Confirm remove AAPL');
+    const confirmBtn = screen.getByLabelText('确认移除 AAPL');
     fireEvent.click(confirmBtn);
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
