@@ -269,7 +269,7 @@ insforge functions invoke portfolio --params 'action=reconcile' --body '{
 # 如果你的部署里 PostgREST 不外部直连（codebase 规则 5）→ 二者皆不可达 = 通过
 # 如果可达 → 二者都可达 = 与 bulk 平价（已接受残留暴露）
 # 二者结果不一致（仅 RPC 可达 / 仅 table 可达）→ 收紧到 service-role 模型
-# （操作：参考 docs/plans/proposals/holdings-sync-track-m-tech-design.md §4.1）
+# （操作：参考 tech-design.md §4.1）
 curl -sS -X POST \
   -H "Authorization: Bearer $INSFORGE_ANON_KEY" \
   -H "Content-Type: application/json" \

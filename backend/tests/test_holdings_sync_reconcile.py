@@ -1,6 +1,6 @@
 """Track M — reconcile correctness (most critical M1 gate).
 
-Design: docs/plans/proposals/holdings-sync-track-m-tech-design.md §3.4 / §7bis
+Design: docs/features/holdings-sync-track-m/tech-design.md §3.4 / §7bis
         / §8 (Codex [high] commit complete-set contract).
 
 Boundary note: the source-scoped DELETE (replace-by-source) lives in the

@@ -1,7 +1,7 @@
 # Track M 手动 / 导入持仓同步 · 任务拆解与验收标准
 
 > 状态: 任务拆解（设计已定稿，三轮 Codex 评审收敛完毕；未写功能代码）
-> 配套: 设计 `docs/plans/proposals/holdings-sync-track-m-tech-design.md`（下称「设计 §」）/ 执行 `docs/plans/active/holdings-sync-track-m-runbook.md`（下称「runbook」）
+> 配套: 设计 `tech-design.md`（下称「设计 §」）/ 执行 `runbook.md`（下称「runbook」）
 > 用法: 每个任务 = 目标 / 文件 / 依赖 / **验收标准（可勾、可测、可追溯）** / 验证方式。验收标准全绿才算完成；测试门不过不进下一里程碑。
 > 通用红线（每个任务收尾自检，不单列）: 无 `print`（`get_logger`+`%s`）/ 不绕 EF / 不 import `app/services|models`（DEAD）/ 中文 UI / 复用 shadcn·Radix·cmdk / 不自动 git / Insforge 基础设施一律 `insforge-cli` / 三处正确性自检（P1 结构不可携带·源作用域 DELETE·`_SYMBOL_RE` 全程）
 

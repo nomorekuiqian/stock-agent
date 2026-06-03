@@ -226,6 +226,11 @@ class TestNoCrossFeatureImports:
         # cron entrypoint delegates to subscription.lifecycle_scheduler.
         ("onboarding", "payment"),
         ("onboarding", "subscription"),
+        # Vector RAG pipeline resolves which KOLs to embed from the twitter
+        # feature's enabled-KOL source (vector/kol_tweets.py::_resolve_usernames).
+        # Same data-read pattern as twitter_digest->twitter. (Latent gap on
+        # master surfaced when rebasing this branch onto the vector feature.)
+        ("vector", "twitter"),
     }
 
     def test_no_cross_feature_imports(self):
