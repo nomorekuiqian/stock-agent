@@ -1,9 +1,8 @@
 """Liquidity Monitor API Router."""
 
-import traceback
-
 from fastapi import APIRouter, HTTPException, Query
 
+from app.core.logging import get_logger
 from app.utils.timezone import now_iso, today_str, days_ago
 from app.features.macro.liquidity.fred_service import (
     get_all_liquidity_metrics,
@@ -16,6 +15,7 @@ from app.features.macro.liquidity.global_service import (
 )
 
 router = APIRouter(prefix="/api/liquidity", tags=["liquidity"])
+logger = get_logger(__name__)
 
 ALLOWED_SERIES = {
     "WALCL", "WDTGAL", "RRPONTSYD", "WRESBAL",
@@ -34,7 +34,7 @@ async def get_liquidity_metrics():
             "metrics": metrics
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch liquidity metrics")
         return {
             "success": True,
             "timestamp": now_iso(),
@@ -58,7 +58,7 @@ async def get_liquidity_history_endpoint(
             "partial": not has_data,
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch liquidity history")
         return {
             "success": True,
             "timestamp": now_iso(),
@@ -86,7 +86,7 @@ async def get_global_liquidity():
             "data": metrics,
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch global liquidity metrics")
         return {
             "success": False,
             "timestamp": now_iso(),
@@ -110,7 +110,7 @@ async def get_global_liquidity_history_endpoint(
             "partial": not has_data,
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch global liquidity history")
         return {
             "success": False,
             "timestamp": now_iso(),
@@ -145,7 +145,5 @@ async def get_fred_series_endpoint(
             "data": data
         }
     except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+        logger.exception("Failed to fetch liquidity series history for %s", series_id)
+        raise HTTPException(status_code=503, detail="Failed to fetch series history")

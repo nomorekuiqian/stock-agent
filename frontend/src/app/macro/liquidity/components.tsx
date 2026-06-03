@@ -8,9 +8,11 @@
  *  - research/_components/LiquidityView.tsx  (research panel tab)
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { NFCIGauge } from '@/components/NFCIGauge';
+import { HistoryAreaChart } from '@/components/HistoryAreaChart';
+import type { FredValueFormat } from '@/components/FredAreaChart';
 import type {
   LiquidityMetrics,
   LiquidityMetric,
@@ -19,6 +21,7 @@ import type {
   GlobalLiquidityHistoryObservation,
 } from '@/lib/api';
 import {
+  formatCompactCurrencyFromBillions,
   formatLiquidityValue,
   getLatestNonNullObservation,
 } from './liquidity-metrics';
@@ -32,6 +35,10 @@ import { Droplets, Layers, Gauge, Globe, Banknote } from 'lucide-react';
 export const TradingViewWidget = dynamic(
   () => import('@/components/TradingViewWidget').then(mod => mod.TradingViewWidget),
   { ssr: false, loading: () => <div className="h-[400px] bg-card animate-pulse rounded-lg" /> },
+);
+export const FredAreaChart = dynamic(
+  () => import('@/components/FredAreaChart').then(mod => mod.FredAreaChart),
+  { ssr: false, loading: () => <div className="h-[300px] bg-card animate-pulse rounded-lg" /> },
 );
 export const NetLiquidityChart = dynamic(
   () => import('@/components/NetLiquidityChart').then(mod => mod.NetLiquidityChart),
@@ -61,6 +68,30 @@ export const FRED_SYMBOLS: Record<string, string> = {
   japanM2: 'FRED:MABMM301JPM189S',
   usdjpy: 'FX_IDC:USDJPY',
   eurusd: 'FX_IDC:EURUSD',
+};
+
+type FredChartConfig = {
+  historyField: keyof LiquidityHistoryObservation;
+  valueFormat: 'currency_billions' | 'percent' | 'index';
+  invertColor?: boolean;
+};
+
+const INTERNAL_FRED_CHARTS: Record<string, FredChartConfig> = {
+  fedAssets: { historyField: 'fed_assets', valueFormat: 'currency_billions' },
+  tga: { historyField: 'tga', valueFormat: 'currency_billions', invertColor: true },
+  rrp: { historyField: 'rrp', valueFormat: 'currency_billions', invertColor: true },
+  reserves: { historyField: 'reserves', valueFormat: 'currency_billions' },
+  sofr: { historyField: 'sofr', valueFormat: 'percent', invertColor: true },
+  effr: { historyField: 'effr', valueFormat: 'percent', invertColor: true },
+  nfci: { historyField: 'nfci', valueFormat: 'index', invertColor: true },
+};
+
+const SERVER_FRED_CHARTS: Record<string, { seriesId: string; valueFormat?: FredValueFormat }> = {
+  usM2: { seriesId: 'M2SL', valueFormat: 'currency_billions' },
+  ecbAssets: { seriesId: 'ECBASSETSW' },
+  bojAssets: { seriesId: 'JPNASSETS' },
+  euroM2: { seriesId: 'MYAGM2EZM196N' },
+  japanM2: { seriesId: 'MABMM301JPM189S' },
 };
 
 export const INDICATOR_INFO: Record<string, { title: string; description: string }> = {
@@ -246,12 +277,79 @@ function LazySection({ children, className, immediate }: { children: React.React
   );
 }
 
+function formatPercent(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
+function formatIndex(value: number): string {
+  return value.toFixed(2);
+}
+
+function resolveHistoryChartFormatter(format: FredChartConfig['valueFormat']) {
+  if (format === 'currency_billions') return formatCompactCurrencyFromBillions;
+  if (format === 'percent') return formatPercent;
+  return formatIndex;
+}
+
+function LiquidityHistoryChart({
+  indicatorKey,
+  historyData,
+  timeRange,
+  height,
+}: {
+  indicatorKey: string;
+  historyData: LiquidityHistoryObservation[];
+  timeRange: string;
+  height: number;
+}) {
+  const chartConfig = INTERNAL_FRED_CHARTS[indicatorKey];
+  const chartData = useMemo(() => {
+    if (!chartConfig) return [];
+    return historyData
+      .map((obs) => {
+        const value = obs[chartConfig.historyField];
+        return typeof value === 'number' ? { date: obs.time, close: value } : null;
+      })
+      .filter((point): point is { date: string; close: number } => point !== null);
+  }, [chartConfig, historyData]);
+
+  const fetcher = useCallback(
+    async () => ({ success: true, data: chartData }),
+    [chartData],
+  );
+  const valueFormatter = useMemo(
+    () => chartConfig ? resolveHistoryChartFormatter(chartConfig.valueFormat) : undefined,
+    [chartConfig],
+  );
+
+  if (!chartConfig || chartData.length === 0) {
+    return (
+      <div style={{ height }} className="flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">No chart data</span>
+      </div>
+    );
+  }
+
+  return (
+    <HistoryAreaChart
+      symbol={`${indicatorKey}:${chartData.length}:${chartData[chartData.length - 1]?.date ?? 'empty'}`}
+      timeRange={timeRange}
+      height={height}
+      invertColor={chartConfig.invertColor}
+      fetcher={fetcher}
+      valueFormatter={valueFormatter}
+    />
+  );
+}
+
 export function LiquidityMetricPanel({
   indicatorKey,
   metric,
   theme,
   interval,
   range,
+  timeRange,
+  historyData,
   immediate,
 }: {
   indicatorKey: string;
@@ -259,6 +357,8 @@ export function LiquidityMetricPanel({
   theme: 'light' | 'dark';
   interval: string;
   range?: string;
+  timeRange?: string;
+  historyData?: LiquidityHistoryObservation[];
   immediate?: boolean;
 }) {
   const { ref, isVisible } = useInView(0.05, immediate);
@@ -270,6 +370,8 @@ export function LiquidityMetricPanel({
   const hasChange = metric.change != null;
   const isPositive = hasChange && metric.change! >= 0;
   const primaryDisplay = formatLiquidityValue(metric.value, metric.units);
+  const fredChart = INTERNAL_FRED_CHARTS[indicatorKey];
+  const serverFredChart = SERVER_FRED_CHARTS[indicatorKey];
 
   return (
     <div
@@ -306,16 +408,32 @@ export function LiquidityMetricPanel({
         </p>
       </div>
 
-      {/* Chart - only mount TradingView when visible */}
+      {/* Chart - only mount expensive charts when visible */}
       <div className="border-t border-border/30">
         {isVisible ? (
-          <TradingViewWidget
-            symbol={symbol}
-            height={300}
-            interval={interval}
-            range={range}
-            theme={theme}
-          />
+          fredChart ? (
+            <LiquidityHistoryChart
+              indicatorKey={indicatorKey}
+              historyData={historyData ?? []}
+              timeRange={timeRange ?? '1Y'}
+              height={300}
+            />
+          ) : serverFredChart ? (
+            <FredAreaChart
+              seriesId={serverFredChart.seriesId}
+              timeRange={timeRange ?? '1Y'}
+              height={300}
+              valueFormat={serverFredChart.valueFormat}
+            />
+          ) : (
+            <TradingViewWidget
+              symbol={symbol}
+              height={300}
+              interval={interval}
+              range={range}
+              theme={theme}
+            />
+          )
         ) : (
           <div className="h-[300px] bg-card animate-pulse rounded-lg" />
         )}
@@ -610,6 +728,8 @@ export function USLiquidityDeepDive({
               metric={metrics[metricKeys[key]]}
               theme={theme}
               interval={interval}
+              timeRange={timeRange}
+              historyData={historyData}
               immediate={hasCachedData}
             />
           ))}
@@ -665,6 +785,8 @@ export function USLiquidityDeepDive({
             metric={EMPTY_METRIC}
             theme={theme}
             interval={interval}
+            timeRange={timeRange}
+            historyData={historyData}
             immediate={hasCachedData}
           />
         </div>
@@ -712,12 +834,11 @@ export function USLiquidityDeepDive({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <NFCIGauge value={metrics.nfci?.value ?? 0} loading={loading} />
             <div className="bg-card/60 rounded-xl border border-border/40 overflow-hidden">
-              <TradingViewWidget
-                symbol={FRED_SYMBOLS.nfci}
-                title="NFCI 历史走势"
+              <LiquidityHistoryChart
+                indicatorKey="nfci"
+                historyData={historyData}
+                timeRange={timeRange}
                 height={300}
-                interval={interval}
-                theme={theme}
               />
             </div>
           </div>
@@ -730,6 +851,8 @@ export function USLiquidityDeepDive({
             metric={metrics.sofr}
             theme={theme}
             interval={interval}
+            timeRange={timeRange}
+            historyData={historyData}
             immediate={hasCachedData}
           />
           <LiquidityMetricPanel
@@ -737,6 +860,8 @@ export function USLiquidityDeepDive({
             metric={metrics.effr}
             theme={theme}
             interval={interval}
+            timeRange={timeRange}
+            historyData={historyData}
             immediate={hasCachedData}
           />
         </div>
@@ -935,6 +1060,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            timeRange={timeRange}
             immediate={hasCachedData}
           />
           <LiquidityMetricPanel
@@ -943,6 +1069,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            timeRange={timeRange}
             immediate={hasCachedData}
           />
           <LiquidityMetricPanel
@@ -951,6 +1078,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="D"
             range="12M"
+            timeRange={timeRange}
             immediate={hasCachedData}
           />
         </div>
@@ -991,6 +1119,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            timeRange={timeRange}
             immediate={hasCachedData}
           />
           <LiquidityMetricPanel
@@ -999,6 +1128,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="M"
             range="60M"
+            timeRange={timeRange}
             immediate={hasCachedData}
           />
           <LiquidityMetricPanel
@@ -1007,6 +1137,7 @@ export function GlobalLiquidityDeepDive({
             theme={theme}
             interval="D"
             range="12M"
+            timeRange={timeRange}
             immediate={hasCachedData}
           />
         </div>

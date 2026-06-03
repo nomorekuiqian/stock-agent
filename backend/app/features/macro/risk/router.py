@@ -4,11 +4,11 @@ Macro Risk Dashboard - API Router
 
 import asyncio
 import time as _time
-import traceback
 import warnings as _warnings
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.core.logging import get_logger
 from app.utils.timezone import now_iso, days_ago, today_str
 from app.features.macro.liquidity.fred_service import fetch_fred_series, LIQUIDITY_SERIES
 from app.features.macro.risk.service import (
@@ -22,9 +22,21 @@ from app.features.macro.risk.service import (
 )
 
 router = APIRouter(prefix="/api/macro-risk", tags=["macro-risk"])
+logger = get_logger(__name__)
 
 # Whitelist: only allow FRED series used by the dashboard
-ALLOWED_SERIES_IDS = set(MACRO_RISK_FRED_SERIES.values()) | set(LIQUIDITY_SERIES.values())
+LIQUIDITY_PAGE_EXTRA_FRED_SERIES = {
+    "M2SL",
+    "ECBASSETSW",
+    "JPNASSETS",
+    "MYAGM2EZM196N",
+    "MABMM301JPM189S",
+}
+ALLOWED_SERIES_IDS = (
+    set(MACRO_RISK_FRED_SERIES.values())
+    | set(LIQUIDITY_SERIES.values())
+    | LIQUIDITY_PAGE_EXTRA_FRED_SERIES
+)
 
 
 @router.get("/dashboard")
@@ -45,7 +57,7 @@ async def get_dashboard():
             "liquidity_summary": dashboard.liquidity_summary,
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch macro risk dashboard")
         raise HTTPException(status_code=500, detail="Failed to fetch macro risk dashboard")
 
 
@@ -63,7 +75,7 @@ async def get_economy():
             "data": data.model_dump(),
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch economic fundamentals")
         raise HTTPException(status_code=500, detail="Failed to fetch economic fundamentals")
 
 
@@ -81,7 +93,7 @@ async def get_inflation_rates_endpoint():
             "data": data.model_dump(),
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch inflation and rates data")
         raise HTTPException(status_code=500, detail="Failed to fetch inflation & rates data")
 
 
@@ -99,7 +111,7 @@ async def get_sentiment():
             "data": data.model_dump(),
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch market sentiment data")
         raise HTTPException(status_code=500, detail="Failed to fetch market sentiment data")
 
 
@@ -117,7 +129,7 @@ async def get_cpi_breakdown_endpoint():
             "components": [c.model_dump() for c in data.components],
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch CPI breakdown")
         raise HTTPException(status_code=500, detail="Failed to fetch CPI breakdown")
 
 
@@ -137,7 +149,7 @@ async def get_treasury_commodities():
             "dollar": data["dollar"],
         }
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Failed to fetch treasury and commodities data")
         raise HTTPException(status_code=500, detail="Failed to fetch treasury & commodities data")
 
 
@@ -164,8 +176,8 @@ async def get_series_history(
             "data": data,
         }
     except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Failed to fetch series history")
+        logger.exception("Failed to fetch macro risk series history for %s", series_id)
+        raise HTTPException(status_code=503, detail="Failed to fetch series history")
 
 
 # ============================================================================
@@ -270,7 +282,7 @@ async def _get_yf_history(
             "data": data,
         }
     except Exception:
-        traceback.print_exc()
+        logger.exception("Failed to fetch yfinance history for %s", symbol)
         raise HTTPException(status_code=500, detail=f"Failed to fetch history for {symbol}")
 
 

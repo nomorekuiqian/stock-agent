@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, AreaSeries, HistogramSeries, Time } from 'lightweight-charts';
 
-interface HistoryDataPoint {
+export interface HistoryDataPoint {
   date: string;
   close: number;
 }
@@ -17,6 +17,7 @@ interface HistoryAreaChartProps {
     success: boolean;
     data: Array<{ date: string; close: number }>;
   }>;
+  fallbackData?: HistoryDataPoint[];
   /**
    * Optional custom formatter for the Y-axis price labels and crosshair tooltip.
    * If provided, replaces the default numeric display so e.g. raw millions values
@@ -34,7 +35,7 @@ interface HistoryAreaChartProps {
   chartType?: 'area' | 'histogram';
 }
 
-const TIME_RANGE_DAYS: Record<string, number> = {
+export const TIME_RANGE_DAYS: Record<string, number> = {
   '1M': 30,
   '3M': 90,
   '6M': 180,
@@ -43,6 +44,19 @@ const TIME_RANGE_DAYS: Record<string, number> = {
   '5Y': 1825,
   'ALL': 9999,
 };
+
+export function getHistoryFetchDays(timeRange: string): number {
+  const daysToShow = TIME_RANGE_DAYS[timeRange] ?? 730;
+  const paddedDays = Math.ceil(daysToShow * 1.15);
+  return Math.min(1825, Math.max(180, paddedDays));
+}
+
+export function resolveHistoryData(
+  primaryData: HistoryDataPoint[],
+  fallbackData?: HistoryDataPoint[],
+): HistoryDataPoint[] {
+  return primaryData.length > 0 ? primaryData : (fallbackData ?? []);
+}
 
 function filterByTimeRange(data: HistoryDataPoint[], timeRange: string): HistoryDataPoint[] {
   if (!data.length) return [];
@@ -70,43 +84,60 @@ export function HistoryAreaChart({
   height = 280,
   invertColor = false,
   fetcher,
+  fallbackData,
   valueFormatter,
   chartType = 'area',
 }: HistoryAreaChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rawDataRef = useRef<HistoryDataPoint[]>([]);
+  const fetchDays = getHistoryFetchDays(timeRange);
+  const fetchKey = `${symbol}:${fetchDays}`;
 
   // Track fetch result keyed by symbol so loading/error are derived without
   // synchronous setState in the effect body.
   const [fetchResult, setFetchResult] = useState<{
-    symbol: string;
+    key: string;
     status: 'success' | 'error';
+    hasData?: boolean;
     message?: string;
   } | null>(null);
 
-  const loading = !fetchResult || fetchResult.symbol !== symbol;
-  const error = fetchResult?.symbol === symbol && fetchResult.status === 'error'
+  const loading = !fetchResult || fetchResult.key !== fetchKey;
+  const error = fetchResult?.key === fetchKey && fetchResult.status === 'error'
     ? (fetchResult.message ?? 'Failed to load') : null;
-  const dataReady = fetchResult?.symbol === symbol && fetchResult.status === 'success';
+  const dataReady = fetchResult?.key === fetchKey && fetchResult.status === 'success';
+  const hasNoData = dataReady && fetchResult?.hasData === false;
 
   useEffect(() => {
     let cancelled = false;
 
-    fetcher(symbol, 1825)
+    fetcher(symbol, fetchDays)
       .then((res) => {
-        if (!cancelled && res.success) {
-          rawDataRef.current = res.data.map(d => ({ date: d.date, close: d.close }));
-          setFetchResult({ symbol, status: 'success' });
+        if (!cancelled) {
+          const primaryData = res.success
+            ? res.data.map(d => ({ date: d.date, close: d.close }))
+            : [];
+          rawDataRef.current = resolveHistoryData(primaryData, fallbackData);
+          setFetchResult({
+            key: fetchKey,
+            status: 'success',
+            hasData: rawDataRef.current.length > 0,
+          });
         }
       })
-      .catch((err) => {
+      .catch(() => {
         if (!cancelled) {
-          setFetchResult({ symbol, status: 'error', message: err instanceof Error ? err.message : 'Failed to load' });
+          rawDataRef.current = fallbackData ?? [];
+          setFetchResult({
+            key: fetchKey,
+            status: 'success',
+            hasData: rawDataRef.current.length > 0,
+          });
         }
       });
 
     return () => { cancelled = true; };
-  }, [symbol, fetcher]);
+  }, [symbol, fetcher, fetchDays, fetchKey, fallbackData]);
 
   useEffect(() => {
     if (!containerRef.current || !dataReady) return;
@@ -207,7 +238,15 @@ export function HistoryAreaChart({
   if (error) {
     return (
       <div style={{ height }} className="flex items-center justify-center">
-        <span className="text-xs text-muted-foreground">{error}</span>
+        <span className="text-xs text-muted-foreground">暂无可用图表数据</span>
+      </div>
+    );
+  }
+
+  if (hasNoData) {
+    return (
+      <div style={{ height }} className="flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">暂无可用图表数据</span>
       </div>
     );
   }

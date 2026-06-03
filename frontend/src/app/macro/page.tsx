@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 
@@ -14,6 +15,8 @@ import { useLiquidityMetrics, useLiquidityHistory } from '@/hooks/queries/use-li
 import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
 import { queryKeys } from '@/hooks/queries/query-keys';
 import { formatLiquidityValue } from './liquidity/liquidity-metrics';
+import type { RiskIndicator } from '@/lib/api';
+import type { HistoryDataPoint } from '@/components/HistoryAreaChart';
 // SignalLights type no longer used on dashboard (moved to weekly report page)
 
 // ── Chart components (dynamic, ssr: false) ──────────────────────────────────
@@ -50,6 +53,32 @@ function fmtK(v: number | null | undefined): string {
   const abs = Math.abs(v);
   if (abs >= 1000) return `${(v / 1000).toFixed(1)}M`;
   return `${v.toFixed(0)}K`;
+}
+
+function makeIndicatorFallbackData(
+  indicator: RiskIndicator | undefined,
+  previousDays: number,
+): HistoryDataPoint[] | undefined {
+  if (indicator?.value == null) return undefined;
+
+  const parsedDate = indicator.date ? new Date(indicator.date) : new Date();
+  const currentDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+  const currentPoint = {
+    date: currentDate.toISOString().slice(0, 10),
+    close: indicator.value,
+  };
+
+  if (indicator.previous_value == null) return [currentPoint];
+
+  const previousDate = new Date(currentDate);
+  previousDate.setDate(previousDate.getDate() - previousDays);
+  return [
+    {
+      date: previousDate.toISOString().slice(0, 10),
+      close: indicator.previous_value,
+    },
+    currentPoint,
+  ];
 }
 
 /** Format a yield-curve spread with explicit sign: +0.45% / -0.12%. */
@@ -110,6 +139,15 @@ export default function MacroPage() {
   const cpiInd = inflationDim?.indicators?.find(i => i.series_id === 'CPIAUCSL');
   const pceInd = inflationDim?.indicators?.find(i => i.series_id === 'PCEPILFE');
   const ffrInd = ratesDim?.indicators?.find(i => i.series_id === 'FEDFUNDS');
+  const chartFallbacks = useMemo(() => ({
+    gdp: makeIndicatorFallbackData(gdpInd, 90),
+    unemployment: makeIndicatorFallbackData(unempInd, 30),
+    payrolls: makeIndicatorFallbackData(payrollsInd, 30),
+    yieldCurve: makeIndicatorFallbackData(yieldCurveInd, 7),
+    cpi: makeIndicatorFallbackData(cpiInd, 30),
+    pce: makeIndicatorFallbackData(pceInd, 30),
+    ffr: makeIndicatorFallbackData(ffrInd, 7),
+  }), [gdpInd, unempInd, payrollsInd, yieldCurveInd, cpiInd, pceInd, ffrInd]);
 
   // Refresh handler
   function handleRefresh() {
@@ -206,11 +244,11 @@ export default function MacroPage() {
                 key: 'gdp', label: 'GDP 增长率',
                 value: fmtPercent(gdpInd?.value),
                 trend: { type: 'quarterly' as const, label: gdpInd?.previous_value != null ? `前值 ${gdpInd.previous_value.toFixed(1)}%` : undefined },
-                chart: <FredAreaChart seriesId="A191RL1Q225SBEA" timeRange="5Y" height={200} valueFormat="percent" chartType="histogram" />,
+                chart: <FredAreaChart seriesId="A191RL1Q225SBEA" timeRange="5Y" height={200} valueFormat="percent" chartType="histogram" fallbackData={chartFallbacks.gdp} />,
               },
-              { key: 'unemployment', label: '失业率', value: fmtPercent(unempInd?.value), trend: { type: 'monthly' as const, direction: unempInd?.change != null ? (unempInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="UNRATE" timeRange="2Y" height={200} valueFormat="percent" /> },
-              { key: 'payrolls', label: '非农就业', value: payrollsInd?.value != null ? fmtK(payrollsInd.value) : 'N/A', trend: { type: 'monthly' as const, direction: payrollsInd?.change != null ? (payrollsInd.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="PAYEMS" timeRange="2Y" height={200} valueFormat="thousands" /> },
-              { key: 'yield_curve', label: '10Y-2Y 利差', value: fmtSpread(yieldCurveInd?.value), trend: { type: 'daily' as const, label: yieldCurveInd?.value != null ? (yieldCurveInd.value >= 0 ? '正常' : '倒挂') : undefined, direction: yieldCurveInd?.value != null ? (yieldCurveInd.value >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="T10Y2Y" timeRange="3Y" height={200} valueFormat="percent" /> },
+              { key: 'unemployment', label: '失业率', value: fmtPercent(unempInd?.value), trend: { type: 'monthly' as const, direction: unempInd?.change != null ? (unempInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="UNRATE" timeRange="2Y" height={200} valueFormat="percent" fallbackData={chartFallbacks.unemployment} /> },
+              { key: 'payrolls', label: '非农就业', value: payrollsInd?.value != null ? fmtK(payrollsInd.value) : 'N/A', trend: { type: 'monthly' as const, direction: payrollsInd?.change != null ? (payrollsInd.change >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="PAYEMS" timeRange="2Y" height={200} valueFormat="thousands" fallbackData={chartFallbacks.payrolls} /> },
+              { key: 'yield_curve', label: '10Y-2Y 利差', value: fmtSpread(yieldCurveInd?.value), trend: { type: 'daily' as const, label: yieldCurveInd?.value != null ? (yieldCurveInd.value >= 0 ? '正常' : '倒挂') : undefined, direction: yieldCurveInd?.value != null ? (yieldCurveInd.value >= 0 ? 'up' as const : 'down' as const) : undefined }, chart: <FredAreaChart seriesId="T10Y2Y" timeRange="3Y" height={200} valueFormat="percent" fallbackData={chartFallbacks.yieldCurve} /> },
             ]}
           />
 
@@ -227,10 +265,10 @@ export default function MacroPage() {
                 key: 'cpi', label: 'CPI YoY',
                 value: fmtPercent(cpiInd?.value),
                 trend: { type: 'monthly' as const, direction: cpiInd?.change != null ? (cpiInd.change <= 0 ? 'down' as const : 'up' as const) : undefined },
-                chart: <FredAreaChart seriesId="CPIAUCSL" timeRange="2Y" height={200} units="pc1" valueFormat="percent" />,
+                chart: <FredAreaChart seriesId="CPIAUCSL" timeRange="2Y" height={200} units="pc1" valueFormat="percent" fallbackData={chartFallbacks.cpi} />,
               },
-              { key: 'pce', label: '核心 PCE', value: fmtPercent(pceInd?.value), trend: { type: 'monthly' as const, direction: pceInd?.change != null ? (pceInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="PCEPILFE" timeRange="2Y" height={200} units="pc1" valueFormat="percent" /> },
-              { key: 'ffr', label: '联邦基金利率', value: metrics?.effr?.value != null ? fmtPercent(metrics.effr.value, 2) : fmtPercent(ffrInd?.value, 2), trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="FEDFUNDS" timeRange="2Y" height={200} valueFormat="percent" /> },
+              { key: 'pce', label: '核心 PCE', value: fmtPercent(pceInd?.value), trend: { type: 'monthly' as const, direction: pceInd?.change != null ? (pceInd.change <= 0 ? 'down' as const : 'up' as const) : undefined }, chart: <FredAreaChart seriesId="PCEPILFE" timeRange="2Y" height={200} units="pc1" valueFormat="percent" fallbackData={chartFallbacks.pce} /> },
+              { key: 'ffr', label: '联邦基金利率', value: metrics?.effr?.value != null ? fmtPercent(metrics.effr.value, 2) : fmtPercent(ffrInd?.value, 2), trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="FEDFUNDS" timeRange="2Y" height={200} valueFormat="percent" fallbackData={chartFallbacks.ffr} /> },
               { key: '10y', label: '10Y 国债', value: treasury?.treasury?.rates?.['10Y']?.rate != null ? fmtPercent(treasury.treasury.rates['10Y'].rate, 2) : 'N/A', trend: { type: 'daily' as const }, chart: <FredAreaChart seriesId="DGS10" timeRange="2Y" height={200} valueFormat="percent" /> },
             ]}
           />

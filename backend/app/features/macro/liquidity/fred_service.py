@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 from app.core.logging import get_logger
 from app.utils.timezone import today_str, days_ago
-from app.features.macro.cache.db import try_db_cache
+from app.features.macro.cache.db import set_cached, try_db_cache
 
 logger = get_logger(__name__)
 
@@ -31,9 +31,21 @@ FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 _FRED_SEMAPHORE: asyncio.Semaphore | None = None
 _CACHE_TTL = 1800  # 30 minutes — FRED data updates at most daily
 _SERIES_CACHE_TTL = 1800  # 30 min cache for individual series fetches
+_SERIES_DB_CACHE_TTL_HOURS = 26.0  # FRED series update daily or slower
 _liquidity_cache: dict = {}
 _liquidity_lock: asyncio.Lock | None = None
 _series_cache: dict[str, dict] = {}  # per-series result cache
+_series_locks: dict[str, asyncio.Lock] = {}
+
+_LIQUIDITY_HISTORY_SERIES_FIELDS: dict[str, tuple[str, str, str, str, float]] = {
+    "WALCL": ("fed_assets", "Federal Reserve Total Assets", "Millions of U.S. Dollars", "Weekly", 1000.0),
+    "WDTGAL": ("tga", "Treasury General Account", "Millions of U.S. Dollars", "Daily", 1000.0),
+    "RRPONTSYD": ("rrp", "Overnight Reverse Repurchase Agreements", "Billions of US Dollars", "Daily", 1.0),
+    "WRESBAL": ("reserves", "Reserve Balances with Federal Reserve Banks", "Millions of U.S. Dollars", "Weekly", 1000.0),
+    "SOFR": ("sofr", "Secured Overnight Financing Rate", "Percent", "Daily", 1.0),
+    "EFFR": ("effr", "Effective Federal Funds Rate", "Percent", "Daily", 1.0),
+    "NFCI": ("nfci", "Chicago Fed National Financial Conditions Index", "Index", "Weekly", 1.0),
+}
 
 
 def _get_semaphore() -> asyncio.Semaphore:
@@ -48,6 +60,68 @@ def _get_liquidity_lock() -> asyncio.Lock:
     if _liquidity_lock is None:
         _liquidity_lock = asyncio.Lock()
     return _liquidity_lock
+
+
+def _get_series_lock(cache_key: str) -> asyncio.Lock:
+    lock = _series_locks.get(cache_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _series_locks[cache_key] = lock
+    return lock
+
+
+def _extract_series_from_liquidity_history(
+    history: dict | None,
+    series_id: str,
+    limit: int,
+    start_date: str,
+    end_date: str,
+) -> dict | None:
+    config = _LIQUIDITY_HISTORY_SERIES_FIELDS.get(series_id)
+    if not config or not isinstance(history, dict):
+        return None
+
+    field, title, units, frequency, multiplier = config
+    observations = history.get("observations")
+    if not isinstance(observations, list):
+        return None
+
+    rows = []
+    for obs in observations:
+        if not isinstance(obs, dict):
+            continue
+        date = obs.get("time")
+        value = obs.get(field)
+        if not isinstance(date, str) or value is None:
+            continue
+        if date < start_date or date > end_date:
+            continue
+        rows.append({"date": date, "value": float(value) * multiplier})
+
+    rows.sort(key=lambda row: row["date"], reverse=True)
+    if limit:
+        rows = rows[:limit]
+    if not rows:
+        return None
+
+    return {
+        "series_id": series_id,
+        "title": title,
+        "units": units,
+        "frequency": frequency,
+        "last_updated": history.get("last_updated", ""),
+        "observations": rows,
+    }
+
+
+async def _liquidity_history_series_fallback(
+    series_id: str,
+    limit: int,
+    start_date: str,
+    end_date: str,
+) -> dict | None:
+    history, _ = await try_db_cache("fred:liquidity_history")
+    return _extract_series_from_liquidity_history(history, series_id, limit, start_date, end_date)
 
 
 def _get_cached_liquidity():
@@ -93,60 +167,139 @@ async def fetch_fred_series(
     if not start_date:
         start_date = days_ago(730)
 
-    cache_key = f"{series_id}:{units}:{limit}:{start_date}"
-    cached = _series_cache.get(cache_key)
+    memory_cache_key = f"{series_id}:{units}:{limit}:{start_date}"
+    db_cache_key = f"fred:series:{series_id}:{units or 'raw'}:{limit}:{start_date}:{end_date}"
+    use_db_cache = limit >= 100
+
+    cached = _series_cache.get(memory_cache_key)
     if cached and time.time() - cached["ts"] < _SERIES_CACHE_TTL:
         return cached["data"]
 
-    params = {
-        "series_id": series_id,
-        "api_key": FRED_API_KEY,
-        "file_type": "json",
-        "observation_start": start_date,
-        "observation_end": end_date,
-        "sort_order": "desc",
-        "limit": limit,
-    }
-    if units:
-        params["units"] = units
-
-    async with _get_semaphore():
-        async with httpx.AsyncClient() as client:
-            info_response = await client.get(
-                f"{FRED_BASE_URL}/series",
-                params={"series_id": series_id, "api_key": FRED_API_KEY, "file_type": "json"}
+    def _safe_fred_error(exc: Exception, request_name: str) -> RuntimeError:
+        if isinstance(exc, httpx.HTTPStatusError):
+            status = exc.response.status_code
+            if status == 429:
+                return RuntimeError(
+                    "FRED API rate limited while fetching %s for %s" % (request_name, series_id)
+                )
+            return RuntimeError(
+                "FRED API %s request failed with status %s for %s"
+                % (request_name, status, series_id)
             )
-            info_response.raise_for_status()
-            info_data = info_response.json()
-
-            obs_response = await client.get(
-                f"{FRED_BASE_URL}/series/observations",
-                params=params
+        if isinstance(exc, httpx.RequestError):
+            return RuntimeError(
+                "FRED API %s request failed for %s" % (request_name, series_id)
             )
-            obs_response.raise_for_status()
-            obs_data = obs_response.json()
+        return RuntimeError(
+            "FRED API %s response failed for %s" % (request_name, series_id)
+        )
 
-    series_info = info_data.get("seriess", [{}])[0]
-    observations = obs_data.get("observations", [])
+    async def _get_fred_json(
+        client: httpx.AsyncClient,
+        path: str,
+        request_name: str,
+        request_params: dict,
+    ) -> dict:
+        try:
+            response = await client.get(f"{FRED_BASE_URL}/{path}", params=request_params)
+            response.raise_for_status()
+            return response.json()
+        except (httpx.HTTPStatusError, httpx.RequestError, ValueError) as exc:
+            raise _safe_fred_error(exc, request_name) from None
 
-    result = {
-        "series_id": series_id,
-        "title": series_info.get("title", ""),
-        "units": series_info.get("units", ""),
-        "frequency": series_info.get("frequency", ""),
-        "last_updated": series_info.get("last_updated", ""),
-        "observations": [
-            {
-                "date": obs["date"],
-                "value": float(obs["value"]) if obs["value"] != "." else None
-            }
-            for obs in observations
-            if obs["value"] != "."
-        ]
-    }
+    async with _get_series_lock(memory_cache_key):
+        cached = _series_cache.get(memory_cache_key)
+        if cached and time.time() - cached["ts"] < _SERIES_CACHE_TTL:
+            return cached["data"]
 
-    _series_cache[cache_key] = {"data": result, "ts": time.time()}
-    return result
+        stale_db_data = None
+        if use_db_cache:
+            db_data, db_valid = await try_db_cache(db_cache_key)
+            if db_valid and db_data:
+                _series_cache[memory_cache_key] = {"data": db_data, "ts": time.time()}
+                return db_data
+            stale_db_data = db_data
+
+        params = {
+            "series_id": series_id,
+            "api_key": FRED_API_KEY,
+            "file_type": "json",
+            "observation_start": start_date,
+            "observation_end": end_date,
+            "sort_order": "desc",
+            "limit": limit,
+        }
+        if units:
+            params["units"] = units
+
+        async with _get_semaphore():
+            async with httpx.AsyncClient() as client:
+                try:
+                    info_data = await _get_fred_json(
+                        client,
+                        "series",
+                        "series metadata",
+                        {"series_id": series_id, "api_key": FRED_API_KEY, "file_type": "json"},
+                    )
+                    obs_data = await _get_fred_json(
+                        client,
+                        "series/observations",
+                        "series observations",
+                        params,
+                    )
+                except RuntimeError:
+                    if stale_db_data:
+                        logger.warning(
+                            "Returning stale DB-cached FRED series for %s units=%s start=%s",
+                            series_id,
+                            units,
+                            start_date,
+                        )
+                        _series_cache[memory_cache_key] = {"data": stale_db_data, "ts": time.time()}
+                        return stale_db_data
+                    liquidity_history_fallback = await _liquidity_history_series_fallback(
+                        series_id,
+                        limit,
+                        start_date,
+                        end_date,
+                    )
+                    if liquidity_history_fallback:
+                        logger.warning(
+                            "Returning liquidity-history fallback FRED series for %s units=%s start=%s",
+                            series_id,
+                            units,
+                            start_date,
+                        )
+                        _series_cache[memory_cache_key] = {
+                            "data": liquidity_history_fallback,
+                            "ts": time.time(),
+                        }
+                        return liquidity_history_fallback
+                    raise
+
+        series_info = info_data.get("seriess", [{}])[0]
+        observations = obs_data.get("observations", [])
+
+        result = {
+            "series_id": series_id,
+            "title": series_info.get("title", ""),
+            "units": series_info.get("units", ""),
+            "frequency": series_info.get("frequency", ""),
+            "last_updated": series_info.get("last_updated", ""),
+            "observations": [
+                {
+                    "date": obs["date"],
+                    "value": float(obs["value"]) if obs["value"] != "." else None
+                }
+                for obs in observations
+                if obs["value"] != "."
+            ]
+        }
+
+        _series_cache[memory_cache_key] = {"data": result, "ts": time.time()}
+        if use_db_cache and result["observations"]:
+            await set_cached(db_cache_key, result, "fred", _SERIES_DB_CACHE_TTL_HOURS)
+        return result
 
 
 async def get_latest_value(series_id: str) -> dict:

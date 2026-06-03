@@ -8,6 +8,7 @@ import pytest
 
 from app.features.macro.liquidity.fred_service import (
     _build_liquidity_metrics_from_history,
+    _extract_series_from_liquidity_history,
     _has_liquidity_metric_values,
 )
 
@@ -62,3 +63,50 @@ def test_has_liquidity_metric_values_rejects_all_null_payload():
         "fed_assets": {"value": 6705.696},
         "net_liquidity": {"value": None},
     })
+
+
+def test_extract_series_from_liquidity_history_converts_fed_assets_to_fred_units():
+    history = {
+        "observations": [
+            {"time": "2026-04-10", "fed_assets": 6600.0},
+            {"time": "2026-04-17", "fed_assets": 6705.696},
+            {"time": "2026-04-24", "fed_assets": None},
+        ]
+    }
+
+    series = _extract_series_from_liquidity_history(
+        history,
+        "WALCL",
+        limit=10,
+        start_date="2026-04-01",
+        end_date="2026-04-30",
+    )
+
+    assert series is not None
+    assert series["series_id"] == "WALCL"
+    assert series["units"] == "Millions of U.S. Dollars"
+    assert series["observations"] == [
+        {"date": "2026-04-17", "value": 6705696.0},
+        {"date": "2026-04-10", "value": 6600000.0},
+    ]
+
+
+def test_extract_series_from_liquidity_history_filters_date_range_and_limit():
+    history = {
+        "observations": [
+            {"time": "2026-04-10", "rrp": 120.0},
+            {"time": "2026-04-17", "rrp": 115.0},
+            {"time": "2026-04-24", "rrp": 110.0},
+        ]
+    }
+
+    series = _extract_series_from_liquidity_history(
+        history,
+        "RRPONTSYD",
+        limit=1,
+        start_date="2026-04-11",
+        end_date="2026-04-30",
+    )
+
+    assert series is not None
+    assert series["observations"] == [{"date": "2026-04-24", "value": 110.0}]

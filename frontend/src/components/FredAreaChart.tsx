@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { HistoryAreaChart } from '@/components/HistoryAreaChart';
+import { HistoryAreaChart, type HistoryDataPoint } from '@/components/HistoryAreaChart';
 import { api } from '@/lib/api';
 import {
   formatCompactCurrencyFromMillions,
@@ -33,6 +33,7 @@ interface FredAreaChartProps {
   invertColor?: boolean;
   units?: string;
   valueFormat?: FredValueFormat;
+  fallbackData?: HistoryDataPoint[];
   /** Render as area (default) or histogram bars (good for quarterly data like GDP). */
   chartType?: 'area' | 'histogram';
 }
@@ -70,6 +71,7 @@ export function FredAreaChart({
   invertColor = false,
   units,
   valueFormat,
+  fallbackData,
   chartType = 'area',
 }: FredAreaChartProps) {
   const fetcher = useCallback(
@@ -86,6 +88,7 @@ export function FredAreaChart({
       height={height}
       invertColor={invertColor}
       fetcher={fetcher}
+      fallbackData={fallbackData}
       valueFormatter={valueFormatter}
       chartType={chartType}
     />
