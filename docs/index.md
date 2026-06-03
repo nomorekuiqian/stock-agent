@@ -15,6 +15,12 @@
 - [reliability.md](constraints/reliability.md) — 工程可靠性（错误处理、速率限制、健康检查、日志）
 - [design-system.md](constraints/design-system.md) — 设计规范（Financial Terminal + Editorial Luxury）
 
+## 功能记录 (docs/features/)
+
+已交付功能的权威归档（spec / 设计 / 已完成 / 待完成 / runbook），与 active plan 分离。
+
+- [holdings-sync-track-m/](features/holdings-sync-track-m/README.md) — Track M 手动/导入持仓同步（截图/粘贴/CSV/PDF）：代码完工 + Insforge 部署完成，待后端上新代码 + 灰度
+
 ## 工程计划 (docs/plans/)
 
 功能开发前的设计文档。模板: [_template.md](plans/_template.md)

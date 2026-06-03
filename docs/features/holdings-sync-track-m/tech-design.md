@@ -1,8 +1,8 @@
 # Track M 手动 / 导入持仓同步 · 技术设计
 
-> Status: Tech Design（Track M 深化，配合 `proposals/holdings-sync-design.md`）
+> Status: Tech Design（Track M 深化，配合 `../../plans/proposals/holdings-sync-design.md`）
 > Scope: 仅 Track M（手动 / 导入）。Track C（SnapTrade / `user_broker_connections` / `holdings-sync.js`）**不在本文**。
-> Related: `proposals/holdings-sync-design.md`、`backend/app/features/portfolio/.context.md`、`docs/guides/feature-flags-playbook.md`、`active/holdings-sync-track-m-go-live.md`（部署 / 灰度 / GA 操作手册）
+> Related: `../../plans/proposals/holdings-sync-design.md`、`backend/app/features/portfolio/.context.md`、`docs/guides/feature-flags-playbook.md`、`go-live.md`（部署 / 灰度 / GA 操作手册）
 > Vision: 产品策略 > “专属” —— 真实持仓是一切个性化的输入
 > 决策状态: 关键决策已与产品确认（见 §8）；本文为可执行技术设计，落地前再细化签名。
 
@@ -10,7 +10,7 @@
 
 ## 为什么写这篇
 
-`proposals/holdings-sync-design.md` 已确立“持仓同步”方向，并把 **Track M（手动 / 导入）** 定为零供应商、零合规开销、可独立先交付的一等公民路径。但该 proposal 对 Track M 只给到表格级粒度，缺少可执行细节：
+`../../plans/proposals/holdings-sync-design.md` 已确立“持仓同步”方向，并把 **Track M（手动 / 导入）** 定为零供应商、零合规开销、可独立先交付的一等公民路径。但该 proposal 对 Track M 只给到表格级粒度，缺少可执行细节：
 
 - 多形态摄取（截图 / 粘贴文本 / CSV / PDF）的端到端 FE↔BE 协议；
 - 异构股票标识（ticker / 简称 / 英文全名 / 中文名 / ADR 双重上市 / 类别股）的解析管线；
