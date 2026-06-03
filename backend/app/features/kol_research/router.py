@@ -10,10 +10,10 @@ Routes:
   PUT  /api/kol_research/conversations/{id}   update
   DELETE /api/kol_research/conversations/{id} delete
 
-All endpoints are gated behind the `kol_research_agent` feature flag.
-Conversation persistence reuses the existing `picker-conversations` edge function;
-KOL-specific metadata is embedded in the JSONB `data` field as `agent_kind`,
-`persona_username`, and `kol_chunks` — no DB migration required.
+Chat endpoints are gated behind the `kol_research_agent` feature flag.
+The existing `/research` UI still owns `picker_conversations` saves, while
+KOL chat runs also pass through `features.agent_runtime` and write durable
+runtime events to `agent_session_events` via the `agent-sessions` Edge Function.
 """
 
 from __future__ import annotations
@@ -545,7 +545,7 @@ async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
 @router.post("/chat", response_model=KolResearchResponse)
 async def kol_research_chat(
     req: KolResearchRequest,
-    _user: dict = Depends(require_kol_research_flag),
+    user_info: dict = Depends(require_kol_research_flag),
 ):
     """Unary KOL research chat."""
     return await answer_kol_research(
@@ -553,13 +553,16 @@ async def kol_research_chat(
         history=[m.model_dump() for m in req.history],
         persona_username=req.persona_username or DEFAULT_PERSONA,
         content_context=req.content_context,
+        conversation_id=req.session_id or req.conversation_id,
+        user_id=user_info["user_id"],
+        turn_id=req.turn_id,
     )
 
 
 @router.post("/chat/stream")
 async def kol_research_chat_stream(
     req: KolResearchRequest,
-    _user: dict = Depends(require_kol_research_flag),
+    user_info: dict = Depends(require_kol_research_flag),
 ):
     """SSE streaming KOL research chat.
 
@@ -578,6 +581,9 @@ async def kol_research_chat_stream(
             history=[m.model_dump() for m in req.history],
             persona_username=req.persona_username or DEFAULT_PERSONA,
             content_context=req.content_context,
+            conversation_id=req.session_id or req.conversation_id,
+            user_id=user_info["user_id"],
+            turn_id=req.turn_id,
         ):
             yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
 
@@ -593,10 +599,15 @@ class KolConversationSaveRequest(BaseModel):
     """Conversation envelope shared with /api/research/* — we add agent_kind
     inside `data` so the same table can hold both kinds without migration."""
 
+    id: str | None = Field(default=None, max_length=80)
     title: str = Field(..., min_length=1, max_length=200)
     data: dict[str, Any] = Field(default_factory=dict)
     message_count: int = Field(default=0, ge=0)
     persona_username: str = Field(default=DEFAULT_PERSONA, min_length=1, max_length=80)
+    touch: bool = Field(
+        default=True,
+        description="When false, save UI-only state without advancing updated_at.",
+    )
 
 
 def _stamp_kol_metadata(
@@ -609,6 +620,38 @@ def _stamp_kol_metadata(
     out["agent_kind"] = "kol_research"
     out["persona_username"] = persona_username
     return out
+
+
+async def _sync_kol_runtime_ui_state(
+    *,
+    user_id: str,
+    conversation_id: str | None,
+    title: str | None,
+    data: dict[str, Any] | None,
+    persona_username: str,
+    source: str,
+) -> None:
+    if not conversation_id:
+        return
+    try:
+        from app.features.agent_runtime.events import sync_ui_state
+        from app.features.kol_research.agent import APP_NAME
+
+        await sync_ui_state(
+            user_id=user_id,
+            agent_id=APP_NAME,
+            session_id=conversation_id,
+            agent_kind="kol_research",
+            title=title,
+            data=data,
+            persona_username=persona_username,
+            source=source,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "kol runtime ui sync failed conversation_id=%s",
+            conversation_id,
+        )
 
 
 @router.get("/conversations")
@@ -651,9 +694,18 @@ async def kol_research_create_conversation(
         title=req.title,
         data=stamped,
         message_count=req.message_count,
+        conversation_id=req.id,
     )
     if created is None:
         raise HTTPException(status_code=500, detail="create_conversation failed")
+    await _sync_kol_runtime_ui_state(
+        user_id=user_info["user_id"],
+        conversation_id=created.get("id"),
+        title=req.title,
+        data=stamped,
+        persona_username=req.persona_username,
+        source="conversation_create",
+    )
     return created
 
 
@@ -670,9 +722,18 @@ async def kol_research_update_conversation(
         title=req.title,
         data=stamped,
         message_count=req.message_count,
+        touch=req.touch,
     )
     if not ok:
         raise HTTPException(status_code=500, detail="update_conversation failed")
+    await _sync_kol_runtime_ui_state(
+        user_id=user_info["user_id"],
+        conversation_id=conversation_id,
+        title=req.title,
+        data=stamped,
+        persona_username=req.persona_username,
+        source="conversation_update",
+    )
     return {"success": True}
 
 

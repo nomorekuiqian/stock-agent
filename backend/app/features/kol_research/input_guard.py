@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -20,6 +21,63 @@ from app.features.kol_research.cockpit import NON_PRICEABLE, TICKER_ALIASES
 from app.shared.data_tools.briefs import get_macro_brief, get_stock_brief
 
 logger = get_logger(__name__)
+
+_PREFETCH_TTL_SECONDS = 300.0
+_PREFETCH_CACHE: dict[str, tuple[float, Any, bool]] = {}
+_PROMPT_SECTION_MAX_CHARS = 3500
+_BRIEF_SLIM_FIELD_LIMIT = 6
+
+
+def _cache_get(key: str) -> tuple[Any, bool] | None:
+    entry = _PREFETCH_CACHE.get(key)
+    if entry is None:
+        return None
+    ts, payload, ok = entry
+    if (time.monotonic() - ts) > _PREFETCH_TTL_SECONDS:
+        _PREFETCH_CACHE.pop(key, None)
+        return None
+    return payload, ok
+
+
+def _cache_set(key: str, payload: Any, ok: bool) -> None:
+    _PREFETCH_CACHE[key] = (time.monotonic(), payload, ok)
+
+
+def _slim_brief_payload(payload: Any) -> Any:
+    """Drop verbose fields (news bodies, long timeseries) from a brief result.
+
+    Keeps the structured top-level scalars / shallow objects that the LLM
+    actually needs to anchor its answer.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    slim: dict[str, Any] = {}
+    for key, value in payload.items():
+        if isinstance(value, str):
+            slim[key] = value[:400]
+        elif isinstance(value, list):
+            kept = []
+            for item in value[:_BRIEF_SLIM_FIELD_LIMIT]:
+                if isinstance(item, dict):
+                    kept.append({
+                        k: (v[:200] if isinstance(v, str) else v)
+                        for k, v in item.items()
+                        if not isinstance(v, (list, dict))
+                    })
+                elif isinstance(item, str):
+                    kept.append(item[:200])
+                else:
+                    kept.append(item)
+            slim[key] = kept
+        elif isinstance(value, dict):
+            slim[key] = {
+                k: (v[:200] if isinstance(v, str) else v)
+                for k, v in value.items()
+                if not isinstance(v, (list, dict))
+            }
+        else:
+            slim[key] = value
+    return slim
 
 _URL_RE = re.compile(r"https?://[^\s<>)\"']+", re.IGNORECASE)
 _TICKER_RE = re.compile(r"(?<![A-Za-z0-9])(\$?)([A-Z]{1,5})(?![A-Za-z0-9])")
@@ -190,24 +248,61 @@ def parse_input(message: str, content_context: dict[str, Any] | None = None) -> 
     )
 
 
+def _symbols_in_history(history: Iterable[dict[str, Any]] | None) -> set[str]:
+    """Cheap pass over prior turns to detect tickers already discussed."""
+    if not history:
+        return set()
+    seen: set[str] = set()
+    for turn in history:
+        content = str(turn.get("content") or "")
+        for match in _TICKER_RE.finditer(content):
+            token = match.group(2).upper()
+            if token in TICKER_ALIASES:
+                seen.add(token)
+        upper_content = content.upper()
+        for ticker, aliases in TICKER_ALIASES.items():
+            if ticker in seen:
+                continue
+            for alias in aliases:
+                alias = str(alias).strip()
+                if not alias:
+                    continue
+                if any("一" <= ch <= "鿿" for ch in alias):
+                    if alias in content:
+                        seen.add(ticker)
+                        break
+                elif len(alias) >= 2 and alias.upper() in upper_content:
+                    seen.add(ticker)
+                    break
+    return seen
+
+
 async def build_input_guard_context(
     *,
     message: str,
     content_context: dict[str, Any] | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> InputGuardContext:
-    """Build a prompt section with deterministic parsing + pre-fetched data."""
+    """Build a prompt section with deterministic parsing + pre-fetched data.
+
+    Multi-turn behavior:
+      - If the parsed symbol was already discussed in `history`, we skip
+        injecting the full prefetched_data body into the prompt. The parsed
+        hint still goes in so the agent knows the intent, and the cache below
+        still warms up; the agent will call the tool itself if it really needs
+        the data, but it won't get a redundant verbatim dump every turn.
+      - Prefetch results are TTL-cached for 5 minutes; identical args hit cache.
+    """
     parsed = parse_input(message, content_context)
     if not parsed.symbols and not parsed.is_macro_question and not parsed.is_news_question:
         return InputGuardContext(parsed=parsed)
 
+    previous_symbols = _symbols_in_history(history)
+    overlap = previous_symbols & set(parsed.symbols)
+    inject_data_body = not (overlap and len(history or []) >= 2)
+
     prefetch_payload: dict[str, Any] = {"stocks": {}, "macro": None}
     fulfilled: set[str] = set()
-
-    async def _prefetch_stock(symbol: str) -> tuple[str, Any, bool]:
-        raw = await get_stock_brief(symbol)
-        parsed_raw = _parse_json_or_text(raw)
-        ok = not (isinstance(parsed_raw, dict) and parsed_raw.get("error"))
-        return symbol, parsed_raw, ok
 
     tasks = [_prefetch_stock(symbol) for symbol in parsed.requires_stock_brief_symbols]
     if parsed.requires_macro_brief:
@@ -216,7 +311,7 @@ async def build_input_guard_context(
     if tasks:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning("input guard prefetch failed: %s", result)
                 continue
             key, payload, ok = result
@@ -229,7 +324,11 @@ async def build_input_guard_context(
                 if ok:
                     fulfilled.add(f"get_stock_brief:{key}")
 
-    prompt_section = _render_prompt_section(parsed, prefetch_payload)
+    prompt_section = _render_prompt_section(
+        parsed,
+        prefetch_payload,
+        inject_data_body=inject_data_body,
+    )
     return InputGuardContext(
         parsed=parsed,
         prompt_section=prompt_section,
@@ -240,10 +339,29 @@ async def build_input_guard_context(
 _MACRO_PREFETCH_KEY = "__macro__"
 
 
+async def _prefetch_stock(symbol: str) -> tuple[str, Any, bool]:
+    cache_key = f"stock:{symbol}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        payload, ok = cached
+        return symbol, payload, ok
+    raw = await get_stock_brief(symbol)
+    parsed_raw = _parse_json_or_text(raw)
+    ok = not (isinstance(parsed_raw, dict) and parsed_raw.get("error"))
+    _cache_set(cache_key, parsed_raw, ok)
+    return symbol, parsed_raw, ok
+
+
 async def _prefetch_macro() -> tuple[str, Any, bool]:
+    cache_key = "macro"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        payload, ok = cached
+        return _MACRO_PREFETCH_KEY, payload, ok
     raw = await get_macro_brief()
     parsed_raw = _parse_json_or_text(raw)
     ok = not (isinstance(parsed_raw, dict) and parsed_raw.get("error"))
+    _cache_set(cache_key, parsed_raw, ok)
     return _MACRO_PREFETCH_KEY, parsed_raw, ok
 
 
@@ -254,14 +372,28 @@ def _parse_json_or_text(raw: str) -> Any:
         return {"text": str(raw)}
 
 
-def _render_prompt_section(parsed: ParsedInput, prefetch_payload: dict[str, Any]) -> str:
-    payload = {
-        "parsed_input": parsed.to_prompt_dict(),
-        "prefetched_data": prefetch_payload,
-    }
+def _render_prompt_section(
+    parsed: ParsedInput,
+    prefetch_payload: dict[str, Any],
+    *,
+    inject_data_body: bool = True,
+) -> str:
+    if inject_data_body:
+        slim_stocks = {
+            sym: _slim_brief_payload(data)
+            for sym, data in (prefetch_payload.get("stocks") or {}).items()
+        }
+        slim_macro = _slim_brief_payload(prefetch_payload.get("macro"))
+        payload = {
+            "parsed_input": parsed.to_prompt_dict(),
+            "prefetched_data": {"stocks": slim_stocks, "macro": slim_macro},
+        }
+    else:
+        payload = {"parsed_input": parsed.to_prompt_dict()}
+
     compact = json.dumps(payload, ensure_ascii=False, default=str)
-    if len(compact) > 12000:
-        compact = compact[:12000].rstrip() + "...(truncated)"
+    if len(compact) > _PROMPT_SECTION_MAX_CHARS:
+        compact = compact[:_PROMPT_SECTION_MAX_CHARS].rstrip() + "...(truncated)"
 
     instructions = [
         "## Deterministic Input Guard",
@@ -270,14 +402,23 @@ def _render_prompt_section(parsed: ParsedInput, prefetch_payload: dict[str, Any]
         "",
         "Rules:",
         "- If `symbols` is non-empty, answer about those exact symbols; do not substitute a different ticker.",
-        "- If `prefetched_data` contains a stock or macro payload, use it as current structured data. You may call tools for missing details, but do not ignore this data.",
+    ]
+    if inject_data_body:
+        instructions.append(
+            "- If `prefetched_data` contains a stock or macro payload, use it as current structured data. You may call tools for missing details, but do not ignore this data."
+        )
+    else:
+        instructions.append(
+            "- prefetched_data was already discussed in earlier turns; if you need fresh structured data, call the relevant `get_stock_brief` / `get_macro_brief` tool yourself instead of relying on a redundant inline dump."
+        )
+    instructions.extend([
         "- If the user asks about a URL/news but no article body is available, use `google_search` once for the URL/current event or say the news content is insufficient.",
         "- If required data is missing or errored, downgrade the answer to a framework-only view and say what data is missing.",
         "",
         "```json",
         compact,
         "```",
-    ]
+    ])
     return "\n".join(instructions)
 
 

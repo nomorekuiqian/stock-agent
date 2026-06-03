@@ -24,6 +24,7 @@ import json
 import os
 import re
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,7 +36,30 @@ from google.adk.tools.google_search_tool import GoogleSearchTool
 from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 
-from app.core.logging import get_logger
+from app.core.config import (
+    AGENT_RUNTIME_KOL_TIMEOUT_S,
+    AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN,
+    AGENT_RUNTIME_MAX_KOL_TWEET_SEARCH_PER_TURN,
+    AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT,
+    AGENT_RUNTIME_REQUEST_HISTORY,
+    AGENT_RUNTIME_TOOL_CACHE_MAXSIZE,
+    AGENT_RUNTIME_TOOL_CACHE_TTL,
+)
+from app.core.logging import get_logger, use_turn_context
+from app.features.agent_runtime import (
+    AgentRunRequest,
+    AgentRuntimeTurn,
+    ContextAssemblyRequest,
+    default_budget_plan,
+)
+from app.features.agent_runtime.events import (
+    append_turn_events,
+    context_budget_truncated_event,
+    context_snapshot_event,
+    error_event,
+    tool_call_events,
+)
+from app.features.agent_runtime.runtime import get_agent_runtime
 from app.features.kol_research.models import (
     KolResearchResponse,
     KolToolCallSummary,
@@ -67,8 +91,9 @@ from app.shared.llm_metering import meter
 logger = get_logger(__name__)
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
-if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
-    os.environ["GOOGLE_GENAI_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+_GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if _GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
+    os.environ["GOOGLE_GENAI_API_KEY"] = _GOOGLE_API_KEY
 
 MODEL = "gemini-3.5-flash"
 APP_NAME = "kol_research_agent"
@@ -99,15 +124,111 @@ _tool_started_at: contextvars.ContextVar[Optional[Dict[str, float]]] = (
 _google_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
     contextvars.ContextVar("_kol_research_google_calls", default=None)
 )
-_MAX_GOOGLE_SEARCH_PER_TURN = 1
 _kol_tweet_search_calls: contextvars.ContextVar[Optional[Dict[str, int]]] = (
     contextvars.ContextVar("_kol_research_tweet_search_calls", default=None)
 )
-_MAX_KOL_TWEET_SEARCH_PER_TURN = 3
 # Tool names that ADK exposes for the GoogleSearchTool. ADK currently registers
 # the underlying agent transfer under "google_search_agent"; "google_search"
 # may appear in older / different code paths.
 _GOOGLE_SEARCH_TOOL_NAMES = {"google_search_agent", "google_search"}
+
+# Active conversation id for the in-flight turn (Phase 2). Used as a cache
+# scope so tool results survive across turns. None means anonymous / dedup
+# only within the current SSE request.
+_active_conversation_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "_kol_research_conversation_id", default=None
+)
+
+# Active user scope for the in-flight turn. Used together with conversation_id
+# so two anonymous users never share the same cache scope (would leak personalized
+# tool results across requests once any cacheable tool starts depending on user).
+_active_user_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "_kol_research_user_id", default=None
+)
+
+# LRU+TTL bounded tool result cache keyed by (scope, tool, args_hash). Scope is
+# (user_id, conversation_id) so anonymous requests never collide on "".
+_TOOL_RESULT_CACHE: "OrderedDict[tuple, tuple[float, Any]]" = OrderedDict()
+# Tools that are safe to memoize across turns. Skill loaders, navigation,
+# logging and Google search are intentionally excluded — skills/loaders carry
+# zero cost on re-call, and google_search has its own per-turn hard cap.
+_CACHEABLE_TOOLS = {
+    "get_stock_brief",
+    "get_peer_brief",
+    "get_macro_brief",
+    "get_industry_brief",
+    "get_technical_analysis",
+    "get_report_by_date",
+    "list_recent_reports",
+    "search_kol_tweets",
+}
+
+
+def _make_cache_key(tool_name: str, args: dict | None) -> tuple | None:
+    """Return a cache key, or None if no safe scope is available.
+
+    Refusing to cache when scope is unknown is the safer default: caching at
+    a global "" scope would mean two unrelated requests share the same tool
+    response, which becomes a cross-tenant leak the moment any cacheable tool
+    starts to depend on the calling user.
+    """
+    conversation_id = _active_conversation_id.get(None)
+    user_id = _active_user_id.get(None)
+    if not conversation_id and not user_id:
+        return None
+    try:
+        args_blob = json.dumps(args or {}, sort_keys=True, ensure_ascii=False, default=str)
+    except Exception:  # noqa: BLE001
+        args_blob = str(args)
+    return ((user_id or "", conversation_id or ""), tool_name, args_blob)
+
+
+def _cache_lookup(key: tuple | None) -> Any | None:
+    if key is None:
+        return None
+    entry = _TOOL_RESULT_CACHE.get(key)
+    if entry is None:
+        return None
+    ts, payload = entry
+    if (time.monotonic() - ts) > AGENT_RUNTIME_TOOL_CACHE_TTL:
+        _TOOL_RESULT_CACHE.pop(key, None)
+        return None
+    _TOOL_RESULT_CACHE.move_to_end(key)
+    return payload
+
+
+def _cache_store(key: tuple | None, payload: Any) -> None:
+    if key is None:
+        return
+    _TOOL_RESULT_CACHE[key] = (time.monotonic(), payload)
+    _TOOL_RESULT_CACHE.move_to_end(key)
+    while len(_TOOL_RESULT_CACHE) > AGENT_RUNTIME_TOOL_CACHE_MAXSIZE:
+        _TOOL_RESULT_CACHE.popitem(last=False)
+
+
+def _request_history_for_runtime(history: List[Dict[str, str]] | None) -> list[dict[str, str]]:
+    if AGENT_RUNTIME_REQUEST_HISTORY == "disabled":
+        return []
+    return list(history or [])
+
+
+def _effective_history_for_prompt(
+    *,
+    session_history: list[dict[str, str]],
+    request_history: List[Dict[str, str]] | None,
+) -> list[dict[str, str]]:
+    """Pick the history list KOL agent should reason over.
+
+    See screener/router._effective_research_history for the flag semantics —
+    same rules apply: "primary" never re-imports request_history when the
+    runtime session is empty; "fallback" does; "disabled" drops request
+    history at the earlier guard in `_request_history_for_runtime`.
+    """
+    if session_history:
+        return session_history
+    if AGENT_RUNTIME_REQUEST_HISTORY == "fallback":
+        return list(request_history or [])
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +262,7 @@ _TOOL_DESCRIPTIONS = {
     "get_economic_calendar": lambda _: "正在查询经济日历...",
     "get_morning_report": lambda _: "正在获取今日早报...",
     "get_weekly_report": lambda _: "正在获取最新周报...",
+    "get_twitter_digest": lambda _: "正在获取今日推特日报...",
 }
 
 
@@ -193,6 +315,7 @@ _TOOL_NAVIGATE: Dict[str, Any] = {
     "get_market_overview": lambda _a: {"type": "macro", "params": {}},
     "get_morning_report": lambda _a: {"type": "morning_report", "params": {}},
     "get_weekly_report": lambda _a: {"type": "macro", "params": {}},
+    "get_twitter_digest": lambda _a: {"type": "twitter_digest", "params": {}},
     "get_report_by_date": lambda a: (
         {"type": "daily_report", "params": {"date": a.get("report_date", "")}}
         if a.get("report_date") else None
@@ -227,7 +350,7 @@ async def _before_tool_callback(tool, args, tool_context):
         counts = _kol_tweet_search_calls.get(None)
         if counts is not None:
             counts[tool_name] = counts.get(tool_name, 0) + 1
-            if counts[tool_name] > _MAX_KOL_TWEET_SEARCH_PER_TURN:
+            if counts[tool_name] > AGENT_RUNTIME_MAX_KOL_TWEET_SEARCH_PER_TURN:
                 logger.info(
                     "kol_research: blocked extra search_kol_tweets call (count=%d)",
                     counts[tool_name],
@@ -241,12 +364,41 @@ async def _before_tool_callback(tool, args, tool_context):
                     ),
                 }
 
+    # Conversation-scoped tool result cache (Phase 2). Same (conversation, tool,
+    # args) within TTL returns the cached payload instead of re-invoking the
+    # tool. This is what stops re-fetching get_stock_brief("NVDA") every turn.
+    if tool_name in _CACHEABLE_TOOLS:
+        cache_key = _make_cache_key(tool_name, args)
+        cached = _cache_lookup(cache_key)
+        if cached is not None:
+            queue_local = _sse_queue.get(None)
+            if queue_local is not None:
+                queue_local.put_nowait({
+                    "type": "tool_call_start",
+                    "tool": tool_name,
+                    "description": _describe_tool(tool_name, args) + "（命中缓存）",
+                })
+                queue_local.put_nowait({
+                    "type": "tool_call_end",
+                    "tool": tool_name,
+                    "duration_ms": 0,
+                })
+            log = _tool_call_log.get(None)
+            if log is not None:
+                log.append(KolToolCallSummary(
+                    name=tool_name,
+                    args_summary=_safe_args_summary(args),
+                    duration_ms=0,
+                    ok=True,
+                ))
+            return cached
+
     # Hard cap on google_search: kill the second+ call to keep latency in check.
     if tool_name in _GOOGLE_SEARCH_TOOL_NAMES:
         counts = _google_search_calls.get(None)
         if counts is not None:
             counts[tool_name] = counts.get(tool_name, 0) + 1
-            if counts[tool_name] > _MAX_GOOGLE_SEARCH_PER_TURN:
+            if counts[tool_name] > AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN:
                 logger.info(
                     "kol_research: blocked extra google_search call (count=%d)",
                     counts[tool_name],
@@ -318,14 +470,26 @@ async def _after_tool_callback(tool, args, tool_context, tool_response):
             "duration_ms": duration_ms,
         })
 
+    # Store cacheable tool results so subsequent turns can reuse them.
+    if tool_name in _CACHEABLE_TOOLS and tool_response is not None:
+        try:
+            _cache_store(_make_cache_key(tool_name, args), tool_response)
+        except Exception:  # noqa: BLE001 — cache must never break the tool path
+            logger.debug("tool cache store failed for %s", tool_name)
+
     # Log tool calls for response.tool_calls (excluding ADK internals like set_model_response).
     log = _tool_call_log.get(None)
     if log is not None and tool_name not in {"set_model_response"}:
+        from app.features.agent_runtime.events import summarize_tool_result
+        summary = summarize_tool_result(tool_response)
         log.append(KolToolCallSummary(
             name=tool_name,
             args_summary=_safe_args_summary(args),
             duration_ms=duration_ms,
             ok=True,
+            result_preview=summary["preview"],
+            result_hash=summary["hash"],
+            result_truncated=summary["truncated"],
         ))
 
     return None
@@ -447,6 +611,7 @@ _TOOL_USAGE_RULES = """
    - 需要行业鸟瞰 (大盘 + 同行): **`get_industry_brief(symbol)`**
    - 用户问宏观 / Fed / 利率 / 流动性: **`get_macro_brief()`** — 一次返回风险综述 / 流动性 / 情绪 / 经济日历
    - 用户问最近市场 / 复盘 / 早报: `get_morning_report` / `get_report_by_date` / `list_recent_reports`
+   - 用户问 KOL 圈最近在聊什么 / 推特日报 / 多空打架: `get_twitter_digest`
    - 罕见: 技术面 / K 线问题用 `get_technical_analysis` (博主权重低)
    不要分别调 `get_stock_quote` / `get_stock_fundamentals` 等 fine-grained 工具 — 它们已经被 brief 包了, 串行调多次只会浪费时间.
 
@@ -731,44 +896,89 @@ async def _build_prompt(
     history: List[Dict[str, str]] | None = None,
     content_context: Dict[str, Any] | None = None,
     input_guard: InputGuardContext | None = None,
+    history_keep: int = 12,
 ) -> str:
-    parts: List[str] = []
+    assembled = await get_agent_runtime().assemble_context(
+        ContextAssemblyRequest(
+            message=message,
+            history=history or [],
+            content_context=content_context,
+            input_guard_section=input_guard.prompt_section if input_guard else None,
+            history_keep=history_keep,
+            char_soft_limit=AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT,
+            budget_plan=default_budget_plan(),
+        )
+    )
+    if assembled.dropped_history:
+        logger.info(
+            "kol prompt history truncated: kept=%d dropped=%d size=%d",
+            assembled.kept_history,
+            assembled.dropped_history,
+            assembled.char_count,
+        )
+    return assembled.prompt
 
-    if history:
-        parts.append("## Conversation History")
-        for turn in history[-12:]:
-            role = turn.get("role", "user")
-            content = turn.get("content", "")
-            label = "User" if role == "user" else "Assistant"
-            parts.append(f"{label}: {content}")
-        parts.append("")
 
-    if content_context:
-        ctx_type = content_context.get("type", "")
-        if ctx_type == "stock" and content_context.get("symbol"):
-            parts.append(
-                "## User is currently viewing: %s Stock Research"
-                % content_context["symbol"]
-            )
-        elif ctx_type == "daily_report":
-            parts.append(
-                "## User is currently viewing: %s Daily Report"
-                % content_context.get("date", "latest")
-            )
-        elif ctx_type == "morning_report":
-            parts.append("## User is currently viewing: Morning Report")
-        elif ctx_type == "macro":
-            parts.append("## User is currently viewing: Macro Dashboard")
-        # Keep the context light — the agent can call tools to deep-dive.
-        parts.append("")
-
-    if input_guard and input_guard.prompt_section:
-        parts.append(input_guard.prompt_section)
-        parts.append("")
-
-    parts.append("## User question")
-    parts.append(message)
-    return "\n".join(parts)
+async def _prepare_runtime_context(
+    *,
+    message: str,
+    history: List[Dict[str, str]] | None,
+    persona_username: str,
+    content_context: Dict[str, Any] | None,
+    conversation_id: str | None,
+    user_id: str | None,
+    turn_id: str | None = None,
+    history_keep: int = 12,
+) -> tuple[AgentRuntimeTurn, InputGuardContext, str, list[dict[str, str]]]:
+    runtime = get_agent_runtime()
+    runtime_request = AgentRunRequest(
+        agent_id=APP_NAME,
+        user_id=user_id,
+        session_id=conversation_id,
+        message=message,
+        history=_request_history_for_runtime(history),
+        content_context=content_context,
+        metadata={
+            "agent_kind": "kol_research",
+            "persona_username": persona_username,
+        },
+        turn_id=turn_id,
+    )
+    session = await runtime.load_session(runtime_request)
+    effective_history = _effective_history_for_prompt(
+        session_history=session.chat_history(),
+        request_history=history,
+    )
+    input_guard = await build_input_guard_context(
+        message=message,
+        content_context=content_context,
+        history=effective_history,
+    )
+    assembled = await runtime.assemble_context(
+        ContextAssemblyRequest(
+            message=message,
+            history=effective_history,
+            content_context=content_context,
+            input_guard_section=input_guard.prompt_section,
+            session=session,
+            history_keep=history_keep,
+            char_soft_limit=AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT,
+            budget_plan=default_budget_plan(),
+        )
+    )
+    if assembled.dropped_history:
+        logger.info(
+            "kol prompt history truncated: kept=%d dropped=%d size=%d",
+            assembled.kept_history,
+            assembled.dropped_history,
+            assembled.char_count,
+        )
+    turn = AgentRuntimeTurn(
+        request=runtime_request,
+        session=session,
+        assembled_context=assembled,
+    )
+    return turn, input_guard, assembled.prompt, effective_history
 
 
 # ---------------------------------------------------------------------------
@@ -868,9 +1078,14 @@ async def answer_kol_research(
     history: List[Dict[str, str]] | None = None,
     persona_username: str = DEFAULT_PERSONA,
     content_context: Dict[str, Any] | None = None,
-    timeout: float = 120.0,
+    conversation_id: str | None = None,
+    user_id: str | None = None,
+    turn_id: str | None = None,
+    timeout: float | None = None,
 ) -> KolResearchResponse:
     """Unary entry — runs the agent and returns a complete response."""
+    if timeout is None:
+        timeout = AGENT_RUNTIME_KOL_TIMEOUT_S
     chunks_buf: List = []
     skills_buf: List[str] = []
     tool_log: List[KolToolCallSummary] = []
@@ -886,21 +1101,27 @@ async def answer_kol_research(
     token_google = _google_search_calls.set(google_counts)
     kol_search_counts: Dict[str, int] = {}
     token_kol_search = _kol_tweet_search_calls.set(kol_search_counts)
+    token_conv = _active_conversation_id.set(conversation_id)
+    token_user = _active_user_id.set(user_id)
+    turn_ctx = use_turn_context(
+        turn_id=turn_id,
+        session_id=conversation_id,
+        agent_id=APP_NAME,
+    )
+    turn_ctx.__enter__()
 
     try:
         await _preload_recent_reports()
         agent = get_agent(persona_username)
         runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
-        input_guard = await build_input_guard_context(
-            message=message,
-            content_context=content_context,
-        )
-
-        prompt = await _build_prompt(
+        runtime_turn, input_guard, prompt, _effective_history = await _prepare_runtime_context(
             message=message,
             history=history,
+            persona_username=persona_username,
             content_context=content_context,
-            input_guard=input_guard,
+            conversation_id=conversation_id,
+            user_id=user_id,
+            turn_id=turn_id,
         )
 
         try:
@@ -911,12 +1132,49 @@ async def answer_kol_research(
         except asyncio.TimeoutError:
             logger.error("kol_research timed out for: %s", message[:100])
             text = "AI 助手思考时间太长了，请再试一次。如果持续超时，可以简化一下问题。"
+            await append_turn_events(
+                runtime_turn,
+                metadata={
+                    "agent_kind": "kol_research",
+                    "persona_username": persona_username,
+                },
+                events=[
+                    error_event(
+                        code="agent_timeout",
+                        stage="model_run",
+                        message=text,
+                    )
+                ],
+            )
         missing_data = validate_data_coverage(
             input_guard.parsed,
             fulfilled_tool_keys=input_guard.fulfilled_tool_keys,
             tool_calls=tool_log,
         )
         text = append_data_coverage_warning(text, missing_data)
+        await get_agent_runtime().complete_turn(
+            runtime_turn,
+            assistant_text=text,
+            metadata={
+                "agent_kind": "kol_research",
+                "persona_username": persona_username,
+            },
+        )
+        unary_events: list[dict[str, Any]] = [
+            context_snapshot_event(runtime_turn),
+            *tool_call_events(tool_log),
+        ]
+        unary_budget_event = context_budget_truncated_event(runtime_turn)
+        if unary_budget_event is not None:
+            unary_events.append(unary_budget_event)
+        await append_turn_events(
+            runtime_turn,
+            metadata={
+                "agent_kind": "kol_research",
+                "persona_username": persona_username,
+            },
+            events=unary_events,
+        )
 
         # Final navigate: last candidate wins.
         navigate = nav_buf[-1] if nav_buf else None
@@ -942,6 +1200,9 @@ async def answer_kol_research(
         _tool_started_at.reset(token_timers)
         _google_search_calls.reset(token_google)
         _kol_tweet_search_calls.reset(token_kol_search)
+        _active_conversation_id.reset(token_conv)
+        _active_user_id.reset(token_user)
+        turn_ctx.__exit__(None, None, None)
 
 
 async def stream_kol_research(
@@ -950,7 +1211,10 @@ async def stream_kol_research(
     history: List[Dict[str, str]] | None = None,
     persona_username: str = DEFAULT_PERSONA,
     content_context: Dict[str, Any] | None = None,
-    timeout: float = 120.0,
+    conversation_id: str | None = None,
+    user_id: str | None = None,
+    turn_id: str | None = None,
+    timeout: float | None = None,
 ):
     """SSE generator — yields events:
 
@@ -965,6 +1229,8 @@ async def stream_kol_research(
     Internally the agent run is launched in a background task; this generator
     forwards events from a contextvar queue until the agent finishes.
     """
+    if timeout is None:
+        timeout = AGENT_RUNTIME_KOL_TIMEOUT_S
     queue: asyncio.Queue = asyncio.Queue()
     chunks_buf: List = []
     skills_buf: List[str] = []
@@ -982,6 +1248,14 @@ async def stream_kol_research(
     token_google = _google_search_calls.set(google_counts)
     kol_search_counts: Dict[str, int] = {}
     token_kol_search = _kol_tweet_search_calls.set(kol_search_counts)
+    token_conv = _active_conversation_id.set(conversation_id)
+    token_user = _active_user_id.set(user_id)
+    turn_ctx = use_turn_context(
+        turn_id=turn_id,
+        session_id=conversation_id,
+        agent_id=APP_NAME,
+    )
+    turn_ctx.__enter__()
 
     # Entry log — appears in /tmp/uvicorn-frank.log before the agent does any work.
     # If you grep "kol chat request" and don't see this line for a failing turn,
@@ -995,30 +1269,31 @@ async def stream_kol_research(
         "yes" if content_context else "no",
     )
     stream_started_at = time.time()
+    runtime_turn: AgentRuntimeTurn | None = None
 
     try:
         await _preload_recent_reports()
         agent = get_agent(persona_username)
         runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
-        input_guard = await build_input_guard_context(
-            message=message,
-            content_context=content_context,
-        )
-        prompt = await _build_prompt(
+        runtime_turn, input_guard, prompt, effective_history = await _prepare_runtime_context(
             message=message,
             history=history,
+            persona_username=persona_username,
             content_context=content_context,
-            input_guard=input_guard,
+            conversation_id=conversation_id,
+            user_id=user_id,
+            turn_id=turn_id,
         )
 
         agent_done = asyncio.Event()
         agent_text: list[str] = []
         agent_error: list[BaseException] = []
+        retry_attempted = False
 
-        async def _run():
+        async def _run(prompt_to_run: str):
             try:
                 text = await asyncio.wait_for(
-                    _run_session(agent=agent, runner=runner, prompt=prompt),
+                    _run_session(agent=agent, runner=runner, prompt=prompt_to_run),
                     timeout=timeout,
                 )
                 agent_text.append(text)
@@ -1027,7 +1302,7 @@ async def stream_kol_research(
             finally:
                 agent_done.set()
 
-        task = asyncio.create_task(_run())
+        task = asyncio.create_task(_run(prompt))
 
         # Drain the SSE queue while the agent is running.
         while not agent_done.is_set():
@@ -1059,6 +1334,21 @@ async def stream_kol_research(
                     "kol chat timeout: persona=%s elapsed=%.1fs limit=%ss",
                     persona_username, elapsed, timeout,
                 )
+                if runtime_turn is not None:
+                    await append_turn_events(
+                        runtime_turn,
+                        metadata={
+                            "agent_kind": "kol_research",
+                            "persona_username": persona_username,
+                        },
+                        events=[
+                            error_event(
+                                code="agent_timeout",
+                                stage="model_run",
+                                message="AI 助手思考时间太长了，请再试一次",
+                            )
+                        ],
+                    )
                 yield {
                     "type": "error",
                     "code": "agent_timeout",
@@ -1072,18 +1362,97 @@ async def stream_kol_research(
                 code = "model_schema_error"
             else:
                 code = "agent_error"
-            # logger.exception captures the full traceback — search log for
-            # "kol chat failed" to find the exact stack on a failing turn.
-            logger.exception(
-                "kol chat failed: persona=%s elapsed=%.1fs code=%s err=%s",
-                persona_username, elapsed, code, err,
-            )
-            yield {
-                "type": "error",
-                "code": code,
-                "error": "AI 助手出了点问题，请再试一次",
-            }
-            return
+
+            # Phase 2.3 — automatic retry once on context_too_long with the
+            # history aggressively shrunk. The first attempt already used the
+            # token budget guard; if we still blew the limit, the only safe
+            # move is to drop most of the history and let the live exchange
+            # rerun. Skip retry for other error codes — they aren't fixed by
+            # rebuilding the prompt.
+            if code == "context_too_long" and not retry_attempted:
+                retry_attempted = True
+                logger.warning(
+                    "kol chat context_too_long: retrying once with shrunk history (was %d turns)",
+                    len(effective_history or []),
+                )
+                # Reset state for the retry attempt: drain residual events,
+                # clear errors, reset the agent_done flag, drop deepest history.
+                agent_error.clear()
+                agent_done.clear()
+                shrunk_history = (effective_history or [])[-2:]
+                shrunk_prompt = await _build_prompt(
+                    message=message,
+                    history=shrunk_history,
+                    content_context=content_context,
+                    input_guard=input_guard,
+                    history_keep=2,
+                )
+                task = asyncio.create_task(_run(shrunk_prompt))
+                while not agent_done.is_set():
+                    try:
+                        event = await asyncio.wait_for(queue.get(), timeout=0.15)
+                        yield event
+                    except asyncio.TimeoutError:
+                        pass
+                while not queue.empty():
+                    yield queue.get_nowait()
+                await task
+                if agent_error:
+                    err = agent_error[0]
+                    logger.exception(
+                        "kol chat retry failed: persona=%s err=%s",
+                        persona_username, err,
+                    )
+                    if runtime_turn is not None:
+                        await append_turn_events(
+                            runtime_turn,
+                            metadata={
+                                "agent_kind": "kol_research",
+                                "persona_username": persona_username,
+                            },
+                            events=[
+                                error_event(
+                                    code="context_too_long",
+                                    stage="model_retry",
+                                    message="对话上下文太长了。系统已尝试压缩仍失败，请新建对话。",
+                                )
+                            ],
+                        )
+                    yield {
+                        "type": "error",
+                        "code": "context_too_long",
+                        "error": "对话上下文太长了。系统已尝试压缩仍失败，请新建对话。",
+                    }
+                    return
+                # Retry succeeded — fall through to the success path.
+            else:
+                # logger.exception captures the full traceback — search log for
+                # "kol chat failed" to find the exact stack on a failing turn.
+                logger.exception(
+                    "kol chat failed: persona=%s elapsed=%.1fs code=%s err=%s",
+                    persona_username, elapsed, code, err,
+                )
+                if runtime_turn is not None:
+                    await append_turn_events(
+                        runtime_turn,
+                        metadata={
+                            "agent_kind": "kol_research",
+                            "persona_username": persona_username,
+                        },
+                        events=[
+                            error_event(
+                                code=code,
+                                stage="model_run",
+                                message="AI 助手出了点问题，请再试一次",
+                            )
+                        ],
+                    )
+                yield {
+                    "type": "error",
+                    "code": code,
+                    "error": "AI 助手出了点问题，请再试一次",
+                }
+                return
 
         navigate = nav_buf[-1] if nav_buf else None
         kol_chunks = [
@@ -1097,6 +1466,29 @@ async def stream_kol_research(
             tool_calls=tool_log,
         )
         final_text = append_data_coverage_warning(final_text, missing_data)
+        await get_agent_runtime().complete_turn(
+            runtime_turn,
+            assistant_text=final_text,
+            metadata={
+                "agent_kind": "kol_research",
+                "persona_username": persona_username,
+            },
+        )
+        stream_events: list[dict[str, Any]] = [
+            context_snapshot_event(runtime_turn),
+            *tool_call_events(tool_log),
+        ]
+        stream_budget_event = context_budget_truncated_event(runtime_turn)
+        if stream_budget_event is not None:
+            stream_events.append(stream_budget_event)
+        await append_turn_events(
+            runtime_turn,
+            metadata={
+                "agent_kind": "kol_research",
+                "persona_username": persona_username,
+            },
+            events=stream_events,
+        )
         final = KolResearchResponse(
             persona_username=persona_username,
             message=final_text,
@@ -1119,6 +1511,21 @@ async def stream_kol_research(
             "kol chat setup failed: persona=%s elapsed=%.1fs err=%s",
             persona_username, elapsed, setup_err,
         )
+        if runtime_turn is not None:
+            await append_turn_events(
+                runtime_turn,
+                metadata={
+                    "agent_kind": "kol_research",
+                    "persona_username": persona_username,
+                },
+                events=[
+                    error_event(
+                        code="agent_setup_error",
+                        stage="setup",
+                        message="AI 助手启动失败，请再试一次",
+                    )
+                ],
+            )
         yield {
             "type": "error",
             "code": "agent_setup_error",
@@ -1134,3 +1541,6 @@ async def stream_kol_research(
         _tool_started_at.reset(token_timers)
         _google_search_calls.reset(token_google)
         _kol_tweet_search_calls.reset(token_kol_search)
+        _active_conversation_id.reset(token_conv)
+        _active_user_id.reset(token_user)
+        turn_ctx.__exit__(None, None, None)
