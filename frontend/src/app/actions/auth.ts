@@ -121,7 +121,7 @@ export async function resendVerificationEmailAction(
 export async function updateProfileAction(
   profile: { name?: string },
 ): Promise<AuthActionResult> {
-  const { accessToken, refreshToken } = await getAuthCookies();
+  const { accessToken } = await getAuthCookies();
   if (!accessToken) {
     return { success: false, error: 'Not authenticated' };
   }
@@ -130,15 +130,12 @@ export async function updateProfileAction(
   if (error) {
     return { success: false, error: error.message };
   }
-  // Refresh to get updated user profile
-  if (refreshToken) {
-    const { data: refreshData } = await client.auth.refreshSession({ refreshToken });
-    if (refreshData) {
-      await setAuthCookies(refreshData.accessToken);
-      return { success: true, user: mapUser(refreshData.user) };
-    }
-  }
-  return { success: true };
+  // Re-read the user instead of calling refreshSession. refreshSession would
+  // burn a refresh-token rotation; if its rotated refreshToken never made it
+  // back into the cookie (the previous bug here), the next refresh would
+  // replay the old token and InsForge would kill the session.
+  const { data } = await client.auth.getCurrentUser();
+  return { success: true, user: data?.user ? mapUser(data.user) : undefined };
 }
 
 export async function sendPasswordResetEmailAction(

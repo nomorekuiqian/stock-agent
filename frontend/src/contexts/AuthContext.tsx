@@ -43,14 +43,30 @@ export async function refreshSession(): Promise<string | null> {
 
 // --- Session fetch ---
 
-async function fetchSession(): Promise<{ user: User | null; accessToken: string | null }> {
-  try {
-    const res = await fetch('/api/auth/session');
-    if (!res.ok) return { user: null, accessToken: null };
-    return await res.json();
-  } catch {
-    return { user: null, accessToken: null };
-  }
+type SessionResult = { user: User | null; accessToken: string | null };
+
+// Dedup concurrent /api/auth/session calls. When a tab regains focus or several
+// queries 401 at the same time, every caller funnels into the same Promise so
+// the server only hits InsForge once and the rotated refresh token isn't lost
+// to a race.
+let _inflightFetch: Promise<SessionResult> | null = null;
+
+async function fetchSession(): Promise<SessionResult> {
+  if (_inflightFetch) return _inflightFetch;
+  const promise = (async (): Promise<SessionResult> => {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (!res.ok) return { user: null, accessToken: null };
+      return await res.json();
+    } catch {
+      return { user: null, accessToken: null };
+    }
+  })();
+  _inflightFetch = promise;
+  void promise.finally(() => {
+    if (_inflightFetch === promise) _inflightFetch = null;
+  });
+  return promise;
 }
 
 // --- Subscription sync (unchanged from previous AuthContext) ---
@@ -158,46 +174,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate session on mount + periodic refresh + visibility change
+  // Hydrate session once on mount. Beyond this we rely on:
+  //   - fetchProtected() retrying once via refreshSession() when a business
+  //     request hits 401
+  //   - the server-side dedup in /api/auth/session collapsing concurrent
+  //     refreshes onto a single InsForge call
+  // We deliberately do NOT poll on a timer or refresh on visibilitychange:
+  // both used to fan-out concurrent refreshes that tripped InsForge's
+  // refresh-token rotation replay protection and killed the session.
   useEffect(() => {
     let cancelled = false;
-
-    const refresh = async (isInitial = false) => {
+    void (async () => {
       const session = await fetchSession();
       if (cancelled) return;
-      // On background refresh, only update state if we got a valid session.
-      // A transient network error returns { user: null, accessToken: null }
-      // and we must not log the user out because of it.
-      if (!isInitial && !session.user && _cachedAccessToken) {
-        return;
-      }
       _cachedAccessToken = session.accessToken;
       setUser(session.user);
-      return session;
-    };
-
-    // Initial hydration (always applies the result, even if null)
-    void (async () => {
-      await refresh(true);
-      if (!cancelled) setIsLoading(false);
+      setIsLoading(false);
     })();
-
-    // Refresh token every 12 minutes (access token TTL is 15 min)
-    const interval = setInterval(() => { void refresh(); }, 12 * 60 * 1000);
-
-    // Refresh when user returns to the tab
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void refresh();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
+    return () => { cancelled = true; };
   }, []);
 
   // Subscription sync on user change
