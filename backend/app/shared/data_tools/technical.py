@@ -682,25 +682,3 @@ def get_technical_data(
         logger.exception("Technical data error for %s: %s", symbol, e)
         return {"symbol": symbol, "error": str(e), "source": "fmp"}
 
-
-# ---------------------------------------------------------------------------
-# Backward-compatible entry points used by router.py
-# ---------------------------------------------------------------------------
-
-def get_technical_trends(symbol: str, days: int = 180) -> dict:  # noqa: ARG001
-    """
-    Deprecated: redirects to get_technical_data() and returns a
-    backward-compatible trends dict.
-    """
-    data = get_technical_data(symbol)
-
-    if data.get("error"):
-        return {"source": "fmp", "error": data["error"], "symbol": symbol}
-
-    return {
-        "source": "fmp",
-        "symbol": symbol,
-        "trends": data.get("trends", {}),
-        "support_resistance": data.get("support_resistance", {}),
-        "pattern_signals": data.get("pattern_signals", {}),
-    }
