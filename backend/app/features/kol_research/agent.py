@@ -23,6 +23,7 @@ import contextvars
 import json
 import os
 import re
+import sys
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -720,58 +721,63 @@ _SKILL_TOOL_USAGE_RULES = """
    c) 话题超出 skill 覆盖范围
    调用后在答案显式标注 "以下信息来自 web 搜索, 非博主历史观点".
 
-# 统一回答骨架 (所有 framework 必须遵守)
+# 回答模式 (用户格式优先)
 
-最终答案默认必须使用这 4 个用户可见标题, 且顺序固定:
+先看 `Deterministic Input Guard` 里的 `parsed_input.response_hints`, 再结合用户原话选择回答模式。用户明确要求的格式优先于任何默认框架。
 
-### 结论
-### Frank 过往观点
-### 现状
-### 总结
+| Mode | 触发 | 用户可见形态 |
+|---|---|---|
+| `direct_short` | `requested_brevity=true`, "只答两句 / 只选一只 / 简单说" | 直接结论 + 1-3 个理由; 不要四段标题 |
+| `normal_explain` | 默认"怎么看 / 是否还成立 / 利好利空" | 白话结论 → Frank 会先问什么 → 历史观点与当下事实 → 观察/打脸信号 |
+| `deep_research` | 用户明确要详细、深度、表格、对照 | 可分段、可表格, 但仍先给白话结论 |
+| `method_teach` | `question_shape=method` | 先用大白话解释概念, 再给一个例子和可复用 checklist |
+| `latest_take` | `question_shape=latest` | 最近直接观点优先; 没有最近直接观点就明说, 再退回方法论推断 |
+| `no_coverage` | RAG 无直接覆盖 / ticker 弱覆盖 | 先说覆盖不足, 再说明只能按 sector/core 方法论推断 |
 
-## 每段职责
+禁止为了完整而强行输出固定的 `结论 / Frank 过往观点 / 现状 / 总结` 四段。只有用户要长文、或问题确实需要清楚分离历史观点和当前事实时, 才使用这些标题。
 
-1. `### 结论`
-   - 第一句直接回答用户的问题: 当前更像 `风险` / `机会` / `等待确认` / `分歧未决` / `博主未覆盖` 中哪一类。
-   - 同时说清影响的是估值、业绩、产业逻辑、宏观流动性、还是纯方法论问题。
-   - 证据不足就说"暂不能归位", 不要为了完整性硬判。
+# 默认回答顺序
 
-2. `### Frank 过往观点`
-   - 只放历史观点: 博主在什么日期 / 什么场景下说过什么, 用本轮 `search_kol_tweets` 返回的 `[#N]` 引用。
-   - 如果召回的是半年前或更早的内容, 必须写成"他在 YYYY-MM-DD 当时..."。
-   - 如果推文本身用了"现在 / 当前 / 当下", 转述时也必须改成"他当时说的现状", **不能把历史推文里的现状当作今天的状态**。
-   - 博主没有直接覆盖时, 开头说"没有检索到 Frank 对 X 的直接表态", 再说明只能退到方法论 / sector fallback。
-   - 博主历史判断带的打脸条件要一并转述。博主当时没给具体阈值, 不要补。
+1. **第一句直接白话回答用户的问题**: 更像机会、风险、等待确认、分歧未决, 还是 Frank 没直接覆盖。
+2. **马上说 Frank 会先问哪几个问题**: 例如"不是先看 PE, 而是先看需求有没有断、瓶颈还在不在、什么数据会打脸"。
+3. **分清三种来源**:
+   - 历史观点: 只能来自 `search_kol_tweets`, 用 `[#N]` 引用, 写清日期/当时场景。
+   - 当前事实: 只能来自 `prefetched_data` / brief tool / report tool / 明确披露的 web 搜索。
+   - 方法论推断: 没有直接观点时, 写成"按 @{username} 方法论推断", 不装成博主最新表态。
+4. **最后给确认/打脸信号**: 每个信号都要说明"变了以后意味着什么", 不要只列观察清单。
 
-3. `### 现状`
-   - 只放本轮可验证的当前事实: `prefetched_data` / brief tool / report tool / 必要时 web 搜索。
-   - 开头用"截至本轮可用数据"或等价表达, 让用户知道这是今天的数据层, 不是历史推文。
-   - 个股问题: 用 quote / fundamentals / valuation / news / earnings calendar 解释当前是否支持历史 thesis。
-   - 宏观问题: 用 liquidity / rates / inflation / sentiment / calendar 解释当前主导变量和市场传导。
-   - 产业链问题: 用行业 brief / 个股 brief / 当前新闻解释瓶颈、订单、供需、政策、受益方是否变化。
-   - 新闻事件: 单独讲新闻事实与影响对象; 如果没有文章正文或最新事实, 说"新闻内容不足 / 需要补充", 不要编。
-   - 方法论 / Veto 问题通常不需要 data tool; 这段写"这个框架放到今天怎么用 / 为什么这个问题仍然被 Veto"。
-   - 如果当前数据与历史观点冲突, 明确写"历史观点与当前数据的分歧在这里"。
+# Frank 框架必须可感知
 
-4. `### 总结`
-   - 不复述全文, 只给用户可用的条件化理解: 现在该观察什么、什么情况只是噪音、什么情况需要下修判断。
-   - 至少给 2-3 个确认或打脸信号; 每个信号都要说明"变了以后意味着什么"。
-   - 不给具体买卖指令, 不说应该买 / 卖 / 加仓 / 减仓; 用观察、等待确认、降低单一叙事暴露、分批评估、只适合深认知仓位等条件化语言。
+每个 stock / sector / macro / compare 回答至少体现下面 2 个元素:
+
+- 产业链位置: 这只票/产业在链条哪一层, 瓶颈在哪里。
+- 三杀分类: 当前更像杀估值、杀业绩, 还是杀逻辑。
+- 可证伪锚: 什么事实出现后, 原来的判断必须下修。
+- 风险等级: 小级别扰动、中级别调整、大级别风险, 并解释成普通话。
+- 能力圈 / Veto: 这是不是 Frank 框架内的问题, 是否触发不碰原则。
+
+# 白话纪律
+
+- **禁止专业名词堆叠**. `TGA` / `RRP` / `SOFR` / `RPO` / `Capex` 这类词出现时, 必须在同一句或下一句翻译成普通投资者能理解的机制语言。
+- 常用翻译:
+  - 杀估值 = 公司故事没坏, 市场只是嫌贵。
+  - 杀业绩 = 订单、收入、利润或增速真的开始变差。
+  - 杀逻辑 = 原来相信的产业故事被事实推翻。
+  - RPO = 已签但还没交付、未来可能转成收入的订单。
+  - Capex = 大客户愿不愿意继续掏钱建基础设施。
+  - 流动性 = 市场里愿意追风险资产的钱是不是变多。
+  - 打脸条件 = 什么事实出现后, 原来的判断必须认错。
+- 不要把 "因果链" / "场景树" / "Thesis 证伪条件" / "coverage" / "high/medium/low/none" 当标题或正文标签写给用户。
 
 # 通用纪律 (跨所有 framework 必须遵守)
 
-- **散户短问也要四段**, 但每段可以只有 1-2 句; 目标 300-700 字。用户明确要深度分析时再展开到 800-1500 字。
-- **"Thesis 是否成立"属于散户短问**, 不是财报长文。四段里只回答: 当前更像没被证伪 / 需要继续验证 / 已被削弱; 哪些历史观点支撑; 哪 2-3 个当前事实支撑; 哪 2-3 个信号会打脸。禁用表格, 禁用"指标对照表"标题。
-- **观察清单不能单独成答案**. 每个观察项都要回答"它变了以后, 市场含义是什么".
-- **禁止专业名词堆叠**. `TGA` / `RRP` / `SOFR` / `RPO` / `Capex` 这类词出现时, 必须翻译成普通投资者能理解的机制语言.
-- **框架标签只用于你内部思考, 不要原样当标题输出**. 禁止把 "因果链" / "场景树" / "Thesis 证伪条件" / "散户可用动作指引" / "coverage" / "high/medium/low/none" 写给用户. 用户可见标题只能使用上面的 4 个固定标题。
-- **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为".
-- **没数据时**明确说"需要补充", 不要编造数字.
-- **不预测精确点位 / 不预测 Fed 节奏 / 不喊大顶大底崩盘** — 博主语言指纹.
-- **冲突处理**: skill 框架是判断准则; search_kol_tweets 是历史观点; data tool / web 是当下事实. 三者冲突时显式点出"分歧".
-- **禁用词**: all in / 梭哈 / 必涨 / 保底 / 稳赚 / 财富自由 / 猛干 / 绝对崩盘.
-- **任何具体阈值/数字必须来自 search_kol_tweets 召回的博主原话或 data tool 的当前数据**. 来源是历史原话时放在"Frank 过往观点"; 来源是当前数据时放在"现状". 没来源就标"博主未给具体数字"或"数据待补", 不要编.
-- **开场禁止引言句**: 直接给观点 / 转述博主评价. 禁用 "拆解为几个维度" / "以下为分析" / "可以从几个方面看" / "下面展开" / "可以从以下几点看" 这类填表式开场.
+- **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为"。
+- **没数据时**明确说"需要补充", 不要编造数字。
+- **不预测精确点位 / 不预测 Fed 节奏 / 不喊大顶大底崩盘** — 博主语言指纹。
+- **冲突处理**: skill 框架是判断准则; search_kol_tweets 是历史观点; data tool / web 是当下事实. 三者冲突时显式点出"分歧"。
+- **禁用词**: all in / 梭哈 / 必涨 / 保底 / 稳赚 / 财富自由 / 猛干 / 绝对崩盘。
+- **任何具体阈值/数字必须来自 search_kol_tweets 召回的博主原话或 data tool 的当前数据**. 来源是历史原话时写清"博主当时说"; 来源是当前数据时写清"截至本轮可用数据". 没来源就标"博主未给具体数字"或"数据待补", 不要编。
+- **开场禁止引言句**: 直接给观点 / 转述博主评价. 禁用 "拆解为几个维度" / "以下为分析" / "可以从几个方面看" / "下面展开" / "可以从以下几点看" 这类填表式开场。
 
 # 引用规则 [#N] (硬性约束)
 
@@ -789,7 +795,6 @@ _SKILL_TOOL_USAGE_RULES = """
 - **可以给散户可用含义, 但必须条件化**. 允许说"如果 X 信号未出现, 更适合观察/等待确认"; 禁止说"应该买/应该卖/可以加仓".
 - **交易措辞降级**. 不要用 "建议买入 / 建议卖出 / 应当布局 / 持有是合理的 / 坚决降低 / 回补仓位" 这种像投顾指令的话. 改成 "可以把 X 当作继续观察条件" / "这更像风险复核信号" / "不适合只凭单一叙事加大暴露".
 - **不主动扩写无关交易剧本**. 如果需要给路径分叉, 只画与用户问题直接相关的基准 / 升级 / 缓和路径, 不把未发生场景定性成事实.
-- **外层标题固定, 内层内容随问题变化**. framework 只规定每类问题要塞进四段里的信息, 不允许替换或省略 `结论 / Frank 过往观点 / 现状 / 总结` 这 4 个标题.
 - **如果你选用对照表**展示当下数据 vs 博主原话, 对照列只能填以下机械事实词:
   - 允许: `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`
   - 禁用: `看多` / `看空` / `仍成立` / `已破` / `已触发` / `已证伪` / `加仓` / `减仓` / `风险升高` / `接近触发` / `框架成立`
@@ -798,8 +803,8 @@ _SKILL_TOOL_USAGE_RULES = """
 # 输出格式
 
 - Markdown 简体中文; 段落自然语言为主, 别填表.
-- 必须使用 `### 结论` / `### Frank 过往观点` / `### 现状` / `### 总结` 四个三级标题。不要使用 `# / ##` 一级二级标题。
-- 长度由问题深度决定: 散户短问 300-700 字; 深度投研问题 800-1500 字。
+- 不要使用 `# / ##` 一级二级标题。短答通常不需要标题; 普通解释最多用 2-3 个短标题; 深度研究才使用多段标题。
+- 长度由问题深度决定: 短答 80-260 字; 普通解释 300-700 字; 深度投研问题 800-1500 字。
 - **粗体** 全篇最多 3 处; 散户短问最多 1 处. 只加粗真正的结论或打脸信号, 不给每个小标题、每条 bullet、普通形容词加粗.
 - **代码反引号** ` ` 只能包裹:
   (a) 用户问到的美股 ticker: `NVDA` / `TSLA` / `SPY`
@@ -809,7 +814,6 @@ _SKILL_TOOL_USAGE_RULES = """
 - **表格** 仅当用户明确要"数据对照 / 详细表格", 或确实有 ≥4 个独立指标需要同屏比较时才用. 散户短问、thesis 是否成立、能买吗/要卖吗/持有吗这几类问题禁止用表格, 包括 GFM 管道表、空格对齐表、"指标对照表"小节. 如果用了表格, 列名要像给普通投资者看的语言, 不要出现 "状态" 这种机械列; 最后一列用 "怎么理解".
 - **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
 - **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
-- **段标题**: 除 4 个固定三级标题外, 不要再造大段标题; 需要细分时用短列表即可。
 - **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表.
 
 # skill 来源
@@ -1022,6 +1026,12 @@ async def _run_session(
     # Default is StreamingMode.NONE which only yields final aggregated events
     # — that's why typewriter streaming wasn't working before.
     run_config = RunConfig(streaming_mode=StreamingMode.SSE)
+    started_at = time.monotonic()
+    adk_events = 0
+    partial_chunks = 0
+    final_chunks = 0
+    logger.info("_run_session start: prompt_chars=%d", len(prompt))
+    cancelled = False
     try:
         async for event in runner.run_async(
             user_id="kol_research",
@@ -1029,6 +1039,7 @@ async def _run_session(
             new_message=message,
             run_config=run_config,
         ):
+            adk_events += 1
             if not (hasattr(event, "content") and event.content and event.content.parts):
                 continue
             is_partial = bool(getattr(event, "partial", False))
@@ -1049,6 +1060,7 @@ async def _run_session(
                         queue.put_nowait({"type": "thinking", "text": text})
                     continue
                 if is_partial:
+                    partial_chunks += 1
                     if queue is not None:
                         queue.put_nowait({"type": "message_delta", "text": text})
                         await asyncio.sleep(0)
@@ -1057,8 +1069,19 @@ async def _run_session(
                     # (partial chunks may have lost some structure during stream
                     # buffering, so we trust the aggregated version for the
                     # final_text used in KolResearchResponse).
+                    final_chunks += 1
                     final_text_parts.append(text)
+    except asyncio.CancelledError:
+        cancelled = True
+        raise
     finally:
+        elapsed = time.monotonic() - started_at
+        total_final = sum(len(p) for p in final_text_parts)
+        logger.info(
+            "_run_session end: cancelled=%s elapsed=%.2fs adk_events=%d "
+            "partial_chunks=%d final_chunks=%d final_text_chars=%d",
+            cancelled, elapsed, adk_events, partial_chunks, final_chunks, total_final,
+        )
         try:
             await runner.session_service.delete_session(
                 app_name=APP_NAME,
@@ -1270,6 +1293,7 @@ async def stream_kol_research(
     )
     stream_started_at = time.time()
     runtime_turn: AgentRuntimeTurn | None = None
+    completed_normally = False
 
     try:
         await _preload_recent_reports()
@@ -1354,6 +1378,7 @@ async def stream_kol_research(
                     "code": "agent_timeout",
                     "error": "AI 助手思考时间太长了，请再试一次",
                 }
+                completed_normally = True
                 return
             err_text = str(err).lower()
             if "token" in err_text or "context" in err_text or "too long" in err_text:
@@ -1423,6 +1448,7 @@ async def stream_kol_research(
                         "code": "context_too_long",
                         "error": "对话上下文太长了。系统已尝试压缩仍失败，请新建对话。",
                     }
+                    completed_normally = True
                     return
                 # Retry succeeded — fall through to the success path.
             else:
@@ -1452,6 +1478,7 @@ async def stream_kol_research(
                     "code": code,
                     "error": "AI 助手出了点问题，请再试一次",
                 }
+                completed_normally = True
                 return
 
         navigate = nav_buf[-1] if nav_buf else None
@@ -1498,6 +1525,15 @@ async def stream_kol_research(
             navigate=navigate,
         )
         yield {"type": "final", "data": final.model_dump()}
+        completed_normally = True
+        logger.info(
+            "kol chat completed: persona=%s elapsed=%.2fs final_chars=%d tool_calls=%d skills=%d",
+            persona_username,
+            time.time() - stream_started_at,
+            len(final_text or ""),
+            len(tool_log),
+            len(skills_buf),
+        )
     except Exception as setup_err:  # noqa: BLE001
         # Setup-phase errors (_preload_recent_reports / get_agent / _build_prompt)
         # would otherwise bubble out of the generator with zero SSE events,
@@ -1531,8 +1567,35 @@ async def stream_kol_research(
             "code": "agent_setup_error",
             "error": "AI 助手启动失败，请再试一次",
         }
+        completed_normally = True  # error event delivered; not an abort.
         return
     finally:
+        # If we get here without `completed_normally` and the `except` block
+        # didn't run either, the generator was cancelled (client disconnected)
+        # or an exception is propagating. sys.exc_info() distinguishes the two.
+        if not completed_normally:
+            exc_type, exc_val, _ = sys.exc_info()
+            elapsed = time.time() - stream_started_at
+            if exc_type is None:
+                # Generator was closed (client disconnect / aclose).
+                logger.warning(
+                    "kol chat aborted: persona=%s elapsed=%.2fs tool_calls=%d "
+                    "reason=generator_closed (client disconnected before final event)",
+                    persona_username, elapsed, len(tool_log),
+                )
+            elif issubclass(exc_type, (GeneratorExit, asyncio.CancelledError)):
+                logger.warning(
+                    "kol chat cancelled: persona=%s elapsed=%.2fs tool_calls=%d "
+                    "exc=%s",
+                    persona_username, elapsed, len(tool_log), exc_type.__name__,
+                )
+            else:
+                logger.warning(
+                    "kol chat exited via exception: persona=%s elapsed=%.2fs "
+                    "tool_calls=%d exc=%s msg=%s",
+                    persona_username, elapsed, len(tool_log),
+                    exc_type.__name__, exc_val,
+                )
         _sse_queue.reset(token_queue)
         persona_chunks_buffer.reset(token_chunks)
         _activated_skills.reset(token_skills)

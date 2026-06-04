@@ -107,23 +107,18 @@ def test_data_coverage_warning_fails_required_prefetch():
     assert "must_cover_data:get_stock_brief:NVDA" in {c.name for c in result.hard_failures}
 
 
-def test_required_sections_are_checked_as_headings():
+def test_forbidden_sections_and_max_chars_are_checked():
     case = EvalCase(
-        id="sections",
+        id="short",
         message="NVDA 怎么看",
-        expected={"required_sections": ["结论", "Frank 过往观点", "现状", "总结"]},
+        expected={
+            "forbidden_sections": ["Frank 过往观点", "现状"],
+            "max_chars": 80,
+            "answer_should_include_any": ["NVDA", "AVGO"],
+        },
     )
     response = {
-        "message": (
-            "### 结论\n"
-            "先给结论。\n\n"
-            "### Frank 过往观点\n"
-            "历史观点。\n\n"
-            "### 现状\n"
-            "当前数据。\n\n"
-            "### 总结\n"
-            "观察信号。"
-        ),
+        "message": "`NVDA` 更贴近 Frank 的确定性框架：瓶颈更硬，打脸条件更清楚。",
         "kol_chunks": [],
         "tool_calls": [],
     }
@@ -133,14 +128,14 @@ def test_required_sections_are_checked_as_headings():
     assert result.passed is True
 
 
-def test_required_sections_fail_when_heading_missing():
+def test_forbidden_sections_and_max_chars_fail_when_violated():
     case = EvalCase(
-        id="missing-section",
+        id="too-long",
         message="NVDA 怎么看",
-        expected={"required_sections": ["结论", "Frank 过往观点", "现状", "总结"]},
+        expected={"forbidden_sections": ["现状"], "max_chars": 20},
     )
     response = {
-        "message": "结论：只有内联文本。\n\n### 现状\n当前数据。",
+        "message": "### 现状\n这里展开得太长，违反用户短答要求。",
         "kol_chunks": [],
         "tool_calls": [],
     }
@@ -148,8 +143,42 @@ def test_required_sections_fail_when_heading_missing():
     result = evaluate_case(case, response)
 
     failed = {c.name for c in result.hard_failures}
-    assert "required_section:Frank 过往观点" in failed
-    assert "required_section:总结" in failed
+    assert "forbidden_section:现状" in failed
+    assert "max_chars:20" in failed
+
+
+def test_jargon_translation_soft_check():
+    case = EvalCase(
+        id="jargon",
+        message="解释一下 RPO",
+        expected={"jargon_requires_translation": ["RPO"]},
+    )
+    response = {
+        "message": "RPO 很重要。",
+        "kol_chunks": [],
+        "tool_calls": [],
+    }
+
+    result = evaluate_case(case, response)
+
+    assert "jargon_translated:RPO" in {c.name for c in result.soft_failures}
+
+
+def test_jargon_translation_passes_with_plain_language_nearby():
+    case = EvalCase(
+        id="jargon-ok",
+        message="解释一下 RPO",
+        expected={"jargon_requires_translation": ["RPO"]},
+    )
+    response = {
+        "message": "RPO 可以理解成已签但还没交付、未来可能转成收入的订单。",
+        "kol_chunks": [],
+        "tool_calls": [],
+    }
+
+    result = evaluate_case(case, response)
+
+    assert not result.soft_failures
 
 
 def test_report_summary_counts_failures():

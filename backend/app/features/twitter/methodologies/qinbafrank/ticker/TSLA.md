@@ -3,84 +3,88 @@ ticker: TSLA
 coverage: medium
 direct_mention_count: 20
 parent_sector: power-and-physical-ai
-last_updated: 2026-05-27
+last_updated: 2026-06-03
 ---
 
 # Ticker: TSLA — Tesla
 
-## 覆盖状态
-`coverage: medium` — 20 次直接提及
-
 ## 适用问题
-- 特斯拉 / Robotaxi / Optimus / FSD
-- 老马生态（TSLA + SpaceX + xAI 整合）
-- "特斯拉新高 / 还能买吗"
 
-## 所属上级
-- `sector/power-and-physical-ai.md` — Robotaxi + Optimus 物理 AI 双重敞口
-- `sector/defense-and-space.md` — 老马生态外溢
+- TSLA / 特斯拉 / Robotaxi / FSD / Optimus / 物理 AI。
+- 老马生态：Tesla、SpaceX、xAI、X 的协同。
+- 特斯拉新高、还能不能看、Robotaxi 是否兑现。
 
-## 核心问题
-TSLA 在博主框架里是"**物理 AI 的旗舰 + 老马工程奇迹的核心载体**"。
+## 一句话定位
 
-## 博主如何定位
-> 特斯拉股价新高，老马终是没有辜负我们大家；明年 SpaceX 上市，首富位子稳如磐石。
+在 Frank 框架里，TSLA 是物理 AI 的旗舰样本，不是单纯电动车公司。它的核心问题是 Robotaxi 和 Optimus 能不能从叙事走向规模化，而不是某条老马新闻能不能刺激股价。
 
-## 他看什么具体信息
-- **Robotaxi 进度** — 奥斯汀无安全员测试启动
-- **Optimus 量产时间表**
-- **FSD 渗透率 / 数据**
-- **能源业务（储能）**
-- **老马薪酬方案 + 法律环境**（特拉华州 vs 得州）
+## Frank 会先看什么
 
-## 他如何理解
+- Robotaxi 部署：是否从测试走向多城市、无安全员、可规模化。
+- FSD 数据和监管：自动驾驶能力是否能被真实运营验证。
+- Optimus 量产时间表：人形机器人是不是长期物理 AI 敞口。
+- 能源和储能业务：是否提供第二增长曲线。
+- 老马生态协同：SpaceX、xAI、X 是否增强 TSLA 的技术和资本叙事。
+- 法律和监管环境：薪酬方案、迁注册、自动驾驶监管都会影响路径。
 
-### 1. Robotaxi 是核心叙事
-"1800 万辆 Robotaxi-ready" 是 GTC 数据信号。
+## 这些变量怎么连接
 
-### 2. Optimus 是长期物理 AI 敞口
-> 凡是致力于"让机器大军吞噬物理世界"的基础设施，其终局都是封神
+Frank 看 TSLA 的链条是：
 
-### 3. 老马生态的协同效应
-TSLA + SpaceX（IPO）+ xAI（Grok）+ X 平台 = 完整生态。
+```text
+AI 从屏幕走向物理世界 -> Robotaxi/FSD 验证真实世界自动化 -> Optimus 打开更长期物理 AI 空间 -> TSLA 估值不只由卖车决定
+```
 
-### 4. 法律环境 = 软变量
-特拉华州 vs 得州的迁注册 → 老马薪酬方案恢复。
+如果只是老马新闻、发布会或股价新高，不能直接当成 thesis 强化。必须看 Robotaxi、FSD、Optimus 有没有进入更可验证的阶段。
 
-## 决策框架
+## 支持信号
 
-### 升级条件
-- Robotaxi 无监管安全员部署扩大
-- Optimus 量产时间表确认
-- FSD 数据 + 渗透率上升
+- Robotaxi 无安全员测试范围扩大，监管阻力可控。
+- FSD 渗透率、里程、接管率等数据持续改善。
+- Optimus 量产时间表更清楚。
+- 储能或能源业务继续贡献增长。
+- 老马生态带来算力、数据、资金或品牌协同。
 
-### 不追高 / 减风险条件
-- Robotaxi 部署延期 / 监管严管
-- Optimus 跳票
-- FSD 监管严管
+## 削弱信号
 
-### Veto
-- ❌ 押注短期 Robotaxi 营收兑现
-- ❌ 把"老马大新闻"等同于"必涨"
+- Robotaxi 部署延期，或主要城市监管明显收紧。
+- FSD 数据不能支持规模化商业运营。
+- Optimus 量产继续后移。
+- 车业务毛利率和需求压力压过物理 AI 叙事。
 
-### 打脸条件
-- 若 Robotaxi 主要城市部署失败 → 物理 AI 旗舰叙事证伪
-- 若 Optimus 量产再延 2 年 → 物理 AI 进度证伪
+## 打脸条件
 
-## 已持有 / 未持有
-- 已持有：长持 5-10 年（物理 AI 渗透曲线）
-- 未持有：等小级别杀估值入场
+- Robotaxi 在核心城市无法扩展，物理 AI 旗舰叙事要下修。
+- Optimus 量产再明显推迟，长期物理 AI 进度要下修。
+- FSD 监管或安全数据出现系统性问题，Robotaxi 商业化路径要重新评估。
+
+## 不同持仓状态下该观察什么
+
+- 已持有：不要把每条老马新闻都当作 thesis 强化，核心还是 Robotaxi/FSD/Optimus 的可验证进展。
+- 未持有：先判断当前估值里已经包含多少物理 AI 预期，再看新数据是否足够支撑。
 
 ## 常见误读
-1. **把"老马首富新高"等同于"TSLA 必涨"** — 错。短期股价仍受财务模型约束。
-2. **押注短期 Robotaxi 营收** — 错。是规模化 + 监管的多年过程。
-3. **把 Optimus 当作短期催化剂** — 错。是长期物理 AI 敞口。
+
+1. 把“老马大新闻”直接等同于 TSLA 必涨。Frank 框架更看真实工程进展。
+2. 把 Optimus 当作短期财务催化。它更像长期物理 AI 敞口。
+3. 把 TSLA 只当电动车公司。这样会漏掉 Robotaxi、FSD、Optimus 的长期叙事。
+4. 忽略监管。Robotaxi 不是纯技术问题，也受城市、法律和安全框架约束。
+
+## 用户可见术语翻译
+
+- Robotaxi：无人驾驶出租车，关键是能否规模化运营，而不是只做演示。
+- FSD：特斯拉自动驾驶能力，最终要看真实路况数据和监管接受度。
+- Optimus：特斯拉人形机器人，是长期物理 AI 叙事。
+- 物理 AI：AI 不只在屏幕里回答问题，而是进入汽车、机器人和现实世界执行任务。
 
 ## Evidence Map
-- `2001119243744825817` — "特斯拉不配备人类安全员的无人驾驶出租车在奥斯汀开始测试 ... 特斯拉股价新高，老马终是没有辜负我们大家"
-- `2002613049895854421` — 老马薪酬方案恢复 / 特拉华州迁注册（得州）
-- `2033686742742798680` — GTC 1800 万 Robotaxi-ready
+
+- `2001119243744825817` — 特斯拉不配备人类安全员的无人驾驶出租车在奥斯汀测试，特斯拉股价新高。
+- `2002613049895854421` — 老马薪酬方案恢复与迁注册。
+- `2033686742742798680` — GTC 提到 1800 万 Robotaxi-ready。
 
 ## 与其他 skill 协同
-- `sector/power-and-physical-ai.md` — 父级 / 物理 AI 旗舰
-- `sector/defense-and-space.md` — 老马生态横跨太空 + 物理 AI
+
+- `sector/power-and-physical-ai.md` — TSLA 是物理 AI 旗舰。
+- `sector/defense-and-space.md` — 老马生态与太空、xAI 的外溢。
+- `sector/ai-infrastructure.md` — 物理 AI 长期会增加算力需求。

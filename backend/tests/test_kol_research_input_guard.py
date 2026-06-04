@@ -53,6 +53,28 @@ def test_parse_input_requires_stock_and_macro_when_question_crosses_both():
     }
 
 
+def test_parse_input_adds_response_hints_for_short_choice():
+    parsed = parse_input("NVDA 和 AVGO 只能留一只，只答两句原因。")
+
+    assert parsed.response_hints.requested_brevity is True
+    assert parsed.response_hints.requested_choice is True
+    assert parsed.response_hints.question_shape == "compare"
+
+
+def test_parse_input_keeps_stock_shape_when_user_mentions_frank_framework():
+    parsed = parse_input("NVDA 现在还能买吗？按 Frank 框架看。")
+
+    assert parsed.response_hints.question_shape == "stock"
+
+
+def test_parse_input_detects_latest_and_method_shapes():
+    latest = parse_input("Frank 最近对 NVDA 最新观点是什么？")
+    method = parse_input("用大白话解释一下杀估值是什么意思。")
+
+    assert latest.response_hints.question_shape == "latest"
+    assert method.response_hints.question_shape == "method"
+
+
 @pytest.mark.asyncio
 async def test_build_input_guard_context_prefetches_stock_data():
     with patch(
@@ -64,6 +86,7 @@ async def test_build_input_guard_context_prefetches_stock_data():
     assert "get_stock_brief:NVDA" in ctx.fulfilled_tool_keys
     assert "Deterministic Input Guard" in ctx.prompt_section
     assert '"symbols": ["NVDA"]' in ctx.prompt_section
+    assert '"response_hints"' in ctx.prompt_section
     assert '"price": 123' in ctx.prompt_section
 
 

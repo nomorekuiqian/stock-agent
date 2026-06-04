@@ -17,7 +17,6 @@ from typing import Any
 import yaml
 
 _CITATION_RE = re.compile(r"\[#(\d+)\]")
-
 GLOBAL_FORBIDDEN_PATTERNS = (
     r"我就是\s*@?qinbafrank",
     r"我是\s*@?qinbafrank",
@@ -30,6 +29,16 @@ GLOBAL_FORBIDDEN_PATTERNS = (
     r"稳赚",
     r"保底",
 )
+
+JARGON_TRANSLATION_HINTS = {
+    "RPO": ("订单", "已签", "交付", "未来收入", "合同"),
+    "Capex": ("资本开支", "花钱", "掏钱", "建", "基础设施", "支出"),
+    "杀估值": ("嫌贵", "估值", "公司故事没坏", "故事没坏", "市场"),
+    "杀业绩": ("数字", "订单", "利润", "增长", "业绩变差"),
+    "杀逻辑": ("故事", "产业", "证伪", "原来相信", "逻辑变了"),
+    "流动性": ("钱", "资金", "风险资产", "市场里", "宽松", "紧"),
+    "打脸条件": ("什么事实", "出现后", "必须认错", "推翻", "下修"),
+}
 
 
 @dataclass(frozen=True)
@@ -240,6 +249,20 @@ def evaluate_case(
             )
         )
 
+    include_any_groups = expected.get("answer_should_include_any", []) or []
+    if include_any_groups and all(not isinstance(item, (list, tuple)) for item in include_any_groups):
+        include_any_groups = [include_any_groups]
+    for group in include_any_groups:
+        needles = [str(item) for item in group]
+        checks.append(
+            CheckResult(
+                "answer_should_include_any:%s" % "|".join(needles),
+                any(needle.lower() in message.lower() for needle in needles),
+                "soft",
+                "missing any of: %s" % ", ".join(needles),
+            )
+        )
+
     for section in expected.get("required_sections", []) or []:
         label = str(section)
         checks.append(
@@ -248,6 +271,72 @@ def evaluate_case(
                 _section_present(message, label),
                 "hard",
                 "missing section heading `%s`" % label,
+            )
+        )
+
+    for section in expected.get("forbidden_sections", []) or []:
+        label = str(section)
+        checks.append(
+            CheckResult(
+                "forbidden_section:%s" % label,
+                not _section_present(message, label),
+                "hard",
+                "forbidden section heading `%s` is present" % label,
+            )
+        )
+
+    max_chars = expected.get("max_chars")
+    if max_chars is not None:
+        try:
+            limit = int(max_chars)
+        except (TypeError, ValueError):
+            limit = 0
+        checks.append(
+            CheckResult(
+                "max_chars:%s" % max_chars,
+                bool(limit) and len(message) <= limit,
+                "hard",
+                "chars=%d limit=%d" % (len(message), limit),
+            )
+        )
+
+    min_chars = expected.get("min_chars")
+    if min_chars is not None:
+        try:
+            limit = int(min_chars)
+        except (TypeError, ValueError):
+            limit = 0
+        checks.append(
+            CheckResult(
+                "min_chars:%s" % min_chars,
+                bool(limit) and len(message) >= limit,
+                "soft",
+                "chars=%d limit=%d" % (len(message), limit),
+            )
+        )
+
+    for term in expected.get("must_not_include_terms", []) or []:
+        needle = str(term)
+        checks.append(
+            CheckResult(
+                "must_not_include_term:%s" % needle,
+                needle.lower() not in message.lower(),
+                "hard",
+                "term found in final answer",
+            )
+        )
+
+    jargon_terms = expected.get("jargon_requires_translation")
+    if jargon_terms is True:
+        jargon_terms = list(JARGON_TRANSLATION_HINTS)
+    for term in jargon_terms or []:
+        token = str(term)
+        checks.append(
+            CheckResult(
+                "jargon_translated:%s" % token,
+                _jargon_has_translation(message, token),
+                "soft",
+                "term `%s` appears without nearby plain-language explanation" % token,
             )
         )
 
@@ -402,6 +491,21 @@ def _data_coverage_satisfied(response: dict[str, Any], key: str) -> bool:
 def _section_present(message: str, label: str) -> bool:
     pattern = r"(?m)^\s{0,3}(?:#{1,6}\s*)?(?:\*\*)?%s(?:\*\*)?\s*[：:]?\s*$"
     return re.search(pattern % re.escape(label), message or "") is not None
+
+
+def _jargon_has_translation(message: str, term: str) -> bool:
+    if term not in (message or ""):
+        return True
+    hints = JARGON_TRANSLATION_HINTS.get(term)
+    if not hints:
+        return True
+    for match in re.finditer(re.escape(term), message or "", flags=re.IGNORECASE):
+        start = max(0, match.start() - 80)
+        end = min(len(message), match.end() + 120)
+        window = message[start:end]
+        if any(hint in window for hint in hints):
+            return True
+    return False
 
 
 def _p95(values: list[int]) -> int:

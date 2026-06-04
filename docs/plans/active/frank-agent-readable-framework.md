@@ -1,6 +1,6 @@
 # Frank Agent Readable Framework Engineering Plan
 
-> Status: Planning
+> Status: In Progress
 > Related: `backend/app/features/kol_research/.context.md`, `backend/app/features/twitter/.context.md`, `frontend/src/app/kol/.context.md`, `docs/plans/active/qinbafrank-skill-distillation.md`, `docs/plans/active/kol-research-context-mgmt.md`
 > Vision: 产品策略.md > 帮用户把数据变成判断，而不是堆积信息；KOL agent 要让用户通俗理解 Frank 的框架，并用这个框架看市场问题。
 
@@ -487,14 +487,14 @@ LLM 或人工评审维度：
 
 ## 实施步骤
 
-1. [ ] 新增/更新 eval case schema：支持 response mode、max_chars、forbidden_sections、jargon translation 等检查。
-2. [ ] 修改 `evaluator.py`，让自动化验收不再硬保四段模板。
-3. [ ] 修改 `input_guard.py`，增加轻量 `response_hints`，先覆盖 brevity / choice / table / latest / method。
-4. [ ] 重写 `agent.py` 的 `_SKILL_TOOL_USAGE_RULES` 输出规则：从“统一四段”改成“response mode + 用户格式优先 + 白话框架”。
-5. [ ] 重写 6 个 framework skill，移除四段骨架，加入“用户真正想知道什么 / Frank 先问什么 / 短答形态 / 术语翻译”。
-6. [ ] 先改 1 个 sector skill 作为样板：`sector/ai-infrastructure.md`。
-7. [ ] 先改 3 个高频 ticker skill 作为样板：`ticker/NVDA.md`、`ticker/AMD.md`、`ticker/TSLA.md`。
-8. [ ] 跑 fixture eval + targeted unit tests，修正 deterministic 失败。
+1. [x] 新增/更新 eval case schema：支持 response mode、max_chars、forbidden_sections、jargon translation 等检查。
+2. [x] 修改 `evaluator.py`，让自动化验收不再硬保四段模板。
+3. [x] 修改 `input_guard.py`，增加轻量 `response_hints`，先覆盖 brevity / choice / table / latest / method。
+4. [x] 重写 `agent.py` 的 `_SKILL_TOOL_USAGE_RULES` 输出规则：从“统一四段”改成“response mode + 用户格式优先 + 白话框架”。
+5. [x] 重写 6 个 framework skill，移除四段骨架，加入“用户真正想知道什么 / Frank 先问什么 / 短答形态 / 术语翻译”。
+6. [x] 先改 1 个 sector skill 作为样板：`sector/ai-infrastructure.md`。
+7. [x] 先改 3 个高频 ticker skill 作为样板：`ticker/NVDA.md`、`ticker/AMD.md`、`ticker/TSLA.md`。
+8. [x] 跑 fixture eval + targeted unit tests，修正 deterministic 失败。
 9. [ ] 跑 live eval 小集，人工评估回答是否更通俗、更有 Frank 框架感。
 10. [ ] 批量迁移剩余 sector / ticker skill 到新模板。
 11. [ ] 更新 `backend/app/features/kol_research/.context.md`，记录新 answer framework 和 eval 规则。

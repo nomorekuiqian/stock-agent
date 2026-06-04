@@ -14,11 +14,7 @@ cases:
       answer_should_include:
         - NVDA
         - 风险
-      required_sections: &frank_sections
-        - 结论
-        - Frank 过往观点
-        - 现状
-        - 总结
+      jargon_requires_translation: true
 
   - id: frank_macro_liquidity_ai
     category: macro
@@ -34,7 +30,9 @@ cases:
       answer_should_include:
         - 流动性
         - AI
-      required_sections: *frank_sections
+      jargon_requires_translation:
+        - 流动性
+        - 杀估值
 
   - id: frank_nvda_avgo_compare
     category: compare
@@ -52,7 +50,7 @@ cases:
       answer_should_include:
         - NVDA
         - AVGO
-      required_sections: *frank_sections
+      jargon_requires_translation: true
 
   - id: frank_method_falsifiability
     category: methodology
@@ -65,7 +63,10 @@ cases:
       citation_required: true
       answer_should_include:
         - 打脸
-      required_sections: *frank_sections
+      forbidden_sections:
+        - 现状
+      jargon_requires_translation:
+        - 打脸条件
 
   - id: frank_news_event_nvda
     category: news
@@ -80,7 +81,8 @@ cases:
       answer_should_include:
         - 订单
         - 风险
-      required_sections: *frank_sections
+      jargon_requires_translation:
+        - Capex
 
   - id: frank_unknown_smallcap
     category: no_coverage
@@ -94,4 +96,57 @@ cases:
       citation_required: false
       answer_should_include:
         - 没
-      required_sections: *frank_sections
+      max_chars: 700
+
+  - id: frank_compare_pick_one_short
+    category: compare
+    message: "NVDA 和 AVGO 只能留一只，按 Frank 框架只答一只和两句原因。"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_cover_data:
+        - get_stock_brief:NVDA
+        - get_stock_brief:AVGO
+      required_symbols: [NVDA, AVGO]
+      citation_required: true
+      answer_should_include_any:
+        - NVDA
+        - AVGO
+      max_chars: 260
+      forbidden_sections:
+        - Frank 过往观点
+        - 现状
+        - 总结
+
+  - id: frank_latest_nvda_take
+    category: latest
+    message: "Frank 最近对 NVDA 最新观点是什么？没有最近观点就直接说没有。"
+    expected:
+      must_call:
+        - search_kol_tweets
+      must_cover_data:
+        - get_stock_brief:NVDA
+      required_symbols: [NVDA]
+      citation_required: false
+      answer_should_include:
+        - 最近
+      max_chars: 900
+
+  - id: frank_method_three_kills_plain
+    category: methodology
+    message: "用大白话解释一下杀估值、杀业绩、杀逻辑，不要展开太长。"
+    expected:
+      must_call_any:
+        - [load_skill, list_skills]
+      answer_should_include:
+        - 杀估值
+        - 杀业绩
+        - 杀逻辑
+      forbidden_sections:
+        - Frank 过往观点
+        - 现状
+      max_chars: 700
+      jargon_requires_translation:
+        - 杀估值
+        - 杀业绩
+        - 杀逻辑

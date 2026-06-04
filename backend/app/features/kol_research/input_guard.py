@@ -123,9 +123,89 @@ _MACRO_KEYWORDS = (
     "vix",
 )
 
+_BREVITY_KEYWORDS = (
+    "只答",
+    "两句",
+    "一句",
+    "三点",
+    "简单说",
+    "简短",
+    "别展开",
+    "不要展开",
+    "short",
+    "brief",
+)
+
+_CHOICE_KEYWORDS = (
+    "只能",
+    "只选",
+    "留一只",
+    "选一只",
+    "二选一",
+    "哪一个",
+    "哪个",
+    "谁更",
+    "vs",
+    "还是",
+)
+
+_TABLE_KEYWORDS = (
+    "表格",
+    "列表对比",
+    "对照表",
+    "table",
+)
+
+_LATEST_KEYWORDS = (
+    "最新",
+    "最近",
+    "现在观点",
+    "最近观点",
+    "latest",
+    "recent",
+)
+
+_METHOD_KEYWORDS = (
+    "什么是",
+    "什么意思",
+    "为什么",
+    "怎么判断",
+    "如何判断",
+    "方法论",
+    "框架",
+    "大白话",
+)
+
+_VETO_KEYWORDS = (
+    "meme",
+    "梭哈",
+    "all in",
+    "做空",
+    "抄底烂",
+    "一把梭",
+    "短炒",
+    "赌",
+)
+
 # Common short words / ambiguous short tickers. Require cashtag or a longer
 # alias (e.g. "OnSemi") to avoid reading "ON RRP" as ON Semiconductor.
 _SHORT_TICKERS_REQUIRE_CASHTAG = {"ON", "LI", "PL", "GD", "BA"}
+
+
+@dataclass(frozen=True)
+class ResponseHints:
+    requested_brevity: bool = False
+    requested_choice: bool = False
+    requested_table: bool = False
+    question_shape: str = "general"
+
+    def to_prompt_dict(self) -> dict[str, Any]:
+        return {
+            "requested_brevity": self.requested_brevity,
+            "requested_choice": self.requested_choice,
+            "requested_table": self.requested_table,
+            "question_shape": self.question_shape,
+        }
 
 
 @dataclass(frozen=True)
@@ -137,6 +217,7 @@ class ParsedInput:
     is_macro_question: bool = False
     is_news_question: bool = False
     source: dict[str, str] = field(default_factory=dict)
+    response_hints: ResponseHints = field(default_factory=ResponseHints)
 
     @property
     def requires_macro_brief(self) -> bool:
@@ -162,6 +243,7 @@ class ParsedInput:
             "is_news_question": self.is_news_question,
             "source": self.source,
             "required_tool_keys": sorted(self.required_tool_keys()),
+            "response_hints": self.response_hints.to_prompt_dict(),
         }
 
 
@@ -235,6 +317,13 @@ def parse_input(message: str, content_context: dict[str, Any] | None = None) -> 
     is_news_question = bool(urls) or _contains_keyword(text_lower, _NEWS_KEYWORDS)
     is_macro_question = _contains_keyword(text_lower, _MACRO_KEYWORDS)
     is_stock_question = bool(symbols)
+    response_hints = _infer_response_hints(
+        text_lower=text_lower,
+        is_stock_question=is_stock_question,
+        is_macro_question=is_macro_question,
+        is_news_question=is_news_question,
+        symbol_count=len(symbols),
+    )
 
     priceable_symbols = [s for s in symbols if s not in NON_PRICEABLE]
     return ParsedInput(
@@ -245,6 +334,44 @@ def parse_input(message: str, content_context: dict[str, Any] | None = None) -> 
         is_macro_question=is_macro_question,
         is_news_question=is_news_question,
         source=source,
+        response_hints=response_hints,
+    )
+
+
+def _infer_response_hints(
+    *,
+    text_lower: str,
+    is_stock_question: bool,
+    is_macro_question: bool,
+    is_news_question: bool,
+    symbol_count: int,
+) -> ResponseHints:
+    requested_brevity = _contains_keyword(text_lower, _BREVITY_KEYWORDS)
+    requested_choice = symbol_count >= 2 or _contains_keyword(text_lower, _CHOICE_KEYWORDS)
+    requested_table = _contains_keyword(text_lower, _TABLE_KEYWORDS)
+
+    if _contains_keyword(text_lower, _LATEST_KEYWORDS):
+        question_shape = "latest"
+    elif _contains_keyword(text_lower, _VETO_KEYWORDS):
+        question_shape = "veto"
+    elif requested_choice:
+        question_shape = "compare"
+    elif _contains_keyword(text_lower, _METHOD_KEYWORDS) and not (is_stock_question or is_news_question):
+        question_shape = "method"
+    elif is_macro_question:
+        question_shape = "macro"
+    elif is_news_question:
+        question_shape = "news"
+    elif is_stock_question:
+        question_shape = "stock"
+    else:
+        question_shape = "general"
+
+    return ResponseHints(
+        requested_brevity=requested_brevity,
+        requested_choice=requested_choice,
+        requested_table=requested_table,
+        question_shape=question_shape,
     )
 
 
@@ -402,6 +529,7 @@ def _render_prompt_section(
         "",
         "Rules:",
         "- If `symbols` is non-empty, answer about those exact symbols; do not substitute a different ticker.",
+        "- Use `parsed_input.response_hints` to choose answer shape. If `requested_brevity` or `requested_choice` is true, respect the user's requested concise / choice format instead of expanding into the default structure.",
     ]
     if inject_data_body:
         instructions.append(
