@@ -40,14 +40,15 @@ class TestEmailE2E:
     """E2E tests: render real report HTML and send to test account."""
 
     @pytest.mark.asyncio
-    async def test_daily_report(self, insforge_service, email_service):
+    async def test_daily_report(self, email_service):
         """Render and send a real daily report email."""
         from app.utils.timezone import today_str
+        from app.features.daily_report import db as daily_report_db
         from app.features.subscription.email_templates import format_html_report
 
-        report = await insforge_service.get_report_by_date(today_str())
+        report = await daily_report_db.get_report_by_date(today_str())
         if not report:
-            report = await insforge_service.get_latest_report()
+            report = await daily_report_db.get_latest_report()
         assert report is not None, "No daily report found. Generate one first."
 
         report_data = {

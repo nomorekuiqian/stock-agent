@@ -100,13 +100,6 @@ def test_user_id():
 
 
 @pytest.fixture
-def insforge_service():
-    """Get Insforge service instance."""
-    from app.shared.insforge_service import get_insforge_service
-    return get_insforge_service()
-
-
-@pytest.fixture
 def email_service():
     """Get Email service instance."""
     from app.features.subscription.email_service import get_email_service
@@ -140,8 +133,6 @@ DB_WRITE_FUNCTIONS = [
     ("app.features.macro.weekly.db", "save_weekly_report"),
     # Macro Cache (now under macro/)
     ("app.features.macro.cache.db", "set_cached"),
-    # Insforge service write operations
-    ("app.shared.insforge_service", "InsforgeService.save_email_feedback"),
     # Quota
     ("app.features.quota.db", "increment_usage"),
     # Feature flags admin

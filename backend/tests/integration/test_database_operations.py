@@ -18,14 +18,17 @@ Usage:
 import uuid
 import pytest
 
+from app.features.daily_report import db as daily_report_db
+from app.features.feedback import db as feedback_db
+
 
 @pytest.mark.integration
 class TestDatabaseOperations:
-    """Integration tests for Insforge database operations."""
+    """Integration tests for feature database operations."""
 
     @pytest.mark.asyncio
     @pytest.mark.db_write
-    async def test_save_email_feedback_with_report_id(self, insforge_service):
+    async def test_save_email_feedback_with_report_id(self):
         """
         Test that email feedback is saved with report_id correctly.
         This was the bug we fixed - report_id was being saved as NULL.
@@ -39,7 +42,7 @@ class TestDatabaseOperations:
         4. Clean up is handled by upsert (same email+date will update)
         """
         # 1. Get latest report
-        report = await insforge_service.get_latest_report()
+        report = await daily_report_db.get_latest_report()
         assert report is not None, "No report found in database"
 
         report_id = report.get("id")
@@ -52,7 +55,7 @@ class TestDatabaseOperations:
 
         # 2. Save feedback with report_id
         test_email = f"test-{uuid.uuid4().hex[:8]}@integration-test.local"
-        result = await insforge_service.save_email_feedback(
+        result = await feedback_db.save_email_feedback(
             report_date=report_date,
             email=test_email,
             rating="satisfied",
@@ -71,13 +74,13 @@ class TestDatabaseOperations:
             print(f"[Integration] Verified report_id in saved data: {saved_report_id}")
 
     @pytest.mark.asyncio
-    async def test_report_id_integrity(self, insforge_service):
+    async def test_report_id_integrity(self):
         """
         Test that existing reports have valid report_id (UUID format).
         This verifies data integrity in the database.
         """
         # Get latest report
-        report = await insforge_service.get_latest_report()
+        report = await daily_report_db.get_latest_report()
         assert report is not None, "No report found in database"
 
         report_id = report.get("id")
@@ -91,14 +94,14 @@ class TestDatabaseOperations:
             pytest.fail(f"Report ID is not a valid UUID: {report_id}")
 
         # Verify report can be fetched by ID
-        fetched_report = await insforge_service.get_report_by_id(report_id)
+        fetched_report = await daily_report_db.get_report_by_id(report_id)
         assert fetched_report is not None, f"Could not fetch report by ID: {report_id}"
         assert fetched_report.get("id") == report_id, "Fetched report ID mismatch"
 
         print(f"[Integration] Successfully verified report: {fetched_report.get('title', '')[:50]}...")
 
     @pytest.mark.asyncio
-    async def test_get_report_by_date(self, insforge_service):
+    async def test_get_report_by_date(self):
         """
         Test fetching report by date returns correct data structure.
         """
@@ -106,11 +109,11 @@ class TestDatabaseOperations:
 
         # Try to get today's report
         today = today_str()
-        report = await insforge_service.get_report_by_date(today)
+        report = await daily_report_db.get_report_by_date(today)
 
         if report is None:
             # Fall back to latest report
-            report = await insforge_service.get_latest_report()
+            report = await daily_report_db.get_latest_report()
             print(f"\n[Integration] No report for today ({today}), using latest report")
 
         assert report is not None, "No report found"
@@ -129,13 +132,13 @@ class TestReportIdFlow:
     """Tests specifically for the report_id flow (the bug we fixed)."""
 
     @pytest.mark.asyncio
-    async def test_report_has_id_after_save(self, insforge_service):
+    async def test_report_has_id_after_save(self):
         """
         Verify that when a report is saved, it gets a valid ID.
         This tests the flow without actually creating a new report.
         """
         # Get latest report - it should have been saved with an ID
-        report = await insforge_service.get_latest_report()
+        report = await daily_report_db.get_latest_report()
         assert report is not None, "No report found"
 
         report_id = report.get("id")
@@ -155,7 +158,7 @@ class TestReportIdFlow:
 
     @pytest.mark.asyncio
     @pytest.mark.db_write
-    async def test_feedback_links_to_report(self, insforge_service):
+    async def test_feedback_links_to_report(self):
         """
         Simulate the feedback flow:
         1. Get a report with ID
@@ -165,7 +168,7 @@ class TestReportIdFlow:
         NOTE: This test WRITES to the database. Run with --allow-db-write.
         """
         # 1. Get report
-        report = await insforge_service.get_latest_report()
+        report = await daily_report_db.get_latest_report()
         assert report is not None
 
         report_id = report.get("id")
@@ -173,7 +176,7 @@ class TestReportIdFlow:
 
         # 2. Save feedback (using unique email to avoid conflicts)
         test_email = f"flow-test-{uuid.uuid4().hex[:8]}@test.local"
-        result = await insforge_service.save_email_feedback(
+        result = await feedback_db.save_email_feedback(
             report_date=report_date,
             email=test_email,
             rating="satisfied",

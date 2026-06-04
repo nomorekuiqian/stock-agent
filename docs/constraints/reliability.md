@@ -361,7 +361,6 @@ app.features.stock.agent          - Stock AI agent operations
 app.features.stock.service        - Stock data aggregation
 app.features.daily_report.agent   - Market report AI generation
 app.shared.fmp_service            - FMP API calls
-app.shared.insforge_service       - Insforge data operations
 app.shared.yfinance_service       - yfinance data fetching
 ```
 
