@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.core.deps import verify_user_token_with_email
 from app.core.logging import get_logger
+from app.core.sse import with_heartbeat
 from app.features.flags.db import get_user_flags
 from app.features.kol_research import cockpit, skill_cockpit
 from app.features.kol_research.agent import (
@@ -587,7 +588,10 @@ async def kol_research_chat_stream(
         ):
             yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        with_heartbeat(event_generator()),
+        media_type="text/event-stream",
+    )
 
 
 # ---------------------------------------------------------------------------

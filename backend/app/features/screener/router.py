@@ -31,6 +31,7 @@ from app.core.config import AGENT_RUNTIME_REQUEST_HISTORY
 from app.core.deps import verify_cron_secret, verify_user_token, optional_user_token
 from app.core.rate_limit import _get_real_ip
 from app.core.logging import get_logger
+from app.core.sse import with_heartbeat
 from app.utils.timezone import utc_now_iso
 from app.features.screener.db import (
     get_all_status,
@@ -1092,4 +1093,7 @@ async def research_chat_stream(
             _recent_reports.set([])
             turn_ctx.__exit__(None, None, None)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        with_heartbeat(event_generator()),
+        media_type="text/event-stream",
+    )
