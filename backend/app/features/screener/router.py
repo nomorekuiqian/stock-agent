@@ -1094,6 +1094,6 @@ async def research_chat_stream(
             turn_ctx.__exit__(None, None, None)
 
     return StreamingResponse(
-        with_heartbeat(event_generator()),
+        with_heartbeat(event_generator(), stream_name="research_chat"),
         media_type="text/event-stream",
     )

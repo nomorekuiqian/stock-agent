@@ -589,7 +589,7 @@ async def kol_research_chat_stream(
             yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
 
     return StreamingResponse(
-        with_heartbeat(event_generator()),
+        with_heartbeat(event_generator(), stream_name="kol_research_chat"),
         media_type="text/event-stream",
     )
 
