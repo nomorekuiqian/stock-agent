@@ -98,19 +98,19 @@ export default function TweetFeedCard({ item, staggerMs }: Props) {
       <div className="mt-2.5">
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground md:text-base">
           <LinkifiedText text={visibleText} />
-          {long && !expanded ? (
-            <>
-              {'… '}
-              <button
-                type="button"
-                onClick={() => setExpanded(true)}
-                className="ml-1 inline-flex min-h-7 items-center text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-              >
-                展开
-              </button>
-            </>
-          ) : null}
+          {long && !expanded ? '…' : null}
         </p>
+        {long ? (
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="inline-flex min-h-7 items-center text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            >
+              {expanded ? '收起' : '展开'}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* Footer: engagement + actions */}

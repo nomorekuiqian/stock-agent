@@ -183,11 +183,11 @@ export default function TickerDetail({ username, ticker }: Props) {
 
       {/* Tweet excerpts */}
       <div className="pt-6">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="sticky top-24 z-20 -mx-2 mb-3 flex items-center justify-between gap-3 border-b border-border/40 bg-background/95 px-2 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <p className={SECTION_LABEL}>
             原文摘录
           </p>
-          <div className="flex items-center gap-1 rounded-md border border-border/60 p-0.5">
+          <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-0.5">
             <TabButton
               active={tab === "latest"}
               onClick={() => setTab("latest")}
