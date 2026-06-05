@@ -21,6 +21,7 @@ const PUBLIC_ROUTES = [
   '/macro',
   '/research',
   '/twitter-digest',
+  '/kol',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';
