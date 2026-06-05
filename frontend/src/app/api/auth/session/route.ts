@@ -1,9 +1,54 @@
 import { NextResponse } from 'next/server';
+import { Buffer } from 'node:buffer';
+import { cookies } from 'next/headers';
 import { createServerClient } from '@/lib/insforge-server';
 import { getAuthCookies, setAuthCookies, clearAuthCookies } from '@/lib/auth-cookies';
 
+function parseE2EUser(accessToken: string) {
+  try {
+    const payload = accessToken.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      sub?: string;
+      email?: string;
+      name?: string;
+    };
+    if (!decoded.sub || !decoded.email) return null;
+    return {
+      id: decoded.sub,
+      email: decoded.email,
+      name: decoded.name ?? null,
+      avatarUrl: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function isE2EAuthMockEnabled(): Promise<boolean> {
+  if (process.env.E2E_AUTH_MOCK === '1') return true;
+  if (process.env.NODE_ENV === 'production') return false;
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get('e2e_auth_mock')?.value === '1';
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
   const { accessToken, refreshToken } = await getAuthCookies();
+
+  if (await isE2EAuthMockEnabled()) {
+    if (!accessToken) {
+      return NextResponse.json({ user: null, accessToken: null });
+    }
+    const user = parseE2EUser(accessToken);
+    return NextResponse.json({
+      user,
+      accessToken: user ? accessToken : null,
+    });
+  }
 
   // No cookies at all — unauthenticated
   if (!accessToken && !refreshToken) {

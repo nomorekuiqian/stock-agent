@@ -16,23 +16,22 @@ function createFakeJwt(): string {
 }
 
 /**
- * Mock all Insforge SDK auth API calls (SDK Direct — no /api/auth server bridge).
- *
- * The SDK calls the Insforge server directly:
- *   signInWithPassword → POST {INSFORGE_URL}/api/auth/sessions
- *   signOut            → POST {INSFORGE_URL}/api/auth/logout
- *   refreshSession     → POST {INSFORGE_URL}/api/auth/refresh
- *   getCurrentUser     → GET  {INSFORGE_URL}/api/auth/sessions/current
- *
- * All are intercepted via the `** /api/auth/**` glob.
- * Specific optional mocks (signUp, verifyEmail, resend) are registered separately
- * and take priority over this handler (Playwright LIFO route resolution).
+ * Mock browser-side auth config calls. Login/register/verify now use Next
+ * server actions, so Playwright enables E2E_AUTH_MOCK in playwright.config.ts
+ * and the server actions return deterministic fake auth results.
  */
 async function setupAuthMocks(page: Page) {
   const accessToken = createFakeJwt();
-  let currentUser: Record<string, unknown> | null = null;
   let loginShouldSucceed = false;
   let loginErrorMessage = 'Invalid credentials';
+
+  await page.context().addCookies([{
+    name: 'e2e_auth_mock',
+    value: '1',
+    domain: 'localhost',
+    path: '/',
+    sameSite: 'Lax',
+  }]);
 
   await page.route('**/api/auth/**', async (route: Route) => {
     const request = route.request();
@@ -57,7 +56,7 @@ async function setupAuthMocks(page: Page) {
     if (path.endsWith('/api/auth/sessions') && request.method() === 'POST') {
       if (loginShouldSucceed) {
         const body = request.postDataJSON() as { email?: string };
-        currentUser = {
+        const currentUser = {
           id: 'user-123',
           email: body.email || 'user@example.com',
           profile: { name: 'Test User' },
@@ -71,15 +70,6 @@ async function setupAuthMocks(page: Page) {
             user: currentUser,
           }),
         });
-        // Belt-and-suspenders: set first-party CSRF cookie so middleware allows
-        // protected routes, regardless of whether the SDK sets it via document.cookie.
-        await page.context().addCookies([{
-          name: 'insforge_csrf_token',
-          value: 'test-csrf-token',
-          domain: 'localhost',
-          path: '/',
-          sameSite: 'Lax',
-        }]);
       } else {
         await route.fulfill({
           status: 401,
@@ -103,19 +93,15 @@ async function setupAuthMocks(page: Page) {
     // getCurrentUser (session check)
     if (path.endsWith('/api/auth/sessions/current')) {
       await route.fulfill({
-        status: currentUser ? 200 : 401,
+        status: 401,
         contentType: 'application/json',
-        body: JSON.stringify(
-          currentUser ? { user: currentUser } : { message: 'Unauthorized' },
-        ),
+        body: JSON.stringify({ message: 'Unauthorized' }),
       });
       return;
     }
 
     // signOut → POST /api/auth/logout
     if (path.endsWith('/api/auth/logout') && request.method() === 'POST') {
-      currentUser = null;
-      await page.context().clearCookies({ name: 'insforge_csrf_token' });
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -126,18 +112,10 @@ async function setupAuthMocks(page: Page) {
 
     // Profile update
     if (path.endsWith('/api/auth/profiles/current') && request.method() === 'PATCH') {
-      const payload = request.postDataJSON() as { profile?: { name?: string } };
-      currentUser = {
-        ...(currentUser ?? {}),
-        profile: {
-          ...((currentUser?.profile as Record<string, unknown> | undefined) ?? {}),
-          ...(payload.profile ?? {}),
-        },
-      };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ profile: (currentUser as { profile?: unknown }).profile ?? {} }),
+        body: JSON.stringify({ profile: {} }),
       });
       return;
     }
@@ -182,18 +160,13 @@ async function setupAuthMocks(page: Page) {
 
     async mockVerifyEmailSuccess() {
       await page.route('**/api/auth/email/verify', async (route: Route) => {
-        currentUser = { id: 'verified-user-123', email: 'fresh-user@example.com', profile: {} };
-        await page.context().addCookies([{
-          name: 'insforge_csrf_token',
-          value: 'test-csrf-token',
-          domain: 'localhost',
-          path: '/',
-          sameSite: 'Lax',
-        }]);
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ accessToken, user: currentUser }),
+          body: JSON.stringify({
+            accessToken,
+            user: { id: 'verified-user-123', email: 'fresh-user@example.com', profile: {} },
+          }),
         });
       });
     },
@@ -227,6 +200,14 @@ async function mockBackendApis(page: Page) {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/watchlist') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ symbols: [] }) });
+    } else if (path === '/api/payment/me/entitlements') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ entitlements: ['for_you_website'] }) });
+    } else if (path === '/api/flags') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ flags: ['for_you_v2'] }) });
+    } else if (path === '/api/portfolio') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ holdings: [] }) });
+    } else if (path === '/api/profile') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ onboarded_at: null }) });
     } else if (path.startsWith('/api/digests')) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [], total: 0 }) });
     } else if (path.startsWith('/api/subscriptions')) {
@@ -274,14 +255,14 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await expect(page).toHaveURL(/\/for-you/, { timeout: 10000 });
   });
 
-  // ── Section A: Middleware redirect (unauthenticated) ────────────────────────
+  // ── Section A: Protected-page redirect (unauthenticated) ────────────────────
 
   test('redirects unauthenticated user from /for-you to /login with redirect param', async ({ page }) => {
     await setupAuthMocks(page);
-    // No insforge_csrf_token cookie → middleware redirects
+    // No app auth cookies → protected-page guard redirects
     await page.goto('/for-you');
 
-    // Middleware sets redirect param; browser may or may not encode the slash
+    // Guard sets redirect param; browser may or may not encode the slash
     await expect(page).toHaveURL(/\/login.*redirect.*for-you/, { timeout: 10000 });
   });
 
@@ -292,16 +273,17 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await expect(page).toHaveURL(/\/login.*redirect.*profile/, { timeout: 10000 });
   });
 
-  test('redirects unauthenticated user from /research to /login with redirect param', async ({ page }) => {
+  test('keeps unauthenticated /research public', async ({ page }) => {
     await setupAuthMocks(page);
     await page.goto('/research');
 
-    await expect(page).toHaveURL(/\/login.*redirect.*research/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/research/, { timeout: 10000 });
+    await expect(page.getByPlaceholder('随便问点什么...')).toBeVisible({ timeout: 10000 });
   });
 
   // ── Section J: Post-logout redirect ─────────────────────────────────────────
 
-  test('removing insforge_csrf_token cookie causes subsequent protected-page visits to redirect to /login', async ({ page }) => {
+  test('removing app auth cookies causes subsequent protected-page visits to redirect to /login', async ({ page }) => {
     const auth = await setupAuthMocks(page);
     auth.mockLoginSuccess();
     await mockBackendApis(page);
@@ -313,8 +295,9 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await page.getByRole('button', { name: '登录', exact: true }).click();
     await expect(page).toHaveURL(/\/for-you/, { timeout: 10000 });
 
-    // Simulate sign-out by clearing the auth hint cookie
-    await page.context().clearCookies({ name: 'insforge_csrf_token' });
+    // Simulate sign-out by clearing the first-party server-cookie bridge.
+    await page.context().clearCookies({ name: 'app_access_token' });
+    await page.context().clearCookies({ name: 'app_refresh_token' });
 
     // Middleware should now redirect
     await page.goto('/profile');
@@ -396,6 +379,38 @@ test.describe('Auth flows (/login, /verify-email)', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ success: true, data: [], total: 0 }),
+      });
+    });
+
+    await page.route('http://localhost:8000/api/payment/me/entitlements', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ entitlements: ['for_you_website'] }),
+      });
+    });
+
+    await page.route('http://localhost:8000/api/flags', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ flags: ['for_you_v2'] }),
+      });
+    });
+
+    await page.route('http://localhost:8000/api/portfolio', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ holdings: [] }),
+      });
+    });
+
+    await page.route('http://localhost:8000/api/profile', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ onboarded_at: null }),
       });
     });
 
