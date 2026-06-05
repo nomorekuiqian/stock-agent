@@ -240,7 +240,12 @@ function ScreenerContent() {
   // a thin bridge from the loose reducer type to the typed api shape.
   const latestKolChunks = state.kolChunks as unknown as KolPersonaChunk[];
   const { has: hasFlag } = useFeatureFlags();
-  const kolPersonaEnabled = hasFlag('kol_research_agent');
+  // kol_research_agent feature flag is fully rolled out — KOL persona chat is
+  // available to all signed-in users. The flag definition is preserved in the
+  // user-flags backend for fast rollback: restore the gate by replacing the
+  // line below with `hasFlag('kol_research_agent')`.
+  void hasFlag;
+  const kolPersonaEnabled = true;
   const stockContextRef = useRef<StockContextPayload | null>(null);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);

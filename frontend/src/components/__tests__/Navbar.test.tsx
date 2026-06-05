@@ -82,4 +82,10 @@ describe('Navbar', () => {
     expect(screen.getAllByText('宏观').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('联系').length).toBeGreaterThanOrEqual(1);
   });
+
+  it('shows KOL research entry after kol_chat rollout even when flag is false', () => {
+    render(<Navbar />);
+
+    expect(screen.getAllByText('博主研究室').length).toBeGreaterThanOrEqual(1);
+  });
 });

@@ -1,7 +1,9 @@
 'use client';
 
 import { use } from 'react';
+import { usePathname } from 'next/navigation';
 
+import LoginGate from '@/components/LoginGate';
 import {
   useKolCockpitProfile,
   useKolCockpitTickers,
@@ -11,7 +13,6 @@ import {
 import type { KolCockpitTickerSummary } from '@/lib/api';
 import PersonaHero from './_components/PersonaHero';
 import SubNav from './_components/SubNav';
-import TransparencyNote from './_components/TransparencyNote';
 import { relativeTimeCN } from './_components/relativeTime';
 import { HeroSkeleton, SubNavSkeleton } from './_components/Skeletons';
 
@@ -22,6 +23,7 @@ interface LayoutProps {
 
 export default function KolPersonaLayout({ children, params }: LayoutProps) {
   const { username } = use(params);
+  const pathname = usePathname();
 
   // All three queries are cached + shared with sub-page hooks via TanStack
   // Query, so revisits and intra-cockpit navigation are instant. Layout uses
@@ -41,6 +43,17 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   const isWideWorkspace = username.toLowerCase() === 'qinbafrank';
   const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
 
+  // qinbafrank sub-pages (sectors / highlights / stocks / latest / macro /
+  // history / chat) are gated behind a free login wall — the persona root
+  // (`/kol/qinbafrank`) stays public so Frank's Twitter promo lands without a
+  // friction bump. Wrap only the main content with LoginGate; Hero + SubNav
+  // chrome stays visible so users can still see where they are.
+  const isFrankSubpage =
+    username.toLowerCase() === 'qinbafrank' &&
+    pathname !== `/kol/${username}` &&
+    Boolean(pathname?.startsWith(`/kol/${username}/`));
+  const gatedChildren = isFrankSubpage ? <LoginGate>{children}</LoginGate> : children;
+
   if (!ready) {
     return (
       <div className="min-h-screen bg-background">
@@ -54,7 +67,7 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
           <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
             <aside className="hidden lg:block lg:border-r lg:border-border/60" aria-hidden />
             <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">
-              {children}
+              {gatedChildren}
             </main>
           </div>
         )}
@@ -99,8 +112,7 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
           />
         </aside>
         <main className="min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6">
-          {children}
-          <TransparencyNote username={profile.persona.username} />
+          {gatedChildren}
         </main>
       </div>
     </div>

@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from app.core.deps import verify_user_token_with_email
 from app.core.logging import get_logger
 from app.core.sse import with_heartbeat
-from app.features.flags.db import get_user_flags
+from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
 from app.features.kol_research import cockpit, skill_cockpit
 from app.features.kol_research.agent import (
     DEFAULT_PERSONA,
@@ -65,18 +65,21 @@ router = APIRouter(prefix="/api/kol_research", tags=["kol_research"])
 async def require_kol_research_flag(
     user_info: dict = Depends(verify_user_token_with_email),
 ) -> dict:
-    """Ensure the caller has the kol_research_agent flag enabled.
+    """[FLAG ROLLED OUT] kol_research_agent is now available to all signed-in
+    callers. The dependency is kept (and still requires a valid bearer token)
+    so endpoints don't have to be re-wired for rollback. To re-gate the flag,
+    uncomment the FLAG_KEY check below.
 
     Returns the user_info dict (so the endpoint can pull user_id / email).
     """
-    flags = await get_user_flags(
-        user_info["user_id"], email=user_info.get("email")
-    )
-    if FLAG_KEY not in flags:
-        raise HTTPException(
-            status_code=403,
-            detail="KOL research agent is not enabled for this account.",
-        )
+    # flags = await get_user_flags(
+    #     user_info["user_id"], email=user_info.get("email")
+    # )
+    # if FLAG_KEY not in flags:
+    #     raise HTTPException(
+    #         status_code=403,
+    #         detail="KOL research agent is not enabled for this account.",
+    #     )
     return user_info
 
 

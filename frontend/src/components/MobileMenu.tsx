@@ -157,7 +157,9 @@ export function MobileMenu() {
       label: '投研助手',
       href: '/research',
     },
-    ...(hasFlag('kol_chat')
+    // kol_chat flag fully rolled out — entry visible to all users.
+    // Replace `true` with `hasFlag('kol_chat')` to re-gate.
+    ...(true
       ? [{
           label: '博主研究室',
           href: '/kol/qinbafrank',
