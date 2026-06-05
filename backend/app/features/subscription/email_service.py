@@ -674,7 +674,7 @@ class EmailService:
             params = {
                 "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
                 "to": [to_email],
-                "subject": "欢迎加入 TheMarketBrew",
+                "subject": "欢迎来到 TheMarketBrew：先把你的持仓加进来",
                 "html": html_content,
             }
 

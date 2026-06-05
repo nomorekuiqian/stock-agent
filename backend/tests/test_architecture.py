@@ -228,10 +228,8 @@ class TestNoCrossFeatureImports:
         ("kol_research", "agent_runtime"),
         ("screener", "agent_runtime"),
         ("agent_runtime", "screener"),
-        # Onboarding state lives on subscriptions table (payment.db) +
-        # cron entrypoint delegates to subscription.lifecycle_scheduler.
+        # Onboarding state lives on the subscriptions table (payment.db).
         ("onboarding", "payment"),
-        ("onboarding", "subscription"),
         # Vector RAG pipeline resolves which KOLs to embed from the twitter
         # feature's enabled-KOL source (vector/kol_tweets.py::_resolve_usernames).
         # Same data-read pattern as twitter_digest->twitter. (Latent gap on

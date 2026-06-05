@@ -3,11 +3,11 @@ Unit tests for the conversion funnel optimization.
 
 Covers (post-freemium-transition):
 - email_guard: non-production email blocking
-- onboarding drip: day calculation, schedule matching (legacy drip; deprecated)
+- onboarding drip: signup-age day calculation, schedule matching
 - freemium: daily usage tracking
 
 create_trial_subscription tests deleted — function is a deprecated stub.
-See docs/plans/active/freemium-lifecycle-email.md.
+See docs/plans/completed/2026-06-04-freemium-lifecycle-email-REVERTED.md.
 """
 
 import pytest  # noqa: F401  -- kept for class-level markers in remaining tests
@@ -83,14 +83,8 @@ class TestEmailGuard:
 class TestOnboardingDrip:
     """Tests for onboarding day calculation and schedule."""
 
-    def test_trial_day_calculation(self):
-        """Day should be calculated from access_expires_at.
-
-        Pins `datetime.now` inside the onboarding module to a fixed midnight
-        so the timedelta(...).days truncation is deterministic regardless of
-        wall-clock time when CI runs (previously failed when CI fired after
-        23:00 UTC).
-        """
+    def test_signup_day_calculation(self):
+        """Day should be calculated from auth_created_at / signup timestamp."""
         from app.features.notification import onboarding as ob
 
         fixed_now = datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
@@ -98,42 +92,27 @@ class TestOnboardingDrip:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat.side_effect = datetime.fromisoformat
 
-            # Trial expiring in 14 days + 23h = Day 0
-            expires = (fixed_now + timedelta(days=14, hours=23)).isoformat()
-            assert ob._calculate_trial_day_from_expiry(expires) == 0
+            signup = (fixed_now - timedelta(hours=23)).isoformat()
+            assert ob._days_since(signup) == 0
 
-            # Trial expiring in 7 days + 23h = Day 7
-            expires = (fixed_now + timedelta(days=7, hours=23)).isoformat()
-            assert ob._calculate_trial_day_from_expiry(expires) == 7
+            signup = (fixed_now - timedelta(days=7, hours=1)).isoformat()
+            assert ob._days_since(signup) == 7
 
-            # Trial expiring tomorrow + 23h = Day 13
-            expires = (fixed_now + timedelta(days=1, hours=23)).isoformat()
-            assert ob._calculate_trial_day_from_expiry(expires) == 13
+            signup = (fixed_now - timedelta(days=14, hours=23)).isoformat()
+            assert ob._days_since(signup) == 14
 
-    def test_trial_day_out_of_range(self):
-        """Days outside 0-14 should return None."""
-        from app.features.notification.onboarding import _calculate_trial_day_from_expiry
-
-        # Already expired 5 days ago
-        expires = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) is None
-
-        # 30 days in the future (not a 14-day trial)
-        expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
-        assert _calculate_trial_day_from_expiry(expires) is None
-
-    def test_trial_day_invalid_input(self):
+    def test_signup_day_invalid_input(self):
         """Invalid date strings should return None."""
-        from app.features.notification.onboarding import _calculate_trial_day_from_expiry
+        from app.features.notification.onboarding import _days_since
 
-        assert _calculate_trial_day_from_expiry("not-a-date") is None
-        assert _calculate_trial_day_from_expiry("") is None
+        assert _days_since("not-a-date") is None
+        assert _days_since("") is None
 
     def test_drip_schedule_days(self):
-        """DRIP_SCHEDULE should have templates for days 1, 3, 7, 11, 14."""
+        """DRIP_SCHEDULE should have templates for days 3, 7, 14."""
         from app.features.notification.onboarding import DRIP_SCHEDULE
 
-        assert set(DRIP_SCHEDULE.keys()) == {1, 3, 7, 11, 14}
+        assert set(DRIP_SCHEDULE.keys()) == {3, 7, 14}
 
     def test_template_map_matches_schedule(self):
         """Every day in DRIP_SCHEDULE should have a template."""

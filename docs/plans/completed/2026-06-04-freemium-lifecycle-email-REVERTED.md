@@ -1,4 +1,11 @@
-# Freemium 转型 + Lifecycle 邮件系统
+# Freemium 转型 + Lifecycle 邮件系统 [REVERTED 2026-06-04]
+
+> **状态**: 已回退。lifecycle 14 天序列（D0~D14 带推特日报）于 2026-06-04 全部下线，原因是推特日报当前为 mock 数据，对用户无价值。回退到旧的 Day 1/3/7/11/14 onboarding drip（基于 `auth_created_at` 触发），Day 11/14 文案改写去掉 trial 字眼。
+>
+> 相关代码:
+> - `backend/app/features/notification/onboarding.py` — 仍在用的 drip 实现
+> - `.github/workflows/onboarding-drip.yml` — 重新启用 daily schedule
+> - 已删除: `subscription/lifecycle_templates.py`, `subscription/lifecycle_scheduler.py`, `onboarding/router.py` 的 `cron/lifecycle/onboarding-pass` 端点, `.github/workflows/lifecycle-onboarding.yml`
 
 ## 背景
 

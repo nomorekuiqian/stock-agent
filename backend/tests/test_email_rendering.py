@@ -499,7 +499,7 @@ class TestDigestCtaSection:
         html = email_svc._get_digest_cta_section("paid")
 
         assert "感谢订阅" in html
-        assert "打开 For You" in html
+        assert "打开专属日报" in html
         assert "themarketbrew.com/for-you" in html
         assert "themarketbrew.com/stock" in html
         assert "themarketbrew.com/pricing" not in html
@@ -587,7 +587,7 @@ class TestDigestCtaSection:
         """Daily report can render the paid-user CTA section."""
         html = email_svc._format_html_report(mock_report_data, cta_variant="paid")
         assert "感谢订阅" in html
-        assert "打开 For You" in html
+        assert "打开专属日报" in html
         assert "订阅 Pro" not in html
 
 

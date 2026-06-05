@@ -1,13 +1,12 @@
-name: Onboarding Drip Campaign (Deprecated)
+name: Onboarding Drip Campaign
 
-# DEPRECATED — replaced by `lifecycle-onboarding.yml` after the freemium
-# transition (see docs/plans/active/freemium-lifecycle-email.md). The old
-# trial-tied drip can no longer fire useful emails because new users do not
-# get auto trials. Workflow retained briefly so legacy trial users still
-# winding down can be manually re-triggered if needed; the schedule is
-# disabled to stop daily noise.
+# Daily cron: Day 3/7/14 onboarding emails anchored on auth_created_at.
+# Idempotent via subscriptions.lifecycle_state.onboarding_sent.
 on:
-  workflow_dispatch:  # Manual-only trigger; scheduled cron removed
+  schedule:
+    # Daily at UTC 23:00 (~ET 19:00 EDT / 18:00 EST = 北京 7:00 AM).
+    - cron: '0 23 * * *'
+  workflow_dispatch:
 
 jobs:
   send-onboarding:
@@ -38,12 +37,14 @@ jobs:
 
           processed=$(echo "$body" | grep -o '"processed":[0-9]*' | cut -d':' -f2)
           sent=$(echo "$body" | grep -o '"sent":[0-9]*' | cut -d':' -f2)
-          skipped=$(echo "$body" | grep -o '"skipped":[0-9]*' | cut -d':' -f2)
+          skipped_already=$(echo "$body" | grep -o '"skipped_already":[0-9]*' | cut -d':' -f2)
+          skipped_other=$(echo "$body" | grep -o '"skipped_other":[0-9]*' | cut -d':' -f2)
           errors=$(echo "$body" | grep -o '"errors":[0-9]*' | cut -d':' -f2)
 
           echo "Processed: $processed"
           echo "Sent: $sent"
-          echo "Skipped: $skipped"
+          echo "Skipped (already sent): $skipped_already"
+          echo "Skipped (other): $skipped_other"
           echo "Errors: $errors"
 
           if [ -n "$errors" ] && [ "$errors" -gt 0 ]; then

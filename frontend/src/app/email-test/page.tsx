@@ -54,11 +54,11 @@ function EmailTestContent() {
   } | null>(null);
   const [twitterDigestDate, setTwitterDigestDate] = useState('');
 
-  // Onboarding state (-1 = welcome email, 0+ = drip days)
+  // Onboarding state (-1 = welcome email, 3/7/14 = drip days)
   const [onboardingHtml, setOnboardingHtml] = useState<string>('');
   const [onboardingDay, setOnboardingDay] = useState(-1);
   const [onboardingSubject, setOnboardingSubject] = useState('');
-  const [onboardingDays, setOnboardingDays] = useState<number[]>([1, 3, 7, 11, 14]);
+  const [onboardingDays, setOnboardingDays] = useState<number[]>([3, 7, 14]);
 
   // Common state
   const [loading, setLoading] = useState(true);

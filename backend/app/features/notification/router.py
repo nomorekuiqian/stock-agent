@@ -325,7 +325,7 @@ async def get_digest_preview(
             if user_id:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No personal digest found for this user. Generate one first from the For You page."
+                    detail="No personal digest found for this user. Generate one first from the 专属日报页面."
                 )
             else:
                 raise HTTPException(
@@ -746,14 +746,14 @@ async def get_welcome_email_preview(
     html = format_welcome_html(first_name=first_name, email=email)
     return {
         "success": True,
-        "subject": "欢迎加入 TheMarketBrew",
+        "subject": "欢迎来到 TheMarketBrew：先把你的持仓加进来",
         "html": html,
     }
 
 
 @router.get("/onboarding/preview")
 async def get_onboarding_email_preview(
-    day: int = Query(1, description="Trial day: 1, 3, 7, 11, or 14"),
+    day: int = Query(3, description="Signup day: 3, 7, or 14"),
     first_name: str = Query("", description="User first name"),
 ):
     """Render onboarding drip email HTML for preview. Does NOT send anything."""
@@ -778,28 +778,16 @@ async def get_onboarding_email_preview(
 
 @router.post("/cron/onboarding-emails", dependencies=[Depends(verify_cron_secret)])
 async def cron_onboarding_emails():
-    """DEPRECATED — legacy trial-tied onboarding drip.
+    """Daily cron: send Day 3/7/14 onboarding drip emails.
 
-    Replaced by `/api/cron/lifecycle/onboarding-pass` after the freemium
-    transition (docs/plans/active/freemium-lifecycle-email.md). The scheduled
-    GitHub Actions trigger has been removed; this endpoint stays callable
-    only via manual workflow_dispatch so any in-flight legacy trial users
-    can still receive their remaining drip steps.
-
-    Returns counters but, in practice, fires no emails once all auto-trial
-    rows expire (process_onboarding_emails reads `access_expires_at`).
+    Anchored on signup time (auth_created_at). Idempotent via
+    subscriptions.lifecycle_state.onboarding_sent.
     """
     try:
         from app.features.notification.onboarding import process_onboarding_emails
 
         result = await process_onboarding_emails()
-
-        return {
-            "success": True,
-            "deprecated": True,
-            "message": "Legacy onboarding drip — use /cron/lifecycle/onboarding-pass.",
-            **result,
-        }
+        return {"success": True, **result}
 
     except Exception as e:
         logger.exception("Error in cron_onboarding_emails")

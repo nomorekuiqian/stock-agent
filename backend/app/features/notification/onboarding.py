@@ -1,16 +1,18 @@
 """
-Trial onboarding drip campaign.
+Onboarding drip campaign (signup-anchored).
 
-Sends 5 guided emails over a 14-day trial period to help users
-discover and adopt core features. Day 0 is handled by the unified
-welcome email (sent on subscribe), so the drip starts at Day 1.
+Sends three guided drip emails over the first two weeks after signup. Day 0 is
+handled by the unified welcome email, so the full onboarding sequence is four
+emails total.
 
-Schedule:
-  Day 1  - Personal digest deep-dive (NVDA example)
-  Day 3  - Macro dashboard deep-dive (signal lights)
-  Day 7  - AI research engine deep-dive (conversation example)
-  Day 11 - 3-day urgency reminder
-  Day 14 - Trial ended / upgrade prompt
+Schedule (anchored on auth_created_at, NOT on any trial expiry):
+  Day 3  - 专属日报 activation
+  Day 7  - 投研助手 activation
+  Day 14 - Free / Pro / Max conversion guide
+
+Idempotent: tracks send state in subscriptions.lifecycle_state.onboarding_sent
+(JSONB dict keyed by day_int -> ISO timestamp). Re-running the same day is a
+no-op.
 """
 
 from datetime import datetime, timezone
@@ -33,14 +35,12 @@ from app.utils.timezone import now_pacific
 
 logger = get_logger(__name__)
 
-# Mapping: trial day -> onboarding step index (used to avoid resending)
+# Mapping: signup day -> onboarding step index (used to avoid resending)
 # Day 0 (welcome email) is sent on subscribe, not via this cron job.
 DRIP_SCHEDULE = {
-    1: 1,
-    3: 2,
-    7: 3,
-    11: 4,
-    14: 5,
+    3: 1,
+    7: 2,
+    14: 3,
 }
 
 
@@ -91,388 +91,269 @@ def _cta_button(text: str, url: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _day1_email(first_name: str = "") -> tuple[str, str]:
-    """Day 1: Personal digest deep-dive — pain point story + example."""
-    subject = "[TheMarketBrew]如何只看和自己有关的新闻"
-    greeting = "Hi，"
+def _day3_email(first_name: str = "") -> tuple[str, str]:
+    """Day 3: 专属日报 activation and personal holding digest value."""
+    subject = "[TheMarketBrew] 你的股票今天发生了什么？"
+    greeting = f"Hi {first_name}，" if first_name else "Hi，"
     card_style = CARD_STYLE_WIDE
     body = f"""
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
         {greeting}
     </p>
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        你是不是也每天刷新闻刷到焦虑？我以前就是这样。持仓里有七八只股票，每天早上起来先刷一遍社交媒体，在80%的噪音中寻找20%与自己相关的内容。
+        通用市场日报会告诉你今天大盘怎么了。但真正让人分心的，往往是另一个问题：这些事和我手里的股票有没有关系？
     </p>
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        问题是我又不敢不看——万一漏掉了什么重要的呢？就这样每天花非常久的时间处理噪音，却依旧十分焦虑。
+        这就是专属日报要解决的事。你把关注的股票加进去，TheMarketBrew 会把新闻、分析师动作、财报、宏观变化重新按你的持仓排一遍。信息少一点，但更贴着你的仓位。
     </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 24px 0;">
-        所以我做了「专属日报」这个功能：你把自选股加进来，AI 每天只给你看跟这些股票相关的新闻和分析。只告诉你最重要的，其他跟你无关的，一条都不会出现。
-    </p>
-
-    <p style="color: #71717a; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px 0;">
-        比如你持有 NVDA，今天你会看到
+    <p style="color: #71717a; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 20px 0 8px 0;">
+        如果你的自选股里有 NVDA，摘要大概会这样写
     </p>
     <div style="{card_style} background: #f9fafb;">
         <table style="width: 100%; font-size: 13px;" cellpadding="0" cellspacing="0">
             <tr>
                 <td style="padding: 8px 0; color: #059669; font-weight: 600; width: 24px; vertical-align: top;">1</td>
                 <td style="padding: 8px 0; color: #3f3f46;">
-                    <strong>NVDA 盘后下跌 3.2%</strong> -- 出口管制新规限制对华销售 H20 芯片
+                    <strong>股价为什么动</strong> -- 盘后下跌 3.2%，主要因为出口限制消息和半导体板块同步回调
                 </td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #059669; font-weight: 600; vertical-align: top;">2</td>
                 <td style="padding: 8px 0; color: #3f3f46;">
-                    <strong>摩根士丹利下调目标价</strong> -- 从 $150 调至 $135，主要担忧出口收入
+                    <strong>谁改变了看法</strong> -- 摩根士丹利把目标价从 $150 调到 $135，担心短期海外收入
                 </td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #059669; font-weight: 600; vertical-align: top;">3</td>
                 <td style="padding: 8px 0; color: #3f3f46;">
-                    <strong>AI 观点</strong> -- 短期承压，但数据中心需求长期不变，关注下季财报指引
+                    <strong>下一步看什么</strong> -- 数据中心需求还在，但下季指引会决定市场愿不愿意继续给高估值
                 </td>
             </tr>
         </table>
     </div>
-
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 4px 0;">
-        花 30 秒添加你的股票，明天就能收到你自己的版本。
+    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 18px 0 10px 0;">
+        Free 用户可以在网页里查看专属日报的核心内容。Pro 会把这份专属持仓日报每天发到邮箱，省掉你自己去刷新闻和对照持仓的时间。
     </p>
-    {_cta_button("添加我的自选股", f"{_EMAIL_LINK_BASE}/for-you/watchlist")}
+    {_cta_button("查看我的专属日报", f"{_EMAIL_LINK_BASE}/for-you")}
+    <p style="color: #71717a; font-size: 13px; line-height: 1.7; margin: 18px 0 0 0; border-top: 1px solid #f4f4f5; padding-top: 18px;">
+        还没加自选股也没关系，先加 3 到 5 只你真的会看的股票。数量不用多，真实就够了。
+    </p>
     """
     formatted_date = now_pacific().strftime("%B %d, %Y")
-    return subject, _email_wrapper(formatted_date, "For You", body)
-
-
-def _day3_email(first_name: str = "") -> tuple[str, str]:
-    """Day 3: Why macro matters — importance, challenge, solution."""
-    subject = "[TheMarketBrew] 如何系统性的追踪宏观环境"
-    greeting = "Hi，"
-    body = f"""
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        {greeting}
-    </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        不知道你有没有过这种经历：研究了很久，选了一只基本面很好的股票，买入之后却一直跌。后来才发现，不是股票的问题，是整个市场环境变了——流动性收紧、通胀超预期、或者情绪突然转向。宏观环境对股价的影响，往往比财报数据更直接。
-    </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        作为一个老韭菜，我很长一段时间也不理解宏观环境所带来的影响。我也深知要系统性的追踪宏观环境并且理解其对自己持仓的影响，真的是太难了。
-    </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        所以我做了<a href="{_EMAIL_LINK_BASE}/macro" style="color: #059669; text-decoration: none; font-weight: 500;">宏观仪表盘</a>，把这些数据提炼成四个维度，AI 每周自动解读一次：
-    </p>
-
-    <div style="{CARD_STYLE_WIDE} background: #f9fafb;">
-        <table style="width: 100%; font-size: 14px;" cellpadding="0" cellspacing="0">
-            <tr>
-                <td style="padding: 10px 0; width: 28px; vertical-align: top;">
-                    <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #22c55e;"></span>
-                </td>
-                <td style="padding: 10px 0;">
-                    <strong style="color: #0a0a0a;">流动性</strong>
-                    <span style="color: #71717a; font-size: 13px;"> -- 市场上的钱多不多</span>
-                </td>
-            </tr>
-            <tr><td colspan="2"><div style="border-top: 1px solid #e4e4e7;"></div></td></tr>
-            <tr>
-                <td style="padding: 10px 0; vertical-align: top;">
-                    <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #eab308;"></span>
-                </td>
-                <td style="padding: 10px 0;">
-                    <strong style="color: #0a0a0a;">经济</strong>
-                    <span style="color: #71717a; font-size: 13px;"> -- 实体经济在扩张还是收缩</span>
-                </td>
-            </tr>
-            <tr><td colspan="2"><div style="border-top: 1px solid #e4e4e7;"></div></td></tr>
-            <tr>
-                <td style="padding: 10px 0; vertical-align: top;">
-                    <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #22c55e;"></span>
-                </td>
-                <td style="padding: 10px 0;">
-                    <strong style="color: #0a0a0a;">通胀</strong>
-                    <span style="color: #71717a; font-size: 13px;"> -- 物价压力大不大，影响利率决策</span>
-                </td>
-            </tr>
-            <tr><td colspan="2"><div style="border-top: 1px solid #e4e4e7;"></div></td></tr>
-            <tr>
-                <td style="padding: 10px 0; vertical-align: top;">
-                    <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ef4444;"></span>
-                </td>
-                <td style="padding: 10px 0;">
-                    <strong style="color: #0a0a0a;">情绪</strong>
-                    <span style="color: #71717a; font-size: 13px;"> -- 市场参与者是贪婪还是恐惧</span>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 4px 0;">
-        你也可以在<a href="{_EMAIL_LINK_BASE}/research" style="color: #059669; text-decoration: none; font-weight: 500;">投研助手</a>里直接问 AI 宏观相关的问题。
-        不论你是长线持有还是中短期趋势投资者，理解宏观环境才能够让你的策略更上一层楼。
-    </p>
-    {_cta_button("查看宏观仪表盘", f"{_EMAIL_LINK_BASE}/macro")}
-    """
-    formatted_date = now_pacific().strftime("%B %d, %Y")
-    return subject, _email_wrapper(formatted_date, "Macro", body)
+    return subject, _email_wrapper(formatted_date, "专属日报", body)
 
 
 def _day7_email(first_name: str = "") -> tuple[str, str]:
-    """Day 7: AI research engine deep-dive — show a conversation example."""
-    subject = "[TheMarketBrew] 用一句话，让 AI 帮你选股"
-    greeting = "Hi，"
+    """Day 7: 投研助手 activation."""
+    subject = "[TheMarketBrew] 试试投研助手：直接问它"
+    greeting = f"Hi {first_name}，" if first_name else "Hi，"
     card_style = CARD_STYLE_WIDE
     body = f"""
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
         {greeting}
     </p>
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        传统选股器要你在几十个筛选条件里打勾，用起来很累。TheMarketBrew 的 AI 投研引擎让你用自然语言描述你想要的股票，剩下的交给 AI。
+        如果你已经看过日报和专属日报，下一步可以试试<strong>投研助手</strong>。不用重新学一套筛选器，你把问题丢进去就行。
+    </p>
+    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 18px 0;">
+        比如你脑子里只有一个模糊想法：想找现金流稳一点的 AI 基建股，或者想知道 GOOGL 这季财报到底有没有问题。直接问就行。
     </p>
 
     <div style="{card_style} background: #f9fafb;">
         <p style="color: #71717a; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px 0;">
-            对话示例
+            可以直接复制这些问题
         </p>
-
-        <!-- User message -->
-        <div style="display: flex; margin-bottom: 12px;">
-            <div style="background: #059669; color: #ffffff; font-size: 11px; font-weight: 600;
-                        width: 24px; height: 24px; border-radius: 50%; text-align: center;
-                        line-height: 24px; flex-shrink: 0;">
-                You
-            </div>
-            <div style="margin-left: 10px; background: #ffffff; border: 1px solid #e4e4e7;
-                        border-radius: 12px; padding: 10px 14px; font-size: 14px; color: #0a0a0a;">
-                帮我找市值 500 亿以上、PE 低于 20、近一年营收增长超过 15% 的科技股
-            </div>
-        </div>
-
-        <!-- AI response -->
-        <div style="display: flex; margin-bottom: 4px;">
-            <div style="background: #0a0a0a; color: #ffffff; font-size: 11px; font-weight: 600;
-                        width: 24px; height: 24px; border-radius: 50%; text-align: center;
-                        line-height: 24px; flex-shrink: 0;">
-                AI
-            </div>
-            <div style="margin-left: 10px; background: #ffffff; border: 1px solid #e4e4e7;
-                        border-radius: 12px; padding: 10px 14px; font-size: 13px; color: #3f3f46; line-height: 1.7;">
-                根据你的条件，从全市场筛选出 3 只符合的科技股：<br><br>
-                <strong style="color: #0a0a0a;">AMAT</strong> -- 应用材料 | PE 17.8 | 营收增长 +21%<br>
-                <strong style="color: #0a0a0a;">KLAC</strong> -- 科磊半导体 | PE 19.2 | 营收增长 +18%<br>
-                <strong style="color: #0a0a0a;">CDNS</strong> -- 楷登电子 | PE 16.5 | 营收增长 +16%<br><br>
-                <span style="color: #71717a;">点击任意股票可查看详细分析报告 ...</span>
-            </div>
-        </div>
+        <table style="width: 100%; font-size: 13px;" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="padding: 9px 0; color: #3f3f46; border-bottom: 1px solid #e4e4e7;">
+                    帮我找市值 500 亿以上、PE 低于 20、近一年营收增长超过 15% 的半导体股
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 9px 0; color: #3f3f46; border-bottom: 1px solid #e4e4e7;">
+                    用 qinbafrank 的框架看一下 NVDA，现在最该盯哪个风险点？
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 9px 0; color: #3f3f46;">
+                    如果利率继续维持高位，我的科技股持仓里谁最容易被估值压缩？
+                </td>
+            </tr>
+        </table>
     </div>
 
-    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 4px 0;">
-        你也可以问更复杂的问题，比如「最近被机构增持的新能源股有哪些」或者「哪些消费股在经济下行期表现最抗跌」。
+    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 16px 0 4px 0;">
+        投研助手会尽量把问题拆成可查的数据：全市场筛选、个股研究、宏观信号、KOL 历史观点。右侧面板会跟着切换，不用你在几个页面之间来回跳。
     </p>
-    {_cta_button("试试 AI 投研引擎", f"{_EMAIL_LINK_BASE}/research")}
+    {_cta_button("打开投研助手", f"{_EMAIL_LINK_BASE}/research")}
+
+    <p style="color: #71717a; font-size: 13px; line-height: 1.7; margin: 16px 0 0 0;">
+        Free 和 Pro 每天有 2 次体验额度。Max 适合重度使用：投研助手无限调用，个股深度分析也不限次数。
+    </p>
     """
     formatted_date = now_pacific().strftime("%B %d, %Y")
-    return subject, _email_wrapper(formatted_date, "Research", body)
-
-
-def _day11_email(first_name: str = "") -> tuple[str, str]:
-    """Day 11: 3-day urgency reminder."""
-    subject = "[TheMarketBrew] 你的试用还剩 3 天"
-    greeting = "Hi，"
-    body = f"""
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        {greeting}
-    </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        你的 14 天全功能体验还剩 3 天就要结束了。试用期过后，部分高级功能将不再可用。
-    </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.8; margin: 0 0 12px 0;">
-        在剩下的时间里，确保你已经体验了这些功能：
-    </p>
-    <ul style="color: #52525b; font-size: 14px; line-height: 2; padding-left: 20px; margin: 0 0 12px 0;">
-        <li><a href="{_EMAIL_LINK_BASE}/for-you" style="color: #059669; text-decoration: none;">专属日报</a> - 你的自选股专属分析</li>
-        <li><a href="{_EMAIL_LINK_BASE}/research" style="color: #059669; text-decoration: none;">AI 投研引擎</a> - 自然语言选股</li>
-        <li><a href="{_EMAIL_LINK_BASE}/stock" style="color: #059669; text-decoration: none;">个股投研</a> - 深度分析任意股票</li>
-        <li><a href="{_EMAIL_LINK_BASE}/macro" style="color: #059669; text-decoration: none;">宏观仪表盘</a> - 四维度环境判断</li>
-    </ul>
-    <p style="color: #71717a; font-size: 14px; line-height: 1.8; margin: 0 0 4px 0;">
-        如果觉得有价值，可以随时升级 Pro 继续使用全部功能。
-    </p>
-    {_cta_button("查看订阅方案", f"{_EMAIL_LINK_BASE}/pricing")}
-    """
-    formatted_date = now_pacific().strftime("%B %d, %Y")
-    return subject, _email_wrapper(formatted_date, "Trial Ending", body)
+    return subject, _email_wrapper(formatted_date, "投研助手", body)
 
 
 def _day14_email(first_name: str = "") -> tuple[str, str]:
-    """Day 14: Trial ended — feedback, community, comparison, soft CTA."""
-    subject = "[TheMarketBrew] 试用结束 -- 聊聊你的体验？"
-    greeting = "Hi，"
+    """Day 14: Scenario-based conversion guide."""
+    subject = "[TheMarketBrew] 你适合 Free、Pro 还是 Max？"
+    greeting = f"Hi {first_name}，" if first_name else "Hi，"
+
+    def _plan_card(name: str, color: str, desc: str, bullets: list[str], href: str, cta: str) -> str:
+        bullet_html = "".join([
+            f'<li style="margin: 0 0 6px 0; color: #3f3f46;">{bullet}</li>'
+            for bullet in bullets
+        ])
+        return f"""
+        <div style="border: 1px solid #e4e4e7; border-left: 3px solid {color}; border-radius: 8px; padding: 16px; margin: 0 0 12px 0;">
+            <p style="color: {color}; font-size: 12px; font-weight: 700; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.08em;">{name}</p>
+            <p style="color: #0a0a0a; font-size: 15px; font-weight: 600; margin: 0 0 8px 0;">{desc}</p>
+            <ul style="padding-left: 18px; margin: 0 0 12px 0; font-size: 13px; line-height: 1.6;">
+                {bullet_html}
+            </ul>
+            <a href="{href}" style="color: {color}; font-size: 13px; font-weight: 600; text-decoration: none;">{cta} &rarr;</a>
+        </div>
+        """
+
     body = f"""
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
         {greeting}
     </p>
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        你的 14 天试用今天结束了。不管你用了多少功能，我都很想听听你的真实感受——哪些功能对你有帮助？哪些地方觉得不好用或者缺了什么？
+        这两周的引导邮件到这里就结束了。你不需要为了“用完功能”而升级，真正该看的只有一件事：TheMarketBrew 有没有帮你少做一些重复功课。
     </p>
+    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 20px 0;">
+        如果你还在犹豫，我会按使用方式这样选：
+    </p>
+    {_plan_card(
+        "Free",
+        "#047857",
+        "适合每天快速看一眼市场。",
+        [
+            "每日市场日报网站版",
+            "宏观仪表盘",
+            "25 只自选股管理",
+            "投研助手每天 2 次体验",
+        ],
+        f"{_EMAIL_LINK_BASE}/today",
+        "继续使用 Free",
+    )}
+    {_plan_card(
+        "Pro",
+        "#059669",
+        "适合希望邮件主动找你的人。",
+        [
+            "盘前早报",
+            "每日市场日报邮件",
+            "专属持仓日报邮件",
+            "宏观周报邮件",
+        ],
+        f"{_EMAIL_LINK_BASE}/pricing?plan=pro&utm_source=email&utm_campaign=day14",
+        "查看 Pro",
+    )}
+    {_plan_card(
+        "Max",
+        "#c2410c",
+        "适合把 TheMarketBrew 当投研工作台的人。",
+        [
+            "投研助手无限使用",
+            "AI 深度个股分析",
+            "推特 KOL 日报",
+            "包含 Pro 的所有邮件",
+        ],
+        f"{_EMAIL_LINK_BASE}/pricing?plan=max&utm_source=email&utm_campaign=day14",
+        "查看 Max",
+    )}
+
+    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 14px 16px; margin: 22px 0;">
+        <p style="color: #9a3412; font-size: 13px; font-weight: 600; margin: 0 0 6px 0;">早期用户锁价</p>
+        <p style="color: #7c2d12; font-size: 13px; line-height: 1.7; margin: 0;">
+            Pro 和 Max 现在是抢先体验价。订阅后会锁定当前价格，后续涨价不影响你。
+        </p>
+    </div>
+
     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-        产品还很早期，很多决策我自己也在摸索。用户的反馈是我最重要的参考，哪怕只是一句「日报太长了」或者「宏观那个功能没看懂」，对我都非常有价值。
+        当然，如果你觉得现在的 Free 已经够用，就继续用 Free。我更在意的是，它能不能真的变成你每天会打开、会读、会追问的工具。
     </p>
-    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 24px 0;">
-        <strong>直接回复这封邮件就行</strong>，我每封都会亲自看。
-    </p>
-
-    <!-- Community QR Code -->
-    <div style="border-top: 1px solid #f4f4f5; padding-top: 24px; margin-bottom: 24px;">
-        <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 8px 0;">加入社群，持续交流</p>
-        <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 16px 0;">
-            试用结束不代表断联。加入微信群，和其他用户一起聊市场、提需求，我也在群里。
-        </p>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-            <tr>
-                <td width="50%" style="padding: 0 6px 0 0; text-align: center; vertical-align: top;">
-                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0510.jpg"
-                         alt="TheMarketBrew WeChat Group QR Code"
-                         style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
-                    />
-                    <p style="color: #71717a; font-size: 12px; margin: 8px 0 0 0;">微信扫码加入社群</p>
-                </td>
-                <td width="50%" style="padding: 0 0 0 6px; text-align: center; vertical-align: top;">
-                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-personal-qr.jpg"
-                         alt="Add WeChat Personal Contact"
-                         style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
-                    />
-                    <p style="color: #71717a; font-size: 12px; margin: 8px 0 0 0;">群满或过期？加我拉你入群</p>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Comparison table -->
-    <div style="border-top: 1px solid #f4f4f5; padding-top: 24px;">
-        <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 8px 0;">如果觉得有价值</p>
-        <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 16px 0;">
-            以下是各方案的对比。即使不升级，你仍然可以继续收到每天的收盘日报邮件。
-        </p>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px;" cellpadding="0" cellspacing="0">
-            <tr style="background: #f8f8f8;">
-                <td style="padding: 10px 12px; font-weight: 600; color: #0a0a0a; border-bottom: 2px solid #e4e4e7;">功能</td>
-                <td style="padding: 10px 12px; font-weight: 600; color: #0a0a0a; text-align: center; border-bottom: 2px solid #e4e4e7;">免费</td>
-                <td style="padding: 10px 12px; font-weight: 600; color: #059669; text-align: center; border-bottom: 2px solid #059669;">Pro</td>
-                <td style="padding: 10px 12px; font-weight: 600; color: #d97706; text-align: center; border-bottom: 2px solid #d97706;">Max</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">收盘日报（邮件）</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">盘前早报（邮件）</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">专属持仓日报（邮件）</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">宏观周报（邮件）</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">自选股管理</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">市场日报网站</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">AI 深度个股分析</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">AI 投研引擎</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626; border-bottom: 1px solid #f4f4f5;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a; border-bottom: 1px solid #f4f4f5;">&#10003;</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 12px; color: #3f3f46;">宏观仪表盘</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #dc2626;">&#10007;</td>
-                <td style="padding: 10px 12px; text-align: center; color: #16a34a;">&#10003;</td>
-            </tr>
-        </table>
-        {_cta_button("查看订阅方案", f"{_EMAIL_LINK_BASE}/pricing")}
-    </div>
-
     <p style="color: #71717a; font-size: 14px; line-height: 1.7; margin: 20px 0 0 0;">
-        感谢你这两周的陪伴，<br>
+        如果你有任何反馈，直接回这封邮件。每一封我都会看。<br><br>
         <span style="color: #0a0a0a; font-weight: 500;">Golden</span><br>
         <span style="color: #a1a1aa; font-size: 13px;">TheMarketBrew / 硅谷程序员 / 十年美股散户</span>
     </p>
     """
     formatted_date = now_pacific().strftime("%B %d, %Y")
-    return subject, _email_wrapper(formatted_date, "Trial Ended", body)
+    return subject, _email_wrapper(formatted_date, "Day 14", body)
 
 
 # Map day to template function
 _TEMPLATE_MAP = {
-    1: _day1_email,
     3: _day3_email,
     7: _day7_email,
-    11: _day11_email,
     14: _day14_email,
 }
 
 
 # ---------------------------------------------------------------------------
-# Core drip logic (cron — Day 1, 3, 7, 11, 14)
+# Core drip logic (cron — Day 3, 7, 14)
 # ---------------------------------------------------------------------------
 
 
-async def _get_trial_users() -> list[dict]:
-    """Fetch all users with active trials (access_expires_at in the future)."""
+TEST_EMAIL = "voya.technologies@gmail.com"
+
+
+async def _list_all_users() -> list[dict]:
+    """All users joined with subscription metadata (includes auth_created_at + lifecycle_state)."""
     service = get_insforge_service()
     result = await service.call_function(
         "subscriptions",
         method="GET",
-        params={"action": "list_trials"},
+        params={"action": "list_all"},
     )
     data = result.get("data", {})
     if data.get("success"):
-        return data.get("data", [])
-    logger.warning("Failed to fetch trial users: %s", data.get("error"))
+        return data.get("data", []) or []
+    logger.warning("Failed to fetch users for onboarding drip: %s", data.get("error"))
     return []
 
 
-def _calculate_trial_day_from_expiry(access_expires_at: str, trial_length: int = 14) -> Optional[int]:
-    """Calculate trial day from access_expires_at.
+async def _update_lifecycle_state(user_id: str, patch: dict) -> bool:
+    """Shallow-merge patch into subscriptions.lifecycle_state JSONB via edge function."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="POST",
+        params={"action": "update_lifecycle_state"},
+        json_body={"user_id": user_id, "patch": patch},
+    )
+    data = result.get("data", {})
+    if not data.get("success"):
+        logger.warning(
+            "update_lifecycle_state failed for %s: %s",
+            user_id[:8], data.get("error"),
+        )
+        return False
+    return True
 
-    Day 0 = registration day, Day 14 = expiry day.
-    Example: if trial expires in 12 days, today is Day 2.
-    """
+
+def _days_since(iso_timestamp: str) -> Optional[int]:
+    """Whole-day delta between iso_timestamp and now (UTC). None on parse error."""
+    if not iso_timestamp:
+        return None
     try:
-        expires = datetime.fromisoformat(access_expires_at.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
         now = datetime.now(timezone.utc)
-        days_remaining = (expires - now).days
-        trial_day = trial_length - days_remaining
-        return trial_day if 0 <= trial_day <= trial_length else None
+        return (now - parsed).days
     except Exception:
         return None
+
+
+def _already_sent(lifecycle_state: dict | None, day: int) -> bool:
+    if not lifecycle_state:
+        return False
+    sent_map = lifecycle_state.get("onboarding_sent") or {}
+    # JSONB serialization may store ints as strings — accept both.
+    return str(day) in sent_map or day in sent_map
 
 
 async def _send_onboarding_email(email: str, subject: str, html: str) -> bool:
@@ -503,74 +384,71 @@ async def _send_onboarding_email(email: str, subject: str, html: str) -> bool:
 
 
 async def process_onboarding_emails() -> dict:
-    """DEPRECATED: legacy trial-tied drip. Replaced by
-    `app.features.subscription.lifecycle_scheduler.run_onboarding_pass`.
+    """Daily cron: fire Day 3/7/14 drip emails based on signup age.
 
-    Naturally fires no emails after the freemium transition because new users
-    no longer get trials (so `list_trials` returns nothing). Kept until all
-    legacy trial users have wound down.
+    Anchored on `auth_created_at` (registration timestamp) — NOT on any trial
+    expiry. Idempotent via `subscriptions.lifecycle_state.onboarding_sent`.
+
+    Non-production: filters recipients to TEST_EMAIL to avoid spamming real users
+    from dev/staging cron runs.
     """
-    trial_users = await _get_trial_users()
-    if not trial_users:
-        logger.info("No active trial users found for onboarding")
-        return {"processed": 0, "sent": 0, "skipped": 0, "errors": 0}
+    users = await _list_all_users()
 
-    # Non-production safety: only send to test account
-    TEST_EMAIL = "voya.technologies@gmail.com"
     is_production = ENVIRONMENT == "production"
     if not is_production:
-        before_count = len(trial_users)
-        trial_users = [u for u in trial_users if u.get("email") == TEST_EMAIL]
+        before = len(users)
+        users = [u for u in users if u.get("email") == TEST_EMAIL]
         logger.info(
-            "Non-production: filtered onboarding recipients %d -> %d (test account only)",
-            before_count, len(trial_users),
+            "Non-production onboarding drip: filtered %d -> %d (test account only)",
+            before, len(users),
         )
 
-    processed = 0
-    sent = 0
-    skipped = 0
-    errors = 0
+    counters = {
+        "processed": 0,
+        "sent": 0,
+        "skipped_already": 0,
+        "skipped_other": 0,
+        "errors": 0,
+    }
 
-    for user in trial_users:
-        processed += 1
-        user_email: str = user.get("email", "")
-        first_name: str = user.get("first_name", "")
-        access_expires_at: str = user.get("access_expires_at", "")
-
-        if not user_email or not access_expires_at:
-            skipped += 1
+    for user in users:
+        counters["processed"] += 1
+        user_email = user.get("email") or ""
+        user_id = user.get("user_id") or ""
+        if not user_email or not user_id:
+            counters["skipped_other"] += 1
             continue
 
-        # Calculate trial day from access_expires_at (14 days before expiry = Day 0)
-        trial_day = _calculate_trial_day_from_expiry(access_expires_at)
-        if trial_day is None:
-            skipped += 1
+        signup_iso = user.get("auth_created_at") or user.get("created_at")
+        day = _days_since(signup_iso) if signup_iso else None
+        if day is None or day not in DRIP_SCHEDULE:
+            counters["skipped_other"] += 1
             continue
 
-        # Only send if today matches a scheduled day exactly
-        template_fn = _TEMPLATE_MAP.get(trial_day)
+        if _already_sent(user.get("lifecycle_state"), day):
+            counters["skipped_already"] += 1
+            continue
+
+        template_fn = _TEMPLATE_MAP.get(day)
         if not template_fn:
-            skipped += 1
+            counters["skipped_other"] += 1
             continue
 
+        first_name = (user.get("name") or "").split(" ")[0]
         subject, html = template_fn(first_name=first_name)
 
         success = await _send_onboarding_email(user_email, subject, html)
-        if success:
-            sent += 1
-        else:
-            errors += 1
+        if not success:
+            counters["errors"] += 1
+            continue
 
-    logger.info(
-        "Onboarding drip complete: processed=%d sent=%d skipped=%d errors=%d",
-        processed,
-        sent,
-        skipped,
-        errors,
-    )
-    return {
-        "processed": processed,
-        "sent": sent,
-        "skipped": skipped,
-        "errors": errors,
-    }
+        # Mark sent — read-modify-write of onboarding_sent nested dict
+        existing_state = user.get("lifecycle_state") or {}
+        existing_sent = dict(existing_state.get("onboarding_sent") or {})
+        existing_sent[str(day)] = datetime.now(timezone.utc).isoformat()
+        await _update_lifecycle_state(user_id, {"onboarding_sent": existing_sent})
+
+        counters["sent"] += 1
+
+    logger.info("Onboarding drip pass: %s", counters)
+    return counters

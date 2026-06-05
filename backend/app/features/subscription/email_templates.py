@@ -329,7 +329,7 @@ def _get_paid_digest_cta_section() -> str:
             <div style="font-size: 0; line-height: 0; text-align: center;">
                 <div class="tmb-paid-cta-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
                     <div style="background: #ecfdf5; border: 2px solid #047857; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
-                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">For You</div>
+                        <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">专属日报</div>
                         <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; line-height: 1.4; margin-bottom: 10px;">
                             查看你的专属持仓日报
                         </div>
@@ -337,13 +337,13 @@ def _get_paid_digest_cta_section() -> str:
                             每天追踪你自选股里的新闻、财报日程和关键变化，不再只看大盘摘要。
                         </div>
                         <a href="{for_you_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center;">
-                            打开 For You &rarr;
+                            打开专属日报 &rarr;
                         </a>
                     </div>
                 </div>
                 <div class="tmb-paid-cta-card" style="display: inline-block; width: 100%; max-width: 272px; vertical-align: top; text-align: left; margin: 0 4px 12px; box-sizing: border-box;">
                     <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
-                        <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Research</div>
+                        <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">个股研究</div>
                         <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; line-height: 1.4; margin-bottom: 10px;">
                             深度研究一只股票
                         </div>
@@ -849,7 +849,7 @@ def format_html_report(
                 </p>
                 <a href="{_EMAIL_LINK_BASE}/login"
                    style="color: #059669; font-size: 14px; font-weight: 600; text-decoration: none;">
-                    免费注册，解锁 14 天全功能体验 &rarr;
+                    免费注册，使用自选股、宏观仪表盘和投研助手 &rarr;
                 </a>
             </div>
             """
@@ -1477,17 +1477,14 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
 
     Sent once — regardless of whether the subscriber already has an account.
     Warm, personal tone from the founder. Introduces the product briefly and
-    gives one clear next step (register or set up watchlist).
+    gives one clear next step: add a watchlist.
     """
-    from urllib.parse import quote
-
-    greeting = "欢迎加入TheMarketBrew！"
+    greeting = f"{first_name}，欢迎来到 TheMarketBrew" if first_name else "欢迎来到 TheMarketBrew"
     formatted_date = market_now().strftime("%B %d, %Y")
-    register_url = (
-        f"{_EMAIL_LINK_BASE}/login?email={quote(email)}&trial=true"
-        if email
-        else f"{_EMAIL_LINK_BASE}/login"
-    )
+    watchlist_url = f"{_EMAIL_LINK_BASE}/for-you/watchlist"
+    macro_url = f"{_EMAIL_LINK_BASE}/macro"
+    research_url = f"{_EMAIL_LINK_BASE}/research"
+    pricing_url = f"{_EMAIL_LINK_BASE}/pricing"
 
     html = f"""
         <!DOCTYPE html>
@@ -1506,27 +1503,70 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
                     </h1>
 
                     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-                        我是 Golden，TheMarketBrew 的开发者。感谢你的订阅，从今天起你会在每个交易日收盘后收到一封 AI 整理的市场日报。
+                        我是 Golden，TheMarketBrew 的开发者。谢谢你订阅。你之后会收到我们的市场日报，也可以直接注册账号使用网站上的投研工具。
                     </p>
                     <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 14px 0;">
-                        做这个产品的初衷很简单——我自己炒了十多年美股，每天花一两个小时刷新闻、翻财报，信息很多，但有用的很少。后来我想，这些重复劳动能不能让 AI 来做？于是就有了 TheMarketBrew。
+                        我做这个产品，是因为自己被市场信息折磨过很久。新闻很多，观点很多，真正能帮我判断的内容反而要一点点捞。后来我想，这些重复功课能不能交给 AI 先整理一遍？于是就有了 TheMarketBrew。
                     </p>
-                    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 28px 0;">
-                        除了每天的日报邮件，注册一个免费账号就能解锁 14 天全功能体验，简单介绍一下：
+                    <p style="color: #52525b; font-size: 15px; line-height: 1.9; margin: 0 0 24px 0;">
+                        你可以把它理解成一个 AI 投研团队：每天读市场、看宏观、盯你关心的股票；你需要深入时，再打开网站追问。
                     </p>
 
-                    <!-- Feature list with CTAs -->
+                    <!-- First step -->
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 18px 18px; margin: 0 0 26px 0;">
+                        <p style="color: #047857; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px 0;">第一步</p>
+                        <p style="color: #0a0a0a; font-size: 16px; font-weight: 600; line-height: 1.6; margin: 0 0 8px 0;">
+                            先加 3 到 5 只你真的会看的股票
+                        </p>
+                        <p style="color: #52525b; font-size: 14px; line-height: 1.75; margin: 0 0 16px 0;">
+                            TheMarketBrew 最有价值的部分，从你的自选股开始。加完以后，专属日报页面会把当天和这些股票有关的新闻、分析师动作、催化剂放在一起。
+                        </p>
+                        <a href="{watchlist_url}"
+                           style="display: inline-block; padding: 12px 24px; background-color: #059669; color: #ffffff;
+                                  text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                            添加我的自选股
+                        </a>
+                    </div>
+
+                    <p style="color: #71717a; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px 0;">
+                        你马上可以试的功能
+                    </p>
+
                     <table style="width: 100%; border-collapse: collapse;" cellpadding="0" cellspacing="0">
                         <tr>
                             <td style="padding: 14px 0; vertical-align: top; width: 28px;">
                                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669; margin-top: 6px;"></span>
                             </td>
                             <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
-                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">专属持仓日报</p>
+                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">每日市场日报</p>
                                 <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
-                                    添加你关注的股票，AI 每天帮你盯着，只推送跟你有关的消息。不用再从几百条新闻里自己翻了。
+                                    每个交易日收盘后，AI 帮你把大盘、板块、关键事件整理成一份可读的市场总结。
                                 </p>
-                                <a href="{_EMAIL_LINK_BASE}/for-you/watchlist" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">设置自选股 &rarr;</a>
+                                <a href="{_EMAIL_LINK_BASE}/today" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">查看今日市场 &rarr;</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 14px 0; vertical-align: top;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669; margin-top: 6px;"></span>
+                            </td>
+                            <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
+                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">专属日报</p>
+                                <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
+                                    围绕你的自选股整理当天变化。Free 可以在网站查看核心内容，Pro 会把专属持仓日报发到邮箱。
+                                </p>
+                                <a href="{_EMAIL_LINK_BASE}/for-you" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">打开专属日报 &rarr;</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 14px 0; vertical-align: top;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669; margin-top: 6px;"></span>
+                            </td>
+                            <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
+                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">投研助手</p>
+                                <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
+                                    直接用中文问投研问题。Free 每天 2 次体验，Max 解锁无限调用和个股深度分析。
+                                </p>
+                                <a href="{research_url}" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">试试投研助手 &rarr;</a>
                             </td>
                         </tr>
                         <tr>
@@ -1536,33 +1576,9 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
                             <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
                                 <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">宏观仪表盘</p>
                                 <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
-                                    流动性、经济、通胀、情绪四盏信号灯。不用自己追美联储声明和 CPI 数据了，看一眼就知道大环境是偏多还是偏空。
+                                    流动性、经济、通胀、情绪四个维度。你不用自己追一堆宏观数据，先看方向有没有变化。
                                 </p>
-                                <a href="{_EMAIL_LINK_BASE}/macro" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">查看仪表盘 &rarr;</a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 14px 0; vertical-align: top;">
-                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669; margin-top: 6px;"></span>
-                            </td>
-                            <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
-                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">AI 投研引擎</p>
-                                <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
-                                    想找「PE 低于 20 的高增长科技股」？直接用中文说就行，AI 帮你从全市场筛。
-                                </p>
-                                <a href="{_EMAIL_LINK_BASE}/research" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">试试 AI 选股 &rarr;</a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 14px 0; vertical-align: top;">
-                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669; margin-top: 6px;"></span>
-                            </td>
-                            <td style="padding: 14px 0; border-bottom: 1px solid #f4f4f5;">
-                                <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">盘前早报</p>
-                                <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
-                                    每天开盘前 5 分钟速读，期货、全球市场、今日关键事件。带着准备进场，比什么都不知道就开盘要好。
-                                </p>
-                                <a href="{_EMAIL_LINK_BASE}/morning" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">查看今日早报 &rarr;</a>
+                                <a href="{macro_url}" style="font-size: 13px; color: #059669; text-decoration: none; font-weight: 500;">查看宏观仪表盘 &rarr;</a>
                             </td>
                         </tr>
                         <tr>
@@ -1572,54 +1588,21 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
                             <td style="padding: 14px 0;">
                                 <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">
                                     推特 KOL 日报
-                                    <span style="display: inline-block; background: #fde68a; color: #78350f; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle;">新功能 · Max 独享</span>
+                                    <span style="display: inline-block; background: #fde68a; color: #78350f; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle;">Max</span>
                                 </p>
                                 <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
-                                    每个交易日盘后，AI 从 300+ 美股博主推文里筛出高质量观点、多空论据和后续观察点。Max 独占，14 天体验期间可解锁。
+                                    每个交易日盘后整理华尔街博主的观点、多空论据和后续观察点。适合重度跟踪市场叙事的人。
                                 </p>
                                 <a href="{_EMAIL_LINK_BASE}/twitter-digest" style="font-size: 13px; color: #b45309; text-decoration: none; font-weight: 500;">查看今日推特日报 &rarr;</a>
                             </td>
                         </tr>
                     </table>
 
-                    <!-- CTA -->
-                    <div style="text-align: center; margin: 32px 0 8px 0;">
-                        <a href="{register_url}"
-                           style="display: inline-block; padding: 14px 36px;
-                                  background-color: #059669; color: #ffffff;
-                                  text-decoration: none; border-radius: 8px;
-                                  font-size: 15px; font-weight: 600;">
-                            免费注册，开始 14 天体验
-                        </a>
-                    </div>
-                    <p style="text-align: center; color: #a1a1aa; font-size: 13px; margin: 0 0 28px 0;">
-                        无需信用卡 &middot; 14 天后自动结束
-                    </p>
-
-                    <!-- Community QR Code -->
-                    <div style="border-top: 1px solid #f4f4f5; padding-top: 24px; margin-top: 4px;">
-                        <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 8px 0;">加入社群</p>
-                        <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 16px 0;">
-                            扫码加入微信交流群，和其他投资者一起交流市场观点、分享持仓思路。
+                    <div style="background: #f9fafb; border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px; margin: 28px 0 0 0;">
+                        <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 8px 0;">Free 可以一直用</p>
+                        <p style="color: #52525b; font-size: 13px; line-height: 1.7; margin: 0;">
+                            免费版包含每日市场日报网站版、宏观仪表盘、自选股管理和投研助手每天 2 次体验。需要邮件自动送达、无限 AI 投研或个股深度分析时，再考虑 <a href="{pricing_url}" style="color: #059669; text-decoration: none; font-weight: 500;">Pro / Max</a>。
                         </p>
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-                            <tr>
-                                <td width="50%" style="padding: 0 6px 0 0; text-align: center; vertical-align: top;">
-                                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-qr-0510.jpg"
-                                         alt="TheMarketBrew WeChat Group QR Code"
-                                         style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
-                                    />
-                                    <p style="color: #71717a; font-size: 12px; margin: 8px 0 0 0;">微信扫码加入社群</p>
-                                </td>
-                                <td width="50%" style="padding: 0 0 0 6px; text-align: center; vertical-align: top;">
-                                    <img src="https://9wmhxyi4.us-east.insforge.app/api/storage/buckets/community/objects/wechat-personal-qr.jpg"
-                                         alt="Add WeChat Personal Contact"
-                                         style="width: 100%; max-width: 240px; border-radius: 8px; border: 1px solid #e4e4e7;"
-                                    />
-                                    <p style="color: #71717a; font-size: 12px; margin: 8px 0 0 0;">群满或过期？加我拉你入群</p>
-                                </td>
-                            </tr>
-                        </table>
                     </div>
 
                     <!-- Closing -->

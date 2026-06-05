@@ -1911,7 +1911,7 @@ export const api = {
     return response.json();
   },
 
-  getOnboardingPreview: async (day: number = 1, firstName?: string): Promise<{
+  getOnboardingPreview: async (day: number = 3, firstName?: string): Promise<{
     success: boolean;
     day: number;
     subject: string;

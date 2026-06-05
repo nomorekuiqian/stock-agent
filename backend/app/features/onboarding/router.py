@@ -1,10 +1,10 @@
-"""Onboarding state API + lifecycle cron entry point."""
+"""Onboarding state API: whether the user finished the in-app onboarding gate."""
 
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.deps import verify_user_token, verify_cron_secret
+from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.features.payment.db import get_subscription, upsert_subscription
 
@@ -37,17 +37,3 @@ async def complete_onboarding(user_id: str = Depends(verify_user_token)):
         raise HTTPException(status_code=500, detail="failed_to_mark_complete")
     logger.info("Onboarding completed: user=%s", user_id[:8])
     return {"completed": True, "completed_at": now}
-
-
-@router.post("/cron/lifecycle/onboarding-pass", dependencies=[Depends(verify_cron_secret)])
-async def cron_lifecycle_onboarding_pass():
-    """Daily cron: send onboarding lifecycle emails (D0/D1/D2/D4/D6/D8/D11/D14).
-
-    Replaces the legacy /cron/onboarding-emails drip (which was tied to the
-    trial expiry timestamp). Idempotent — tracks send state in
-    subscriptions.lifecycle_state.onboarding_sent.
-    """
-    from app.features.subscription.lifecycle_scheduler import run_onboarding_pass
-
-    counters = await run_onboarding_pass()
-    return {"success": True, "counters": counters}
