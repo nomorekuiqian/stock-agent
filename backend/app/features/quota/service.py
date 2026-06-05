@@ -11,6 +11,8 @@ Note: Pro is NOT differentiated from free here — only Max gets unlimited.
 See docs/constraints/subscription-model.md ("AI 投研对话 Pro 不差异化").
 """
 
+from datetime import datetime, timezone
+
 from app.core.logging import get_logger
 from app.features.quota.db import get_usage, increment_usage
 from app.utils.timezone import today_str
@@ -19,6 +21,27 @@ logger = get_logger(__name__)
 
 DAILY_LIMIT = 2
 UNLIMITED_QUOTA_FEATURE = "ai_research_engine"
+
+
+def _is_access_expired(access_expires_at: str | None) -> bool:
+    """True when an invite-trial `access_expires_at` has passed.
+
+    Mirrors the frontend's `isExpired` check in SubscriptionContext.tsx so that
+    a row whose Stripe-managed `entitlements` array still carries Max entries
+    after the invite trial expired (no Stripe webhook owns these — they were
+    granted by our invite redemption code) does NOT keep the user on the Max
+    code path. Without this gate, `_is_max_user` returns True forever for
+    expired AUTO_TRIAL users and they bypass the daily 2-question cap.
+    """
+    if not access_expires_at:
+        return False
+    try:
+        expires = datetime.fromisoformat(access_expires_at.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    return expires <= datetime.now(timezone.utc)
 
 
 async def _is_max_user(user_id: str) -> bool:
@@ -32,6 +55,12 @@ async def _is_max_user(user_id: str) -> bool:
 
     if sub.get("is_lifetime"):
         return UNLIMITED_QUOTA_FEATURE in MAX_FEATURES
+
+    # Expired invite trials keep their `entitlements` array populated because
+    # nothing actively cleans it (Stripe webhooks only manage paid subs).
+    # Treat the row as plain free once the trial has ended.
+    if _is_access_expired(sub.get("access_expires_at")):
+        return False
 
     entitlements = set(sub.get("entitlements") or [])
     if UNLIMITED_QUOTA_FEATURE in entitlements:

@@ -107,6 +107,37 @@ class TestMaxUserDetection:
 
         assert await _is_max_user("user-pro") is False
 
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_expired_trial_with_stale_entitlements_is_limited(self, mock_get_subscription):
+        """Invite trial whose access_expires_at has passed should fall back to
+        the daily limit even when entitlements still contain ai_research_engine.
+        Reason: invite redemptions populate `entitlements` directly and no
+        Stripe webhook clears them when the trial expires."""
+        mock_get_subscription.return_value = {
+            "plan": "max",
+            "status": "active",
+            "is_lifetime": False,
+            "entitlements": ["ai_research_engine", "morning_report_email"],
+            "access_expires_at": "2020-01-01T00:00:00+00:00",
+        }
+
+        assert await _is_max_user("user-expired-trial") is False
+
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_future_access_expires_at_keeps_max(self, mock_get_subscription):
+        """A trial that has not yet expired keeps Max access."""
+        mock_get_subscription.return_value = {
+            "plan": "max",
+            "status": "active",
+            "is_lifetime": False,
+            "entitlements": ["ai_research_engine"],
+            "access_expires_at": "2099-01-01T00:00:00+00:00",
+        }
+
+        assert await _is_max_user("user-active-trial") is True
+
 
 class TestCheckQuota:
     """Tests for check_quota: read-only quota check."""
