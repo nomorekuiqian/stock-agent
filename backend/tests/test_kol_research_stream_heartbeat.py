@@ -11,9 +11,18 @@ from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
+
+
+_ALLOWED_QUOTA = {
+    "allowed": True,
+    "used": 0,
+    "limit": 2,
+    "remaining": 2,
+    "unlimited": True,
+}
 
 
 def _slow_stream_factory(silence_seconds: float):
@@ -41,6 +50,10 @@ def _post_stream_and_collect(silence_seconds: float) -> list[tuple[float, str]]:
         with patch(
             "app.features.kol_research.router.stream_kol_research",
             _slow_stream_factory(silence_seconds),
+        ), patch(
+            "app.features.kol_research.router.consume_quota",
+            new_callable=AsyncMock,
+            return_value=_ALLOWED_QUOTA,
         ):
             client = TestClient(app)
             with client.stream(
@@ -105,7 +118,12 @@ def test_no_heartbeat_when_events_flow_normally():
     app.dependency_overrides[kol_router.require_kol_research_flag] = fake_flag
     try:
         with patch("app.core.sse.SSE_HEARTBEAT_SECONDS", 1.0), \
-             patch("app.features.kol_research.router.stream_kol_research", fast_stream):
+             patch("app.features.kol_research.router.stream_kol_research", fast_stream), \
+             patch(
+                 "app.features.kol_research.router.consume_quota",
+                 new_callable=AsyncMock,
+                 return_value=_ALLOWED_QUOTA,
+             ):
             client = TestClient(app)
             with client.stream(
                 "POST",

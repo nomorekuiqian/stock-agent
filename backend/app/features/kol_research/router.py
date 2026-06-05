@@ -22,13 +22,15 @@ import asyncio
 import json as _json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.deps import verify_user_token_with_email
 from app.core.logging import get_logger
+from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
+from app.features.quota.service import consume_quota
 from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
 from app.features.kol_research import cockpit, skill_cockpit
 from app.features.kol_research.agent import (
@@ -549,9 +551,18 @@ async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
 @router.post("/chat", response_model=KolResearchResponse)
 async def kol_research_chat(
     req: KolResearchRequest,
+    request: Request,
     user_info: dict = Depends(require_kol_research_flag),
 ):
-    """Unary KOL research chat."""
+    """Unary KOL research chat. Shares the research daily quota (2/day for
+    free + Pro; Max unlimited) so persona mode can't be used to bypass it."""
+    client_ip = _get_real_ip(request)
+    quota = await consume_quota(user_info["user_id"], client_ip)
+    if not quota["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail="今日免费提问次数已用完，升级 Max 解锁无限使用",
+        )
     return await answer_kol_research(
         message=req.message,
         history=[m.model_dump() for m in req.history],
@@ -566,9 +577,12 @@ async def kol_research_chat(
 @router.post("/chat/stream")
 async def kol_research_chat_stream(
     req: KolResearchRequest,
+    request: Request,
     user_info: dict = Depends(require_kol_research_flag),
 ):
-    """SSE streaming KOL research chat.
+    """SSE streaming KOL research chat. Shares the research daily quota
+    (2/day for free + Pro; Max unlimited) so persona mode can't be used to
+    bypass it.
 
     Event types:
       - skill_activated   {skill_name, description}
@@ -579,6 +593,20 @@ async def kol_research_chat_stream(
       - final             {data: KolResearchResponse}
       - error             {error}
     """
+    client_ip = _get_real_ip(request)
+    quota = await consume_quota(user_info["user_id"], client_ip)
+    if not quota["allowed"]:
+        async def quota_error():
+            yield "data: %s\n\n" % _json.dumps(
+                {
+                    "type": "error",
+                    "message": "今日免费提问次数已用完，升级 Max 解锁无限使用",
+                    "quota_exceeded": True,
+                },
+                ensure_ascii=False,
+            )
+        return StreamingResponse(quota_error(), media_type="text/event-stream")
+
     async def event_generator():
         async for event in stream_kol_research(
             message=req.message,
