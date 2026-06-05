@@ -77,7 +77,7 @@ from app.features.screener.research_agent import (
     list_recent_reports,
 )
 from app.shared.data_tools.briefs import brief_tools
-from app.shared.data_tools.research_tools import get_technical_analysis
+from app.shared.data_tools.research_tools import get_forward_valuation, get_technical_analysis
 from app.shared.kol_persona import (
     Persona,
     build_always_on_instruction,
@@ -158,6 +158,7 @@ _CACHEABLE_TOOLS = {
     "get_peer_brief",
     "get_macro_brief",
     "get_industry_brief",
+    "get_forward_valuation",
     "get_technical_analysis",
     "get_report_by_date",
     "list_recent_reports",
@@ -249,6 +250,7 @@ _TOOL_DESCRIPTIONS = {
     if a.get("symbols") else "正在获取行情...",
     "get_technical_analysis": lambda a: "正在分析 %s 的技术面..." % a.get("symbol", ""),
     "get_stock_fundamentals": lambda a: "正在查看 %s 的基本面..." % a.get("symbol", ""),
+    "get_forward_valuation": lambda a: "正在核对 %s 的前瞻估值..." % a.get("symbol", ""),
     "get_earnings_calendar": lambda _: "正在查询财报日历...",
     "get_market_overview": lambda _: "正在获取大盘概况...",
     "get_report_by_date": lambda a: "正在获取 %s 的日报..." % a.get("report_date", ""),
@@ -291,6 +293,10 @@ _TOOL_NAVIGATE: Dict[str, Any] = {
         if a.get("symbols") else None
     ),
     "get_stock_fundamentals": lambda a: (
+        {"type": "stock", "params": {"symbol": a.get("symbol"), "tab": "overview"}}
+        if a.get("symbol") else None
+    ),
+    "get_forward_valuation": lambda a: (
         {"type": "stock", "params": {"symbol": a.get("symbol"), "tab": "overview"}}
         if a.get("symbol") else None
     ),
@@ -608,6 +614,7 @@ _TOOL_USAGE_RULES = """
 
 3. **必须调对应的 brief 拿"当下"数据** — 不调就是只有历史回声的空话. 每个 brief 内部已经并发拉多个数据点, 一次调用就够:
    - 用户问个股 (任何 ticker 出现): **`get_stock_brief(symbol)`** — 一次返回 quote / fundamentals / 历史估值分位 / 7 天新闻 / 公司画像 / 财报日历
+   - 用户问前瞻市盈率 / forward P/E / 当前年度估值: 优先看 `get_stock_brief(symbol).forward_valuation`; 如用户质疑估值数字, 直接补调 **`get_forward_valuation(symbol)`**. 年度 forward P/E 只能引用该工具的 `current_year` / `next_year`, 不要把 yfinance/Yahoo rolling `forwardPE` 当 FY2026.
    - 需要同行对比: **`get_peer_brief(symbol)`**
    - 需要行业鸟瞰 (大盘 + 同行): **`get_industry_brief(symbol)`**
    - 用户问宏观 / Fed / 利率 / 流动性: **`get_macro_brief()`** — 一次返回风险综述 / 流动性 / 情绪 / 经济日历
@@ -851,6 +858,7 @@ def _build_tools(persona: Persona) -> list:
         skill_toolset,
         search_kol_tweets,
         *brief_tools,                # get_stock_brief / get_peer_brief / get_macro_brief / get_industry_brief
+        get_forward_valuation,       # explicit FY forward P/E from FMP price + analyst EPS
         get_technical_analysis,      # kept fine-grained (rarely used, but escape hatch when K-line matters)
         get_report_by_date,
         list_recent_reports,
@@ -874,7 +882,10 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
     # parts during the response stream; the frontend uses them to render a
     # collapsible "思考过程" section under each KOL answer.
     gen_config = types.GenerateContentConfig(
-        thinking_config=types.ThinkingConfig(include_thoughts=True),
+        thinking_config=types.ThinkingConfig(
+            include_thoughts=True,
+            thinking_level=types.ThinkingLevel.MEDIUM,
+        ),
     )
     agent = LlmAgent(
         name="kol_research_agent",

@@ -77,6 +77,7 @@ _TOOL_DESCRIPTIONS = {
     ) if a.get("symbols") else "正在获取行情...",
     "get_technical_analysis": lambda a: "正在分析 %s 的技术面..." % a.get("symbol", ""),
     "get_stock_fundamentals": lambda a: "正在查看 %s 的基本面..." % a.get("symbol", ""),
+    "get_forward_valuation": lambda a: "正在核对 %s 的前瞻估值..." % a.get("symbol", ""),
     "get_earnings_calendar": lambda _: "正在查询财报日历...",
     "get_market_overview": lambda _: "正在获取大盘概况...",
     "execute_screener": lambda _: "正在筛选股票...",
@@ -127,6 +128,10 @@ _TOOL_NAVIGATE: Dict[str, Any] = {
         if a.get("symbols") else None
     ),
     "get_stock_fundamentals": lambda a: (
+        {"type": "stock", "params": {"symbol": a.get("symbol"), "tab": "overview"}}
+        if a.get("symbol") else None
+    ),
+    "get_forward_valuation": lambda a: (
         {"type": "stock", "params": {"symbol": a.get("symbol"), "tab": "overview"}}
         if a.get("symbol") else None
     ),
@@ -791,7 +796,7 @@ RESEARCH_AGENT_INSTRUCTION = """\
 - 选股 / 发现股票
   - execute_screener · filter_by_tickers · list_available_sectors · get_field_distribution
 - 个股投研
-  - get_stock_quote · get_stock_fundamentals · get_technical_analysis · get_stock_news
+  - get_stock_quote · get_stock_fundamentals · get_forward_valuation · get_technical_analysis · get_stock_news
   - get_company_profile · get_peer_comparison · get_historical_valuation
 - 宏观与流动性
   - get_market_overview · get_macro_risk_summary · get_liquidity_overview · get_market_sentiment

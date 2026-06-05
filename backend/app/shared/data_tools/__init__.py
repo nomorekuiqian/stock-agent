@@ -67,6 +67,11 @@ def get_ticker_snapshot(*args, **kwargs):
     return _fn(*args, **kwargs)
 
 
+def get_forward_valuation(*args, **kwargs):
+    from app.shared.data_tools.valuation import get_forward_valuation as _fn
+    return _fn(*args, **kwargs)
+
+
 def get_peer_companies(*args, **kwargs):
     from app.shared.data_tools.peers import get_peer_companies as _fn
     return _fn(*args, **kwargs)
@@ -112,6 +117,7 @@ __all__ = [
     "get_key_metrics_ttm",
     "get_historical_metrics",
     "get_ticker_snapshot",
+    "get_forward_valuation",
     # Peers
     "get_peer_companies",
     "get_peer_valuation",

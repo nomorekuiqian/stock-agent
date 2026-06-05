@@ -31,6 +31,7 @@ from app.features.macro.cache.db import get_cached_many, get_cache_data, is_cach
 from app.shared.data_tools.research_tools import (
     get_company_profile,
     get_earnings_calendar,
+    get_forward_valuation,
     get_historical_valuation,
     get_market_overview,
     get_peer_comparison,
@@ -243,6 +244,111 @@ def _summarize_macro_section(section: str, data: Any) -> Any:
     return data
 
 
+async def _get_symbol_earnings_calendar(symbol: str, days: int = 90) -> str:
+    raw = await get_earnings_calendar(days=days)
+    data = json.loads(raw)
+    earnings = [
+        item
+        for item in data.get("earnings", []) or []
+        if (item.get("symbol") or "").upper() == symbol.upper()
+    ]
+    return _bundle({
+        "symbol": symbol.upper(),
+        "earnings_count": len(earnings),
+        "earnings": earnings,
+        "date_range": data.get("date_range"),
+        "source": data.get("source"),
+        "filter": "symbol_specific",
+    })
+
+
+def _company_tokens(profile: Any) -> set[str]:
+    if not isinstance(profile, dict):
+        return set()
+    name = (profile.get("name") or "").lower()
+    stop = {
+        "inc", "inc.", "corp", "corp.", "corporation", "company", "group",
+        "holdings", "holding", "limited", "ltd", "plc", "class",
+    }
+    return {
+        token.strip(".,'\"()[]")
+        for token in name.replace("-", " ").split()
+        if len(token.strip(".,'\"()[]")) >= 4
+        and token.strip(".,'\"()[]") not in stop
+    }
+
+
+def _filter_symbol_news(news: Any, *, symbol: str, profile: Any) -> Any:
+    if not isinstance(news, dict):
+        return news
+    articles = news.get("news")
+    if not isinstance(articles, list):
+        return news
+
+    tokens = _company_tokens(profile)
+    symbol_upper = symbol.upper()
+    kept = []
+    dropped = 0
+    for item in articles:
+        if not isinstance(item, dict):
+            continue
+        haystack = " ".join([
+            str(item.get("title") or ""),
+            str(item.get("url") or ""),
+        ])
+        haystack_lower = haystack.lower()
+        if symbol_upper in haystack.upper() or any(token in haystack_lower for token in tokens):
+            kept.append(item)
+        else:
+            dropped += 1
+
+    cleaned = dict(news)
+    cleaned["news"] = kept
+    cleaned["news_count"] = len(kept)
+    if dropped:
+        cleaned["filtered_out_count"] = dropped
+        cleaned["filter"] = "symbol_or_company_name"
+    return cleaned
+
+
+def _filter_post_ipo_valuation(valuation: Any, profile: Any) -> Any:
+    if not isinstance(valuation, dict) or not isinstance(profile, dict):
+        return valuation
+    ipo_date = profile.get("ipo_date")
+    if not isinstance(ipo_date, str) or len(ipo_date) < 4:
+        return valuation
+    try:
+        ipo_year = int(ipo_date[:4])
+    except ValueError:
+        return valuation
+
+    metrics = valuation.get("annual_metrics")
+    if not isinstance(metrics, list):
+        return valuation
+    kept = []
+    for row in metrics:
+        if not isinstance(row, dict):
+            continue
+        date = row.get("date")
+        if not isinstance(date, str) or len(date) < 4:
+            continue
+        try:
+            row_year = int(date[:4])
+        except ValueError:
+            continue
+        if row_year >= ipo_year:
+            kept.append(row)
+    if len(kept) == len(metrics):
+        return valuation
+
+    cleaned = dict(valuation)
+    cleaned["annual_metrics"] = kept
+    cleaned["filtered_out_pre_ipo_count"] = len(metrics) - len(kept)
+    cleaned["filter"] = "post_ipo_only"
+    cleaned["ipo_date"] = ipo_date
+    return cleaned
+
+
 async def get_stock_brief(symbol: str) -> str:
     """获取一只股票的完整画像 (一次性返回 quote / fundamentals / valuation / news / company profile / earnings calendar)。
 
@@ -265,19 +371,23 @@ async def get_stock_brief(symbol: str) -> str:
 
     logger.info("brief: get_stock_brief(%s)", symbol)
 
-    quote, fundamentals, valuation, news, profile, earnings = await asyncio.gather(
+    quote, fundamentals, forward_valuation, valuation, news, profile, earnings = await asyncio.gather(
         _safe_call("quote", get_stock_quote([symbol])),
         _safe_call("fundamentals", get_stock_fundamentals(symbol)),
+        _safe_call("forward_valuation", get_forward_valuation(symbol)),
         _safe_call("historical_valuation", get_historical_valuation(symbol)),
         _safe_call("news", get_stock_news([symbol], days=7)),
         _safe_call("company_profile", get_company_profile(symbol)),
-        _safe_call("earnings_calendar", get_earnings_calendar(days=30)),
+        _safe_call("earnings_calendar", _get_symbol_earnings_calendar(symbol, days=90)),
     )
+    news = _filter_symbol_news(news, symbol=symbol, profile=profile)
+    valuation = _filter_post_ipo_valuation(valuation, profile)
 
     return _bundle({
         "symbol": symbol,
         "quote": quote,
         "fundamentals": fundamentals,
+        "forward_valuation": forward_valuation,
         "historical_valuation": valuation,
         "news_7d": news,
         "company_profile": profile,

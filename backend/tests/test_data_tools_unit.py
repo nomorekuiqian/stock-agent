@@ -12,6 +12,9 @@ Usage:
     pytest tests/test_data_tools_unit.py -v
 """
 
+import json
+from datetime import datetime
+
 import pytest
 import time as _time
 from unittest.mock import patch, MagicMock
@@ -59,6 +62,39 @@ class TestQuotesDelegation:
         get_batch_quotes(["AAPL"], use_cache=False)
 
         mock_fmp.get_stock_quotes.assert_called_once_with(["AAPL"], use_cache=False)
+
+
+class TestResearchQuoteTool:
+    """Agent-facing quote tool should use the FMP batch quote path."""
+
+    @pytest.mark.asyncio
+    @patch("app.shared.data_tools.quotes.get_batch_quotes")
+    async def test_get_stock_quote_uses_fmp_batch_quotes(self, mock_get_batch_quotes):
+        from app.shared.data_tools.research_tools import get_stock_quote
+
+        mock_get_batch_quotes.return_value = {
+            "status": "success",
+            "quotes": [{
+                "symbol": "CRCL",
+                "name": "Circle Internet Group",
+                "price": 90.54,
+                "previous_close": 90.13,
+                "daily_change": 0.4549,
+                "day_high": 95.18,
+                "day_low": 89.2,
+                "market_cap": 24200497805,
+                "timestamp": 1780603202,
+            }],
+            "from_cache": 0,
+        }
+
+        result = json.loads(await get_stock_quote(["crcl"]))
+
+        mock_get_batch_quotes.assert_called_once_with(["CRCL"])
+        assert result["source"] == "fmp"
+        assert result["stocks"]["CRCL"]["price"] == 90.54
+        assert result["stocks"]["CRCL"]["market_cap"] == 24200497805
+        assert result["quotes"][0]["symbol"] == "CRCL"
 
 
 # ===========================================================================
@@ -159,6 +195,153 @@ class TestFundamentalsDelegation:
             "AAPL", period="annual", limit=20
         )
         assert result["status"] == "success"
+
+
+class TestResearchFundamentalsTool:
+    """Agent-facing fundamentals should label opaque Yahoo forwardPE."""
+
+    @pytest.mark.asyncio
+    @patch("app.shared.data_tools.fundamentals.get_ticker_snapshot")
+    async def test_forward_pe_is_source_labeled(self, mock_snapshot):
+        from app.shared.data_tools.research_tools import get_stock_fundamentals
+
+        mock_snapshot.return_value = {
+            "valuation": {"ps": 8.46, "forward_pe": 40.66},
+            "forward": {"forward_eps": 2.2268, "trailing_eps": -0.23},
+            "profitability": {},
+            "growth": {},
+            "balance_sheet": {},
+            "analyst_targets": {},
+        }
+
+        result = json.loads(await get_stock_fundamentals("CRCL"))
+
+        assert "forward_pe" not in result["valuation"]
+        assert result["valuation"]["yfinance_forward_pe"] == 40.66
+        assert result["forward"]["forward_eps"] == 2.2268
+
+
+class TestForwardValuation:
+    """FMP annual EPS estimates produce explicit fiscal-year forward P/E."""
+
+    @patch("app.shared.fmp_service.get_fmp_service")
+    @patch("app.shared.data_tools.valuation.now_pacific")
+    def test_current_and_next_year_forward_pe(self, mock_now, mock_get_fmp):
+        from app.shared.data_tools.valuation import get_forward_valuation
+
+        mock_now.return_value = datetime(2026, 6, 5)
+        mock_fmp = MagicMock()
+        mock_fmp.get_stock_quotes.return_value = {
+            "quotes": [{
+                "symbol": "CRCL",
+                "price": 90.54,
+                "timestamp": 1780603202,
+            }]
+        }
+        mock_fmp._request.return_value = [
+            {"date": "2028-12-31", "epsAvg": 3.05142, "epsLow": 2.07567, "epsHigh": 4.69523, "numAnalystsEps": 10},
+            {"date": "2027-12-31", "epsAvg": 1.69567, "epsLow": 1.28346, "epsHigh": 2.37956, "numAnalystsEps": 13},
+            {"date": "2026-12-31", "epsAvg": 0.89783, "epsLow": 0.64256, "epsHigh": 1.50519, "numAnalystsEps": 12},
+            {"date": "2025-12-31", "epsAvg": -0.44, "numAnalystsEps": 21},
+        ]
+        mock_get_fmp.return_value = mock_fmp
+
+        result = get_forward_valuation("CRCL")
+
+        assert result["status"] == "success"
+        assert result["price"] == 90.54
+        assert result["current_year"]["fiscal_year"] == 2026
+        assert result["current_year"]["eps_avg"] == 0.8978
+        assert result["current_year"]["forward_pe"] == 100.84
+        assert result["next_year"]["fiscal_year"] == 2027
+        assert result["next_year"]["forward_pe"] == 53.39
+        assert result["annual_estimates"][2]["fiscal_year"] == 2028
+
+    @patch("app.shared.fmp_service.get_fmp_service")
+    @patch("app.shared.data_tools.valuation.now_pacific")
+    def test_skips_fiscal_year_when_period_already_ended(self, mock_now, mock_get_fmp):
+        from app.shared.data_tools.valuation import get_forward_valuation
+
+        mock_now.return_value = datetime(2026, 6, 5)
+        mock_fmp = MagicMock()
+        mock_fmp.get_stock_quotes.return_value = {
+            "quotes": [{"symbol": "NVDA", "price": 218.66}]
+        }
+        mock_fmp._request.return_value = [
+            {"date": "2027-01-31", "epsAvg": 9.37, "numAnalystsEps": 49},
+            {"date": "2026-01-25", "epsAvg": 4.90, "numAnalystsEps": 55},
+        ]
+        mock_get_fmp.return_value = mock_fmp
+
+        result = get_forward_valuation("NVDA")
+
+        assert result["status"] == "success"
+        assert result["reference_date"] == "2026-06-05"
+        assert result["current_year"]["fiscal_year"] == 2027
+        assert result["current_year"]["period_ending"] == "2027-01-31"
+        assert result["current_year"]["forward_pe"] == 23.34
+
+    @patch("app.shared.fmp_service.get_fmp_service")
+    @patch("app.shared.data_tools.valuation.now_pacific")
+    def test_nonpositive_eps_does_not_emit_forward_pe(self, mock_now, mock_get_fmp):
+        from app.shared.data_tools.valuation import get_forward_valuation
+
+        mock_now.return_value = datetime(2026, 6, 5)
+        mock_fmp = MagicMock()
+        mock_fmp.get_stock_quotes.return_value = {
+            "quotes": [{"symbol": "LOSS", "price": 20.0}]
+        }
+        mock_fmp._request.return_value = [
+            {"date": "2026-12-31", "epsAvg": -1.0, "epsLow": -2.0, "epsHigh": -0.5}
+        ]
+        mock_get_fmp.return_value = mock_fmp
+
+        result = get_forward_valuation("LOSS")
+
+        assert result["status"] == "success"
+        assert result["current_year"]["eps_avg"] is None
+        assert result["current_year"]["forward_pe"] is None
+
+
+class TestStockBriefCleaning:
+    """Stock brief should not hand obvious symbol-collision noise to the LLM."""
+
+    def test_filter_symbol_news_drops_company_name_mismatch(self):
+        from app.shared.data_tools.briefs import _filter_symbol_news
+
+        news = {
+            "news": [
+                {"symbol": "CRCL", "title": "Why Circle Internet Group Stock Tumbled Today"},
+                {"symbol": "CRCL", "title": "Corcel Drills Copper Project in Arizona"},
+            ]
+        }
+        profile = {"name": "Circle Internet Group"}
+
+        result = _filter_symbol_news(news, symbol="CRCL", profile=profile)
+
+        assert result["news_count"] == 1
+        assert result["news"][0]["title"].startswith("Why Circle")
+        assert result["filtered_out_count"] == 1
+
+    def test_filter_post_ipo_valuation_drops_pre_ipo_rows(self):
+        from app.shared.data_tools.briefs import _filter_post_ipo_valuation
+
+        valuation = {
+            "annual_metrics": [
+                {"date": "2026-12-31", "pe_ratio": 80},
+                {"date": "2025-12-31", "pe_ratio": 100},
+                {"date": "2024-12-31", "pe_ratio": 10},
+            ]
+        }
+        profile = {"ipo_date": "2025-06-05"}
+
+        result = _filter_post_ipo_valuation(valuation, profile)
+
+        assert [row["date"] for row in result["annual_metrics"]] == [
+            "2026-12-31",
+            "2025-12-31",
+        ]
+        assert result["filtered_out_pre_ipo_count"] == 1
 
 
 # ===========================================================================

@@ -61,9 +61,9 @@ async def get_stock_quote(symbols: list[str]) -> str:
     """Get real-time price quotes for stocks. Max 20 symbols per call.
 
     Use when the user asks about current prices, daily performance, or wants a quick overview of specific stocks.
-    Returns: price, daily/weekly/monthly change %, PE ratio, market cap, 52-week high/low for each symbol.
+    Returns: FMP real-time quote rows plus a backward-compatible stocks map.
     """
-    from app.shared.data_tools.market_data import get_stock_quotes
+    from app.shared.data_tools.quotes import get_batch_quotes
 
     symbols = [s.upper().strip() for s in symbols[:20] if s.strip()]
     if not symbols:
@@ -71,8 +71,41 @@ async def get_stock_quote(symbols: list[str]) -> str:
 
     logger.info("research_tool: get_stock_quote(%s)", symbols)
     try:
-        result = await asyncio.to_thread(get_stock_quotes, symbols)
-        return _safe_json_dumps(result)
+        result = await asyncio.to_thread(get_batch_quotes, symbols)
+        quotes = result.get("quotes", []) if isinstance(result, dict) else []
+        stocks = {}
+        for quote in quotes:
+            if not isinstance(quote, dict):
+                continue
+            symbol = (quote.get("symbol") or "").upper()
+            if not symbol:
+                continue
+            stocks[symbol] = {
+                "name": quote.get("name") or symbol,
+                "price": quote.get("price"),
+                "previous_close": quote.get("previous_close"),
+                "daily_change": quote.get("daily_change"),
+                "day_high": quote.get("day_high"),
+                "day_low": quote.get("day_low"),
+                "open": quote.get("open"),
+                "market_cap": quote.get("market_cap"),
+                "volume": quote.get("volume"),
+                "avg_volume": quote.get("avg_volume"),
+                "52_week_high": quote.get("52_week_high"),
+                "52_week_low": quote.get("52_week_low"),
+                "exchange": quote.get("exchange"),
+                "timestamp": quote.get("timestamp"),
+                "cached": quote.get("cached"),
+                "source": "fmp",
+            }
+        return _safe_json_dumps({
+            "status": result.get("status", "success") if isinstance(result, dict) else "success",
+            "stocks": stocks,
+            "quotes": quotes,
+            "count": len(quotes),
+            "source": "fmp",
+            "from_cache": result.get("from_cache") if isinstance(result, dict) else None,
+        })
     except Exception as e:
         logger.error("get_stock_quote failed: %s", e)
         return _safe_json_dumps({"error": str(e)})
@@ -228,9 +261,14 @@ async def get_stock_fundamentals(symbol: str) -> str:
             else:
                 growth_pct[k] = v
 
+        valuation = dict(data.get("valuation", {}))
+        if "forward_pe" in valuation:
+            valuation["yfinance_forward_pe"] = valuation.pop("forward_pe")
+
         summary = {
             "symbol": symbol,
-            "valuation": data.get("valuation", {}),
+            "valuation": valuation,
+            "forward": data.get("forward", {}),
             "profitability": profitability_pct,
             "growth": growth_pct,
             "balance_sheet": {
@@ -249,6 +287,30 @@ async def get_stock_fundamentals(symbol: str) -> str:
         return _safe_json_dumps(summary)
     except Exception as e:
         logger.error("get_stock_fundamentals failed: %s", e)
+        return _safe_json_dumps({"symbol": symbol, "error": str(e)})
+
+
+async def get_forward_valuation(symbol: str) -> str:
+    """Get explicit fiscal-year forward P/E for a single stock.
+
+    Use when the user asks about forward PE / 前瞻市盈率 / current-year or
+    next-year valuation. Returns annual forward P/E computed from FMP current
+    quote price divided by FMP annual analyst EPS estimates, with fiscal-year
+    labels. This avoids mixing yfinance/Yahoo rolling ``forwardPE`` with
+    FY2026/FY2027 estimates.
+    """
+    from app.shared.data_tools.valuation import get_forward_valuation as _get_forward
+
+    symbol = symbol.upper().strip()
+    if not symbol:
+        return _safe_json_dumps({"error": "No symbol provided"})
+
+    logger.info("research_tool: get_forward_valuation(%s)", symbol)
+    try:
+        data = await asyncio.to_thread(_get_forward, symbol)
+        return _safe_json_dumps(data)
+    except Exception as e:
+        logger.error("get_forward_valuation failed: %s", e)
         return _safe_json_dumps({"symbol": symbol, "error": str(e)})
 
 
@@ -322,6 +384,7 @@ async def get_company_profile(symbol: str) -> str:
             "employees": details.get("employees"),
             "country": details.get("country", ""),
             "exchange": data.get("exchange", ""),
+            "ipo_date": details.get("ipo_date") or details.get("ipoDate"),
             "description": ((desc.get("en") or "") if isinstance(desc, dict) else str(desc))[:500],
         }
         return _safe_json_dumps(summary)
@@ -874,6 +937,7 @@ research_data_tools = [
     get_stock_news,
     get_technical_analysis,
     get_stock_fundamentals,
+    get_forward_valuation,
     get_earnings_calendar,
     # V2: deep stock research
     get_company_profile,
