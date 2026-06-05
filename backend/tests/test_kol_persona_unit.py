@@ -136,6 +136,27 @@ def _fake_chunk(idx: int, *, source_id: str = "tweet-1") -> VectorChunkResult:
     )
 
 
+def _fake_reference_chunk() -> VectorChunkResult:
+    return VectorChunkResult(
+        id="chunk-ref",
+        document_id="doc-ref",
+        source_type="kol_tweet",
+        source_id="2062463349573718318",
+        chunk_index=0,
+        content="Frank interview reference about AI commercialization.",
+        title="@qinbafrank interview_reference 2026-06-04",
+        url="https://x.com/168X_Fortune/status/2062463349573718318",
+        metadata={
+            "author_username": "qinbafrank",
+            "persona_username": "qinbafrank",
+            "source_author_username": "168X_Fortune",
+            "created_at": "2026-06-04T09:15:55Z",
+            "tickers": ["NVDA"],
+        },
+        similarity=0.88,
+    )
+
+
 @pytest.mark.asyncio
 async def test_search_kol_tweets_returns_indexed_markdown():
     fake_chunks: List[VectorChunkResult] = [_fake_chunk(i) for i in range(3)]
@@ -151,6 +172,24 @@ async def test_search_kol_tweets_returns_indexed_markdown():
     assert "@qinbafrank" in out
     assert "2026-04-12" in out
     assert "NVDA" in out
+
+
+@pytest.mark.asyncio
+async def test_search_kol_tweets_labels_reference_source_author():
+    fake_resp = VectorSearchResponse(
+        success=True,
+        query="AI",
+        count=1,
+        results=[_fake_reference_chunk()],
+    )
+    with patch(
+        "app.shared.kol_persona.tools.vector_search",
+        AsyncMock(return_value=fake_resp),
+    ):
+        out = await search_kol_tweets("AI", author_username="qinbafrank", k=1)
+
+    assert "@168X_Fortune / persona @qinbafrank" in out
+    assert "Frank interview reference" in out
 
 
 @pytest.mark.asyncio

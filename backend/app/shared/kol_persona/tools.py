@@ -53,6 +53,12 @@ def _format_chunks_for_llm(
     for idx, item in enumerate(results, start=start_index):
         md = item.metadata or {}
         author = md.get("author_username") or "unknown"
+        source_author = md.get("source_author_username")
+        persona = md.get("persona_username")
+        if source_author and persona and source_author != author:
+            author_label = f"@{source_author} / persona @{persona}"
+        else:
+            author_label = f"@{author}"
         created = (md.get("created_at") or "")[:10] or "unknown-date"
         tickers = md.get("tickers") or []
         ticker_hint = ""
@@ -62,7 +68,7 @@ def _format_chunks_for_llm(
         content = item.content.strip()
         if len(content) > 600:
             content = content[:600].rstrip() + "..."
-        lines.append(f"[#{idx}] @{author} · {created}{ticker_hint}: {content}")
+        lines.append(f"[#{idx}] {author_label} · {created}{ticker_hint}: {content}")
     header = (
         f"Valid citation range for this call: [#{start_index}] ~ [#{end_index}]. "
         f"You MAY cite any of these indices inline. **Do not write [#N] for any "

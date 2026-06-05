@@ -54,7 +54,15 @@ def _string_list(value: Any) -> list[str]:
 def _iso_date(value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         return None
-    return value[:10]
+    if len(value) >= 10 and value[4:5] == "-" and value[7:8] == "-":
+        return value[:10]
+    try:
+        return datetime.strptime(
+            value,
+            "%a %b %d %H:%M:%S %z %Y",
+        ).date().isoformat()
+    except (TypeError, ValueError):
+        return None
 
 
 def _join(values: list[str]) -> str:
@@ -115,9 +123,19 @@ def _metadata_for_tweet(tweet: dict[str, Any]) -> dict[str, Any]:
         "quality": enrichment.get("quality"),
         "quality_features": _string_list(enrichment.get("quality_features")),
         "content_summary_zh": enrichment.get("content_summary_zh") or "",
+        "content_type": enrichment.get("content_type"),
+        "key_claim": enrichment.get("key_claim") or "",
+        "stance": enrichment.get("stance"),
         "tickers": tickers,
         "sectors": _string_list(enrichment.get("sectors")),
         "events": _string_list(enrichment.get("events")),
+        "persona_username": enrichment.get("persona_username"),
+        "source_author_username": enrichment.get("source_author_username"),
+        "source_kind": enrichment.get("source_kind"),
+        "source_tweet_id": enrichment.get("source_tweet_id"),
+        "source_url": enrichment.get("source_url"),
+        "article_id": enrichment.get("article_id"),
+        "article_title": enrichment.get("article_title"),
         "enriched_at": enrichment.get("enriched_at"),
         "enriched_model": enrichment.get("enriched_model"),
     }
@@ -126,23 +144,30 @@ def _metadata_for_tweet(tweet: dict[str, Any]) -> dict[str, Any]:
 
 def _content_for_tweet(tweet: dict[str, Any], metadata: dict[str, Any]) -> str:
     author = tweet.get("author_username") or "unknown"
+    source_author = metadata.get("source_author_username")
+    persona = metadata.get("persona_username")
     original = (tweet.get("text") or "").strip()
     quoted = (tweet.get("quoted_tweet_text") or "").strip()
-    summary = metadata.get("content_summary_zh") or "N/A"
+    summary = metadata.get("content_summary_zh") or metadata.get("key_claim") or "N/A"
 
     parts = [
         f"Author: @{author}",
         f"Date: {tweet.get('created_at') or 'N/A'}",
         f"Tweet type: {tweet.get('tweet_type') or 'N/A'}",
         f"Quality: {metadata.get('quality') or 'N/A'}",
+        f"Content type: {metadata.get('content_type') or 'N/A'}",
         f"Tickers: {_join(metadata.get('tickers') or [])}",
         f"Sectors: {_join(metadata.get('sectors') or [])}",
         f"Events: {_join(metadata.get('events') or [])}",
         f"Summary: {summary}",
-        "",
-        "Original tweet:",
-        original,
     ]
+    if persona:
+        parts.append(f"Persona: @{persona}")
+    if source_author and source_author != author:
+        parts.append(f"Source author: @{source_author}")
+    if metadata.get("article_title"):
+        parts.append(f"Article title: {metadata.get('article_title')}")
+    parts.extend(["", "Original tweet:", original])
     if quoted:
         parts.extend(["", "Quoted tweet:", quoted])
     return "\n".join(parts).strip()
