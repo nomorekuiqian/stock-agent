@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 interface QuotaInfo {
   allowed: boolean;
@@ -33,9 +34,18 @@ export default function ChatInput({
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isComposingRef = useRef(false);
+  const { createCheckout, isCheckoutLoading } = useSubscription();
 
   const hasValue = value.trim().length > 0;
   const quotaExhausted = quota && !quota.unlimited && !quota.allowed;
+
+  const handleUpgrade = useCallback(async () => {
+    // Stay on /research after Stripe success so the user lands back in the
+    // place where they hit the cap. createCheckout falls back to the current
+    // path automatically if we pass undefined, but being explicit makes the
+    // intent obvious.
+    await createCheckout('max', '/research');
+  }, [createCheckout]);
 
   useEffect(() => {
     if (autoFocus && textareaRef.current) {
@@ -92,15 +102,26 @@ export default function ChatInput({
                 升级 Max 解锁无限提问、AI 深度个股分析等全部功能
               </p>
             </div>
-            <a
-              href="/pricing"
-              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            <button
+              type="button"
+              onClick={handleUpgrade}
+              disabled={isCheckoutLoading}
+              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              升级 Max
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </a>
+              {isCheckoutLoading ? (
+                <>
+                  <span className="w-3.5 h-3.5 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+                  跳转中…
+                </>
+              ) : (
+                <>
+                  升级 Max
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

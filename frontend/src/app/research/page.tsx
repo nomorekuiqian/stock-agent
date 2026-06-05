@@ -50,7 +50,6 @@ const CONVERSATIONS_PAGE_SIZE = 20;
 const CONVERSATIONS_STALE_TIME_MS = 10 * 60 * 1000;
 const CONVERSATIONS_GC_TIME_MS = 60 * 60 * 1000;
 const CONVERSATIONS_STORAGE_MAX_AGE_MS = 60 * 60 * 1000;
-const MAX_QUOTA = { allowed: true, used: 0, limit: 0, remaining: 0, unlimited: true };
 const SEND_RUNTIME_HISTORY = process.env.NEXT_PUBLIC_AGENT_RUNTIME_SEND_HISTORY !== 'false';
 
 type ApiHistoryMessage = { role: 'user' | 'assistant'; content: string };
@@ -304,7 +303,15 @@ function ScreenerContent() {
     !!conversationsQuery.data || !shouldLoadConversations || !conversationsQuery.isLoading;
   const hasMoreConversations = !!conversationsQuery.hasNextPage;
   const loadingMoreConversations = conversationsQuery.isFetchingNextPage;
-  const effectiveQuota = isMax ? MAX_QUOTA : quota;
+  // Drive the quota indicator from the backend response, not from `isMax`.
+  // In local dev `NEXT_PUBLIC_ENABLE_PAYWALL=false` flips `isMax` to true for
+  // every user (so they can exercise Max-only features), but the backend
+  // `/api/research/quota` is the source of truth for the 2/day cap on free
+  // accounts. Trusting the backend here keeps the displayed counter and the
+  // disabled-input gate aligned with what the agent endpoints actually enforce.
+  // The same quota is shared between research and KOL chat — see
+  // backend/app/features/quota/service.py + kol_research router.
+  const effectiveQuota = quota;
 
   useEffect(() => {
     latestStateRef.current = state;
@@ -598,15 +605,15 @@ function ScreenerContent() {
   }, [conversationsQuery, hasMoreConversations, loadingMoreConversations]);
 
   // Fetch quota on mount and when messages change. Wait for auth/subscription
-  // hydration so a paid Max user is not briefly rendered with anonymous/IP quota.
+  // hydration so a paid Max user is not briefly rendered with anonymous/IP
+  // quota. Always fetch (even when `isMax` is true) because in local dev
+  // `PAYWALL_ENABLED=false` makes everyone look like Max client-side, while
+  // the backend still enforces 2/day on free accounts. Backend returns
+  // `unlimited: true` for real Max users, which keeps the counter hidden.
   useEffect(() => {
     if (authLoading || subLoading) return;
-    if (isMax) return;
 
     let cancelled = false;
-    Promise.resolve().then(() => {
-      if (!cancelled) setQuota(null);
-    });
     api.research.quota({ requiredAuth: !!userId }).then(q => {
       if (!cancelled && q.success) setQuota(q);
     }).catch(() => {
@@ -615,7 +622,7 @@ function ScreenerContent() {
       }
     });
     return () => { cancelled = true; };
-  }, [state.messages.length, authLoading, subLoading, isMax, userId]);
+  }, [state.messages.length, authLoading, subLoading, userId]);
 
   // Reset scroll position when transitioning from welcome to chat
   useEffect(() => {
