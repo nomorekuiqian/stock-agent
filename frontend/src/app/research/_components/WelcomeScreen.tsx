@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowUpRight, ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 import ChatInput from './ChatInput';
 import PersonaSelector, { type AgentKind } from './PersonaSelector';
 
@@ -271,18 +271,11 @@ interface PersonaDescriptor {
   displayName: string;
   tagline: string[];
   quotes: PersonaQuote[];
-  starters: PersonaStarter[];
 }
 
 interface PersonaQuote {
   label: string;
   text: string;
-}
-
-interface PersonaStarter {
-  title: string;
-  displayPrompt: string;
-  prompt: string;
 }
 
 const PERSONAS: Record<string, PersonaDescriptor> = {
@@ -305,38 +298,6 @@ const PERSONAS: Record<string, PersonaDescriptor> = {
       {
         label: '风控观',
         text: '没有研究支撑的信仰，只有 FOMO 的心和 all in 的账户。',
-      },
-    ],
-    starters: [
-      {
-        title: '个股诊断',
-        displayPrompt: 'NVDA 还能买吗？',
-        prompt: 'NVDA 还能买吗？',
-      },
-      {
-        title: 'AI 算力链',
-        displayPrompt: 'AI 现在看什么？',
-        prompt: 'AI 现在看什么？',
-      },
-      {
-        title: '宏观流动性',
-        displayPrompt: '大盘现在危险吗？',
-        prompt: '大盘现在危险吗？',
-      },
-      {
-        title: '财报验证',
-        displayPrompt: '财报算利好吗？',
-        prompt: '财报算利好吗？',
-      },
-      {
-        title: '加密金融',
-        displayPrompt: '加密股还能追吗？',
-        prompt: '加密股还能追吗？',
-      },
-      {
-        title: '持仓证伪',
-        displayPrompt: '我该继续拿吗？',
-        prompt: '我拿着 NVDA，该继续拿吗？',
       },
     ],
   },
@@ -885,15 +846,15 @@ function PersonaIntro({ persona, onSelect }: PersonaIntroProps) {
       </div>
 
       {persona.quotes.length > 0 && (
-        <div className="mt-5 w-full max-w-3xl space-y-2.5 text-left sm:mt-7 sm:space-y-3">
+        <div className="mt-4 w-full max-w-3xl space-y-2 text-left sm:mt-7 sm:space-y-3">
           {persona.quotes.map((quote, i) => (
             <blockquote
               key={quote.label}
               className={`border-l border-primary/35 pl-4 italic leading-relaxed animate-fade-in-up ${
                 i === 0
                   ? 'font-editorial text-lg text-foreground sm:text-xl'
-                  : 'text-sm text-foreground/85 sm:text-base'
-              }`}
+                  : 'text-sm text-muted-foreground sm:text-base'
+              } ${i > 1 ? 'hidden sm:block' : ''}`}
               style={{ animationDelay: `${300 + i * 55}ms` }}
             >
               <span aria-hidden className="text-primary/80">“</span>
@@ -904,25 +865,398 @@ function PersonaIntro({ persona, onSelect }: PersonaIntroProps) {
         </div>
       )}
 
-      <div className="mt-6 grid w-full max-w-4xl grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {persona.starters.map((starter, i) => (
-          <button
-            key={starter.title}
-            type="button"
-            onClick={() => onSelect(starter.prompt)}
-            className="group rounded-lg border border-border/50 bg-card/70 px-3.5 py-2.5 text-left transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.04] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 animate-fade-in-up cursor-pointer"
-            style={{ animationDelay: `${540 + i * 60}ms` }}
+      <PersonaLensActions persona={persona} onSelect={onSelect} />
+    </div>
+  );
+}
+
+function PersonaLensActions({
+  persona,
+  onSelect,
+}: {
+  persona: PersonaDescriptor;
+  onSelect: (value: string) => void;
+}) {
+  const name = persona.displayName;
+
+  return (
+    <section
+      aria-label={`${name} Lens 快速提问`}
+      className="mt-4 w-full max-w-4xl text-left animate-fade-in-up sm:mt-6"
+      style={{ animationDelay: '540ms' }}
+    >
+      <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/45 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_80%_at_15%_0%,rgba(16,185,129,0.10),transparent_62%)]"
+        />
+        <div className="relative flex items-center justify-between gap-4 border-b border-border/40 px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium tracking-[0.15em] text-primary">
+                qinbafrank LENS
+              </span>
+              <span aria-hidden className="h-1 w-1 rounded-full bg-border" />
+              <span className="text-sm font-medium text-muted-foreground">
+                股票 · 市场 · 行业
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative grid items-start gap-3 p-3 sm:p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.45fr)]">
+          <PersonaLensCard
+            title="他怎么看这只股票"
+            description="Ticker 或公司名"
+            glyph="candles"
+            accent={ACCENTS.emerald}
+            emphasis
           >
-            <span className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
-              {starter.title}
-              <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden />
+            <PersonaTickerEntry
+              accent={ACCENTS.emerald}
+              onSubmit={(ticker) => {
+                const symbol = normalizePersonaTicker(ticker);
+                onSelect(`按 ${name} 的框架分析 ${symbol}：他怎么看这只股票、过去是否直接提到、核心逻辑是什么、现在有哪些数据支持或证伪？`);
+              }}
+            />
+          </PersonaLensCard>
+
+          <PersonaLensCard
+            title="他怎么看最近的市场"
+            description="四个常见市场问题"
+            glyph="gauge"
+            accent={ACCENTS.emerald}
+            className="lg:col-start-2 lg:row-span-2 lg:row-start-1"
+          >
+            <PersonaMarketChoices
+              options={[
+                {
+                  title: '大盘风险',
+                  desc: '调整级别 / 防守信号',
+                  prompt: `按 ${name} 的框架看最近美股市场：现在是健康调整、风险释放还是需要防守？请结合他的历史调整分级和当前市场数据。`,
+                },
+                {
+                  title: '流动性',
+                  desc: '利率 / 美债 / 风险资产',
+                  prompt: `按 ${name} 的框架看最近市场：流动性、利率和美债现在对风险资产是顺风还是逆风？`,
+                },
+                {
+                  title: '行情主线',
+                  desc: 'AI / 财报 / 宏观权重',
+                  prompt: `按 ${name} 的框架看最近市场：当前行情的最高权重驱动是什么，AI、财报和宏观变量谁更重要？`,
+                },
+                {
+                  title: '财报季',
+                  desc: '业绩验证 / 估值重定价',
+                  prompt: `按 ${name} 的框架看最近财报季：市场更在意业绩本身，还是未来预期和估值重定价？`,
+                },
+              ]}
+              accent={ACCENTS.emerald}
+              freeInputPlaceholder="或者输入 CPI / 降息 / VIX"
+              onSubmit={(value) => {
+                const trimmed = value.trim();
+                if (!trimmed) return;
+                if (trimmed.startsWith(`按 ${name}`)) {
+                  onSelect(trimmed);
+                  return;
+                }
+                onSelect(`按 ${name} 的框架看最近市场里的「${trimmed}」：这个变量现在权重有多高，会如何影响风险资产？`);
+              }}
+            />
+          </PersonaLensCard>
+
+          <PersonaLensCard
+            title="他怎么看这个行业产业"
+            description="行业、产业链或主题"
+            glyph="funnel"
+            accent={ACCENTS.emerald}
+            className="lg:col-start-1 lg:row-start-2"
+          >
+            <PersonaTextEntry
+              placeholder="AI 算力 / 半导体 / 加密金融"
+              accent={ACCENTS.emerald}
+              onSubmit={(industry) => {
+                const topic = industry.trim();
+                if (!topic) return;
+                onSelect(`按 ${name} 的框架分析「${topic}」这个行业/产业链：他过去怎么看、核心驱动是什么、现在该关注哪些公司和风险信号？`);
+              }}
+            />
+          </PersonaLensCard>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PersonaLensCard({
+  title,
+  description,
+  glyph,
+  accent,
+  emphasis = false,
+  className = '',
+  children,
+}: {
+  title: string;
+  description: string;
+  glyph: GlyphName;
+  accent: AccentClasses;
+  emphasis?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <article
+      className={`group relative overflow-hidden rounded-xl border border-border/45 bg-background/35 transition-[border-color,background-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-background/50 active:scale-[0.99] ${
+        emphasis ? 'p-4 sm:p-5' : 'p-4'
+      } ${className}`}
+    >
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${accent.glow}`}
+      />
+      <div className="relative text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-card/70 transition-colors group-hover:border-primary/30 ${accent.textActive}`}
+            >
+              <CardGlyph
+                name={glyph}
+                className="h-4 w-4"
+              />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold leading-snug text-foreground">
+                {title}
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {description}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className={`relative ${emphasis ? 'mt-5' : 'mt-4'}`}>
+        {children}
+      </div>
+    </article>
+  );
+}
+
+function PersonaMarketChoices({
+  options,
+  accent,
+  freeInputPlaceholder,
+  onSubmit,
+}: {
+  options: CardOption[];
+  accent: AccentClasses;
+  freeInputPlaceholder: string;
+  onSubmit: (value: string) => void;
+}) {
+  const [freeText, setFreeText] = useState('');
+  const isComposingRef = useRef(false);
+
+  const submitFreeText = () => {
+    const trimmed = freeText.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    setFreeText('');
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {options.map((opt, i) => (
+          <button
+            key={opt.title}
+            type="button"
+            onClick={() => onSubmit(opt.prompt)}
+            className={`group/option flex min-h-16 items-start gap-3 rounded-lg border border-border/45 bg-card/45 px-3.5 py-3 text-left transition-[border-color,background-color,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/70 active:scale-[0.99] focus:outline-none focus-visible:ring-2 ${accent.ring} cursor-pointer`}
+          >
+            <span className={`mt-0.5 shrink-0 text-xs font-medium leading-normal ${accent.textActive}`}>
+              {String(i + 1).padStart(2, '0')}
             </span>
-            <span className="mt-1 block text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-primary">
-              {starter.displayPrompt}
+            <span className="min-w-0">
+              <span className="block text-sm font-medium leading-snug text-foreground">
+                {opt.title}
+              </span>
+              {opt.desc ? (
+                <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
+                  {opt.desc}
+                </span>
+              ) : null}
             </span>
           </button>
         ))}
       </div>
+
+      <PersonaFreeTextInput
+        value={freeText}
+        onChange={setFreeText}
+        onSubmit={submitFreeText}
+        placeholder={freeInputPlaceholder}
+        ariaLabel="自定义市场变量"
+        accent={accent}
+        isComposingRef={isComposingRef}
+      />
     </div>
   );
+}
+
+function PersonaTickerEntry({
+  accent,
+  onSubmit,
+}: {
+  accent: AccentClasses;
+  onSubmit: (ticker: string) => void;
+}) {
+  const [value, setValue] = useState('');
+  const isComposingRef = useRef(false);
+
+  const submit = () => {
+    const trimmed = normalizePersonaTicker(value);
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    setValue('');
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposingRef.current || e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  return (
+    <PersonaFreeTextInput
+      value={value}
+      onChange={setValue}
+      onSubmit={submit}
+      onKeyDown={handleKeyDown}
+      placeholder="NVDA / 英伟达 / PLTR"
+      ariaLabel="输入股票代码"
+      accent={accent}
+      isComposingRef={isComposingRef}
+      inputClassName="tracking-wide"
+    />
+  );
+}
+
+function PersonaTextEntry({
+  placeholder,
+  accent,
+  onSubmit,
+}: {
+  placeholder: string;
+  accent: AccentClasses;
+  onSubmit: (value: string) => void;
+}) {
+  const [value, setValue] = useState('');
+  const isComposingRef = useRef(false);
+
+  const submit = () => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    setValue('');
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposingRef.current || e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  return (
+    <PersonaFreeTextInput
+      value={value}
+      onChange={setValue}
+      onSubmit={submit}
+      onKeyDown={handleKeyDown}
+      placeholder={placeholder}
+      ariaLabel="输入行业或产业链"
+      accent={accent}
+      isComposingRef={isComposingRef}
+    />
+  );
+}
+
+function PersonaFreeTextInput({
+  value,
+  onChange,
+  onSubmit,
+  onKeyDown,
+  placeholder,
+  ariaLabel,
+  accent,
+  isComposingRef,
+  inputClassName = '',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  placeholder: string;
+  ariaLabel: string;
+  accent: AccentClasses;
+  isComposingRef: { current: boolean };
+  inputClassName?: string;
+}) {
+  return (
+    <div className="relative">
+      <div
+        className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${accent.textActive}`}
+        aria-hidden
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (onKeyDown) {
+            onKeyDown(e);
+            return;
+          }
+          if (isComposingRef.current || e.nativeEvent.isComposing) return;
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        onCompositionStart={() => { isComposingRef.current = true; }}
+        onCompositionEnd={() => { isComposingRef.current = false; }}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        className={`h-12 w-full rounded-xl border border-border/50 bg-card/55 py-3 pl-11 pr-14 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none ${accent.borderActiveFocus} focus:ring-1 ${accent.ringFocus} transition-colors duration-200 ${inputClassName}`}
+      />
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!value.trim()}
+        aria-label="开始分析"
+        className={`absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg transition-colors duration-200 ${
+          value.trim()
+            ? `${accent.textActive} ${accent.bgTintHover} cursor-pointer`
+            : 'text-muted-foreground opacity-50 cursor-not-allowed'
+        }`}
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M5 12h14M13 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function normalizePersonaTicker(value: string): string {
+  return value.trim().replace(/^\$/, '').toUpperCase();
 }

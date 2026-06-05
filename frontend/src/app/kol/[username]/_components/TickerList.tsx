@@ -37,21 +37,21 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
     <div className="flex h-full min-h-0 flex-col">
       {/* Search */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground transition-colors" />
         <input
           id="kol-ticker-search"
           name="kol-ticker-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜 NVDA / 英伟达"
-          className="h-10 w-full rounded-md border border-border/60 bg-input/30 py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground transition focus:border-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="h-11 w-full rounded-md border border-border/60 bg-input/30 py-2 pl-9 pr-8 text-sm font-medium text-foreground placeholder:text-muted-foreground transition duration-200 ease-out focus:border-primary/45 focus:bg-primary/[0.035] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
         />
         {query ? (
           <button
             type="button"
             onClick={() => setQuery('')}
             aria-label="清空搜索"
-            className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground transition hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground transition duration-200 ease-out hover:bg-muted/70 hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
           >
             <X className="h-3 w-3" />
           </button>
@@ -60,10 +60,12 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
 
       {/* Meta line */}
       <div className="mt-3 flex items-baseline justify-between">
-        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          {filtered.length} / {tickers.length} 标的
+        <span className="text-sm font-medium leading-snug text-muted-foreground">
+          <span className="font-data tabular-nums text-foreground">{filtered.length}</span>
+          <span className="mx-1 text-muted-foreground">/</span>
+          <span className="font-data tabular-nums">{tickers.length}</span> 标的
         </span>
-        <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="text-sm font-medium leading-snug text-muted-foreground">
           按提及频次
         </span>
       </div>
@@ -86,9 +88,9 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                 <button
                   type="button"
                   onClick={() => onSelect(t.ticker)}
-                  className={`group/row relative block w-full rounded-md border px-3 py-3 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+                  className={`group/row relative block w-full overflow-hidden rounded-md border px-3 py-3 text-left transition duration-200 ease-out motion-safe:hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
                     active
-                      ? 'border-primary/30 bg-primary/[0.06]'
+                      ? 'border-primary/40 bg-primary/[0.075] shadow-[0_0_0_1px_rgba(16,185,129,0.08)]'
                       : 'border-border/30 bg-transparent hover:border-border/60 hover:bg-muted/40'
                   }`}
                 >
@@ -99,32 +101,39 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                     }`}
                   />
                   <div className="flex items-baseline justify-between gap-2">
-                    <span
-                      className={`font-data text-sm font-medium tabular-nums ${
-                        active ? 'text-primary' : 'text-foreground'
-                      }`}
-                    >
-                      ${t.ticker}
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span
+                        className={`font-data text-sm font-semibold tabular-nums ${
+                          active ? 'text-primary' : 'text-foreground'
+                        }`}
+                      >
+                        ${t.ticker}
+                      </span>
+                      {active ? (
+                        <span className="rounded-sm border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                          当前
+                        </span>
+                      ) : null}
                     </span>
                     <PriceMini price={t.price} change={t.daily_change} />
                   </div>
                   {/* Thesis 1-line — matches chain mini card for visual consistency */}
                   {t.summary?.thesis ? (
-                    <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
+                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                       {t.summary.thesis}
                     </p>
                   ) : null}
                   {/* Mention bar */}
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-muted/60">
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/60">
                       <div
-                        className={`h-full transition-all ${
+                        className={`h-full transition-all duration-500 ease-out ${
                           active ? 'bg-primary' : 'bg-primary/50 group-hover/row:bg-primary/70'
                         }`}
                         style={{ width: `${widthPct}%` }}
                       />
                     </div>
-                    <span className="shrink-0 font-data text-micro font-medium tabular-nums text-muted-foreground">
+                    <span className="shrink-0 font-data text-xs font-medium tabular-nums text-muted-foreground">
                       {t.count}
                     </span>
                   </div>
@@ -141,7 +150,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
 function PriceMini({ price, change }: { price: number | null; change: number | null }) {
   if (price == null) {
     return (
-      <span className="text-xs font-medium text-muted-foreground">
+      <span className="text-sm font-medium text-muted-foreground">
         无报价
       </span>
     );
@@ -156,10 +165,10 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
       ? 'text-primary'
       : 'text-destructive';
   return (
-    <span className={`flex items-center gap-1 font-data text-xs tabular-nums ${color}`}>
+    <span className={`flex items-center gap-1 font-data text-xs font-medium tabular-nums ${color}`}>
       {price.toFixed(2)}
       {hasChange && ChangeIcon ? (
-        <span className="inline-flex items-center gap-0.5">
+        <span className="inline-flex items-center gap-0.5 transition-transform duration-200 group-hover/row:-translate-y-px">
           <ChangeIcon className="h-2.5 w-2.5" />
           {Math.abs(change!).toFixed(2)}%
         </span>

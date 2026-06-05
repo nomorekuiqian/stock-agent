@@ -35,7 +35,7 @@ interface Props {
 }
 
 interface NavItem {
-  key: "overview" | "latest" | "sectors" | "macro" | "history" | "stocks" | "chat";
+  key: "overview" | "latest" | "sectors" | "highlights" | "macro" | "history" | "stocks" | "chat";
   label: string;
   icon: LucideIcon;
   kpi: (k: KpiSet, displayName: string) => string;
@@ -106,10 +106,17 @@ const FRANK_ITEMS: NavItem[] = [
   },
   {
     key: "sectors",
-    label: "过往精华",
+    label: "板块观点",
+    icon: Layers,
+    kpi: () => "5 个板块观点",
+    href: (u) => `/kol/${u}/sectors`,
+  },
+  {
+    key: "highlights",
+    label: "精华",
     icon: BookOpenText,
     kpi: () => "7 个主题完整归档",
-    href: (u) => `/kol/${u}/sectors`,
+    href: (u) => `/kol/${u}/highlights`,
   },
   {
     key: "stocks",
@@ -208,7 +215,7 @@ export default function SubNav({
         <ul
           className={`
             grid auto-cols-[minmax(5.75rem,1fr)] grid-flow-col overflow-x-auto divide-x divide-border/40
-            md:auto-cols-auto md:grid-flow-row ${isFrank ? "md:grid-cols-5" : "md:grid-cols-6"}
+            md:auto-cols-auto md:grid-flow-row md:grid-cols-6
             lg:flex lg:overflow-visible lg:flex-col lg:divide-x-0 lg:divide-y lg:py-2
           `}
         >

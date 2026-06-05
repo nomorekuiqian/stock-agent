@@ -95,14 +95,14 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
         <div className="mt-1.5 space-y-1.5 border-t border-border/40 pt-1.5">
           {shown.map((ex) => (
             <div key={ex.id} className="space-y-0.5">
-              <p className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="font-data text-micro font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 {formatTweetTime(ex.ts)}
               </p>
               <p className="leading-snug text-foreground">{ex.summary || '(无摘要)'}</p>
             </div>
           ))}
           {more > 0 ? (
-            <p className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="font-data text-micro font-medium uppercase tracking-[0.14em] text-muted-foreground">
               +{more} 条
             </p>
           ) : null}

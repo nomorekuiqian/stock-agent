@@ -2,7 +2,7 @@
 
 import { use, Suspense } from 'react';
 
-import FrankHighlights from '../_components/FrankHighlights';
+import FrankSectorOpinions from '../_components/FrankSectorOpinions';
 import KolPanelHeader from '../_components/KolPanelHeader';
 import SectorExplorer from '../_components/SectorExplorer';
 
@@ -11,14 +11,26 @@ export default function SectorsPage({
   searchParams,
 }: {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ topic?: string }>;
+  searchParams: Promise<{ sector?: string; topic?: string }>;
 }) {
   const { username } = use(params);
   const query = use(searchParams);
   const isFrank = username.toLowerCase() === 'qinbafrank';
 
   if (isFrank) {
-    return <FrankHighlights username={username} initialTopicId={query.topic} />;
+    return (
+      <div className="pt-5 md:pt-7">
+        <KolPanelHeader
+          title="板块观点"
+          meta="核心判断 / 原观点逻辑 / 倒序时间线"
+        />
+        <FrankSectorOpinions
+          username={username}
+          initialSectorId={query.sector}
+          initialTopicId={query.topic}
+        />
+      </div>
+    );
   }
 
   return (

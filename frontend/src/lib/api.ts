@@ -1376,6 +1376,8 @@ export interface KolCockpitTopicsResponse {
 export interface KolCockpitFeedResponse {
   tweets: KolCockpitFeedItem[];
   total: number;
+  /** Raw ingested tweet count before the default low-quality-reply feed filter. */
+  raw_total?: number;
   has_more: boolean;
   offset: number;
   limit: number;

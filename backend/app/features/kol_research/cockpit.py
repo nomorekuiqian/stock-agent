@@ -344,6 +344,9 @@ def _slim_tweet(t: dict, tickers: list[str]) -> dict:
         "key_claim": key_claim,
         "topics": topics,
         "ticker_stances": ticker_stances,
+        "source_author_username": symbols.get("source_author_username"),
+        "source_kind": symbols.get("source_kind"),
+        "article_title": symbols.get("article_title"),
         # Raw reply target, kept on the slim so feed-time filters can classify
         # self-thread continuations vs replies-to-others.
         "in_reply_to_username": t.get("in_reply_to_username"),
@@ -536,7 +539,8 @@ def _pick_timeline_items(tweets: list[dict], ticker: str, limit: int) -> list[di
     """Select the most informative subset of mentions to render on the vertical
     timeline. Rules: keep tweets with a non-empty key_claim AND a non-trivial
     content_type. Always preserve the earliest + the latest. From the middle
-    pool, pick the top by like_count up to `limit`.
+    pool, pick the top by like_count up to `limit`. Return newest-first for
+    reading from the current view back to the historical origin.
     """
     eligible = [
         t for t in tweets
@@ -560,7 +564,7 @@ def _pick_timeline_items(tweets: list[dict], ticker: str, limit: int) -> list[di
         )
         keep_middle = middle[: max(0, limit - 2)]
         chosen = [earliest, *keep_middle, latest]
-        chosen.sort(key=lambda t: t.get("created_at") or "")
+    chosen.sort(key=lambda t: t.get("created_at") or "", reverse=True)
 
     out: list[dict] = []
     for t in chosen:
@@ -583,8 +587,8 @@ async def get_ticker_timeline(
     limit: int = 10,
 ) -> Optional[dict]:
     """Per-ticker vertical opinion timeline: ~10 hand-picked turning points
-    drawn from his enrichment-annotated mentions. Returns None if the ticker
-    isn't covered at all.
+    drawn from his enrichment-annotated mentions, newest-first. Returns None if
+    the ticker isn't covered at all.
     """
     detail = await get_ticker_tweets(username, ticker)
     if detail is None:
@@ -911,7 +915,8 @@ async def get_feed(
     Returns:
       {
         "tweets": [...slim feed items with sectors[] + reply_kind populated...],
-        "total": int,
+        "total": int,      # count after filters / default low-quality-reply removal
+        "raw_total": int,  # full ingested tweet count before feed visibility filters
         "has_more": bool,
         "offset": int,
         "limit": int,
@@ -919,6 +924,7 @@ async def get_feed(
     """
     index = await get_index(username)
     items: list[dict] = index.get("all_tweets") or []
+    raw_total = len(items)
 
     # Default: filter low-quality replies (short replies to others).
     # Long replies-to-others (>= _LONG_REPLY_MIN_LEN) are kept as substantive.
@@ -987,6 +993,7 @@ async def get_feed(
     return {
         "tweets": enriched,
         "total": total,
+        "raw_total": raw_total,
         "has_more": (offset + limit) < total,
         "offset": offset,
         "limit": limit,

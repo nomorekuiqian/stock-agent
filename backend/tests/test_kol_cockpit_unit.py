@@ -5,7 +5,7 @@ Tests the pure logic in `app.features.kol_research.cockpit`:
   - _classify_tweet_topics: enrichment -> topic node keys
   - _slim_tweet: surfaces enrichment fields onto the slim payload
   - _stance_for: per-ticker stance lookup from ticker_stances list
-  - _pick_timeline_items: earliest + top-likes + latest selection
+  - _pick_timeline_items: latest + top-likes + earliest selection, newest-first
   - _default_feed_visible: low-quality reply filter (shared by feed + topic tree)
 
 No network, no DB. All data constructed inline.
@@ -85,6 +85,9 @@ class TestSlimTweet:
                 "key_claim": "投资逻辑: AI 基建持续景气",
                 "sectors": ["AI_infra"],
                 "ticker_stances": [{"ticker": "NVDA", "stance": "bull"}],
+                "source_author_username": "168X_Fortune",
+                "source_kind": "interview_reference",
+                "article_title": "Frank interview",
             },
         }
         slim = _slim_tweet(raw, ["NVDA"])
@@ -92,6 +95,9 @@ class TestSlimTweet:
         assert slim["key_claim"] == "投资逻辑: AI 基建持续景气"
         assert slim["topics"] == ["industry/ai_infra"]
         assert slim["ticker_stances"] == [{"ticker": "NVDA", "stance": "bull"}]
+        assert slim["source_author_username"] == "168X_Fortune"
+        assert slim["source_kind"] == "interview_reference"
+        assert slim["article_title"] == "Frank interview"
         assert slim["tickers"] == ["NVDA"]
 
     def test_missing_symbols_degrades_safely(self):
@@ -191,8 +197,8 @@ class TestPickTimelineItems:
         items = _pick_timeline_items(tweets, "NVDA", limit=5)
         assert len(items) == 5
         ids = [i["id"] for i in items]
-        assert ids[0] == "0"  # earliest first
-        assert ids[-1] == "19"  # latest last
+        assert ids[0] == "19"  # latest first
+        assert ids[-1] == "0"  # earliest last
 
     def test_middle_picks_top_by_likes(self):
         # 6 tweets; limit 4 => earliest + top-2 by likes from middle + latest.
@@ -206,10 +212,10 @@ class TestPickTimelineItems:
         ]
         ids = [i["id"] for i in _pick_timeline_items(tweets, "NVDA", limit=4)]
         # earliest + 2 highest-likes (mid_hi1=99, mid_hi2=88) + latest,
-        # final list sorted ascending by date (mid_hi1 days_ago=7 before mid_hi2 days_ago=6).
-        assert ids == ["early", "mid_hi1", "mid_hi2", "late"]
+        # final list sorted descending by date (latest/current view first).
+        assert ids == ["late", "mid_hi2", "mid_hi1", "early"]
 
-    def test_output_sorted_ascending_by_date(self):
+    def test_output_sorted_descending_by_date(self):
         tweets = [
             self._make_tweet(id_="late", days_ago=1, likes=10),
             self._make_tweet(id_="mid", days_ago=5, likes=5),
@@ -217,7 +223,7 @@ class TestPickTimelineItems:
         ]
         items = _pick_timeline_items(tweets, "NVDA", limit=10)
         dates = [i["created_at"] for i in items]
-        assert dates == sorted(dates)
+        assert dates == sorted(dates, reverse=True)
 
     def test_attaches_stance_for_target_ticker(self):
         tweets = [

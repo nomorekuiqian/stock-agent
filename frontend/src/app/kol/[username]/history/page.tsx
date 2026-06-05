@@ -6,5 +6,5 @@ export default async function HistoryPage({
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
-  redirect(`/kol/${username}/sectors?topic=market-rules`);
+  redirect(`/kol/${username}/highlights?topic=market-rules`);
 }

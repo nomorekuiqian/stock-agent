@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 
 import { useKolTickerDetail } from "@/hooks/queries/use-kol-data";
 import type { KolCockpitTweet } from "@/lib/api";
@@ -11,7 +9,6 @@ import TweetFeedCard from "./TweetFeedCard";
 import TickerNarrative from "./TickerNarrative";
 import TickerOpinionTimeline from "./TickerOpinionTimeline";
 import { IndustryChainSkeleton } from "./Skeletons";
-import { buildKolAgentHref, getTickerKolAgentQuestion } from "./kolAgentLinks";
 
 interface Props {
   username: string;
@@ -19,6 +16,8 @@ interface Props {
 }
 
 type ExcerptTab = "latest" | "top";
+
+const SECTION_LABEL = "text-sm font-medium leading-snug tracking-wide text-muted-foreground";
 
 export default function TickerDetail({ username, ticker }: Props) {
   const {
@@ -80,11 +79,6 @@ export default function TickerDetail({ username, ticker }: Props) {
     0,
     8,
   );
-  const chatHref = buildKolAgentHref(
-    username,
-    getTickerKolAgentQuestion(username, detail.ticker),
-    { symbol: detail.ticker },
-  );
 
   return (
     <div className="flex h-full flex-col">
@@ -93,11 +87,11 @@ export default function TickerDetail({ username, ticker }: Props) {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                提及 {detail.count} 次
+              <p className={SECTION_LABEL}>
+                提及 <span className="font-data tabular-nums text-foreground">{detail.count}</span> 次
               </p>
               {detail.summary?.coverage ? (
-                <span className="rounded-sm border border-border/60 bg-card/50 px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="rounded-sm border border-primary/25 bg-primary/10 px-2 py-1 text-sm font-medium text-primary">
                   {detail.summary.coverage === "high"
                     ? "深度覆盖"
                     : detail.summary.coverage === "medium"
@@ -106,22 +100,15 @@ export default function TickerDetail({ username, ticker }: Props) {
                 </span>
               ) : null}
             </div>
-            <h2 className="mt-1 font-editorial text-3xl tracking-tight text-foreground md:text-4xl">
+            <h2 className="mt-1 font-editorial text-3xl leading-tight text-foreground md:text-4xl">
               ${detail.ticker}
             </h2>
             {detail.market.name ? (
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 max-w-[44ch] text-base leading-relaxed text-muted-foreground">
                 {detail.market.name}
               </p>
             ) : null}
           </div>
-          <Link
-            href={chatHref}
-            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2 text-sm font-medium text-primary transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            追问这个标的
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
         </div>
 
         {/* Coverage metadata — kept lean: 次数 + 时间跨度 */}
@@ -144,7 +131,7 @@ export default function TickerDetail({ username, ticker }: Props) {
           ) : (
             <section className="mt-6 border-t border-border/40 pt-5">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                <p className={SECTION_LABEL}>
                   观点框架
                 </p>
                 <span className="h-px flex-1 bg-border/40" aria-hidden />
@@ -165,7 +152,7 @@ export default function TickerDetail({ username, ticker }: Props) {
         >
           <section className="mt-6 flex min-h-0 flex-1 flex-col border-t border-border/40 pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              <p className={SECTION_LABEL}>
                 观点时间线
               </p>
               <span className="h-px flex-1 bg-border/40" aria-hidden />
@@ -184,7 +171,7 @@ export default function TickerDetail({ username, ticker }: Props) {
           private / unsupported). */}
       {detail.priceable && detail.price_series.length > 0 ? (
         <div className="border-b border-border/40 py-6">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <p className={`mb-3 ${SECTION_LABEL}`}>
             价格 × 提及时间线
           </p>
           <PriceTimelineChart
@@ -197,7 +184,7 @@ export default function TickerDetail({ username, ticker }: Props) {
       {/* Tweet excerpts */}
       <div className="pt-6">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <p className={SECTION_LABEL}>
             原文摘录
           </p>
           <div className="flex items-center gap-1 rounded-md border border-border/60 p-0.5">
@@ -252,10 +239,10 @@ function toFeedItem(t: KolCockpitTweet) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+      <p className={SECTION_LABEL}>
         {label}
       </p>
-      <p className="mt-1 font-data text-sm text-foreground tabular-nums">
+      <p className="mt-1 font-data text-base font-semibold leading-snug text-foreground tabular-nums">
         {value}
       </p>
     </div>
@@ -275,10 +262,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-8 rounded-sm px-2.5 py-1 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+      className={`min-h-9 rounded-sm px-3 py-1 text-sm font-medium transition duration-200 ease-out motion-safe:hover:-translate-y-px active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
         active
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:text-foreground"
+          ? "border border-primary/25 bg-primary/10 text-primary"
+          : "border border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       }`}
     >
       {children}

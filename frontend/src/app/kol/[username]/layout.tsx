@@ -77,14 +77,18 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
 
   const profile = profileQ.data;
   const avatarUrl = `/kol-avatars/${profile.persona.username}.png`;
-  const heroDescription = profile.core.bio || profile.persona.description;
+  const heroDescription = isWideWorkspace
+    ? '基于 @qinbafrank 公开内容整理的专属投研页：框架、个股、原文证据和追问入口放在一起。'
+    : profile.core.bio || profile.persona.description;
   const tickerCount = tickersQ.data.tickers.length;
-  const totalTweets = feedQ.data.total ?? null;
+  const totalTweets = feedQ.data.raw_total ?? feedQ.data.total ?? null;
   const latestAt = feedQ.data.tweets[0]?.created_at ?? null;
   const lastUpdated = relativeTimeCN(latestAt);
   const sectorCount =
-    sectorsQ.data?.sectors.filter((sector) => sector.layer === 'sector').length ??
-    (username.toLowerCase() === 'qinbafrank' ? 4 : profile.sectors.length);
+    username.toLowerCase() === 'qinbafrank'
+      ? 5
+      : sectorsQ.data?.sectors.filter((sector) => sector.layer === 'sector').length ??
+        profile.sectors.length;
 
   return (
     <div className="min-h-screen bg-background">

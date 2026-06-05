@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useKolCockpitTickers } from '@/hooks/queries/use-kol-data';
 import TickerList from './TickerList';
 import TickerDetail from './TickerDetail';
-import { FRANK_COMPANY_RECOMMENDATIONS } from './frankContentData';
 
 interface Props {
   username: string;
@@ -18,20 +17,13 @@ export default function StockExplorer({ username }: Props) {
 
   const { data, isError } = useKolCockpitTickers(username);
   const tickers = data?.tickers ?? null;
-  const isFrank = username.toLowerCase() === 'qinbafrank';
-  const preferredTicker =
-    isFrank && tickers
-      ? FRANK_COMPANY_RECOMMENDATIONS.find((company) =>
-          tickers.some((ticker) => ticker.ticker === company.ticker),
-        )?.ticker ?? null
-      : null;
 
   // Selected derives from URL + data at render time. URL is source of truth;
   // pickTicker updates URL and React re-derives — no setState-in-effect needed.
   const selected =
     tickers && urlTicker && tickers.some((t) => t.ticker === urlTicker)
       ? urlTicker
-      : preferredTicker ?? tickers?.[0]?.ticker ?? null;
+      : tickers?.[0]?.ticker ?? null;
 
   // Keep URL in sync with selection (shallow — no scroll/refetch).
   function pickTicker(t: string) {
@@ -64,7 +56,7 @@ export default function StockExplorer({ username }: Props) {
     <div className="py-5 md:py-6 lg:py-7">
       <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8">
         {/* Left rail */}
-        <aside className="h-72 min-h-0 overflow-hidden sm:h-96 lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-7rem)]">
+        <aside className="stock-motion-rail h-72 min-h-0 overflow-hidden sm:h-96 lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-7rem)]">
           <TickerList
             tickers={tickers}
             selected={selected}
@@ -73,7 +65,7 @@ export default function StockExplorer({ username }: Props) {
         </aside>
 
         {/* Right detail */}
-        <div className="min-w-0">
+        <div key={selected ?? 'empty'} className="stock-motion-detail min-w-0">
           <TickerDetail username={username} ticker={selected} />
         </div>
       </div>

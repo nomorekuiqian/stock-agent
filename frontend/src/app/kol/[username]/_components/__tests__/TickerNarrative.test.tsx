@@ -5,6 +5,14 @@ import { render, screen, cleanup } from '@testing-library/react';
 import TickerNarrative from '../TickerNarrative';
 import type { KolTickerSummary } from '@/lib/api';
 
+function expectTextContent(text: string) {
+  expect(
+    screen.getAllByText((_, node) =>
+      node?.textContent?.replace(/\s+/g, ' ').trim() === text
+    ).length,
+  ).toBeGreaterThan(0);
+}
+
 function makeSummary(overrides: Partial<KolTickerSummary> = {}): KolTickerSummary {
   return {
     stance: 'bull',
@@ -34,14 +42,14 @@ describe('TickerNarrative', () => {
 
   it('renders 01 定位 with position, thesis and key_logic', () => {
     render(<TickerNarrative summary={makeSummary()} />);
-    expect(screen.getByText('01 · 在他心目中的定位')).toBeInTheDocument();
+    expectTextContent('01 · 在他心目中的定位');
     expect(screen.getByText('AI 时代综合国防承包商')).toBeInTheDocument();
     expect(screen.getByText('从国防预算分得更多份额')).toBeInTheDocument();
   });
 
   it('combines 机会 (green) and 风险 (red) into one 02 block', () => {
     render(<TickerNarrative summary={makeSummary()} />);
-    expect(screen.getByText('02 · 机会 / 风险')).toBeInTheDocument();
+    expectTextContent('02 · 机会 / 风险');
     expect(screen.getByText('机会')).toBeInTheDocument();
     expect(screen.getByText('风险')).toBeInTheDocument();
     // joined opportunity text
@@ -59,13 +67,13 @@ describe('TickerNarrative', () => {
 
   it('renders 03 需要关注的数据 with prose when <=4 items', () => {
     render(<TickerNarrative summary={makeSummary({ signals_watched: ['a', 'b'] })} />);
-    expect(screen.getByText('03 · 需要关注的数据')).toBeInTheDocument();
+    expectTextContent('03 · 需要关注的数据');
     expect(screen.getByText(/a；b。/)).toBeInTheDocument();
   });
 
   it('renders 03 as a bullet list when >4 items', () => {
     render(<TickerNarrative summary={makeSummary({ signals_watched: ['a', 'b', 'c', 'd', 'e'] })} />);
-    expect(screen.getByText('03 · 需要关注的数据')).toBeInTheDocument();
+    expectTextContent('03 · 需要关注的数据');
     // Each item rendered as a list element
     expect(screen.getByText('a')).toBeInTheDocument();
     expect(screen.getByText('e')).toBeInTheDocument();

@@ -529,7 +529,7 @@ async def cockpit_ticker_detail(username: str, ticker: str):
 @router.get("/personas/{username}/tickers/{ticker}/timeline")
 async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
     """Per-ticker vertical opinion timeline. Picks the most informative
-    enrichment-annotated mentions chronologically.
+    enrichment-annotated mentions and returns them newest-first.
     """
     persona = get_persona(username)
     if persona is None:

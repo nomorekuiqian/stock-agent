@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 
 import { useKolTickerTimeline } from '@/hooks/queries/use-kol-data';
@@ -12,9 +13,9 @@ interface Props {
 
 /**
  * Vertical opinion timeline for a single ticker. Each node = date + content
- * type chip + stance chip + Frank's one-line key_claim + link back to the
+ * type chip + stance chip + qinbafrank's one-line key_claim + link back to the
  * original tweet. Server-side already picked the ~10 most informative
- * mentions; this component just renders them.
+ * mentions and returns them newest-first; this component just renders them.
  */
 export default function TickerOpinionTimeline({ username, ticker }: Props) {
   const { data, isLoading, isError } = useKolTickerTimeline(username, ticker);
@@ -47,43 +48,61 @@ export default function TickerOpinionTimeline({ username, ticker }: Props) {
 
   return (
     <ol className="relative ml-2 space-y-5 border-l border-border/40 pl-5">
-      {data.items.map((item) => (
-        <TimelineNode key={item.id} item={item} />
+      {data.items.map((item, index) => (
+        <TimelineNode key={item.id} item={item} isLatest={index === 0} index={index} />
       ))}
     </ol>
   );
 }
 
-function TimelineNode({ item }: { item: KolCockpitTickerTimelineItem }) {
+function TimelineNode({
+  item,
+  isLatest,
+  index,
+}: {
+  item: KolCockpitTickerTimelineItem;
+  isLatest: boolean;
+  index: number;
+}) {
   const ds = formatDate(item.created_at);
   const cType = typeLabel(item.content_type);
   const stance = stanceLabel(item.stance);
   const claim = stripTypePrefix(item.key_claim);
 
   return (
-    <li className="relative">
+    <li
+      className={`stock-motion-timeline-item relative ${isLatest ? 'stock-motion-latest' : ''}`}
+      style={{ '--stock-item-index': index } as CSSProperties}
+    >
       {/* Marker dot */}
       <span
         aria-hidden
-        className="absolute -left-[1.55rem] top-1.5 grid h-3 w-3 place-items-center rounded-full border border-primary/60 bg-background"
+        className={`absolute -left-[1.55rem] top-1.5 grid h-3 w-3 place-items-center rounded-full border bg-background ${
+          isLatest ? 'border-primary/70' : 'border-border/70'
+        }`}
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className={`stock-motion-dot h-1.5 w-1.5 rounded-full ${isLatest ? 'bg-primary' : 'bg-muted-foreground'}`} />
       </span>
 
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="font-data text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground tabular-nums">
+        <span className="font-data text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
           {ds}
         </span>
         {cType ? (
-          <span className="rounded-sm border border-border/50 bg-card/40 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+          <span className="rounded-sm border border-border/50 bg-card/40 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
             {cType}
           </span>
         ) : null}
         {stance ? (
           <span
-            className={`rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${stance.tone}`}
+            className={`rounded-sm px-1.5 py-0.5 text-xs font-medium ${stance.tone}`}
           >
             {stance.label}
+          </span>
+        ) : null}
+        {isLatest ? (
+          <span className="rounded-sm border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+            最新
           </span>
         ) : null}
       </div>
@@ -99,10 +118,10 @@ function TimelineNode({ item }: { item: KolCockpitTickerTimelineItem }) {
           href={item.url}
           target="_blank"
           rel="noreferrer"
-          className="mt-1.5 inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition hover:text-primary"
+          className="group mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border/45 bg-card/35 px-2.5 text-sm font-medium text-muted-foreground transition duration-200 ease-out motion-safe:hover:-translate-y-px hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
         >
           看原文
-          <ArrowUpRight className="h-3 w-3" />
+          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       ) : null}
     </li>

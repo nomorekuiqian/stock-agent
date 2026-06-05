@@ -103,8 +103,9 @@
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
 - Server page + Client Component,页面浏览不要求登录；KOL Research Agent 对话需要登录并开启 `kol_research_agent` flag
-- 首页定位为 Frank 历史内容档案馆，四个一级入口：过往精华、个股、全量内容库、Chat
-- `/kol/qinbafrank/sectors` 为过往精华内容库，按 7 个主题归档：AI 大趋势、资本开支战争、过往推荐公司、美股调整规律、美股行情判断、宏观与地缘、加密基建与 RWA；每个主题下继续整理为子话题卡片（公司推荐按 PLTR / HOOD / 美光 / 7709-EWY / CPU-博通 / BB / IBM 分组），页面采用左侧检索卡片 + 右侧时间线切换、导读和原文 reader；X 原文入口在标题旁；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/sectors?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
+- 首页定位为 qinbafrank 观点总览，首屏直接展示 5 个板块入口：AI 产业、加密 RWA、美股调整规律和行情判断、宏观与地缘、过往推荐公司；header 统计展示板块观点 / 个股档案 / 入库推文，口径分别来自首页 5 个产品入口、`cockpitTickers.tickers.length` 和 `cockpitFeed.raw_total`；单个「向 qinbafrank 提问」Max CTA 进入 KOL Research；下方保留「他的精华 / 个股验证 / 原文证据」三个强入口，其中“他的精华”首页卡片直接展示 7 个主题、25 个子话题和各主题判断原则
+- `/kol/qinbafrank/sectors` 为板块观点页，左侧 5 个板块入口，右侧按左侧「分析框架 / 分析维度切换 / 可展开 Frank 原观点逻辑」+ 右侧「倒序观点时间线」展示；AI 产业额外拆为 8 个子板块，入口桌面端为 4 列 x 2 行网格，子板块详情同样为左侧分析框架 + 右侧观点时间线；完整原文阅读在 `/kol/qinbafrank/highlights`；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/highlights?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
+- `/kol/qinbafrank/sectors` 颜色只表达板块 / 子板块 / 分析维度 / 最新观点状态，交互反馈保持轻量 hover lift 与箭头位移，不做大面积装饰动画
 - 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
 - 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
 - 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断

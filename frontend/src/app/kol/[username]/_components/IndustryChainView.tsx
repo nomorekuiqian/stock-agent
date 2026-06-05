@@ -13,7 +13,7 @@ interface Props {
   boardKey: string;
 }
 
-/** Tickers Frank has actually discussed — drop supplements ("未详谈") from the UI. */
+/** Tickers qinbafrank has actually discussed — drop supplements ("未详谈") from the UI. */
 function coveredTickers(layer: KolChainLayer): KolChainTicker[] {
   return layer.tickers.filter((t) => t.frank_coverage === 'covered');
 }
@@ -21,7 +21,7 @@ function coveredTickers(layer: KolChainLayer): KolChainTicker[] {
 /**
  * Industry-chain view — editorial magazine layout.
  *
- * First-principles value: in 30 seconds, give the user Frank's mental
+ * First-principles value: in 30 seconds, give the user qinbafrank's mental
  * model of a sector + per-ticker one-liner + live price + one-click drill.
  * Everything else (sparklines, mention counts, CTAs) is stripped.
  */

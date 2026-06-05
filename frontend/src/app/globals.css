@@ -589,6 +589,148 @@ h6 {
   }
 }
 
+/* qinbafrank sectors — quick reading transitions, transform/opacity only */
+@keyframes sector-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sector-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sector-dot-confirm {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.75);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sector-motion-shell {
+  animation: sector-content-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sector-motion-frame,
+.sector-motion-insight,
+.sector-motion-disclosure-copy {
+  animation: sector-item-enter 260ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.sector-motion-rail-item,
+.sector-motion-subsector-item,
+.sector-motion-timeline-item {
+  animation: sector-item-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--sector-item-index, 0) * 55ms);
+}
+
+.sector-motion-latest .sector-motion-dot-core {
+  animation: sector-dot-confirm 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sector-motion-shell,
+  .sector-motion-frame,
+  .sector-motion-insight,
+  .sector-motion-disclosure-copy,
+  .sector-motion-rail-item,
+  .sector-motion-subsector-item,
+  .sector-motion-timeline-item,
+  .sector-motion-latest .sector-motion-dot-core {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* qinbafrank stocks — subtle selection and reading feedback */
+@keyframes stock-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stock-rail-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes stock-dot-confirm {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.75);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.stock-motion-rail {
+  animation: stock-rail-enter 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stock-motion-detail {
+  animation: stock-content-enter 300ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.stock-motion-card,
+.stock-motion-timeline-item {
+  animation: stock-content-enter 280ms cubic-bezier(0.25, 1, 0.5, 1) both;
+  animation-delay: calc(var(--stock-item-index, 0) * 45ms);
+}
+
+.stock-motion-latest .stock-motion-dot {
+  animation: stock-dot-confirm 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stock-motion-rail,
+  .stock-motion-detail,
+  .stock-motion-card,
+  .stock-motion-timeline-item,
+  .stock-motion-latest .stock-motion-dot {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Navbar active indicator — scales in from center */
 @keyframes indicator-in {
   from {

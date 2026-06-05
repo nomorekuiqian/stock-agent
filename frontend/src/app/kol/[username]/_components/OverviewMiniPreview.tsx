@@ -13,6 +13,8 @@ interface Props {
   href?: string;
   className?: string;
   bodyClassName?: string;
+  eyebrow?: string;
+  tone?: 'emerald' | 'amber';
   children: React.ReactNode;
 }
 
@@ -27,15 +29,26 @@ export default function OverviewMiniPreview({
   href,
   className = '',
   bodyClassName = '',
+  eyebrow,
+  tone = 'emerald',
   children,
 }: Props) {
+  const toneClasses =
+    tone === 'amber'
+      ? 'border-amber-400/25 bg-amber-400/10 text-amber-400 light:text-amber-700'
+      : 'border-primary/20 bg-primary/10 text-primary';
   const sharedClass =
-    `hover-glow group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card/35 transition ${className}`;
+    `hover-glow group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card/35 transition duration-200 ${className}`;
   const header = (
     <header className="border-b border-border/40 p-4 pb-3 md:p-5 md:pb-4">
-      <h3 className="flex min-w-0 items-center justify-between gap-3 text-lg font-medium text-foreground">
+      {eyebrow ? (
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          {eyebrow}
+        </p>
+      ) : null}
+      <h3 className="flex min-w-0 items-center justify-between gap-3 text-lg font-medium leading-snug text-foreground">
         <span className="flex min-w-0 items-center gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+          <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md border ${toneClasses}`}>
             <Icon className="h-4 w-4" strokeWidth={1.7} />
           </span>
           <span className="truncate">{title}</span>
@@ -53,7 +66,7 @@ export default function OverviewMiniPreview({
       <Link
         href={href}
         aria-label={`打开${title}`}
-        className={`${sharedClass} hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
+        className={`${sharedClass} hover:-translate-y-0.5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
       >
         {header}
         {body}

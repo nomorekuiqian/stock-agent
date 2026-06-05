@@ -1,6 +1,7 @@
 'use client';
 
 import type { KolTickerSummary } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 interface Props {
   summary: KolTickerSummary;
@@ -8,7 +9,7 @@ interface Props {
 
 /**
  * Plain-prose narrative — 4 labeled paragraphs of his actual logic for
- * this stock. Uses Frank's own words (extracted from ticker skill markdown) and
+ * this stock. Uses qinbafrank's own words (extracted from ticker skill markdown) and
  * does NOT impose categorical labels on his stance.
  *
  * Sections:
@@ -35,21 +36,21 @@ export default function TickerNarrative({ summary }: Props) {
   return (
     <section className="mt-6 border-t border-border/40 pt-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        <p className="text-sm font-medium leading-snug tracking-wide text-muted-foreground">
           观点框架
         </p>
         <span className="h-px flex-1 bg-border/40" aria-hidden />
       </div>
       <div className="space-y-3">
         {hasPositioning ? (
-          <FrameCard eyebrow="01" label="在他心目中的定位">
+          <FrameCard eyebrow="01" label="在他心目中的定位" tone="primary">
             {summary.position ? (
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-[0.14em] text-primary">
+              <p className="mb-1.5 text-sm font-medium leading-snug tracking-wide text-primary">
                 {summary.position}
               </p>
             ) : null}
             {summary.thesis ? (
-              <p className="text-base font-medium leading-snug text-foreground">
+              <p className="max-w-[58ch] text-base font-semibold leading-snug text-foreground">
                 {summary.thesis}
               </p>
             ) : null}
@@ -64,10 +65,10 @@ export default function TickerNarrative({ summary }: Props) {
         ) : null}
 
         {hasBullsOrRisks ? (
-          <FrameCard eyebrow="02" label="机会 / 风险">
+          <FrameCard eyebrow="02" label="机会 / 风险" tone="amber">
             <div className="grid gap-4 md:grid-cols-2 md:gap-5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                <p className="text-sm font-medium leading-snug tracking-wide text-primary">
                   机会
                 </p>
                 {bulls.length > 0 ? (
@@ -79,7 +80,7 @@ export default function TickerNarrative({ summary }: Props) {
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-destructive">
+                <p className="text-sm font-medium leading-snug tracking-wide text-destructive">
                   风险
                 </p>
                 {risks.length > 0 ? (
@@ -95,7 +96,7 @@ export default function TickerNarrative({ summary }: Props) {
         ) : null}
 
         {signalsItems.length > 0 ? (
-          <FrameCard eyebrow="03" label="需要关注的数据">
+          <FrameCard eyebrow="03" label="需要关注的数据" tone="sky">
             {signalsItems.length > 4 ? (
               <ul className="space-y-1.5">
                 {signalsItems.map((item, j) => (
@@ -103,7 +104,7 @@ export default function TickerNarrative({ summary }: Props) {
                     key={j}
                     className="flex gap-2 text-sm leading-relaxed text-foreground"
                   >
-                    <span className="mt-2 inline-block h-1 w-1 shrink-0 rounded-full bg-primary/60" />
+                    <span className="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -123,17 +124,34 @@ export default function TickerNarrative({ summary }: Props) {
 function FrameCard({
   eyebrow,
   label,
+  tone,
   children,
 }: {
   eyebrow: string;
   label: string;
+  tone: 'primary' | 'amber' | 'sky';
   children: React.ReactNode;
 }) {
+  const toneClass = {
+    primary: 'border-primary/25 bg-primary/[0.045]',
+    amber: 'border-amber-500/25 bg-amber-500/[0.04]',
+    sky: 'border-sky-500/25 bg-sky-500/[0.04]',
+  }[tone];
+
+  const dotClass = {
+    primary: 'bg-primary',
+    amber: 'bg-amber-500',
+    sky: 'bg-sky-400',
+  }[tone];
+
   return (
-    <div className="rounded-md border border-border/40 bg-card/20 p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-        {eyebrow} · {label}
-      </p>
+    <div className={cn('stock-motion-card rounded-md border p-4 transition-colors duration-200', toneClass)}>
+      <div className="flex items-center gap-2">
+        <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} aria-hidden />
+        <p className="text-sm font-medium leading-snug tracking-wide text-muted-foreground">
+          <span className="font-data tabular-nums text-foreground">{eyebrow}</span> · {label}
+        </p>
+      </div>
       <div className="mt-2">{children}</div>
     </div>
   );

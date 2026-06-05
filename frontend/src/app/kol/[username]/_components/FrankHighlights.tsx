@@ -5,11 +5,17 @@ import Link from 'next/link';
 import {
   ArrowUpRight,
   BookOpenText,
-  CircleDot,
+  BriefcaseBusiness,
+  Coins,
+  Cpu,
+  Globe2,
+  LineChart,
   Search,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import { useKolEvidenceTweets } from '@/hooks/queries/use-kol-data';
 import {
   FRANK_FEATURED_CONTENT,
@@ -24,13 +30,124 @@ import {
 } from './frankContentData';
 
 const topicIcons: Record<FrankHighlightTopicId, LucideIcon> = {
-  'ai-trend': CircleDot,
-  'capex-war': CircleDot,
-  'company-theses': CircleDot,
-  'market-rules': CircleDot,
-  'market-timing': CircleDot,
-  'macro-geopolitics': CircleDot,
-  'crypto-rwa': CircleDot,
+  'ai-trend': Cpu,
+  'capex-war': Zap,
+  'company-theses': BriefcaseBusiness,
+  'market-rules': LineChart,
+  'market-timing': LineChart,
+  'macro-geopolitics': Globe2,
+  'crypto-rwa': Coins,
+};
+
+type TopicToneName = 'emerald' | 'amber' | 'sky' | 'rose';
+
+interface TopicTone {
+  name: TopicToneName;
+  text: string;
+  line: string;
+  dot: string;
+  chip: string;
+  activeTab: string;
+  inactiveHover: string;
+  activeIcon: string;
+  inactiveIcon: string;
+  cardActive: string;
+  cardHover: string;
+  titleHover: string;
+  readerBorder: string;
+  guide: string;
+  timelineActive: string;
+  timelineHover: string;
+  heroAccent: string;
+}
+
+const topicTones: Record<TopicToneName, TopicTone> = {
+  emerald: {
+    name: 'emerald',
+    text: 'text-emerald-300 light:text-emerald-700',
+    line: 'bg-emerald-400',
+    dot: 'bg-emerald-400',
+    chip: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300 light:text-emerald-700',
+    activeTab: 'border-emerald-400/50 bg-emerald-500/10 text-foreground shadow-[0_16px_36px_rgba(16,185,129,0.10)]',
+    inactiveHover: 'hover:border-emerald-400/30 hover:bg-emerald-500/[0.06] hover:text-foreground',
+    activeIcon: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-300 light:text-emerald-700',
+    inactiveIcon: 'border-border/40 bg-background/40 text-muted-foreground group-hover:border-emerald-400/30 group-hover:text-emerald-300',
+    cardActive: 'border-emerald-400/45 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(255,255,255,0.025)_44%,rgba(245,158,11,0.055))] shadow-[0_18px_54px_rgba(16,185,129,0.11),inset_0_1px_0_rgba(255,255,255,0.08)]',
+    cardHover: 'hover:border-emerald-400/35 hover:bg-emerald-500/[0.045]',
+    titleHover: 'group-hover:text-emerald-300 light:group-hover:text-emerald-700',
+    readerBorder: 'border-emerald-400/30',
+    guide: 'border-emerald-400/25 bg-emerald-500/[0.045]',
+    timelineActive: 'border-emerald-400/45 bg-emerald-500/10 text-foreground',
+    timelineHover: 'hover:border-emerald-400/35 hover:bg-emerald-500/[0.055] hover:text-foreground',
+    heroAccent: 'bg-[linear-gradient(90deg,transparent,rgba(16,185,129,0.62),rgba(245,158,11,0.28),transparent)]',
+  },
+  amber: {
+    name: 'amber',
+    text: 'text-amber-300 light:text-amber-700',
+    line: 'bg-amber-400',
+    dot: 'bg-amber-400',
+    chip: 'border-amber-400/30 bg-amber-500/10 text-amber-300 light:text-amber-700',
+    activeTab: 'border-amber-400/50 bg-amber-500/10 text-foreground shadow-[0_16px_36px_rgba(245,158,11,0.10)]',
+    inactiveHover: 'hover:border-amber-400/30 hover:bg-amber-500/[0.06] hover:text-foreground',
+    activeIcon: 'border-amber-400/35 bg-amber-500/10 text-amber-300 light:text-amber-700',
+    inactiveIcon: 'border-border/40 bg-background/40 text-muted-foreground group-hover:border-amber-400/30 group-hover:text-amber-300',
+    cardActive: 'border-amber-400/45 bg-[linear-gradient(135deg,rgba(245,158,11,0.13),rgba(255,255,255,0.025)_44%,rgba(16,185,129,0.04))] shadow-[0_18px_54px_rgba(245,158,11,0.10),inset_0_1px_0_rgba(255,255,255,0.08)]',
+    cardHover: 'hover:border-amber-400/35 hover:bg-amber-500/[0.045]',
+    titleHover: 'group-hover:text-amber-300 light:group-hover:text-amber-700',
+    readerBorder: 'border-amber-400/30',
+    guide: 'border-amber-400/25 bg-amber-500/[0.045]',
+    timelineActive: 'border-amber-400/45 bg-amber-500/10 text-foreground',
+    timelineHover: 'hover:border-amber-400/35 hover:bg-amber-500/[0.055] hover:text-foreground',
+    heroAccent: 'bg-[linear-gradient(90deg,transparent,rgba(245,158,11,0.56),rgba(16,185,129,0.28),transparent)]',
+  },
+  sky: {
+    name: 'sky',
+    text: 'text-sky-300 light:text-sky-700',
+    line: 'bg-sky-400',
+    dot: 'bg-sky-400',
+    chip: 'border-sky-400/30 bg-sky-500/10 text-sky-300 light:text-sky-700',
+    activeTab: 'border-sky-400/50 bg-sky-500/10 text-foreground shadow-[0_16px_36px_rgba(14,165,233,0.10)]',
+    inactiveHover: 'hover:border-sky-400/30 hover:bg-sky-500/[0.06] hover:text-foreground',
+    activeIcon: 'border-sky-400/35 bg-sky-500/10 text-sky-300 light:text-sky-700',
+    inactiveIcon: 'border-border/40 bg-background/40 text-muted-foreground group-hover:border-sky-400/30 group-hover:text-sky-300',
+    cardActive: 'border-sky-400/45 bg-[linear-gradient(135deg,rgba(14,165,233,0.13),rgba(255,255,255,0.025)_44%,rgba(16,185,129,0.04))] shadow-[0_18px_54px_rgba(14,165,233,0.10),inset_0_1px_0_rgba(255,255,255,0.08)]',
+    cardHover: 'hover:border-sky-400/35 hover:bg-sky-500/[0.045]',
+    titleHover: 'group-hover:text-sky-300 light:group-hover:text-sky-700',
+    readerBorder: 'border-sky-400/30',
+    guide: 'border-sky-400/25 bg-sky-500/[0.045]',
+    timelineActive: 'border-sky-400/45 bg-sky-500/10 text-foreground',
+    timelineHover: 'hover:border-sky-400/35 hover:bg-sky-500/[0.055] hover:text-foreground',
+    heroAccent: 'bg-[linear-gradient(90deg,transparent,rgba(14,165,233,0.54),rgba(16,185,129,0.28),transparent)]',
+  },
+  rose: {
+    name: 'rose',
+    text: 'text-rose-300 light:text-rose-700',
+    line: 'bg-rose-400',
+    dot: 'bg-rose-400',
+    chip: 'border-rose-400/30 bg-rose-500/10 text-rose-300 light:text-rose-700',
+    activeTab: 'border-rose-400/50 bg-rose-500/10 text-foreground shadow-[0_16px_36px_rgba(244,63,94,0.10)]',
+    inactiveHover: 'hover:border-rose-400/30 hover:bg-rose-500/[0.06] hover:text-foreground',
+    activeIcon: 'border-rose-400/35 bg-rose-500/10 text-rose-300 light:text-rose-700',
+    inactiveIcon: 'border-border/40 bg-background/40 text-muted-foreground group-hover:border-rose-400/30 group-hover:text-rose-300',
+    cardActive: 'border-rose-400/45 bg-[linear-gradient(135deg,rgba(244,63,94,0.12),rgba(255,255,255,0.025)_44%,rgba(245,158,11,0.04))] shadow-[0_18px_54px_rgba(244,63,94,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]',
+    cardHover: 'hover:border-rose-400/35 hover:bg-rose-500/[0.045]',
+    titleHover: 'group-hover:text-rose-300 light:group-hover:text-rose-700',
+    readerBorder: 'border-rose-400/30',
+    guide: 'border-rose-400/25 bg-rose-500/[0.045]',
+    timelineActive: 'border-rose-400/45 bg-rose-500/10 text-foreground',
+    timelineHover: 'hover:border-rose-400/35 hover:bg-rose-500/[0.055] hover:text-foreground',
+    heroAccent: 'bg-[linear-gradient(90deg,transparent,rgba(244,63,94,0.48),rgba(245,158,11,0.30),transparent)]',
+  },
+};
+
+const topicToneById: Record<FrankHighlightTopicId, TopicTone> = {
+  'ai-trend': topicTones.emerald,
+  'capex-war': topicTones.amber,
+  'company-theses': topicTones.emerald,
+  'market-rules': topicTones.rose,
+  'market-timing': topicTones.sky,
+  'macro-geopolitics': topicTones.sky,
+  'crypto-rwa': topicTones.amber,
 };
 
 interface Props {
@@ -88,6 +205,7 @@ export default function FrankHighlights({ username, initialTopicId }: Props) {
     selectedGroupItems.find((item) => item.id === selectedItemId) ??
     selectedGroupItems[0] ??
     FRANK_FEATURED_CONTENT[0];
+  const activeTone = topicToneById[activeTopicId];
 
   useEffect(() => {
     const nextTopic = getTopicSummary(initialTopicId)?.id;
@@ -122,12 +240,17 @@ export default function FrankHighlights({ username, initialTopicId }: Props) {
   return (
     <div className="relative min-h-[100dvh] overflow-hidden border-t border-border/40 bg-background light:bg-[linear-gradient(180deg,#f7faf6_0%,var(--background)_34rem)]">
       <div className="relative mx-auto w-full max-w-[1480px] space-y-6 px-4 pb-16 pt-5 sm:px-6 lg:px-8 2xl:px-10">
-        <HighlightsHero selectedGroup={selectedGroup} selectedItem={selectedItem} />
+        <HighlightsHero selectedGroup={selectedGroup} selectedItem={selectedItem} tone={activeTone} />
         <TopicSelector activeTopicId={activeTopicId} onChange={handleTopicChange} />
 
         <section className="relative z-10 grid gap-6 xl:grid-cols-[minmax(20rem,28rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)]">
           <aside className="min-w-0 xl:sticky xl:top-20 xl:self-start">
-            <SearchPanel query={query} onQueryChange={setQuery} />
+            <SearchPanel
+              query={query}
+              onQueryChange={setQuery}
+              visibleCount={visibleGroups.length}
+              tone={activeTone}
+            />
             <div
               aria-label={`${activeTopic.label}检索卡片`}
               className="mt-3 grid max-h-none gap-3 rounded-lg border border-border/35 bg-card/60 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] dark:bg-card/50 md:grid-cols-2 xl:max-h-[calc(100dvh-15rem)] xl:grid-cols-1 xl:overflow-y-auto"
@@ -139,6 +262,7 @@ export default function FrankHighlights({ username, initialTopicId }: Props) {
                     groupItem={groupItem}
                     index={index + 1}
                     active={selectedGroup.id === groupItem.id}
+                    tone={topicToneById[groupItem.topicId]}
                     onSelect={() => handleSelectGroup(groupItem)}
                   />
                 ))
@@ -156,6 +280,7 @@ export default function FrankHighlights({ username, initialTopicId }: Props) {
             items={selectedGroupItems}
             item={selectedItem}
             topicId={activeTopicId}
+            tone={activeTone}
             onSelectItem={handleSelectTimelineItem}
           />
         </section>
@@ -177,18 +302,20 @@ function scrollReaderIntoView() {
 function HighlightsHero({
   selectedGroup,
   selectedItem,
+  tone,
 }: {
   selectedGroup: FrankFeaturedGroup;
   selectedItem: FrankFeaturedContent;
+  tone: TopicTone;
 }) {
   return (
     <section className="relative isolate animate-fade-in-up overflow-hidden rounded-lg border border-border/45 bg-card/25 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] md:p-6">
       <div
         aria-hidden
-        className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(16,185,129,0.58),rgba(245,158,11,0.34),transparent)]"
+        className={cn('absolute inset-x-0 top-0 h-px', tone.heroAccent)}
       />
       <div>
-        <p className="text-xs font-medium text-primary">qinbafrank 过往观点索引</p>
+        <p className={cn('text-xs font-medium', tone.text)}>qinbafrank 过往观点索引</p>
         <h2 className="mt-2 max-w-4xl font-editorial text-3xl leading-tight text-foreground [text-wrap:balance] sm:text-4xl md:text-5xl">
           过往精华内容库
         </h2>
@@ -197,6 +324,20 @@ function HighlightsHero({
           <span className="font-medium text-foreground"> {selectedGroup.title}</span>
           <span className="text-muted-foreground"> / {selectedItem.title}</span>
         </p>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <span className={cn('inline-flex min-h-8 items-center gap-2 rounded-md border px-2.5 text-xs font-medium', tone.chip)}>
+            <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', tone.dot)} />
+            当前焦点
+          </span>
+          {(selectedGroup.tickers ?? []).slice(0, 5).map((ticker) => (
+            <span
+              key={ticker}
+              className="inline-flex min-h-8 items-center rounded-md border border-border/40 bg-background/35 px-2.5 font-data text-xs tabular-nums text-muted-foreground"
+            >
+              {ticker}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -213,6 +354,7 @@ function TopicSelector({
     <div className="grid gap-2 rounded-lg border border-border/35 bg-card/35 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
       {FRANK_HIGHLIGHT_TOPICS.map((topic, index) => {
         const Icon = topicIcons[topic.id];
+        const tone = topicToneById[topic.id];
         const active = activeTopicId === topic.id;
         return (
           <button
@@ -220,18 +362,27 @@ function TopicSelector({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(topic.id)}
-            className={`group relative isolate min-h-14 overflow-hidden rounded-md border px-3 py-2.5 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 active:scale-[0.99] ${
+            className={cn(
+              'group relative isolate min-h-14 overflow-hidden rounded-md border px-3 py-2.5 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 active:scale-[0.99] motion-safe:hover:-translate-y-0.5',
               active
-                ? 'border-primary/50 bg-primary/10 text-foreground'
-                : 'border-transparent text-muted-foreground hover:border-border/45 hover:bg-background/35 hover:text-foreground'
-            }`}
+                ? tone.activeTab
+                : cn('border-transparent text-muted-foreground hover:bg-background/35', tone.inactiveHover),
+            )}
           >
+            <span
+              aria-hidden
+              className={cn(
+                'absolute inset-x-3 bottom-0 h-px rounded-full transition-opacity duration-300',
+                active ? tone.line : 'bg-transparent opacity-0 group-hover:bg-border/60 group-hover:opacity-100',
+              )}
+            />
             <span className="flex items-start justify-between gap-3">
               <span className="flex min-w-0 items-start gap-2">
                 <span
-                  className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-sm border ${
-                    active ? 'border-primary/30 bg-primary/15 text-primary' : 'border-border/40 bg-background/40'
-                  }`}
+                  className={cn(
+                    'mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-sm border transition duration-300 motion-safe:group-hover:scale-[1.04]',
+                    active ? tone.activeIcon : tone.inactiveIcon,
+                  )}
                 >
                   <Icon className="h-3.5 w-3.5" />
                 </span>
@@ -256,17 +407,33 @@ function TopicSelector({
 function SearchPanel({
   query,
   onQueryChange,
+  visibleCount,
+  tone,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
+  visibleCount: number;
+  tone: TopicTone;
 }) {
   return (
-    <div className="mt-3 rounded-lg border border-border/35 bg-card/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-      <label className="text-xs font-medium text-muted-foreground" htmlFor="frank-highlight-search">
-        检索卡片
-      </label>
-      <div className="mt-2 flex min-h-11 items-center gap-2 rounded-md border border-border/45 bg-background/45 px-3">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+    <div
+      className={cn(
+        'mt-3 rounded-lg border bg-card/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors',
+        query ? tone.readerBorder : 'border-border/35',
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <label className="text-xs font-medium text-muted-foreground" htmlFor="frank-highlight-search">
+          检索卡片
+        </label>
+        {query ? (
+          <span className={cn('rounded-sm border px-1.5 py-0.5 text-xs font-medium', tone.chip)}>
+            {visibleCount} 组匹配
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex min-h-11 items-center gap-2 rounded-md border border-border/45 bg-background/45 px-3 transition focus-within:border-primary/45 focus-within:bg-background/65">
+        <Search className={cn('h-4 w-4 shrink-0 transition-colors', query ? tone.text : 'text-muted-foreground')} />
         <input
           id="frank-highlight-search"
           value={query}
@@ -283,11 +450,13 @@ function RetrievalCard({
   groupItem,
   index,
   active,
+  tone,
   onSelect,
 }: {
   groupItem: FrankFeaturedGroup;
   index: number;
   active: boolean;
+  tone: TopicTone;
   onSelect: () => void;
 }) {
   const items = getFeaturedItemsForGroup(groupItem);
@@ -304,17 +473,22 @@ function RetrievalCard({
       aria-pressed={active}
       onClick={onSelect}
       style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
-      className={`group relative isolate animate-fade-in-up overflow-hidden rounded-lg border px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 active:scale-[0.99] ${
+      className={cn(
+        'group relative isolate animate-fade-in-up overflow-hidden rounded-lg border px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 active:scale-[0.99]',
         active
-          ? 'border-primary/45 bg-[linear-gradient(135deg,rgba(16,185,129,0.13),rgba(255,255,255,0.03)_42%,rgba(245,158,11,0.06))] shadow-[0_18px_54px_rgba(16,185,129,0.11),inset_0_1px_0_rgba(255,255,255,0.08)]'
-          : 'border-border/30 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_48%,rgba(16,185,129,0.035))] hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card/45'
-      }`}
+          ? tone.cardActive
+          : cn(
+              'border-border/30 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_48%,rgba(16,185,129,0.025))] hover:-translate-y-0.5',
+              tone.cardHover,
+            ),
+      )}
     >
       <span
         aria-hidden
-        className={`absolute inset-y-5 left-0 w-px rounded-r transition-all duration-500 ${
-          active ? 'bg-primary shadow-[0_0_18px_rgba(16,185,129,0.55)]' : 'bg-border/45 group-hover:bg-primary/55'
-        }`}
+        className={cn(
+          'absolute inset-y-5 left-0 w-px rounded-r transition-all duration-500',
+          active ? tone.line : 'bg-border/45 group-hover:opacity-80',
+        )}
       />
       <span
         aria-hidden
@@ -326,22 +500,28 @@ function RetrievalCard({
       <div className="flex items-start gap-4">
         <span
           aria-hidden
-          className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-md border transition-all duration-500 ${
+          className={cn(
+            'relative grid h-12 w-12 shrink-0 place-items-center rounded-md border transition-all duration-500 motion-safe:group-hover:rotate-[-1deg] motion-safe:group-hover:scale-[1.03]',
             active
-              ? 'border-primary/35 bg-primary/10 text-primary shadow-[0_10px_28px_rgba(16,185,129,0.12)]'
-              : 'border-border/35 bg-background/35 text-muted-foreground group-hover:border-primary/30 group-hover:text-primary'
-          }`}
+              ? cn(tone.activeIcon, 'shadow-[0_10px_28px_rgba(16,185,129,0.10)]')
+              : tone.inactiveIcon,
+          )}
         >
           <BookOpenText className="h-5 w-5" strokeWidth={1.6} />
         </span>
         <span className="min-w-0 flex-1 pt-0.5">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-data text-xs tabular-nums text-muted-foreground">{dateRange}</span>
-            <span className="rounded-sm border border-border/40 bg-background/35 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+            <span className={cn('rounded-sm border px-1.5 py-0.5 text-xs font-medium', active ? tone.chip : 'border-border/40 bg-background/35 text-muted-foreground')}>
               {items.length} 条原文
             </span>
+            {active ? (
+              <span className={cn('rounded-sm border px-1.5 py-0.5 text-xs font-medium', tone.chip)}>
+                正在阅读
+              </span>
+            ) : null}
           </span>
-          <span className="mt-2 block font-editorial text-xl leading-snug text-foreground transition-colors duration-300 [text-wrap:balance] group-hover:text-primary">
+          <span className={cn('mt-2 block font-editorial text-xl leading-snug text-foreground transition-colors duration-300 [text-wrap:balance]', tone.titleHover)}>
             {groupItem.title}
           </span>
           <span className="mt-3 line-clamp-3 block text-sm leading-relaxed text-muted-foreground">
@@ -353,7 +533,10 @@ function RetrievalCard({
         {(groupItem.tickers ?? []).slice(0, 5).map((ticker) => (
           <span
             key={ticker}
-            className="rounded-sm border border-border/45 bg-background/35 px-1.5 py-0.5 font-data text-xs tabular-nums text-muted-foreground"
+            className={cn(
+              'rounded-sm border px-1.5 py-0.5 font-data text-xs tabular-nums',
+              active ? tone.chip : 'border-border/45 bg-background/35 text-muted-foreground',
+            )}
           >
             {ticker}
           </span>
@@ -372,6 +555,7 @@ function HighlightsReader({
   items,
   item,
   topicId,
+  tone,
   onSelectItem,
 }: {
   username: string;
@@ -379,6 +563,7 @@ function HighlightsReader({
   items: FrankFeaturedContent[];
   item: FrankFeaturedContent;
   topicId: FrankHighlightTopicId;
+  tone: TopicTone;
   onSelectItem: (item: FrankFeaturedContent) => void;
 }) {
   const ids = items.map((entry) => entry.sourceId).filter((id): id is string => Boolean(id));
@@ -390,14 +575,24 @@ function HighlightsReader({
   return (
     <section
       id="frank-highlights-reader"
-      className="relative h-[calc(100dvh-5rem)] min-h-[34rem] min-w-0 scroll-mt-20 overflow-y-auto overscroll-contain rounded-lg border border-border/35 bg-card/60 shadow-[0_22px_70px_rgba(15,23,42,0.10),inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-gutter:stable] xl:h-[calc(100dvh-7rem)] xl:max-h-[58rem]"
+      className={cn(
+        'relative h-[calc(100dvh-5rem)] min-h-[34rem] min-w-0 scroll-mt-20 overflow-y-auto overscroll-contain rounded-lg border bg-card/60 shadow-[0_22px_70px_rgba(15,23,42,0.10),inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-gutter:stable] xl:h-[calc(100dvh-7rem)] xl:max-h-[58rem]',
+        tone.readerBorder,
+      )}
     >
+      <div aria-hidden className={cn('absolute inset-x-0 top-0 h-px', tone.heroAccent)} />
       <header className="shrink-0 border-b border-border/35 bg-background/25 p-4 md:p-5 lg:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
-            <p className="font-data text-xs tabular-nums text-muted-foreground">
-              {item.date} · {item.topic} · {groupItem.title}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn('inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium', tone.chip)}>
+                <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', tone.dot)} />
+                证据链
+              </span>
+              <p className="font-data text-xs tabular-nums text-muted-foreground">
+                {item.date} · {item.topic} · {groupItem.title}
+              </p>
+            </div>
             <div className="mt-2 flex flex-wrap items-start gap-3">
               <h3 className="min-w-0 font-editorial text-3xl leading-tight text-foreground md:text-4xl">
                 {item.title}
@@ -414,13 +609,13 @@ function HighlightsReader({
       </header>
 
       {items.length > 1 ? (
-        <TimelineSwitcher items={items} activeId={item.id} onSelectItem={onSelectItem} />
+        <TimelineSwitcher items={items} activeId={item.id} tone={tone} onSelectItem={onSelectItem} />
       ) : null}
 
       <div className="shrink-0 border-b border-border/35 bg-background/20 p-4 md:p-5 lg:p-6">
         <div className="grid gap-4 xl:grid-cols-2">
-          <GuideBlock title="导读：大致观点">{item.summary}</GuideBlock>
-          <GuideBlock title="为什么重要">{item.whyItMatters}</GuideBlock>
+          <GuideBlock title="导读：大致观点" tone={tone}>{item.summary}</GuideBlock>
+          <GuideBlock title="为什么重要" tone={tone}>{item.whyItMatters}</GuideBlock>
         </div>
       </div>
 
@@ -465,10 +660,12 @@ function SourceLink({ item }: { item: FrankFeaturedContent }) {
 function TimelineSwitcher({
   items,
   activeId,
+  tone,
   onSelectItem,
 }: {
   items: FrankFeaturedContent[];
   activeId: string;
+  tone: TopicTone;
   onSelectItem: (item: FrankFeaturedContent) => void;
 }) {
   return (
@@ -482,11 +679,12 @@ function TimelineSwitcher({
               type="button"
               aria-pressed={active}
               onClick={() => onSelectItem(entry)}
-              className={`inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${
+              className={cn(
+                'inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 motion-safe:hover:-translate-y-0.5',
                 active
-                  ? 'border-primary/45 bg-primary/10 text-foreground'
-                  : 'border-border/35 bg-card/25 text-muted-foreground hover:border-primary/35 hover:text-foreground'
-              }`}
+                  ? tone.timelineActive
+                  : cn('border-border/35 bg-card/25 text-muted-foreground', tone.timelineHover),
+              )}
             >
               <span className="font-data text-xs tabular-nums">{String(index + 1).padStart(2, '0')}</span>
               <span className="font-data text-xs tabular-nums">{entry.date}</span>
@@ -510,10 +708,21 @@ function XLogo() {
   );
 }
 
-function GuideBlock({ title, children }: { title: string; children: string }) {
+function GuideBlock({
+  title,
+  tone,
+  children,
+}: {
+  title: string;
+  tone: TopicTone;
+  children: string;
+}) {
   return (
-    <section className="relative isolate overflow-hidden rounded-lg border border-border/35 bg-card/25 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <p className="text-xs font-medium text-muted-foreground">{title}</p>
+    <section className={cn('relative isolate overflow-hidden rounded-lg border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors', tone.guide)}>
+      <p className={cn('flex items-center gap-2 text-xs font-medium', tone.text)}>
+        <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', tone.dot)} />
+        {title}
+      </p>
       <p className="mt-2 text-sm leading-relaxed text-foreground">{children}</p>
     </section>
   );
