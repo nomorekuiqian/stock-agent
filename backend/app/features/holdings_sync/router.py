@@ -85,6 +85,17 @@ _RESOLVER_MIN_BUDGET = 2.0    # resolver gets at least 2s even if LLM took long
 _FALLBACK_BUDGET = 12         # FMP-search-call cap per request
 
 
+def _is_supported_image_container(data: bytes, mime: str) -> bool:
+    """Cheap container checks for environments where Pillow is unavailable."""
+    if mime == "image/png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24 and data[12:16] == b"IHDR"
+    if mime == "image/jpeg":
+        return data.startswith(b"\xff\xd8") and data.endswith(b"\xff\xd9")
+    if mime == "image/webp":
+        return len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+    return False
+
+
 async def _require_holdings_sync_flag(user_id: str) -> None:
     """feature-off => 404. EF outage returns an empty flag set => safe
     default off (playbook two iron rules)."""
@@ -121,6 +132,8 @@ def _downsample_if_needed(data: bytes, mime: str) -> tuple[bytes, str]:
     try:
         from PIL import Image
     except Exception:  # noqa: BLE001 — Pillow optional; ship raw if missing
+        if not _is_supported_image_container(data, mime):
+            raise HTTPException(status_code=400, detail="无法解析图片，请换一张")
         return data, mime
     try:
         img = Image.open(io.BytesIO(data))
