@@ -77,6 +77,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `docs/references/pages.md` -- Frontend page routes
 - `docs/references/components.md` -- Frontend components & libraries
 - `docs/constraints/design-system.md` -- Design system spec
+- `mcp/frank-lens/.context.md` -- Frank Lens MCP installable package
 
 ## Engineering Plans
 
