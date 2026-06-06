@@ -39,9 +39,14 @@ from app.features.kol_research.agent import (
     stream_kol_research,
 )
 from app.features.kol_research.models import (
+    KolMcpContextRequest,
+    KolMcpMarketBriefRequest,
+    KolMcpSearchRequest,
     KolResearchRequest,
     KolResearchResponse,
 )
+from app.features.vector.models import VectorSearchFilters, VectorSearchRequest
+from app.features.vector.service import search as vector_search
 from app.features.screener.conversation_db import (
     create_conversation,
     delete_conversation,
@@ -50,7 +55,14 @@ from app.features.screener.conversation_db import (
     update_conversation,
 )
 from app.shared.fmp_service import get_fmp_service
+from app.shared.data_tools.briefs import (
+    get_industry_brief,
+    get_macro_brief,
+    get_peer_brief,
+    get_stock_brief,
+)
 from app.shared.kol_persona import get_persona, list_personas
+from app.shared.kol_persona.tools import chunk_to_persona_result
 
 logger = get_logger(__name__)
 
@@ -499,6 +511,179 @@ async def cockpit_tweets_by_ids(username: str, ids: str):
     if len(requested) > 30:
         raise HTTPException(status_code=400, detail="Too many tweet ids")
     return await cockpit.get_evidence_tweets_by_ids(username, requested)
+
+
+# ---------------------------------------------------------------------------
+# MCP live context bridge (PUBLIC read for local/remote MCP clients)
+# ---------------------------------------------------------------------------
+
+
+async def _mcp_search_chunks(
+    *,
+    username: str,
+    query: str,
+    k: int,
+    threshold: float,
+):
+    """Search live vector_chunks for KOL tweet evidence."""
+    result = await vector_search(
+        VectorSearchRequest(
+            query=query,
+            top_k=k,
+            threshold=threshold,
+            filters=VectorSearchFilters(
+                source_types=["kol_tweet"],
+                metadata={"author_username": username},
+            ),
+        )
+    )
+    return [
+        chunk_to_persona_result(chunk, citation_index=index)
+        for index, chunk in enumerate(result.results, start=1)
+    ]
+
+
+def _json_or_text(raw: str) -> dict[str, Any]:
+    try:
+        parsed = _json.loads(raw)
+    except Exception:  # noqa: BLE001
+        return {"raw": raw}
+    if isinstance(parsed, dict):
+        return parsed
+    return {"data": parsed}
+
+
+async def _market_brief_payload(
+    *,
+    brief_type: str,
+    symbol: str | None,
+) -> dict[str, Any]:
+    normalized_symbol = (symbol or "").strip().upper()
+    if brief_type != "macro" and not normalized_symbol:
+        raise HTTPException(status_code=400, detail="symbol is required for this brief_type")
+
+    if brief_type == "stock":
+        raw = await get_stock_brief(normalized_symbol)
+    elif brief_type == "peer":
+        raw = await get_peer_brief(normalized_symbol)
+    elif brief_type == "industry":
+        raw = await get_industry_brief(normalized_symbol)
+    elif brief_type == "macro":
+        raw = await get_macro_brief()
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported brief_type")
+
+    return {
+        "brief_type": brief_type,
+        "symbol": normalized_symbol or None,
+        "payload": _json_or_text(raw),
+    }
+
+
+def _question_needs_macro(question: str) -> bool:
+    q = question.lower()
+    macro_terms = (
+        "macro",
+        "fed",
+        "fomc",
+        "cpi",
+        "pce",
+        "rate",
+        "rates",
+        "liquidity",
+        "treasury",
+        "yield",
+        "美元",
+        "美联储",
+        "利率",
+        "流动性",
+        "通胀",
+        "关税",
+        "地缘",
+        "宏观",
+    )
+    return any(term in q for term in macro_terms)
+
+
+@router.post("/personas/{username}/mcp/search")
+async def mcp_live_search(username: str, req: KolMcpSearchRequest):
+    """Live MCP vector search over KOL tweet embeddings."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    chunks = await _mcp_search_chunks(
+        username=username,
+        query=req.query,
+        k=req.k,
+        threshold=req.threshold,
+    )
+    return {
+        "persona_username": username,
+        "query": req.query,
+        "retrieval_mode": "vector_chunks",
+        "count": len(chunks),
+        "chunks": [chunk.model_dump() for chunk in chunks],
+    }
+
+
+@router.post("/personas/{username}/mcp/market-brief")
+async def mcp_market_brief(username: str, req: KolMcpMarketBriefRequest):
+    """Live MCP bridge to KOL agent brief tools (FMP + macro cache)."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    return await _market_brief_payload(
+        brief_type=req.brief_type,
+        symbol=req.symbol,
+    )
+
+
+@router.post("/personas/{username}/mcp/context")
+async def mcp_live_context(username: str, req: KolMcpContextRequest):
+    """Build live MCP context with vector evidence and optional market data."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    ticker = (req.ticker or "").strip().upper()
+    sector = (req.sector or "").strip()
+    search_query = " ".join(part for part in (req.question, ticker, sector) if part)
+    chunks = await _mcp_search_chunks(
+        username=username,
+        query=search_query,
+        k=req.evidence_limit,
+        threshold=0.45,
+    )
+
+    market_context: list[dict[str, Any]] = []
+    if req.include_market_data:
+        if ticker:
+            market_context.append(
+                await _market_brief_payload(brief_type="stock", symbol=ticker)
+            )
+        if _question_needs_macro(req.question):
+            market_context.append(
+                await _market_brief_payload(brief_type="macro", symbol=None)
+            )
+
+    return {
+        "persona_username": username,
+        "question": req.question,
+        "ticker": ticker or None,
+        "sector": sector or None,
+        "retrieval_mode": "vector_chunks",
+        "market_data_mode": "brief_tools",
+        "kol_chunks": [chunk.model_dump() for chunk in chunks],
+        "market_context": market_context,
+        "ticker_methodology": skill_cockpit.get_ticker_summary(ticker) if ticker else None,
+        "answer_discipline": [
+            "Do not impersonate qinbafrank.",
+            "Only cite returned kol_chunks as direct historical evidence.",
+            "Separate historical evidence, live market data, and methodology inference.",
+            "Do not provide direct buy/sell/add/reduce position instructions.",
+        ],
+    }
 
 
 @router.get("/personas/{username}/tickers/{ticker}")

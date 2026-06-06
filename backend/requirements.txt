@@ -14,6 +14,7 @@ python-dotenv
 resend==2.19.0
 slowapi
 uvicorn
+fastmcp>=3.4,<4           # Frank Lens MCP (Streamable HTTP), mounted at /frank/mcp/
 stripe
 tvscreener>=0.2.0
 pandas-ta>=0.4.71b

@@ -33,8 +33,29 @@ logger = get_logger(__name__)
 from app.core.email_guard import install as install_email_guard
 install_email_guard()
 
+# --- Frank Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
+from contextlib import asynccontextmanager
+
+from app.frank_mcp.server import mcp as frank_mcp
+
+frank_mcp_app = frank_mcp.http_app(path="/mcp")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # The FastMCP session manager must run for the mounted MCP endpoint. The app's
+    # existing startup/shutdown logic runs inside this lifespan, because FastAPI
+    # ignores @app.on_event handlers once a lifespan is provided.
+    async with frank_mcp_app.lifespan(app):
+        await _startup()
+        try:
+            yield
+        finally:
+            await _shutdown()
+
+
 # --- App ---
-app = FastAPI(title="Market Analysis API")
+app = FastAPI(title="Market Analysis API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -221,7 +242,6 @@ async def readiness():
 # Startup & shutdown
 # ---------------------------------------------------------------------------
 
-@app.on_event("startup")
 async def _startup():
     # Validate required API keys
     if not GOOGLE_API_KEY:
@@ -269,7 +289,6 @@ async def _startup():
     asyncio.create_task(_warm_kol())
 
 
-@app.on_event("shutdown")
 async def _shutdown():
     logger.info("Market Analysis API shutting down")
     # Flush remaining activity events
@@ -289,3 +308,7 @@ async def _shutdown():
 @app.get("/")
 async def root():
     return {"message": "Market Analysis API is running"}
+
+
+# --- Mount Frank Lens MCP (Streamable HTTP) at /frank/mcp/ ---
+app.mount("/frank", frank_mcp_app)

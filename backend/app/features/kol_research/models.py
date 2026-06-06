@@ -7,7 +7,7 @@ Mirrors the shape of /api/research/* with two extras:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -99,3 +99,28 @@ class KolResearchResponse(BaseModel):
             "(e.g. get_stock_quote -> {type:'stock', params:{symbol:...}})."
         ),
     )
+
+
+class KolMcpSearchRequest(BaseModel):
+    """Live MCP vector search over one KOL's tweet corpus."""
+
+    query: str = Field(..., min_length=1, max_length=1000)
+    k: int = Field(default=6, ge=1, le=20)
+    threshold: float = Field(default=0.45, ge=0.0, le=1.0)
+
+
+class KolMcpMarketBriefRequest(BaseModel):
+    """Live MCP market data bridge for the same brief tools used by KOL agent."""
+
+    brief_type: Literal["stock", "peer", "macro", "industry"] = "stock"
+    symbol: Optional[str] = Field(default=None, max_length=20)
+
+
+class KolMcpContextRequest(BaseModel):
+    """Build live MCP context from vector evidence and market brief data."""
+
+    question: str = Field(..., min_length=1, max_length=2000)
+    ticker: Optional[str] = Field(default=None, max_length=20)
+    sector: Optional[str] = Field(default=None, max_length=120)
+    evidence_limit: int = Field(default=6, ge=1, le=12)
+    include_market_data: bool = True
