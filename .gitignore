@@ -75,6 +75,7 @@ _distillation_artifacts/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.tgz
 .vercel
 .gstack/
 
