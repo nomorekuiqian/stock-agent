@@ -604,7 +604,7 @@ before / after
 - 把任何 key 写进代码、commit 进 git、贴进 PR / issue / 截图
 - 把 `.env` 加进 git（`.gitignore` 已覆盖，仍要警惕）
 - 本地把 `ENVIRONMENT` 改成 `production`
-- 本地手动跑 cron workflow / 调真实 broadcast 接口
+- 本地手动跑 cron workflow、激活 Insforge schedule 或调真实 broadcast 接口
 
 ---
 
@@ -714,7 +714,8 @@ await set_lifetime(user_id="<alice-的-user-id>", is_lifetime=True)
 
 - **代码**：`nomorekuiqian/stock-agent` 私有 repo
 - **CI workflow**：`ci.yml` 每个 push / PR 自动跑
-- **Cron workflows**（11 个，`.github/workflows/`）：生产定时任务，**不要手动触发**
+- **Cron schedules**：生产定时任务在 Insforge Schedules；已迁移的
+  GitHub cron workflows 已删除，**不要手动触发或激活 schedule**
 - **朋友权限**：Repo Write 即可（创建分支 + PR）。改 workflow 走 PR + 主理人 review
 
 ### Cloudflare / DNS

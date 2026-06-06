@@ -134,8 +134,8 @@ Use a known existing paid user (any of the 146 backfilled accounts from migratio
 
 ## Pending product setup (user manual action)
 
-1. **GitHub Actions cron**: a new workflow `.github/workflows/lifecycle-onboarding.yml` runs `POST /api/cron/lifecycle/onboarding-pass` daily at **UTC 23:00**. Chosen to land **after** twitter-digest-generate (UTC 20:30 weekdays) so D0/D1/D2 emails embed the current day's digest, not yesterday's. Requires GitHub secrets `BACKEND_URL` + `CRON_SECRET` (already set for sibling workflows).
-2. **Old drip retirement**: After Phase 1 deploy + the last legacy trial winds down (~14 days), delete the old `.github/workflows/onboarding-drip.yml` cron (now scheduled at UTC 15:00, which fires before twitter_digest is even generated). Also safe to delete `backend/app/features/notification/onboarding.py` at that point.
+1. **Lifecycle cron status**: the lifecycle onboarding workflow was reverted on 2026-06-04; do not add a new GitHub Actions cron. Current onboarding drip runs through Insforge `Cron - Onboarding Drip` (`0 23 * * *`) via `cron-trigger`.
+2. **Old drip retirement**: still deferred. Keep `backend/app/features/notification/onboarding.py` until the replacement lifecycle scheduler is rebuilt and migrated through Insforge Schedules, not GitHub Actions.
 
 (Resend segment + Stripe `watchlist_unlimited` feature, mentioned in earlier drafts, are no longer needed — the scheduler sends per-user not per-segment, and watchlist limit is now uniform 25.)
 

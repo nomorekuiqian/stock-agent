@@ -350,6 +350,29 @@ curl localhost:8000/ready
 # If "degraded": check which service shows "error" or "missing" in the checks object
 ```
 
+### Scheduled jobs
+
+Production cron jobs run in Insforge Schedules, not GitHub Actions. The
+migrated GitHub cron workflow files have been deleted; `.github/workflows/`
+keeps CI only.
+
+Operational checks:
+
+```bash
+npx @insforge/cli schedules list
+npx @insforge/cli schedules logs <schedule-id>
+```
+
+The migrated schedules call the `cron-trigger` edge function, which validates
+`X-Internal-Secret`, forwards with `X-Cron-Secret`, and preserves the failure
+checks that used to live in workflow shell scripts. To verify routing without
+calling production broadcast endpoints, invoke `cron-trigger` with
+`{"dry_run": true}`.
+
+Do not manually trigger broadcast endpoints in production as a smoke test. Use
+schedule config checks and `cron-trigger` dry-run unless the owner explicitly
+approves a real send.
+
 ### Finding module-specific logs
 
 Logger names follow the Python module hierarchy:

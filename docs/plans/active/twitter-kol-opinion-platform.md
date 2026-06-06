@@ -216,13 +216,13 @@ category, symbols
 
 ### 2. Ingestion Pipeline [DONE]
 
-代码已实现 `fetch-configured-kols`,每 KOL 拉最新 1 页(~20 条),upsert 去重,run 记录写 `twitter_fetch_runs`。`.github/workflows/kol-tweets-fetch.yml` 每小时触发。
+代码已实现 `fetch-configured-kols`,每 KOL 拉最新 1 页(~20 条),upsert 去重,run 记录写 `twitter_fetch_runs`。Insforge `Cron - KOL Tweets Ingestion` 每小时经 `cron-trigger` 触发。
 
 ### 3. Enrichment Pipeline [V3 NEW]
 
 入库阶段一次性给推文打上质量、内容摘要、ticker / sector / event 标签,使下游 digest pipeline 可以直接读 metadata 做聚类 + 综合,不再做质量判定。
 
-**Cron**: 北京 05:30 工作日(UTC 21:30 Sun-Thu),先于 06:00 digest 生成 cron。一天一次足够,不跟随 hourly 采集。
+**Cron**: 已并入 Insforge `Cron - KOL Tweets Ingestion` 的第二步,每小时处理最近 6h 未 enrichment 推文。这样 digest 生成前不再依赖独立 daily enrichment workflow。
 
 **模型**: `gemini-3.1-flash-lite-preview`(enrichment 是结构化抽取任务,不需深度推理)。事件抽取允许粗,digest 综合阶段(pro 模型)会做最终事件命名归并。
 
@@ -508,7 +508,7 @@ kol_tweets (last 36h, enriched)
   → kol_daily_digests
 ```
 
-cron:北京 06:00 工作日触发 digest(`twitter-digest-generate.yml` 已落),enrichment cron 北京 05:30 工作日(`kol-tweets-enrich.yml` V3 待加),失败重试至 07:30 cutoff,07:30 后跳过 + 告警。
+cron:Insforge `Cron - Twitter Digest Generate` 在 UTC 20:30 工作日触发 digest；enrichment 已并入每小时 `Cron - KOL Tweets Ingestion` 第二步。
 
 ### Phase 3: 邮件 + 详情页
 
@@ -553,8 +553,8 @@ cron:北京 06:00 工作日触发 digest(`twitter-digest-generate.yml` 已落),e
 - [x] `/twitter-digest/[date]` 切换为真实 fetch
 - [ ] 读取端点和前端接 Pro / Max 付费墙
 - [ ] 历史归档列表页
-- [x] Cron 配置: 北京 06:00 (UTC 22:00) 工作日触发 generate (`.github/workflows/twitter-digest-generate.yml`); curl `--retry 3` 处理瞬态失败,失败建 issue
-- [x] KOL 采集 cron: 每小时触发 `fetch-configured-kols` (`.github/workflows/kol-tweets-fetch.yml`)
+- [x] Cron 配置: Insforge `Cron - Twitter Digest Generate` (`30 20 * * 1-5`) 经 `cron-trigger` 触发 generate
+- [x] KOL 采集 cron: Insforge `Cron - KOL Tweets Ingestion` 每小时触发 `fetch-configured-kols` 并随后 enrich 最近 6h
 - [ ] 评估集: 手工审 5 天的输出,比对"质量是否达到付费内容标准"
 
 ### Phase 2 V3 实施步骤(进行中)
@@ -568,7 +568,7 @@ V3 是把日报单元从"推文"换成"话题"的重构。施工分四步,每步
 - [ ] `EnrichmentOutput` pydantic schema:quality / quality_features / content_summary_zh / tickers / sectors / events
 - [ ] `service.enrich_unenriched_tweets()` 增量处理 `kol_tweets.symbols IS NULL` 且 `created_at >= 36h ago`
 - [ ] 写回 `kol_tweets.symbols` JSONB(完整 payload + `enriched_at` + `enriched_model`)
-- [ ] daily cron `.github/workflows/kol-tweets-enrich.yml`(北京 05:30 工作日,UTC 21:30 Sun-Thu),先于 06:00 digest cron
+- [x] enrichment cron 已并入 Insforge `Cron - KOL Tweets Ingestion`,不再新增 GitHub workflow
 - [ ] 单测:happy path、已 enrichment 跳过、ticker 词典反查、5 特征质量分档边界、LLM 失败不阻塞 digest
 
 **验证关:跑一天 → 人工抽查 50 条 → 质量分档准确率 ≥ 80%, ticker 误识别率 < 2%。**
