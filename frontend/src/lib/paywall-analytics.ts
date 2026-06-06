@@ -6,7 +6,8 @@ export type PaywallSource =
   | 'paywall_guard'
   | 'paywall_guard_pro_to_max'
   | 'stock_ai_paywall'
-  | 'personal_digest';
+  | 'personal_digest'
+  | 'research_quota';
 
 export type PaywallTier = 'pro' | 'max';
 

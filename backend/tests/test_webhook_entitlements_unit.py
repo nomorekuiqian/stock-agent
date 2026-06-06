@@ -254,3 +254,70 @@ class TestEntitlementsWebhook:
         assert resp.json() == {"received": True}
         mock_get_sub.assert_not_awaited()
         mock_upsert.assert_not_awaited()
+
+    # ------------------------------------------------------------------
+    # 6. Regression: placeholder status must not clobber activation
+    # ------------------------------------------------------------------
+
+    @patch("app.features.payment.router.stripe")
+    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
+    @patch("app.features.payment.router.get_subscription", new_callable=AsyncMock)
+    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
+    def test_placeholder_status_not_clobbered(
+        self, mock_get_sub, mock_get_sub_full, mock_upsert, mock_stripe,
+    ):
+        """Regression: a stale placeholder status must never be copied back.
+
+        Repro of the production bug: ``get_or_create_stripe_customer`` writes a
+        row at checkout start with only ``stripe_customer_id``, so ``status``
+        falls back to the column default ``"none"``. Stripe does not guarantee
+        webhook ordering, so this entitlements webhook can read that placeholder
+        row before ``checkout.session.completed`` commits ``status="active"``.
+        The handler must derive status from entitlement presence (active here),
+        NOT copy the stale ``"none"`` — otherwise paid Max users stay stuck as
+        regular users (frontend ``isMax`` requires ``status === "active"``).
+        """
+        customer_id = "cus_race_555"
+        user_id = "user-race-006"
+
+        # Stored row is the placeholder: status still at the column default.
+        mock_get_sub.return_value = {"user_id": user_id, "status": "none"}
+
+        from app.features.payment.entitlements import PRO_FEATURES, MAX_ONLY_FEATURES
+        all_features = sorted(PRO_FEATURES | MAX_ONLY_FEATURES)
+        ent_list = [self._make_entitlement(k) for k in all_features]
+
+        mock_get_sub_full.return_value = {
+            "user_id": user_id,
+            "status": "active",
+            "plan": "max",
+            "entitlements": all_features,
+        }
+
+        mock_ent_response = MagicMock()
+        mock_ent_response.to_dict.return_value = {"data": ent_list}
+        mock_stripe.entitlements.ActiveEntitlement.list.return_value = mock_ent_response
+
+        mock_customer = MagicMock()
+        mock_customer.to_dict.return_value = {"email": "race@test.com"}
+        mock_stripe.Customer.retrieve.return_value = mock_customer
+
+        event = self._build_event(customer=customer_id)
+        mock_stripe.Webhook.construct_event.return_value = event
+        mock_stripe.SignatureVerificationError = Exception
+
+        with patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments"
+        ):
+            resp = self.client.post(
+                "/api/payment/webhook",
+                content=b"raw-payload",
+                headers={"stripe-signature": "sig_test"},
+            )
+
+        assert resp.status_code == 200
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "max"
+        assert call_kwargs["entitlements"] == all_features
+        # The bug: this used to be "none" (copied from the placeholder row).
+        assert call_kwargs["status"] == "active"

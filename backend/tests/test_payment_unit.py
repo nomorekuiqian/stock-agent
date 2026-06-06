@@ -28,6 +28,56 @@ class TestEntitlementCatalog:
 
 
 # ---------------------------------------------------------------------------
+# Checkout session
+# ---------------------------------------------------------------------------
+
+
+class TestCheckoutSession:
+    """Checkout URL regressions."""
+
+    @pytest.mark.asyncio
+    async def test_success_url_marks_checkout_return_and_tier(self):
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.test/session"
+
+        with patch.object(
+            service,
+            "STRIPE_MAX_PRICE_ID",
+            "price_max_test",
+        ), patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test"},
+        ), patch.object(
+            service,
+            "FRONTEND_URL",
+            "https://themarketbrew.com",
+        ), patch(
+            "app.features.payment.service.get_or_create_stripe_customer",
+            new_callable=AsyncMock,
+            return_value="cus_test",
+        ), patch(
+            "app.features.payment.service.stripe.checkout.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            url = await service.create_checkout_session(
+                user_id="user-1",
+                email="test@example.com",
+                return_path="/research?agent=kol&persona=qinbafrank",
+                tier="max",
+            )
+
+        assert url == "https://checkout.stripe.test/session"
+        success_url = mock_create.call_args.kwargs["success_url"]
+        assert success_url.startswith("https://themarketbrew.com/pricing/success?")
+        assert "checkout=success" in success_url
+        assert "tier=max" in success_url
+        assert "next=%2Fresearch%3Fagent%3Dkol%26persona%3Dqinbafrank" in success_url
+
+
+# ---------------------------------------------------------------------------
 # get_user_email_by_id
 # ---------------------------------------------------------------------------
 

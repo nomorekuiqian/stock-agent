@@ -120,8 +120,13 @@ async def api_create_checkout(
 
 
 @router.get("/subscription-status", response_model=SubscriptionStatusResponse)
-async def api_subscription_status(user_id: str = Depends(verify_user_token)):
+async def api_subscription_status(
+    fresh: bool = False,
+    user_id: str = Depends(verify_user_token),
+):
     """Query subscription status for a user."""
+    if fresh:
+        invalidate_subscription_cache(user_id)
     sub = await get_subscription(user_id)
     if not sub:
         return SubscriptionStatusResponse(plan="free", status="none")
@@ -392,20 +397,49 @@ async def stripe_webhook(request: Request):
         })
         feature_keys = [k for k in feature_keys if k]  # remove empty
 
-        # Determine plan from entitlements
-        from app.features.payment.entitlements import MAX_ONLY_FEATURES
+        # Determine plan from Stripe entitlements, then normalize to the full
+        # code-defined feature set for the detected tier. We deliberately do NOT
+        # mirror Stripe's raw entitlement list verbatim: Stripe does not
+        # retroactively grant product features added *after* a subscription was
+        # created (portfolio_management/twitter_digest were attached to the Max
+        # product later, so ~42 older Max subs never received them), and it also
+        # still carries the deprecated macro_dashboard feature. Mirroring the
+        # lifetime path, the code catalog is authoritative for tier *contents*,
+        # so every Max subscriber gets all of MAX_FEATURES regardless of Stripe
+        # attach timing. Tier *detection* still comes from Stripe.
+        from app.features.payment.entitlements import (
+            MAX_ONLY_FEATURES,
+            MAX_FEATURES,
+            PRO_FEATURES,
+        )
         has_max_feature = any(f in MAX_ONLY_FEATURES for f in feature_keys)
-        plan = "max" if has_max_feature else ("pro" if feature_keys else "free")
+        if has_max_feature:
+            plan = "max"
+            feature_keys = sorted(MAX_FEATURES)
+        elif feature_keys:
+            plan = "pro"
+            feature_keys = sorted(PRO_FEATURES)
+        else:
+            plan = "free"
+            feature_keys = []
 
-        # Determine status from subscription
-        status = sub_record.get("status", "active")
+        # Derive status from entitlement presence — do NOT copy the stored
+        # status here. Stripe does not guarantee webhook ordering, so reading
+        # sub_record.status and writing it back caused a lost update: when this
+        # webhook read the placeholder row (status defaults to "none") before
+        # checkout.session.completed committed status="active", it wrote "none"
+        # back and clobbered the activation, leaving paid users stuck as "none"
+        # (frontend isMax requires status==="active"). Active entitlements from
+        # Stripe are the source of truth for access (see entitlements.py), so:
+        # any entitlement present ⇒ active; empty ⇒ canceled.
+        status = "active" if feature_keys else "canceled"
 
         # Layer 2: update Insforge
         await upsert_subscription(
             user_id=user_id,
             stripe_customer_id=customer_id,
             plan=plan,
-            status=status if feature_keys else "canceled",
+            status=status,
             entitlements=feature_keys,
         )
 

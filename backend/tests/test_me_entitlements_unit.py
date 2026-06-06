@@ -112,3 +112,40 @@ class TestMeEntitlements:
         resp = self.client.get("/api/payment/me/entitlements")
 
         assert resp.status_code == 401
+
+
+class TestSubscriptionStatus:
+    """Test the /api/payment/subscription-status endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def setup_client(self):
+        from app.main import app
+        self.app = app
+        self.client = TestClient(app)
+        yield
+        app.dependency_overrides.clear()
+
+    def _override_auth(self, user_id: str):
+        from app.core.deps import verify_user_token
+        self.app.dependency_overrides[verify_user_token] = lambda: user_id
+
+    @patch(
+        "app.features.payment.router.get_subscription",
+        new_callable=AsyncMock,
+    )
+    @patch("app.features.payment.router.invalidate_subscription_cache")
+    def test_fresh_invalidates_cache(self, mock_invalidate, mock_get_sub):
+        """?fresh=true should bypass the 5-minute subscription cache."""
+        self._override_auth("user-sub-001")
+        mock_get_sub.return_value = {
+            "plan": "max",
+            "status": "active",
+            "current_period_end": None,
+            "access_expires_at": None,
+        }
+
+        resp = self.client.get("/api/payment/subscription-status?fresh=true")
+
+        assert resp.status_code == 200
+        assert resp.json()["plan"] == "max"
+        mock_invalidate.assert_called_once_with("user-sub-001")

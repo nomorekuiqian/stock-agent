@@ -5,6 +5,7 @@ Uses asyncio.to_thread to avoid blocking the event loop with synchronous Stripe 
 
 import asyncio
 import time
+from urllib.parse import urlencode
 
 import stripe
 
@@ -76,6 +77,11 @@ async def create_checkout_session(
     customer_id = await get_or_create_stripe_customer(user_id, email)
 
     path = return_path or "/for-you"
+    success_params = urlencode({
+        "checkout": "success",
+        "tier": tier,
+        "next": path,
+    })
 
     t1 = time.time()
     session = await asyncio.to_thread(
@@ -83,7 +89,7 @@ async def create_checkout_session(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{FRONTEND_URL}/pricing/success?next={path}",
+        success_url=f"{FRONTEND_URL}/pricing/success?{success_params}",
         cancel_url=f"{FRONTEND_URL}{path}?checkout=cancel",
         metadata={"user_id": user_id, "tier": tier},
         subscription_data={"metadata": {"user_id": user_id, "tier": tier}},

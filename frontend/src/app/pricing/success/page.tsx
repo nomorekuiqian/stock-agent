@@ -2,35 +2,135 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { getAccessTokenAsync, useAuth } from '@/contexts/AuthContext';
+import { queryKeys } from '@/hooks/queries/query-keys';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const ACTIVATION_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 1_000;
+
+type CheckoutTier = 'pro' | 'max';
+
+interface SubscriptionStatus {
+  plan: string;
+  status: string;
+  current_period_end: string | null;
+  access_expires_at: string | null;
+}
+
+interface EntitlementsResponse {
+  entitlements: string[];
+  trial_eligible?: boolean;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeNext(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/for-you';
+  return raw;
+}
+
+function normalizeTier(raw: string | null, nextPath: string): CheckoutTier | null {
+  if (raw === 'pro' || raw === 'max') return raw;
+  if (nextPath.startsWith('/research')) return 'max';
+  return null;
+}
+
+function isActiveSubscription(sub: SubscriptionStatus): boolean {
+  if (sub.status !== 'active') return false;
+  if (!sub.access_expires_at) return true;
+  return new Date(sub.access_expires_at) > new Date();
+}
+
+function isActivationReady(
+  sub: SubscriptionStatus,
+  entitlements: string[],
+  tier: CheckoutTier | null,
+): boolean {
+  if (!isActiveSubscription(sub)) return false;
+  if (tier === 'max') {
+    return sub.plan === 'max' && entitlements.includes('ai_research_engine');
+  }
+  if (tier === 'pro') {
+    return (sub.plan === 'pro' || sub.plan === 'max') && entitlements.length > 0;
+  }
+  if (sub.plan === 'max') return entitlements.includes('ai_research_engine');
+  return sub.plan === 'pro' && entitlements.length > 0;
+}
+
+async function fetchJson<T>(path: string, token: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Activation fetch failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 function CheckoutSuccessContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const { refresh } = useEntitlements();
+  const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
   const [status, setStatus] = useState<'activating' | 'ready' | 'timeout'>('activating');
+  const target = normalizeNext(params.get('next'));
+  const tier = normalizeTier(params.get('tier'), target);
 
   useEffect(() => {
+    if (authLoading) return;
+
     let cancelled = false;
-    const target = params.get('next') || '/for-you';
+    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const run = async () => {
-      await refresh({ fresh: true });
-      if (cancelled) return;
-      setStatus('ready');
-      setTimeout(() => !cancelled && router.push(target), 800);
-    };
+      const token = await getAccessTokenAsync();
+      if (!token) {
+        if (!cancelled) setStatus('timeout');
+        return;
+      }
 
-    const timeoutId = setTimeout(() => {
+      const deadline = Date.now() + ACTIVATION_TIMEOUT_MS;
+      while (!cancelled && Date.now() < deadline) {
+        try {
+          const [sub, ents] = await Promise.all([
+            fetchJson<SubscriptionStatus>('/payment/subscription-status?fresh=true', token),
+            fetchJson<EntitlementsResponse>('/payment/me/entitlements?fresh=true', token),
+          ]);
+
+          queryClient.setQueryData(queryKeys.entitlements.me(), ents);
+          if (user?.id) {
+            queryClient.setQueryData(queryKeys.subscriptionStatus.byUser(user.id), sub);
+          }
+
+          if (isActivationReady(sub, ents.entitlements || [], tier)) {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.featureFlags.all });
+            if (cancelled) return;
+            setStatus('ready');
+            redirectTimer = setTimeout(() => {
+              if (!cancelled) router.replace(target);
+            }, 600);
+            return;
+          }
+        } catch {
+          // Webhooks can land a moment after Checkout redirects back. Keep polling
+          // until the activation deadline instead of flashing a stale paywall.
+        }
+        await sleep(POLL_INTERVAL_MS);
+      }
+
       if (!cancelled) setStatus('timeout');
-    }, 10000);
+    };
 
     run();
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
+      if (redirectTimer) clearTimeout(redirectTimer);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authLoading, queryClient, router, target, tier, user?.id]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
