@@ -19,7 +19,7 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 | `daily-report.yml` | `Cron - Daily Market Report` | `4df141ee-d090-4292-a784-f49feeef34a0` | `0 22 * * 1-5` | `daily_report` | active |
 | `daily-digest.yml` | `Cron - Daily Personal Digest` | `8658badd-6537-44ac-bebb-4aa45352af78` | `15 22 * * 1-5` | `daily_digest` | active |
 | `weekly-report.yml` | `Cron - Weekly Macro Report` | `cca2235d-05b1-43e7-aa8d-4032519d418b` | `0 17 * * 0` | `weekly_report` | active |
-| `onboarding-drip.yml` | `Cron - Onboarding Drip` | `29f09615-aacd-4d3b-a31c-8d8bbae2df07` | `0 23 * * *` | `onboarding_drip` | active |
+| `onboarding-drip.yml` | `Cron - Onboarding Drip` | `29f09615-aacd-4d3b-a31c-8d8bbae2df07` | `0 23 * * *` | `onboarding_drip` | legacy no-op |
 | `screener-universe-refresh.yml` | `Cron - Screener Universe Refresh` | `f236991b-6678-46eb-a24a-1e7b1a7d8a07` | `0 23 * * 1-5` | `screener_universe_refresh` | active |
 | `macro-cache-refresh.yml` T1 | `Cron - Macro Cache Tier 1` | `9412e60d-a9d5-4687-81bb-9d82cf179851` | `0 1,5,9,13,17 * * *` | `macro_cache_t1` | active |
 | `macro-cache-refresh.yml` T2 | `Cron - Macro Cache Tier 2` | `243b7721-e77f-4ba4-a0c6-7730f5475703` | `0 2,14 * * *` | `macro_cache_t2` | active |
@@ -32,6 +32,9 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 `twitter_digest_broadcast` 从原 `0 22 * * 1-5` 调整到 `2 22 * * 1-5`，
 避免 pg_cron 精确触发时与 `daily_report` 同分钟撞 Resend 限流。GitHub
 Actions 时代的调度抖动会天然错开，迁到 Insforge 后需要显式错峰。
+
+2026-06-06: onboarding drip 邮件已删除。`onboarding_drip` schedule 如果继续触发，
+只会经 `cron-trigger` 调用 legacy backend endpoint 并返回 `disabled=true`，不会发送邮件。
 
 ## Proxy
 
