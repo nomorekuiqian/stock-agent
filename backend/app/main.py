@@ -33,12 +33,12 @@ logger = get_logger(__name__)
 from app.core.email_guard import install as install_email_guard
 install_email_guard()
 
-# --- Frank Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
+# --- Market Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
 from contextlib import asynccontextmanager
 
-from app.frank_mcp.server import mcp as frank_mcp
+from app.frank_mcp.server import mcp as market_mcp
 
-frank_mcp_app = frank_mcp.http_app(path="/mcp")
+market_mcp_app = market_mcp.http_app(path="/mcp")
 
 
 @asynccontextmanager
@@ -312,5 +312,5 @@ async def root():
     return {"message": "Market Analysis API is running"}
 
 
-# --- Mount Frank Lens MCP (Streamable HTTP) at /frank/mcp/ ---
-app.mount("/frank", frank_mcp_app)
+# --- Mount Market Lens MCP (Streamable HTTP) at /frank/mcp/ ---
+app.mount("/frank", market_mcp_app)

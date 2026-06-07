@@ -1,4 +1,4 @@
-// Frank Lens MCP beta access.
+// Market Lens MCP beta access for the Frank persona.
 //
 // Tables:
 //   frank_lens_invites — invite code records

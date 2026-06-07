@@ -127,7 +127,7 @@ class KolMcpContextRequest(BaseModel):
 
 
 class KolMcpWorkflowRequest(BaseModel):
-    """Beta-gated Frank Lens MCP workflow request.
+    """Beta-gated Market Lens MCP workflow request for a persona.
 
     The backend returns a context pack for the user's own agent to write the
     final answer. It does not expose local packaged methodology assets.

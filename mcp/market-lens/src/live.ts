@@ -1,11 +1,12 @@
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000/api";
 const DEFAULT_PERSONA = "qinbafrank";
+const STATUS_TIMEOUT_MS = 3000;
 
 export function liveConfig(args: Record<string, unknown> = {}) {
   return {
     backend_url: normalizedBackendUrl(),
-    persona: stringArg(args, "persona") || process.env.FRANK_LENS_PERSONA || DEFAULT_PERSONA,
-    has_invite_code: Boolean(process.env.FRANK_LENS_INVITE_CODE),
+    persona: stringArg(args, "persona") || marketLensEnv("PERSONA") || DEFAULT_PERSONA,
+    has_invite_code: Boolean(marketLensEnv("INVITE_CODE")),
   };
 }
 
@@ -24,8 +25,8 @@ export async function frankStatus(args: Record<string, unknown>) {
       adapter: config,
       error: error instanceof Error ? error.message : String(error),
       setup: {
-        required_env: ["FRANK_LENS_BACKEND_URL", "FRANK_LENS_INVITE_CODE"],
-        note: "frank_status can run without an invite code, but workflow tools require FRANK_LENS_INVITE_CODE.",
+        required_env: ["MARKET_LENS_BACKEND_URL", "MARKET_LENS_INVITE_CODE"],
+        note: "frank_status can run without an invite code, but workflow tools require MARKET_LENS_INVITE_CODE. Legacy FRANK_LENS_* variables are also accepted.",
       },
     };
   }
@@ -74,10 +75,10 @@ export async function runWorkflow(workflow: string, args: Record<string, unknown
 }
 
 async function getJson(path: string) {
-  const response = await fetch(apiUrl(path), {
+  const response = await fetchWithTimeout(apiUrl(path), {
     method: "GET",
     headers: headers(),
-  });
+  }, STATUS_TIMEOUT_MS);
   return readResponse(response);
 }
 
@@ -91,6 +92,21 @@ async function postJson(path: string, body: unknown) {
     body: JSON.stringify(body),
   });
   return readResponse(response);
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Backend request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function readResponse(response: Response) {
@@ -117,16 +133,20 @@ function apiUrl(path: string) {
 }
 
 function normalizedBackendUrl() {
-  return (process.env.FRANK_LENS_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
+  return (marketLensEnv("BACKEND_URL") || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
 }
 
 function headers() {
   const out: Record<string, string> = {};
-  const inviteCode = process.env.FRANK_LENS_INVITE_CODE;
+  const inviteCode = marketLensEnv("INVITE_CODE");
   if (inviteCode) {
     out["X-Frank-Lens-Invite-Code"] = inviteCode;
   }
   return out;
+}
+
+function marketLensEnv(name: "BACKEND_URL" | "INVITE_CODE" | "PERSONA") {
+  return process.env[`MARKET_LENS_${name}`] || process.env[`FRANK_LENS_${name}`] || "";
 }
 
 function stringArg(args: Record<string, unknown>, key: string) {

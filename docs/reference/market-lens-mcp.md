@@ -1,9 +1,9 @@
-# Frank Lens MCP
+# Market Lens MCP
 
-Frank Lens MCP 位于：
+Market Lens MCP 位于：
 
 ```text
-mcp/frank-lens/
+mcp/market-lens/
 ```
 
 ## 产品形态
@@ -14,19 +14,19 @@ mcp/frank-lens/
 用户 Agent
   -> 本地 NPM MCP adapter
   -> TheMarketBrew backend
-  -> Frank workflow engine / assets / vector DB / market data
+  -> persona workflow engine / assets / vector DB / market data
   -> context pack
   -> 用户 Agent 自己写最终回答
 ```
 
-本地 NPM 包只是薄 adapter，不再打包完整 qinbafrank 蒸馏资产。核心
-assets、ticker/sector playbook、Evidence Map、workflow、usage logging 和未来
-付费能力都在 backend。
+本地 NPM 包只是薄 adapter，不再打包完整 persona 蒸馏资产。核心 assets、
+ticker/sector playbook、Evidence Map、workflow、usage logging 和未来付费能力
+都在 backend。当前默认 persona 是 `qinbafrank`。
 
 ## 用户安装
 
 ```bash
-npm install -g @themarketbrew/frank-lens-mcp
+npm install -g @themarketbrew/market-lens-mcp
 ```
 
 MCP Client 配置：
@@ -34,13 +34,13 @@ MCP Client 配置：
 ```json
 {
   "mcpServers": {
-    "frank-lens": {
-      "command": "frank-lens-mcp",
+    "market-lens": {
+      "command": "market-lens-mcp",
       "args": [],
       "env": {
-        "FRANK_LENS_BACKEND_URL": "https://stock-agent-production.up.railway.app/api",
-        "FRANK_LENS_INVITE_CODE": "beta_xxx",
-        "FRANK_LENS_PERSONA": "qinbafrank"
+        "MARKET_LENS_BACKEND_URL": "https://stock-agent-production.up.railway.app/api",
+        "MARKET_LENS_INVITE_CODE": "beta_xxx",
+        "MARKET_LENS_PERSONA": "qinbafrank"
       }
     }
   }
@@ -49,6 +49,7 @@ MCP Client 配置：
 
 内测期免费，但 workflow/evidence 工具需要邀请码。邀请码存储在 Insforge
 `frank_lens_invites` table，通过 `frank-lens-beta` Edge Function 校验。
+`FRANK_LENS_*` env 仍作为兼容 fallback，但新配置使用 `MARKET_LENS_*`。
 
 ## Tools
 
@@ -62,7 +63,7 @@ MCP Client 配置：
 - `frank_research_memo`
 
 `frank_status` 可以无邀请码调用，用来检查 adapter/backend 状态。其他工具需要
-`FRANK_LENS_INVITE_CODE`。
+`MARKET_LENS_INVITE_CODE`。
 
 ## Backend Endpoints
 
@@ -94,7 +95,7 @@ POST /api/kol_research/personas/{username}/mcp/workflow
 ## 验证
 
 ```bash
-cd /Users/kedeng/projects/stock-agent-frank-mcp/mcp/frank-lens
+cd /Users/kedeng/projects/stock-agent/mcp/market-lens
 npm run build
 npm run inspect
 npm run smoke
@@ -105,8 +106,8 @@ npm pack --dry-run
 Live smoke：
 
 ```bash
-FRANK_LENS_BACKEND_URL=http://127.0.0.1:8000/api \
-FRANK_LENS_INVITE_CODE=beta_xxx \
+MARKET_LENS_BACKEND_URL=http://127.0.0.1:8000/api \
+MARKET_LENS_INVITE_CODE=beta_xxx \
 npm run smoke:live
 ```
 

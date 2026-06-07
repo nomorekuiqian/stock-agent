@@ -1,4 +1,4 @@
-"""Frank Lens MCP beta access and usage helpers."""
+"""Market Lens MCP beta access and usage helpers."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _internal_headers() -> dict[str, str]:
 
 
 async def validate_invite_code(invite_code: str | None) -> dict[str, Any]:
-    """Validate a Frank Lens beta invite code against Insforge.
+    """Validate a Market Lens beta invite code against Insforge.
 
     Returns a normalized dict:
       {allowed, access, invite_code_id?, invite_label?, remaining_quota?}

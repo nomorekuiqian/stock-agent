@@ -19,7 +19,7 @@ const VERSION = "0.3.0";
 
 const server = new Server(
   {
-    name: "frank-lens-mcp",
+    name: "market-lens-mcp",
     version: VERSION,
   },
   {
@@ -28,10 +28,10 @@ const server = new Server(
       prompts: {},
     },
     instructions: [
-      "Frank Lens MCP is a thin local adapter for TheMarketBrew's backend Frank engine.",
+      "Market Lens MCP is a thin local adapter for TheMarketBrew's backend lens engine.",
       "The local package does not include qinbafrank methodology assets.",
       "Tools return backend context packs for the user's own agent to write the final answer.",
-      "Set FRANK_LENS_BACKEND_URL and FRANK_LENS_INVITE_CODE for beta workflow access.",
+      "Set MARKET_LENS_BACKEND_URL and MARKET_LENS_INVITE_CODE for beta workflow access.",
     ].join("\n"),
   },
 );
@@ -47,7 +47,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           persona: {
             type: "string",
-            description: "Persona username. Defaults to qinbafrank or FRANK_LENS_PERSONA.",
+            description: "Persona username. Defaults to qinbafrank or MARKET_LENS_PERSONA.",
           },
         },
       },
@@ -56,7 +56,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "frank_search_evidence",
       title: "Frank Evidence Search",
-      description: "Search backend vector evidence for qinbafrank historical tweet chunks. Requires FRANK_LENS_INVITE_CODE.",
+      description: "Search backend vector evidence for qinbafrank historical tweet chunks. Requires MARKET_LENS_INVITE_CODE.",
       inputSchema: {
         type: "object",
         properties: {
@@ -74,7 +74,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           persona: {
             type: "string",
-            description: "Persona username. Defaults to qinbafrank or FRANK_LENS_PERSONA.",
+            description: "Persona username. Defaults to qinbafrank or MARKET_LENS_PERSONA.",
           },
         },
         required: ["query"],
@@ -84,7 +84,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "frank_stock_diagnosis",
       title: "Frank Stock Diagnosis Context",
-      description: "Return a backend context pack for judging a stock through Frank's valuation/earnings/logic lens. Requires FRANK_LENS_INVITE_CODE.",
+      description: "Return a backend context pack for judging a stock through Frank's valuation/earnings/logic lens. Requires MARKET_LENS_INVITE_CODE.",
       inputSchema: {
         type: "object",
         properties: {
@@ -110,7 +110,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           persona: {
             type: "string",
-            description: "Persona username. Defaults to qinbafrank or FRANK_LENS_PERSONA.",
+            description: "Persona username. Defaults to qinbafrank or MARKET_LENS_PERSONA.",
           },
         },
         required: ["question", "ticker"],
@@ -120,14 +120,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "frank_market_regime",
       title: "Frank Market Regime Context",
-      description: "Return a backend context pack for judging market conditions through Frank's macro/risk lens. Requires FRANK_LENS_INVITE_CODE.",
+      description: "Return a backend context pack for judging market conditions through Frank's macro/risk lens. Requires MARKET_LENS_INVITE_CODE.",
       inputSchema: workflowSchema(false),
       annotations: readOnlyOpenWorld(),
     },
     {
       name: "frank_compare",
       title: "Frank Compare Context",
-      description: "Return a backend context pack for comparing two or more tickers through Frank's framework. Requires FRANK_LENS_INVITE_CODE.",
+      description: "Return a backend context pack for comparing two or more tickers through Frank's framework. Requires MARKET_LENS_INVITE_CODE.",
       inputSchema: {
         type: "object",
         properties: {
@@ -154,7 +154,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           persona: {
             type: "string",
-            description: "Persona username. Defaults to qinbafrank or FRANK_LENS_PERSONA.",
+            description: "Persona username. Defaults to qinbafrank or MARKET_LENS_PERSONA.",
           },
         },
         required: ["question", "tickers"],
@@ -164,7 +164,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "frank_research_memo",
       title: "Frank Research Memo Context",
-      description: "Return a backend context pack for a deeper research memo. Requires FRANK_LENS_INVITE_CODE.",
+      description: "Return a backend context pack for a deeper research memo. Requires MARKET_LENS_INVITE_CODE.",
       inputSchema: workflowSchema(true),
       annotations: readOnlyOpenWorld(),
     },
@@ -280,7 +280,7 @@ function workflowSchema(questionRequired: boolean) {
       },
       persona: {
         type: "string",
-        description: "Persona username. Defaults to qinbafrank or FRANK_LENS_PERSONA.",
+        description: "Persona username. Defaults to qinbafrank or MARKET_LENS_PERSONA.",
       },
     },
     required: questionRequired ? ["question"] : [],
@@ -298,7 +298,7 @@ function readOnlyOpenWorld() {
 
 function promptResponse(lines: string[]) {
   return {
-    description: "Use Frank Lens MCP backend context.",
+    description: "Use Market Lens MCP backend context.",
     messages: [
       {
         role: "user" as const,
@@ -335,6 +335,6 @@ function errorResponse(message: string) {
 }
 
 main().catch((error) => {
-  process.stderr.write(`frank-lens-mcp failed to start: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(`market-lens-mcp failed to start: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 });

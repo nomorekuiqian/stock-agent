@@ -6,7 +6,7 @@ import path from "node:path";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const serverPath = path.join(packageDir, "dist", "index.js");
-const installedBin = process.env.FRANK_LENS_MCP_BIN;
+const installedBin = process.env.MARKET_LENS_MCP_BIN;
 const child = installedBin
   ? spawn(installedBin, [], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"] })
   : spawn(process.execPath, [serverPath], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"] });
@@ -56,7 +56,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "frank-lens-smoke-test", version: "0.3.0" },
+    clientInfo: { name: "market-lens-smoke-test", version: "0.3.0" },
   });
   notify("notifications/initialized");
 

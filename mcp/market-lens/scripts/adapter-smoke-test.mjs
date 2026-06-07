@@ -82,8 +82,8 @@ const child = spawn(process.execPath, [serverPath], {
   stdio: ["pipe", "pipe", "pipe"],
   env: {
     ...process.env,
-    FRANK_LENS_BACKEND_URL: `http://127.0.0.1:${port}/api`,
-    FRANK_LENS_INVITE_CODE: "BETA_TEST",
+    MARKET_LENS_BACKEND_URL: `http://127.0.0.1:${port}/api`,
+    MARKET_LENS_INVITE_CODE: "BETA_TEST",
   },
 });
 
@@ -136,7 +136,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "frank-lens-adapter-smoke-test", version: "0.3.0" },
+    clientInfo: { name: "market-lens-adapter-smoke-test", version: "0.3.0" },
   });
   notify("notifications/initialized");
 

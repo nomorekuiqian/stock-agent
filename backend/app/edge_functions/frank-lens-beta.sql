@@ -1,4 +1,4 @@
--- Frank Lens MCP beta access tables.
+-- Market Lens MCP beta access tables for the Frank persona.
 
 CREATE TABLE IF NOT EXISTS frank_lens_invites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

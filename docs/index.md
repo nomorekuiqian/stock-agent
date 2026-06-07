@@ -59,7 +59,7 @@
 - [pages.md](reference/pages.md) — 前端页面路由表
 - [components.md](reference/components.md) — 前端组件清单
 - [frank-feedback-raw.md](reference/frank-feedback-raw.md) — qinbafrank 页面改造反馈原始记录（逐字保留）
-- [frank-lens-mcp.md](reference/frank-lens-mcp.md) — Frank Lens MCP backend-first beta：薄 NPM adapter、邀请码、backend context pack、安装与验证
+- [market-lens-mcp.md](reference/market-lens-mcp.md) — Market Lens MCP backend-first beta：薄 NPM adapter、邀请码、backend context pack、安装与验证
 - [twitter-kol-source-research.md](reference/twitter-kol-source-research.md) — 推特 KOL 信息源扩展 research
 - [vector-rag-pipeline.md](reference/vector-rag-pipeline.md) — vector embedding / retrieval / RAG pipeline
 
@@ -85,7 +85,7 @@
 - `test/.context.md` — 测试体系
 
 **MCP**:
-- `mcp/frank-lens/.context.md` — Frank Lens MCP 薄 adapter package，所有核心资产和 workflow 走 backend
+- `mcp/market-lens/.context.md` — Market Lens MCP 薄 adapter package，所有核心资产和 workflow 走 backend
 
 ## 外部知识库
 

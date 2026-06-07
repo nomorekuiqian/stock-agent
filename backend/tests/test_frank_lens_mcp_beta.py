@@ -1,4 +1,4 @@
-"""Frank Lens MCP beta endpoints."""
+"""Market Lens MCP beta endpoints for the Frank persona."""
 
 from __future__ import annotations
 
