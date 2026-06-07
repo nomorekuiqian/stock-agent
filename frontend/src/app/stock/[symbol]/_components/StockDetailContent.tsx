@@ -1026,7 +1026,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const [logoError, setLogoError] = useState(false);
 
   // Auto-fetch cached analysis on page load
-  const { data: cachedAnalysis, isLoading: cacheLoading } = useStockAnalysisCache(symbol);
+  const { data: cachedAnalysis, isLoading: cacheLoading } = useStockAnalysisCache(symbol, hasAIAccess);
 
   // AI Analysis mutations (for generate/regenerate)
   const analysisMutation = useGenerateStockAnalysis(symbol);

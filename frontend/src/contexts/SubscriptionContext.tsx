@@ -39,6 +39,10 @@ function isExpired(accessExpiresAt: string | null): boolean {
   return new Date(accessExpiresAt) <= new Date();
 }
 
+function hasActiveAccessStatus(status: string): boolean {
+  return status === 'active' || status === 'trialing';
+}
+
 async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
   const token = await getAccessToken();
   if (!token) {
@@ -84,7 +88,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     refetchInterval: (q) => {
       if (!isCheckoutReturn) return false;
       const sub = q.state.data as SubscriptionStatus | undefined;
-      if (sub && (sub.plan === 'pro' || sub.plan === 'max') && sub.status === 'active') {
+      if (sub && (sub.plan === 'pro' || sub.plan === 'max') && hasActiveAccessStatus(sub.status)) {
         return false;
       }
       return 1000;
@@ -96,7 +100,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const completionTrackedRef = useRef(false);
   useEffect(() => {
     if (!isCheckoutReturn || !data) return;
-    if ((data.plan === 'pro' || data.plan === 'max') && data.status === 'active') {
+    if ((data.plan === 'pro' || data.plan === 'max') && hasActiveAccessStatus(data.status)) {
       if (!completionTrackedRef.current) {
         trackCheckoutComplete({ tier: data.plan as 'pro' | 'max' });
         completionTrackedRef.current = true;
@@ -113,7 +117,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const status = data?.status || 'none';
   const currentPeriodEnd = data?.current_period_end || null;
   const accessExpiresAt = data?.access_expires_at || null;
-  const isActive = status === 'active' && !isExpired(accessExpiresAt);
+  const isActive = hasActiveAccessStatus(status) && !isExpired(accessExpiresAt);
 
   const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max') && isActive);
   const isMax = !PAYWALL_ENABLED || (plan === 'max' && isActive);

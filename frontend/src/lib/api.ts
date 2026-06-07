@@ -1783,9 +1783,9 @@ export const api = {
       try {
         const response = await fetch(`${API_BASE_URL}/subscriptions/sync-user`, {
           method: 'POST',
-          headers: {
+          headers: await _authHeaders({
             'Content-Type': 'application/json',
-          },
+          }, { required: true }),
           body: JSON.stringify({
             user_id: userId,
             email: email,
@@ -1909,23 +1909,6 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to get twitter digest preview' }));
       throw new Error(error.detail || 'Failed to get twitter digest preview');
-    }
-    return response.json();
-  },
-
-  getOnboardingPreview: async (day: number = 3, firstName?: string): Promise<{
-    success: boolean;
-    day: number;
-    subject: string;
-    html: string;
-    valid_days: number[];
-  }> => {
-    const params = new URLSearchParams({ day: String(day) });
-    if (firstName) params.append('first_name', firstName);
-    const response = await fetch(`${API_BASE_URL}/onboarding/preview?${params}`);
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to get onboarding preview' }));
-      throw new Error(error.detail || 'Failed to get onboarding preview');
     }
     return response.json();
   },
@@ -2549,19 +2532,32 @@ export const api = {
 
   research: {
     chat: async (req: ResearchRequest, opts?: AuthRequestOptions): Promise<ResearchResult> => {
-      const headers = await _authHeaders(
+      const baseHeaders = await _authHeaders(
         { 'Content-Type': 'application/json' },
         { required: opts?.requiredAuth === true },
       );
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 90_000);
-      try {
-        const response = await fetch(`${API_BASE_URL}/research/chat`, {
+      const post = (authHeaders: Record<string, string>) =>
+        fetch(`${API_BASE_URL}/research/chat`, {
           method: 'POST',
-          headers,
+          headers: authHeaders,
           body: JSON.stringify(req),
           signal: controller.signal,
         });
+      try {
+        let response = await post(baseHeaders);
+        // Refresh once and retry on 401 so a transient null/expired token
+        // self-heals (mirrors fetchProtected / the streaming path).
+        if (response.status === 401) {
+          const newToken = await refreshSession();
+          if (newToken) {
+            response = await post({
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${newToken}`,
+            });
+          }
+        }
         if (!response.ok) {
           await throwProtectedApiError(response, 'AI 助手暂时无法响应');
         }
@@ -2581,19 +2577,33 @@ export const api = {
       onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; code?: string; quota_exceeded?: boolean }) => void,
       opts?: AuthRequestOptions,
     ): Promise<void> => {
-      const headers = await _authHeaders(
+      const baseHeaders = await _authHeaders(
         { 'Content-Type': 'application/json' },
         { required: opts?.requiredAuth === true },
       );
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
-      try {
-        const response = await fetch(`${API_BASE_URL}/research/chat/stream`, {
+      const postStream = (authHeaders: Record<string, string>) =>
+        fetch(`${API_BASE_URL}/research/chat/stream`, {
           method: 'POST',
-          headers,
+          headers: authHeaders,
           body: JSON.stringify(req),
           signal: controller.signal,
         });
+      try {
+        let response = await postStream(baseHeaders);
+        // Refresh once and retry on 401 so a transient null/expired token (e.g.
+        // the refresh-token rotation race) self-heals instead of throwing the
+        // user out to /login. Mirrors fetchProtected's retry-once policy.
+        if (response.status === 401) {
+          const newToken = await refreshSession();
+          if (newToken) {
+            response = await postStream({
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${newToken}`,
+            });
+          }
+        }
         if (!response.ok) {
           await throwProtectedApiError(response, 'AI 助手暂时无法响应');
         }
@@ -2858,19 +2868,37 @@ export const api = {
       onEvent: (event: KolResearchStreamEvent) => void,
       signal?: AbortSignal,
     ): Promise<void> => {
-      const headers = await _authHeaders({ 'Content-Type': 'application/json' });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
       if (signal) {
         signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
-      try {
-        const response = await fetch(`${API_BASE_URL}/kol_research/chat/stream`, {
+      const postStream = (authHeaders: Record<string, string>) =>
+        fetch(`${API_BASE_URL}/kol_research/chat/stream`, {
           method: 'POST',
-          headers,
+          headers: authHeaders,
           body: JSON.stringify(req),
           signal: controller.signal,
         });
+      try {
+        let response = await postStream(
+          await _authHeaders({ 'Content-Type': 'application/json' }),
+        );
+        // A 401 here is almost always a transient missing/expired access token
+        // (e.g. the refresh-token rotation race), not a real logged-out state —
+        // anonymous users are blocked by the /research login wall before they
+        // get here. Refresh once and retry before surfacing an auth error, the
+        // same retry-once policy fetchProtected uses. This lets a momentary
+        // null-token self-heal instead of rendering "登录已过期" in Frank's bubble.
+        if (response.status === 401) {
+          const newToken = await refreshSession();
+          if (newToken) {
+            response = await postStream({
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${newToken}`,
+            });
+          }
+        }
         if (!response.ok) {
           const detail = await readApiError(response, 'AI 助手暂时无法响应');
           onEvent({

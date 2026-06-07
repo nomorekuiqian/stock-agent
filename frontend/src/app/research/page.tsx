@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useState, useRef, Suspense, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -28,6 +28,7 @@ import type { MacroPanelContextPayload } from './_components/panel/MacroPanelVie
 import type { BrewContextPayload } from './_components/BrewDigestView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
+import LoginGate from '@/components/LoginGate';
 import ContentPanel from './_components/ContentPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
 import MobileTabSwitch from './_components/MobileTabSwitch';
@@ -257,6 +258,7 @@ function ScreenerContent() {
   const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
   const loadingConversationRef = useRef(false);
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const contextInitialized = useRef(false);
   const skipPanelSaveRef = useRef(true);
   const lastPanelContentSignatureRef = useRef<string | null>(null);
@@ -1704,6 +1706,29 @@ function ScreenerContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // Login wall — the AI research assistant (both the regular research agent and
+  // the KOL persona chat) requires a signed-in user. Anonymous visitors get a
+  // login prompt instead of the chat UI, so they can never fire a token-less
+  // request that the backend rejects with 401 — which previously surfaced as a
+  // misleading "登录已过期" reply in the agent bubble. The redirect preserves the
+  // full URL (incl. ?agent=kol&persona=...&q=...) so the seeded question still
+  // auto-fires after the user logs in.
+  if (!userId) {
+    const query = searchParams.toString();
+    const redirectTo = query ? `${pathname}?${query}` : (pathname || '/research');
+    return (
+      <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 overflow-y-auto">
+        <LoginGate
+          redirectTo={redirectTo}
+          title="登录后使用 AI 研究助手"
+          description="向 Frank 或研究助手提问需要登录账户。注册免费，无需付费。"
+        >
+          {null}
+        </LoginGate>
       </div>
     );
   }
