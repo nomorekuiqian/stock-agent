@@ -127,6 +127,10 @@ async def send_daily_report(
         if not email_result.get("success"):
             raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to broadcast email"))
 
+        # Mirror to Discord as an embed card (best-effort, never blocks email path)
+        from app.shared.discord_notifier import send_daily_report_card
+        await send_daily_report_card(report_data)
+
         return {
             "success": True,
             "message": "Daily report broadcast to all subscribers",
