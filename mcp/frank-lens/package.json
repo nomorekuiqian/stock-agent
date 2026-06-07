@@ -1,22 +1,22 @@
 {
   "name": "@themarketbrew/frank-lens-mcp",
-  "version": "0.2.0",
-  "description": "Installable MCP server for qinbafrank methodology lenses and evidence context.",
+  "version": "0.3.0",
+  "description": "Thin local MCP adapter for TheMarketBrew Frank Lens backend context packs.",
   "type": "module",
   "bin": {
     "frank-lens-mcp": "dist/index.js"
   },
   "files": [
-    "assets/",
     "dist/",
     "README.md",
     ".context.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "dev": "tsx src/index.ts",
     "inspect": "node scripts/inspect.mjs",
     "smoke": "node scripts/smoke-test.mjs",
+    "smoke:adapter": "node scripts/adapter-smoke-test.mjs",
     "smoke:live": "node scripts/live-smoke-test.mjs",
     "prepack": "npm run build"
   },

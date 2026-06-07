@@ -8,14 +8,8 @@ const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const serverPath = path.join(packageDir, "dist", "index.js");
 const installedBin = process.env.FRANK_LENS_MCP_BIN;
 const child = installedBin
-  ? spawn(installedBin, [], {
-      cwd: packageDir,
-      stdio: ["pipe", "pipe", "pipe"],
-    })
-  : spawn(process.execPath, [serverPath], {
-      cwd: packageDir,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+  ? spawn(installedBin, [], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"] })
+  : spawn(process.execPath, [serverPath], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"] });
 
 let nextId = 1;
 let buffer = "";
@@ -36,25 +30,20 @@ child.stdout.on("data", (chunk) => {
   }
 });
 
-child.stderr.on("data", (chunk) => {
-  process.stderr.write(chunk);
-});
+child.stderr.on("data", (chunk) => process.stderr.write(chunk));
 
-function send(method, params) {
+function send(method, params, timeoutMs = 5000) {
   const id = nextId++;
   child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       pending.delete(id);
       reject(new Error(`Timed out waiting for ${method}`));
-    }, 5000);
+    }, timeoutMs);
     pending.set(id, (message) => {
       clearTimeout(timeout);
-      if (message.error) {
-        reject(new Error(`${method} failed: ${JSON.stringify(message.error)}`));
-      } else {
-        resolve(message.result);
-      }
+      if (message.error) reject(new Error(`${method} failed: ${JSON.stringify(message.error)}`));
+      else resolve(message.result);
     });
   });
 }
@@ -67,72 +56,40 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: {
-      name: "frank-lens-smoke-test",
-      version: "0.1.0",
-    },
+    clientInfo: { name: "frank-lens-smoke-test", version: "0.3.0" },
   });
   notify("notifications/initialized");
 
   const toolList = await send("tools/list", {});
   const toolNames = toolList.tools.map((tool) => tool.name);
-  for (const required of ["frank_build_context", "frank_stock_diagnosis", "frank_market_regime"]) {
-    if (!toolNames.includes(required)) {
-      throw new Error(`${required} missing from tools/list: ${toolNames.join(", ")}`);
-    }
+  const required = [
+    "frank_status",
+    "frank_search_evidence",
+    "frank_stock_diagnosis",
+    "frank_market_regime",
+    "frank_compare",
+    "frank_research_memo",
+  ];
+  for (const name of required) {
+    if (!toolNames.includes(name)) throw new Error(`${name} missing from tools/list`);
+  }
+  for (const oldName of ["frank_get_methodology", "frank_build_context", "frank_live_stock_diagnosis"]) {
+    if (toolNames.includes(oldName)) throw new Error(`old local/live split tool still exposed: ${oldName}`);
   }
 
-  const tickerLens = await send("tools/call", {
-    name: "frank_get_ticker_lens",
-    arguments: { ticker: "NVDA" },
-  });
-  const parsedTickerLens = JSON.parse(tickerLens.content[0].text);
-  if (parsedTickerLens.coverage !== "high") {
-    throw new Error(`Expected NVDA coverage=high, got ${parsedTickerLens.coverage}`);
-  }
-
-  const context = await send("tools/call", {
-    name: "frank_build_context",
-    arguments: {
-      question: "按 Frank 框架看 NVDA 是杀估值、杀业绩还是杀逻辑？",
-      ticker: "NVDA",
-    },
-  });
-  const parsedContext = JSON.parse(context.content[0].text);
-  if (!parsedContext.selected_lenses.some((lens) => lens.key === "NVDA")) {
-    throw new Error("Expected frank_build_context to select ticker lens NVDA");
-  }
-
-  const diagnosis = await send("tools/call", {
-    name: "frank_stock_diagnosis",
-    arguments: {
-      question: "按 Frank 框架看 NVDA 是杀估值、杀业绩还是杀逻辑？",
-      ticker: "NVDA",
-    },
-  });
-  const diagnosisText = diagnosis.content[0].text;
-  if (!diagnosisText.includes("Frank Stock Diagnosis Brief") || !diagnosisText.includes("Ticker: NVDA")) {
-    throw new Error("frank_stock_diagnosis did not return the expected narrative briefing text");
-  }
-
-  const marketRegime = await send("tools/call", {
-    name: "frank_market_regime",
-    arguments: {
-      question: "按 Frank 框架判断当前市场行情。",
-    },
-  });
-  const marketRegimeText = marketRegime.content[0].text;
-  if (!marketRegimeText.includes("Frank Market Regime Brief")) {
-    throw new Error("frank_market_regime did not return the expected narrative briefing text");
+  const status = await send("tools/call", { name: "frank_status", arguments: {} });
+  const parsedStatus = JSON.parse(status.content[0].text);
+  if (typeof parsedStatus.adapter?.backend_url !== "string") {
+    throw new Error("frank_status did not return adapter backend_url");
   }
 
   console.log(JSON.stringify({
     ok: true,
+    mode: "thin-adapter",
     toolCount: toolNames.length,
-    called: ["tools/list", "frank_get_ticker_lens", "frank_build_context", "frank_stock_diagnosis", "frank_market_regime"],
-    selectedLenses: parsedContext.selected_lenses.map((lens) => `${lens.layer}/${lens.key}`),
-    stockDiagnosisChars: diagnosisText.length,
-    marketRegimeChars: marketRegimeText.length,
+    tools: toolNames,
+    statusOk: parsedStatus.ok,
+    hasInviteCode: parsedStatus.adapter.has_invite_code,
   }, null, 2));
 } finally {
   child.kill();

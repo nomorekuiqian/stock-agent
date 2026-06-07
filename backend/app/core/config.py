@@ -88,6 +88,7 @@ RESEND_SEGMENT_TWITTER_DIGEST = os.getenv("RESEND_SEGMENT_TWITTER_DIGEST", "")
 
 # Invite codes (comma-separated shared codes for public distribution)
 INVITE_CODES = os.getenv("INVITE_CODES", "")
+FRANK_LENS_DEV_INVITE_CODE = os.getenv("FRANK_LENS_DEV_INVITE_CODE", "")
 
 # Admin access whitelist (comma-separated emails)
 ADMIN_EMAILS = [
