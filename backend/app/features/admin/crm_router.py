@@ -4,7 +4,7 @@ Protected by admin email whitelist.
 """
 
 import asyncio
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -15,7 +15,7 @@ from app.core.database import get_insforge_service
 from app.core.deps import verify_admin_user
 from app.core.logging import get_logger
 from app.features.payment.db import get_subscription, upsert_subscription
-from app.features.payment.entitlements import MAX_FEATURES
+from app.features.payment.entitlements import MAX_FEATURES, PRO_FEATURES
 
 logger = get_logger(__name__)
 
@@ -53,7 +53,7 @@ class BulkProfileUpdate(BaseModel):
 class GrantSubscription(BaseModel):
     user_id: str
     days: int = Field(ge=1, le=365, default=30)
-    plan: str = "max"
+    plan: Literal["pro", "max"] = "max"
 
 
 class InteractionCreate(BaseModel):
@@ -440,6 +440,7 @@ async def grant_subscription(
             pass
 
     access_expires_at = (base + timedelta(days=body.days)).isoformat()
+    grant_entitlements = MAX_FEATURES if body.plan == "max" else PRO_FEATURES
 
     success = await upsert_subscription(
         user_id=user_id,
@@ -448,7 +449,7 @@ async def grant_subscription(
         invite_code="ADMIN_GRANT",
         access_expires_at=access_expires_at,
         current_period_end=access_expires_at,
-        entitlements=sorted(MAX_FEATURES),
+        entitlements=sorted(grant_entitlements),
     )
 
     if not success:

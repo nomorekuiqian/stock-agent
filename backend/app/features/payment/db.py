@@ -216,7 +216,21 @@ async def list_entitled_users(feature: str) -> list:
     data = result.get("data", {})
     if data.get("success"):
         return data.get("data", [])
-    return []
+    raise RuntimeError(data.get("error") or "list_entitled_users failed")
+
+
+async def list_expired_access_grants(now_iso: str) -> list:
+    """List subscription rows whose non-Stripe access grant has expired."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "list_expired_access_grants", "now": now_iso},
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        return data.get("data", [])
+    raise RuntimeError(data.get("error") or "list_expired_access_grants failed")
 
 
 async def get_user_email_by_id(user_id: Optional[str]) -> Optional[str]:
