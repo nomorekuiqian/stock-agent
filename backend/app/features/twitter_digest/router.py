@@ -171,6 +171,10 @@ async def broadcast_endpoint(
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error", "broadcast failed"))
 
+    # Mirror to Discord as embed card(s) (best-effort, never blocks email path)
+    from app.shared.discord_notifier import send_twitter_digest_card
+    await send_twitter_digest_card(digest_dict)
+
     logger.info(
         "twitter-digest broadcast: date=%s total=%d sent=%d failed=%d",
         derived_date, result.get("total", 0),
