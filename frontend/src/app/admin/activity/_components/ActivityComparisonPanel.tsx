@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 export interface ActivityDailyRow {
   day: string;
@@ -257,6 +257,7 @@ function channelLabel(channel: string): string {
 }
 
 function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
+  const [view, setView] = useState<'channel' | 'date'>('channel');
   const summary = metrics?.summary;
   const daily = metrics?.daily ?? [];
   const byChannel = metrics?.by_channel ?? [];
@@ -264,16 +265,44 @@ function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 space-y-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">Email engagement</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Resend webhook events. Open rate uses unique opens / delivered.
+            Resend webhook events. Open rate uses delivered-email cohort.
           </p>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {metrics?.days ?? 0} days
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5">
+            <button
+              type="button"
+              aria-pressed={view === 'channel'}
+              onClick={() => setView('channel')}
+              className={`h-7 px-3 text-xs font-medium transition-colors ${
+                view === 'channel'
+                  ? 'rounded bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              By channel
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'date'}
+              onClick={() => setView('date')}
+              className={`h-7 px-3 text-xs font-medium transition-colors ${
+                view === 'date'
+                  ? 'rounded bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              By date
+            </button>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {metrics?.days ?? 0} days
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -289,60 +318,72 @@ function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
         <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
           No Resend webhook metrics yet.
         </div>
+      ) : view === 'channel' ? (
+        <EmailChannelView rows={byChannel} />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h3 className="text-sm font-medium text-foreground">Daily delivered / opened</h3>
-              <span className="text-xs text-muted-foreground">hover bars for details</span>
-            </div>
-            <div className="flex h-36 items-end gap-1">
-              {daily.map((row) => {
-                const deliveredHeight = Math.max(4, (row.delivered / maxDelivered) * 100);
-                const openedHeight = row.delivered > 0
-                  ? Math.max(0, Math.min(100, (row.opened / row.delivered) * deliveredHeight))
-                  : 0;
-                return (
-                  <div key={row.day} className="group relative flex h-full flex-1 items-end min-w-0">
-                    <div
-                      className="relative w-full rounded-t bg-sky-500/30 transition-colors group-hover:bg-sky-500/40"
-                      style={{ height: `${deliveredHeight}%` }}
-                    >
-                      <div
-                        className="absolute bottom-0 left-0 right-0 rounded-t bg-emerald-500/70"
-                        style={{ height: `${openedHeight}%` }}
-                      />
-                    </div>
-                    <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm group-hover:block">
-                      {shortDate(row.day)} · {row.delivered} delivered · {row.opened} opened · {formatRate(row.open_rate)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-2 text-sm font-medium text-foreground">By channel</h3>
-            <div className="space-y-2">
-              {byChannel.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No channel data.</div>
-              ) : byChannel.map((row) => (
-                <div key={row.channel} className="rounded-md border border-border/70 px-3 py-2">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <div className="text-sm font-medium text-foreground">{channelLabel(row.channel)}</div>
-                    <div className="text-sm tabular-nums text-foreground">{formatRate(row.open_rate)}</div>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {formatNumber(row.delivered)} delivered · {formatNumber(row.opened)} opened · {formatNumber(row.clicked)} clicked
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <EmailDateView rows={daily} maxDelivered={maxDelivered} />
       )}
     </section>
+  );
+}
+
+function EmailChannelView({ rows }: { rows: EmailChannelMetrics[] }) {
+  if (rows.length === 0) {
+    return <div className="text-sm text-muted-foreground">No channel data.</div>;
+  }
+
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium text-foreground">By channel</h3>
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => (
+          <div key={row.channel} className="rounded-md border border-border/70 px-3 py-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="text-sm font-medium text-foreground">{channelLabel(row.channel)}</div>
+              <div className="text-sm tabular-nums text-foreground">{formatRate(row.open_rate)}</div>
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {formatNumber(row.delivered)} delivered · {formatNumber(row.opened)} opened · {formatNumber(row.clicked)} clicked
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmailDateView({ rows, maxDelivered }: { rows: EmailMetricsRow[]; maxDelivered: number }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <h3 className="text-sm font-medium text-foreground">By date</h3>
+        <span className="text-xs text-muted-foreground">hover bars for details</span>
+      </div>
+      <div className="flex h-36 items-end gap-1">
+        {rows.map((row) => {
+          const deliveredHeight = Math.max(4, (row.delivered / maxDelivered) * 100);
+          const openedHeight = row.delivered > 0
+            ? Math.max(0, Math.min(100, (row.opened / row.delivered) * deliveredHeight))
+            : 0;
+          return (
+            <div key={row.day} className="group relative flex h-full flex-1 items-end min-w-0">
+              <div
+                className="relative w-full rounded-t bg-sky-500/30 transition-colors group-hover:bg-sky-500/40"
+                style={{ height: `${deliveredHeight}%` }}
+              >
+                <div
+                  className="absolute bottom-0 left-0 right-0 rounded-t bg-emerald-500/70"
+                  style={{ height: `${openedHeight}%` }}
+                />
+              </div>
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm group-hover:block">
+                {shortDate(row.day)} · {row.delivered} delivered · {row.opened} opened · {formatRate(row.open_rate)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
