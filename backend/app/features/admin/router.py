@@ -86,9 +86,15 @@ def _empty_activity(days: int = 30) -> dict[str, Any]:
     }
 
 
-def _empty_email_metrics(days: int = 30) -> dict[str, Any]:
+def _empty_email_metrics(
+    days: int = 30,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     return {
         "days": days,
+        "start_date": start_date,
+        "end_date": end_date,
         "daily": [],
         "by_channel": [],
         "summary": {
@@ -139,9 +145,14 @@ def _shape_activity_dashboard(payload: dict[str, Any], days: int = 30) -> dict[s
     }
 
 
-def _shape_email_metrics(payload: dict[str, Any], days: int = 30) -> dict[str, Any]:
+def _shape_email_metrics(
+    payload: dict[str, Any],
+    days: int = 30,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     if not payload.get("success"):
-        return _empty_email_metrics(days)
+        return _empty_email_metrics(days, start_date=start_date, end_date=end_date)
 
     daily = [
         {
@@ -181,6 +192,8 @@ def _shape_email_metrics(payload: dict[str, Any], days: int = 30) -> dict[str, A
 
     return {
         "days": int(payload.get("days") or days),
+        "start_date": payload.get("start_date") or start_date,
+        "end_date": payload.get("end_date") or end_date,
         "daily": daily,
         "by_channel": by_channel,
         "summary": {
@@ -212,12 +225,20 @@ async def _fetch_activity(days: int) -> dict[str, Any]:
     return _shape_activity_dashboard(data, days=days)
 
 
-async def _fetch_email_metrics(days: int) -> dict[str, Any]:
+async def _fetch_email_metrics(
+    days: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     service = get_insforge_service()
+    params: dict[str, Any] = {"action": "summary", "days": days}
+    if start_date and end_date:
+        params["start_date"] = start_date
+        params["end_date"] = end_date
     result = await service.call_function(
         "email-events",
         method="GET",
-        params={"action": "summary", "days": days},
+        params=params,
         extra_headers=(
             {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
             if EDGE_FUNCTION_SECRET else None
@@ -225,7 +246,12 @@ async def _fetch_email_metrics(days: int) -> dict[str, Any]:
         timeout=30.0,
     )
     data = result.get("data", {}) if isinstance(result, dict) else {}
-    return _shape_email_metrics(data, days=days)
+    return _shape_email_metrics(
+        data,
+        days=days,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/whoami")
@@ -239,19 +265,25 @@ async def get_admin_status(
 
 @router.get("/activity")
 async def get_activity(
-    days: int = Query(60, ge=14, le=90),
+    days: int = Query(60, ge=1, le=90),
+    email_start: str | None = Query(None),
+    email_end: str | None = Query(None),
     _admin: dict = Depends(verify_admin_user),
 ):
     """Return daily activity for admin trend comparisons."""
     activity, email_metrics = await asyncio.gather(
         _fetch_activity(days),
-        _fetch_email_metrics(days),
+        _fetch_email_metrics(days, start_date=email_start, end_date=email_end),
         return_exceptions=True,
     )
     if not isinstance(activity, dict):
         activity = _empty_activity(days)
     if not isinstance(email_metrics, dict):
-        email_metrics = _empty_email_metrics(days)
+        email_metrics = _empty_email_metrics(
+            days,
+            start_date=email_start,
+            end_date=email_end,
+        )
     return {**activity, "email_metrics": email_metrics}
 
 

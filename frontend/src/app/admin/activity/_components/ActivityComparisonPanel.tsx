@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { getAccessTokenAsync, getAccessTokenSync } from '@/contexts/AuthContext';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
 export interface ActivityDailyRow {
   day: string;
@@ -51,6 +54,8 @@ export interface EmailChannelMetrics {
 
 export interface EmailMetricsData {
   days: number;
+  start_date?: string | null;
+  end_date?: string | null;
   daily: EmailMetricsRow[];
   by_channel: EmailChannelMetrics[];
   summary: {
@@ -123,6 +128,10 @@ function shortDate(day: string): string {
   const date = new Date(`${day}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return day;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+}
+
+function isoDateOnly(value: string | null | undefined): string {
+  return value ? value.slice(0, 10) : '';
 }
 
 function buildStats(label: string, rows: ActivityDailyRow[]): PeriodStats {
@@ -258,10 +267,74 @@ function channelLabel(channel: string): string {
 
 function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
   const [view, setView] = useState<'channel' | 'date'>('channel');
-  const summary = metrics?.summary;
-  const daily = metrics?.daily ?? [];
-  const byChannel = metrics?.by_channel ?? [];
+  const [data, setData] = useState<EmailMetricsData | undefined>(metrics);
+  const fallbackStart = data?.daily[0]?.day ?? '';
+  const fallbackEnd = data?.daily.at(-1)?.day ?? '';
+  const [startDate, setStartDate] = useState(
+    isoDateOnly(data?.start_date) || fallbackStart,
+  );
+  const [endDate, setEndDate] = useState(
+    isoDateOnly(data?.end_date) || fallbackEnd,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const summary = data?.summary;
+  const daily = data?.daily ?? [];
+  const byChannel = data?.by_channel ?? [];
+  const hasAnyEmailEvents = Boolean(
+    summary
+    && (
+      summary.delivered
+      + summary.opened
+      + summary.clicked
+      + summary.bounced
+      + summary.complained
+      + summary.failed
+    ) > 0,
+  );
   const maxDelivered = Math.max(...daily.map((row) => row.delivered), 1);
+  const intervalLabel = startDate && endDate
+    ? `${shortDate(startDate)}-${shortDate(endDate)}`
+    : `${data?.days ?? 0} days`;
+
+  async function reloadEmailMetrics() {
+    if (!startDate || !endDate) {
+      setError('请选择开始和结束日期');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const rangeStart = startDate <= endDate ? startDate : endDate;
+      const rangeEnd = startDate <= endDate ? endDate : startDate;
+      const token = getAccessTokenSync() ?? (await getAccessTokenAsync());
+      if (!token) {
+        setError('未登录');
+        return;
+      }
+      const params = new URLSearchParams({
+        days: String(data?.days ?? metrics?.days ?? 60),
+        email_start: rangeStart,
+        email_end: rangeEnd,
+      });
+      const res = await fetch(`${API_BASE}/admin/activity?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        setError(`刷新失败: HTTP ${res.status}`);
+        return;
+      }
+      const next = (await res.json()) as ActivityData;
+      setData(next.email_metrics);
+      setStartDate(rangeStart);
+      setEndDate(rangeEnd);
+    } catch (e) {
+      setError(`刷新失败: ${String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 space-y-4">
@@ -272,7 +345,28 @@ function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
             Resend webhook events. Open rate uses delivered-email cohort.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+          />
+          <button
+            type="button"
+            onClick={() => void reloadEmailMetrics()}
+            disabled={loading}
+            className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:border-primary disabled:opacity-50"
+          >
+            {loading ? 'Loading' : 'Apply'}
+          </button>
           <div className="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5">
             <button
               type="button"
@@ -300,10 +394,16 @@ function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
             </button>
           </div>
           <span className="text-xs text-muted-foreground">
-            {metrics?.days ?? 0} days
+            {intervalLabel}
           </span>
         </div>
       </div>
+
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <EmailMetricCard label="Delivered" value={formatNumber(summary?.delivered ?? 0)} />
@@ -314,7 +414,7 @@ function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
         <EmailMetricCard label="Bounced/Failed" value={formatNumber((summary?.bounced ?? 0) + (summary?.failed ?? 0))} />
       </div>
 
-      {daily.length === 0 || (summary?.delivered ?? 0) === 0 ? (
+      {daily.length === 0 || !hasAnyEmailEvents ? (
         <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
           No Resend webhook metrics yet.
         </div>
