@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import INVITE_CODES, RESEND_API_KEY
 from app.core.deps import verify_user_token, get_optional_user_email
 from app.core.logging import get_logger
+from app.core.resend_tags import resend_channel_tags
 from app.features.invites.models import (
     RedeemInviteRequest,
     AccessRequestInput,
@@ -101,6 +102,7 @@ async def api_request_access(body: AccessRequestInput):
             "to": [body.email],
             "subject": "欢迎来到 TheMarketBrew",
             "html": html_body,
+            "tags": resend_channel_tags("access_welcome"),
         })
         logger.info("Access welcome email sent: email=%s name=%s", body.email, body.name)
         return AccessRequestResponse(success=True, message="欢迎邮件已发送到你的邮箱")

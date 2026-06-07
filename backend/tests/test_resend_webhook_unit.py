@@ -24,7 +24,7 @@ def test_shape_resend_event_extracts_metrics_fields():
     assert row["email_id"] == "email-123"
     assert row["broadcast_id"] == "broadcast-456"
     assert row["recipient_email"] == "reader@example.com"
-    assert row["channel"] == "personal_digest"
+    assert row["channel"] == "unknown"
 
 
 def test_shape_resend_event_uses_channel_tag_when_present():
@@ -47,7 +47,7 @@ def test_shape_resend_event_uses_channel_tag_when_present():
     assert row["channel"] == "weekly_report"
 
 
-def test_shape_resend_event_classifies_welcome_email():
+def test_shape_resend_event_without_channel_tag_stays_unknown():
     from app.features.webhooks.resend_router import shape_resend_event
 
     event = {
@@ -62,7 +62,7 @@ def test_shape_resend_event_classifies_welcome_email():
 
     row = shape_resend_event(event, "msg_welcome")
 
-    assert row["channel"] == "welcome_email"
+    assert row["channel"] == "unknown"
 
 
 @pytest.mark.asyncio

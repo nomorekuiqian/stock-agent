@@ -246,6 +246,7 @@ function channelLabel(channel: string): string {
     weekly_report: 'Weekly',
     twitter_digest: 'Twitter',
     welcome_email: 'Welcome',
+    access_welcome: 'Access welcome',
     onboarding_drip: 'Onboarding',
     verification_email: 'Verification',
     newsletter: 'Newsletter',

@@ -32,6 +32,12 @@ def _extract_email(value: Any) -> str | None:
 
 
 def infer_resend_channel(data: dict[str, Any]) -> str:
+    """Return the explicit Resend channel tag, or unknown.
+
+    Channel attribution should come from send-time tags only. Subject/from
+    heuristics are intentionally avoided because copy changes can silently
+    misclassify engagement metrics.
+    """
     tags = data.get("tags")
     if isinstance(tags, list):
         for tag in tags:
@@ -40,32 +46,6 @@ def infer_resend_channel(data: dict[str, Any]) -> str:
             name = str(tag.get("name") or "").lower()
             if name in {"channel", "email_channel"} and tag.get("value"):
                 return str(tag["value"])
-
-    subject = str(data.get("subject") or "").lower()
-    from_email = str(data.get("from") or "").lower()
-
-    if "验证码" in subject or "verification" in subject or "verify" in subject:
-        return "verification_email"
-    if "欢迎来到 themarketbrew" in subject:
-        return "welcome_email"
-    if "试试投研助手" in subject or "适合 free" in subject:
-        return "onboarding_drip"
-    if "股票今天发生了什么" in subject:
-        return "onboarding_drip"
-    if "twitter" in subject or "推特" in subject:
-        return "twitter_digest"
-    if "专属日报" in subject:
-        return "personal_digest"
-    if "weekly" in from_email or "周报" in subject:
-        return "weekly_report"
-    if "morning" in from_email or "盘前" in subject:
-        return "morning_report"
-    if "newsletter" in subject:
-        return "newsletter"
-    if "daily" in from_email or "themarketbrew]" in subject:
-        return "daily_report"
-    if "hello@themarketbrew.com" in from_email:
-        return "lifecycle_email"
     return "unknown"
 
 

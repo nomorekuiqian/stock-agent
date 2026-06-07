@@ -23,6 +23,7 @@ import resend
 from app.core.config import RESEND_API_KEY, ENVIRONMENT
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
+from app.core.resend_tags import resend_channel_tags
 from app.features.subscription.email_styles import (
     CARD_STYLE_WIDE,
 )
@@ -370,6 +371,7 @@ async def _send_onboarding_email(email: str, subject: str, html: str) -> bool:
             "to": [email],
             "subject": subject,
             "html": html,
+            "tags": resend_channel_tags("onboarding_drip"),
         }
         result = resend.Emails.send(params)
         email_id = result.get("id") if result else None
