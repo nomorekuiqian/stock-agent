@@ -44,6 +44,14 @@ def infer_resend_channel(data: dict[str, Any]) -> str:
     subject = str(data.get("subject") or "").lower()
     from_email = str(data.get("from") or "").lower()
 
+    if "验证码" in subject or "verification" in subject or "verify" in subject:
+        return "verification_email"
+    if "欢迎来到 themarketbrew" in subject:
+        return "welcome_email"
+    if "试试投研助手" in subject or "适合 free" in subject:
+        return "onboarding_drip"
+    if "股票今天发生了什么" in subject:
+        return "onboarding_drip"
     if "twitter" in subject or "推特" in subject:
         return "twitter_digest"
     if "专属日报" in subject:
@@ -52,8 +60,12 @@ def infer_resend_channel(data: dict[str, Any]) -> str:
         return "weekly_report"
     if "morning" in from_email or "盘前" in subject:
         return "morning_report"
+    if "newsletter" in subject:
+        return "newsletter"
     if "daily" in from_email or "themarketbrew]" in subject:
         return "daily_report"
+    if "hello@themarketbrew.com" in from_email:
+        return "lifecycle_email"
     return "unknown"
 
 

@@ -47,6 +47,24 @@ def test_shape_resend_event_uses_channel_tag_when_present():
     assert row["channel"] == "weekly_report"
 
 
+def test_shape_resend_event_classifies_welcome_email():
+    from app.features.webhooks.resend_router import shape_resend_event
+
+    event = {
+        "type": "email.delivered",
+        "data": {
+            "email_id": "email-welcome",
+            "to": ["new-user@example.com"],
+            "from": "Golden from TheMarketBrew <hello@themarketbrew.com>",
+            "subject": "欢迎来到 TheMarketBrew：先把你的持仓加进来",
+        },
+    }
+
+    row = shape_resend_event(event, "msg_welcome")
+
+    assert row["channel"] == "welcome_email"
+
+
 @pytest.mark.asyncio
 async def test_resend_webhook_stores_verified_email_event():
     from app.features.webhooks import resend_router
