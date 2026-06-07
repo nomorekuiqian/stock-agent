@@ -338,32 +338,12 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-6">
       {/* Header */}
-      <div className="flex items-baseline justify-between">
+      <div>
         <div>
           <h1 className="text-xl font-semibold tracking-tight">用户管理看板</h1>
           <p className="text-sm text-muted-foreground mt-1">
             共 {summary.total} 位用户 · {engagementStats.withConversations} 人有对话 · {engagementStats.totalMessages} 条消息 · {engagementStats.personalDigestSubscribers} 人订阅专属日报
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/activity"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            活跃对比 →
-          </Link>
-          <Link
-            href="/admin/llm-usage"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            LLM 用量 →
-          </Link>
-          <Link
-            href="/admin/flags"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            灰度管理 →
-          </Link>
         </div>
       </div>
 

@@ -86,6 +86,24 @@ def _empty_activity(days: int = 30) -> dict[str, Any]:
     }
 
 
+def _empty_email_metrics(days: int = 30) -> dict[str, Any]:
+    return {
+        "days": days,
+        "daily": [],
+        "by_channel": [],
+        "summary": {
+            "delivered": 0,
+            "opened": 0,
+            "clicked": 0,
+            "bounced": 0,
+            "complained": 0,
+            "failed": 0,
+            "open_rate": 0.0,
+            "click_rate": 0.0,
+        },
+    }
+
+
 def _shape_activity_dashboard(payload: dict[str, Any], days: int = 30) -> dict[str, Any]:
     if not payload.get("success"):
         return _empty_activity(days)
@@ -121,6 +139,63 @@ def _shape_activity_dashboard(payload: dict[str, Any], days: int = 30) -> dict[s
     }
 
 
+def _shape_email_metrics(payload: dict[str, Any], days: int = 30) -> dict[str, Any]:
+    if not payload.get("success"):
+        return _empty_email_metrics(days)
+
+    daily = [
+        {
+            "day": str(row.get("day") or ""),
+            "delivered": int(row.get("delivered") or 0),
+            "opened": int(row.get("opened") or 0),
+            "clicked": int(row.get("clicked") or 0),
+            "bounced": int(row.get("bounced") or 0),
+            "complained": int(row.get("complained") or 0),
+            "failed": int(row.get("failed") or 0),
+            "open_rate": float(row.get("open_rate") or 0),
+            "click_rate": float(row.get("click_rate") or 0),
+        }
+        for row in (payload.get("daily", []) or [])
+    ]
+    by_channel = [
+        {
+            "channel": str(row.get("channel") or "unknown"),
+            "delivered": int(row.get("delivered") or 0),
+            "opened": int(row.get("opened") or 0),
+            "clicked": int(row.get("clicked") or 0),
+            "bounced": int(row.get("bounced") or 0),
+            "complained": int(row.get("complained") or 0),
+            "failed": int(row.get("failed") or 0),
+            "open_rate": float(row.get("open_rate") or 0),
+            "click_rate": float(row.get("click_rate") or 0),
+        }
+        for row in (payload.get("by_channel", []) or [])
+    ]
+
+    delivered = sum(row["delivered"] for row in daily)
+    opened = sum(row["opened"] for row in daily)
+    clicked = sum(row["clicked"] for row in daily)
+    bounced = sum(row["bounced"] for row in daily)
+    complained = sum(row["complained"] for row in daily)
+    failed = sum(row["failed"] for row in daily)
+
+    return {
+        "days": int(payload.get("days") or days),
+        "daily": daily,
+        "by_channel": by_channel,
+        "summary": {
+            "delivered": delivered,
+            "opened": opened,
+            "clicked": clicked,
+            "bounced": bounced,
+            "complained": complained,
+            "failed": failed,
+            "open_rate": round((opened / delivered) * 100, 2) if delivered else 0.0,
+            "click_rate": round((clicked / delivered) * 100, 2) if delivered else 0.0,
+        },
+    }
+
+
 async def _fetch_activity(days: int) -> dict[str, Any]:
     service = get_insforge_service()
     result = await service.call_function(
@@ -135,6 +210,22 @@ async def _fetch_activity(days: int) -> dict[str, Any]:
     )
     data = result.get("data", {}) if isinstance(result, dict) else {}
     return _shape_activity_dashboard(data, days=days)
+
+
+async def _fetch_email_metrics(days: int) -> dict[str, Any]:
+    service = get_insforge_service()
+    result = await service.call_function(
+        "email-events",
+        method="GET",
+        params={"action": "summary", "days": days},
+        extra_headers=(
+            {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
+            if EDGE_FUNCTION_SECRET else None
+        ),
+        timeout=30.0,
+    )
+    data = result.get("data", {}) if isinstance(result, dict) else {}
+    return _shape_email_metrics(data, days=days)
 
 
 @router.get("/whoami")
@@ -152,7 +243,16 @@ async def get_activity(
     _admin: dict = Depends(verify_admin_user),
 ):
     """Return daily activity for admin trend comparisons."""
-    return await _fetch_activity(days)
+    activity, email_metrics = await asyncio.gather(
+        _fetch_activity(days),
+        _fetch_email_metrics(days),
+        return_exceptions=True,
+    )
+    if not isinstance(activity, dict):
+        activity = _empty_activity(days)
+    if not isinstance(email_metrics, dict):
+        email_metrics = _empty_email_metrics(days)
+    return {**activity, "email_metrics": email_metrics}
 
 
 @router.get("/dashboard")
