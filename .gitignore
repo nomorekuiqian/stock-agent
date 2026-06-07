@@ -106,3 +106,4 @@ backend/app/features/twitter/_distillation_artifacts/
 # Scratch / tool artifacts (not part of the project)
 .context/
 tmp/
+.ui-research/
