@@ -22,6 +22,47 @@ export interface ActivityData {
     events_30d: number;
     api_calls_30d: number;
   };
+  email_metrics?: EmailMetricsData;
+}
+
+export interface EmailMetricsRow {
+  day: string;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  complained: number;
+  failed: number;
+  open_rate: number;
+  click_rate: number;
+}
+
+export interface EmailChannelMetrics {
+  channel: string;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  complained: number;
+  failed: number;
+  open_rate: number;
+  click_rate: number;
+}
+
+export interface EmailMetricsData {
+  days: number;
+  daily: EmailMetricsRow[];
+  by_channel: EmailChannelMetrics[];
+  summary: {
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+    complained: number;
+    failed: number;
+    open_rate: number;
+    click_rate: number;
+  };
 }
 
 interface PeriodStats {
@@ -66,6 +107,10 @@ function formatPct(value: number | null): string {
   if (value === null) return 'n/a';
   const sign = value > 0 ? '+' : '';
   return `${sign}${value.toFixed(1)}%`;
+}
+
+function formatRate(value: number): string {
+  return `${value.toFixed(1)}%`;
 }
 
 function pctChange(current: number, previous: number): number | null {
@@ -118,6 +163,7 @@ function comparisonTone(value: number | null): string {
 
 export function ActivityComparisonPanel({ initialData }: { initialData: ActivityData }) {
   const rows = useMemo(() => initialData.daily ?? [], [initialData.daily]);
+  const emailMetrics = initialData.email_metrics;
   const comparisons = useMemo(
     () => [
       compareRows(rows, 7, 'Week over week'),
@@ -157,6 +203,8 @@ export function ActivityComparisonPanel({ initialData }: { initialData: Activity
           ))}
         </section>
 
+        <EmailMetricsSection metrics={emailMetrics} />
+
         <section className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-base font-semibold text-foreground">Daily DAU</h2>
@@ -187,6 +235,117 @@ export function ActivityComparisonPanel({ initialData }: { initialData: Activity
         </section>
       </div>
     </main>
+  );
+}
+
+function channelLabel(channel: string): string {
+  const labels: Record<string, string> = {
+    daily_report: 'Daily',
+    morning_report: 'Morning',
+    personal_digest: 'Personal',
+    weekly_report: 'Weekly',
+    twitter_digest: 'Twitter',
+    unknown: 'Unknown',
+  };
+  return labels[channel] ?? channel;
+}
+
+function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
+  const summary = metrics?.summary;
+  const daily = metrics?.daily ?? [];
+  const byChannel = metrics?.by_channel ?? [];
+  const maxDelivered = Math.max(...daily.map((row) => row.delivered), 1);
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Email engagement</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Resend webhook events. Open rate uses unique opens / delivered.
+          </p>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {metrics?.days ?? 0} days
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <EmailMetricCard label="Delivered" value={formatNumber(summary?.delivered ?? 0)} />
+        <EmailMetricCard label="Opened" value={formatNumber(summary?.opened ?? 0)} />
+        <EmailMetricCard label="Open rate" value={formatRate(summary?.open_rate ?? 0)} />
+        <EmailMetricCard label="Clicked" value={formatNumber(summary?.clicked ?? 0)} />
+        <EmailMetricCard label="Click rate" value={formatRate(summary?.click_rate ?? 0)} />
+        <EmailMetricCard label="Bounced/Failed" value={formatNumber((summary?.bounced ?? 0) + (summary?.failed ?? 0))} />
+      </div>
+
+      {daily.length === 0 || (summary?.delivered ?? 0) === 0 ? (
+        <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+          No Resend webhook metrics yet.
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <div>
+            <div className="mb-2 flex items-baseline justify-between">
+              <h3 className="text-sm font-medium text-foreground">Daily delivered / opened</h3>
+              <span className="text-xs text-muted-foreground">hover bars for details</span>
+            </div>
+            <div className="flex h-36 items-end gap-1">
+              {daily.map((row) => {
+                const deliveredHeight = Math.max(4, (row.delivered / maxDelivered) * 100);
+                const openedHeight = row.delivered > 0
+                  ? Math.max(0, Math.min(100, (row.opened / row.delivered) * deliveredHeight))
+                  : 0;
+                return (
+                  <div key={row.day} className="group relative flex h-full flex-1 items-end min-w-0">
+                    <div
+                      className="relative w-full rounded-t bg-sky-500/30 transition-colors group-hover:bg-sky-500/40"
+                      style={{ height: `${deliveredHeight}%` }}
+                    >
+                      <div
+                        className="absolute bottom-0 left-0 right-0 rounded-t bg-emerald-500/70"
+                        style={{ height: `${openedHeight}%` }}
+                      />
+                    </div>
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm group-hover:block">
+                      {shortDate(row.day)} · {row.delivered} delivered · {row.opened} opened · {formatRate(row.open_rate)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-foreground">By channel</h3>
+            <div className="space-y-2">
+              {byChannel.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No channel data.</div>
+              ) : byChannel.map((row) => (
+                <div key={row.channel} className="rounded-md border border-border/70 px-3 py-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="text-sm font-medium text-foreground">{channelLabel(row.channel)}</div>
+                    <div className="text-sm tabular-nums text-foreground">{formatRate(row.open_rate)}</div>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {formatNumber(row.delivered)} delivered · {formatNumber(row.opened)} opened · {formatNumber(row.clicked)} clicked
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function EmailMetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/70 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">{value}</div>
+    </div>
   );
 }
 

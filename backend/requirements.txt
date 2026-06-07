@@ -13,6 +13,7 @@ PyJWT
 python-dotenv
 resend==2.19.0
 slowapi
+svix
 uvicorn
 fastmcp>=3.4,<4           # Frank Lens MCP (Streamable HTTP), mounted at /frank/mcp/
 stripe

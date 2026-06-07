@@ -169,6 +169,7 @@ from app.features.flags.router import router as flags_router
 from app.features.flags.admin_router import router as flags_admin_router
 from app.features.onboarding.router import router as onboarding_router
 from app.features.agent_runtime.router import router as agent_runtime_router
+from app.features.webhooks.resend_router import router as resend_webhook_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -203,6 +204,7 @@ app.include_router(memory_router)
 app.include_router(flags_router)
 app.include_router(flags_admin_router)
 app.include_router(onboarding_router)
+app.include_router(resend_webhook_router)
 
 
 # ---------------------------------------------------------------------------
