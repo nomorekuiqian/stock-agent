@@ -10,24 +10,32 @@ const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const mounted = useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
 
   if (!mounted) {
     return (
-      <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
+      <button
+        type="button"
+        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        aria-label="切换主题"
+        disabled
+      >
         <div className="w-4 h-4" />
       </button>
     );
   }
 
+  const isDark = resolvedTheme === 'dark';
+
   return (
     <button
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      type="button"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
       className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-      aria-label="Toggle theme"
+      aria-label={isDark ? '切换到亮色主题' : '切换到暗色主题'}
     >
-      {theme === 'dark' ? (
+      {isDark ? (
         <Sun className="w-4 h-4 text-gray-400 hover:text-primary transition-colors" />
       ) : (
         <Moon className="w-4 h-4 text-gray-500 hover:text-primary transition-colors" />
