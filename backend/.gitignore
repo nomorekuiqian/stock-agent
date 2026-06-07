@@ -17,6 +17,3 @@
 
 # Local scratch — claude enrichment batch artifacts (tweets + enrichments)
 scripts/claude_enrich/_work/
-
-# Discord webhook URLs (secrets) — local/server-managed, never commit
-app/shared/discord_config.py
