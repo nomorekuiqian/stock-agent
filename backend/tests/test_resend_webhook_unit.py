@@ -47,6 +47,25 @@ def test_shape_resend_event_uses_channel_tag_when_present():
     assert row["channel"] == "weekly_report"
 
 
+def test_shape_resend_event_uses_channel_tag_object_when_present():
+    from app.features.webhooks.resend_router import shape_resend_event
+
+    event = {
+        "type": "email.delivered",
+        "data": {
+            "id": "email-456",
+            "to": ["reader@example.com"],
+            "subject": "Generic subject",
+            "tags": {"channel": "welcome_email"},
+        },
+    }
+
+    row = shape_resend_event(event, "msg_789")
+
+    assert row["email_id"] == "email-456"
+    assert row["channel"] == "welcome_email"
+
+
 def test_shape_resend_event_without_channel_tag_stays_unknown():
     from app.features.webhooks.resend_router import shape_resend_event
 

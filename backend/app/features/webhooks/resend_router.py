@@ -39,6 +39,12 @@ def infer_resend_channel(data: dict[str, Any]) -> str:
     misclassify engagement metrics.
     """
     tags = data.get("tags")
+    if isinstance(tags, dict):
+        for name in ("channel", "email_channel"):
+            value = tags.get(name)
+            if value:
+                return str(value)
+
     if isinstance(tags, list):
         for tag in tags:
             if not isinstance(tag, dict):
