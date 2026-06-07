@@ -124,3 +124,47 @@ class KolMcpContextRequest(BaseModel):
     sector: Optional[str] = Field(default=None, max_length=120)
     evidence_limit: int = Field(default=6, ge=1, le=12)
     include_market_data: bool = True
+
+
+class KolMcpWorkflowRequest(BaseModel):
+    """Beta-gated Frank Lens MCP workflow request.
+
+    The backend returns a context pack for the user's own agent to write the
+    final answer. It does not expose local packaged methodology assets.
+    """
+
+    workflow: Literal["stock_diagnosis", "market_regime", "compare", "research_memo"]
+    question: str = Field(..., min_length=1, max_length=2000)
+    ticker: Optional[str] = Field(default=None, max_length=20)
+    tickers: List[str] = Field(default_factory=list, max_length=8)
+    sector: Optional[str] = Field(default=None, max_length=120)
+    evidence_limit: int = Field(default=6, ge=1, le=12)
+    include_market_data: bool = True
+    share: bool = False
+
+
+class KolMcpBetaInfo(BaseModel):
+    invite_code_id: Optional[str] = None
+    invite_label: Optional[str] = None
+    access: Literal["missing", "valid", "invalid", "dev"] = "missing"
+    remaining_quota: Optional[int] = None
+
+
+class KolMcpWorkflowResponse(BaseModel):
+    """Context pack returned to the local MCP adapter."""
+
+    persona_username: str
+    workflow: str
+    question: str
+    ticker: Optional[str] = None
+    tickers: List[str] = Field(default_factory=list)
+    sector: Optional[str] = None
+    retrieval_mode: str
+    market_data_mode: str
+    kol_chunks: List[dict] = Field(default_factory=list)
+    market_context: List[dict] = Field(default_factory=list)
+    methodology_context: dict = Field(default_factory=dict)
+    answer_discipline: List[str] = Field(default_factory=list)
+    suggested_answer_shape: List[str] = Field(default_factory=list)
+    beta: KolMcpBetaInfo = Field(default_factory=KolMcpBetaInfo)
+    share_url: Optional[str] = None

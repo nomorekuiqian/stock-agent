@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
-import { listLenses, getTickerLens, buildFrankContext } from "../dist/methodology.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const lenses = listLenses();
-const tickerLens = getTickerLens({ ticker: "NVDA" });
-const context = buildFrankContext({
-  question: "按 Frank 框架看 NVDA 是杀估值、杀业绩还是杀逻辑？",
-  ticker: "NVDA",
-});
+const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf8"));
+const distIndex = path.join(packageDir, "dist", "index.js");
+const assetDir = path.join(packageDir, "assets");
 
 console.log(JSON.stringify({
-  counts: lenses.counts,
-  nvdaCoverage: tickerLens.coverage,
-  selectedLensCount: context.selected_lenses.length,
-  firstSelectedLens: context.selected_lenses[0]?.key,
+  name: packageJson.name,
+  version: packageJson.version,
+  bin: packageJson.bin,
+  files: packageJson.files,
+  distIndexExists: fs.existsSync(distIndex),
+  assetsDirExists: fs.existsSync(assetDir),
 }, null, 2));

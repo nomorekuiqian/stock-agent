@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json as _json
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -39,12 +40,16 @@ from app.features.kol_research.agent import (
     stream_kol_research,
 )
 from app.features.kol_research.models import (
+    KolMcpBetaInfo,
     KolMcpContextRequest,
     KolMcpMarketBriefRequest,
     KolMcpSearchRequest,
+    KolMcpWorkflowRequest,
+    KolMcpWorkflowResponse,
     KolResearchRequest,
     KolResearchResponse,
 )
+from app.features.kol_research.mcp_beta import record_usage, validate_invite_code
 from app.features.vector.models import VectorSearchFilters, VectorSearchRequest
 from app.features.vector.service import search as vector_search
 from app.features.screener.conversation_db import (
@@ -514,8 +519,120 @@ async def cockpit_tweets_by_ids(username: str, ids: str):
 
 
 # ---------------------------------------------------------------------------
-# MCP live context bridge (PUBLIC read for local/remote MCP clients)
+# MCP live context bridge (beta-gated for local MCP adapter clients)
 # ---------------------------------------------------------------------------
+
+
+def _invite_code_from_request(request: Request) -> str:
+    return (
+        request.headers.get("X-Frank-Lens-Invite-Code")
+        or request.headers.get("x-frank-lens-invite-code")
+        or ""
+    ).strip()
+
+
+async def _require_frank_lens_beta(request: Request) -> dict[str, Any]:
+    invite = await validate_invite_code(_invite_code_from_request(request))
+    if invite.get("allowed"):
+        return invite
+    status = 401 if invite.get("access") == "missing" else 403
+    raise HTTPException(
+        status_code=status,
+        detail=invite.get("error") or "frank_lens_invite_required",
+    )
+
+
+def _beta_info(invite: dict[str, Any] | None) -> KolMcpBetaInfo:
+    if not invite:
+        return KolMcpBetaInfo(access="missing")
+    return KolMcpBetaInfo(
+        invite_code_id=invite.get("invite_code_id"),
+        invite_label=invite.get("invite_label"),
+        access=invite.get("access") or "invalid",
+        remaining_quota=invite.get("remaining_quota"),
+    )
+
+
+def _frank_answer_discipline() -> list[str]:
+    return [
+        "Do not impersonate qinbafrank.",
+        "Only cite returned kol_chunks as direct historical evidence.",
+        "Separate historical evidence, live market data, and methodology inference.",
+        "Do not provide direct buy/sell/add/reduce position instructions.",
+        "Do not output exact price targets.",
+    ]
+
+
+def _workflow_answer_shape(workflow: str) -> list[str]:
+    base = [
+        "Use this context pack as source material. The user agent writes the final answer.",
+        "Start with a plain-language conclusion, then explain which Frank lens applies.",
+        "Explicitly label direct historical evidence versus methodology inference.",
+        "Name 2-3 confirmation or falsification signals.",
+    ]
+    if workflow == "compare":
+        return [
+            *base,
+            "Compare by industry-chain position, evidence strength, valuation/earnings/logic risk, and falsifiers.",
+            "If the user asks to pick one, give a direct conditional pick instead of avoiding the choice.",
+        ]
+    if workflow == "research_memo":
+        return [
+            *base,
+            "Organize the answer as a research memo: question, evidence, market facts, thesis path, risks, falsifiers.",
+        ]
+    return base
+
+
+def _methodology_context(
+    *,
+    workflow: str,
+    ticker: str | None,
+    tickers: list[str],
+    sector: str | None,
+) -> dict[str, Any]:
+    unique_tickers = []
+    for symbol in [ticker or "", *tickers]:
+        normalized = symbol.strip().upper()
+        if normalized and normalized not in unique_tickers:
+            unique_tickers.append(normalized)
+
+    ticker_summaries = {
+        symbol: skill_cockpit.get_ticker_summary(symbol)
+        for symbol in unique_tickers
+    }
+    inferred_sector = sector or ""
+    if not inferred_sector:
+        for summary in ticker_summaries.values():
+            if summary and summary.get("parent_sector"):
+                inferred_sector = str(summary["parent_sector"])
+                break
+
+    return {
+        "workflow": workflow,
+        "persona": DEFAULT_PERSONA,
+        "ticker_methodology": ticker_summaries,
+        "sector_methodology": skill_cockpit.get_sector(inferred_sector) if inferred_sector else None,
+        "answer_discipline": _frank_answer_discipline(),
+        "suggested_answer_shape": _workflow_answer_shape(workflow),
+        "notice": (
+            "This backend context pack contains Frank Lens methodology context for an invited beta user. "
+            "It is not qinbafrank speaking and is not investment advice."
+        ),
+    }
+
+
+def _workflow_query(req: KolMcpWorkflowRequest, ticker: str | None, tickers: list[str]) -> str:
+    parts = [req.question, ticker or "", req.sector or "", *tickers]
+    if req.workflow == "stock_diagnosis":
+        parts.extend(["杀估值", "杀业绩", "杀逻辑", "打脸条件"])
+    elif req.workflow == "market_regime":
+        parts.extend(["宏观", "流动性", "风险等级", "市场行情"])
+    elif req.workflow == "compare":
+        parts.extend(["比较", "产业链", "确定性", "弹性", "打脸条件"])
+    else:
+        parts.extend(["研究", "证据", "产业链", "thesis", "打脸条件"])
+    return " ".join(part for part in parts if part)
 
 
 async def _mcp_search_chunks(
@@ -605,18 +722,55 @@ def _question_needs_macro(question: str) -> bool:
     return any(term in q for term in macro_terms)
 
 
-@router.post("/personas/{username}/mcp/search")
-async def mcp_live_search(username: str, req: KolMcpSearchRequest):
-    """Live MCP vector search over KOL tweet embeddings."""
+@router.get("/personas/{username}/mcp/status")
+async def mcp_beta_status(username: str, request: Request):
+    """Frank Lens beta status. Status is allowed without an invite code."""
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
 
+    invite_code = _invite_code_from_request(request)
+    invite = await validate_invite_code(invite_code) if invite_code else None
+    return {
+        "ok": True,
+        "persona_username": username,
+        "mode": "backend_first_beta",
+        "requires_invite_for_workflow": True,
+        "beta": _beta_info(invite).model_dump(),
+        "tools": [
+            "frank_status",
+            "frank_stock_diagnosis",
+            "frank_market_regime",
+            "frank_compare",
+            "frank_research_memo",
+            "frank_search_evidence",
+        ],
+    }
+
+
+@router.post("/personas/{username}/mcp/search")
+async def mcp_live_search(username: str, req: KolMcpSearchRequest, request: Request):
+    """Beta-gated live MCP vector search over KOL tweet embeddings."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request)
+    started = time.perf_counter()
     chunks = await _mcp_search_chunks(
         username=username,
         query=req.query,
         k=req.k,
         threshold=req.threshold,
+    )
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="frank_search_evidence",
+        workflow="search_evidence",
+        status="success",
+        latency_ms=latency_ms,
+        metadata={"k": req.k, "threshold": req.threshold, "count": len(chunks)},
     )
     return {
         "persona_username": username,
@@ -628,23 +782,38 @@ async def mcp_live_search(username: str, req: KolMcpSearchRequest):
 
 
 @router.post("/personas/{username}/mcp/market-brief")
-async def mcp_market_brief(username: str, req: KolMcpMarketBriefRequest):
-    """Live MCP bridge to KOL agent brief tools (FMP + macro cache)."""
+async def mcp_market_brief(username: str, req: KolMcpMarketBriefRequest, request: Request):
+    """Beta-gated live MCP bridge to KOL agent brief tools."""
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
-    return await _market_brief_payload(
+    invite = await _require_frank_lens_beta(request)
+    started = time.perf_counter()
+    payload = await _market_brief_payload(
         brief_type=req.brief_type,
         symbol=req.symbol,
     )
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="frank_market_brief",
+        workflow="market_brief",
+        ticker=(req.symbol or "").strip().upper() or None,
+        status="success",
+        latency_ms=int((time.perf_counter() - started) * 1000),
+        metadata={"brief_type": req.brief_type},
+    )
+    return payload
 
 
 @router.post("/personas/{username}/mcp/context")
-async def mcp_live_context(username: str, req: KolMcpContextRequest):
-    """Build live MCP context with vector evidence and optional market data."""
+async def mcp_live_context(username: str, req: KolMcpContextRequest, request: Request):
+    """Beta-gated live MCP context with vector evidence and optional market data."""
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request)
+    started = time.perf_counter()
 
     ticker = (req.ticker or "").strip().upper()
     sector = (req.sector or "").strip()
@@ -667,7 +836,7 @@ async def mcp_live_context(username: str, req: KolMcpContextRequest):
                 await _market_brief_payload(brief_type="macro", symbol=None)
             )
 
-    return {
+    out = {
         "persona_username": username,
         "question": req.question,
         "ticker": ticker or None,
@@ -677,13 +846,123 @@ async def mcp_live_context(username: str, req: KolMcpContextRequest):
         "kol_chunks": [chunk.model_dump() for chunk in chunks],
         "market_context": market_context,
         "ticker_methodology": skill_cockpit.get_ticker_summary(ticker) if ticker else None,
-        "answer_discipline": [
-            "Do not impersonate qinbafrank.",
-            "Only cite returned kol_chunks as direct historical evidence.",
-            "Separate historical evidence, live market data, and methodology inference.",
-            "Do not provide direct buy/sell/add/reduce position instructions.",
-        ],
+        "answer_discipline": _frank_answer_discipline(),
     }
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="frank_build_context",
+        workflow="context",
+        ticker=ticker or None,
+        status="success",
+        latency_ms=int((time.perf_counter() - started) * 1000),
+        metadata={"evidence_limit": req.evidence_limit, "market_context_count": len(market_context)},
+    )
+    return out
+
+
+@router.post("/personas/{username}/mcp/workflow", response_model=KolMcpWorkflowResponse)
+async def mcp_workflow_context(username: str, req: KolMcpWorkflowRequest, request: Request):
+    """Beta-gated Frank Lens workflow context pack for user-owned agents."""
+    persona = get_persona(username)
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request)
+    started = time.perf_counter()
+    ticker = (req.ticker or "").strip().upper() or None
+    tickers: list[str] = []
+    try:
+        for symbol in req.tickers:
+            normalized = symbol.strip().upper()
+            if normalized and normalized not in tickers:
+                tickers.append(normalized)
+        if ticker and ticker not in tickers:
+            tickers.insert(0, ticker)
+
+        if req.workflow == "stock_diagnosis" and not ticker:
+            raise HTTPException(status_code=400, detail="ticker is required for stock_diagnosis")
+        if req.workflow == "compare" and len(tickers) < 2:
+            raise HTTPException(status_code=400, detail="at least two tickers are required for compare")
+
+        query = _workflow_query(req, ticker, tickers)
+        chunks = await _mcp_search_chunks(
+            username=username,
+            query=query,
+            k=req.evidence_limit,
+            threshold=0.45,
+        )
+
+        market_context: list[dict[str, Any]] = []
+        if req.include_market_data:
+            symbols_for_briefs = tickers if req.workflow == "compare" else ([ticker] if ticker else [])
+            for symbol in symbols_for_briefs:
+                market_context.append(await _market_brief_payload(brief_type="stock", symbol=symbol))
+            if req.workflow == "market_regime" or _question_needs_macro(req.question):
+                market_context.append(await _market_brief_payload(brief_type="macro", symbol=None))
+
+        methodology_context = _methodology_context(
+            workflow=req.workflow,
+            ticker=ticker,
+            tickers=tickers,
+            sector=(req.sector or "").strip() or None,
+        )
+        response = KolMcpWorkflowResponse(
+            persona_username=username,
+            workflow=req.workflow,
+            question=req.question,
+            ticker=ticker,
+            tickers=tickers,
+            sector=(req.sector or "").strip() or None,
+            retrieval_mode="vector_chunks",
+            market_data_mode="brief_tools" if req.include_market_data else "disabled",
+            kol_chunks=[chunk.model_dump() for chunk in chunks],
+            market_context=market_context,
+            methodology_context=methodology_context,
+            answer_discipline=_frank_answer_discipline(),
+            suggested_answer_shape=_workflow_answer_shape(req.workflow),
+            beta=_beta_info(invite),
+            share_url=None,
+        )
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        await record_usage(
+            invite=invite,
+            persona_username=username,
+            tool_name=f"frank_{req.workflow}",
+            workflow=req.workflow,
+            ticker=ticker,
+            tickers=tickers,
+            status="success",
+            latency_ms=latency_ms,
+            metadata={
+                "evidence_count": len(chunks),
+                "market_context_count": len(market_context),
+                "include_market_data": req.include_market_data,
+            },
+        )
+        logger.info(
+            "frank_lens workflow persona=%s workflow=%s ticker=%s tickers=%s evidence=%d market=%d latency_ms=%d",
+            username,
+            req.workflow,
+            ticker,
+            ",".join(tickers),
+            len(chunks),
+            len(market_context),
+            latency_ms,
+        )
+        return response
+    except Exception as exc:
+        await record_usage(
+            invite=invite,
+            persona_username=username,
+            tool_name=f"frank_{req.workflow}",
+            workflow=req.workflow,
+            ticker=ticker,
+            tickers=tickers,
+            status="error",
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            metadata={"error": str(exc)[:300]},
+        )
+        raise
 
 
 @router.get("/personas/{username}/tickers/{ticker}")
