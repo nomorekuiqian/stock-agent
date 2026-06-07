@@ -3,7 +3,7 @@ Unit tests for the conversion funnel optimization.
 
 Covers (post-freemium-transition):
 - email_guard: non-production email blocking
-- onboarding drip: signup-age day calculation, schedule matching
+- onboarding drip: removed legacy no-op contract
 - freemium: daily usage tracking
 
 create_trial_subscription tests deleted — function is a deprecated stub.
@@ -81,7 +81,7 @@ class TestEmailGuard:
 # ---------------------------------------------------------------------------
 
 class TestOnboardingDrip:
-    """Tests for onboarding day calculation and schedule."""
+    """Tests for the removed onboarding drip contract."""
 
     def test_signup_day_calculation(self):
         """Day should be calculated from auth_created_at / signup timestamp."""
@@ -109,34 +109,26 @@ class TestOnboardingDrip:
         assert _days_since("") is None
 
     def test_drip_schedule_days(self):
-        """DRIP_SCHEDULE should have templates for days 3, 7, 14."""
+        """DRIP_SCHEDULE should be empty after drip emails were removed."""
         from app.features.notification.onboarding import DRIP_SCHEDULE
 
-        assert set(DRIP_SCHEDULE.keys()) == {3, 7, 14}
+        assert DRIP_SCHEDULE == {}
 
     def test_template_map_matches_schedule(self):
-        """Every day in DRIP_SCHEDULE should have a template."""
+        """No onboarding drip templates should remain available."""
         from app.features.notification.onboarding import DRIP_SCHEDULE, _TEMPLATE_MAP
 
-        for day in DRIP_SCHEDULE:
-            assert day in _TEMPLATE_MAP, f"Day {day} missing from _TEMPLATE_MAP"
+        assert _TEMPLATE_MAP == {}
+        assert set(DRIP_SCHEDULE.keys()) == set(_TEMPLATE_MAP.keys())
 
-    def test_templates_return_subject_and_html(self):
-        """Each template function should return (subject, html) tuple."""
-        from app.features.notification.onboarding import _TEMPLATE_MAP
-
-        for day, fn in _TEMPLATE_MAP.items():
-            subject, html = fn()
-            assert isinstance(subject, str), f"Day {day} subject is not str"
-            assert isinstance(html, str), f"Day {day} html is not str"
-            assert len(subject) > 0, f"Day {day} subject is empty"
-            assert "TheMarketBrew" in html, f"Day {day} html missing branding"
-
-    def test_non_production_filters_to_test_email(self):
-        """In non-production, only test email should be processed."""
+    @pytest.mark.asyncio
+    async def test_process_returns_disabled_noop(self):
+        """The legacy cron processor should not send onboarding emails."""
         from app.features.notification.onboarding import process_onboarding_emails
-        # This is tested implicitly by the ENVIRONMENT check in the function
-        # The TEST_EMAIL filter ensures only voya.technologies@gmail.com is processed
+
+        counters = await process_onboarding_emails()
+        assert counters["disabled"] is True
+        assert counters["sent"] == 0
 
 
 

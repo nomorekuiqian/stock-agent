@@ -1,4 +1,4 @@
-"""E2E tests for onboarding drip cron endpoint.
+"""E2E tests for the legacy onboarding drip cron endpoint.
 
 Uses httpx.AsyncClient + ASGITransport; the cron dependency and drip processor
 are mocked so the test never sends email or touches Insforge.
@@ -30,7 +30,14 @@ class TestOnboardingEmailCron:
     """Tests for POST /api/cron/onboarding-emails."""
 
     @pytest.mark.asyncio
-    async def test_onboarding_email_cron_returns_new_counter_shape(self, client):
+    async def test_onboarding_preview_endpoint_is_gone(self, client):
+        resp = await client.get("/api/onboarding/preview?day=3")
+
+        assert resp.status_code == 410
+        assert resp.json()["detail"] == "onboarding_drip_emails_removed"
+
+    @pytest.mark.asyncio
+    async def test_onboarding_email_cron_returns_disabled_counter_shape(self, client):
         async def mock_cron_secret():
             return "test-secret"
 
@@ -39,11 +46,13 @@ class TestOnboardingEmailCron:
             with patch(
                 "app.features.notification.onboarding.process_onboarding_emails",
                 AsyncMock(return_value={
-                    "processed": 2,
-                    "sent": 1,
-                    "skipped_already": 1,
+                    "processed": 0,
+                    "sent": 0,
+                    "skipped_already": 0,
                     "skipped_other": 0,
                     "errors": 0,
+                    "disabled": True,
+                    "reason": "onboarding_drip_emails_removed",
                 }),
             ):
                 resp = await client.post(
@@ -57,11 +66,13 @@ class TestOnboardingEmailCron:
         data = resp.json()
         assert data == {
             "success": True,
-            "processed": 2,
-            "sent": 1,
-            "skipped_already": 1,
+            "processed": 0,
+            "sent": 0,
+            "skipped_already": 0,
             "skipped_other": 0,
             "errors": 0,
+            "disabled": True,
+            "reason": "onboarding_drip_emails_removed",
         }
         assert "deprecated" not in data
         assert "skipped" not in data

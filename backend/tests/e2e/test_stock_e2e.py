@@ -21,8 +21,10 @@ Usage:
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock, patch
 from httpx import AsyncClient, ASGITransport
 
+from app.core.deps import verify_user_token
 from app.main import app
 from app.features.stock.agent import ANALYSIS_FIELDS
 
@@ -176,10 +178,20 @@ class TestStockAnalysis:
     @pytest.mark.asyncio
     async def test_generate_analysis(self, client):
         """Generate analysis for NVDA returns all ANALYSIS_FIELDS."""
-        resp = await client.post(
-            "/api/stocks/NVDA/analysis",
-            params={"force": "true"},
-        )
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.post(
+                    "/api/stocks/NVDA/analysis",
+                    params={"force": "true"},
+                    headers={"Authorization": "Bearer test-token"},
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -192,18 +204,45 @@ class TestStockAnalysis:
     @pytest.mark.asyncio
     async def test_analysis_cache(self, client):
         """Second request without force reads from cache."""
-        # First: generate (or use existing)
-        resp1 = await client.post("/api/stocks/NVDA/analysis")
-        assert resp1.status_code == 200
-        # Second: should be from cache
-        resp2 = await client.post("/api/stocks/NVDA/analysis")
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                # First: generate (or use existing)
+                resp1 = await client.post(
+                    "/api/stocks/NVDA/analysis",
+                    headers={"Authorization": "Bearer test-token"},
+                )
+                assert resp1.status_code == 200
+                # Second: should be from cache
+                resp2 = await client.post(
+                    "/api/stocks/NVDA/analysis",
+                    headers={"Authorization": "Bearer test-token"},
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp2.status_code == 200
         assert resp2.json()["meta"]["from_cache"] is True
 
     @pytest.mark.asyncio
     async def test_invalid_symbol(self, client):
         """Invalid symbol format returns 400."""
-        resp = await client.post("/api/stocks/!!!/analysis")
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.post(
+                    "/api/stocks/!!!/analysis",
+                    headers={"Authorization": "Bearer test-token"},
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 400
 
 
@@ -217,9 +256,27 @@ class TestStockAnalysisCache:
     """Tests for GET /api/stocks/{symbol}/analysis/cache."""
 
     @pytest.mark.asyncio
-    async def test_cache_returns_success(self, client):
-        """Cache endpoint returns success even with no cached data."""
+    async def test_cache_rejects_anonymous_user(self, client):
+        """Cache endpoint is paid content and requires auth."""
         resp = await client.get("/api/stocks/AAPL/analysis/cache")
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_cache_returns_success_for_entitled_user(self, client):
+        """Cache endpoint returns success even with no cached data for Max users."""
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.get(
+                    "/api/stocks/AAPL/analysis/cache",
+                    headers={"Authorization": "Bearer test-token"},
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -229,13 +286,37 @@ class TestStockAnalysisCache:
     @pytest.mark.asyncio
     async def test_cache_invalid_symbol(self, client):
         """Invalid symbol format returns 400."""
-        resp = await client.get("/api/stocks/!!!/analysis/cache")
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.get(
+                    "/api/stocks/!!!/analysis/cache",
+                    headers={"Authorization": "Bearer test-token"},
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 400
 
     @pytest.mark.asyncio
     async def test_cache_structure_when_exists(self, client):
         """If cached analysis exists, meta contains expected fields."""
-        resp = await client.get("/api/stocks/AAPL/analysis/cache")
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.get(
+                    "/api/stocks/AAPL/analysis/cache",
+                    headers={"Authorization": "Bearer test-token"},
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 200
         data = resp.json()
         if data["analysis"] is not None:
