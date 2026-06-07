@@ -4,18 +4,14 @@ Discord webhook configuration.
 Maps logical channel names to webhook URLs. URLs are read from environment
 variables (secrets) so this module carries no secret and is safe to commit.
 
-Set the actual webhook URLs in the deployment environment (and local .env):
-    DISCORD_WEBHOOK_DATASOURCE      -> "数据源"
-    DISCORD_WEBHOOK_MARKET_REPORT   -> "市场报告"
-    DISCORD_WEBHOOK_REPORT          -> "市场日报" (daily / morning / twitter digest)
+Set the actual webhook URL in the deployment environment (and local .env):
+    DISCORD_WEBHOOK_REPORT -> "市场日报" (daily / morning / twitter digest)
 """
 
 import os
 from typing import Optional
 
 DISCORD_WEBHOOKS: dict[str, str] = {
-    "数据源": os.getenv("DISCORD_WEBHOOK_DATASOURCE", ""),
-    "市场报告": os.getenv("DISCORD_WEBHOOK_MARKET_REPORT", ""),
     # 收盘日报 + 盘前早报 + 推特 KOL 日报 广播同步推送到此频道（card / embed 模式）
     "市场日报": os.getenv("DISCORD_WEBHOOK_REPORT", ""),
 }
