@@ -245,6 +245,12 @@ function channelLabel(channel: string): string {
     personal_digest: 'Personal',
     weekly_report: 'Weekly',
     twitter_digest: 'Twitter',
+    welcome_email: 'Welcome',
+    access_welcome: 'Access welcome',
+    onboarding_drip: 'Onboarding',
+    verification_email: 'Verification',
+    newsletter: 'Newsletter',
+    lifecycle_email: 'Lifecycle',
     unknown: 'Unknown',
   };
   return labels[channel] ?? channel;

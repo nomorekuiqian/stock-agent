@@ -26,6 +26,7 @@ from app.core.config import (
     RESEND_SEGMENT_TWITTER_DIGEST,
 )
 from app.core.logging import get_logger
+from app.core.resend_tags import resend_channel_tags
 from app.utils.timezone import now_iso, today_str
 from app.features.subscription.service import (
     get_subscription_service,
@@ -352,6 +353,8 @@ class EmailService:
         text: Optional[str] = None,
         from_email: Optional[str] = None,
         segment_id: Optional[str] = None,
+        channel: Optional[str] = None,
+        tag_extra: Optional[dict] = None,
     ) -> dict:
         """Create a Resend broadcast, send it, and verify delivery.
 
@@ -375,6 +378,8 @@ class EmailService:
             create_params["html"] = html
         if text:
             create_params["text"] = text
+        if channel:
+            create_params["tags"] = resend_channel_tags(channel, **(tag_extra or {}))
 
         max_retries = 3
         broadcast = None
@@ -521,6 +526,10 @@ class EmailService:
                 "to": [recipient],
                 "subject": subject,
                 "html": html_content,
+                "tags": resend_channel_tags(
+                    "daily_report",
+                    cta_variant=cta_variant,
+                ),
             }
 
             email = resend.Emails.send(self._with_reply_to(params))
@@ -576,6 +585,10 @@ class EmailService:
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
+                "tags": resend_channel_tags(
+                    "personal_digest",
+                    cta_variant=cta_variant,
+                ),
             }
 
             email = resend.Emails.send(self._with_reply_to(params))
@@ -616,6 +629,7 @@ class EmailService:
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
+                "tags": resend_channel_tags("weekly_report"),
             }
 
             email = resend.Emails.send(self._with_reply_to(params))
@@ -646,6 +660,7 @@ class EmailService:
                 "to": [to_email],
                 "subject": subject,
                 "text": text_content,
+                "tags": resend_channel_tags("newsletter"),
             }
 
             email = resend.Emails.send(self._with_reply_to(params))
@@ -676,6 +691,7 @@ class EmailService:
                 "to": [to_email],
                 "subject": "欢迎来到 TheMarketBrew：先把你的持仓加进来",
                 "html": html_content,
+                "tags": resend_channel_tags("welcome_email"),
             }
 
             email = resend.Emails.send(self._with_reply_to(params))
@@ -721,6 +737,7 @@ class EmailService:
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
+                "tags": resend_channel_tags("morning_report"),
             }
 
             result = resend.Emails.send(params)
@@ -788,6 +805,8 @@ class EmailService:
                     subject=subject,
                     broadcast_name=f"Daily Report {today}",
                     html=html_content,
+                    channel="daily_report",
+                    tag_extra={"cta_variant": "upsell"},
                 )
 
             free_segment_id = self._resolve_segment(RESEND_SEGMENT_DAILY_FREE_CTA)
@@ -805,6 +824,8 @@ class EmailService:
                         report_id,
                         cta_variant="upsell",
                     ),
+                    channel="daily_report",
+                    tag_extra={"cta_variant": "upsell"},
                 )
                 paid_result = self._create_and_send_broadcast(
                     label="Daily Paid CTA",
@@ -817,6 +838,8 @@ class EmailService:
                         report_id,
                         cta_variant="paid",
                     ),
+                    channel="daily_report",
+                    tag_extra={"cta_variant": "paid"},
                 )
                 success = free_result.get("success") and paid_result.get("success")
                 return {
@@ -850,6 +873,8 @@ class EmailService:
                 subject=subject,
                 broadcast_name=f"Daily Report {today}",
                 html=html_content,
+                channel="daily_report",
+                tag_extra={"cta_variant": "upsell"},
             )
 
         except Exception as e:
@@ -893,6 +918,7 @@ class EmailService:
                 broadcast_name=f"Weekly Report {week_label}",
                 html=html_content,
                 from_email=self.from_email_weekly,
+                channel="weekly_report",
             )
 
         except Exception as e:
@@ -922,6 +948,7 @@ class EmailService:
                 broadcast_name=f"Newsletter {today}",
                 text=text_content,
                 from_email="Golden from TheMarketBrew <hello@themarketbrew.com>",
+                channel="newsletter",
             )
 
         except Exception as e:
@@ -966,6 +993,7 @@ class EmailService:
                 broadcast_name=f"Morning Report {today}",
                 html=html_content,
                 from_email=self.from_email_morning,
+                channel="morning_report",
             )
 
         except Exception as e:
@@ -1039,6 +1067,7 @@ class EmailService:
                 broadcast_name=f"Twitter Digest {digest_date}",
                 html=html_content,
                 from_email=self.from_email,
+                channel="twitter_digest",
             )
             result.setdefault("channel", "twitter_digest")
             return result
@@ -1078,6 +1107,7 @@ class EmailService:
                     "to": [to_email],
                     "subject": subject,
                     "html": html_content,
+                    "tags": resend_channel_tags("twitter_digest", qa=True),
                 }),
             )
             return {
@@ -1249,6 +1279,10 @@ class EmailService:
                         "to": [email],
                         "subject": subject,
                         "html": html_content,
+                        "tags": resend_channel_tags(
+                            "personal_digest",
+                            cta_variant=cta_variant,
+                        ),
                     },
                 }
 

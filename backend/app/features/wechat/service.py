@@ -14,6 +14,7 @@ from app.core.config import (
     RESEND_API_KEY,
 )
 from app.core.logging import get_logger
+from app.core.resend_tags import resend_channel_tags
 from app.features.wechat import db
 from app.features.wechat.jwt_utils import sign_wechat_jwt
 
@@ -152,6 +153,7 @@ async def _send_otp_code_email(email: str, code: str) -> None:
             "to": [email],
             "subject": "【TheMarketBrew】您的验证码",
             "html": html,
+            "tags": resend_channel_tags("verification_email"),
         })
         logger.info("OTP code email sent to %s", email)
     except Exception as e:
