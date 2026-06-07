@@ -855,9 +855,10 @@ async def research_quota(
 async def research_chat(
     req: ResearchRequest,
     request: Request,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """Unified research chat endpoint. Open to all users with quota."""
+    """Unified research chat endpoint. Login required (enforced here so the API
+    can't be driven anonymously even if the frontend login wall is bypassed)."""
     from app.features.quota.service import consume_quota
 
     client_ip = _get_real_ip(request)
@@ -870,7 +871,7 @@ async def research_chat(
         )
 
     logger.info("research_chat called (new endpoint)")
-    return await pick_stocks(req, user_id or "anonymous")
+    return await pick_stocks(req, user_id)
 
 
 @research_router.get("/conversations")
@@ -941,9 +942,10 @@ async def research_delete_conversation(
 async def research_chat_stream(
     req: ResearchRequest,
     request: Request,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """SSE streaming research chat. Open to all users with quota."""
+    """SSE streaming research chat. Login required (enforced here so the API
+    can't be driven anonymously even if the frontend login wall is bypassed)."""
     import json as _json
 
     from app.features.quota.service import consume_quota

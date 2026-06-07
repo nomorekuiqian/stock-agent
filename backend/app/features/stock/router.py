@@ -8,9 +8,11 @@ import re
 import threading
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.features.payment.entitlements import has_entitlement
 from app.shared.data_tools.quotes import get_batch_quotes, get_realtime_quote
 from app.shared.data_tools.search import search_stocks as dt_search_stocks
 from app.shared.data_tools.peers import get_peer_companies
@@ -25,6 +27,12 @@ router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 _price_history_cache: dict = {}
 _price_history_lock = threading.Lock()
 PRICE_HISTORY_TTL_MINUTES = 30
+_STOCK_RESEARCH_FEATURE = "stock_research"
+
+
+async def _require_stock_research(user_id: str) -> None:
+    if not await has_entitlement(user_id, _STOCK_RESEARCH_FEATURE):
+        raise HTTPException(status_code=403, detail="Stock AI research requires Max plan")
 
 
 def _get_cached_history(symbol: str, days: int):
@@ -327,8 +335,12 @@ async def get_stock_valuation_comparison(symbol: str):
 
 
 @router.get("/{symbol}/analysis/cache")
-async def get_stock_analysis_cache(symbol: str):
+async def get_stock_analysis_cache(
+    symbol: str,
+    user_id: str = Depends(verify_user_token),
+):
     """Return cached AI analysis if available, without triggering generation."""
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
     if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
         raise HTTPException(status_code=400, detail="Invalid stock symbol format")
@@ -357,6 +369,7 @@ async def generate_stock_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI analysis for an individual stock.
@@ -371,6 +384,7 @@ async def generate_stock_analysis_endpoint(
     Returns:
         Structured analysis with title, business, valuation, earnings, risks, outlook
     """
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
 
     # Validate symbol format
@@ -528,6 +542,7 @@ async def generate_technical_analysis_endpoint(
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
     timeframe: str = Query(default="daily", pattern="^(daily|weekly)$", description="Analysis timeframe"),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI technical analysis for a stock.
@@ -543,6 +558,7 @@ async def generate_technical_analysis_endpoint(
     Returns:
         Structured technical analysis with trend, signals, patterns, summary
     """
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
     analysis_type = f"technical_{timeframe}"
 
@@ -649,6 +665,7 @@ async def generate_news_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI news context analysis for a stock.
@@ -656,6 +673,7 @@ async def generate_news_analysis_endpoint(
     Analyzes recent news, analyst activity, upcoming catalysts,
     and overall sentiment for the given stock.
     """
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
 
     if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
@@ -799,6 +817,7 @@ async def generate_macro_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI macro-sector analysis for a stock.
@@ -806,6 +825,7 @@ async def generate_macro_analysis_endpoint(
     Analyzes macro environment impact, sector positioning,
     market regime, and macro outlook for the given stock.
     """
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
 
     if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
@@ -939,8 +959,12 @@ async def generate_macro_analysis_endpoint(
 
 
 @router.get("/{symbol}/market-analysis")
-async def get_market_analysis_cache_endpoint(symbol: str):
+async def get_market_analysis_cache_endpoint(
+    symbol: str,
+    user_id: str = Depends(verify_user_token),
+):
     """Return cached market-overview AI analysis if present; empty 200 otherwise."""
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
     if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
         raise HTTPException(status_code=400, detail="Invalid stock symbol format")
@@ -966,6 +990,7 @@ async def generate_market_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI cross-dimensional market overview for a stock.
@@ -974,6 +999,7 @@ async def generate_market_analysis_endpoint(
     targets, insider activity, peers, market heat, sector perf, earnings
     calendar, macro snapshot) into a 6-section Chinese briefing.
     """
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
     if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
         raise HTTPException(status_code=400, detail="Invalid stock symbol format")
@@ -1157,6 +1183,7 @@ async def generate_earnings_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI-powered earnings analysis for a stock.
@@ -1164,6 +1191,7 @@ async def generate_earnings_analysis_endpoint(
     Analyzes earnings history, revenue breakdown, growth trends,
     and provides an overall earnings verdict.
     """
+    await _require_stock_research(user_id)
     symbol = symbol.upper()
 
     if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
