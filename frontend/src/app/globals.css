@@ -22,38 +22,13 @@
     system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 
-  /* Dark-First Premium Theme */
-  --color-background: #050506;
-  --color-foreground: #fafaf9;
-
-  --color-card: #111113;
-  --color-card-foreground: #fafaf9;
-
-  --color-popover: #0c0c0e;
-  --color-popover-foreground: #fafaf9;
-
-  /* Emerald - The Signature Accent */
-  --color-primary: #10b981;
-  --color-primary-foreground: #050506;
-
-  --color-secondary: #141416;
-  --color-secondary-foreground: #fafaf9;
-
-  --color-muted: #1a1a1d;
-  --color-muted-foreground: #a1a1aa;
-
-  --color-accent: #10b981;
-  --color-accent-foreground: #050506;
-
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #fafaf9;
-
-  --color-success: #10b981;
-  --color-success-foreground: #050506;
-
-  --color-border: #3f3f46;
-  --color-input: #1a1a1d;
-  --color-ring: #10b981;
+  /* NOTE: color tokens are NOT defined here. Runtime color values live in
+     the :root, .dark / .light / .hero-dark layers below and are mapped to
+     --color-* utilities via the `@theme inline` block at the bottom of this
+     file. Defining color literals here is dead code (overridden by
+     @theme inline -> var(--*)) and previously caused two contradictions
+     (--color-accent emerald-vs-surface, --color-input vs --border). Only
+     structural, non-color design tokens belong in this @theme block. */
 
   --radius: 0.5rem;
 
@@ -85,31 +60,44 @@
    - Weight: 400 body / 500 labels / 600 headings (3 tiers only)
    ============================================ */
 
-:root {
+/* Dark theme = default. Bare :root keeps dark with JS disabled /
+   pre-hydration (no FOUC to light); .dark makes the class explicit so the
+   `dark:` @custom-variant (&:is(.dark *)) gates utilities on a class that
+   actually carries tokens. next-themes (attribute="class") adds .light to
+   override below. */
+:root,
+.dark {
   --radius: 0.5rem;
 
-  /* Premium Dark Theme - Default */
-  --background: #050506;
-  --foreground: #fafaf9;
-  --card: #111113;
-  --card-foreground: #fafaf9;
-  --popover: #0c0c0e;
-  --popover-foreground: #fafaf9;
+  /* Premium Dark Theme - Default — WARM near-black (Lovart-grade).
+     Elevation via lightness ladder, not shadows:
+     base #100F09 -> secondary/accent #17160E -> muted #1A1915
+     -> card #201F1D -> popover/overlay #26241F (~3-5 L apart). */
+  --background: #100f09;
+  --foreground: #f5f4ef;
+  --card: #201f1d;
+  --card-foreground: #f5f4ef;
+  --popover: #26241f;
+  --popover-foreground: #f5f4ef;
   --primary: #10b981;
-  --primary-foreground: #050506;
-  --secondary: #141416;
-  --secondary-foreground: #fafaf9;
-  --muted: #1a1a1d;
-  --muted-foreground: #a1a1aa;
-  --accent: #141416;
+  --primary-foreground: #100f09;
+  --secondary: #17160e;
+  --secondary-foreground: #f5f4ef;
+  --muted: #1a1915;
+  --muted-foreground: #a8a59b;
+  --accent: #17160e;
   --accent-foreground: #10b981;
   --destructive: #ef4444;
-  --destructive-foreground: #fafaf9;
-  --border: #3f3f46;
-  --input: #3f3f46;
+  --destructive-foreground: #f5f4ef;
+  /* Semantic direction tokens (dark) — gain=green, loss=red. Colors unchanged. */
+  --gain: #34d399;
+  --loss: #f87171;
+  /* Warm hairline border (~9% warm-white); --input decoupled & quieter (~6%). */
+  --border: rgba(245, 244, 239, 0.09);
+  --input: rgba(245, 244, 239, 0.06);
   --ring: #10b981;
 
-  /* Chart Palette - Emerald Spectrum */
+  /* Chart Palette - Emerald Spectrum (see notes: keep on warm base) */
   --chart-1: #10b981;
   --chart-2: #34d399;
   --chart-3: #6ee7b7;
@@ -117,66 +105,74 @@
   --chart-5: #d1fae5;
 
   /* Sidebar */
-  --sidebar: #050506;
-  --sidebar-foreground: #fafaf9;
+  --sidebar: #100f09;
+  --sidebar-foreground: #f5f4ef;
   --sidebar-primary: #10b981;
-  --sidebar-primary-foreground: #050506;
-  --sidebar-accent: #141416;
+  --sidebar-primary-foreground: #100f09;
+  --sidebar-accent: #17160e;
   --sidebar-accent-foreground: #10b981;
-  --sidebar-border: #3f3f46;
+  --sidebar-border: rgba(245, 244, 239, 0.09);
   --sidebar-ring: #10b981;
 }
 
-/* Light Theme - Refined & Warm */
+/* Light Theme - Warm Editorial Paper (not clinical white).
+   Warm cream base, faintly warm card/surface ladder, warm-grey ink. */
 .light {
-  --background: #fafaf8;
-  --foreground: #18181b;
-  --card: #ffffff;
-  --card-foreground: #18181b;
-  --popover: #ffffff;
-  --popover-foreground: #18181b;
+  --background: #faf8f3;
+  --foreground: #1c1a17;
+  --card: #fffdf9;
+  --card-foreground: #1c1a17;
+  --popover: #fffdf9;
+  --popover-foreground: #1c1a17;
   --primary: #059669;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  --secondary: #f3f0e9;
+  --secondary-foreground: #1c1a17;
+  --muted: #f3f0e9;
+  --muted-foreground: #78716c;
   --accent: #ecfdf5;
   --accent-foreground: #059669;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
+  /* Semantic direction tokens (light) — deeper for contrast on paper.
+     gain=emerald-600, loss=red-600. Colors unchanged from convention. */
+  --gain: #059669;
+  --loss: #dc2626;
+  /* Warm paper hairline; --input decoupled & slightly stronger for affordance. */
+  --border: rgba(28, 26, 23, 0.08);
+  --input: rgba(28, 26, 23, 0.12);
   --ring: #059669;
 
-  --sidebar: #fafaf8;
-  --sidebar-foreground: #18181b;
+  --sidebar: #faf8f3;
+  --sidebar-foreground: #1c1a17;
   --sidebar-primary: #059669;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ecfdf5;
   --sidebar-accent-foreground: #059669;
-  --sidebar-border: #e4e4e7;
+  --sidebar-border: rgba(28, 26, 23, 0.08);
   --sidebar-ring: #059669;
 }
 
-/* Force dark theme for hero section regardless of theme */
+/* Force dark theme for hero section regardless of theme — warm base */
 .hero-dark {
-  --background: #050506;
-  --foreground: #fafaf9;
-  --card: #111113;
-  --card-foreground: #fafaf9;
-  --popover: #0c0c0e;
-  --popover-foreground: #fafaf9;
+  --background: #100f09;
+  --foreground: #f5f4ef;
+  --card: #201f1d;
+  --card-foreground: #f5f4ef;
+  --popover: #26241f;
+  --popover-foreground: #f5f4ef;
   --primary: #10b981;
-  --primary-foreground: #050506;
-  --secondary: #141416;
-  --secondary-foreground: #fafaf9;
-  --muted: #1a1a1d;
-  --muted-foreground: #a1a1aa;
-  --accent: #141416;
+  --primary-foreground: #100f09;
+  --secondary: #17160e;
+  --secondary-foreground: #f5f4ef;
+  --muted: #1a1915;
+  --muted-foreground: #a8a59b;
+  --accent: #17160e;
   --accent-foreground: #10b981;
-  --border: #3f3f46;
-  --input: #3f3f46;
+  --gain: #34d399;
+  --loss: #f87171;
+  --border: rgba(245, 244, 239, 0.09);
+  --input: rgba(245, 244, 239, 0.06);
 }
 
 /* Base Styles */
@@ -281,9 +277,9 @@ h6 {
       0 0 20px rgba(16, 185, 129, 0.1);
   }
 
-  /* Nav text pure white when transparent over dark hero */
+  /* Nav text warm cream when transparent over dark hero */
   nav.hero-dark {
-    --muted-foreground: #fafaf9;
+    --muted-foreground: #f5f4ef;
   }
 
   /* Gradient Mesh Background */
@@ -1100,6 +1096,8 @@ select:focus-visible {
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

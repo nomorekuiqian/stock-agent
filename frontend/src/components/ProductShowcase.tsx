@@ -688,8 +688,6 @@ export default function ProductShowcase() {
                 style={{
                   boxShadow:
                     "0 25px 60px -12px rgba(0,0,0,0.5), 0 0 40px -8px rgba(16,185,129,0.1)",
-                  transform:
-                    "perspective(1200px) rotateY(-2deg) rotateX(1deg)",
                 }}
               >
                 {/* Title bar */}

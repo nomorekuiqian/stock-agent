@@ -803,7 +803,7 @@ function PersonaIntro({ persona, onSelect }: PersonaIntroProps) {
       <div className="relative mb-5 animate-scale-in sm:mb-6" style={{ animationDelay: '60ms' }}>
         <div
           aria-hidden
-          className="absolute inset-0 -m-6 rounded-full bg-primary/15 blur-2xl animate-pulse-glow"
+          className="absolute inset-0 -m-6 rounded-full bg-primary/15 blur-2xl"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

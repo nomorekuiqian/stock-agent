@@ -46,7 +46,7 @@ export default function Home() {
 
               {/* Main Headline - Clear Value Proposition */}
               <h1 className="animate-fade-in-up delay-100 font-editorial text-3xl md:text-5xl lg:text-6xl text-foreground leading-[1.05] mb-5">
-                你的 AI <span className="text-gradient-emerald">投研团队</span>
+                你的 AI <span className="text-primary">投研团队</span>
               </h1>
 
               {/* Subtitle - Specific Value */}

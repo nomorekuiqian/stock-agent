@@ -90,7 +90,7 @@ export default function StockCard({
       style={{ animationDelay: `${index * 40}ms` }}
       onClick={onClick}
     >
-      <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px] hover-glow">
+      <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px]">
         {onRemove && (
           // Hover-capable pointers reveal the X on group-hover only.
           // [@media(hover:none)] forces it visible on touch devices where there

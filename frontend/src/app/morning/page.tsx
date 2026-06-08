@@ -131,7 +131,7 @@ export default async function MorningPage() {
       ) : (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
           <div className="text-center space-y-6 animate-fade-in-up">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center animate-float">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border/50 flex items-center justify-center">
               <svg className="w-10 h-10 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
@@ -174,7 +174,7 @@ export default async function MorningPage() {
                 <Link
                   key={r.id}
                   href={`/morning/${r.id}`}
-                  className="group terminal-card p-6 hover:bg-card/80 hover:-translate-y-0.5 hover-glow animate-fade-in-up"
+                  className="group terminal-card p-6 hover:bg-card/80 hover:-translate-y-0.5 animate-fade-in-up"
                   style={{ animationDelay: `${200 + i * 100}ms` }}
                 >
                   <h4 className="text-base font-medium text-foreground line-clamp-2 group-hover:text-amber-400 transition-colors leading-snug mb-4">
