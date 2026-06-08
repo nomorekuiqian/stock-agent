@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useMemo, useState, useEffect } from 'react';
+import { Copy, Check } from 'lucide-react';
 
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
@@ -94,6 +95,29 @@ export function annotateCitations(text: string, citations: KolPersonaChunk[] | u
   return out;
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard unavailable */
+        }
+      }}
+      aria-label="复制回答"
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground"
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? '已复制' : '复制'}
+    </button>
+  );
+}
+
 function ChatMessage({
   role,
   content,
@@ -142,7 +166,7 @@ function ChatMessage({
   // clear "this is one AI turn" boundary without dropping a heavy card
   // around content that often contains its own (table / blockquote) blocks.
   return (
-    <div className="animate-msg-enter py-3">
+    <div className="group animate-msg-enter py-3">
       <div className="flex gap-2 sm:gap-3">
         {/* Avatar column: avatar + a hairline rail beneath that auto-stretches. */}
         <div className="flex flex-col items-center shrink-0">
@@ -201,6 +225,13 @@ function ChatMessage({
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
+            </div>
+          )}
+
+          {/* Hover action row — copy the answer (ChatGPT-style). */}
+          {!streaming && !isError && !!content && (
+            <div className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <CopyButton text={content} />
             </div>
           )}
         </div>
