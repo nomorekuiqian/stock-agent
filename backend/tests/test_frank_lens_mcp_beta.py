@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -35,6 +36,23 @@ def test_frank_mcp_status_allows_missing_invite(client):
     assert body["ok"] is True
     assert body["requires_invite_for_workflow"] is True
     assert body["beta"]["access"] == "missing"
+    assert "market_lens_get_lens" in body["tools"]
+    assert "market_lens_search_lenses" in body["tools"]
+
+
+def test_market_lens_personas_lists_material_capabilities(client):
+    resp = client.get("/api/kol_research/mcp/personas")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    personas = {item["username"]: item for item in body["personas"]}
+    assert "qinbafrank" in personas
+    frank = personas["qinbafrank"]
+    assert frank["lens_counts"]["core"] == 1
+    assert frank["lens_counts"]["framework"] == 6
+    assert frank["lens_counts"]["macro"] == 1
+    assert frank["lens_counts"]["sector"] == 7
+    assert frank["lens_counts"]["ticker"] >= 33
 
 
 def test_frank_mcp_workflow_requires_invite(client):
@@ -65,6 +83,158 @@ def test_frank_mcp_search_requires_valid_invite(client):
 
     assert resp.status_code == 403
     assert resp.json()["detail"] == "invite_not_found"
+
+
+def test_market_lens_list_lenses_covers_all_distilled_markdown(client):
+    invite = {
+        "allowed": True,
+        "access": "valid",
+        "invite_code_id": "invite-1",
+    }
+    root = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "features"
+        / "twitter"
+        / "methodologies"
+        / "qinbafrank"
+    )
+    expected = sum(len(list((root / layer).glob("*.md"))) for layer in ("core", "framework", "macro", "sector", "ticker"))
+    with patch(
+        "app.features.kol_research.router.validate_invite_code",
+        new_callable=AsyncMock,
+        return_value=invite,
+    ), patch(
+        "app.features.kol_research.router.record_usage",
+        new_callable=AsyncMock,
+    ):
+        resp = client.get(
+            "/api/kol_research/personas/qinbafrank/mcp/lenses",
+            headers={"X-Frank-Lens-Invite-Code": "beta"},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == expected
+    lens_ids = {(item["lens_type"], item["lens_id"]) for item in body["lenses"]}
+    assert ("core", "operating-system") in lens_ids
+    assert ("framework", "ask-about-stock") in lens_ids
+    assert ("macro", "macro-regime") in lens_ids
+    assert ("sector", "ai-infrastructure") in lens_ids
+    assert ("ticker", "NVDA") in lens_ids
+
+
+def test_market_lens_get_lens_returns_full_ticker_context(client):
+    invite = {
+        "allowed": True,
+        "access": "valid",
+        "invite_code_id": "invite-1",
+    }
+    with patch(
+        "app.features.kol_research.router.validate_invite_code",
+        new_callable=AsyncMock,
+        return_value=invite,
+    ), patch(
+        "app.features.kol_research.router.record_usage",
+        new_callable=AsyncMock,
+    ):
+        resp = client.get(
+            "/api/kol_research/personas/qinbafrank/mcp/lenses/ticker/nvda",
+            headers={"X-Frank-Lens-Invite-Code": "beta"},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["lens_type"] == "ticker"
+    assert body["lens_id"] == "NVDA"
+    assert "Evidence Map" in body["full_body"]
+    assert "打脸条件" in body["full_body"]
+    assert body["evidence_tweet_ids"]
+    assert body["call_guidance"]["when_to_call"]
+
+
+def test_market_lens_search_lenses_finds_framework_material(client):
+    invite = {
+        "allowed": True,
+        "access": "valid",
+        "invite_code_id": "invite-1",
+    }
+    with patch(
+        "app.features.kol_research.router.validate_invite_code",
+        new_callable=AsyncMock,
+        return_value=invite,
+    ), patch(
+        "app.features.kol_research.router.record_usage",
+        new_callable=AsyncMock,
+    ):
+        resp = client.post(
+            "/api/kol_research/personas/qinbafrank/mcp/lenses/search",
+            headers={"X-Frank-Lens-Invite-Code": "beta"},
+            json={"query": "Veto 一票否决", "lens_types": ["core", "framework"], "limit": 5},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] >= 1
+    assert any(item["lens_type"] in {"core", "framework"} for item in body["results"])
+    assert body["call_guidance"]["returns_context"]
+
+
+def test_market_lens_invite_persona_allowlist_is_enforced(client):
+    invite = {
+        "allowed": True,
+        "access": "valid",
+        "invite_code_id": "invite-1",
+        "allowed_personas": ["serenity"],
+        "allowed_workflows": [],
+    }
+    with patch(
+        "app.features.kol_research.router.validate_invite_code",
+        new_callable=AsyncMock,
+        return_value=invite,
+    ), patch(
+        "app.features.kol_research.router.record_usage",
+        new_callable=AsyncMock,
+    ) as mock_usage:
+        resp = client.get(
+            "/api/kol_research/personas/qinbafrank/mcp/lenses",
+            headers={"X-Frank-Lens-Invite-Code": "beta"},
+        )
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "persona_not_allowed_for_invite"
+    mock_usage.assert_not_awaited()
+
+
+def test_market_lens_get_evidence_by_ids_uses_cockpit_reader(client):
+    invite = {
+        "allowed": True,
+        "access": "valid",
+        "invite_code_id": "invite-1",
+    }
+    with patch(
+        "app.features.kol_research.router.validate_invite_code",
+        new_callable=AsyncMock,
+        return_value=invite,
+    ), patch(
+        "app.features.kol_research.router.cockpit.get_evidence_tweets_by_ids",
+        new_callable=AsyncMock,
+        return_value={"tweets": [{"id": "123", "text": "historical post"}]},
+    ) as mock_reader, patch(
+        "app.features.kol_research.router.record_usage",
+        new_callable=AsyncMock,
+    ):
+        resp = client.post(
+            "/api/kol_research/personas/qinbafrank/mcp/evidence/by-ids",
+            headers={"X-Frank-Lens-Invite-Code": "beta"},
+            json={"tweet_ids": ["123"]},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tweets"][0]["text"] == "historical post"
+    assert body["call_guidance"]["when_to_call"]
+    mock_reader.assert_awaited_once_with("qinbafrank", ["123"])
 
 
 def test_frank_mcp_workflow_returns_context_pack_and_records_usage(client):
@@ -165,6 +335,8 @@ async def test_validate_invite_uses_dev_override_without_edge_call(monkeypatch):
         "invite_code_id": "dev",
         "invite_label": "Local dev invite",
         "remaining_quota": None,
+        "allowed_personas": [],
+        "allowed_workflows": [],
     }
     mock_service.assert_not_called()
 

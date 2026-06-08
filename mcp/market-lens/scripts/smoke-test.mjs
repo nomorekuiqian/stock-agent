@@ -56,13 +56,25 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-smoke-test", version: "0.3.0" },
+    clientInfo: { name: "market-lens-smoke-test", version: "0.4.0" },
   });
   notify("notifications/initialized");
 
   const toolList = await send("tools/list", {});
   const toolNames = toolList.tools.map((tool) => tool.name);
   const required = [
+    "market_lens_status",
+    "market_lens_personas",
+    "market_lens_list_lenses",
+    "market_lens_get_lens",
+    "market_lens_search_lenses",
+    "market_lens_search_evidence",
+    "market_lens_get_evidence_by_ids",
+    "market_lens_build_context",
+    "market_lens_stock_diagnosis",
+    "market_lens_market_regime",
+    "market_lens_compare",
+    "market_lens_research_memo",
     "frank_status",
     "frank_search_evidence",
     "frank_stock_diagnosis",
@@ -77,10 +89,10 @@ try {
     if (toolNames.includes(oldName)) throw new Error(`old local/live split tool still exposed: ${oldName}`);
   }
 
-  const status = await send("tools/call", { name: "frank_status", arguments: {} });
+  const status = await send("tools/call", { name: "market_lens_status", arguments: {} });
   const parsedStatus = JSON.parse(status.content[0].text);
   if (typeof parsedStatus.adapter?.backend_url !== "string") {
-    throw new Error("frank_status did not return adapter backend_url");
+    throw new Error("market_lens_status did not return adapter backend_url");
   }
 
   console.log(JSON.stringify({

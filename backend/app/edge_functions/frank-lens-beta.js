@@ -64,6 +64,9 @@ module.exports = async function(request) {
       const expired = expiresAt !== null && !Number.isNaN(expiresAt) && expiresAt < now;
       const exhausted = maxUses > 0 && useCount >= maxUses;
       const allowed = status === "active" && !expired && !exhausted;
+      const metadata = invite.metadata && typeof invite.metadata === "object" ? invite.metadata : {};
+      const allowedPersonas = arrayValue(metadata.allowed_personas || metadata.persona_allowlist);
+      const allowedWorkflows = arrayValue(metadata.allowed_workflows || metadata.workflow_allowlist);
 
       return json({
         success: true,
@@ -73,6 +76,8 @@ module.exports = async function(request) {
           id: invite.id,
           label: invite.label || null,
           remaining_quota: maxUses > 0 ? Math.max(0, maxUses - useCount) : null,
+          allowed_personas: allowedPersonas,
+          allowed_workflows: allowedWorkflows,
         },
       }, 200, jsonHeaders);
     }
@@ -126,4 +131,11 @@ module.exports = async function(request) {
 
 function json(payload, status, headers) {
   return new Response(JSON.stringify(payload), { status, headers });
+}
+
+function arrayValue(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => String(item).trim()).filter(Boolean);
 }

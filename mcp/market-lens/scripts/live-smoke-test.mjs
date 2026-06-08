@@ -62,13 +62,20 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-live-smoke-test", version: "0.3.0" },
+    clientInfo: { name: "market-lens-live-smoke-test", version: "0.4.0" },
   });
   notify("notifications/initialized");
 
   const toolList = await send("tools/list", {});
   const toolNames = toolList.tools.map((tool) => tool.name);
   for (const required of [
+    "market_lens_status",
+    "market_lens_personas",
+    "market_lens_list_lenses",
+    "market_lens_get_lens",
+    "market_lens_search_lenses",
+    "market_lens_search_evidence",
+    "market_lens_stock_diagnosis",
     "frank_status",
     "frank_search_evidence",
     "frank_stock_diagnosis",
@@ -77,22 +84,47 @@ try {
     if (!toolNames.includes(required)) throw new Error(`${required} missing from tools/list`);
   }
 
-  const status = parseTool(await send("tools/call", { name: "frank_status", arguments: {} }));
+  const status = parseTool(await send("tools/call", { name: "market_lens_status", arguments: {} }));
   if (!status.ok) {
-    throw new Error(`frank_status failed: ${JSON.stringify(status)}`);
+    throw new Error(`market_lens_status failed: ${JSON.stringify(status)}`);
+  }
+
+  const lenses = parseTool(await send("tools/call", {
+    name: "market_lens_list_lenses",
+    arguments: { persona: "qinbafrank", lens_type: "ticker" },
+  }));
+  if (!Array.isArray(lenses.lenses) || !lenses.lenses.some((lens) => lens.lens_id === "NVDA")) {
+    throw new Error("market_lens_list_lenses did not return NVDA ticker lens");
+  }
+
+  const nvdaLens = parseTool(await send("tools/call", {
+    name: "market_lens_get_lens",
+    arguments: { persona: "qinbafrank", lens_type: "ticker", lens_id: "NVDA" },
+  }));
+  if (!nvdaLens.full_body || !Array.isArray(nvdaLens.evidence_tweet_ids)) {
+    throw new Error("market_lens_get_lens did not return full lens context");
+  }
+
+  const materialSearch = parseTool(await send("tools/call", {
+    name: "market_lens_search_lenses",
+    arguments: { persona: "qinbafrank", query: "Veto 打脸条件", limit: 3 },
+  }));
+  if (!Array.isArray(materialSearch.results)) {
+    throw new Error("market_lens_search_lenses did not return results array");
   }
 
   const search = parseTool(await send("tools/call", {
-    name: "frank_search_evidence",
-    arguments: { query: "NVDA AI capex RPO 打脸条件", k: 3 },
+    name: "market_lens_search_evidence",
+    arguments: { persona: "qinbafrank", query: "NVDA AI capex RPO 打脸条件", k: 3 },
   }));
   if (!Array.isArray(search.chunks)) {
-    throw new Error("frank_search_evidence did not return chunks array");
+    throw new Error("market_lens_search_evidence did not return chunks array");
   }
 
   const stock = parseTool(await send("tools/call", {
-    name: "frank_stock_diagnosis",
+    name: "market_lens_stock_diagnosis",
     arguments: {
+      persona: "qinbafrank",
       question: "按 Frank 框架看 NVDA 这次回调是杀估值、杀业绩还是杀逻辑？",
       ticker: "NVDA",
       evidence_limit: 3,
@@ -100,25 +132,28 @@ try {
     },
   }));
   if (stock.workflow !== "stock_diagnosis" || !Array.isArray(stock.kol_chunks)) {
-    throw new Error("frank_stock_diagnosis did not return workflow context pack");
+    throw new Error("market_lens_stock_diagnosis did not return workflow context pack");
   }
 
   const market = parseTool(await send("tools/call", {
-    name: "frank_market_regime",
+    name: "market_lens_market_regime",
     arguments: {
+      persona: "qinbafrank",
       question: "按 Frank 框架判断当前市场行情。",
       evidence_limit: 3,
       include_market_data: true,
     },
   }));
   if (market.workflow !== "market_regime" || !Array.isArray(market.kol_chunks)) {
-    throw new Error("frank_market_regime did not return workflow context pack");
+    throw new Error("market_lens_market_regime did not return workflow context pack");
   }
 
   console.log(JSON.stringify({
     ok: true,
     backend: status.adapter?.backend_url,
     toolCount: toolNames.length,
+    tickerLensCount: lenses.count,
+    materialSearchCount: materialSearch.count,
     liveEvidenceCount: search.count,
     stockWorkflow: stock.workflow,
     marketWorkflow: market.workflow,

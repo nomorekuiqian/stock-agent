@@ -28,10 +28,87 @@ TheMarketBrew backend 获取 persona 历史证据、市场数据和 workflow con
 2. 电脑上已经安装 Node.js。可以在终端运行 `node -v` 检查。
 3. 一个 Market Lens 内测邀请码，也就是 `MARKET_LENS_INVITE_CODE`。
 
-## 快速开始
+## 让你的 Agent 自动安装
 
-发布到 NPM 后，最简单的方式是用 `npx`。这种方式不需要提前全局安装包，
-MCP 客户端启动时会自动拉取并运行：
+如果你正在使用 Codex、Claude Code、Cursor 或其他 coding agent，最简单的方式是
+直接把下面这段 prompt 发给它。Agent 会根据你当前使用的客户端选择安装方式。
+
+```text
+请帮我安装 Market Lens MCP。
+
+配置要求：
+- MCP server 名称：market-lens
+- NPM 包：@themarketbrew/market-lens-mcp
+- 启动命令：npx -y @themarketbrew/market-lens-mcp
+- MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api
+- MARKET_LENS_PERSONA=qinbafrank
+
+请先向我索取 MARKET_LENS_INVITE_CODE。这个邀请码是敏感信息：
+- 不要把邀请码打印到聊天记录里
+- 不要提交到 git
+- 不要写入项目源码
+- 只写入本机 MCP 客户端配置
+
+请根据当前环境选择安装方式：
+1. 如果是 Codex，优先使用 `codex mcp add market-lens ...`。
+2. 如果是 Claude Code，优先使用 `claude mcp add market-lens -s user ...`。
+3. 如果是 Claude Desktop，请写入 Claude Desktop 的 MCP 配置文件：
+   - macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
+   - Windows: %APPDATA%\Claude\claude_desktop_config.json
+4. 如果是 Cursor，请写入 ~/.cursor/mcp.json。
+
+安装后请验证：
+- MCP 配置里 command 是 npx
+- args 是 ["-y", "@themarketbrew/market-lens-mcp"]
+- env 包含 MARKET_LENS_BACKEND_URL、MARKET_LENS_INVITE_CODE、MARKET_LENS_PERSONA
+- 如果当前客户端已经能刷新 MCP，请调用 market_lens_status 检查连接
+- 如果不能刷新，请告诉我需要重启客户端，然后让我重启后调用 market_lens_status
+```
+
+## 手动一行安装
+
+把下面命令里的 `YOUR_INVITE_CODE` 替换成你的内测邀请码。所有命令都使用
+`npx -y @themarketbrew/market-lens-mcp`，不需要提前全局安装 NPM 包。
+
+### Codex
+
+```bash
+codex mcp add market-lens --env MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api --env MARKET_LENS_INVITE_CODE=YOUR_INVITE_CODE --env MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
+```
+
+### Claude Code
+
+```bash
+claude mcp add market-lens -s user -e MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api -e MARKET_LENS_INVITE_CODE=YOUR_INVITE_CODE -e MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
+```
+
+### Claude Desktop
+
+```bash
+INVITE_CODE=YOUR_INVITE_CODE node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=process.platform==="win32"?path.join(process.env.APPDATA,"Claude","claude_desktop_config.json"):path.join(os.homedir(),"Library/Application Support/Claude/claude_desktop_config.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_INVITE_CODE:process.env.INVITE_CODE,MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
+```
+
+重启 Claude Desktop 后生效。
+
+### Cursor
+
+```bash
+INVITE_CODE=YOUR_INVITE_CODE node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=path.join(os.homedir(),".cursor","mcp.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_INVITE_CODE:process.env.INVITE_CODE,MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
+```
+
+重启 Cursor 后，在 MCP tools 列表里启用 `market-lens`。
+
+安装后，你可以先问：
+
+```text
+请调用 market_lens_status 检查 Market Lens MCP 是否已经连接成功。
+```
+
+如果连接成功，你会看到 adapter/backend 状态、当前 persona 和可用工具列表。
+
+### 手动配置备用
+
+如果你的 MCP 客户端需要手动编辑 JSON，可以使用这段配置：
 
 ```json
 {
@@ -41,7 +118,7 @@ MCP 客户端启动时会自动拉取并运行：
       "args": ["-y", "@themarketbrew/market-lens-mcp"],
       "env": {
         "MARKET_LENS_BACKEND_URL": "https://stock-agent-production.up.railway.app/api",
-        "MARKET_LENS_INVITE_CODE": "把你的邀请码填在这里",
+        "MARKET_LENS_INVITE_CODE": "YOUR_INVITE_CODE",
         "MARKET_LENS_PERSONA": "qinbafrank"
       }
     }
@@ -49,15 +126,9 @@ MCP 客户端启动时会自动拉取并运行：
 }
 ```
 
-重启客户端后，你可以先问：
-
-```text
-请调用 frank_status 检查 Market Lens MCP 是否已经连接成功。
-```
-
-如果连接成功，你会看到 adapter/backend 状态、当前 persona 和可用工具列表。
-
 ## 全局安装方式
+
+通常不需要全局安装。只有当你的 MCP 客户端不能直接运行 `npx` 时，再用这种方式：
 
 ```bash
 npm install -g @themarketbrew/market-lens-mcp
@@ -81,8 +152,8 @@ npm install -g @themarketbrew/market-lens-mcp
 }
 ```
 
-内测期免费，但 `frank_search_evidence` 和 workflow tools 需要
-`MARKET_LENS_INVITE_CODE`。`frank_status` 可以无邀请码调用。
+内测期免费。`market_lens_status` / `market_lens_personas` 可以无邀请码调用；
+material / evidence / workflow tools 需要 `MARKET_LENS_INVITE_CODE`。
 
 旧版 `FRANK_LENS_BACKEND_URL`、`FRANK_LENS_INVITE_CODE`、`FRANK_LENS_PERSONA`
 仍然被兼容读取，但新配置建议使用 `MARKET_LENS_*`。
@@ -102,6 +173,23 @@ npm install -g .
 
 ## Tools
 
+主工具是 persona-neutral 的 `market_lens_*`，通过 `persona` 参数切换博主：
+
+- `market_lens_status` — 检查 adapter/backend/invite/persona 状态。
+- `market_lens_personas` — 列出可用 persona、蒸馏物料层级数量和 workflow capability。
+- `market_lens_list_lenses` — 返回某个 persona 的 `core/framework/macro/sector/ticker` lens index。
+- `market_lens_get_lens` — 返回单个 lens 的完整蒸馏 markdown、parsed sections、metadata 和 Evidence Map tweet IDs。
+- `market_lens_search_lenses` — 在全部蒸馏物料里搜索 topic/rule/ticker/phrase，用来找到 lens ID。
+- `market_lens_search_evidence` — 语义检索历史推文 evidence chunks。
+- `market_lens_get_evidence_by_ids` — 根据 `market_lens_get_lens` 返回的 Evidence Map tweet IDs 取原始推文。
+- `market_lens_build_context` — 对开放问题构建 evidence + market facts + methodology summary。
+- `market_lens_stock_diagnosis` — 个股诊断 context pack。
+- `market_lens_market_regime` — 市场/宏观环境 context pack。
+- `market_lens_compare` — 多标的比较 context pack。
+- `market_lens_research_memo` — 深度 memo context pack。
+
+兼容别名仍保留一到两个 minor version，固定 `persona=qinbafrank`：
+
 - `frank_status`
 - `frank_search_evidence`
 - `frank_stock_diagnosis`
@@ -112,6 +200,7 @@ npm install -g .
 所有 workflow tools 返回 context pack，不直接替用户写最终答案。调用方 Agent
 应使用返回的 `kol_chunks`、`market_context`、`methodology_context`、
 `answer_discipline` 和 `suggested_answer_shape` 组织最终回答。
+Material tools 返回蒸馏物料 context；Evidence tools 返回历史推文 context。
 
 ## 示例调用
 
@@ -119,6 +208,7 @@ npm install -g .
 
 ```json
 {
+  "persona": "qinbafrank",
   "question": "按 Frank 框架看 NVDA 这次回调是杀估值、杀业绩还是杀逻辑？",
   "ticker": "NVDA",
   "evidence_limit": 6,
@@ -130,6 +220,7 @@ npm install -g .
 
 ```json
 {
+  "persona": "qinbafrank",
   "question": "按 Frank 框架判断当前市场行情。",
   "evidence_limit": 6,
   "include_market_data": true
@@ -140,6 +231,7 @@ npm install -g .
 
 ```json
 {
+  "persona": "qinbafrank",
   "question": "NVDA 和 AVGO 只能留一只，按 Frank 框架怎么选？",
   "tickers": ["NVDA", "AVGO"],
   "evidence_limit": 6,
@@ -151,8 +243,30 @@ npm install -g .
 
 ```json
 {
+  "persona": "qinbafrank",
   "query": "NVDA AI capex RPO 打脸条件",
   "k": 5
+}
+```
+
+### 检索蒸馏物料
+
+```json
+{
+  "persona": "qinbafrank",
+  "query": "Veto 打脸条件",
+  "lens_types": ["core", "framework", "sector"],
+  "limit": 5
+}
+```
+
+### 获取完整 lens
+
+```json
+{
+  "persona": "qinbafrank",
+  "lens_type": "ticker",
+  "lens_id": "NVDA"
 }
 ```
 

@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     # The FastMCP session manager must run for the mounted MCP endpoint. The app's
     # existing startup/shutdown logic runs inside this lifespan, because FastAPI
     # ignores @app.on_event handlers once a lifespan is provided.
-    async with frank_mcp_app.lifespan(app):
+    async with market_mcp_app.lifespan(app):
         await _startup()
         try:
             yield
