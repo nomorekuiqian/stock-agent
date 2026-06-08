@@ -35,6 +35,18 @@
   /* Custom Type Scale Tokens */
   --text-micro: 0.625rem; /* 10px - avatar monograms, data source labels, tooltips */
   --text-data-hero: 2.5rem; /* 40px - dashboard hero metric numbers */
+
+  /* Motion tokens — single source of truth for duration + easing across the
+     whole app (agent chat, panels, lists). Keyframes and components reference
+     these instead of scattered literal cubic-bezier()/durations. The --ease-*
+     entries also generate Tailwind `ease-out-expo` / `ease-out-standard`
+     utilities. */
+  --duration-instant: 80ms;
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --duration-slow: 400ms;
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-standard: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============================================
@@ -1141,6 +1153,17 @@ select:focus-visible {
   transform-origin: left;
   animation: line-expand 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   opacity: 0;
+}
+
+/* Chat streaming caret — hard on/off blink (terminal feel) via steps(), so it
+   does not soft-throb like animate-pulse. Removed the instant streaming ends.
+   The blanket prefers-reduced-motion rule below disables it automatically. */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.chat-caret {
+  animation: caret-blink 1.05s steps(1, end) infinite;
 }
 
 /* ============================================
