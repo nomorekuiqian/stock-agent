@@ -69,7 +69,7 @@ export default function ArchivePage() {
               <Link
                 key={report.id || report.report_date}
                 href={`/today/${report.id}`}
-                className="group bg-card rounded-xl border border-border p-5 hover:border-primary/50 hover-glow transition-all"
+                className="group bg-card rounded-xl border border-border p-5 hover:border-primary/50 transition-all"
               >
                 {/* Date Badge */}
                 <div className="flex items-center justify-between mb-4">

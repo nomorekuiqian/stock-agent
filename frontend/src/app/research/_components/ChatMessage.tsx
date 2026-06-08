@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
+import { Copy, Check } from 'lucide-react';
 
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
@@ -34,12 +35,7 @@ function ThinkingLine({
   if (!visible) return null;
 
   return (
-    <div className="flex items-start gap-2 text-xs text-muted-foreground/85">
-      <span className="mt-0.5 flex shrink-0 items-center gap-1">
-        <span className="thinking-dot" />
-        <span className="thinking-dot" />
-        <span className="thinking-dot" />
-      </span>
+    <div className="text-xs text-muted-foreground/80">
       <span
         key={latest}
         className="animate-fade-in line-clamp-2 italic"
@@ -99,7 +95,30 @@ export function annotateCitations(text: string, citations: KolPersonaChunk[] | u
   return out;
 }
 
-export default function ChatMessage({
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard unavailable */
+        }
+      }}
+      aria-label="复制回答"
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-foreground"
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? '已复制' : '复制'}
+    </button>
+  );
+}
+
+function ChatMessage({
   role,
   content,
   animate = false,
@@ -147,7 +166,7 @@ export default function ChatMessage({
   // clear "this is one AI turn" boundary without dropping a heavy card
   // around content that often contains its own (table / blockquote) blocks.
   return (
-    <div className="animate-msg-enter py-3">
+    <div className="group animate-msg-enter py-3">
       <div className="flex gap-2 sm:gap-3">
         {/* Avatar column: avatar + a hairline rail beneath that auto-stretches. */}
         <div className="flex flex-col items-center shrink-0">
@@ -170,11 +189,9 @@ export default function ChatMessage({
               {content}
             </div>
           ) : !content ? (
-            <div className="flex items-center gap-1 py-0.5">
-              <span className="thinking-dot" />
-              <span className="thinking-dot" />
-              <span className="thinking-dot" />
-            </div>
+            !thinking?.trim() ? (
+              <div className="py-0.5 text-sm italic text-muted-foreground/70 animate-pulse-subtle">正在思考…</div>
+            ) : null
           ) : shouldAnimate && !animationDone ? (
             <div className="text-sm leading-relaxed text-foreground">
               {chars.map((char, i) => (
@@ -199,15 +216,22 @@ export default function ChatMessage({
             >
               <MarkdownBody>{annotatedContent}</MarkdownBody>
               {streaming && (
-                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse bg-primary/70 align-baseline" />
+                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
             </div>
           ) : (
             <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
               {content}
               {streaming && (
-                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse bg-primary/70 align-baseline" />
+                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
+            </div>
+          )}
+
+          {/* Hover action row — copy the answer (ChatGPT-style). */}
+          {!streaming && !isError && !!content && (
+            <div className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <CopyButton text={content} />
             </div>
           )}
         </div>
@@ -215,3 +239,8 @@ export default function ChatMessage({
     </div>
   );
 }
+
+/* Memoized: during streaming only the active (changing) message re-renders;
+   the rest of the transcript is skipped, so per-token cost stops scaling with
+   conversation length. */
+export default memo(ChatMessage);

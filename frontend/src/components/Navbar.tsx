@@ -30,7 +30,7 @@ export function Navbar() {
 
   const navBase = 'fixed top-0 left-0 right-0 z-50 transition-all duration-500';
   const navScrolled = 'bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm shadow-black/5';
-  const navTransparentHome = 'bg-transparent border-b border-transparent hero-dark';
+  const navTransparentHome = 'bg-transparent border-b border-transparent';
 
   return (
     <nav

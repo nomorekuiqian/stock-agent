@@ -43,7 +43,7 @@ export default function MobileTabSwitch({
       >
         工作区
         {hasNewResults && activeTab !== 'results' && (
-          <span className="absolute top-2.5 right-[calc(50%-16px)] w-1.5 h-1.5 rounded-full bg-primary animate-pulse-glow" />
+          <span className="absolute top-2.5 right-[calc(50%-16px)] w-1.5 h-1.5 rounded-full bg-primary" />
         )}
         {activeTab === 'results' && (
           <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />

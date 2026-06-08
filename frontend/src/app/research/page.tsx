@@ -1,7 +1,6 @@
 'use client';
 
 import { useReducer, useCallback, useEffect, useState, useRef, Suspense, useMemo } from 'react';
-import ReactDOM from 'react-dom';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +29,7 @@ import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
 import LoginGate from '@/components/LoginGate';
 import ContentPanel from './_components/ContentPanel';
+import CanvasPanel from './_components/CanvasPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
 import MobileTabSwitch from './_components/MobileTabSwitch';
 import { type AgentKind } from './_components/PersonaSelector';
@@ -263,6 +263,11 @@ function ScreenerContent() {
   const skipPanelSaveRef = useRef(true);
   const lastPanelContentSignatureRef = useRef<string | null>(null);
   const latestStateRef = useRef(state);
+  // Real "stop generating": holds the in-flight stream's AbortController so the
+  // cancel button can abort the fetch. Cancellation is detected PER-TURN via the
+  // closure-captured controller.signal.aborted (not a shared flag), so a rapid
+  // cancel-then-resend can't let an older turn's late AbortError clobber the new turn.
+  const abortRef = useRef<AbortController | null>(null);
   const conversationUserId = userId ?? 'anonymous';
   const conversationListQueryKey = useMemo(
     () => queryKeys.research.conversations(conversationUserId, CONVERSATIONS_PAGE_SIZE),
@@ -1030,6 +1035,9 @@ function ScreenerContent() {
       const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
       const turnId = crypto.randomUUID();
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       await api.kolResearch.chatStream(
         {
           message,
@@ -1042,40 +1050,33 @@ function ScreenerContent() {
         },
         (event: KolResearchStreamEvent) => {
           if (event.type === 'skill_activated') {
-            ReactDOM.flushSync(() => {
-              dispatch({
-                type: 'TOOL_ACTIVITY',
-                tool: 'load_skill',
-                description: event.description,
-                status: 'start',
-              });
+            dispatch({
+              type: 'TOOL_ACTIVITY',
+              tool: 'load_skill',
+              description: event.description,
+              status: 'start',
             });
           } else if (event.type === 'tool_call_start') {
-            ReactDOM.flushSync(() => {
-              dispatch({
-                type: 'TOOL_ACTIVITY',
-                tool: event.tool,
-                description: event.description,
-                status: 'start',
-              });
+            dispatch({
+              type: 'TOOL_ACTIVITY',
+              tool: event.tool,
+              description: event.description,
+              status: 'start',
             });
           } else if (event.type === 'tool_call_end') {
             // no-op — keep description visible until next event
           } else if (event.type === 'message_delta') {
             // Token-by-token streaming: append to the in-progress assistant msg.
-            ReactDOM.flushSync(() => {
-              dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text });
-            });
+            dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text });
           } else if (event.type === 'thinking') {
             // Chain-of-thought chunk: accumulate on the same in-progress msg.
-            ReactDOM.flushSync(() => {
-              dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text });
-            });
+            dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text });
           } else if (event.type === 'final') {
             finalMessage = event.data.message;
             finalChunks = event.data.kol_chunks || [];
             finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
           } else if (event.type === 'error') {
+            if (controller.signal.aborted) return; // this turn was cancelled — handled by handleCancelLoading
             errored = true;
             // Log the full backend error payload so the console shows code +
             // raw message even after we map it to a user-facing string. Grep
@@ -1084,8 +1085,10 @@ function ScreenerContent() {
             dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
           }
         },
+        controller.signal,
       );
 
+      if (controller.signal.aborted) return; // intentional cancel — keep partial answer
       if (errored) return;
       if (!finalMessage) {
         // Stream closed without emitting `final` or `error`. Common causes:
@@ -1261,9 +1264,7 @@ function ScreenerContent() {
         },
         (event) => {
           if (event.type === 'tool_call_start' && event.tool && event.description) {
-            ReactDOM.flushSync(() => {
-              dispatch({ type: 'TOOL_ACTIVITY', tool: event.tool!, description: event.description!, status: 'start' });
-            });
+            dispatch({ type: 'TOOL_ACTIVITY', tool: event.tool!, description: event.description!, status: 'start' });
           } else if (event.type === 'tool_call_end') {
             // Don't dispatch end — let the description stay visible.
             // It gets replaced by the next tool_call_start or cleared by RECEIVE_RESPONSE.
@@ -1509,6 +1510,7 @@ function ScreenerContent() {
   // Cancel stuck loading — lets user recover without refreshing
   const handleCancelLoading = useCallback(() => {
     if (!state.isLoading) return;
+    abortRef.current?.abort();
     dispatch({ type: 'SET_ERROR', error: '已取消。你可以重新发送或换个问题试试' });
   }, [state.isLoading]);
 
@@ -1828,7 +1830,7 @@ function ScreenerContent() {
         <div
           data-testid="research-chat-shell"
           className={`
-            w-full lg:w-1/2 lg:border-r lg:border-border/20
+            w-full lg:flex-1 lg:min-w-0 lg:border-r lg:border-border/20
             ${mobileTab === 'chat' ? 'flex' : 'hidden lg:flex'}
             min-h-0 overflow-hidden
           `}
@@ -1916,13 +1918,11 @@ function ScreenerContent() {
           </div>
         </div>
 
-        {/* Right: Content panel (or KOL citation cards when in KOL mode) */}
-        <div
-          className={`
-            w-full lg:w-1/2
-            ${mobileTab === 'results' ? 'flex' : 'hidden lg:flex'}
-            min-h-0 flex-col overflow-hidden
-          `}
+        {/* Right: Content panel (or KOL citation cards when in KOL mode) —
+            ChatGPT-canvas-style: drag-resizable + collapsible on desktop. */}
+        <CanvasPanel
+          mobileActive={mobileTab === 'results'}
+          contentKey={`${agentKind}:${getPanelContentSignature(state.activeContent, state.contentStack)}:${latestKolChunks?.length ?? 0}`}
         >
           {agentKind === 'kol_research' ? (
             <KolChunksPanel chunks={latestKolChunks} variant="panel" />
@@ -1949,7 +1949,7 @@ function ScreenerContent() {
               onBrewContextReady={handleBrewContextReady}
             />
           )}
-        </div>
+        </CanvasPanel>
       </div>
     </div>
   );

@@ -114,7 +114,7 @@ export default function MorningArchivePage() {
               <Link
                 key={report.id || report.report_date}
                 href={`/morning/${report.id}`}
-                className="group bg-card rounded-xl border border-border p-5 hover:border-amber-500/50 hover-glow transition-all"
+                className="group bg-card rounded-xl border border-border p-5 hover:border-amber-500/50 transition-all"
               >
                 {/* Date Badge */}
                 <div className="flex items-center justify-between mb-4">
