@@ -71,87 +71,39 @@ interface AccentClasses {
   glow: string;                // arbitrary radial-gradient bg
 }
 
-const ACCENTS: Record<AccentName, AccentClasses> = {
-  emerald: {
-    borderActive: 'border-emerald-500/40',
-    borderActiveHover: 'hover:border-emerald-500/40',
-    borderActiveFocus: 'focus:border-emerald-500/40',
-    bgTint: 'bg-emerald-500/[0.04]',
-    bgTintHover: 'hover:bg-emerald-500/[0.04]',
-    textActive: 'text-emerald-400',
-    textActiveHover: 'hover:text-emerald-400',
-    textActiveGroupHover: 'group-hover:text-emerald-400',
-    textRest: 'text-emerald-500/70',
-    ring: 'focus-visible:ring-emerald-500/40',
-    ringFocus: 'focus:ring-emerald-500/40',
-    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(16,185,129,0.14),transparent_70%)]',
-  },
-  amber: {
-    borderActive: 'border-amber-500/40',
-    borderActiveHover: 'hover:border-amber-500/40',
-    borderActiveFocus: 'focus:border-amber-500/40',
-    bgTint: 'bg-amber-500/[0.05]',
-    bgTintHover: 'hover:bg-amber-500/[0.05]',
-    textActive: 'text-amber-400',
-    textActiveHover: 'hover:text-amber-400',
-    textActiveGroupHover: 'group-hover:text-amber-400',
-    textRest: 'text-amber-500/70',
-    ring: 'focus-visible:ring-amber-500/40',
-    ringFocus: 'focus:ring-amber-500/40',
-    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(245,158,11,0.16),transparent_70%)]',
-  },
-  sky: {
-    borderActive: 'border-sky-500/40',
-    borderActiveHover: 'hover:border-sky-500/40',
-    borderActiveFocus: 'focus:border-sky-500/40',
-    bgTint: 'bg-sky-500/[0.05]',
-    bgTintHover: 'hover:bg-sky-500/[0.05]',
-    textActive: 'text-sky-400',
-    textActiveHover: 'hover:text-sky-400',
-    textActiveGroupHover: 'group-hover:text-sky-400',
-    textRest: 'text-sky-500/70',
-    ring: 'focus-visible:ring-sky-500/40',
-    ringFocus: 'focus:ring-sky-500/40',
-    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(14,165,233,0.16),transparent_70%)]',
-  },
-  violet: {
-    borderActive: 'border-violet-500/40',
-    borderActiveHover: 'hover:border-violet-500/40',
-    borderActiveFocus: 'focus:border-violet-500/40',
-    bgTint: 'bg-violet-500/[0.05]',
-    bgTintHover: 'hover:bg-violet-500/[0.05]',
-    textActive: 'text-violet-400',
-    textActiveHover: 'hover:text-violet-400',
-    textActiveGroupHover: 'group-hover:text-violet-400',
-    textRest: 'text-violet-500/70',
-    ring: 'focus-visible:ring-violet-500/40',
-    ringFocus: 'focus:ring-violet-500/40',
-    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(139,92,246,0.16),transparent_70%)]',
-  },
-  rose: {
-    // rose is dot-only — never used as a card accent. Filled in for completeness.
-    borderActive: 'border-rose-500/40',
-    borderActiveHover: 'hover:border-rose-500/40',
-    borderActiveFocus: 'focus:border-rose-500/40',
-    bgTint: 'bg-rose-500/[0.05]',
-    bgTintHover: 'hover:bg-rose-500/[0.05]',
-    textActive: 'text-rose-400',
-    textActiveHover: 'hover:text-rose-400',
-    textActiveGroupHover: 'group-hover:text-rose-400',
-    textRest: 'text-rose-500/70',
-    ring: 'focus-visible:ring-rose-500/40',
-    ringFocus: 'focus:ring-rose-500/40',
-    glow: 'bg-[radial-gradient(ellipse_60%_70%_at_100%_0%,rgba(244,63,94,0.16),transparent_70%)]',
-  },
+// One calm, monochrome treatment for every card — no per-card rainbow accent
+// and no corner glows (the "engineer-style capability showcase" tell). Brand
+// emerald appears only on the active/selected state; everything else is neutral.
+const NEUTRAL_ACCENT: AccentClasses = {
+  borderActive: 'border-foreground/20',
+  borderActiveHover: 'hover:border-foreground/20',
+  borderActiveFocus: 'focus:border-foreground/20',
+  bgTint: 'bg-foreground/[0.03]',
+  bgTintHover: 'hover:bg-foreground/[0.03]',
+  textActive: 'text-primary',
+  textActiveHover: 'hover:text-foreground',
+  textActiveGroupHover: 'group-hover:text-foreground',
+  textRest: 'text-muted-foreground',
+  ring: 'focus-visible:ring-primary/30',
+  ringFocus: 'focus:ring-primary/30',
+  glow: '',
 };
 
-// Standalone dot colors for per-option leading indicators (daily reports).
+const ACCENTS: Record<AccentName, AccentClasses> = {
+  emerald: NEUTRAL_ACCENT,
+  amber: NEUTRAL_ACCENT,
+  sky: NEUTRAL_ACCENT,
+  violet: NEUTRAL_ACCENT,
+  rose: NEUTRAL_ACCENT,
+};
+
+// Per-option leading dots — neutral, no rainbow.
 const DOT_BG: Record<AccentName, string> = {
-  emerald: 'bg-emerald-400',
-  amber: 'bg-amber-400',
-  sky: 'bg-sky-400',
-  violet: 'bg-violet-400',
-  rose: 'bg-rose-400',
+  emerald: 'bg-muted-foreground/50',
+  amber: 'bg-muted-foreground/50',
+  sky: 'bg-muted-foreground/50',
+  violet: 'bg-muted-foreground/50',
+  rose: 'bg-muted-foreground/50',
 };
 
 const CAPABILITIES: CapabilityCard[] = [

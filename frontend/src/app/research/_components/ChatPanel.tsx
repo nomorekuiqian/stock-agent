@@ -60,15 +60,20 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
     setUserScrolled(!atBottom);
   }, []);
 
-  // Auto-scroll to bottom on new messages (unless user scrolled up)
+  // Auto-scroll to bottom on new messages AND as the streaming answer grows.
+  // The last message is mutated in place during streaming (its array length
+  // doesn't change), so we also key the effect on its content/thinking. While
+  // streaming we use instant scroll so rapid growth follows tightly without
+  // smooth-scroll animations stacking/fighting each other.
+  const lastMsg = messages[messages.length - 1];
   useEffect(() => {
     if (!userScrolled) {
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: 'smooth',
+        behavior: lastMsg?.streaming ? 'auto' : 'smooth',
       });
     }
-  }, [messages.length, loading, userScrolled]);
+  }, [messages.length, lastMsg?.content, lastMsg?.thinking, lastMsg?.streaming, loading, userScrolled]);
 
   // Find the last assistant message index for animation
   const lastAssistantIdx = messages.reduce(
@@ -139,16 +144,9 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
                   const label = latest?.description;
                   return (
                     <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <span className="thinking-dot" />
-                        <span className="thinking-dot" />
-                        <span className="thinking-dot" />
+                      <span key={label || 'thinking'} className="animate-status-label animate-pulse-subtle">
+                        {label || '正在思考…'}
                       </span>
-                      {label && (
-                        <span key={label} className="animate-status-label">
-                          {label}
-                        </span>
-                      )}
                     </div>
                   );
                 })()}
@@ -170,8 +168,8 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         {personaUsername && (
           <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
               @{personaUsername} 视角
             </span>
             <span className="text-muted-foreground/70">按博主公开方法论作答</span>

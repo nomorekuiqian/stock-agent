@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
 
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
@@ -34,12 +34,7 @@ function ThinkingLine({
   if (!visible) return null;
 
   return (
-    <div className="flex items-start gap-2 text-xs text-muted-foreground/85">
-      <span className="mt-0.5 flex shrink-0 items-center gap-1">
-        <span className="thinking-dot" />
-        <span className="thinking-dot" />
-        <span className="thinking-dot" />
-      </span>
+    <div className="text-xs text-muted-foreground/80">
       <span
         key={latest}
         className="animate-fade-in line-clamp-2 italic"
@@ -99,7 +94,7 @@ export function annotateCitations(text: string, citations: KolPersonaChunk[] | u
   return out;
 }
 
-export default function ChatMessage({
+function ChatMessage({
   role,
   content,
   animate = false,
@@ -170,11 +165,9 @@ export default function ChatMessage({
               {content}
             </div>
           ) : !content ? (
-            <div className="flex items-center gap-1 py-0.5">
-              <span className="thinking-dot" />
-              <span className="thinking-dot" />
-              <span className="thinking-dot" />
-            </div>
+            !thinking?.trim() ? (
+              <div className="py-0.5 text-sm italic text-muted-foreground/70 animate-pulse-subtle">正在思考…</div>
+            ) : null
           ) : shouldAnimate && !animationDone ? (
             <div className="text-sm leading-relaxed text-foreground">
               {chars.map((char, i) => (
@@ -199,14 +192,14 @@ export default function ChatMessage({
             >
               <MarkdownBody>{annotatedContent}</MarkdownBody>
               {streaming && (
-                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse bg-primary/70 align-baseline" />
+                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
             </div>
           ) : (
             <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
               {content}
               {streaming && (
-                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse bg-primary/70 align-baseline" />
+                <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
             </div>
           )}
@@ -215,3 +208,8 @@ export default function ChatMessage({
     </div>
   );
 }
+
+/* Memoized: during streaming only the active (changing) message re-renders;
+   the rest of the transcript is skipped, so per-token cost stops scaling with
+   conversation length. */
+export default memo(ChatMessage);

@@ -5,6 +5,15 @@ import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 import type { KolPersonaChunk } from '@/lib/api';
 
+/** Official X (Twitter) logo mark. */
+function XLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className} fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.65l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
 interface KolChunksPanelProps {
   chunks: KolPersonaChunk[];
   /** Layout variant: 'inline' is the legacy collapsed footer; 'panel' is the
@@ -199,17 +208,6 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
       id={`kol-citation-${chunk.citation_index}`}
       className="group relative px-4 py-3 transition hover:bg-muted/30"
     >
-      {/* Whole-card click target → opens original tweet (like Twitter's "click anywhere on card") */}
-      {chunk.url && (
-        <a
-          href={chunk.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="打开原推"
-          className="absolute inset-0 z-0"
-        />
-      )}
-
       <div className="relative z-10 flex gap-3" style={{ fontFamily: '"Twitter Chirp", system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif' }}>
         {/* Avatar */}
         <div className="shrink-0">
@@ -268,30 +266,44 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
             </div>
           )}
 
-          {/* Footer: expand/collapse only — "see original" is the whole-card link */}
-          {longText && (
-            <div className="mt-2 text-[13px]">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setExpanded((v) => !v);
-                }}
-                className="relative z-20 inline-flex items-center gap-0.5 text-sky-500 hover:underline"
-              >
-                {expanded ? (
-                  <>
-                    <ChevronUp className="h-3 w-3" />
-                    收起
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3" />
-                    展开全文
-                  </>
-                )}
-              </button>
+          {/* Footer: explicit "view original on X" link + optional expand/collapse */}
+          {(chunk.url || longText) && (
+            <div className="mt-2 flex items-center gap-4 text-[13px]">
+              {chunk.url && (
+                <a
+                  href={chunk.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative z-20 inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <XLogo className="h-3.5 w-3.5" />
+                  在 X 查看原文
+                </a>
+              )}
+              {longText && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setExpanded((v) => !v);
+                  }}
+                  className="relative z-20 inline-flex items-center gap-0.5 text-sky-500 hover:underline"
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="h-3 w-3" />
+                      收起
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3" />
+                      展开全文
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
