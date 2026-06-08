@@ -679,9 +679,6 @@ export default function ProductShowcase() {
               ============================================================ */}
           <div className="flex justify-center">
             <div className="relative w-full max-w-[520px] group">
-              {/* Ambient glow */}
-              <div className="absolute -inset-12 bg-primary/[0.07] blur-[60px] rounded-full pointer-events-none transition-opacity duration-500 group-hover:bg-primary/[0.10]" />
-
               {/* Browser window */}
               <div
                 className="relative bg-[#1e1e22] rounded-xl overflow-hidden border border-white/[0.08] transition-transform duration-500 ease-out group-hover:scale-[1.01]"

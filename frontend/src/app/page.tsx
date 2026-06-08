@@ -12,7 +12,7 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       {/* Hero Section - with embedded subscribe form */}
       <section className="relative overflow-hidden min-h-screen md:h-screen -mt-16 flex flex-col hero-dark">
-        {/* Hero Background Image */}
+        {/* Hero Background Image — quiet atmospheric backdrop */}
         <Image
           src="/hero-bg.jpeg"
           alt=""
@@ -20,37 +20,34 @@ export default function Home() {
           priority
           className="object-cover object-[30%_20%] pointer-events-none"
         />
-        {/* Base overlay - subtle emerald tint, lighter to let image details show */}
-        <div className="absolute inset-0 bg-[#0a1a14]/35 pointer-events-none" />
-        {/* Left side gradient for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#050a08]/50 via-transparent to-transparent pointer-events-none" />
-        {/* Vignette - darker edges, lighter center for depth */}
+        {/* Single warm left-to-right readability wash (warm near-black, not cold) */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at 30% 40%, transparent 20%, rgba(5,5,6,0.55) 100%)' }}
+          style={{ background: 'linear-gradient(to right, rgba(16,15,9,0.94), rgba(16,15,9,0.62) 45%, rgba(16,15,9,0.2))' }}
         />
-        {/* Bottom fade for smooth transition to page content */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 md:h-48 bg-gradient-to-b from-transparent via-[#050506]/70 to-[#050506] pointer-events-none" />
+        {/* Bottom fade into the warm page background */}
+        <div className="absolute bottom-0 left-0 right-0 h-40 md:h-56 bg-gradient-to-b from-transparent to-background pointer-events-none" />
 
         <div className="relative flex-1 flex items-start md:items-center max-w-6xl mx-auto w-full px-4 md:px-6 pt-24 pb-32 md:pt-20 md:pb-24">
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
             {/* Left - Content */}
             <div>
-              {/* Product Positioning Tag */}
-              <div className="animate-fade-in-up flex items-center gap-3 mb-6">
-                <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent animate-line-expand" />
-                <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
+              {/* Eyebrow — monospace editorial label */}
+              <div className="animate-fade-in-up flex items-center gap-3 mb-7">
+                <div className="h-px w-8 bg-primary/60 animate-line-expand" />
+                <span className="font-data text-primary text-xs tracking-[0.3em] uppercase">
                   美股 AI 投研平台
                 </span>
               </div>
 
-              {/* Main Headline - Clear Value Proposition */}
-              <h1 className="animate-fade-in-up delay-100 font-editorial text-3xl md:text-5xl lg:text-6xl text-foreground leading-[1.05] mb-5">
-                你的 AI <span className="text-primary">投研团队</span>
+              {/* Main Headline — oversized editorial */}
+              <h1 className="animate-fade-in-up delay-100 font-editorial text-5xl md:text-6xl lg:text-7xl text-foreground leading-[1.0] tracking-tight mb-7">
+                你的 AI<br />
+                <span className="text-primary">投研团队</span>
               </h1>
 
               {/* Subtitle - Specific Value */}
-              <p className="animate-fade-in-up delay-200 text-base md:text-lg text-muted-foreground max-w-md leading-relaxed mb-6">
+              <p className="animate-fade-in-up delay-200 text-base md:text-lg text-muted-foreground max-w-md leading-relaxed mb-8">
                 从日报到个股、从持仓到宏观 -- 一个平台，覆盖你的全部投研需求。
               </p>
 
@@ -283,7 +280,6 @@ export default function Home() {
 
             {/* Max - 推荐 */}
             <div className="relative rounded-xl border border-primary/30 bg-card/50 p-6 ring-1 ring-primary/10">
-              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-primary/8 blur-[60px] pointer-events-none" />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-lg font-semibold text-foreground">Max</h3>

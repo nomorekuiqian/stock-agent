@@ -396,8 +396,6 @@ function StockResearchSection() {
 
           {/* Right: Mockup */}
           <div className="relative">
-            {/* Ambient glow */}
-            <div className="absolute -inset-12 bg-primary/[0.05] blur-[80px] rounded-full pointer-events-none" />
             <div className="relative">
               <StockMockup />
             </div>
@@ -843,7 +841,6 @@ function ResearchSection() {
         <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Left: Mockup (reversed layout for visual variety) */}
           <div className="relative order-2 md:order-1">
-            <div className="absolute -inset-12 bg-sky-400/[0.04] blur-[80px] rounded-full pointer-events-none" />
             <div className="relative">
               <ResearchMockup />
             </div>
@@ -1163,7 +1160,6 @@ function MacroSection() {
 
           {/* Right: Mockup */}
           <div className="relative">
-            <div className="absolute -inset-12 bg-amber-400/[0.03] blur-[80px] rounded-full pointer-events-none" />
             <div className="relative">
               <MacroMockup />
             </div>
