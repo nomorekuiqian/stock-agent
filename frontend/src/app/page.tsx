@@ -3,140 +3,86 @@
 import Link from "next/link";
 import Image from "next/image";
 import SubscribeForm from "@/components/SubscribeForm";
-import LogoMarquee from "@/components/LogoMarquee";
 import FeatureSections from "@/components/FeatureSections";
 import { PRICING } from "@/lib/pricing";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
+  const { isAuthenticated } = useAuth();
   return (
     <main className="min-h-screen bg-background">
-      {/* Hero Section - with embedded subscribe form */}
-      <section className="relative overflow-hidden min-h-screen md:h-screen -mt-16 flex flex-col hero-dark">
-        {/* Hero Background Image — quiet atmospheric backdrop */}
-        <Image
-          src="/hero-bg.jpeg"
-          alt=""
-          fill
-          priority
-          className="object-cover object-[30%_20%] pointer-events-none"
-        />
-        {/* Single warm left-to-right readability wash (warm near-black, not cold) */}
+      {/* Hero Section — belief-led editorial: text-first, single CTA, no photo/form */}
+      <section className="relative overflow-hidden min-h-screen md:h-screen -mt-16 flex items-center justify-center bg-background">
+        {/* Hero atmosphere — the one allowed signature gradient (no photo).
+            Warm near-black gains color depth: an emerald glow top-left, a warm
+            amber glow bottom-right, and a faint warm lift up top. */}
         <div
+          aria-hidden
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to right, rgba(16,15,9,0.94), rgba(16,15,9,0.62) 45%, rgba(16,15,9,0.2))' }}
+          style={{
+            background:
+              'radial-gradient(ellipse 60% 50% at 22% 12%, rgba(16,185,129,0.18), transparent 62%), radial-gradient(ellipse 55% 50% at 84% 82%, rgba(232,170,96,0.10), transparent 62%)',
+          }}
         />
-        {/* Bottom fade into the warm page background */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 md:h-56 bg-gradient-to-b from-transparent to-background pointer-events-none" />
 
-        <div className="relative flex-1 flex items-start md:items-center max-w-6xl mx-auto w-full px-4 md:px-6 pt-24 pb-32 md:pt-20 md:pb-24">
-          <div className="grid md:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center">
-            {/* Left - Content */}
-            <div>
-              {/* Eyebrow — monospace editorial label */}
-              <div className="animate-fade-in-up flex items-center gap-3 mb-7">
-                <div className="h-px w-8 bg-primary/60 animate-line-expand" />
-                <span className="font-data text-primary text-xs tracking-[0.3em] uppercase">
-                  美股 AI 投研平台
-                </span>
-              </div>
-
-              {/* Main Headline — oversized editorial */}
-              <h1 className="animate-fade-in-up delay-100 font-editorial text-5xl md:text-6xl lg:text-7xl text-foreground leading-[1.0] tracking-tight mb-7">
-                你的 AI<br />
-                <span className="text-primary">投研团队</span>
-              </h1>
-
-              {/* Subtitle - Specific Value */}
-              <p className="animate-fade-in-up delay-200 text-base md:text-lg text-muted-foreground max-w-md leading-relaxed mb-8">
-                从日报到个股、从持仓到宏观 -- 一个平台，覆盖你的全部投研需求。
-              </p>
-
-              {/* Quick Value Points */}
-              <div className="animate-fade-in-up delay-300 flex flex-wrap gap-4 mb-6">
-                {["四份日报", "AI 个股研究", "AI 投研助手", "宏观仪表盘"].map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1.5 text-sm text-muted-foreground"
-                  >
-                    <svg
-                      className="w-4 h-4 text-primary"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    {item}
-                  </div>
-                ))}
-              </div>
-
-              {/* CTA */}
-              <div className="animate-fade-in-up delay-400 mt-6 flex flex-col items-start gap-4">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
-                >
-                  免费注册，解锁全部功能
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-                <p className="text-xs text-muted-foreground/70">
-                  无需信用卡 · 每日市场日报 + 宏观仪表盘永久免费
-                </p>
-              </div>
-
-              {/* Trust Badge */}
-              <div className="animate-fade-in-up delay-500 mt-6 flex items-center gap-2.5">
-                <div className="flex -space-x-1.5">
-                  {[...Array(4)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-5 h-5 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border-2 border-background flex items-center justify-center"
-                    >
-                      <span className="text-micro text-primary/70 font-medium">
-                        {["K", "J", "M", "L"][i]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  已为 <span className="text-foreground font-medium">500+</span>{" "}
-                  投资者提供服务
-                </span>
-              </div>
-            </div>
-
-            {/* Right - Subscribe Form */}
-            <div className="animate-fade-in-up delay-300">
-              <SubscribeForm variant="card" />
-            </div>
+        <div className="relative w-full max-w-3xl mx-auto px-4 md:px-6 text-center pt-24 pb-16 md:py-20">
+          {/* Eyebrow */}
+          <div className="animate-fade-in-up flex items-center justify-center gap-3 mb-7">
+            <div className="h-px w-8 bg-primary/60 animate-line-expand" />
+            <span className="font-data text-primary text-xs tracking-[0.3em] uppercase">
+              美股 AI 投研平台
+            </span>
           </div>
-        </div>
 
-        {/* Logo Marquee - Data Sources (absolute bottom) */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 py-3 bg-muted/20">
-          <div className="max-w-6xl mx-auto px-4 md:px-6">
-            <div className="flex items-center justify-center gap-6 mb-1.5">
-              <div className="h-px flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-border/50" />
-              <span className="text-micro text-muted-foreground/70 uppercase tracking-[0.2em]">
-                Data Sources
+          {/* Main Headline — oversized editorial (copy unchanged) */}
+          <h1 className="animate-fade-in-up delay-100 font-editorial text-5xl md:text-6xl lg:text-7xl text-foreground leading-[1.05] tracking-tight mb-7">
+            你的 AI <span className="text-primary">投研团队</span>
+          </h1>
+
+          {/* Subtitle (copy unchanged) */}
+          <p className="animate-fade-in-up delay-200 text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed mb-9">
+            从日报到个股、从持仓到宏观 -- 一个平台，覆盖你的全部投研需求。
+          </p>
+
+          {/* Quiet value row (labels unchanged) */}
+          <div className="animate-fade-in-up delay-300 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-10 text-sm text-muted-foreground">
+            {["四份日报", "AI 个股研究", "AI 投研助手", "宏观仪表盘"].map((item) => (
+              <span key={item} className="inline-flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {item}
               </span>
-              <div className="h-px flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-border/50" />
-            </div>
+            ))}
           </div>
-          <LogoMarquee speed="slow" />
+
+          {/* Single primary CTA — segmented for returning users */}
+          <div className="animate-fade-in-up delay-400 flex flex-col items-center gap-4">
+            <Link
+              href={isAuthenticated ? "/research" : "/login"}
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
+            >
+              {isAuthenticated ? "进入工作台" : "免费开始"}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+            <p className="text-xs text-muted-foreground/70">
+              无需信用卡 · 每日市场日报 + 宏观仪表盘永久免费
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* Hero-to-content transition bridge */}
-      <div className="relative h-20 -mt-1 bg-gradient-to-b from-[#050506] to-background pointer-events-none" />
+      {/* Email subscribe — downgraded from the hero to a quiet inline band */}
+      <section className="relative border-b border-border/40 bg-card/20">
+        <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <p className="shrink-0 text-sm text-muted-foreground">
+            订阅每日日报 · 收盘后送达
+          </p>
+          <SubscribeForm variant="inline" className="flex-1" />
+        </div>
+      </section>
 
       {/* Three Feature Sections: Stock Research / AI Research / Macro Dashboard */}
       <FeatureSections />
