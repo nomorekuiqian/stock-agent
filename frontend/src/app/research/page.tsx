@@ -263,6 +263,11 @@ function ScreenerContent() {
   const skipPanelSaveRef = useRef(true);
   const lastPanelContentSignatureRef = useRef<string | null>(null);
   const latestStateRef = useRef(state);
+  // Real "stop generating": holds the in-flight stream's AbortController so the
+  // cancel button can abort the fetch; userAbortRef marks an intentional cancel
+  // so the resulting AbortError is not surfaced as a timeout error.
+  const abortRef = useRef<AbortController | null>(null);
+  const userAbortRef = useRef(false);
   const conversationUserId = userId ?? 'anonymous';
   const conversationListQueryKey = useMemo(
     () => queryKeys.research.conversations(conversationUserId, CONVERSATIONS_PAGE_SIZE),
@@ -1030,6 +1035,10 @@ function ScreenerContent() {
       const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
       const turnId = crypto.randomUUID();
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+      userAbortRef.current = false;
+
       await api.kolResearch.chatStream(
         {
           message,
@@ -1068,6 +1077,7 @@ function ScreenerContent() {
             finalChunks = event.data.kol_chunks || [];
             finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
           } else if (event.type === 'error') {
+            if (userAbortRef.current) return; // user cancelled — handled below
             errored = true;
             // Log the full backend error payload so the console shows code +
             // raw message even after we map it to a user-facing string. Grep
@@ -1076,8 +1086,10 @@ function ScreenerContent() {
             dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
           }
         },
+        controller.signal,
       );
 
+      if (userAbortRef.current) return; // intentional cancel — keep partial answer
       if (errored) return;
       if (!finalMessage) {
         // Stream closed without emitting `final` or `error`. Common causes:
@@ -1499,6 +1511,8 @@ function ScreenerContent() {
   // Cancel stuck loading — lets user recover without refreshing
   const handleCancelLoading = useCallback(() => {
     if (!state.isLoading) return;
+    userAbortRef.current = true;
+    abortRef.current?.abort();
     dispatch({ type: 'SET_ERROR', error: '已取消。你可以重新发送或换个问题试试' });
   }, [state.isLoading]);
 
