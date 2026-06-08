@@ -8,7 +8,7 @@ import { PRICING } from "@/lib/pricing";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   return (
     <main className="min-h-screen bg-background">
       {/* Hero Section — belief-led editorial: text-first, single CTA, no photo/form */}
@@ -58,8 +58,13 @@ export default function Home() {
 
           {/* Single primary CTA — segmented for returning users */}
           <div className="animate-fade-in-up delay-400 flex flex-col items-center gap-4">
+            {/* Segmented entry. While auth is still resolving we keep the
+                logged-out CTA (best first paint for the new-visitor majority);
+                /login redirects already-authenticated users into the app, so a
+                returning user is never stranded even before auth hydrates. */}
             <Link
               href={isAuthenticated ? "/research" : "/login"}
+              aria-busy={isLoading}
               className="inline-flex items-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
             >
               {isAuthenticated ? "进入工作台" : "免费开始"}

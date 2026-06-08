@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, type ReactNode, type CSSProperties } from 'react';
+import { useState, useCallback, useEffect, useRef, type ReactNode, type CSSProperties } from 'react';
 import { X, PanelRight } from 'lucide-react';
 
 const MIN_W = 380;
 const DEFAULT_W = 600;
 const MIN_CHAT = 420; // keep the chat column at least this wide
+const WIDTH_KEY = 'research:canvasW';
 
 interface CanvasPanelProps {
   children: ReactNode;
@@ -27,8 +28,16 @@ interface CanvasPanelProps {
  * collapse is a desktop-only concept.
  */
 export default function CanvasPanel({ children, mobileActive, contentKey }: CanvasPanelProps) {
-  const [width, setWidth] = useState(DEFAULT_W);
+  // Lazy-init from localStorage so a dragged width survives reload/remount
+  // (lazy initializer, not an effect — keeps this lint-clean and SSR-safe).
+  const [width, setWidth] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_W;
+    const v = Number(localStorage.getItem(WIDTH_KEY));
+    return v >= MIN_W ? v : DEFAULT_W;
+  });
   const [collapsed, setCollapsed] = useState(false);
+  // Holds the active drag's teardown so an unmount mid-drag can also run it.
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   // Auto-reopen when fresh content arrives. React's "adjust state during render
   // on prop change" pattern — no effect, so no cascading-render lint issue, and
@@ -41,22 +50,31 @@ export default function CanvasPanel({ children, mobileActive, contentKey }: Canv
 
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    let latest = width; // start from current width so a no-move click is a no-op
     const onMove = (ev: MouseEvent) => {
       const maxW = Math.max(MIN_W, window.innerWidth - MIN_CHAT);
-      const next = Math.min(maxW, Math.max(MIN_W, window.innerWidth - ev.clientX));
-      setWidth(next);
+      latest = Math.min(maxW, Math.max(MIN_W, window.innerWidth - ev.clientX));
+      setWidth(latest);
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
+      cleanupRef.current = null;
+      try { localStorage.setItem(WIDTH_KEY, String(latest)); } catch { /* storage unavailable */ }
     };
+    // Expose teardown so an unmount mid-drag releases the window listeners and
+    // body styles (otherwise the document stays stuck in col-resize / no-select).
+    cleanupRef.current = onUp;
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, []);
+  }, [width]);
+
+  // Safety net: if the component unmounts mid-drag, run the active teardown.
+  useEffect(() => () => { cleanupRef.current?.(); }, []);
 
   return (
     <>
