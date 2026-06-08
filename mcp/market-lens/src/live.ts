@@ -11,6 +11,10 @@ export function liveConfig(args: Record<string, unknown> = {}) {
 }
 
 export async function frankStatus(args: Record<string, unknown>) {
+  return marketLensStatus(args);
+}
+
+export async function marketLensStatus(args: Record<string, unknown>) {
   const config = liveConfig(args);
   try {
     const backend = await getJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/status`);
@@ -32,6 +36,58 @@ export async function frankStatus(args: Record<string, unknown>) {
   }
 }
 
+export async function listPersonas(args: Record<string, unknown>) {
+  return getJson("/kol_research/mcp/personas", args);
+}
+
+export async function listLenses(args: Record<string, unknown>) {
+  const config = liveConfig(args);
+  const lensType = stringArg(args, "lens_type");
+  const query = lensType ? `?lens_type=${encodeURIComponent(lensType)}` : "";
+  return getJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/lenses${query}`, args);
+}
+
+export async function getLens(args: Record<string, unknown>) {
+  const config = liveConfig(args);
+  const lensType = stringArg(args, "lens_type");
+  const lensId = stringArg(args, "lens_id");
+  if (!lensType) {
+    throw new Error("lens_type is required.");
+  }
+  if (!lensId) {
+    throw new Error("lens_id is required.");
+  }
+  return getJson(
+    `/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/lenses/${encodeURIComponent(lensType)}/${encodeURIComponent(lensId)}`,
+    args,
+  );
+}
+
+export async function searchLenses(args: Record<string, unknown>) {
+  const config = liveConfig(args);
+  const query = stringArg(args, "query");
+  if (!query) {
+    throw new Error("query is required.");
+  }
+  return postJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/lenses/search`, {
+    query,
+    lens_types: arrayStringArg(args, "lens_types"),
+    limit: boundedNumberArg(args, "limit", 8, 1, 30),
+    include_body: booleanArg(args, "include_body", false),
+  });
+}
+
+export async function getEvidenceByIds(args: Record<string, unknown>) {
+  const config = liveConfig(args);
+  const tweetIds = arrayStringArg(args, "tweet_ids");
+  if (!tweetIds.length) {
+    throw new Error("tweet_ids is required.");
+  }
+  return postJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/evidence/by-ids`, {
+    tweet_ids: tweetIds.slice(0, 30),
+  });
+}
+
 export async function searchEvidence(args: Record<string, unknown>) {
   const query = stringArg(args, "query");
   if (!query) {
@@ -44,6 +100,23 @@ export async function searchEvidence(args: Record<string, unknown>) {
     query,
     k,
     threshold,
+  });
+}
+
+export async function buildContext(args: Record<string, unknown>) {
+  const config = liveConfig(args);
+  const question = stringArg(args, "question");
+  if (!question) {
+    throw new Error("question is required.");
+  }
+  const ticker = stringArg(args, "ticker").toUpperCase();
+  const sector = stringArg(args, "sector");
+  return postJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/context`, {
+    question,
+    ticker: ticker || null,
+    sector: sector || null,
+    evidence_limit: boundedNumberArg(args, "evidence_limit", 6, 1, 12),
+    include_market_data: booleanArg(args, "include_market_data", true),
   });
 }
 
@@ -74,19 +147,19 @@ export async function runWorkflow(workflow: string, args: Record<string, unknown
   });
 }
 
-async function getJson(path: string) {
+async function getJson(path: string, args: Record<string, unknown> = {}) {
   const response = await fetchWithTimeout(apiUrl(path), {
     method: "GET",
-    headers: headers(),
+    headers: headers(args),
   }, STATUS_TIMEOUT_MS);
   return readResponse(response);
 }
 
-async function postJson(path: string, body: unknown) {
+async function postJson(path: string, body: unknown, args: Record<string, unknown> = {}) {
   const response = await fetch(apiUrl(path), {
     method: "POST",
     headers: {
-      ...headers(),
+      ...headers(args),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -136,7 +209,7 @@ function normalizedBackendUrl() {
   return (marketLensEnv("BACKEND_URL") || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
 }
 
-function headers() {
+function headers(_args: Record<string, unknown> = {}) {
   const out: Record<string, string> = {};
   const inviteCode = marketLensEnv("INVITE_CODE");
   if (inviteCode) {

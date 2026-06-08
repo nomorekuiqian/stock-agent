@@ -44,6 +44,8 @@ async def validate_invite_code(invite_code: str | None) -> dict[str, Any]:
                 "invite_code_id": "dev",
                 "invite_label": "Local dev invite",
                 "remaining_quota": None,
+                "allowed_personas": [],
+                "allowed_workflows": [],
             }
 
     result = await get_insforge_service().call_function(
@@ -77,6 +79,8 @@ async def validate_invite_code(invite_code: str | None) -> dict[str, Any]:
         "invite_code_id": invite.get("id"),
         "invite_label": invite.get("label"),
         "remaining_quota": invite.get("remaining_quota"),
+        "allowed_personas": invite.get("allowed_personas") or invite.get("persona_allowlist") or [],
+        "allowed_workflows": invite.get("allowed_workflows") or invite.get("workflow_allowlist") or [],
     }
 
 

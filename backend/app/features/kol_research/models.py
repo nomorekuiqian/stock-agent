@@ -126,6 +126,21 @@ class KolMcpContextRequest(BaseModel):
     include_market_data: bool = True
 
 
+class KolMcpLensSearchRequest(BaseModel):
+    """Search distilled persona lens markdown across core/framework/macro/sector/ticker."""
+
+    query: str = Field(..., min_length=1, max_length=1000)
+    lens_types: List[Literal["core", "framework", "macro", "sector", "ticker"]] = Field(default_factory=list)
+    limit: int = Field(default=8, ge=1, le=30)
+    include_body: bool = False
+
+
+class KolMcpEvidenceByIdsRequest(BaseModel):
+    """Fetch historical evidence tweets referenced by lens Evidence Maps."""
+
+    tweet_ids: List[str] = Field(..., min_length=1, max_length=30)
+
+
 class KolMcpWorkflowRequest(BaseModel):
     """Beta-gated Market Lens MCP workflow request for a persona.
 
@@ -148,6 +163,8 @@ class KolMcpBetaInfo(BaseModel):
     invite_label: Optional[str] = None
     access: Literal["missing", "valid", "invalid", "dev"] = "missing"
     remaining_quota: Optional[int] = None
+    allowed_personas: List[str] = Field(default_factory=list)
+    allowed_workflows: List[str] = Field(default_factory=list)
 
 
 class KolMcpWorkflowResponse(BaseModel):

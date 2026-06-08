@@ -33,7 +33,7 @@ from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
 from app.features.quota.service import consume_quota
 from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
-from app.features.kol_research import cockpit, skill_cockpit
+from app.features.kol_research import cockpit, mcp_materials, skill_cockpit
 from app.features.kol_research.agent import (
     DEFAULT_PERSONA,
     answer_kol_research,
@@ -42,6 +42,8 @@ from app.features.kol_research.agent import (
 from app.features.kol_research.models import (
     KolMcpBetaInfo,
     KolMcpContextRequest,
+    KolMcpEvidenceByIdsRequest,
+    KolMcpLensSearchRequest,
     KolMcpMarketBriefRequest,
     KolMcpSearchRequest,
     KolMcpWorkflowRequest,
@@ -531,15 +533,60 @@ def _invite_code_from_request(request: Request) -> str:
     ).strip()
 
 
-async def _require_frank_lens_beta(request: Request) -> dict[str, Any]:
+async def _require_frank_lens_beta(
+    request: Request,
+    *,
+    persona_username: str | None = None,
+    workflow: str | None = None,
+) -> dict[str, Any]:
     invite = await validate_invite_code(_invite_code_from_request(request))
     if invite.get("allowed"):
+        _enforce_invite_scope(invite, persona_username=persona_username, workflow=workflow)
         return invite
     status = 401 if invite.get("access") == "missing" else 403
     raise HTTPException(
         status_code=status,
         detail=invite.get("error") or "frank_lens_invite_required",
     )
+
+
+def _enforce_invite_scope(
+    invite: dict[str, Any],
+    *,
+    persona_username: str | None,
+    workflow: str | None,
+) -> None:
+    allowed_personas = invite.get("allowed_personas") or invite.get("persona_allowlist") or []
+    if allowed_personas and persona_username and persona_username not in allowed_personas:
+        raise HTTPException(status_code=403, detail="persona_not_allowed_for_invite")
+
+    allowed_workflows = invite.get("allowed_workflows") or invite.get("workflow_allowlist") or []
+    if allowed_workflows and workflow and workflow not in allowed_workflows:
+        raise HTTPException(status_code=403, detail="workflow_not_allowed_for_invite")
+
+
+def _market_lens_tool_names() -> list[str]:
+    return [
+        "market_lens_status",
+        "market_lens_personas",
+        "market_lens_list_lenses",
+        "market_lens_get_lens",
+        "market_lens_search_lenses",
+        "market_lens_search_evidence",
+        "market_lens_get_evidence_by_ids",
+        "market_lens_build_context",
+        "market_lens_stock_diagnosis",
+        "market_lens_market_regime",
+        "market_lens_compare",
+        "market_lens_research_memo",
+        # Compatibility aliases kept for one to two minor versions.
+        "frank_status",
+        "frank_search_evidence",
+        "frank_stock_diagnosis",
+        "frank_market_regime",
+        "frank_compare",
+        "frank_research_memo",
+    ]
 
 
 def _beta_info(invite: dict[str, Any] | None) -> KolMcpBetaInfo:
@@ -550,6 +597,8 @@ def _beta_info(invite: dict[str, Any] | None) -> KolMcpBetaInfo:
         invite_label=invite.get("invite_label"),
         access=invite.get("access") or "invalid",
         remaining_quota=invite.get("remaining_quota"),
+        allowed_personas=invite.get("allowed_personas") or invite.get("persona_allowlist") or [],
+        allowed_workflows=invite.get("allowed_workflows") or invite.get("workflow_allowlist") or [],
     )
 
 
@@ -725,36 +774,156 @@ def _question_needs_macro(question: str) -> bool:
 @router.get("/personas/{username}/mcp/status")
 async def mcp_beta_status(username: str, request: Request):
     """Frank Lens beta status. Status is allowed without an invite code."""
-    persona = get_persona(username)
-    if persona is None:
+    if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
 
     invite_code = _invite_code_from_request(request)
     invite = await validate_invite_code(invite_code) if invite_code else None
+    persona_summary = next(
+        (item for item in mcp_materials.list_material_personas() if item["username"] == username),
+        None,
+    )
     return {
         "ok": True,
         "persona_username": username,
         "mode": "backend_first_beta",
         "requires_invite_for_workflow": True,
         "beta": _beta_info(invite).model_dump(),
-        "tools": [
-            "frank_status",
-            "frank_stock_diagnosis",
-            "frank_market_regime",
-            "frank_compare",
-            "frank_research_memo",
-            "frank_search_evidence",
-        ],
+        "persona": persona_summary,
+        "tools": _market_lens_tool_names(),
+    }
+
+
+@router.get("/mcp/personas")
+async def mcp_personas(request: Request):
+    """List personas that have distilled material available to Market Lens MCP."""
+    invite_code = _invite_code_from_request(request)
+    invite = await validate_invite_code(invite_code) if invite_code else None
+    return {
+        "ok": True,
+        "mode": "backend_first_beta",
+        "beta": _beta_info(invite).model_dump(),
+        "default_persona": DEFAULT_PERSONA,
+        "personas": mcp_materials.list_material_personas(),
+        "call_guidance": {
+            "when_to_call": "Call before selecting a persona, or when the user asks which bloggers/lenses are available.",
+            "returns_context": "Persona capability metadata only; use list_lenses/get_lens for distilled material.",
+        },
+    }
+
+
+@router.get("/personas/{username}/mcp/lenses")
+async def mcp_list_lenses(
+    username: str,
+    request: Request,
+    lens_type: str | None = None,
+):
+    """Beta-gated index of all distilled material lenses for one persona."""
+    if not mcp_materials.material_persona_exists(username):
+        raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="list_lenses")
+    try:
+        out = mcp_materials.list_lenses(username, lens_type=lens_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="market_lens_list_lenses",
+        workflow="list_lenses",
+        status="success",
+        metadata={"lens_type": lens_type, "count": out["count"]},
+    )
+    return out
+
+
+@router.get("/personas/{username}/mcp/lenses/{lens_type}/{lens_id}")
+async def mcp_get_lens(username: str, lens_type: str, lens_id: str, request: Request):
+    """Beta-gated full distilled lens content for one persona/layer/id."""
+    if not mcp_materials.material_persona_exists(username):
+        raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="get_lens")
+    try:
+        out = mcp_materials.get_lens(username, lens_type=lens_type, lens_id=lens_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="market_lens_get_lens",
+        workflow="get_lens",
+        status="success",
+        metadata={"lens_type": lens_type, "lens_id": lens_id},
+    )
+    return out
+
+
+@router.post("/personas/{username}/mcp/lenses/search")
+async def mcp_search_lenses(username: str, req: KolMcpLensSearchRequest, request: Request):
+    """Beta-gated lexical search over all distilled material lenses."""
+    if not mcp_materials.material_persona_exists(username):
+        raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="search_lenses")
+    try:
+        out = mcp_materials.search_lenses(
+            username,
+            query=req.query,
+            lens_types=req.lens_types,
+            limit=req.limit,
+            include_body=req.include_body,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="market_lens_search_lenses",
+        workflow="search_lenses",
+        status="success",
+        metadata={
+            "query": req.query[:120],
+            "lens_types": req.lens_types,
+            "count": out["count"],
+            "include_body": req.include_body,
+        },
+    )
+    return out
+
+
+@router.post("/personas/{username}/mcp/evidence/by-ids")
+async def mcp_evidence_by_ids(username: str, req: KolMcpEvidenceByIdsRequest, request: Request):
+    """Beta-gated retrieval of historical tweets referenced by lens Evidence Maps."""
+    if not mcp_materials.material_persona_exists(username):
+        raise HTTPException(status_code=404, detail="Persona not found")
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="get_evidence_by_ids")
+    out = await cockpit.get_evidence_tweets_by_ids(username, req.tweet_ids)
+    await record_usage(
+        invite=invite,
+        persona_username=username,
+        tool_name="market_lens_get_evidence_by_ids",
+        workflow="get_evidence_by_ids",
+        status="success",
+        metadata={"requested_count": len(req.tweet_ids), "returned_count": len(out.get("tweets") or [])},
+    )
+    return {
+        "persona_username": username,
+        "tweet_ids": req.tweet_ids,
+        "tweets": out.get("tweets") or [],
+        "call_guidance": {
+            "when_to_call": "Call after get_lens returns Evidence Map tweet IDs and the user needs the original historical posts.",
+            "returns_context": "Full-text historical tweet evidence for the requested IDs, preserving request order when found.",
+        },
     }
 
 
 @router.post("/personas/{username}/mcp/search")
 async def mcp_live_search(username: str, req: KolMcpSearchRequest, request: Request):
     """Beta-gated live MCP vector search over KOL tweet embeddings."""
-    persona = get_persona(username)
-    if persona is None:
+    if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
-    invite = await _require_frank_lens_beta(request)
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="search_evidence")
     started = time.perf_counter()
     chunks = await _mcp_search_chunks(
         username=username,
@@ -784,10 +953,9 @@ async def mcp_live_search(username: str, req: KolMcpSearchRequest, request: Requ
 @router.post("/personas/{username}/mcp/market-brief")
 async def mcp_market_brief(username: str, req: KolMcpMarketBriefRequest, request: Request):
     """Beta-gated live MCP bridge to KOL agent brief tools."""
-    persona = get_persona(username)
-    if persona is None:
+    if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
-    invite = await _require_frank_lens_beta(request)
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="market_brief")
     started = time.perf_counter()
     payload = await _market_brief_payload(
         brief_type=req.brief_type,
@@ -809,10 +977,9 @@ async def mcp_market_brief(username: str, req: KolMcpMarketBriefRequest, request
 @router.post("/personas/{username}/mcp/context")
 async def mcp_live_context(username: str, req: KolMcpContextRequest, request: Request):
     """Beta-gated live MCP context with vector evidence and optional market data."""
-    persona = get_persona(username)
-    if persona is None:
+    if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
-    invite = await _require_frank_lens_beta(request)
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow="context")
     started = time.perf_counter()
 
     ticker = (req.ticker or "").strip().upper()
@@ -867,7 +1034,7 @@ async def mcp_workflow_context(username: str, req: KolMcpWorkflowRequest, reques
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
-    invite = await _require_frank_lens_beta(request)
+    invite = await _require_frank_lens_beta(request, persona_username=username, workflow=req.workflow)
     started = time.perf_counter()
     ticker = (req.ticker or "").strip().upper() or None
     tickers: list[str] = []
