@@ -1,5 +1,6 @@
 fastapi
 fredapi
+posthog>=3.0.0
 google-adk
 google-cloud-storage
 google-genai

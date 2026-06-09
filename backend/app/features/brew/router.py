@@ -20,6 +20,8 @@ from app.core.rate_limit import limiter
 from app.utils.timezone import today_str, now_iso
 
 logger = get_logger(__name__)
+
+import app.core.posthog_client as posthog
 from app.features.brew.agent import get_personal_digest
 from app.features.brew.db import (
     save_user_digest,
@@ -229,6 +231,13 @@ async def save_watchlist(
             detail=result.get("error", "Failed to save watchlist"),
         )
 
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="watchlist_updated",
+            properties={"symbol_count": len(body.symbols)},
+        )
+
     return result
 
 
@@ -399,6 +408,13 @@ async def generate_digest(
                 logger.error("Failed to save: %s", save_result.get('error'))
         else:
             logger.info("Dev environment: skipping digest DB save")
+
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=user_id,
+                event="digest_generated",
+                properties={"symbol_count": len(all_symbols)},
+            )
 
         # Compute top event from fresh events + user portfolio
         fresh_events_raw = result.get("events", [])

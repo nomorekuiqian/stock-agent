@@ -42,6 +42,7 @@ from app.features.holdings_sync.models import (
 )
 from app.features.holdings_sync.service import reconcile_and_upsert
 from app.features.payment.entitlements import has_entitlement
+import app.core.posthog_client as posthog
 
 logger = get_logger(__name__)
 
@@ -672,12 +673,22 @@ async def commit(
     _require_source_enabled(payload.source)                    # 2. stage gate -> 400
     await _require_holdings_sync_entitlement(user_id)          # 3. Pro-and-above
     try:
-        return await reconcile_and_upsert(
+        result = await reconcile_and_upsert(
             user_id,
             payload.source,
             payload.rows,
             clear_source=payload.clear_source,
         )
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=user_id,
+                event="holdings_import_completed",
+                properties={
+                    "source": payload.source,
+                    "row_count": len(payload.rows),
+                },
+            )
+        return result
     except ValueError as exc:
         logger.warning("hsync commit rejected user=%s err=%s", user_id[:8], exc)
         raise HTTPException(status_code=400, detail=str(exc))
