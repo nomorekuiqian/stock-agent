@@ -53,8 +53,7 @@ def test_serenity_skill_material_does_not_reference_other_persona_frameworks():
         / "features"
         / "twitter"
         / "methodologies"
-        / "_drafts"
-        / "serenity-skill-v1"
+        / "aleabitoreddit"
     )
     forbidden = ("Frank", "frank", "qinbafrank", "三杀", "杀估值", "杀业绩", "杀逻辑")
     offenders: list[str] = []

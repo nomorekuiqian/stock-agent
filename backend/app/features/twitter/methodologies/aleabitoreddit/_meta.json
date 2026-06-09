@@ -1,6 +1,7 @@
 {
   "username": "aleabitoreddit",
   "schema_version": 1,
+  "artifact_dir": "serenity-skill-v1",
   "sectors": [
     {
       "key": "ai-infrastructure-mag7",

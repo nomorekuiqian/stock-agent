@@ -2,24 +2,29 @@
 
 Each persona has:
   - username: Twitter handle (for DB queries)
-  - draft_dir: subdirectory name under methodologies/_drafts/
+  - draft_dir: legacy subdirectory name under methodologies/_drafts/
+  - root_dir: optional material root under methodologies/ for promoted personas
   - ticker_aliases: dict ticker -> [aliases] for bucketize.py
   - sector_keywords: dict sector_name -> [keywords]
   - macro_keywords: list of keywords flagging a tweet as macro
   - core_keywords: list of keywords flagging a tweet as core/methodology
 
-The CLI scripts accept `--persona-key` (default qinbafrank-skill-v3) and
-look up the config here.
+The CLI scripts accept `--persona-key` (default qinbafrank-skill-v3) and look
+up the config here. Formal runtime materials live under methodologies/;
+generated corpus, slices, compact views, eval, and audit outputs live under
+the gitignored `_distillation_artifacts/<draft_dir>/` tree.
 """
 
 from __future__ import annotations
 
-from typing import TypedDict
+from pathlib import Path
+from typing import NotRequired, TypedDict
 
 
 class PersonaConfig(TypedDict):
     username: str
     draft_dir: str
+    root_dir: NotRequired[str]
     ticker_aliases: dict[str, list[str]]
     sector_keywords: dict[str, list[str]]
     macro_keywords: list[str]
@@ -281,6 +286,7 @@ PERSONAS: dict[str, PersonaConfig] = {
     "serenity-skill-v1": {
         "username": "aleabitoreddit",
         "draft_dir": "serenity-skill-v1",
+        "root_dir": "aleabitoreddit",
         "ticker_aliases": SERENITY_TICKERS,
         "sector_keywords": SERENITY_SECTORS,
         "macro_keywords": SERENITY_MACRO,
@@ -296,3 +302,27 @@ def get_persona(persona_key: str) -> PersonaConfig:
             f"Available: {sorted(PERSONAS.keys())}"
         )
     return PERSONAS[persona_key]
+
+
+def material_root(cfg: PersonaConfig) -> Path:
+    root = Path(__file__).resolve().parents[1] / "methodologies"
+    root_dir = cfg.get("root_dir")
+    if root_dir:
+        return root / root_dir
+    return root / "_drafts" / cfg["draft_dir"]
+
+
+def artifact_root(cfg: PersonaConfig) -> Path:
+    return (
+        Path(__file__).resolve().parents[1]
+        / "_distillation_artifacts"
+        / cfg["draft_dir"]
+    )
+
+
+def evidence_dir(cfg: PersonaConfig) -> Path:
+    return artifact_root(cfg) / "evidence"
+
+
+def eval_dir(cfg: PersonaConfig) -> Path:
+    return artifact_root(cfg) / "eval"

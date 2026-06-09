@@ -4,8 +4,8 @@ Export a KOL's full tweet corpus from Insforge DB for v3 skill distillation.
 Pulls all tweets for a persona via the kol-tweets edge function, applies the
 v3 filter (`content_type != noise`), then writes:
 
-  _drafts/<draft_dir>/evidence/all-tweets.jsonl     one tweet per line
-  _drafts/<draft_dir>/evidence/corpus-manifest.json distribution stats
+  <artifact-root>/evidence/all-tweets.jsonl     one tweet per line
+  <artifact-root>/evidence/corpus-manifest.json distribution stats
 
 Usage:
     cd backend
@@ -43,7 +43,7 @@ BACKEND_ROOT = _bootstrap()
 from app.core.database import get_insforge_service  # noqa: E402
 from app.core.config import EDGE_FUNCTION_SECRET  # noqa: E402
 from app.core.logging import get_logger  # noqa: E402
-from app.features.twitter.methodology_v3.personas import get_persona  # noqa: E402
+from app.features.twitter.methodology_v3.personas import evidence_dir, get_persona  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -128,12 +128,7 @@ def normalize_tweet(t: dict) -> dict:
 async def run(persona_key: str) -> None:
     cfg = get_persona(persona_key)
     username = cfg["username"]
-    output_dir = (
-        BACKEND_ROOT
-        / "app" / "features" / "twitter"
-        / "methodologies" / "_drafts"
-        / cfg["draft_dir"] / "evidence"
-    )
+    output_dir = evidence_dir(cfg)
     output_dir.mkdir(parents=True, exist_ok=True)
     db = get_insforge_service()
 

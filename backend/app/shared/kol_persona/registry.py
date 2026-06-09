@@ -70,7 +70,6 @@ def get_persona(username: str) -> Optional[Persona]:
 # ---------------------------------------------------------------------------
 
 _SKILL_BASE_DIR = METHODOLOGIES_DIR / "qinbafrank"
-_DRAFTS_DIR = METHODOLOGIES_DIR / "_drafts"
 
 _QINBAFRANK_PUBLIC_BIO = (
     "Investor in AI、Crypto、TMT，跟踪最前沿科技趋势、野生宏观政经观察、研究全球资本流动性、"
@@ -95,7 +94,7 @@ _PERSONA_CONFIG: Dict[str, Dict[str, Any]] = {
     "aleabitoreddit": {
         "display_name": "Serenity",
         "description": _SERENITY_PUBLIC_BIO,
-        "skill_dir": _DRAFTS_DIR / "serenity-skill-v1",
+        "skill_dir": METHODOLOGIES_DIR / "aleabitoreddit",
         "core_file": "bottleneck-operating-system.md",
         "macro_file": "ai-capex-cycle.md",
     },

@@ -3,29 +3,20 @@ Produce compact one-line-per-tweet views of every slice for efficient reading.
 
 Each line:  <tweet_id> | <yyyy-mm-dd> | <content_type> | <key_claim> | <text snippet>
 
-Output: <draft>/evidence/compact/<slice_name>.txt
+Output: <artifact-root>/evidence/compact/<slice_name>.txt
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from app.core.logging import get_logger
-from app.features.twitter.methodology_v3.personas import get_persona
+from app.features.twitter.methodology_v3.personas import evidence_dir, get_persona
 
 logger = get_logger(__name__)
 
 MAX_TEXT = 280
-
-
-def _evidence_dir(draft_dir: str) -> Path:
-    return (
-        Path(__file__).resolve().parents[1]
-        / "methodologies" / "_drafts"
-        / draft_dir / "evidence"
-    )
 
 
 def compact_line(t: dict) -> str:
@@ -42,9 +33,9 @@ def compact_line(t: dict) -> str:
 
 def run(persona_key: str) -> None:
     cfg = get_persona(persona_key)
-    evidence_dir = _evidence_dir(cfg["draft_dir"])
-    slices_dir = evidence_dir / "slices"
-    compact_dir = evidence_dir / "compact"
+    material_evidence_dir = evidence_dir(cfg)
+    slices_dir = material_evidence_dir / "slices"
+    compact_dir = material_evidence_dir / "compact"
     compact_dir.mkdir(exist_ok=True)
 
     for slice_path in sorted(slices_dir.glob("*.jsonl")):

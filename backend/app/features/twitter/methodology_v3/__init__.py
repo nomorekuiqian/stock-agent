@@ -1,7 +1,7 @@
-"""qinbafrank v3 skill distillation — corpus export utilities.
+"""Utilities for persona methodology distillation.
 
-Per docs/plans/active/qinbafrank-skill-distillation-v3.md, the only script in
-this module is export_corpus.py. All downstream steps (bucket assignment,
-atomic rule extraction, clustering, skill md generation, eval) are performed
-by Claude Code in an interactive session, NOT by additional scripts.
+The scripts in this package export persona corpora, assign buckets, create
+slice files, compact those slices, and audit evidence references. Generated
+intermediate artifacts are kept out of git under the ignored distillation
+artifacts directory; formal runtime materials live under methodologies/.
 """

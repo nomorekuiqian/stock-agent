@@ -1,9 +1,9 @@
 """KOL Persona Cockpit — v3 skill distillation reader.
 
-Reads per-KOL distilled skill bundles under `methodologies/_drafts/<bundle>/`
-and exposes them as structured cockpit payloads for the /kol/[username]/sectors
-panel. Each bundle ships its own `_meta.json` describing sectors (label,
-eyebrow, layer, short, order) so cockpit_v3 stays bundle-agnostic.
+Reads per-KOL distilled skill bundles from their material roots and exposes
+them as structured cockpit payloads for the /kol/[username]/sectors panel. Each
+bundle ships its own `_meta.json` describing sectors (label, eyebrow, layer,
+short, order) so cockpit_v3 stays bundle-agnostic.
 
 Parsing is line-based (no markdown lib): split by H2/H3 headings, extract
 bullet / numbered lists, pull tweet_ids out of Evidence Map sections.
@@ -28,21 +28,19 @@ logger = get_logger(__name__)
 # -------------------------------------------------------------------- paths
 
 _HERE = Path(__file__).parent
-_DRAFTS_ROOT = _HERE.parent / "twitter" / "methodologies" / "_drafts"
+_METHODOLOGIES_ROOT = _HERE.parent / "twitter" / "methodologies"
+_DRAFTS_ROOT = _METHODOLOGIES_ROOT / "_drafts"
 
-# username -> bundle directory name under _drafts/
-PERSONA_V3_DIRS: dict[str, str] = {
-    "qinbafrank": "qinbafrank-skill-v3",
-    "aleabitoreddit": "serenity-skill-v1",
+# username -> material bundle root
+PERSONA_V3_ROOTS: dict[str, Path] = {
+    "qinbafrank": _DRAFTS_ROOT / "qinbafrank-skill-v3",
+    "aleabitoreddit": _METHODOLOGIES_ROOT / "aleabitoreddit",
 }
 
 
 def _v3_root(username: str) -> Optional[Path]:
     """Resolve the bundle root for a username. None if unknown."""
-    subdir = PERSONA_V3_DIRS.get(username)
-    if not subdir:
-        return None
-    return _DRAFTS_ROOT / subdir
+    return PERSONA_V3_ROOTS.get(username)
 
 
 # --------------------------------------------------------- persona meta

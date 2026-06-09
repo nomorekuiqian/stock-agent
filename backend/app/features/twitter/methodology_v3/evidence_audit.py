@@ -18,7 +18,12 @@ import re
 from pathlib import Path
 
 from app.core.logging import get_logger
-from app.features.twitter.methodology_v3.personas import get_persona
+from app.features.twitter.methodology_v3.personas import (
+    eval_dir,
+    evidence_dir,
+    get_persona,
+    material_root,
+)
 
 logger = get_logger(__name__)
 
@@ -26,17 +31,9 @@ logger = get_logger(__name__)
 TWEET_ID_RE = re.compile(r"\b(\d{18,19})\b")
 
 
-def _v3_root(draft_dir: str) -> Path:
-    return (
-        Path(__file__).resolve().parents[1]
-        / "methodologies" / "_drafts"
-        / draft_dir
-    )
-
-
-def load_corpus_ids(v3_root: Path) -> set[str]:
+def load_corpus_ids(corpus_dir: Path) -> set[str]:
     ids = set()
-    with (v3_root / "evidence" / "all-tweets.jsonl").open(encoding="utf-8") as f:
+    with (corpus_dir / "all-tweets.jsonl").open(encoding="utf-8") as f:
         for line in f:
             t = json.loads(line)
             ids.add(t["tweet_id"])
@@ -45,8 +42,10 @@ def load_corpus_ids(v3_root: Path) -> set[str]:
 
 def run(persona_key: str) -> None:
     cfg = get_persona(persona_key)
-    v3_root = _v3_root(cfg["draft_dir"])
-    corpus_ids = load_corpus_ids(v3_root)
+    v3_root = material_root(cfg)
+    corpus_dir = evidence_dir(cfg)
+    audit_dir = eval_dir(cfg)
+    corpus_ids = load_corpus_ids(corpus_dir)
     logger.info("[%s] Corpus: %s tweet_ids loaded", persona_key, len(corpus_ids))
 
     total_refs = 0
@@ -92,11 +91,11 @@ def run(persona_key: str) -> None:
         "missing_references": missing_refs,
         "files_with_missing": files_with_missing,
     }
-    (v3_root / "eval").mkdir(exist_ok=True)
-    (v3_root / "eval" / "evidence-audit.json").write_text(
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    (audit_dir / "evidence-audit.json").write_text(
         json.dumps(audit_out, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    logger.info("Wrote audit to %s", v3_root / "eval" / "evidence-audit.json")
+    logger.info("Wrote audit to %s", audit_dir / "evidence-audit.json")
 
 
 def main() -> None:

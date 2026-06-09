@@ -7,7 +7,7 @@ skill, not all tweets at once, which keeps context manageable.
 
 Also writes core/ and macro/ slices.
 
-Output files (under <draft>/evidence/slices/):
+Output files (under <artifact-root>/evidence/slices/):
   core.jsonl
   macro.jsonl
   sector__<name>.jsonl     (one per sector)
@@ -18,41 +18,32 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from app.core.logging import get_logger
-from app.features.twitter.methodology_v3.personas import get_persona
+from app.features.twitter.methodology_v3.personas import evidence_dir, get_persona
 
 logger = get_logger(__name__)
 
 MIN_TICKER_MENTIONS = 5  # tickers below this get a marker, not a playbook
 
 
-def _evidence_dir(draft_dir: str) -> Path:
-    return (
-        Path(__file__).resolve().parents[1]
-        / "methodologies" / "_drafts"
-        / draft_dir / "evidence"
-    )
-
-
 def run(persona_key: str) -> None:
     cfg = get_persona(persona_key)
-    evidence_dir = _evidence_dir(cfg["draft_dir"])
-    slices_dir = evidence_dir / "slices"
+    material_evidence_dir = evidence_dir(cfg)
+    slices_dir = material_evidence_dir / "slices"
     slices_dir.mkdir(exist_ok=True)
 
     tweets: list[dict] = []
-    with (evidence_dir / "all-tweets.jsonl").open(encoding="utf-8") as f:
+    with (material_evidence_dir / "all-tweets.jsonl").open(encoding="utf-8") as f:
         for line in f:
             tweets.append(json.loads(line))
     by_id = {t["tweet_id"]: t for t in tweets}
 
-    ticker_index = json.loads((evidence_dir / "ticker-index.json").read_text())
-    sector_index = json.loads((evidence_dir / "sector-index.json").read_text())
+    ticker_index = json.loads((material_evidence_dir / "ticker-index.json").read_text())
+    sector_index = json.loads((material_evidence_dir / "sector-index.json").read_text())
 
     bucket_per_tweet: dict[str, dict] = {}
-    with (evidence_dir / "bucket-per-tweet.jsonl").open(encoding="utf-8") as f:
+    with (material_evidence_dir / "bucket-per-tweet.jsonl").open(encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
             bucket_per_tweet[row["tweet_id"]] = row

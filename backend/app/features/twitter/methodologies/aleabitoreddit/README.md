@@ -1,14 +1,15 @@
 # Serenity Skill Distillation v1
 
-> Status: v1-draft · Generated: 2026-05-27
-> Plan: `docs/plans/active/serenity-skill-distillation-v1.md`
+> Status: v1-promoted · Generated: 2026-05-27
 
-按 **core / macro / framework / sector / ticker** 五层组织的可调用 skill 系统, 源自 Serenity (`@aleabitoreddit`) 的 987 条 noise-filtered 推文 (2025-09-27 ~ 2026-05-28).
+按 **core / macro / framework / sector / ticker** 五层组织的可调用 skill 系统, 源自 Serenity (`@aleabitoreddit`) 的公开推文蒸馏物料。
+
+正式物料目录: `backend/app/features/twitter/methodologies/aleabitoreddit/`
 
 ## 结构
 
 ```
-serenity-skill-v1/
+aleabitoreddit/
 ├── README.md                            本文件
 ├── core/
 │   └── bottleneck-operating-system.md   底层操作系统(始终加载, 含 routing 决策树)
@@ -36,23 +37,10 @@ serenity-skill-v1/
 │   高覆盖 (11): NVDA SIVE LITE AXTI AAOI NBIS MRVL COHR SNDK SOI MU
 │   中覆盖 (14): IREN IQE TSM EWY AVGO AEHR TSEM AMZN META GOOGL INTC MSFT JBL RKLB
 │   低覆盖 (10): AMD CIFR POET HOOD RDDT CRWV WULF ALAB LPK HPS.A
-│   marker  ( 1): ASML
-├── evidence/
-│   ├── all-tweets.jsonl                 987 条 noise-filtered 语料
-│   ├── corpus-manifest.json             语料统计 + 过滤参数
-│   ├── ticker-index.json                ticker -> tweet_ids
-│   ├── sector-index.json                sector -> tweet_ids
-│   ├── bucket-summary.json              分桶统计
-│   ├── bucket-per-tweet.jsonl           每条推文的桶分配
-│   ├── compact/                         每个 slice 的单行精简视图
-│   └── slices/                          每个 skill 对应的 jsonl 切片
-└── eval/
-    ├── evidence-audit.json              ✓ 309/309 refs valid
-    ├── evidence-audit.md
-    ├── holdout-replay.md                pending (runtime)
-    ├── user-question-eval.md            pending (runtime)
-    └── persona-diff-serenity.md           pending (runtime)
+└── marker  ( 1): ASML
 ```
+
+生成过程中的 evidence、slice、compact、eval、audit 物料不属于正式运行目录, 已归档到 gitignored 的本地 distillation artifacts 目录。
 
 ## 调用层级
 
@@ -111,7 +99,9 @@ Skill 文件是 Agent 的判断素材库,不是用户可见输出模板。core /
 
 ✓ **309 / 309 refs valid** (2026-05-27)
 
-每条 Evidence Map 的 tweet_id 都能回到 corpus, quote 是连续原文.
+每条 Evidence Map 的 tweet_id 都曾通过 corpus 校验, quote 是连续原文。审计报告和
+原始 corpus 属于生成过程物料,保存在本地 ignored distillation archive 中,不随正式
+persona 物料提交。
 
 ## 已发现的 Serenity 独有特性
 
@@ -124,7 +114,7 @@ Skill 文件是 Agent 的判断素材库,不是用户可见输出模板。core /
 
 ## 工程产出
 
-参数化的 4 个脚本(已运行):
+参数化流程脚本:
 
 - `backend/app/features/twitter/methodology_v3/personas.py` — persona 配置(ticker 别名 / sector 关键词 / macro / core 信号)
 - `backend/app/features/twitter/methodology_v3/export_corpus.py --persona-key serenity-skill-v1` — DB 导出
@@ -137,7 +127,5 @@ Skill 文件是 Agent 的判断素材库,不是用户可见输出模板。core /
 
 ## 待办
 
-- `eval/holdout-replay.md` — 留出 10-20% 推文, 验证 skill 能否解释 holdout 中的分析路径
-- `eval/user-question-eval.md` — 跑预设用户问题集
-- `eval/persona-diff-serenity.md` — Serenity 答案一致性评估
+- 重新建立正式的 holdout / 用户问题 / persona 一致性评测,并把大体积过程物料继续放在 ignored archive。
 - 灰度上线策略 (admin flag / query param)

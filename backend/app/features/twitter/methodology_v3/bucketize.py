@@ -7,7 +7,7 @@ alias matching, and re-buckets sectors into a per-persona v3 taxonomy.
 Per-persona configurations live in `personas.py`. Pass --persona-key
 to select; default is qinbafrank-skill-v3.
 
-Produces three indices under <draft>/evidence/:
+Produces indices under <artifact-root>/evidence/:
   ticker-index.json   ticker -> {count, tweet_ids[]}
   sector-index.json   sector -> {count, tweet_ids[]}
   bucket-summary.json overall stats + macro/core flagging
@@ -24,21 +24,11 @@ import argparse
 import json
 import re
 from collections import Counter, defaultdict
-from pathlib import Path
 
 from app.core.logging import get_logger
-from app.features.twitter.methodology_v3.personas import get_persona
+from app.features.twitter.methodology_v3.personas import evidence_dir, get_persona
 
 logger = get_logger(__name__)
-
-
-def _evidence_dir(draft_dir: str) -> Path:
-    return (
-        Path(__file__).resolve().parents[1]
-        / "methodologies" / "_drafts"
-        / draft_dir / "evidence"
-    )
-
 
 def _make_patterns(aliases: list[str]) -> list[re.Pattern]:
     pats = []
@@ -92,14 +82,14 @@ def is_core(text: str, core_keywords: list[str]) -> bool:
 
 def run(persona_key: str) -> None:
     cfg = get_persona(persona_key)
-    evidence_dir = _evidence_dir(cfg["draft_dir"])
+    material_evidence_dir = evidence_dir(cfg)
 
     alias_patterns: dict[str, list[re.Pattern]] = {
         ticker: _make_patterns(aliases)
         for ticker, aliases in cfg["ticker_aliases"].items()
     }
 
-    jsonl_path = evidence_dir / "all-tweets.jsonl"
+    jsonl_path = material_evidence_dir / "all-tweets.jsonl"
     tweets: list[dict] = []
     with jsonl_path.open(encoding="utf-8") as f:
         for line in f:
@@ -164,13 +154,13 @@ def run(persona_key: str) -> None:
         )
     }
 
-    (evidence_dir / "ticker-index.json").write_text(
+    (material_evidence_dir / "ticker-index.json").write_text(
         json.dumps(ticker_index, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    (evidence_dir / "sector-index.json").write_text(
+    (material_evidence_dir / "sector-index.json").write_text(
         json.dumps(sector_index, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    (evidence_dir / "bucket-per-tweet.jsonl").write_text(
+    (material_evidence_dir / "bucket-per-tweet.jsonl").write_text(
         "\n".join(json.dumps(b, ensure_ascii=False) for b in bucket_per_tweet) + "\n",
         encoding="utf-8",
     )
@@ -190,7 +180,7 @@ def run(persona_key: str) -> None:
         "macro_tweet_count": len(macro_tids),
         "core_tweet_count": len(core_tids),
     }
-    (evidence_dir / "bucket-summary.json").write_text(
+    (material_evidence_dir / "bucket-summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
