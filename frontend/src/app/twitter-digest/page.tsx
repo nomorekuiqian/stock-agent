@@ -24,7 +24,6 @@ export default function TwitterDigestLatestPage() {
   const requestKey = `${hasTwitterDigestAccess ? 'full' : 'locked'}:${refreshKey}`;
 
   const refetchLatest = useCallback(() => {
-    setFetching(true);
     setRefreshKey((k) => k + 1);
   }, []);
 
