@@ -27,7 +27,6 @@ import type { MacroPanelContextPayload } from './_components/panel/MacroPanelVie
 import type { BrewContextPayload } from './_components/BrewDigestView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
-import LoginGate from '@/components/LoginGate';
 import ContentPanel from './_components/ContentPanel';
 import CanvasPanel from './_components/CanvasPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
@@ -259,6 +258,14 @@ function ScreenerContent() {
   const loadingConversationRef = useRef(false);
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const getLoginRedirectPath = useCallback(() => {
+    const query = searchParams.toString();
+    const basePath = pathname || '/research';
+    return query ? `${basePath}?${query}` : basePath;
+  }, [pathname, searchParams]);
+  const redirectToLogin = useCallback(() => {
+    router.push(`/login?redirect=${encodeURIComponent(getLoginRedirectPath())}`);
+  }, [getLoginRedirectPath, router]);
   const contextInitialized = useRef(false);
   const skipPanelSaveRef = useRef(true);
   const lastPanelContentSignatureRef = useRef<string | null>(null);
@@ -312,17 +319,32 @@ function ScreenerContent() {
   const loadingMoreConversations = conversationsQuery.isFetchingNextPage;
   // Drive the quota indicator from the backend response, not from `isMax`.
   // In local dev `NEXT_PUBLIC_ENABLE_PAYWALL=false` flips `isMax` to true for
-  // every user (so they can exercise Max-only features), but the backend
-  // `/api/research/quota` is the source of truth for the 2/day cap on free
-  // accounts. Trusting the backend here keeps the displayed counter and the
+  // every signed-in user (so they can exercise Max-only features), but the
+  // backend `/api/research/quota` is the source of truth for the free-account
+  // cap. Trusting the backend here keeps the displayed counter and the
   // disabled-input gate aligned with what the agent endpoints actually enforce.
   // The same quota is shared between research and KOL chat — see
   // backend/app/features/quota/service.py + kol_research router.
-  const effectiveQuota = quota;
+  const effectiveQuota = userId ? quota : null;
 
   useEffect(() => {
     latestStateRef.current = state;
   }, [state]);
+
+  // Anonymous visitors can browse the research desk, but persisted chat state
+  // belongs to the signed-in user who created it. Clear restored conversations
+  // before rendering the anonymous experience so signing out does not expose
+  // prior messages from sessionStorage.
+  useEffect(() => {
+    if (authLoading || userId) return;
+    if (!state.conversationId && state.messages.length === 0) return;
+    dispatch({ type: 'RESET' });
+  }, [authLoading, userId, state.conversationId, state.messages.length]);
+
+  useEffect(() => {
+    if (authLoading || userId || !state.isLoading || !pendingSeed.current) return;
+    dispatch({ type: 'SET_LOADING', loading: false });
+  }, [authLoading, userId, state.isLoading]);
 
   // URL parameter-driven context entry (e.g. /screener?context=daily_report&date=2026-03-19)
   // Uses CONTEXT_ENTRY action to skip welcome and start in chat+loading phase.
@@ -455,9 +477,32 @@ function ScreenerContent() {
   // — prior in-flight conversation, if any, is auto-saved via handleSend and
   // accessible from the history sidebar.
   const lastProcessedKolSeed = useRef('');
+  const manualPersonaUrlOverride = useRef<{
+    agentKind: AgentKind;
+    personaUsername: string | null;
+  } | null>(null);
   useEffect(() => {
     const agentParam = searchParams.get('agent');
     const personaParam = searchParams.get('persona');
+
+    // PersonaSelector changes state before Next has replaced the URL. During
+    // that one render, the old ?agent=kol&persona=... params are still visible;
+    // ignore them so they do not immediately re-assert stale KOL state.
+    const manualOverride = manualPersonaUrlOverride.current;
+    if (manualOverride) {
+      if (manualOverride.agentKind === 'research') {
+        if (agentParam === 'kol') return;
+        manualPersonaUrlOverride.current = null;
+      } else if (
+        agentParam !== 'kol' ||
+        personaParam !== manualOverride.personaUsername
+      ) {
+        return;
+      } else {
+        manualPersonaUrlOverride.current = null;
+      }
+    }
+
     if (agentParam !== 'kol' || !personaParam) return;
 
     // Always re-assert agent kind + persona on every KOL URL visit. If the
@@ -478,11 +523,20 @@ function ScreenerContent() {
       seedQ = `按 ${personaName} 的框架分析 ${symbolParam.toUpperCase()}：他怎么看这个标的、核心逻辑是什么、有哪些原文依据？`;
     }
     if (!seedQ) {
-      setPersonaUsername(personaParam);
+      if (state.personaUsername !== personaParam) {
+        setPersonaUsername(personaParam);
+      }
       return;
     }
     const signature = `${personaParam}|${seedQ}`;
     if (lastProcessedKolSeed.current === signature) return;
+
+    if (!userId) {
+      if (state.personaUsername !== personaParam) {
+        setPersonaUsername(personaParam);
+      }
+      return;
+    }
 
     const firstUserMessage = state.messages.find((m) => m.role === 'user');
     const hasRestoredSeedConversation = (
@@ -513,7 +567,30 @@ function ScreenerContent() {
       pendingSeed.current = null;
       handleSendRef.current?.(msg);
     }, 250);
-  }, [searchParams, setAgentKind, setPersonaUsername, state.phase, state.personaUsername, state.messages]);
+  }, [searchParams, setAgentKind, setPersonaUsername, state.phase, state.personaUsername, state.messages, userId]);
+
+  const handlePersonaChange = useCallback((next: {
+    agentKind: AgentKind;
+    personaUsername: string | null;
+  }) => {
+    manualPersonaUrlOverride.current = next;
+    setAgentKind(next.agentKind);
+    setPersonaUsername(next.personaUsername);
+    dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    params.delete('symbol');
+    if (next.agentKind === 'kol_research' && next.personaUsername) {
+      params.set('agent', 'kol');
+      params.set('persona', next.personaUsername);
+    } else {
+      params.delete('agent');
+      params.delete('persona');
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : (pathname || '/research'), { scroll: false });
+  }, [pathname, router, searchParams, setAgentKind, setPersonaUsername]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
@@ -611,17 +688,19 @@ function ScreenerContent() {
     });
   }, [conversationsQuery, hasMoreConversations, loadingMoreConversations]);
 
-  // Fetch quota on mount and when messages change. Wait for auth/subscription
-  // hydration so a paid Max user is not briefly rendered with anonymous/IP
-  // quota. Always fetch (even when `isMax` is true) because in local dev
-  // `PAYWALL_ENABLED=false` makes everyone look like Max client-side, while
-  // the backend still enforces 2/day on free accounts. Backend returns
-  // `unlimited: true` for real Max users, which keeps the counter hidden.
+  // Fetch quota for signed-in users on mount and when messages change. Wait
+  // for auth/subscription hydration so a paid Max user is not briefly rendered
+  // with the wrong free-account quota. Anonymous visitors can browse the page
+  // but cannot send, so quota UI stays hidden until login.
   useEffect(() => {
     if (authLoading || subLoading) return;
+    if (!userId) {
+      setQuota(null);
+      return;
+    }
 
     let cancelled = false;
-    api.research.quota({ requiredAuth: !!userId }).then(q => {
+    api.research.quota({ requiredAuth: true }).then(q => {
       if (!cancelled && q.success) setQuota(q);
     }).catch(() => {
       if (!cancelled) {
@@ -871,6 +950,10 @@ function ScreenerContent() {
   // Auto-send pending seed message when context data is ready
   const flushPendingSeed = useCallback(() => {
     if (!pendingSeed.current) return;
+    if (!userId) {
+      dispatch({ type: 'SET_LOADING', loading: false });
+      return;
+    }
     const seed = pendingSeed.current;
     pendingSeed.current = null;
     // Small delay to ensure React state from CONTEXT_ENTRY has settled before sending
@@ -879,7 +962,7 @@ function ScreenerContent() {
       pendingSeedTimerRef.current = null;
       handleSendRef.current?.(seed);
     }, 100);
-  }, []);
+  }, [userId]);
 
   // Receive stock data from StockResearchView for Agent context
   const handleStockContextReady = useCallback((payload: StockContextPayload) => {
@@ -1229,6 +1312,10 @@ function ScreenerContent() {
   }, [buildActiveContext, state.messages, personaUsername, upsertConversationSummary]);
 
   const handleSend = useCallback(async (message: string) => {
+    if (!userId) {
+      redirectToLogin();
+      return;
+    }
     // Route to KOL agent codepath when a persona is loaded.
     if (agentKind === 'kol_research') {
       return handleKolSend(message);
@@ -1453,12 +1540,12 @@ function ScreenerContent() {
       const authError = getAuthErrorPresentation(err, 'AI 助手暂时无法响应');
       if (authError.shouldRedirectToLogin) {
         await signOut().catch(() => {});
-        router.push('/login?redirect=/research');
+        redirectToLogin();
         return;
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [agentKind, personaUsername, handleKolSend, buildHistory, buildActiveContext, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, router, buildConversationData, saveConversation, signOut, userId]);
+  }, [agentKind, personaUsername, handleKolSend, buildHistory, buildActiveContext, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, buildConversationData, saveConversation, signOut, userId, redirectToLogin]);
 
   // Keep ref in sync so flushPendingSeed can call the latest handleSend
   useEffect(() => {
@@ -1712,25 +1799,10 @@ function ScreenerContent() {
     );
   }
 
-  // Login wall — the AI research assistant (both the regular research agent and
-  // the KOL persona chat) requires a signed-in user. Anonymous visitors get a
-  // login prompt instead of the chat UI, so they can never fire a token-less
-  // request that the backend rejects with 401 — which previously surfaced as a
-  // misleading "登录已过期" reply in the agent bubble. The redirect preserves the
-  // full URL (incl. ?agent=kol&persona=...&q=...) so the seeded question still
-  // auto-fires after the user logs in.
-  if (!userId) {
-    const query = searchParams.toString();
-    const redirectTo = query ? `${pathname}?${query}` : (pathname || '/research');
+  if (!userId && (state.conversationId || state.messages.length > 0)) {
     return (
-      <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 overflow-y-auto">
-        <LoginGate
-          redirectTo={redirectTo}
-          title="登录后使用 AI 研究助手"
-          description="向 Frank 或研究助手提问需要登录账户。注册免费，无需付费。"
-        >
-          {null}
-        </LoginGate>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
       </div>
     );
   }
@@ -1799,12 +1871,7 @@ function ScreenerContent() {
               personaSelectorEnabled={kolPersonaEnabled}
               agentKind={agentKind}
               personaUsername={personaUsername}
-              onPersonaChange={({ agentKind: nextKind, personaUsername: nextUser }) => {
-                setAgentKind(nextKind);
-                setPersonaUsername(nextUser);
-                dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
-                // Already at welcome screen, no reducer reset needed.
-              }}
+              onPersonaChange={handlePersonaChange}
             />
           </div>
         </div>

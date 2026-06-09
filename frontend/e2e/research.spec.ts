@@ -263,7 +263,7 @@ test.describe('Screener page (/research)', () => {
   test('displays WelcomeScreen with all key elements', async ({ page }) => {
     await page.goto('/research');
 
-    await expect(page.getByText('Hi，Playwright User')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: '今天想研究什么' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('button', { name: /一句话选股/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /个股研究台/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /宏观仪表盘/ })).toBeVisible();
@@ -888,7 +888,7 @@ test.describe('Screener page (/research)', () => {
     await expect(page.getByRole('button', { name: /一句话选股/ })).toBeVisible();
   });
 
-  test('unauthenticated user sees the research login gate', async ({ browser }) => {
+  test('unauthenticated user can browse research and is redirected on send', async ({ browser }) => {
     // Fresh context without login.
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -927,7 +927,12 @@ test.describe('Screener page (/research)', () => {
     await page.goto('/research');
 
     await expect(page).toHaveURL(/\/research/, { timeout: 15000 });
-    await expect(page.getByRole('heading', { name: '登录后使用 AI 研究助手' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '今天想研究什么' })).toBeVisible();
+    const input = page.getByLabel('消息输入');
+    await expect(input).toBeVisible();
+    await input.fill('帮我看看今天市场');
+    await input.press('Enter');
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fresearch/, { timeout: 10000 });
 
     await context.close();
   });

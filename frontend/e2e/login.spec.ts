@@ -275,12 +275,13 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await expect(page).toHaveURL(/\/login.*redirect.*profile/, { timeout: 10000 });
   });
 
-  test('shows login gate for unauthenticated /research', async ({ page }) => {
+  test('allows unauthenticated user to browse /research welcome', async ({ page }) => {
     await setupAuthMocks(page);
     await page.goto('/research');
 
     await expect(page).toHaveURL(/\/research/, { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: '登录后使用 AI 研究助手' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '今天想研究什么' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel('消息输入')).toBeVisible();
   });
 
   // ── Section J: Post-logout redirect ─────────────────────────────────────────
