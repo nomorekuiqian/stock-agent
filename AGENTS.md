@@ -52,9 +52,11 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `backend/app/features/notification/.context.md` -- Email sending & broadcast
 - `backend/app/features/feedback/.context.md` -- User feedback
 - `backend/app/features/payment/.context.md` -- Stripe payments
+- `backend/app/features/webhooks/.context.md` -- Third-party webhook ingestion
 - `backend/app/edge_functions/.context.md` -- Insforge Edge Functions
 - `backend/app/shared/.context.md` -- Cross-module shared services
 - `backend/app/shared/data_tools/.context.md` -- Data fetching tool layer
+- `backend/app/features/twitter/methodologies/.context.md` -- KOL methodology distillation artifacts
 
 **Frontend**:
 - `frontend/src/app/today/.context.md` -- Market daily report page
