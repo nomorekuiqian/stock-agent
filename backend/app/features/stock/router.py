@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
-from app.core.deps import optional_user_token
 import app.core.posthog_client as posthog
 from app.core.deps import verify_user_token
 from app.core.logging import get_logger
@@ -373,7 +372,7 @@ async def generate_stock_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
     """
     Generate AI analysis for an individual stock.
