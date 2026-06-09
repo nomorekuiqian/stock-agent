@@ -85,7 +85,7 @@
 - `test/.context.md` — 测试体系
 
 **MCP**:
-- `mcp/market-lens/.context.md` — Market Lens MCP 薄 adapter package，所有核心资产和 workflow 走 backend
+- `mcp/themarketbrew/.context.md` — Market Lens MCP 薄 adapter package，所有核心资产和 workflow 走 backend
 
 ## 外部知识库
 

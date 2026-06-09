@@ -80,7 +80,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `docs/references/pages.md` -- Frontend page routes
 - `docs/references/components.md` -- Frontend components & libraries
 - `docs/constraints/design-system.md` -- Design system spec
-- `mcp/market-lens/.context.md` -- Market Lens MCP installable package
+- `mcp/themarketbrew/.context.md` -- Market Lens MCP installable package
 
 ## Engineering Plans
 

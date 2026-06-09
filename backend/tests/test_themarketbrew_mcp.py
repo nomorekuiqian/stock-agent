@@ -38,6 +38,7 @@ def test_market_lens_mcp_status_is_public(client):
     assert body["mode"] == "backend_first"
     assert "market_lens_get_lens" in body["tools"]
     assert "market_lens_search_lenses" in body["tools"]
+    assert not any(tool.startswith("frank_") for tool in body["tools"])
 
 
 def test_market_lens_personas_lists_material_capabilities(client):
@@ -45,16 +46,30 @@ def test_market_lens_personas_lists_material_capabilities(client):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body) == {"ok", "mode", "default_persona", "personas", "call_guidance"}
+    assert set(body) == {"ok", "mode", "personas", "call_guidance"}
     assert body["mode"] == "backend_first"
+    assert "default_persona" not in body
+    assert "selection_rule" in body["call_guidance"]
     personas = {item["username"]: item for item in body["personas"]}
     assert "qinbafrank" in personas
+    assert "aleabitoreddit" in personas
     frank = personas["qinbafrank"]
     assert frank["lens_counts"]["core"] == 1
     assert frank["lens_counts"]["framework"] == 6
     assert frank["lens_counts"]["macro"] == 1
     assert frank["lens_counts"]["sector"] == 7
     assert frank["lens_counts"]["ticker"] >= 33
+    serenity = personas["aleabitoreddit"]
+    assert serenity["display_name"] == "Serenity"
+    assert serenity["material_root"].endswith("twitter/methodologies/aleabitoreddit")
+    assert serenity["lens_counts"] == {
+        "core": 1,
+        "framework": 7,
+        "macro": 1,
+        "sector": 9,
+        "ticker": 36,
+    }
+    assert "stock_diagnosis" in serenity["supported_workflows"]
 
 
 def test_market_lens_list_lenses_covers_all_distilled_markdown(client):
@@ -84,6 +99,35 @@ def test_market_lens_list_lenses_covers_all_distilled_markdown(client):
     assert ("ticker", "NVDA") in lens_ids
 
 
+def test_market_lens_list_lenses_covers_serenity_material(client):
+    root = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "features"
+        / "twitter"
+        / "methodologies"
+        / "aleabitoreddit"
+    )
+    expected = sum(
+        len(list((root / layer).glob("*.md")))
+        for layer in ("core", "framework", "macro", "sector", "ticker")
+    )
+
+    resp = client.get("/api/kol_research/personas/aleabitoreddit/mcp/lenses")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["display_name"] == "Serenity"
+    assert body["material_root"].endswith("twitter/methodologies/aleabitoreddit")
+    assert body["count"] == expected
+    lens_ids = {(item["lens_type"], item["lens_id"]) for item in body["lenses"]}
+    assert ("core", "bottleneck-operating-system") in lens_ids
+    assert ("framework", "ask-about-stock") in lens_ids
+    assert ("macro", "ai-capex-cycle") in lens_ids
+    assert ("sector", "photonics-and-cpo") in lens_ids
+    assert ("ticker", "SIVE") in lens_ids
+
+
 def test_market_lens_get_lens_returns_full_ticker_context(client):
     resp = client.get("/api/kol_research/personas/qinbafrank/mcp/lenses/ticker/nvda")
 
@@ -97,6 +141,21 @@ def test_market_lens_get_lens_returns_full_ticker_context(client):
     assert body["call_guidance"]["when_to_call"]
 
 
+def test_market_lens_get_lens_returns_serenity_ticker_context_without_frank_bleed(client):
+    resp = client.get("/api/kol_research/personas/aleabitoreddit/mcp/lenses/ticker/SIVE")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["display_name"] == "Serenity"
+    assert body["lens_type"] == "ticker"
+    assert body["lens_id"] == "SIVE"
+    assert body["metadata"]["sector"] == "photonics-and-cpo"
+    assert body["evidence_tweet_ids"]
+    assert "CW DFB" in body["full_body"]
+    forbidden = ("qinbafrank", "三杀", "杀估值", "杀业绩", "杀逻辑")
+    assert not any(term in body["full_body"] for term in forbidden)
+
+
 def test_market_lens_search_lenses_finds_framework_material(client):
     resp = client.post(
         "/api/kol_research/personas/qinbafrank/mcp/lenses/search",
@@ -108,6 +167,20 @@ def test_market_lens_search_lenses_finds_framework_material(client):
     assert body["count"] >= 1
     assert any(item["lens_type"] in {"core", "framework"} for item in body["results"])
     assert body["call_guidance"]["returns_context"]
+
+
+def test_market_lens_search_lenses_finds_serenity_material(client):
+    resp = client.post(
+        "/api/kol_research/personas/aleabitoreddit/mcp/lenses/search",
+        json={"query": "CPO SIVE", "lens_types": ["sector", "ticker"], "limit": 5},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["display_name"] == "Serenity"
+    assert body["count"] >= 1
+    lens_ids = {(item["lens_type"], item["lens_id"]) for item in body["results"]}
+    assert ("ticker", "SIVE") in lens_ids or ("sector", "photonics-and-cpo") in lens_ids
 
 
 def test_market_lens_get_evidence_by_ids_uses_cockpit_reader(client):
@@ -126,6 +199,36 @@ def test_market_lens_get_evidence_by_ids_uses_cockpit_reader(client):
     assert body["tweets"][0]["text"] == "historical post"
     assert body["call_guidance"]["when_to_call"]
     mock_reader.assert_awaited_once_with("qinbafrank", ["123"])
+
+
+def test_market_lens_get_evidence_by_ids_falls_back_to_serenity_local_corpus(client):
+    local_row = {
+        "id": "1972016308662513748",
+        "text": "NeoCloud Thesis: Hyperscaler Capex Funnel",
+        "source": "local_material_evidence",
+        "persona_username": "aleabitoreddit",
+    }
+    with patch(
+        "app.features.kol_research.router.cockpit.get_evidence_tweets_by_ids",
+        new_callable=AsyncMock,
+        return_value={"tweets": []},
+    ) as mock_reader, patch(
+        "app.features.kol_research.router.mcp_materials.get_local_evidence_by_ids",
+        return_value=[local_row],
+    ) as mock_local:
+        resp = client.post(
+            "/api/kol_research/personas/aleabitoreddit/mcp/evidence/by-ids",
+            json={"tweet_ids": ["1972016308662513748"]},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["persona_username"] == "aleabitoreddit"
+    assert body["tweets"][0]["id"] == "1972016308662513748"
+    assert "NeoCloud Thesis" in body["tweets"][0]["text"]
+    assert body["tweets"][0]["source"] == "local_material_evidence"
+    mock_reader.assert_awaited_once_with("aleabitoreddit", ["1972016308662513748"])
+    mock_local.assert_called_once_with("aleabitoreddit", ["1972016308662513748"])
 
 
 def test_market_lens_search_evidence_is_public(client):
@@ -196,9 +299,44 @@ def test_market_lens_workflow_returns_public_context_pack(client):
     mock_brief.assert_awaited_once()
 
 
-def test_market_lens_workflow_rejects_persona_without_material_workflows(client):
+def test_market_lens_workflow_returns_serenity_lens_context_pack(client):
+    with patch(
+        "app.features.kol_research.router._mcp_search_chunks",
+        new_callable=AsyncMock,
+        return_value=[_Chunk()],
+    ) as mock_search:
+        resp = client.post(
+            "/api/kol_research/personas/aleabitoreddit/mcp/workflow",
+            json={
+                "workflow": "stock_diagnosis",
+                "question": "SIVE 的验证窗口怎么看？",
+                "ticker": "SIVE",
+                "evidence_limit": 3,
+                "include_market_data": False,
+            },
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["persona_username"] == "aleabitoreddit"
+    assert body["workflow"] == "stock_diagnosis"
+    methodology = body["methodology_context"]
+    selected = methodology["selected_lenses"]
+    selected_ids = {(item["lens_type"], item["lens_id"]) for item in selected}
+    assert ("core", "bottleneck-operating-system") in selected_ids
+    assert ("framework", "ask-about-stock") in selected_ids
+    assert ("ticker", "SIVE") in selected_ids
+    assert ("sector", "photonics-and-cpo") in selected_ids
+    joined_bodies = "\n".join(item["full_body"] or "" for item in selected)
+    forbidden = ("qinbafrank", "三杀", "杀估值", "杀业绩", "杀逻辑")
+    assert not any(term in joined_bodies for term in forbidden)
+    assert methodology["ticker_methodology"]["SIVE"]["thesis"]
+    mock_search.assert_awaited_once()
+
+
+def test_market_lens_workflow_rejects_unknown_persona(client):
     resp = client.post(
-        "/api/kol_research/personas/aleabitoreddit/mcp/workflow",
+        "/api/kol_research/personas/unknown-persona/mcp/workflow",
         json={
             "workflow": "market_regime",
             "question": "现在 AI capex 怎么看？",

@@ -1,7 +1,7 @@
 # Frank Lens Backend-First MCP Engineering Plan
 
 > Status: Done
-> Related: `mcp/market-lens/.context.md`, `backend/app/features/kol_research/.context.md`, `docs/reference/market-lens-mcp.md`, `docs/plans/active/qinbafrank-skill-distillation.md`
+> Related: `mcp/market-lens/.context.md`, `backend/app/features/kol_research/.context.md`, `docs/reference/market-lens-mcp.md`
 > Vision: 产品策略.md > 方向二：Agent 服务 -- 把分析能力卖给 AI
 
 > Rename note: after this plan shipped, the public NPM adapter was renamed from

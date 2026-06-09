@@ -6,7 +6,7 @@ import path from "node:path";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const serverPath = path.join(packageDir, "dist", "index.js");
-const installedBin = process.env.MARKET_LENS_MCP_BIN;
+const installedBin = process.env.THEMARKETBREW_MCP_BIN || process.env.MARKET_LENS_MCP_BIN;
 const child = installedBin
   ? spawn(installedBin, [], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"], env: process.env })
   : spawn(process.execPath, [serverPath], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"], env: process.env });
@@ -62,7 +62,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-live-smoke-test", version: "0.4.0" },
+    clientInfo: { name: "themarketbrew-live-smoke-test", version: "0.5.0" },
   });
   notify("notifications/initialized");
 
@@ -76,17 +76,21 @@ try {
     "market_lens_search_lenses",
     "market_lens_search_evidence",
     "market_lens_stock_diagnosis",
-    "frank_status",
-    "frank_search_evidence",
-    "frank_stock_diagnosis",
-    "frank_market_regime",
   ]) {
     if (!toolNames.includes(required)) throw new Error(`${required} missing from tools/list`);
+  }
+  for (const name of toolNames) {
+    if (name.startsWith("frank_")) throw new Error(`Frank-specific tool still exposed: ${name}`);
   }
 
   const status = parseTool(await send("tools/call", { name: "market_lens_status", arguments: {} }));
   if (!status.ok) {
     throw new Error(`market_lens_status failed: ${JSON.stringify(status)}`);
+  }
+
+  const personas = parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
+  if (!Array.isArray(personas.personas) || !personas.personas.some((persona) => persona.username === "aleabitoreddit")) {
+    throw new Error("market_lens_personas did not return aleabitoreddit");
   }
 
   const lenses = parseTool(await send("tools/call", {
@@ -113,6 +117,30 @@ try {
     throw new Error("market_lens_search_lenses did not return results array");
   }
 
+  const serenityLenses = parseTool(await send("tools/call", {
+    name: "market_lens_list_lenses",
+    arguments: { persona: "aleabitoreddit", lens_type: "ticker" },
+  }));
+  if (!Array.isArray(serenityLenses.lenses) || !serenityLenses.lenses.some((lens) => lens.lens_id === "SIVE")) {
+    throw new Error("market_lens_list_lenses did not return Serenity SIVE ticker lens");
+  }
+
+  const siveLens = parseTool(await send("tools/call", {
+    name: "market_lens_get_lens",
+    arguments: { persona: "aleabitoreddit", lens_type: "ticker", lens_id: "SIVE" },
+  }));
+  if (!siveLens.full_body || !Array.isArray(siveLens.evidence_tweet_ids)) {
+    throw new Error("market_lens_get_lens did not return Serenity SIVE full lens context");
+  }
+
+  const serenitySearch = parseTool(await send("tools/call", {
+    name: "market_lens_search_lenses",
+    arguments: { persona: "aleabitoreddit", query: "CPO SIVE", lens_types: ["sector", "ticker"], limit: 3 },
+  }));
+  if (!Array.isArray(serenitySearch.results) || serenitySearch.results.length < 1) {
+    throw new Error("market_lens_search_lenses did not return Serenity material results");
+  }
+
   const search = parseTool(await send("tools/call", {
     name: "market_lens_search_evidence",
     arguments: { persona: "qinbafrank", query: "NVDA AI capex RPO 打脸条件", k: 3 },
@@ -125,7 +153,7 @@ try {
     name: "market_lens_stock_diagnosis",
     arguments: {
       persona: "qinbafrank",
-      question: "按 Frank 框架看 NVDA 这次回调是杀估值、杀业绩还是杀逻辑？",
+      question: "按所选 persona 的框架看 NVDA 这次回调应该如何归因？",
       ticker: "NVDA",
       evidence_limit: 3,
       include_market_data: true,
@@ -139,7 +167,7 @@ try {
     name: "market_lens_market_regime",
     arguments: {
       persona: "qinbafrank",
-      question: "按 Frank 框架判断当前市场行情。",
+      question: "按所选 persona 的框架判断当前市场行情。",
       evidence_limit: 3,
       include_market_data: true,
     },
@@ -153,7 +181,9 @@ try {
     backend: status.adapter?.backend_url,
     toolCount: toolNames.length,
     tickerLensCount: lenses.count,
+    serenityTickerLensCount: serenityLenses.count,
     materialSearchCount: materialSearch.count,
+    serenityMaterialSearchCount: serenitySearch.count,
     liveEvidenceCount: search.count,
     stockWorkflow: stock.workflow,
     marketWorkflow: market.workflow,

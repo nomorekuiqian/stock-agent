@@ -6,7 +6,7 @@ import path from "node:path";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const serverPath = path.join(packageDir, "dist", "index.js");
-const installedBin = process.env.MARKET_LENS_MCP_BIN;
+const installedBin = process.env.THEMARKETBREW_MCP_BIN || process.env.MARKET_LENS_MCP_BIN;
 const child = installedBin
   ? spawn(installedBin, [], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"] })
   : spawn(process.execPath, [serverPath], { cwd: packageDir, stdio: ["pipe", "pipe", "pipe"] });
@@ -56,7 +56,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-smoke-test", version: "0.4.1" },
+    clientInfo: { name: "themarketbrew-smoke-test", version: "0.5.0" },
   });
   notify("notifications/initialized");
 
@@ -75,18 +75,12 @@ try {
     "market_lens_market_regime",
     "market_lens_compare",
     "market_lens_research_memo",
-    "frank_status",
-    "frank_search_evidence",
-    "frank_stock_diagnosis",
-    "frank_market_regime",
-    "frank_compare",
-    "frank_research_memo",
   ];
   for (const name of required) {
     if (!toolNames.includes(name)) throw new Error(`${name} missing from tools/list`);
   }
-  for (const oldName of ["frank_get_methodology", "frank_build_context", "frank_live_stock_diagnosis"]) {
-    if (toolNames.includes(oldName)) throw new Error(`old local/live split tool still exposed: ${oldName}`);
+  for (const name of toolNames) {
+    if (name.startsWith("frank_")) throw new Error(`Frank-specific tool still exposed: ${name}`);
   }
 
   const status = await send("tools/call", { name: "market_lens_status", arguments: {} });

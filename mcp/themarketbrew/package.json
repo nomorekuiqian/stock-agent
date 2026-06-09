@@ -1,10 +1,10 @@
 {
-  "name": "@themarketbrew/market-lens-mcp",
-  "version": "0.4.1",
-  "description": "Thin local MCP adapter for TheMarketBrew Market Lens backend context packs.",
+  "name": "themarketbrew",
+  "version": "0.5.0",
+  "description": "TheMarketBrew MCP adapter for backend persona lens context packs.",
   "type": "module",
   "bin": {
-    "market-lens-mcp": "dist/index.js"
+    "themarketbrew": "dist/index.js"
   },
   "files": [
     "dist/",

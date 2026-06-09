@@ -20,7 +20,7 @@ type ToolDefinition = {
 
 const PERSONA_PROPERTY = {
   type: "string",
-  description: "Persona username. Defaults to MARKET_LENS_PERSONA or qinbafrank.",
+  description: "Persona username. Choose it from market_lens_personas based on the user's query and lens coverage. If omitted, a configured THEMARKETBREW_PERSONA fallback is used only when explicitly set.",
 };
 
 const LENS_TYPE_PROPERTY = {
@@ -34,9 +34,9 @@ export const TOOLS: ToolDefinition[] = [
     name: "market_lens_status",
     title: "Market Lens Status",
     description: [
-      "Check local adapter configuration and backend status for the selected persona.",
+      "Check local adapter configuration and backend status.",
       "Call first when diagnosing setup, backend connectivity, or available tool surface.",
-      "Returns adapter config, backend status, persona metadata, and tool names.",
+      "If no persona is configured, returns available personas and routing guidance instead of pinning a default persona.",
     ].join(" "),
     inputSchema: objectSchema({ persona: PERSONA_PROPERTY }),
     annotations: readOnlyOpenWorld(),
@@ -46,7 +46,7 @@ export const TOOLS: ToolDefinition[] = [
     title: "Market Lens Personas",
     description: [
       "List personas with distilled material available in the backend.",
-      "Call before selecting a blogger/persona or when the user asks which lenses are available.",
+      "Call before selecting a blogger/persona, especially when the user did not explicitly name one.",
       "Returns persona capability metadata, material lens counts, supported context tools, and supported workflows.",
     ].join(" "),
     inputSchema: objectSchema({}),
@@ -57,7 +57,7 @@ export const TOOLS: ToolDefinition[] = [
     title: "Market Lens Lens Index",
     description: [
       "List the distilled material index for one persona across core/framework/macro/sector/ticker layers.",
-      "Call when routing a broad question, discovering coverage, or choosing the exact lens_id for get_lens.",
+      "Call after choosing a persona, when routing a broad question, discovering coverage, or choosing the exact lens_id for get_lens.",
       "Returns index metadata only: lens IDs, descriptions, coverage, evidence counts, and call guidance.",
     ].join(" "),
     inputSchema: objectSchema({
@@ -92,7 +92,7 @@ export const TOOLS: ToolDefinition[] = [
     title: "Market Lens Material Search",
     description: [
       "Search across all distilled material markdown for a persona.",
-      "Call when the user asks about a topic, phrase, market rule, industry, or ticker and you do not know the exact lens ID.",
+      "Call after choosing a persona, when the user asks about a topic, phrase, market rule, industry, or ticker and you do not know the exact lens ID.",
       "Returns ranked lens matches, snippets, metadata, Evidence Map tweet IDs, and optional full bodies.",
     ].join(" "),
     inputSchema: objectSchema({
@@ -122,7 +122,7 @@ export const TOOLS: ToolDefinition[] = [
     title: "Market Lens Evidence Search",
     description: [
       "Semantic search over a persona's historical tweet evidence corpus.",
-      "Call when the final answer needs direct historical posts or citations beyond the distilled methodology lens.",
+      "Call after choosing a persona, when the final answer needs direct historical posts or citations beyond the distilled methodology lens.",
       "Returns vector-search tweet chunks with citation metadata.",
     ].join(" "),
     inputSchema: objectSchema({
@@ -156,10 +156,10 @@ export const TOOLS: ToolDefinition[] = [
     title: "Market Lens Build Context",
     description: [
       "Build a mixed context pack for an open-ended question.",
-      "Call when the user question spans material lenses, historical evidence, and optional live market facts but does not fit a stricter workflow.",
+      "Call after choosing a persona, when the user question spans material lenses, historical evidence, and optional live market facts but does not fit a stricter workflow.",
       "Returns kol_chunks, market_context, ticker methodology summary, and answer discipline.",
     ].join(" "),
-    inputSchema: workflowSchema(true, false),
+    inputSchema: workflowSchema(true),
     annotations: readOnlyOpenWorld(),
   },
   {
@@ -181,7 +181,7 @@ export const TOOLS: ToolDefinition[] = [
       "Call when the user asks how the persona reads current market conditions or recurring market rules.",
       "Returns macro-relevant evidence, market facts when available, methodology context, and answer discipline.",
     ].join(" "),
-    inputSchema: workflowSchema(false, false),
+    inputSchema: workflowSchema(false),
     annotations: readOnlyOpenWorld(),
   },
   {
@@ -203,10 +203,9 @@ export const TOOLS: ToolDefinition[] = [
       "Call when the user asks for a detailed research memo, thesis review, or multi-layer explanation.",
       "Returns evidence, market context, methodology context, risk/falsifier guidance, and suggested memo structure.",
     ].join(" "),
-    inputSchema: workflowSchema(true, false),
+    inputSchema: workflowSchema(true),
     annotations: readOnlyOpenWorld(),
   },
-  ...legacyFrankTools(),
 ];
 
 export async function callTool(name: string, args: Record<string, unknown>) {
@@ -235,72 +234,9 @@ export async function callTool(name: string, args: Record<string, unknown>) {
       return runWorkflow("compare", args);
     case "market_lens_research_memo":
       return runWorkflow("research_memo", args);
-    case "frank_status":
-      return marketLensStatus(withFrankPersona(args));
-    case "frank_search_evidence":
-      return searchEvidence(withFrankPersona(args));
-    case "frank_stock_diagnosis":
-      return runWorkflow("stock_diagnosis", withFrankPersona(args));
-    case "frank_market_regime":
-      return runWorkflow("market_regime", withFrankPersona(args));
-    case "frank_compare":
-      return runWorkflow("compare", withFrankPersona(args));
-    case "frank_research_memo":
-      return runWorkflow("research_memo", withFrankPersona(args));
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
-}
-
-function legacyFrankTools(): ToolDefinition[] {
-  return [
-    {
-      name: "frank_status",
-      title: "Frank Lens Status (Legacy)",
-      description: "Compatibility alias for market_lens_status with persona fixed to qinbafrank. Prefer market_lens_status for new clients.",
-      inputSchema: objectSchema({}),
-      annotations: readOnlyOpenWorld(),
-    },
-    {
-      name: "frank_search_evidence",
-      title: "Frank Evidence Search (Legacy)",
-      description: "Compatibility alias for market_lens_search_evidence with persona fixed to qinbafrank. Prefer market_lens_search_evidence.",
-      inputSchema: objectSchema({
-        query: { type: "string", description: "Question, topic, ticker, or phrase to search." },
-        k: { type: "number", description: "Number of chunks to retrieve, 1-20. Defaults to 6." },
-        threshold: { type: "number", description: "Similarity threshold, 0-1. Defaults to 0.45." },
-      }, ["query"]),
-      annotations: readOnlyOpenWorld(),
-    },
-    {
-      name: "frank_stock_diagnosis",
-      title: "Frank Stock Diagnosis Context (Legacy)",
-      description: "Compatibility alias for market_lens_stock_diagnosis with persona fixed to qinbafrank. Prefer market_lens_stock_diagnosis.",
-      inputSchema: stockWorkflowSchema(true),
-      annotations: readOnlyOpenWorld(),
-    },
-    {
-      name: "frank_market_regime",
-      title: "Frank Market Regime Context (Legacy)",
-      description: "Compatibility alias for market_lens_market_regime with persona fixed to qinbafrank. Prefer market_lens_market_regime.",
-      inputSchema: workflowSchema(false, true),
-      annotations: readOnlyOpenWorld(),
-    },
-    {
-      name: "frank_compare",
-      title: "Frank Compare Context (Legacy)",
-      description: "Compatibility alias for market_lens_compare with persona fixed to qinbafrank. Prefer market_lens_compare.",
-      inputSchema: compareWorkflowSchema(true),
-      annotations: readOnlyOpenWorld(),
-    },
-    {
-      name: "frank_research_memo",
-      title: "Frank Research Memo Context (Legacy)",
-      description: "Compatibility alias for market_lens_research_memo with persona fixed to qinbafrank. Prefer market_lens_research_memo.",
-      inputSchema: workflowSchema(true, true),
-      annotations: readOnlyOpenWorld(),
-    },
-  ];
 }
 
 function objectSchema(properties: Record<string, unknown>, required: string[] = []) {
@@ -311,9 +247,9 @@ function objectSchema(properties: Record<string, unknown>, required: string[] = 
   };
 }
 
-function workflowSchema(questionRequired: boolean, legacy: boolean) {
+function workflowSchema(questionRequired: boolean) {
   return objectSchema({
-    ...(legacy ? {} : { persona: PERSONA_PROPERTY }),
+    persona: PERSONA_PROPERTY,
     question: { type: "string", description: "The user's question." },
     ticker: { type: "string", description: "Optional ticker symbol if the question is anchored to one stock." },
     sector: { type: "string", description: "Optional sector or lens key." },
@@ -322,9 +258,9 @@ function workflowSchema(questionRequired: boolean, legacy: boolean) {
   }, questionRequired ? ["question"] : []);
 }
 
-function stockWorkflowSchema(legacy = false) {
+function stockWorkflowSchema() {
   return objectSchema({
-    ...(legacy ? {} : { persona: PERSONA_PROPERTY }),
+    persona: PERSONA_PROPERTY,
     question: { type: "string", description: "The user's stock question." },
     ticker: { type: "string", description: "Ticker symbol, for example NVDA." },
     sector: { type: "string", description: "Optional sector key." },
@@ -333,9 +269,9 @@ function stockWorkflowSchema(legacy = false) {
   }, ["question", "ticker"]);
 }
 
-function compareWorkflowSchema(legacy = false) {
+function compareWorkflowSchema() {
   return objectSchema({
-    ...(legacy ? {} : { persona: PERSONA_PROPERTY }),
+    persona: PERSONA_PROPERTY,
     question: { type: "string", description: "The user's comparison question." },
     tickers: { type: "array", items: { type: "string" }, description: "Ticker symbols to compare." },
     sector: { type: "string", description: "Optional sector key." },
@@ -351,8 +287,4 @@ function readOnlyOpenWorld() {
     idempotentHint: true,
     openWorldHint: true,
   };
-}
-
-function withFrankPersona(args: Record<string, unknown>) {
-  return { ...args, persona: "qinbafrank" };
 }

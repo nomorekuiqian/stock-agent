@@ -1,20 +1,43 @@
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000/api";
-const DEFAULT_PERSONA = "qinbafrank";
 const STATUS_TIMEOUT_MS = 3000;
 
 export function liveConfig(args: Record<string, unknown> = {}) {
+  const explicitPersona = stringArg(args, "persona");
+  const configuredPersona = theMarketBrewEnv("PERSONA");
   return {
     backend_url: normalizedBackendUrl(),
-    persona: stringArg(args, "persona") || marketLensEnv("PERSONA") || DEFAULT_PERSONA,
+    persona: explicitPersona || configuredPersona,
+    persona_source: explicitPersona ? "argument" : configuredPersona ? "environment" : "none",
   };
-}
-
-export async function frankStatus(args: Record<string, unknown>) {
-  return marketLensStatus(args);
 }
 
 export async function marketLensStatus(args: Record<string, unknown>) {
   const config = liveConfig(args);
+  if (!config.persona) {
+    try {
+      const personas = await getJson("/kol_research/mcp/personas", args);
+      return {
+        ok: true,
+        adapter: config,
+        backend: personas,
+        routing_guidance: [
+          "No default persona is configured.",
+          "Call market_lens_personas, choose the best persona for the user's query and available lens coverage, then pass persona explicitly to later tools.",
+          "Set THEMARKETBREW_PERSONA only when this MCP server should be pinned to one persona for this client/workspace.",
+        ],
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        adapter: config,
+        error: error instanceof Error ? error.message : String(error),
+        setup: {
+          required_env: ["THEMARKETBREW_BACKEND_URL"],
+          note: "Set THEMARKETBREW_BACKEND_URL to the backend /api base URL. THEMARKETBREW_PERSONA is optional and should only be used to pin a default persona.",
+        },
+      };
+    }
+  }
   try {
     const backend = await getJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/status`);
     return {
@@ -28,8 +51,8 @@ export async function marketLensStatus(args: Record<string, unknown>) {
       adapter: config,
       error: error instanceof Error ? error.message : String(error),
       setup: {
-        required_env: ["MARKET_LENS_BACKEND_URL"],
-        note: "Set MARKET_LENS_BACKEND_URL to the backend /api base URL. MARKET_LENS_PERSONA is optional.",
+        required_env: ["THEMARKETBREW_BACKEND_URL"],
+        note: "Set THEMARKETBREW_BACKEND_URL to the backend /api base URL. THEMARKETBREW_PERSONA is optional and should only be used to pin a default persona. MARKET_LENS_* remains accepted as a compatibility fallback.",
       },
     };
   }
@@ -40,14 +63,14 @@ export async function listPersonas(args: Record<string, unknown>) {
 }
 
 export async function listLenses(args: Record<string, unknown>) {
-  const config = liveConfig(args);
+  const config = requirePersona(args, "list lenses");
   const lensType = stringArg(args, "lens_type");
   const query = lensType ? `?lens_type=${encodeURIComponent(lensType)}` : "";
   return getJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/lenses${query}`, args);
 }
 
 export async function getLens(args: Record<string, unknown>) {
-  const config = liveConfig(args);
+  const config = requirePersona(args, "get a lens");
   const lensType = stringArg(args, "lens_type");
   const lensId = stringArg(args, "lens_id");
   if (!lensType) {
@@ -63,7 +86,7 @@ export async function getLens(args: Record<string, unknown>) {
 }
 
 export async function searchLenses(args: Record<string, unknown>) {
-  const config = liveConfig(args);
+  const config = requirePersona(args, "search persona material");
   const query = stringArg(args, "query");
   if (!query) {
     throw new Error("query is required.");
@@ -77,7 +100,7 @@ export async function searchLenses(args: Record<string, unknown>) {
 }
 
 export async function getEvidenceByIds(args: Record<string, unknown>) {
-  const config = liveConfig(args);
+  const config = requirePersona(args, "get evidence by IDs");
   const tweetIds = arrayStringArg(args, "tweet_ids");
   if (!tweetIds.length) {
     throw new Error("tweet_ids is required.");
@@ -92,7 +115,7 @@ export async function searchEvidence(args: Record<string, unknown>) {
   if (!query) {
     throw new Error("query is required.");
   }
-  const config = liveConfig(args);
+  const config = requirePersona(args, "search evidence");
   const k = boundedNumberArg(args, "k", 6, 1, 20);
   const threshold = boundedFloatArg(args, "threshold", 0.45, 0, 1);
   return postJson(`/kol_research/personas/${encodeURIComponent(config.persona)}/mcp/search`, {
@@ -103,7 +126,7 @@ export async function searchEvidence(args: Record<string, unknown>) {
 }
 
 export async function buildContext(args: Record<string, unknown>) {
-  const config = liveConfig(args);
+  const config = requirePersona(args, "build context");
   const question = stringArg(args, "question");
   if (!question) {
     throw new Error("question is required.");
@@ -120,7 +143,7 @@ export async function buildContext(args: Record<string, unknown>) {
 }
 
 export async function runWorkflow(workflow: string, args: Record<string, unknown>) {
-  const config = liveConfig(args);
+  const config = requirePersona(args, `run ${workflow}`);
   const question =
     stringArg(args, "question") ||
     (workflow === "market_regime" ? "按所选 persona 的框架判断当前市场行情。" : "");
@@ -144,6 +167,16 @@ export async function runWorkflow(workflow: string, args: Record<string, unknown
     include_market_data: includeMarketData,
     share: false,
   });
+}
+
+function requirePersona(args: Record<string, unknown>, action: string) {
+  const config = liveConfig(args);
+  if (config.persona) {
+    return config;
+  }
+  throw new Error(
+    `persona is required to ${action}. Call market_lens_personas first, choose the persona whose methodology and lens coverage best match the user's query, then pass that persona explicitly. Set THEMARKETBREW_PERSONA only if this MCP server should be pinned to one persona.`,
+  );
 }
 
 async function getJson(path: string, args: Record<string, unknown> = {}) {
@@ -205,15 +238,15 @@ function apiUrl(path: string) {
 }
 
 function normalizedBackendUrl() {
-  return (marketLensEnv("BACKEND_URL") || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
+  return (theMarketBrewEnv("BACKEND_URL") || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
 }
 
 function headers(_args: Record<string, unknown> = {}) {
   return {};
 }
 
-function marketLensEnv(name: "BACKEND_URL" | "PERSONA") {
-  return process.env[`MARKET_LENS_${name}`] || process.env[`FRANK_LENS_${name}`] || "";
+function theMarketBrewEnv(name: "BACKEND_URL" | "PERSONA") {
+  return process.env[`THEMARKETBREW_${name}`] || process.env[`MARKET_LENS_${name}`] || "";
 }
 
 function stringArg(args: Record<string, unknown>, key: string) {

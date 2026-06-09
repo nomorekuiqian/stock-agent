@@ -7,51 +7,36 @@ type PromptDefinition = {
 
 export const PROMPTS: PromptDefinition[] = [
   {
-    name: "market-lens-stock-diagnosis",
+    name: "themarketbrew-stock-diagnosis",
     title: "Market Lens Stock Diagnosis",
     description: "Ask the client agent to retrieve the relevant persona lenses/evidence and write a stock diagnosis.",
     arguments: [
-      { name: "persona", description: "Persona username, for example qinbafrank.", required: false },
+      { name: "persona", description: "Optional persona username. If absent, choose one from market_lens_personas based on query and coverage.", required: false },
       { name: "ticker", description: "Ticker symbol, for example NVDA.", required: true },
       { name: "question", description: "Stock question to answer.", required: true },
     ],
   },
   {
-    name: "market-lens-topic-research",
+    name: "themarketbrew-topic-research",
     title: "Market Lens Topic Research",
     description: "Ask the client agent to search distilled material and evidence before answering a topic question.",
     arguments: [
-      { name: "persona", description: "Persona username, for example qinbafrank.", required: false },
+      { name: "persona", description: "Optional persona username. If absent, choose one from market_lens_personas based on query and coverage.", required: false },
       { name: "question", description: "Topic, industry, rule, market pattern, or method question.", required: true },
-    ],
-  },
-  {
-    name: "frank-stock-diagnosis",
-    title: "Frank Stock Diagnosis (Legacy)",
-    description: "Compatibility prompt for qinbafrank stock diagnosis.",
-    arguments: [
-      { name: "ticker", description: "Ticker symbol, for example NVDA.", required: true },
-      { name: "question", description: "Stock question to answer.", required: true },
-    ],
-  },
-  {
-    name: "frank-market-regime",
-    title: "Frank Market Regime (Legacy)",
-    description: "Compatibility prompt for qinbafrank market-regime questions.",
-    arguments: [
-      { name: "question", description: "Market-regime question to answer.", required: false },
     ],
   },
 ];
 
 export function getPrompt(name: string, args: Record<string, string | undefined>) {
-  const persona = (args.persona || "qinbafrank").trim() || "qinbafrank";
+  const persona = (args.persona || "").trim();
   const question = (args.question || "").trim();
   const ticker = (args.ticker || "").trim().toUpperCase();
 
-  if (name === "market-lens-stock-diagnosis") {
+  if (name === "themarketbrew-stock-diagnosis") {
     return promptResponse([
-      `Persona: ${persona}`,
+      persona
+        ? `Persona: ${persona}`
+        : "Persona: not specified. First call market_lens_personas, choose the best persona for this ticker/question based on methodology and lens coverage, then pass persona explicitly.",
       `Question: ${question}`,
       `Ticker: ${ticker}`,
       "",
@@ -64,39 +49,17 @@ export function getPrompt(name: string, args: Record<string, string | undefined>
     ]);
   }
 
-  if (name === "market-lens-topic-research") {
+  if (name === "themarketbrew-topic-research") {
     return promptResponse([
-      `Persona: ${persona}`,
+      persona
+        ? `Persona: ${persona}`
+        : "Persona: not specified. First call market_lens_personas, choose the best persona for this topic/question based on methodology and lens coverage, then pass persona explicitly.",
       `Question: ${question}`,
       "",
       "Call market_lens_search_lenses to find relevant distilled material.",
       "Then call market_lens_get_lens for the most relevant core/framework/macro/sector/ticker lens.",
       "Use Evidence Map tweet IDs or market_lens_search_evidence only when direct historical posts are needed.",
       "Write the final answer from returned context only; label methodology versus direct evidence.",
-    ]);
-  }
-
-  if (name === "frank-stock-diagnosis") {
-    return promptResponse([
-      "Persona: qinbafrank",
-      `Question: ${question}`,
-      `Ticker: ${ticker}`,
-      "",
-      "Prefer market_lens_stock_diagnosis with persona qinbafrank, or frank_stock_diagnosis for legacy clients.",
-      "Use the returned backend context pack as source material.",
-      "Separate direct Frank evidence, live market facts, and methodology inference.",
-      "Avoid direct trading commands and exact price targets.",
-    ]);
-  }
-
-  if (name === "frank-market-regime") {
-    return promptResponse([
-      "Persona: qinbafrank",
-      `Question: ${question || "按 Frank 框架判断当前市场行情。"}`,
-      "",
-      "Prefer market_lens_market_regime with persona qinbafrank, or frank_market_regime for legacy clients.",
-      "Use returned context as source material.",
-      "Separate direct Frank evidence, current market facts, and methodology inference.",
     ]);
   }
 
@@ -108,7 +71,7 @@ export function getPrompt(name: string, args: Record<string, string | undefined>
 
 function promptResponse(lines: string[]) {
   return {
-    description: "Use Market Lens MCP backend context.",
+    description: "Use TheMarketBrew MCP backend context.",
     messages: [
       {
         role: "user" as const,

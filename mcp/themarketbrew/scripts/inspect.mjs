@@ -10,11 +10,11 @@ const distIndex = path.join(packageDir, "dist", "index.js");
 const assetDir = path.join(packageDir, "assets");
 const failures = [];
 
-if (packageJson.name !== "@themarketbrew/market-lens-mcp") {
+if (packageJson.name !== "themarketbrew") {
   failures.push(`Unexpected package name: ${packageJson.name}`);
 }
-if (!packageJson.bin?.["market-lens-mcp"]) {
-  failures.push("market-lens-mcp bin is missing");
+if (!packageJson.bin?.themarketbrew) {
+  failures.push("themarketbrew bin is missing");
 }
 if (!fs.existsSync(distIndex)) {
   failures.push("dist/index.js is missing");

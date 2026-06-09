@@ -618,13 +618,6 @@ def _market_lens_tool_names() -> list[str]:
         "market_lens_market_regime",
         "market_lens_compare",
         "market_lens_research_memo",
-        # Compatibility aliases kept for one to two minor versions.
-        "frank_status",
-        "frank_search_evidence",
-        "frank_stock_diagnosis",
-        "frank_market_regime",
-        "frank_compare",
-        "frank_research_memo",
     ]
 
 
@@ -652,7 +645,7 @@ def _persona_answer_discipline(username: str) -> list[str]:
 
 
 def _workflow_answer_shape(workflow: str, username: str) -> list[str]:
-    lens_label = "Frank lens" if username.lower() == DEFAULT_PERSONA else "selected persona lens"
+    lens_label = "selected persona lens"
     base = [
         "Use this context pack as source material. The user agent writes the final answer.",
         f"Start with a plain-language conclusion, then explain which {lens_label} applies.",
@@ -673,6 +666,145 @@ def _workflow_answer_shape(workflow: str, username: str) -> list[str]:
     return base
 
 
+_WORKFLOW_FRAMEWORK_CANDIDATES: dict[str, tuple[str, ...]] = {
+    "build_context": ("ask-about-method", "ask-about-stock", "ask-about-sector"),
+    "stock_diagnosis": ("ask-about-stock", "ask-about-method"),
+    "market_regime": ("ask-about-macro", "ask-about-sector", "ask-about-method"),
+    "compare": ("ask-to-compare", "ask-about-positioning", "ask-for-top-picks"),
+    "research_memo": ("ask-about-method", "ask-news-decoder", "ask-about-stock"),
+}
+
+
+def _lens_brief(lens: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "lens_type": lens.get("lens_type"),
+        "lens_id": lens.get("lens_id"),
+        "title": lens.get("title"),
+        "description": lens.get("description"),
+        "metadata": lens.get("metadata") or {},
+        "evidence_tweet_ids": lens.get("evidence_tweet_ids") or [],
+        "full_body": lens.get("full_body"),
+    }
+
+
+def _try_get_lens(username: str, lens_type: str, lens_id: str) -> dict[str, Any] | None:
+    try:
+        return mcp_materials.get_lens(username, lens_type=lens_type, lens_id=lens_id)
+    except (FileNotFoundError, KeyError, ValueError):
+        return None
+
+
+def _first_lens(username: str, lens_type: str) -> dict[str, Any] | None:
+    try:
+        index = mcp_materials.list_lenses(username, lens_type=lens_type)
+    except (FileNotFoundError, ValueError):
+        return None
+    for item in index.get("lenses") or []:
+        lens_id = item.get("lens_id")
+        if lens_id:
+            return _try_get_lens(username, lens_type, str(lens_id))
+    return None
+
+
+def _search_lens(username: str, lens_type: str, query: str | None) -> dict[str, Any] | None:
+    normalized = (query or "").strip()
+    if not normalized:
+        return None
+    exact = _try_get_lens(username, lens_type, normalized)
+    if exact is not None:
+        return exact
+    try:
+        result = mcp_materials.search_lenses(
+            username,
+            query=normalized,
+            lens_types=[lens_type],
+            limit=1,
+            include_body=False,
+        )
+    except (FileNotFoundError, ValueError):
+        return None
+    matches = result.get("results") or []
+    if not matches:
+        return None
+    return _try_get_lens(username, lens_type, str(matches[0].get("lens_id") or ""))
+
+
+def _add_lens(selected: list[dict[str, Any]], lens: dict[str, Any] | None) -> None:
+    if lens is None:
+        return
+    key = (lens.get("lens_type"), lens.get("lens_id"))
+    if any((item.get("lens_type"), item.get("lens_id")) == key for item in selected):
+        return
+    selected.append(_lens_brief(lens))
+
+
+def _infer_sector_from_lens(lens: dict[str, Any] | None) -> str | None:
+    if lens is None:
+        return None
+    metadata = lens.get("metadata") or {}
+    for key in ("parent_sector", "sector"):
+        value = metadata.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _methodology_lens_selection(
+    *,
+    username: str,
+    workflow: str,
+    ticker: str | None,
+    tickers: list[str],
+    sector: str | None,
+    question: str | None = None,
+) -> dict[str, Any]:
+    selected: list[dict[str, Any]] = []
+    inferred_sectors: list[str] = []
+
+    _add_lens(selected, _first_lens(username, "core"))
+    _add_lens(selected, _first_lens(username, "macro"))
+
+    for candidate in _WORKFLOW_FRAMEWORK_CANDIDATES.get(workflow, ()):
+        framework = _try_get_lens(username, "framework", candidate)
+        if framework is not None:
+            _add_lens(selected, framework)
+            break
+
+    unique_tickers = []
+    for symbol in [ticker or "", *tickers]:
+        normalized = symbol.strip().upper()
+        if normalized and normalized not in unique_tickers:
+            unique_tickers.append(normalized)
+
+    for symbol in unique_tickers[:4]:
+        lens = _try_get_lens(username, "ticker", symbol)
+        _add_lens(selected, lens)
+        inferred_sector = _infer_sector_from_lens(lens)
+        if inferred_sector and inferred_sector not in inferred_sectors:
+            inferred_sectors.append(inferred_sector)
+
+    sector_queries = []
+    if sector:
+        sector_queries.append(sector)
+    sector_queries.extend(inferred_sectors)
+    if not sector_queries and question:
+        sector_queries.append(question)
+
+    for sector_query in sector_queries[:3]:
+        sector_lens = _search_lens(username, "sector", sector_query)
+        _add_lens(selected, sector_lens)
+
+    return {
+        "selected_lenses": selected,
+        "inferred_sectors": inferred_sectors,
+        "lens_selection_rule": (
+            "core and macro are included first; workflow picks one framework; "
+            "ticker lenses are exact-match by symbol; sector lenses come from explicit sector, "
+            "ticker metadata, or question search."
+        ),
+    }
+
+
 def _methodology_context(
     *,
     username: str,
@@ -680,6 +812,7 @@ def _methodology_context(
     ticker: str | None,
     tickers: list[str],
     sector: str | None,
+    question: str | None = None,
 ) -> dict[str, Any]:
     unique_tickers = []
     for symbol in [ticker or "", *tickers]:
@@ -687,41 +820,60 @@ def _methodology_context(
         if normalized and normalized not in unique_tickers:
             unique_tickers.append(normalized)
 
-    ticker_summaries = {
-        symbol: skill_cockpit.get_ticker_summary(symbol)
-        for symbol in unique_tickers
-    }
-    inferred_sector = sector or ""
-    if not inferred_sector:
-        for summary in ticker_summaries.values():
-            if summary and summary.get("parent_sector"):
-                inferred_sector = str(summary["parent_sector"])
-                break
+    lens_selection = _methodology_lens_selection(
+        username=username,
+        workflow=workflow,
+        ticker=ticker,
+        tickers=tickers,
+        sector=sector,
+        question=question,
+    )
 
-    if username.lower() != DEFAULT_PERSONA:
+    inferred_sector = sector or ""
+    if not inferred_sector and lens_selection["inferred_sectors"]:
+        inferred_sector = str(lens_selection["inferred_sectors"][0])
+
+    if username.lower() == DEFAULT_PERSONA:
+        ticker_summaries = {
+            symbol: skill_cockpit.get_ticker_summary(symbol)
+            for symbol in unique_tickers
+        }
+        if not inferred_sector:
+            for summary in ticker_summaries.values():
+                if summary and summary.get("parent_sector"):
+                    inferred_sector = str(summary["parent_sector"])
+                    break
         return {
             "workflow": workflow,
-            "persona": username,
-            "ticker_methodology": {},
-            "sector_methodology": None,
-            "answer_discipline": _persona_answer_discipline(username),
+            "persona": DEFAULT_PERSONA,
+            "selected_lenses": lens_selection["selected_lenses"],
+            "lens_selection_rule": lens_selection["lens_selection_rule"],
+            "ticker_methodology": ticker_summaries,
+            "sector_methodology": skill_cockpit.get_sector(inferred_sector) if inferred_sector else None,
+            "answer_discipline": _frank_answer_discipline(),
             "suggested_answer_shape": _workflow_answer_shape(workflow, username),
             "notice": (
-                "This backend context pack contains selected persona context. "
-                "It is not the persona speaking and is not investment advice."
+                "This backend context pack contains qinbafrank methodology context. "
+                "It is not qinbafrank speaking and is not investment advice."
             ),
         }
 
+    ticker_summaries = {
+        symbol: cockpit_v3.get_ticker_summary(username, symbol)
+        for symbol in unique_tickers
+    }
     return {
         "workflow": workflow,
-        "persona": DEFAULT_PERSONA,
+        "persona": username,
+        "selected_lenses": lens_selection["selected_lenses"],
+        "lens_selection_rule": lens_selection["lens_selection_rule"],
         "ticker_methodology": ticker_summaries,
-        "sector_methodology": skill_cockpit.get_sector(inferred_sector) if inferred_sector else None,
-        "answer_discipline": _frank_answer_discipline(),
+        "sector_methodology": cockpit_v3.get_sector_v3(username, inferred_sector) if inferred_sector else None,
+        "answer_discipline": _persona_answer_discipline(username),
         "suggested_answer_shape": _workflow_answer_shape(workflow, username),
         "notice": (
-            "This backend context pack contains Frank Lens methodology context. "
-            "It is not qinbafrank speaking and is not investment advice."
+            "This backend context pack contains selected persona context. "
+            "It is not the persona speaking and is not investment advice."
         ),
     }
 
@@ -861,11 +1013,18 @@ async def mcp_personas():
     return {
         "ok": True,
         "mode": "backend_first",
-        "default_persona": DEFAULT_PERSONA,
         "personas": mcp_materials.list_material_personas(),
         "call_guidance": {
-            "when_to_call": "Call before selecting a persona, or when the user asks which bloggers/lenses are available.",
-            "returns_context": "Persona capability metadata only; use list_lenses/get_lens for distilled material.",
+            "when_to_call": (
+                "Call before selecting a persona, especially when the user did not name one."
+            ),
+            "selection_rule": (
+                "Choose the persona whose methodology and available lens coverage best match "
+                "the user's query, then pass persona explicitly to later tools."
+            ),
+            "returns_context": (
+                "Persona capability metadata only; use list_lenses/get_lens for distilled material."
+            ),
         },
     }
 
@@ -917,10 +1076,19 @@ async def mcp_evidence_by_ids(username: str, req: KolMcpEvidenceByIdsRequest):
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
     out = await cockpit.get_evidence_tweets_by_ids(username, req.tweet_ids)
+    tweets = out.get("tweets") or []
+    found_ids = {str(tweet.get("id")) for tweet in tweets if tweet.get("id")}
+    missing_ids = [tweet_id for tweet_id in req.tweet_ids if str(tweet_id) not in found_ids]
+    if missing_ids:
+        fallback = mcp_materials.get_local_evidence_by_ids(username, missing_ids)
+        if fallback:
+            by_id = {str(tweet.get("id")): tweet for tweet in tweets if tweet.get("id")}
+            by_id.update({str(tweet.get("id")): tweet for tweet in fallback if tweet.get("id")})
+            tweets = [by_id[tweet_id] for tweet_id in req.tweet_ids if tweet_id in by_id]
     return {
         "persona_username": username,
         "tweet_ids": req.tweet_ids,
-        "tweets": out.get("tweets") or [],
+        "tweets": tweets,
         "call_guidance": {
             "when_to_call": "Call after get_lens returns Evidence Map tweet IDs and the user needs the original historical posts.",
             "returns_context": "Full-text historical tweet evidence for the requested IDs, preserving request order when found.",
@@ -995,6 +1163,14 @@ async def mcp_live_context(username: str, req: KolMcpContextRequest):
         "market_data_mode": "brief_tools",
         "kol_chunks": [chunk.model_dump() for chunk in chunks],
         "market_context": market_context,
+        "methodology_context": _methodology_context(
+            username=username,
+            workflow="build_context",
+            ticker=ticker or None,
+            tickers=[ticker] if ticker else [],
+            sector=sector or None,
+            question=req.question,
+        ),
         "ticker_methodology": (
             skill_cockpit.get_ticker_summary(ticker)
             if ticker and username.lower() == DEFAULT_PERSONA
@@ -1053,6 +1229,7 @@ async def mcp_workflow_context(username: str, req: KolMcpWorkflowRequest):
         ticker=ticker,
         tickers=tickers,
         sector=(req.sector or "").strip() or None,
+        question=req.question,
     )
     response = KolMcpWorkflowResponse(
         persona_username=username,

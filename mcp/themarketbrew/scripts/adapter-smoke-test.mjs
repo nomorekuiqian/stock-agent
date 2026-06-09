@@ -9,6 +9,11 @@ const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const serverPath = path.join(packageDir, "dist", "index.js");
 const calls = [];
 
+function personaFromUrl(url) {
+  const match = url.match(/\/personas\/([^/]+)\/mcp\//);
+  return match ? decodeURIComponent(match[1]) : "qinbafrank";
+}
+
 const mock = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (chunk) => chunks.push(chunk));
@@ -23,9 +28,10 @@ const mock = http.createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
 
     if (req.url.includes("/mcp/status")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
         ok: true,
-        persona_username: "qinbafrank",
+        persona_username: persona,
         mode: "backend_first",
       }));
       return;
@@ -35,28 +41,60 @@ const mock = http.createServer((req, res) => {
       res.end(JSON.stringify({
         ok: true,
         default_persona: "qinbafrank",
-        personas: [{
-          username: "qinbafrank",
-          lens_counts: { core: 1, framework: 6, macro: 1, sector: 7, ticker: 33 },
-          supported_context: ["list_lenses", "get_lens", "search_lenses"],
-          supported_workflows: ["stock_diagnosis", "market_regime", "compare", "research_memo"],
-        }],
+        personas: [
+          {
+            username: "qinbafrank",
+            lens_counts: { core: 1, framework: 6, macro: 1, sector: 7, ticker: 33 },
+            supported_context: ["list_lenses", "get_lens", "search_lenses"],
+            supported_workflows: ["stock_diagnosis", "market_regime", "compare", "research_memo"],
+          },
+          {
+            username: "aleabitoreddit",
+            display_name: "Serenity",
+            lens_counts: { core: 1, framework: 7, macro: 1, sector: 9, ticker: 36 },
+            supported_context: ["list_lenses", "get_lens", "search_lenses"],
+            supported_workflows: ["stock_diagnosis", "market_regime", "compare", "research_memo"],
+          },
+        ],
       }));
       return;
     }
 
     if (req.url.includes("/mcp/lenses/search")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
-        persona_username: "qinbafrank",
+        persona_username: persona,
         query: body.query,
         count: 1,
-        results: [{
-          lens_type: "framework",
-          lens_id: "ask-about-stock",
-          title: "Framework: 用户在问个股",
-          snippet: "mock lens snippet",
-          evidence_tweet_ids: ["123"],
-        }],
+        results: [
+          persona === "aleabitoreddit"
+            ? {
+              lens_type: "ticker",
+              lens_id: "SIVE",
+              title: "Ticker: SIVE",
+              snippet: "CPO laser chokepoint",
+              evidence_tweet_ids: ["1972016308662513748"],
+            }
+            : {
+              lens_type: "framework",
+              lens_id: "ask-about-stock",
+              title: "Framework: 用户在问个股",
+              snippet: "mock lens snippet",
+              evidence_tweet_ids: ["123"],
+            },
+        ],
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/lenses/ticker/SIVE")) {
+      res.end(JSON.stringify({
+        persona_username: "aleabitoreddit",
+        lens_type: "ticker",
+        lens_id: "SIVE",
+        title: "Ticker: SIVE",
+        full_body: "mock Serenity full body\n## Evidence Map\n(id: 1972016308662513748)",
+        evidence_tweet_ids: ["1972016308662513748"],
       }));
       return;
     }
@@ -74,31 +112,47 @@ const mock = http.createServer((req, res) => {
     }
 
     if (req.url.includes("/mcp/lenses")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
-        persona_username: "qinbafrank",
+        persona_username: persona,
         count: 1,
-        lenses: [{
-          lens_type: "ticker",
-          lens_id: "NVDA",
-          title: "Ticker: NVDA",
-          evidence_tweet_id_count: 1,
-        }],
+        lenses: [
+          persona === "aleabitoreddit"
+            ? {
+              lens_type: "ticker",
+              lens_id: "SIVE",
+              title: "Ticker: SIVE",
+              evidence_tweet_id_count: 1,
+            }
+            : {
+              lens_type: "ticker",
+              lens_id: "NVDA",
+              title: "Ticker: NVDA",
+              evidence_tweet_id_count: 1,
+            },
+        ],
       }));
       return;
     }
 
     if (req.url.includes("/mcp/evidence/by-ids")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
-        persona_username: "qinbafrank",
+        persona_username: persona,
         tweet_ids: body.tweet_ids,
-        tweets: [{ id: "123", text: "historical post" }],
+        tweets: [
+          persona === "aleabitoreddit"
+            ? { id: "1972016308662513748", text: "Serenity historical post" }
+            : { id: "123", text: "historical post" },
+        ],
       }));
       return;
     }
 
     if (req.url.includes("/mcp/context")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
-        persona_username: "qinbafrank",
+        persona_username: persona,
         question: body.question,
         kol_chunks: [],
         market_context: [],
@@ -108,8 +162,9 @@ const mock = http.createServer((req, res) => {
     }
 
     if (req.url.includes("/mcp/search")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
-        persona_username: "qinbafrank",
+        persona_username: persona,
         query: body.query,
         retrieval_mode: "vector_chunks",
         count: 1,
@@ -119,8 +174,9 @@ const mock = http.createServer((req, res) => {
     }
 
     if (req.url.includes("/mcp/workflow")) {
+      const persona = personaFromUrl(req.url);
       res.end(JSON.stringify({
-        persona_username: "qinbafrank",
+        persona_username: persona,
         workflow: body.workflow,
         question: body.question,
         ticker: body.ticker,
@@ -129,8 +185,11 @@ const mock = http.createServer((req, res) => {
         market_data_mode: "brief_tools",
         kol_chunks: [{ content: "mock evidence", citation_index: 1 }],
         market_context: [],
-        methodology_context: { workflow: body.workflow },
-        answer_discipline: ["Do not impersonate qinbafrank."],
+        methodology_context: {
+          workflow: body.workflow,
+          selected_lenses: persona === "aleabitoreddit" ? [{ lens_type: "ticker", lens_id: "SIVE" }] : [],
+        },
+        answer_discipline: ["Do not impersonate the selected persona."],
         suggested_answer_shape: ["User agent writes final answer."],
         share_url: null,
       }));
@@ -149,7 +208,7 @@ const child = spawn(process.execPath, [serverPath], {
   stdio: ["pipe", "pipe", "pipe"],
   env: {
     ...process.env,
-    MARKET_LENS_BACKEND_URL: `http://127.0.0.1:${port}/api`,
+    THEMARKETBREW_BACKEND_URL: `http://127.0.0.1:${port}/api`,
   },
 });
 
@@ -202,7 +261,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-adapter-smoke-test", version: "0.4.1" },
+    clientInfo: { name: "themarketbrew-adapter-smoke-test", version: "0.5.0" },
   });
   notify("notifications/initialized");
 
@@ -238,7 +297,7 @@ try {
   }));
   parseTool(await send("tools/call", {
     name: "market_lens_market_regime",
-    arguments: { persona: "qinbafrank", question: "按 Frank 框架判断当前市场行情。" },
+    arguments: { persona: "qinbafrank", question: "按所选 persona 的框架判断当前市场行情。" },
   }));
   parseTool(await send("tools/call", {
     name: "market_lens_compare",
@@ -248,28 +307,26 @@ try {
     name: "market_lens_research_memo",
     arguments: { persona: "qinbafrank", question: "帮我研究 CRWV 的产业逻辑。", ticker: "CRWV" },
   }));
-  parseTool(await send("tools/call", { name: "frank_status", arguments: {} }));
   parseTool(await send("tools/call", {
-    name: "frank_search_evidence",
-    arguments: { query: "NVDA capex", k: 2 },
+    name: "market_lens_list_lenses",
+    arguments: { persona: "aleabitoreddit", lens_type: "ticker" },
   }));
   parseTool(await send("tools/call", {
-    name: "frank_stock_diagnosis",
-    arguments: { question: "NVDA 是杀估值还是杀逻辑？", ticker: "NVDA" },
+    name: "market_lens_get_lens",
+    arguments: { persona: "aleabitoreddit", lens_type: "ticker", lens_id: "SIVE" },
   }));
   parseTool(await send("tools/call", {
-    name: "frank_market_regime",
-    arguments: { question: "按 Frank 框架判断当前市场行情。" },
+    name: "market_lens_search_lenses",
+    arguments: { persona: "aleabitoreddit", query: "CPO SIVE", lens_types: ["sector", "ticker"] },
   }));
   parseTool(await send("tools/call", {
-    name: "frank_compare",
-    arguments: { question: "NVDA 和 AVGO 只能留一只？", tickers: ["NVDA", "AVGO"] },
+    name: "market_lens_get_evidence_by_ids",
+    arguments: { persona: "aleabitoreddit", tweet_ids: ["1972016308662513748"] },
   }));
   parseTool(await send("tools/call", {
-    name: "frank_research_memo",
-    arguments: { question: "帮我研究 CRWV 的产业逻辑。", ticker: "CRWV" },
+    name: "market_lens_stock_diagnosis",
+    arguments: { persona: "aleabitoreddit", question: "SIVE 的验证窗口怎么看？", ticker: "SIVE" },
   }));
-
   const backendCalls = calls.filter((call) => (
     call.url.includes("/mcp/search")
     || call.url.includes("/mcp/workflow")
@@ -285,6 +342,7 @@ try {
   console.log(JSON.stringify({
     ok: true,
     backendCalls: calls.length,
+    serenityCalls: calls.filter((call) => call.url.includes("/personas/aleabitoreddit/")).length,
     workflows,
     searchCalled: backendCalls.some((call) => call.url.includes("/mcp/search")),
   }, null, 2));

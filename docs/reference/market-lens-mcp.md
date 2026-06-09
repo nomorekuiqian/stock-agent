@@ -1,9 +1,9 @@
-# Market Lens MCP
+# TheMarketBrew MCP
 
-Market Lens MCP 位于：
+TheMarketBrew MCP 位于：
 
 ```text
-mcp/market-lens/
+mcp/themarketbrew/
 ```
 
 ## 产品形态
@@ -20,26 +20,25 @@ mcp/market-lens/
 ```
 
 本地 NPM 包只是薄 adapter，不再打包完整 persona 蒸馏资产。核心 assets、
-ticker/sector playbook、Evidence Map 和 workflow 都在 backend。当前默认
-persona 是 `qinbafrank`。
+ticker/sector playbook、Evidence Map 和 workflow 都在 backend。客户端应先
+查看可用 persona 和物料覆盖，再根据用户问题选择 persona 并在后续工具调用里显式传入。
 
 ## 用户安装
 
 推荐入口是让用户把这段 prompt 发给自己的 agent，让 agent 自动配置本机 MCP：
 
 ```text
-请帮我安装 Market Lens MCP。
+请帮我安装 TheMarketBrew MCP。
 
 配置要求：
-- MCP server 名称：market-lens
-- NPM 包：@themarketbrew/market-lens-mcp
-- 启动命令：npx -y @themarketbrew/market-lens-mcp
-- MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api
-- MARKET_LENS_PERSONA=qinbafrank
+- MCP server 名称：themarketbrew
+- NPM 包：themarketbrew
+- 启动命令：npx -y themarketbrew
+- THEMARKETBREW_BACKEND_URL=https://stock-agent-production.up.railway.app/api
 
 请根据当前环境选择安装方式：
-1. 如果是 Codex，优先使用 `codex mcp add market-lens ...`。
-2. 如果是 Claude Code，优先使用 `claude mcp add market-lens -s user ...`。
+1. 如果是 Codex，优先使用 `codex mcp add themarketbrew ...`。
+2. 如果是 Claude Code，优先使用 `claude mcp add themarketbrew -s user ...`。
 3. 如果是 Claude Desktop，请写入 Claude Desktop 的 MCP 配置文件：
    - macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
    - Windows: %APPDATA%\Claude\claude_desktop_config.json
@@ -47,8 +46,8 @@ persona 是 `qinbafrank`。
 
 安装后请验证：
 - MCP 配置里 command 是 npx
-- args 是 ["-y", "@themarketbrew/market-lens-mcp"]
-- env 包含 MARKET_LENS_BACKEND_URL；MARKET_LENS_PERSONA 可选
+- args 是 ["-y", "themarketbrew"]
+- env 包含 THEMARKETBREW_BACKEND_URL；不要默认写死 persona
 - 如果当前客户端已经能刷新 MCP，请调用 market_lens_status 检查连接
 - 如果不能刷新，请告诉我需要重启客户端，然后让我重启后调用 market_lens_status
 ```
@@ -58,25 +57,25 @@ persona 是 `qinbafrank`。
 Codex：
 
 ```bash
-codex mcp add market-lens --env MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api --env MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
+codex mcp add themarketbrew --env THEMARKETBREW_BACKEND_URL=https://stock-agent-production.up.railway.app/api -- npx -y themarketbrew
 ```
 
 Claude Code：
 
 ```bash
-claude mcp add market-lens -s user -e MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api -e MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
+claude mcp add themarketbrew -s user -e THEMARKETBREW_BACKEND_URL=https://stock-agent-production.up.railway.app/api -- npx -y themarketbrew
 ```
 
 Claude Desktop：
 
 ```bash
-node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=process.platform==="win32"?path.join(process.env.APPDATA,"Claude","claude_desktop_config.json"):path.join(os.homedir(),"Library/Application Support/Claude/claude_desktop_config.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
+node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=process.platform==="win32"?path.join(process.env.APPDATA,"Claude","claude_desktop_config.json"):path.join(os.homedir(),"Library/Application Support/Claude/claude_desktop_config.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),themarketbrew:{command:"npx",args:["-y","themarketbrew"],env:{THEMARKETBREW_BACKEND_URL:"https://stock-agent-production.up.railway.app/api"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed themarketbrew in "+file);'
 ```
 
 Cursor：
 
 ```bash
-node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=path.join(os.homedir(),".cursor","mcp.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
+node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=path.join(os.homedir(),".cursor","mcp.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),themarketbrew:{command:"npx",args:["-y","themarketbrew"],env:{THEMARKETBREW_BACKEND_URL:"https://stock-agent-production.up.railway.app/api"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed themarketbrew in "+file);'
 ```
 
 MCP Client 手动配置：
@@ -84,26 +83,29 @@ MCP Client 手动配置：
 ```json
 {
   "mcpServers": {
-    "market-lens": {
+    "themarketbrew": {
       "command": "npx",
-      "args": ["-y", "@themarketbrew/market-lens-mcp"],
+      "args": ["-y", "themarketbrew"],
       "env": {
-        "MARKET_LENS_BACKEND_URL": "https://stock-agent-production.up.railway.app/api",
-        "MARKET_LENS_PERSONA": "qinbafrank"
+        "THEMARKETBREW_BACKEND_URL": "https://stock-agent-production.up.railway.app/api"
       }
     }
   }
 }
 ```
 
-Market Lens MCP 只需要 backend URL。`FRANK_LENS_BACKEND_URL` 和
-`FRANK_LENS_PERSONA` env 仍作为兼容 fallback，但新配置使用 `MARKET_LENS_*`。
+TheMarketBrew MCP 默认只需要 backend URL。不要在安装配置里写死 persona，让
+Agent 先调用 `market_lens_personas`，再根据 query 和物料覆盖选择 persona。
+`THEMARKETBREW_PERSONA` 仍可作为兼容/固定默认值使用，但只应在某个客户端或工作区
+明确要绑定一个 persona 时设置。`MARKET_LENS_BACKEND_URL` 和 `MARKET_LENS_PERSONA`
+env 仍作为兼容 fallback。
 
 ## Tools
 
-主工具是 persona-neutral 的 `market_lens_*`，通过 `persona` 参数切换博主：
+主工具是 persona-neutral 的 `market_lens_*`。当用户没有指定 persona 时，应先调用
+`market_lens_personas` 选择，再通过 `persona` 参数传给后续工具：
 
-- `market_lens_status`：检查 adapter/backend/persona 状态。
+- `market_lens_status`：检查 adapter/backend 状态；未固定 persona 时返回路由提示。
 - `market_lens_personas`：列出可用 persona、蒸馏物料数量和 capability。
 - `market_lens_list_lenses`：返回 `core/framework/macro/sector/ticker` lens index。
 - `market_lens_get_lens`：返回单个完整蒸馏 lens、sections、metadata、Evidence Map ids。
@@ -115,15 +117,6 @@ Market Lens MCP 只需要 backend URL。`FRANK_LENS_BACKEND_URL` 和
 - `market_lens_market_regime`：市场/宏观环境 context pack。
 - `market_lens_compare`：多标的比较 context pack。
 - `market_lens_research_memo`：深度 memo context pack。
-
-兼容别名仍保留，固定 `persona=qinbafrank`：
-
-- `frank_status`
-- `frank_search_evidence`
-- `frank_stock_diagnosis`
-- `frank_market_regime`
-- `frank_compare`
-- `frank_research_memo`
 
 Material、evidence、context、workflow tools 都通过 backend URL 调用。
 
@@ -142,11 +135,11 @@ POST /api/kol_research/personas/{username}/mcp/context
 POST /api/kol_research/personas/{username}/mcp/workflow
 ```
 
-Material endpoints 由 `mcp_materials.py` 驱动，按
-`features/twitter/methodologies/{persona}/core|framework|macro|sector|ticker`
-扫描文件。接入新 persona 的最低门槛是新增同结构目录；这样
-`market_lens_personas` / `list_lenses` / `get_lens` / `search_lenses` 可以先
-工作，workflow 能力再通过 persona capability 逐步接入。
+Material endpoints 由 `mcp_materials.py` 驱动。它为每个 persona 解析一个独立
+material root，然后扫描 `core|framework|macro|sector|ticker`。Frank 使用自己的
+正式 methodology root；Serenity 使用自己的正式 methodology root
+`features/twitter/methodologies/aleabitoreddit`。
+不能在某个 persona 缺 lens 时回退到另一个 persona 的物料。
 
 `/mcp/workflow` 支持：
 
@@ -170,7 +163,7 @@ Material endpoints 由 `mcp_materials.py` 驱动，按
 ### Local / CI
 
 ```bash
-cd /Users/kedeng/projects/stock-agent/mcp/market-lens
+cd /Users/kedeng/projects/stock-agent/mcp/themarketbrew
 npm run build
 npm run inspect
 npm run smoke
@@ -181,17 +174,19 @@ npm pack --dry-run
 Backend targeted tests:
 
 ```bash
-cd /Users/kedeng/projects/stock-agent/backend
-source venv/bin/activate
-python -m pytest tests/test_market_lens_mcp.py -v
-python -c "from app.main import app; print('FastAPI app loaded OK'); print(len(app.routes))"
+cd /Users/kedeng/projects/stock-agent
+backend/venv/bin/pytest backend/tests/test_themarketbrew_mcp.py -q
 ```
 
 这组验证覆盖：
 
-- tool surface：`market_lens_*` 主工具和 `frank_*` legacy aliases 都出现在 `tools/list`。
+- tool surface：只有 `market_lens_*` 主工具出现在 `tools/list`，不得再暴露 `frank_*` aliases。
 - material completeness：`market_lens_list_lenses` 数量必须等于
   `core/framework/macro/sector/ticker` 下所有 markdown 文件数量。
+- persona isolation：`qinbafrank` 和 `aleabitoreddit` 都必须出现在
+  `market_lens_personas`，且 Serenity 的 `ticker/SIVE`、`sector/photonics-and-cpo`
+  和 workflow `methodology_context.selected_lenses` 必须来自 Serenity 自己的
+  material root，不得含 Frank 专用框架词。
 - material retrieval：`market_lens_get_lens` 必须返回完整 `full_body`、
   parsed `sections`、metadata 和 Evidence Map tweet IDs。
 - material search：`market_lens_search_lenses` 必须能跨 layer 找到相关 lens。
@@ -203,13 +198,13 @@ python -c "from app.main import app; print('FastAPI app loaded OK'); print(len(a
 Live smoke：
 
 ```bash
-MARKET_LENS_BACKEND_URL=http://127.0.0.1:8000/api \
+THEMARKETBREW_BACKEND_URL=http://127.0.0.1:8000/api \
 npm run smoke:live
 ```
 
 ## 安全约束
 
-- 不要 impersonate qinbafrank。
+- 不要 impersonate 所选 persona。
 - 只有返回的 `kol_chunks` 可以被称为历史证据。
 - 区分历史证据、实时市场数据和方法论推断。
 - 不给直接买入、卖出、加仓、减仓指令。
