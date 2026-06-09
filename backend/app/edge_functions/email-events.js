@@ -73,9 +73,16 @@ module.exports = async function(request) {
     if (request.method === "GET" && action === "summary") {
       const daysRaw = Number.parseInt(url.searchParams.get("days") || "60", 10);
       const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 90) : 60;
+      const startDate = url.searchParams.get("start_date") || "";
+      const endDate = url.searchParams.get("end_date") || "";
+      const hasRange = Boolean(startDate && endDate);
 
-      const { data: daily, error: dailyError } = await client.database
-        .rpc("admin_daily_email_metrics", { days_back: days });
+      const { data: daily, error: dailyError } = hasRange
+        ? await client.database.rpc("admin_daily_email_metrics_range", {
+            start_date: startDate,
+            end_date: endDate,
+          })
+        : await client.database.rpc("admin_daily_email_metrics", { days_back: days });
       if (dailyError) {
         return new Response(
           JSON.stringify({ success: false, error: dailyError.message }),
@@ -83,8 +90,12 @@ module.exports = async function(request) {
         );
       }
 
-      const { data: byChannel, error: channelError } = await client.database
-        .rpc("admin_email_channel_metrics", { days_back: days });
+      const { data: byChannel, error: channelError } = hasRange
+        ? await client.database.rpc("admin_email_channel_metrics_range", {
+            start_date: startDate,
+            end_date: endDate,
+          })
+        : await client.database.rpc("admin_email_channel_metrics", { days_back: days });
       if (channelError) {
         return new Response(
           JSON.stringify({ success: false, error: channelError.message }),
@@ -96,6 +107,8 @@ module.exports = async function(request) {
         JSON.stringify({
           success: true,
           days,
+          start_date: hasRange ? startDate : null,
+          end_date: hasRange ? endDate : null,
           daily: daily || [],
           by_channel: byChannel || [],
         }),

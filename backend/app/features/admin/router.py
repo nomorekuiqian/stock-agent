@@ -83,12 +83,19 @@ def _empty_activity(days: int = 30) -> dict[str, Any]:
             "events_30d": 0,
             "api_calls_30d": 0,
         },
+        "growth_metrics": _empty_growth_metrics(days),
     }
 
 
-def _empty_email_metrics(days: int = 30) -> dict[str, Any]:
+def _empty_email_metrics(
+    days: int = 30,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     return {
         "days": days,
+        "start_date": start_date,
+        "end_date": end_date,
         "daily": [],
         "by_channel": [],
         "summary": {
@@ -101,6 +108,59 @@ def _empty_email_metrics(days: int = 30) -> dict[str, Any]:
             "open_rate": 0.0,
             "click_rate": 0.0,
         },
+    }
+
+
+def _empty_growth_metrics(days: int = 30) -> dict[str, Any]:
+    return {
+        "days": days,
+        "current": {"start_date": None, "end_date": None},
+        "previous": {"start_date": None, "end_date": None},
+        "metrics": [],
+    }
+
+
+def _shape_metric_period(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {"value": None, "numerator": 0, "denominator": 0}
+    raw_value = value.get("value")
+    return {
+        "value": float(raw_value) if raw_value is not None else None,
+        "numerator": int(float(value.get("numerator") or 0)),
+        "denominator": int(float(value.get("denominator") or 0)),
+    }
+
+
+def _shape_growth_metrics(payload: Any, days: int = 30) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return _empty_growth_metrics(days)
+
+    metrics = []
+    for row in payload.get("metrics", []) or []:
+        if not isinstance(row, dict):
+            continue
+        metrics.append({
+            "key": str(row.get("key") or ""),
+            "category": str(row.get("category") or "Other"),
+            "priority": str(row.get("priority") or ""),
+            "label": str(row.get("label") or ""),
+            "format": str(row.get("format") or "percent"),
+            "description": str(row.get("description") or ""),
+            "current": _shape_metric_period(row.get("current")),
+            "previous": _shape_metric_period(row.get("previous")),
+        })
+
+    return {
+        "days": int(payload.get("days") or days),
+        "current": payload.get("current") if isinstance(payload.get("current"), dict) else {
+            "start_date": None,
+            "end_date": None,
+        },
+        "previous": payload.get("previous") if isinstance(payload.get("previous"), dict) else {
+            "start_date": None,
+            "end_date": None,
+        },
+        "metrics": metrics,
     }
 
 
@@ -136,12 +196,21 @@ def _shape_activity_dashboard(payload: dict[str, Any], days: int = 30) -> dict[s
             "events_30d": sum(row["event_count"] for row in daily),
             "api_calls_30d": sum(row["api_calls"] for row in daily),
         },
+        "growth_metrics": _shape_growth_metrics(
+            payload.get("growth_metrics"),
+            days=int(payload.get("days") or days),
+        ),
     }
 
 
-def _shape_email_metrics(payload: dict[str, Any], days: int = 30) -> dict[str, Any]:
+def _shape_email_metrics(
+    payload: dict[str, Any],
+    days: int = 30,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     if not payload.get("success"):
-        return _empty_email_metrics(days)
+        return _empty_email_metrics(days, start_date=start_date, end_date=end_date)
 
     daily = [
         {
@@ -181,6 +250,8 @@ def _shape_email_metrics(payload: dict[str, Any], days: int = 30) -> dict[str, A
 
     return {
         "days": int(payload.get("days") or days),
+        "start_date": payload.get("start_date") or start_date,
+        "end_date": payload.get("end_date") or end_date,
         "daily": daily,
         "by_channel": by_channel,
         "summary": {
@@ -212,12 +283,20 @@ async def _fetch_activity(days: int) -> dict[str, Any]:
     return _shape_activity_dashboard(data, days=days)
 
 
-async def _fetch_email_metrics(days: int) -> dict[str, Any]:
+async def _fetch_email_metrics(
+    days: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     service = get_insforge_service()
+    params: dict[str, Any] = {"action": "summary", "days": days}
+    if start_date and end_date:
+        params["start_date"] = start_date
+        params["end_date"] = end_date
     result = await service.call_function(
         "email-events",
         method="GET",
-        params={"action": "summary", "days": days},
+        params=params,
         extra_headers=(
             {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
             if EDGE_FUNCTION_SECRET else None
@@ -225,7 +304,12 @@ async def _fetch_email_metrics(days: int) -> dict[str, Any]:
         timeout=30.0,
     )
     data = result.get("data", {}) if isinstance(result, dict) else {}
-    return _shape_email_metrics(data, days=days)
+    return _shape_email_metrics(
+        data,
+        days=days,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/whoami")
@@ -239,19 +323,25 @@ async def get_admin_status(
 
 @router.get("/activity")
 async def get_activity(
-    days: int = Query(60, ge=14, le=90),
+    days: int = Query(60, ge=1, le=90),
+    email_start: str | None = Query(None),
+    email_end: str | None = Query(None),
     _admin: dict = Depends(verify_admin_user),
 ):
     """Return daily activity for admin trend comparisons."""
     activity, email_metrics = await asyncio.gather(
         _fetch_activity(days),
-        _fetch_email_metrics(days),
+        _fetch_email_metrics(days, start_date=email_start, end_date=email_end),
         return_exceptions=True,
     )
     if not isinstance(activity, dict):
         activity = _empty_activity(days)
     if not isinstance(email_metrics, dict):
-        email_metrics = _empty_email_metrics(days)
+        email_metrics = _empty_email_metrics(
+            days,
+            start_date=email_start,
+            end_date=email_end,
+        )
     return {**activity, "email_metrics": email_metrics}
 
 
