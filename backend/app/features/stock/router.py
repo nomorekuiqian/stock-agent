@@ -9,6 +9,9 @@ import threading
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.core.logging import get_logger
+from app.core.rate_limit import limiter
+import app.core.posthog_client as posthog
 from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
@@ -390,6 +393,13 @@ async def generate_stock_analysis_endpoint(
     # Validate symbol format
     if not re.match(r'^[A-Z0-9.\-]{1,10}$', symbol):
         raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    if user_id and posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="stock_analysis_requested",
+            properties={"symbol": symbol},
+        )
 
     try:
         # Check cache first (unless force=True)

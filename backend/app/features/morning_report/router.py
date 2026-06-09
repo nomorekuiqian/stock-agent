@@ -21,6 +21,7 @@ from app.features.subscription.models import BroadcastResponse
 from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+import app.core.posthog_client as posthog
 from app.utils.timezone import today_str, now_iso
 from app.features.morning_report.agent import MorningReportAgent
 from app.features.morning_report import db as morning_db
@@ -239,6 +240,12 @@ async def get_todays_morning_report(
         raise HTTPException(status_code=404, detail="No morning report available for today")
 
     viewer_has_access = await _viewer_has_morning_access(user_id)
+    if user_id and posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="morning_report_viewed",
+            properties={"has_access": viewer_has_access},
+        )
     return _maybe_lock_report(_report_to_response(report), viewer_has_access=viewer_has_access)
 
 

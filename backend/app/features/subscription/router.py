@@ -14,6 +14,7 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+import app.core.posthog_client as posthog
 from app.core.database import get_insforge_service
 from app.core.deps import verify_cron_secret, verify_user_token_with_email
 from app.utils.timezone import today_str, now_iso
@@ -150,6 +151,16 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
                     welcome_result.get("error"),
                 )
 
+        if result.get("success") and posthog.posthog_client and request.user_id:
+            posthog.posthog_client.capture(
+                distinct_id=request.user_id,
+                event="email_subscribed",
+                properties={
+                    "channel": channel.value,
+                    "is_new": result.get("is_new", False),
+                },
+            )
+
         return SubscriptionResponse(
             success=result.get("success", False),
             channel=channel.value,
@@ -189,6 +200,15 @@ async def unsubscribe_from_channel(channel: SubscriptionChannel, request: Unsubs
                         user_id[:8],
                         e,
                     )
+
+        if result.get("success") and posthog.posthog_client:
+            uid = await _find_user_id_by_email(request.email)
+            if uid:
+                posthog.posthog_client.capture(
+                    distinct_id=uid,
+                    event="email_unsubscribed",
+                    properties={"channel": channel.value},
+                )
 
         return SubscriptionResponse(
             success=result.get("success", False),
@@ -493,6 +513,15 @@ async def sync_user_subscriptions(
             email=email,
             first_name=request.first_name,
         )
+
+        if posthog.posthog_client and request.user_id:
+            person_props: dict = {}
+            if request.first_name:
+                person_props["name"] = request.first_name
+            posthog.posthog_client.set(
+                distinct_id=request.user_id,
+                properties=person_props,
+            )
 
         return SyncUserResponse(
             success=result.get("success", False),

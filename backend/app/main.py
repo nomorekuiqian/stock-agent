@@ -251,6 +251,10 @@ async def _startup():
     if not FMP_API_KEY:
         logger.warning("FMP_API_KEY is not set - financial data features will fail")
 
+    # Initialize PostHog analytics
+    from app.core.posthog_client import init_posthog
+    init_posthog()
+
     logger.info("Market Analysis API starting up")
 
     import asyncio
@@ -299,6 +303,12 @@ async def _shutdown():
         await flush_activities()
     except Exception as e:
         logger.warning("Error flushing activities: %s", e)
+    # Flush PostHog events
+    try:
+        from app.core.posthog_client import shutdown_posthog
+        shutdown_posthog()
+    except Exception as e:
+        logger.warning("Error shutting down PostHog: %s", e)
     try:
         from app.core.database import get_insforge_service
         await get_insforge_service().close()

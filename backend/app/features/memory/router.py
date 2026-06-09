@@ -12,6 +12,7 @@ from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.memory import db as memory_db
 from app.features.memory.models import FeedbackInput
+import app.core.posthog_client as posthog
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,15 @@ async def post_feedback(
     }
     feedback_id = await memory_db.save_feedback(user_id, feedback_data)
     if feedback_id:
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=user_id,
+                event="ai_content_feedback_submitted",
+                properties={
+                    "target_type": body.target_type,
+                    "sentiment": body.sentiment,
+                },
+            )
         return {"success": True, "id": feedback_id}
 
     # DB might not be deployed yet — accept silently

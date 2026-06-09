@@ -53,6 +53,8 @@ from app.features.screener.suggestions import (
 
 logger = get_logger(__name__)
 
+import app.core.posthog_client as posthog
+
 router = APIRouter(prefix="/api/screener", tags=["screener"])
 
 # -- In-memory universe cache to avoid re-reading 12 DB chunks per filter call --
@@ -526,6 +528,16 @@ async def filter_stocks(req: FilterRequest):
     # Compute smart narrowing suggestions
     suggestions = compute_narrowing_suggestions(candidates, strategy=req.strategy)
 
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id="anonymous",
+            event="screener_filter_used",
+            properties={
+                "strategy": req.strategy,
+                "result_count": len(candidates),
+            },
+        )
+
     return FilterResult(
         success=True,
         strategy=req.strategy,
@@ -775,6 +787,12 @@ async def create_conversation(
         data=req.data,
         source="conversation_create",
     )
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="research_conversation_created",
+            properties={},
+        )
     return result
 
 
@@ -871,7 +889,13 @@ async def research_chat(
         )
 
     logger.info("research_chat called (new endpoint)")
-    return await pick_stocks(req, user_id)
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id or "anonymous",
+            event="research_chat_sent",
+            properties={"is_authenticated": bool(user_id)},
+        )
+    return await pick_stocks(req, user_id or "anonymous")
 
 
 @research_router.get("/conversations")

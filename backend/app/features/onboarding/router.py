@@ -10,6 +10,8 @@ from app.features.payment.db import get_subscription, upsert_subscription
 
 logger = get_logger(__name__)
 
+import app.core.posthog_client as posthog
+
 router = APIRouter(prefix="/api", tags=["user"])
 
 
@@ -36,4 +38,10 @@ async def complete_onboarding(user_id: str = Depends(verify_user_token)):
     if not ok:
         raise HTTPException(status_code=500, detail="failed_to_mark_complete")
     logger.info("Onboarding completed: user=%s", user_id[:8])
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="onboarding_completed",
+            properties={},
+        )
     return {"completed": True, "completed_at": now}

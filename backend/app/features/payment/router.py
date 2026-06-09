@@ -34,6 +34,8 @@ from app.features.payment.db import (
 
 logger = get_logger(__name__)
 
+import app.core.posthog_client as posthog
+
 stripe.api_key = STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/payment", tags=["payment"])
@@ -117,6 +119,12 @@ async def api_create_checkout(
         raise HTTPException(status_code=400, detail="Invalid tier, must be 'pro' or 'max'")
     try:
         url = await create_checkout_session(req.user_id, req.email, req.return_path, req.tier)
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=token_user_id,
+                event="checkout_initiated",
+                properties={"tier": req.tier},
+            )
         return CheckoutSessionResponse(checkout_url=url)
     except Exception as e:
         logger.error("Checkout session error: %s", e)
@@ -230,6 +238,16 @@ async def stripe_webhook(request: Request):
                 source="checkout.session.completed",
             )
             logger.info("Subscription activated for user %s (plan=%s)", user_id, plan)
+            if posthog.posthog_client:
+                posthog.posthog_client.set(
+                    distinct_id=user_id,
+                    properties={"plan": plan},
+                )
+                posthog.posthog_client.capture(
+                    distinct_id=user_id,
+                    event="subscription_activated",
+                    properties={"plan": plan},
+                )
 
     elif event_type == "customer.subscription.updated":
         # Identity sync first; entitlement sync below is a non-destructive
@@ -318,6 +336,12 @@ async def stripe_webhook(request: Request):
                             clear_access_expires_at=True,
                         )
                         logger.info("Subscription %s canceled for user %s, no active subs remain", deleted_sub_id, user_id)
+                        if posthog.posthog_client:
+                            posthog.posthog_client.capture(
+                                distinct_id=user_id,
+                                event="subscription_canceled",
+                                properties={},
+                            )
 
                 # Entitlement sync defends against the entitlement webhook
                 # missing or arriving out of order. Falls back to direct Resend
